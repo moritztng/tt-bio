@@ -1,0 +1,35 @@
+{
+ "root": "perf/b2z2_zinit_ship/cross512",
+ "split_seq_id": 298,
+ "ref": "mainbase",
+ "n_atoms": 4116,
+ "arms": {
+  "branchoff": {
+   "whole_all_atom_A": 12.2637,
+   "whole_ca_A": 12.05626,
+   "domain1_all_atom_A": 1.54209,
+   "domain2_all_atom_A": 1.22855,
+   "hinge_free_all_atom_A": 1.41959,
+   "hinge_deg": 89.32,
+   "hinge_artifact_signature": false
+  },
+  "branchon": {
+   "whole_all_atom_A": 11.95126,
+   "whole_ca_A": 11.74968,
+   "domain1_all_atom_A": 1.51696,
+   "domain2_all_atom_A": 1.22249,
+   "hinge_free_all_atom_A": 1.40152,
+   "hinge_deg": 87.159,
+   "hinge_artifact_signature": false
+  },
+  "mainbase1": {
+   "whole_all_atom_A": 0.0,
+   "whole_ca_A": 0.0,
+   "domain1_all_atom_A": 0.0,
+   "domain2_all_atom_A": 0.0,
+   "hinge_free_all_atom_A": 0.0,
+   "hinge_deg": 0.0,
+   "hinge_artifact_signature": false
+  }
+ }
+}

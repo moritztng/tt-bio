@@ -28,7 +28,7 @@ def block(s, header, stop="\nclass "):
 
 TT = [("def free(", "\nclass "), ("class StageWall:", "\ndef "),
       ("def pair_gather(", "\nclass "), ("class RelPosGather:", "\nclass "),
-      ("class ConfidencePairDevice:", "\nclass "),
+      ("class PairAssemblyDevice:", "\nclass "),
       ("class ConfidenceHeadsDevice:", "\nclass ")]
 B2 = [("class ConfidenceHeads(nn.Module):", "\nclass "),
       ("class ConfidenceModule(nn.Module):", "\nclass "),

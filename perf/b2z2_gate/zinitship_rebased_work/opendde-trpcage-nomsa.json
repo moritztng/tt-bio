@@ -1,0 +1,127 @@
+{
+  "mode": "structures",
+  "targets": {
+    "trpcage_no_msa": {
+      "kabsch_rmsd": {
+        "metric": "kabsch_rmsd",
+        "cross": {
+          "n": 25,
+          "mean": 0.44717616823794115,
+          "std": 0.20116307404994,
+          "min": 0.13021548830583263,
+          "max": 0.7709356568118741
+        },
+        "ref_floor": {
+          "n": 10,
+          "mean": 0.3736225417927576,
+          "std": 0.17801440859213705,
+          "min": 0.09022486599619026,
+          "max": 0.6660480194777165
+        },
+        "dev_floor": {
+          "n": 10,
+          "mean": 0.503084806997091,
+          "std": 0.18494667253403388,
+          "min": 0.18891514019963188,
+          "max": 0.6705827073251593
+        },
+        "floor_mean": 0.503084806997091,
+        "cross_over_floor": 0.8888683617919848,
+        "dev_over_ref_floor": 1.3465054987933358,
+        "dev_floor_instability_check_applied": true,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": true
+      },
+      "coord_pcc": {
+        "metric": "1-coord_pcc",
+        "cross": {
+          "n": 25,
+          "mean": 0.002366296751999517,
+          "std": 0.0017734834465231663,
+          "min": 0.00016511729080026516,
+          "max": 0.005867304551340546
+        },
+        "ref_floor": {
+          "n": 10,
+          "mean": 0.0016816814143307934,
+          "std": 0.001265908154253514,
+          "min": 7.936218019555241e-05,
+          "max": 0.004341684992391293
+        },
+        "dev_floor": {
+          "n": 10,
+          "mean": 0.0028303428128246934,
+          "std": 0.0016393774630928965,
+          "min": 0.00035435098937819376,
+          "max": 0.0044113422772225075
+        },
+        "floor_mean": 0.0028303428128246934,
+        "cross_over_floor": 0.8360459875310805,
+        "dev_over_ref_floor": 1.6830434044791993,
+        "dev_floor_instability_check_applied": false,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": true
+      },
+      "tm_score": {
+        "metric": "1-tm_score",
+        "cross": {
+          "n": 25,
+          "mean": 0.008292794734307617,
+          "std": 0.005700467375662729,
+          "min": 0.0007918392736017132,
+          "max": 0.020480910270683106
+        },
+        "ref_floor": {
+          "n": 10,
+          "mean": 0.006049236423158832,
+          "std": 0.0042597434651504016,
+          "min": 0.0003783960731758018,
+          "max": 0.014438081293535743
+        },
+        "dev_floor": {
+          "n": 10,
+          "mean": 0.009480117363670326,
+          "std": 0.005121905320344068,
+          "min": 0.001499223250014614,
+          "max": 0.015577963139063344
+        },
+        "floor_mean": 0.009480117363670326,
+        "cross_over_floor": 0.8747565474333934,
+        "dev_over_ref_floor": 1.5671593405370545,
+        "dev_floor_instability_check_applied": false,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": true
+      },
+      "lddt": {
+        "metric": "1-lddt",
+        "cross": {
+          "n": 25,
+          "mean": 0.0223645151240753,
+          "std": 0.015042020103874064,
+          "min": 0.0,
+          "max": 0.059134564473678264
+        },
+        "ref_floor": {
+          "n": 10,
+          "mean": 0.019789490860620727,
+          "std": 0.0132138332922066,
+          "min": 0.0004348405838275893,
+          "max": 0.04296249717451506
+        },
+        "dev_floor": {
+          "n": 10,
+          "mean": 0.027081942944470215,
+          "std": 0.013279069050262608,
+          "min": 0.0036824838513108693,
+          "max": 0.04771445933790475
+        },
+        "floor_mean": 0.027081942944470215,
+        "cross_over_floor": 0.8258091071948679,
+        "dev_over_ref_floor": 1.368501248223662,
+        "dev_floor_instability_check_applied": false,
+        "floor_inflated_by_dev": false,
+        "within_noise_floor": true
+      }
+    }
+  }
+}

@@ -10730,7 +10730,7 @@ class PairformerModule(TorchWrapper):
         keep_z_device: bool = False,
     ) -> tuple[torch.Tensor | None, torch.Tensor]:
         # `z_device` is an already-padded device tensor from a caller that built z where the
-        # previous stage left it (see ConfidencePairDevice): nothing to upload, nothing to pad.
+        # previous stage left it (see PairAssemblyDevice): nothing to upload, nothing to pad.
         # It is padded to this module's own multiple, which is what makes it substitutable --
         # `seq_len` is the only thing that padding hid.
         if z_device is not None:
@@ -11634,6 +11634,7 @@ class PairConditioningDevice:
     def __init__(self, pairwise_conditioner, bias_weight, bias_bias, bias_eps, z_to_p_trans,
                  compute_kernel_config):
         self.compute_kernel_config = compute_kernel_config
+        self.wall = StageWall("TT_BIO_DEVICE_CONDITIONING_PROFILE", "paircond")
         device = get_device()
 
         def w(tensor, transpose=False):
@@ -11677,11 +11678,21 @@ class PairConditioningDevice:
         ``token_trans_bias`` stays on the device padded, which is the shape the diffusion cache
         wants.
         """
+        self.wall.start()
+        # The relative-position tensor comes from the host, already summed in fp32 and rounded to
+        # bf16 exactly once on the way up. `RelPosGather` would build it here for free, but
+        # `ttnn.embedding` only takes bf16 tables, so the device form rounds every term before it
+        # adds them, and this tensor drives the pairwise conditioner, all 24 diffusion bias layers
+        # and the atom encoder through 200 sampling steps: measured, it moves the 512 aa structure
+        # 1.54 A on the worst pseudo-domain against a 0.60 A bar. The z_init assembly gathers its
+        # own copy, which is scored on its own control; this one stays where the shipped default
+        # put it.
         rel_pos = relative_position_encoding
         if seq_pad:
             rel_pos = torch.nn.functional.pad(rel_pos, (0, 0, 0, seq_pad, 0, seq_pad))
         rel_pos_tt = ttnn.from_torch(rel_pos, layout=ttnn.TILE_LAYOUT, device=get_device(),
                                      dtype=ttnn.bfloat16)
+        self.wall.mark("rel_pos")
         x = ttnn.concat([z, rel_pos_tt], dim=-1)
         ttnn.deallocate(rel_pos_tt)
         x_norm = ttnn.layer_norm(
@@ -11691,6 +11702,7 @@ class PairConditioningDevice:
         ttnn.deallocate(x)
         z = self._linear(x_norm, self.init_proj_weight)
         ttnn.deallocate(x_norm)
+        self.wall.mark("init proj")
 
         for norm_weight, norm_bias, eps, fc1, fc2, fc3 in self.transitions:
             z_norm = ttnn.layer_norm(
@@ -11706,6 +11718,7 @@ class PairConditioningDevice:
             ttnn.deallocate(hidden)
             z = ttnn.add_(z, delta)
             ttnn.deallocate(delta)
+            self.wall.mark("transition")
 
         z_norm = ttnn.layer_norm(
             z, epsilon=self.bias_eps, compute_kernel_config=self.compute_kernel_config)
@@ -11721,6 +11734,7 @@ class PairConditioningDevice:
             bias = ttnn.multiply_(bias, keep_tt)
             ttnn.deallocate(keep_tt)
 
+        self.wall.mark("token bias")
         z_norm = ttnn.layer_norm(
             z, weight=self.zp_norm_weight, bias=self.zp_norm_bias, epsilon=self.zp_norm_eps,
             compute_kernel_config=self.compute_kernel_config,
@@ -11730,22 +11744,48 @@ class PairConditioningDevice:
         ttnn.deallocate(z_norm)
         out = torch.Tensor(ttnn.to_torch(z_to_p)).to(torch.float32)[:, :seq_len, :seq_len, :]
         ttnn.deallocate(z_to_p)
+        self.wall.mark("z_to_p download")
         return out, bias
 
 
-class ConfidencePairDevice:
-    """Boltz-2's confidence-head pair assembly, run where the trunk left the tensor.
+class _ZInitModules:
+    """The trunk's ``z_init`` terms under the names the assembly reads them by.
 
-    Everything ``ConfidenceModule.forward`` does to ``z`` before its pairformer is a channel map
-    applied independently at each ``(i, j)``: ``z_norm``, ``+ rel_pos``, ``+ token_bonds``,
-    ``+ contact_conditioning``, the two ``s_to_z`` broadcasts and the distogram embedding. The
-    pairformer behind it is already device-resident and the trunk still holds the pair tensor, so
-    running the assembly here deletes the host passes AND the ``[1, n, n, token_z]`` upload that
-    used to feed the pairformer -- 134 MB of fp32 read at 512 tokens. What goes up instead is an
-    index map or an ``[n, c]`` vector: the rel_pos indices, the distogram bucket indices, the
-    bond and contact features.
+    ``z_init_1``/``z_init_2`` are the model's names for the two broadcasts the confidence head
+    calls ``s_to_z``/``s_to_z_transpose``; everything else is the same module under the same
+    name. Six lines of renaming beats a second copy of the assembly.
+    """
 
-    ``supports`` is the gate, and it reads the module, never a model name. The head is
+    def __init__(self, model):
+        self.rel_pos = model.rel_pos
+        self.token_bonds = model.token_bonds
+        self.bond_type_feature = getattr(model, "bond_type_feature", False)
+        self.token_bonds_type = getattr(model, "token_bonds_type", None)
+        self.contact_conditioning = model.contact_conditioning
+        self.s_to_z = model.z_init_1
+        self.s_to_z_transpose = model.z_init_2
+
+
+class PairAssemblyDevice:
+    """The per-``(i, j)`` feature stack Boltz-2 assembles twice, on the device both times.
+
+    The trunk's ``z_init`` and the confidence head's pair input are the same construction with
+    different weights: two broadcasts of a ``[1, n, c]`` projection, the relative-position
+    tables, ``token_bonds``, the bond-type embedding and ``ContactConditioning``; the confidence
+    head adds a LayerNorm of the trunk's pair tensor, an outer-product term and a distogram
+    embedding. Every one of those is a channel map applied independently at each ``(i, j)``, so
+    the whole stack is ttnn ops and what crosses the bus is the index maps and one packed
+    feature tensor, never the ``[1, n, n, token_z]`` result (134 MB at 512 tokens).
+
+    Construct it through ``for_trunk`` or ``for_confidence``; the optional terms are exactly the
+    difference between the two call sites, so there is one implementation and no model-name gate.
+
+    On the confidence side the pairformer behind the assembly is already device-resident and the
+    trunk still holds the pair tensor, so running it here deletes the host passes AND the upload
+    that used to feed the pairformer. What goes up instead is an index map or an ``[n, c]``
+    vector: the rel_pos indices, the distogram bucket indices, the bond and contact features.
+
+    ``supports_confidence`` is the gate, and it reads the module, never a model name. The head is
     configurable and the flags come from the checkpoint, so the device path declares what it
     computes and the caller falls back to torch for the rest. ``bond_type_feature`` and
     ``add_s_to_z_prod`` are both implemented here; ``add_z_input_to_z=False`` is not, because
@@ -11759,16 +11799,32 @@ class ConfidencePairDevice:
     """
 
     @staticmethod
-    def supports(conf) -> bool:
+    def supports_confidence(conf) -> bool:
         return (
             getattr(conf, "add_z_input_to_z", False)
             and isinstance(getattr(conf, "pairformer_stack", None), PairformerModule)
         )
 
-    def __init__(self, conf, compute_kernel_config):
+    @classmethod
+    def for_confidence(cls, conf, compute_kernel_config):
+        return cls(conf, compute_kernel_config,
+                   profile_env="TT_BIO_DEVICE_CONFIDENCE_PROFILE", label="confpair")
+
+    @classmethod
+    def for_trunk(cls, model, compute_kernel_config):
+        """The trunk's ``z_init``: the same stack without the norm, the product and the distogram.
+
+        ``Boltz2.forward`` builds it from the model's own modules -- ``z_init_1``/``z_init_2`` are
+        the two broadcasts, and ``rel_pos``/``token_bonds``/``token_bonds_type``/
+        ``contact_conditioning`` are shared with nothing else on the device path.
+        """
+        return cls(_ZInitModules(model), compute_kernel_config,
+                   profile_env="TT_BIO_DEVICE_ZINIT_PROFILE", label="zinit")
+
+    def __init__(self, conf, compute_kernel_config, profile_env, label):
         self.compute_kernel_config = compute_kernel_config
         self.conf = conf
-        self.wall = StageWall("TT_BIO_DEVICE_CONFIDENCE_PROFILE", "confpair")
+        self.wall = StageWall(profile_env, label)
         device = get_device()
 
         def w(tensor, transpose=False):
@@ -11781,9 +11837,10 @@ class ConfidencePairDevice:
             return ttnn.from_torch(tensor.detach().reshape(1, -1).contiguous(),
                                    layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
 
-        self.z_norm_weight = w(conf.z_norm.weight)
-        self.z_norm_bias = w(conf.z_norm.bias)
-        self.z_norm_eps = conf.z_norm.eps
+        norm = getattr(conf, "z_norm", None)
+        self.z_norm_weight = w(norm.weight) if norm is not None else None
+        self.z_norm_bias = w(norm.bias) if norm is not None else None
+        self.z_norm_eps = norm.eps if norm is not None else None
         self.rel_pos = RelPosGather(conf.rel_pos)
         self.bonds_type_table = (
             ttnn.from_torch(conf.token_bonds_type.weight.detach().contiguous(),
@@ -11844,9 +11901,11 @@ class ConfidencePairDevice:
                          w(conf.s_to_z_prod_out.weight, transpose=True))
         # 64 rows of token_z: the distogram bucket is a gather, so the [1, n, n] bucket index
         # goes up (1 MB) instead of the embedding it selects (134 MB).
+        dist_embed = getattr(conf, "dist_bin_pairwise_embed", None)
         self.dist_table = ttnn.from_torch(
-            conf.dist_bin_pairwise_embed.weight.detach().contiguous(),
-            layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
+            dist_embed.weight.detach().contiguous(),
+            layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16
+        ) if dist_embed is not None else None
 
     def _linear(self, x, weight, bias=None, activation=None, core_grid=CORE_GRID_MAIN):
         return ttnn.linear(
@@ -11892,43 +11951,59 @@ class ConfidencePairDevice:
         out = ttnn.add_(out, self._linear(packed, self.override_weight))
         return out
 
-    def __call__(self, z_tt, s_inputs, feats, dist_index, seq_len, seq_pad):
-        """The padded device ``z`` the confidence pairformer consumes.
+    @staticmethod
+    def _acc(z, term, broadcast=False):
+        """``z + term``, with ``term`` consumed, and ``term`` itself when ``z`` is still empty.
 
-        ``z_tt`` is the trunk's padded pair tensor and is NOT consumed -- the caller owns it, so
-        one fold can feed both this and the diffusion conditioning from the same buffer.
-        ``s_inputs`` is the already-normalised host ``[1, n, token_s]``; ``dist_index`` the host
-        ``[1, n, n]`` distogram bucket index, which the head computes for its own heads anyway.
+        The first term of the trunk's stack is the accumulator, so every later term is an
+        in-place add into a buffer the assembly owns. ``broadcast`` marks a ``[1, n, 1, c]`` or
+        ``[1, 1, n, c]`` operand, which ttnn cannot write into a ``[1, n, n, c]`` destination
+        in place.
+        """
+        if z is None:
+            return term
+        if broadcast:
+            return ttnn.add(z, term)
+        z = ttnn.add_(z, term)
+        ttnn.deallocate(term)
+        return z
+
+    def __call__(self, s_inputs, feats, seq_len, seq_pad, z_tt=None, dist_index=None):
+        """The padded device pair tensor the next stage consumes.
+
+        ``z_tt``, when given, is the trunk's padded pair tensor and is NOT consumed -- the caller
+        owns it, so one fold can feed both this and the diffusion conditioning from the same
+        buffer. The trunk's own ``z_init`` has no such input and passes ``z_tt=None``, which is
+        what makes the first term the broadcast pair instead of a LayerNorm.
+        ``s_inputs`` is the host ``[1, n, token_s]``; ``dist_index`` the host ``[1, n, n]``
+        distogram bucket index, which the confidence head computes for its own heads anyway.
         """
         self.wall.start()
         padded = seq_len + seq_pad
-        z = ttnn.layer_norm(z_tt, weight=self.z_norm_weight, bias=self.z_norm_bias,
-                            epsilon=self.z_norm_eps,
-                            compute_kernel_config=self.compute_kernel_config)
+        z = None
+        if z_tt is not None:
+            z = ttnn.layer_norm(z_tt, weight=self.z_norm_weight, bias=self.z_norm_bias,
+                                epsilon=self.z_norm_eps,
+                                compute_kernel_config=self.compute_kernel_config)
         self.wall.mark("z_norm")
 
         rel = self.rel_pos(feats, padded)
-        z = ttnn.add_(z, rel)
-        ttnn.deallocate(rel)
+        z = self._acc(z, rel)
         self.wall.mark("rel_pos")
 
         packed = self._pack(feats, padded)
         self.wall.mark("pack upload")
 
-        bonds = self._linear(packed, self.bonds_weight)
-        z = ttnn.add_(z, bonds)
-        ttnn.deallocate(bonds)
+        z = self._acc(z, self._linear(packed, self.bonds_weight))
 
         if self.bonds_type_table is not None:
-            types = pair_gather(feats["type_bonds"].long(), self.bonds_type_table, padded)
-            z = ttnn.add_(z, types)
-            ttnn.deallocate(types)
+            z = self._acc(z, pair_gather(feats["type_bonds"].long(),
+                                         self.bonds_type_table, padded))
         self.wall.mark("bonds")
 
         contact = self._contact(packed)
         ttnn.deallocate(packed)
-        z = ttnn.add_(z, contact)
-        ttnn.deallocate(contact)
+        z = self._acc(z, contact)
         self.wall.mark("contact")
 
         s_in = torch.nn.functional.pad(s_inputs.float(), (0, 0, 0, seq_pad))
@@ -11936,8 +12011,8 @@ class ConfidencePairDevice:
                                dtype=ttnn.bfloat16)
         a = self._linear(s_in, self.s_to_z_weight)
         b = self._linear(s_in, self.s_to_z_t_weight)
-        z = ttnn.add(z, ttnn.unsqueeze(a, -2))
-        z = ttnn.add(z, ttnn.unsqueeze(b, -3))
+        z = self._acc(z, ttnn.unsqueeze(a, -2), broadcast=True)
+        z = self._acc(z, ttnn.unsqueeze(b, -3), broadcast=True)
         ttnn.deallocate(a)
         ttnn.deallocate(b)
         if self.prod is not None:
@@ -11953,9 +12028,8 @@ class ConfidencePairDevice:
         ttnn.deallocate(s_in)
         self.wall.mark("s_to_z")
 
-        dist = pair_gather(dist_index, self.dist_table, padded)
-        z = ttnn.add_(z, dist)
-        ttnn.deallocate(dist)
+        if self.dist_table is not None:
+            z = self._acc(z, pair_gather(dist_index, self.dist_table, padded))
         self.wall.mark("distogram")
 
         if seq_pad:
@@ -12335,13 +12409,16 @@ class TrunkModule(TorchWrapper):
         # tensor, kept alive so the diffusion conditioning can read it where it already is.
         self._device_z = None
 
-    def _build_static(self, s_inputs, s_init, z_init, feats, relative_position_encoding=None):
+    def _build_static(self, s_inputs, s_init, z_init, feats, relative_position_encoding=None,
+                      z_init_build=None):
         """Build + upload (once per protein) all loop-invariant device tensors.
 
         Returns a dict cached in ``self._runtime_cache`` and reused across the
         recycling iterations.
         """
-        seq_len = z_init.shape[1]
+        # `z_init` is the host pair tensor, or None when the caller built it on the device --
+        # in which case it is already padded and `s_init` carries the token count.
+        seq_len = s_init.shape[1] if z_init is None else z_init.shape[1]
         seq_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
         padded_seq = seq_len + seq_pad
 
@@ -12361,7 +12438,8 @@ class TrunkModule(TorchWrapper):
         # ---- pad the per-protein constants ----
         pad = torch.nn.functional.pad
         s_init_p = pad(s_init, (0, 0, 0, seq_pad)) if seq_pad else s_init
-        z_init_p = pad(z_init, (0, 0, 0, seq_pad, 0, seq_pad)) if seq_pad else z_init
+        z_init_p = None if z_init is None else (
+            pad(z_init, (0, 0, 0, seq_pad, 0, seq_pad)) if seq_pad else z_init)
         s_inputs_p = pad(s_inputs, (0, 0, 0, seq_pad)) if seq_pad else s_inputs
         m_p = pad(m, (0, 0, 0, seq_pad, 0, msa_pad)) if (seq_pad or msa_pad) else m
 
@@ -12381,7 +12459,7 @@ class TrunkModule(TorchWrapper):
 
         # ---- MSA masks (mirror MSAModule.forward: derived from padding only) ----
         if seq_pad:
-            mask_1d_msa = z_init.new_ones(1, padded_seq)
+            mask_1d_msa = s_init.new_ones(1, padded_seq)
             mask_1d_msa[:, seq_len:] = 0.0
             msa_mask_tt = self._from_torch(mask_1d_msa.unsqueeze(-1) * mask_1d_msa.unsqueeze(1))
             msa_attn_tt = self._from_torch((1 - mask_1d_msa).unsqueeze(1).unsqueeze(1) * -1e9)
@@ -12390,7 +12468,7 @@ class TrunkModule(TorchWrapper):
             msa_attn_tt = None
         if msa_pad:
             padded_msa = n_msa + msa_pad
-            msa_row = z_init.new_zeros(padded_msa, 1, 1)
+            msa_row = s_init.new_zeros(padded_msa, 1, 1)
             msa_row[:n_msa] = 1.0
             msa_rowmask_tt = self._from_torch(msa_row)
             n_msa_arg = n_msa
@@ -12429,7 +12507,7 @@ class TrunkModule(TorchWrapper):
         )
         tmpl_keep_mask = None
         if tmpl_noop and seq_pad:
-            keep = z_init.new_zeros(1, padded_seq, padded_seq, 1)
+            keep = s_init.new_zeros(1, padded_seq, padded_seq, 1)
             keep[:, :seq_len, :seq_len, :] = 1.0
             tmpl_keep_mask = self._from_torch(keep)
 
@@ -12454,7 +12532,8 @@ class TrunkModule(TorchWrapper):
             "feats": feats,
             "pair_mask_unpad": pair_mask_unpad,
             "s_init_tt": self._from_torch(s_init_p),
-            "z_init_tt": self._from_torch(z_init_p),
+            "z_init_tt": (self._from_torch(z_init_p) if z_init_p is not None
+                          else z_init_build(s_inputs, feats, seq_len, seq_pad)),
             "emb_tt": self._from_torch(s_inputs_p),
             "m_tt": self._from_torch(m_p),
             "pf_mask_tt": pf_mask_tt,
@@ -12561,15 +12640,24 @@ class TrunkModule(TorchWrapper):
         return s, z
 
     def forward(self, s_inputs, s_init, z_init, feats, recycling_steps,
-                relative_position_encoding=None, progress_fn=None, keep_device_z=False):
+                relative_position_encoding=None, progress_fn=None, keep_device_z=False,
+                z_init_build=None):
+        """``z_init`` is the host pair tensor, or None with ``z_init_build`` given instead.
+
+        ``z_init_build(s_inputs, feats, seq_len, seq_pad)`` returns the padded pair tensor
+        already on the device, so the 134 MB upload this method would otherwise do never
+        happens. It is called here rather than by the caller because the padded size is this
+        method's to decide.
+        """
         if self._device_z is not None:      # a caller that asked for it and never took it
             ttnn.deallocate(self._device_z[0])
             self._device_z = None
-        st = self._build_static(s_inputs, s_init, z_init, feats, relative_position_encoding)
+        st = self._build_static(s_inputs, s_init, z_init, feats, relative_position_encoding,
+                                z_init_build)
         seq_len = st["seq_len"]
 
         s = self._from_torch(torch.zeros(list(st["s_init_tt"].shape), dtype=s_init.dtype))
-        z = self._from_torch(torch.zeros(list(st["z_init_tt"].shape), dtype=z_init.dtype))
+        z = self._from_torch(torch.zeros(list(st["z_init_tt"].shape), dtype=s_init.dtype))
         # Tick the live view once per recycling iteration, mirroring the host
         # fallback loop in Boltz2.forward — the resident loop runs entirely on
         # device, so without this the bar sits at "Trunk 0/N" then jumps to the

@@ -1,0 +1,55 @@
+{
+ "doc": "cdk2x2 structural control, and a paired A/B, for one or more TT_BIO_* levers (``--flag``).\n\nThe device conditioning is not bit-exact -- bf16 device math against fp32 torch, and the fused\nbias stack on top -- so a CIF hash cannot score it. `cdk2x2_512` cannot score it either: it is\nCDK2 fused to a truncated copy of itself and its unconstrained hinge saturates RMSD for any\nchange whatever the cause (memory `cdk2x2-chimeric-fixture-cannot-score-non-bit-exact-parity`).\n`cdk2x2_298` is the same family with one real domain and no hinge, and the thresholds in\n`state/answered/4649-decision.md` are stated against it: <=0.35 A pass, 0.35-0.60 A hold,\n>0.60 A reject.\n\nDefault mode (``--reps 0``): three folds in one process on one device open -- base, base again,\nand the arm. The repeated base gives the A/A floor in the same session, which is what makes the\narm's number readable: a nonzero A/A would mean the comparison is measuring the box, not the\nchange. Score with `perf/b2x-flag-levers/score298.py <cifdir> --ref base_0`, or, for a lever\nwhose output is a score rather than a coordinate, `perf/b2z2_confhead/score_conf.py`.\n\n``--reps N`` instead runs a paired fold A/B: ``base arm arm base`` per rep, so the order reverses\ninside the rep and a monotonic drift in the box cancels rather than accumulating in one arm. That\nis 4N folds and 2N paired ratios, plus the same-arm adjacent pairs as this session's own A/A\nfloor. CIFs are kept for the first fold of each arm; every fold's CIF sha256 and pLDDT are\nrecorded, so an arm that is supposed to be structurally inert can be checked at every fold and\nnot just the one that was copied.\n\n``--flag`` takes a comma-separated set, set and unset together, because a lever built on top of\nanother is approved as a stack or not at all.\n",
+ "env": {
+  "started": "2026-09-14T05:54:01+0000",
+  "card": "3",
+  "host": "tt-quietbox2",
+  "size": 512,
+  "msa_dir": "/home/ttuser/.coworker/wt/b2z2-zinit-ship/perf/b2z2_hostzero/.msa_512",
+  "commit": "aaa273936",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-zinit-ship/tt_bio/__init__.py",
+  "flags": [
+   "TT_BIO_DEVICE_ZINIT"
+  ],
+  "reps": 0,
+  "loadavg_start": [
+   1.451171875,
+   0.47705078125,
+   0.17333984375
+  ],
+  "recycling_steps": 3,
+  "sampling_steps": 200
+ },
+ "folds": [
+  {
+   "tag": "base_0",
+   "arm": "base",
+   "on": false,
+   "wall_s": 24.6506,
+   "plddt": null,
+   "cif_sha": "1f5b388246489fa1",
+   "loadavg": 3.20703125,
+   "dir": "512_base_0"
+  },
+  {
+   "tag": "base_1",
+   "arm": "base",
+   "on": false,
+   "wall_s": 24.6613,
+   "plddt": null,
+   "cif_sha": "1f5b388246489fa1",
+   "loadavg": 4.8623046875,
+   "dir": "512_base_1"
+  },
+  {
+   "tag": "device_zinit_0",
+   "arm": "device_zinit",
+   "on": true,
+   "wall_s": 24.4178,
+   "plddt": null,
+   "cif_sha": "9aaff566b4888d96",
+   "loadavg": 3.88427734375,
+   "dir": "512_device_zinit_0"
+  }
+ ]
+}

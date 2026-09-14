@@ -1,0 +1,393 @@
+{
+  "legs": [
+    {
+      "leg": "esmc-300m",
+      "verdict": "PASS",
+      "detail": "min per-res PCC=0.99918",
+      "wall": 10.305402705999995,
+      "committed": "PASS",
+      "report": "esmc-300m.json"
+    },
+    {
+      "leg": "esmc-600m",
+      "verdict": "PASS",
+      "detail": "min per-res PCC=0.99943",
+      "wall": 13.965513228999953,
+      "committed": "PASS",
+      "report": "esmc-600m.json"
+    },
+    {
+      "leg": "saprot-35m",
+      "verdict": "PASS",
+      "detail": "X_emb=0.99914",
+      "wall": 8.199506324999902,
+      "committed": null,
+      "report": "saprot-35m.json"
+    },
+    {
+      "leg": "saprot-650m",
+      "verdict": "PASS",
+      "detail": "X_emb=0.99964",
+      "wall": 21.0133769439999,
+      "committed": null,
+      "report": "saprot-650m.json"
+    },
+    {
+      "leg": "esmfold2-trpcage",
+      "verdict": "PASS",
+      "detail": "4 proteins scored (4 within floor)",
+      "wall": 972.401217766,
+      "committed": "PASS",
+      "report": "esmfold2-trpcage.json"
+    },
+    {
+      "leg": "esmfold2-fast-trpcage",
+      "verdict": "PASS",
+      "detail": "4 proteins scored (4 within floor)",
+      "wall": 664.6883558039999,
+      "committed": "PASS",
+      "report": "esmfold2-fast-trpcage.json"
+    },
+    {
+      "leg": "esmfold2-cocrystal",
+      "verdict": "PASS",
+      "detail": "1 proteins scored (1 within floor)",
+      "wall": 896.016123636,
+      "committed": "PASS",
+      "report": "esmfold2-cocrystal.json"
+    },
+    {
+      "leg": "boltz2-trpcage-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst kabsch_rmsd: num=0.1118 env=0.1446 ratio=0.77; kabsch_rmsd r=0.77",
+      "wall": 62.0693765040005,
+      "committed": "PASS",
+      "report": "boltz2-trpcage-nomsa.json"
+    },
+    {
+      "leg": "boltz2-prot-nomsa",
+      "verdict": "GAP",
+      "detail": "envelope worst kabsch_rmsd: num=7.0511 env=3.4501 ratio=2.04; kabsch_rmsd r=2.04",
+      "wall": 74.09978726200006,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-prot-nomsa.json"
+    },
+    {
+      "leg": "boltz2-hsa-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst kabsch_rmsd: num=0.9076 env=1.3315 ratio=0.68; kabsch_rmsd r=0.68",
+      "wall": 100.14665520500057,
+      "committed": "PASS",
+      "report": "boltz2-hsa-nomsa.json"
+    },
+    {
+      "leg": "boltz2-9ncy-nomsa",
+      "verdict": "GAP",
+      "detail": "envelope worst kabsch_rmsd: num=6.6415 env=1.6594 ratio=4.00; kabsch_rmsd r=4.00",
+      "wall": 96.17994892800016,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-9ncy-nomsa.json"
+    },
+    {
+      "leg": "protenix-prot-msa",
+      "verdict": "PASS",
+      "detail": "prot: X=2.625 R=2.763 D=1.331 within=True",
+      "wall": 323.80162879699947,
+      "committed": "GAP-evidenced",
+      "report": "protenix-prot-msa.json"
+    },
+    {
+      "leg": "protenix-ubq-msa",
+      "verdict": "PASS",
+      "detail": "ubq: X=1.822 R=1.923 D=1.554 within=True",
+      "wall": 343.5375672479995,
+      "committed": "GAP-evidenced",
+      "report": "protenix-ubq-msa.json"
+    },
+    {
+      "leg": "protenix-hsa-msa",
+      "verdict": "ERROR",
+      "detail": "seed4: fold timed out after 2400s (no results.json \u2014 flaky MSA server? place a cached a3m per RELEASING.md and rerun)",
+      "wall": 3389.2171826040003,
+      "committed": "GAP",
+      "report": "protenix-hsa-msa.json"
+    },
+    {
+      "leg": "protenix-9ncy-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed0, seed1, seed2, seed3, seed4 missing structures/9ncy.cif (run scripts/fetch_parity_fixtures.sh to restore the externalized reference binaries; if it already ran clean, the release asset itself is missing them (scripts/full_parity_gate.py --verify-fixtures))",
+      "wall": 0
+    },
+    {
+      "leg": "protenix-v1-prot-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 75; seed1: predict exited 75; seed2: predict exited 75; seed3: predict exited 75; seed4: predict exited 75",
+      "wall": 638.2296098429997,
+      "committed": "PASS",
+      "report": "protenix-v1-prot-msa.json"
+    },
+    {
+      "leg": "openfold3-ubq-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 75; seed1: predict exited 75; seed2: predict exited 75; seed3: predict exited 75; seed4: predict exited 75",
+      "wall": 636.1844820999995,
+      "committed": "PASS",
+      "report": "openfold3-ubq-msa.json"
+    },
+    {
+      "leg": "openfold3-prot-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 75",
+      "wall": 1532.7819851759996,
+      "committed": "PASS",
+      "report": "openfold3-prot-msa.json"
+    },
+    {
+      "leg": "openfold3-7xi5-tmpl",
+      "verdict": "PASS",
+      "detail": "7xi5_tmpl: X=4.426 R=4.160 D=0.585 within=True",
+      "wall": 1612.4807990249992,
+      "committed": "PASS",
+      "report": "openfold3-7xi5-tmpl.json"
+    },
+    {
+      "leg": "openfold3-7xi5-notmpl",
+      "verdict": "ERROR",
+      "detail": "seed2: predict exited 75; seed3: predict exited 75; seed4: predict exited 75",
+      "wall": 1021.3514216030017,
+      "committed": "GAP-evidenced",
+      "report": "openfold3-7xi5-notmpl.json"
+    },
+    {
+      "leg": "openfold3-8hel-msa",
+      "verdict": "ERROR",
+      "detail": "seed0: predict exited 75; seed1: predict exited 75; seed2: predict exited 75",
+      "wall": 770.5295914769995,
+      "committed": "PASS",
+      "report": "openfold3-8hel-msa.json"
+    },
+    {
+      "leg": "openfold3-8hel-nomsa",
+      "verdict": "PASS",
+      "detail": "8hel_nomsa: X=10.940 R=11.571 D=5.742 within=True",
+      "wall": 924.3254606340015,
+      "committed": "PASS",
+      "report": "openfold3-8hel-nomsa.json"
+    },
+    {
+      "leg": "openfold3-9bk6-complex-msa",
+      "verdict": "PASS",
+      "detail": "9bk6: X=1.735 R=1.448 D=0.484 within=True",
+      "wall": 1323.5555746070004,
+      "committed": "PASS",
+      "report": "openfold3-9bk6-complex-msa.json"
+    },
+    {
+      "leg": "openbind-ubq-msa",
+      "verdict": "PASS",
+      "detail": "ubq: X=0.986 R=1.033 D=0.548 within=True",
+      "wall": 968.2888574480021,
+      "committed": "PASS",
+      "report": "openbind-ubq-msa.json"
+    },
+    {
+      "leg": "openbind-fkg-ligand-msa",
+      "verdict": "PASS",
+      "detail": "fkg_ligand: X=0.615 R=0.551 D=0.363 within=True",
+      "wall": 710.3202552360017,
+      "committed": "PASS",
+      "report": "openbind-fkg-ligand-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-fkbp12-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_probability_binary: num=0.0041 env=0.0005 ratio=8.62; affinity_pred_value r=0.27, affinity_probability_binary r=8.62",
+      "wall": 190.16610019899963,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-affinity-fkbp12-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-fkbp12-msa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_pred_value: num=0.0254 env=0.0641 ratio=0.40; affinity_pred_value r=0.40, affinity_probability_binary r=0.27",
+      "wall": 186.05961336899782,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-affinity-fkbp12-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_probability_binary: num=0.0021 env=0.0012 ratio=1.77; affinity_pred_value r=0.33, affinity_probability_binary r=1.77",
+      "wall": 262.18364163300066,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-dhfr-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-msa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_probability_binary: num=0.0043 env=0.0014 ratio=3.07; affinity_pred_value r=0.82, affinity_probability_binary r=3.07",
+      "wall": 268.1828018039996,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-dhfr-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-tryp-nomsa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_pred_value: num=0.0263 env=0.0191 ratio=1.38; affinity_pred_value r=1.38, affinity_probability_binary r=0.44",
+      "wall": 240.07402402599837,
+      "committed": "GAP",
+      "report": "boltz2-affinity-tryp-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-tryp-msa",
+      "verdict": "PASS",
+      "detail": "envelope worst affinity_probability_binary: num=0.0035 env=0.0217 ratio=0.16; affinity_pred_value r=0.16, affinity_probability_binary r=0.16",
+      "wall": 254.134766383002,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-tryp-msa.json"
+    },
+    {
+      "leg": "opendde-trpcage-nomsa",
+      "verdict": "PASS",
+      "detail": "trpcage_no_msa: X=0.447 R=0.374 D=0.503 within=True",
+      "wall": 168.34490793700024,
+      "committed": "GAP-evidenced",
+      "report": "opendde-trpcage-nomsa.json"
+    },
+    {
+      "leg": "opendde-prot-prod",
+      "verdict": "PASS",
+      "detail": "prot_no_msa: X=5.141 R=1.499 D=5.117 within=True",
+      "wall": 239.79839478800204,
+      "committed": "GAP-evidenced",
+      "report": "opendde-prot-prod.json"
+    },
+    {
+      "leg": "opendde-abag",
+      "verdict": "PASS",
+      "detail": "global DockQ=0.843",
+      "wall": 398.3941014179982,
+      "committed": "PASS",
+      "report": "opendde-abag.json"
+    },
+    {
+      "leg": "boltzgen",
+      "verdict": "PASS",
+      "detail": "scRMSD pass-rate 100% (median 0.8378)",
+      "wall": 228.56199836700034,
+      "committed": "PASS",
+      "report": "boltzgen.json"
+    },
+    {
+      "leg": "capacity",
+      "verdict": "PASS",
+      "detail": "peak 8.83 GiB, 58 CIFs / 2 PAEs (capacity:9j4c_abag 8.83 GiB; capacity:9ivj 7.86 GiB)",
+      "wall": 1162.257469535998,
+      "committed": null,
+      "report": "capacity.json"
+    },
+    {
+      "leg": "rfd3-featurizer",
+      "verdict": "PASS",
+      "detail": "43/43 keys bit-exact",
+      "wall": 0.07415295100145158,
+      "committed": "PASS",
+      "report": "rfd3-featurizer.json"
+    },
+    {
+      "leg": "af2ig-featurizer",
+      "verdict": "PASS",
+      "detail": "60/60 keys bit-exact",
+      "wall": 0.12143373499930021,
+      "committed": null,
+      "report": "af2ig-featurizer.json"
+    },
+    {
+      "leg": "af2ig-trunk",
+      "verdict": "PASS",
+      "detail": "complex: 94 taps, 0 failed; worst structure_module#3/traj pcc=0.998624",
+      "wall": 78.20128572899921,
+      "committed": null,
+      "report": "af2ig-trunk.json"
+    },
+    {
+      "leg": "af2ig-trunk-monomer",
+      "verdict": "PASS-caveated",
+      "detail": "monomer: 90 taps, 0 failed, 32 in the float32 envelope; worst structure_module#3/final_atom_positions pcc=0.971828",
+      "wall": 12.262618102999113,
+      "committed": null,
+      "report": "af2ig-trunk-monomer.json"
+    },
+    {
+      "leg": "af2ig-trunk-device",
+      "verdict": "GAP",
+      "detail": "13/94 taps and 2/6 scalars on the committed bf16 floor (tol 1.10x)",
+      "wall": 227.61706185399817,
+      "committed": "GAP-evidenced",
+      "report": "af2ig-trunk-device.json"
+    },
+    {
+      "leg": "pxdesign-featurizer",
+      "verdict": "PASS",
+      "detail": "25/25 arms on pdl1_protenix05_noH (196 tokens, 0 conditioned at origin)",
+      "wall": 0.6432760719981161,
+      "committed": null,
+      "report": "pxdesign-featurizer.json"
+    },
+    {
+      "leg": "nesso1",
+      "verdict": "PASS",
+      "detail": "worst scalar 3.486xR (upstream spread), device spread 0",
+      "wall": 14.988502123000217,
+      "committed": "PASS",
+      "report": "nesso1.json"
+    },
+    {
+      "leg": "rf3-1024aa",
+      "verdict": "PASS",
+      "detail": "xtal 1.959 A worst seed, ref 2.009 A, X 0.587 A, n_ca 966",
+      "wall": 204.30402647099982,
+      "committed": null,
+      "report": "rf3-1024aa.json"
+    }
+  ],
+  "tally": {
+    "PASS": 33,
+    "GAP": 3,
+    "ERROR": 6,
+    "BLOCKED-REF-REGEN-NEEDED": 1,
+    "PASS-caveated": 1
+  },
+  "scored": 43,
+  "total_wall_s": 21250.092063240998,
+  "card_grant": null,
+  "skipped_for_card_grant": [],
+  "workers": [
+    "localhost:3"
+  ],
+  "stack": {
+    "tt_kmd": "2.11.0",
+    "cards": {
+      "0": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "1": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "2": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      },
+      "3": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "model": "boltzgen",
+  "seconds": 162.2155750130005,
+  "scrmsd_median": 0.877575,
+  "pass_rate": 1.0,
+  "parse": true,
+  "gate": true,
+  "error": null
+}

@@ -1,0 +1,26 @@
+{
+ "root": "perf/b2z2_zinit_ship/cif512_v2",
+ "split_seq_id": 298,
+ "ref": "base_0",
+ "n_atoms": 4116,
+ "arms": {
+  "base_1": {
+   "whole_all_atom_A": 0.0,
+   "whole_ca_A": 0.0,
+   "domain1_all_atom_A": 0.0,
+   "domain2_all_atom_A": 0.0,
+   "hinge_free_all_atom_A": 0.0,
+   "hinge_deg": 0.0,
+   "hinge_artifact_signature": false
+  },
+  "device_zinit_0": {
+   "whole_all_atom_A": 12.01471,
+   "whole_ca_A": 11.80665,
+   "domain1_all_atom_A": 1.6372,
+   "domain2_all_atom_A": 1.26886,
+   "hinge_free_all_atom_A": 1.49445,
+   "hinge_deg": 87.205,
+   "hinge_artifact_signature": false
+  }
+ }
+}

@@ -1,0 +1,227 @@
+{
+ "env": {
+  "started": "2026-09-12T20:37:19+0000",
+  "card": "11",
+  "commit": "c44d6e83",
+  "loadavg": [
+   "9.19",
+   "3.28",
+   "1.17"
+  ],
+  "size": 512,
+  "phases": [
+   "ab"
+  ],
+  "torch_threads": 32,
+  "torch_interop_threads": 32,
+  "gc_thresholds": [
+   700,
+   10,
+   10
+  ],
+  "instruments": {
+   "brackets": "time.perf_counter wall, no synchronize_device",
+   "sampler": "1.0 ms sys._current_frames on the main thread",
+   "gc": "gc.callbacks start/stop timing"
+  },
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "load_s": 5.08,
+  "n_msa": 35,
+  "card_type": "tt-galaxy-wh-l",
+  "recycling_steps": 3,
+  "timed_region": "predict_one (featurize + fold + CIF write)"
+ },
+ "cold_s": 40.762,
+ "ab": {
+  "env": "TT_BIO_DEVICE_ZINIT",
+  "rows": [
+   {
+    "i": 0,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 38.9831,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "1308c9e0d7ebc6a6e32dc760b415964d3983b7690dfa039ae93bd29fb3b6af9f"
+    },
+    "loadavg": [
+     "6.95",
+     "3.84",
+     "1.56"
+    ]
+   },
+   {
+    "i": 0,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 39.5139,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "64978da8b87a3c967f484346ffbe4512565298a7258b2e2c56a0a9b38ff43cb2"
+    },
+    "loadavg": [
+     "5.94",
+     "3.96",
+     "1.69"
+    ]
+   },
+   {
+    "i": 1,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 39.1329,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "1308c9e0d7ebc6a6e32dc760b415964d3983b7690dfa039ae93bd29fb3b6af9f"
+    },
+    "loadavg": [
+     "4.92",
+     "3.93",
+     "1.77"
+    ]
+   },
+   {
+    "i": 1,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 39.3973,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "64978da8b87a3c967f484346ffbe4512565298a7258b2e2c56a0a9b38ff43cb2"
+    },
+    "loadavg": [
+     "6.81",
+     "4.43",
+     "2.03"
+    ]
+   },
+   {
+    "i": 2,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 39.5534,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "1308c9e0d7ebc6a6e32dc760b415964d3983b7690dfa039ae93bd29fb3b6af9f"
+    },
+    "loadavg": [
+     "6.73",
+     "4.68",
+     "2.21"
+    ]
+   },
+   {
+    "i": 2,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 39.5979,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "64978da8b87a3c967f484346ffbe4512565298a7258b2e2c56a0a9b38ff43cb2"
+    },
+    "loadavg": [
+     "11.87",
+     "6.09",
+     "2.78"
+    ]
+   },
+   {
+    "i": 3,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 38.8235,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "1308c9e0d7ebc6a6e32dc760b415964d3983b7690dfa039ae93bd29fb3b6af9f"
+    },
+    "loadavg": [
+     "10.03",
+     "6.23",
+     "2.96"
+    ]
+   },
+   {
+    "i": 3,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 39.3653,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "64978da8b87a3c967f484346ffbe4512565298a7258b2e2c56a0a9b38ff43cb2"
+    },
+    "loadavg": [
+     "9.82",
+     "6.53",
+     "3.19"
+    ]
+   },
+   {
+    "i": 4,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 39.0653,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "1308c9e0d7ebc6a6e32dc760b415964d3983b7690dfa039ae93bd29fb3b6af9f"
+    },
+    "loadavg": [
+     "7.58",
+     "6.36",
+     "3.28"
+    ]
+   },
+   {
+    "i": 4,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 39.5367,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "64978da8b87a3c967f484346ffbe4512565298a7258b2e2c56a0a9b38ff43cb2"
+    },
+    "loadavg": [
+     "8.28",
+     "6.62",
+     "3.49"
+    ]
+   },
+   {
+    "i": 5,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 39.6439,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "1308c9e0d7ebc6a6e32dc760b415964d3983b7690dfa039ae93bd29fb3b6af9f"
+    },
+    "loadavg": [
+     "9.63",
+     "7.09",
+     "3.76"
+    ]
+   },
+   {
+    "i": 5,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 40.002,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "64978da8b87a3c967f484346ffbe4512565298a7258b2e2c56a0a9b38ff43cb2"
+    },
+    "loadavg": [
+     "12.55",
+     "7.92",
+     "4.17"
+    ]
+   }
+  ],
+  "median_A": 39.0991,
+  "median_B": 39.5253,
+  "speedup_B_over_A": 0.9892
+ }
+}

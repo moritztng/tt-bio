@@ -1,0 +1,26 @@
+{
+ "root": "perf/b2z2_zinit_ship/cif_calib_cond_p7",
+ "split_seq_id": 298,
+ "ref": "base_0",
+ "n_atoms": 4116,
+ "arms": {
+  "base_1": {
+   "whole_all_atom_A": 0.0,
+   "whole_ca_A": 0.0,
+   "domain1_all_atom_A": 0.0,
+   "domain2_all_atom_A": 0.0,
+   "hinge_free_all_atom_A": 0.0,
+   "hinge_deg": 0.0,
+   "hinge_artifact_signature": true
+  },
+  "device_conditioning_0": {
+   "whole_all_atom_A": 0.6745,
+   "whole_ca_A": 0.4861,
+   "domain1_all_atom_A": 0.63525,
+   "domain2_all_atom_A": 0.40016,
+   "hinge_free_all_atom_A": 0.54944,
+   "hinge_deg": 1.553,
+   "hinge_artifact_signature": false
+  }
+ }
+}

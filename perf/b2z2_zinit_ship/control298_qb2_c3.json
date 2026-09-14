@@ -1,0 +1,35 @@
+{
+ "env": {
+  "started": "2026-09-13T22:24:38+0000",
+  "card": "3",
+  "host": "tt-quietbox2",
+  "size": 298,
+  "msa_dir": "/home/ttuser/.coworker/wt/b2z2-zinit-ship/perf/b2z2_hostzero/.msa_298",
+  "commit": "5f31bb0c",
+  "recycling_steps": 3,
+  "sampling_steps": 200
+ },
+ "folds": [
+  {
+   "tag": "base_0",
+   "TT_BIO_DEVICE_ZINIT": "0",
+   "wall_s": 16.078,
+   "plddt": null,
+   "dir": "298_base_0"
+  },
+  {
+   "tag": "base_1",
+   "TT_BIO_DEVICE_ZINIT": "0",
+   "wall_s": 16.1813,
+   "plddt": null,
+   "dir": "298_base_1"
+  },
+  {
+   "tag": "device_zinit_0",
+   "TT_BIO_DEVICE_ZINIT": "1",
+   "wall_s": 15.8784,
+   "plddt": null,
+   "dir": "298_device_zinit_0"
+  }
+ ]
+}

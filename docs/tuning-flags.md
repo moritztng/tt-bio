@@ -117,6 +117,48 @@ work is a larger fraction of it.
 Setting either to `0` restores the host path for that half. No other model reaches the Boltz-2
 confidence head.
 
+## `TT_BIO_DEVICE_ZINIT` — on, Boltz-2 only
+
+Boltz-2 starts the trunk from `z_init`, a `[1, n, n, token_z]` pair tensor built by summing five
+per-`(i, j)` terms: two broadcasts of a `[1, n, c]` projection, the relative-position tables,
+`token_bonds`, the bond-type embedding and `ContactConditioning`. Upstream builds all of it in
+torch and then uploads the result to the trunk. At 512 tokens that tensor is 134 MB and every
+intermediate sum is another one. This flag builds the same sum on the card, where the resident
+trunk consumes it, so the adds run in the trunk's own memory and the upload never happens. What
+crosses the bus instead is an index map and one packed feature tensor.
+
+It is the same construction the confidence head does with different weights, so both call sites go
+through one `PairAssemblyDevice` and there is no second copy of the assembly.
+
+The flag declines rather than diverging: the device path needs the resident trunk to be the
+consumer, and it needs nothing else on the host to want the relative-position encoding it skips.
+BoltzGen's token-distance recycle does want it, so BoltzGen takes the host path and says so on
+stdout. Boltz-2 has no such module and templates do not read it.
+
+**Accuracy: not identical.** The device sums in bf16 where the host summed in fp32, and it sums in
+a different order. `cdk2x2_298` moves 0.264577 Å all-atom (CA 0.107924) against a 0.000000 Å A/A
+floor and a 0.35 Å bar, both arms in one process. At 512 residues it is scored against the
+experimental structure 1HCL rather than against the previous coordinates, eight seeds per arm:
+native CA-lDDT goes 0.93357 to 0.93238 on one pseudo-domain and 0.91382 to 0.91288 on the other,
+paired differences of -0.00119 and -0.00093 with t of -0.49 and -0.34, against a per-arm spread of
+0.0096 to 0.0116. Four and five of the eight seeds move up. That is flat, not a loss.
+
+Per-pseudo-domain RMSD cannot carry a 0.60 Å bar at 512 residues on this fixture, and the reason
+is measured rather than argued: `cdk2x2_512` is a chimera whose two halves hinge, so re-running the
+same build with nothing changed but the seed moves the worst pseudo-domain up to 2.79626 Å all-atom
+across eight seeds. The bar sits below the column's own noise. Against that floor the flag moves
+1.6372 Å, and every other column reads the same way: domain 2 1.26886 Å against a 1.74577 Å floor,
+hinge-free 1.49445 Å against 2.38987 Å, CA-only 1.32167 Å against 2.37177 Å, whole molecule
+12.0147 Å against 21.8416 Å. Every column moves less than a seed change does, which is why the
+reading above is taken against the experimental structure instead.
+
+**Speed: 1.01955x on a 512-residue Blackhole fold, ten of ten paired reps positive.** One p300c
+processor, ten `base,on,base` brackets in one process under the box benchlock, 17.523 s against
+17.195 s. The A/A floor taken from the same brackets is 1.00361x and its widest pair is 1.00992x,
+below the slowest of the ten lever pairs (1.01566x), so every pair clears the floor. Wormhole read
+1.01090x on an n300, six of six positive. `TT_BIO_DEVICE_ZINIT=0` restores the host path and the
+previous coordinates.
+
 ## `TT_BIO_FUSE_BIAS_STACKS` — on, Boltz-2 only
 
 Boltz-2's diffusion conditioning builds a per-layer bias stack with one call per layer. This flag
