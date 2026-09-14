@@ -1346,6 +1346,17 @@ _B2_BIAS_SLICE_HOIST = env_flag("BOLTZ2_BIAS_SLICE_HOIST", True)
 # The pair is held in DRAM: 24 retained L1 tensors of 1.83 MB would keep ~44 MB of L1 for the
 # whole rollout and clash with a later op's circular buffers.
 _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
+# L8. Hoist the token DiT's conditioning half out of the 24-layer loop: every layer in a sampling
+# step reads the SAME `s` through six [S,768]x[768,768] projections of its own, and
+# `nn.LayerNorm(dim, bias=False)` is `gamma_i * s_hat` with `s_hat` shared, so folding gamma_i
+# into the i-th weight block lets one parameter-free layer_norm and two concatenated matmuls
+# replace 144 matmuls and 48 layer_norms per step. Same FLOPs and the same dot products; what
+# changes is the grouping of the launches and the order of one bf16 rounding.
+# Measured integrated over a whole step (perf/roof_difftx): 15.0004 -> 13.2218 ms on a Blackhole
+# p150a, 1.1345x, against a 0.27 % A/A floor -- and 1.0122x on Wormhole, where the concatenation
+# gain and the slice tax cancel. Default OFF: release-gated until a qb2 fold-level A/B and the
+# structure arm have run. Read at CALL time, not import time, so an interleaved A/B can flip it.
+_B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", False)
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
@@ -9109,6 +9120,16 @@ class AdaLN(Module):
             return self._s_memo
         return s_scale, s_bias
 
+    def folded_weights(self):
+        """`(gamma * s_scale_w, s_scale_b, gamma * s_bias_w)` for the concatenated projection.
+
+        `s_terms` computes `layer_norm(s, weight=gamma) @ W`; this returns the `W` that gives the
+        same product from the parameter-free `s_hat`. Built on host from the checkpoint, so the
+        gamma multiply is rounded to bf16 once, offline, instead of per activation element."""
+        g = self.weights["s_norm.weight"].reshape(-1, 1)
+        return (self.weights["s_scale.weight"].t() * g, self.weights["s_scale.bias"],
+                self.weights["s_bias.weight"].t() * g)
+
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False,
                  s_terms=None) -> ttnn.Tensor:
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
@@ -9161,9 +9182,13 @@ class ConditionedTransitionBlock(Module):
         self.output_projection_bias = self.torch_to_tt("output_projection.0.bias")
 
     def __call__(
-        self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False
+        self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False, cond=None
     ) -> ttnn.Tensor:
-        a = self.adaln(a, s, large_seq_len=large_seq_len)
+        """`cond`, when given, is `(s_terms, s_out)` already computed by the caller, with `s_out`
+        ALREADY through its sigmoid -- the concatenated projection applies it in the matmul's own
+        activation epilogue, where it is free, instead of at the multiply below."""
+        s_terms, s_out = cond if cond is not None else (None, None)
+        a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms)
         a_swish = ttnn.linear(
             a,
             self.swish_weight,
@@ -9190,13 +9215,14 @@ class ConditionedTransitionBlock(Module):
         else:
             ttnn.deallocate(a)
             b = a_swish
-        s = ttnn.linear(
-            s,
-            self.output_projection_weight,
-            bias=self.output_projection_bias,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        if s_out is None:
+            s = ttnn.linear(
+                s,
+                self.output_projection_weight,
+                bias=self.output_projection_bias,
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
         b_a = ttnn.linear(
             b,
             self.b_to_a_weight,
@@ -9204,7 +9230,8 @@ class ConditionedTransitionBlock(Module):
             core_grid=CORE_GRID_MAIN,
         )
         ttnn.deallocate(b)
-        a = ttnn.multiply_(s, b_a, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID])
+        a = (ttnn.multiply(s_out, b_a) if s_out is not None else
+             ttnn.multiply_(s, b_a, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID]))
         ttnn.deallocate(b_a)
         return a
 
@@ -9266,14 +9293,20 @@ class DiffusionTransformerLayer(Module):
         z: ttnn.Tensor,
         keys_indexing: "ttnn.Tensor | _AtomShiftGather | None" = None,
         large_seq_len: bool = False,
+        cond=None,
     ) -> ttnn.Tensor:
-        b = self.adaln(a, s, large_seq_len=large_seq_len)
+        """`cond`, when given, is this layer's slice of the hoisted conditioning half:
+        `(attn_s_terms, attn_s_out, trans_s_terms, trans_s_out)`, both `s_out` post-sigmoid."""
+        t_attn, s_o_pre, t_trans, s_o2_pre = cond if cond is not None else (None,) * 4
+        b = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=t_attn)
         if not self.atom_level:
             b = self.attn_pair_bias(b, z)
         else:
             b = self.attn_pair_bias(b, z, keys_indexing)
         key = tuple(s.shape)
-        if self.s_o is None or self._s_o_key != key:
+        if s_o_pre is not None:
+            s_o = s_o_pre
+        elif self.s_o is None or self._s_o_key != key:
             s_o = ttnn.linear(
                 s,
                 self.output_projection_weight,
@@ -9290,11 +9323,13 @@ class DiffusionTransformerLayer(Module):
         if self.no_residual:
             # transition reads the block input, so it must be evaluated BEFORE a
             # absorbs the attention output
-            a_t = self.transition(a, s, large_seq_len=large_seq_len)
+            a_t = self.transition(a, s, large_seq_len=large_seq_len,
+                                  cond=None if cond is None else (t_trans, s_o2_pre))
             a = ttnn.add(ttnn.add(a, b), a_t)
         else:
             a = ttnn.add(a, b)
-            a_t = self.transition(a, s, large_seq_len=large_seq_len)
+            a_t = self.transition(a, s, large_seq_len=large_seq_len,
+                                  cond=None if cond is None else (t_trans, s_o2_pre))
             a = ttnn.add(a, a_t)
         return a
 
@@ -9326,6 +9361,37 @@ class DiffusionTransformer(Module):
             )
             for i in range(n_layers)
         ]
+        self.atom_level = atom_level
+        self.dim = dim
+        self._cond_w = None
+
+    def _cond_weights(self):
+        """The 24 layers' conditioning projections, concatenated into two weight blocks.
+
+        Block order per layer i: the four AdaLN projections
+        `(attn s_scale, attn s_bias, transition s_scale, transition s_bias)` with each layer's
+        `s_norm` gain folded in, then separately the two output projections. Built once from the
+        checkpoint the layers were built from, so nothing is read back off the device."""
+        if self._cond_w is not None:
+            return self._cond_w
+        ad_w, ad_b, op_w, op_b = [], [], [], []
+        for layer in self.layers:
+            for ad in (layer.adaln, layer.transition.adaln):
+                scale_w, scale_b, bias_w = ad.folded_weights()
+                ad_w += [scale_w, bias_w]
+                ad_b += [scale_b, torch.zeros_like(scale_b)]
+            op_w.append(layer.weights["output_projection_linear.weight"].t())
+            op_b.append(layer.weights["output_projection_linear.bias"])
+            op_w.append(layer.transition.weights["output_projection.0.weight"].t())
+            op_b.append(layer.transition.weights["output_projection.0.bias"])
+        dt = _dtype(ttnn.bfloat16)
+
+        def cat(parts, dim):
+            return ttnn.from_torch(torch.cat(parts, dim=dim), layout=ttnn.TILE_LAYOUT,
+                                   device=self.device, dtype=dt)
+
+        self._cond_w = (cat(ad_w, 1), cat(ad_b, 0), cat(op_w, 1), cat(op_b, 0))
+        return self._cond_w
 
     def __call__(
         self,
@@ -9335,22 +9401,69 @@ class DiffusionTransformer(Module):
         keys_indexing: "ttnn.Tensor | _AtomShiftGather | None" = None,
         large_seq_len: bool = False,
     ) -> ttnn.Tensor:
-        if isinstance(z, (list, tuple)):
-            # L7: the head-ranges were cut once per fold (AtomDiffusion._hoist_layer_bias),
-            # because z is constant across the whole denoise rollout.
-            for layer, z_layer in zip(self.layers, z):
-                a = layer(a, s, z_layer, keys_indexing, large_seq_len=large_seq_len)
+        # L8. One layer_norm and two concatenated matmuls in place of the 24 layers' own 144
+        # projections and 48 layer_norms. Read at call time so an interleaved A/B can flip it.
+        cond_all = None
+        if _B2_DIT_COND_HOIST and not self.atom_level:
+            adw, adb, opw, opb = self._cond_weights()
+            s_hat = ttnn.layer_norm(s, epsilon=1e-5,
+                                    compute_kernel_config=self.compute_kernel_config)
+            o_ad = ttnn.linear(s_hat, adw, bias=adb,
+                               compute_kernel_config=self.compute_kernel_config)
+            ttnn.deallocate(s_hat)
+            # `activation="sigmoid"` here is where both output projections' sigmoids go: the
+            # attention one already carried it in its own linear, and the transition one moves
+            # off its multiply, which is told not to re-apply it.
+            o_op = ttnn.linear(s, opw, bias=opb,
+                               compute_kernel_config=self.compute_kernel_config,
+                               activation="sigmoid")
+            cond_all = (o_ad, o_op)
+
+        d = self.dim
+
+        def cut(i):
+            if cond_all is None:
+                return None, ()
+            o_ad, o_op = cond_all
+            parts = [o_ad[..., (4 * i + j) * d:(4 * i + j + 1) * d] for j in range(4)]
+            parts += [o_op[..., (2 * i + j) * d:(2 * i + j + 1) * d] for j in range(2)]
+            return (parts[0], parts[1]), parts
+
+        def bundle(i):
+            terms, parts = cut(i)
+            if terms is None:
+                return None, ()
+            return (terms, parts[4], (parts[2], parts[3]), parts[5]), parts
+
+        try:
+            if isinstance(z, (list, tuple)):
+                # L7: the head-ranges were cut once per fold (AtomDiffusion._hoist_layer_bias),
+                # because z is constant across the whole denoise rollout.
+                for i, (layer, z_layer) in enumerate(zip(self.layers, z)):
+                    cond, parts = bundle(i)
+                    a = layer(a, s, z_layer, keys_indexing, large_seq_len=large_seq_len,
+                              cond=cond)
+                    for x in parts:
+                        ttnn.deallocate(x)
+                return a
+            dim = z.shape[1] // len(self.layers)
+            for i, layer in enumerate(self.layers):
+                cond, parts = bundle(i)
+                a = layer(
+                    a,
+                    s,
+                    z[:, i * dim : (i + 1) * dim, :, :],
+                    keys_indexing,
+                    large_seq_len=large_seq_len,
+                    cond=cond,
+                )
+                for x in parts:
+                    ttnn.deallocate(x)
             return a
-        dim = z.shape[1] // len(self.layers)
-        for i, layer in enumerate(self.layers):
-            a = layer(
-                a,
-                s,
-                z[:, i * dim : (i + 1) * dim, :, :],
-                keys_indexing,
-                large_seq_len=large_seq_len,
-            )
-        return a
+        finally:
+            if cond_all is not None:
+                for x in cond_all:
+                    ttnn.deallocate(x)
 
 
 class PairWeightedAveraging(Module):
