@@ -158,6 +158,18 @@ SEQ_LEN_MORE_CHUNKING = 1536
 # Row-block height for the trimul's row-local projections. One number so the input and output
 # projections cannot drift apart; a tile multiple, so a block boundary never splits a tile and the
 # blocks stay bit-exact against the whole-tensor result.
+#
+# It has NO envelope, and that is measured rather than assumed. Swept 32 to 512 at 512, 640 and
+# 768 tokens on the 8x9 Galaxy through `_pair_bias_from_z`, the one of its three use sites that
+# runs without model weights (perf/roof_bh_env/pair_row_block.py, two sessions): nothing refuses at
+# any height and every height is `torch.equal` against the whole-tensor result. The curve is
+# monotone and flat past the shipped value -- at 640 aa, 5.1476 ms at 32, 4.5366 at 128, 4.4155 at
+# 320 -- so 32 costs 1.1346x and 320 buys 1.0274x, under the bar, against a 0.65 % A/A floor. 128
+# sits just past the knee and "a tile multiple" is a sufficient justification here.
+#
+# The other two sites are the trimul's row-blocked projections, where the height bounds PEAK
+# ALLOCATION on sizes that otherwise refuse. That trade is a footprint question and this timing
+# sweep says nothing about it, so raising the constant would need the footprint measured first.
 PAIR_ROW_BLOCK = 128
 # Byte gate for row-blocking the trimul INPUT norm, which is a different question from the output
 # projections' SEQ_LEN_MORE_CHUNKING gate and must not share it.
@@ -2054,6 +2066,15 @@ _BATCHED_MATMUL_ON = env_flag("TT_BIO_BATCHED_MATMUL", True)
 # than one legal per_core_M is fastest at 32 blocks -- DiT attn@v 0.0337 / 0.0295 / 0.0429 ms at
 # 80 / 32 / 16 blocks, AttentionPairBias attn@v 0.0305 / 0.0269 / 0.0434, DiT q@k^T 0.0510 /
 # 0.0434 / 0.0580 (perf/bmm_reconcile/pcm_sweep_c0.json).
+#
+# Accidentally safe on the 8x9 Galaxy, by exhaustion rather than by luck
+# (perf/roof_bh_env/results/pcm_sweep_whglx_{A,B}.json, the same `perf/bmm_reconcile/pcm_sweep.py`
+# that fitted it, two sessions agreeing within 0.3 %). The legality predicate `blocks <= cores`
+# already deletes the 80-block rung on 72 cores, so 8 of the 11 classes have exactly one legal
+# per_core_M and the target is inert. In the three that have a choice the legal set is {32, 16}
+# blocks and 32 is faster in all three: DiT attn@v 0.0629 against 0.1064 ms (1.691x), DiT q@k^T
+# 0.1109 against 0.1389 (1.252x), OF3 AttentionPairBias attn@v 0.0486 against 0.0855 (1.759x),
+# every rung bit-exact. There is no legal rung above 32 blocks here to be wrong about.
 _BATCHED_MATMUL_SATURATION_BLOCKS = 32
 
 
@@ -2597,6 +2618,10 @@ _SOFTMAX_CKC = env_flag("TT_BIO_SOFTMAX_CKC", False)
 # copy. Peak is 1.5x the budget, because the bf16 half of a typecast is live alongside the fp32.
 _FP32_SOFTMAX_L1_BYTES_PER_CORE = 768 << 10
 _FP32_SOFTMAX_L1_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than 110 shards.
+#: Take the rectangle from the live grid instead on a part smaller than the 11x10 baseline, where
+#: the fitted 8x8 is neither the whole grid nor a safe fraction of it. Set by
+#: `_apply_grid_thresholds`; `TT_BIO_FP32_SOFTMAX_L1_LIVE_GRID=0` pins the fitted value for an A/B.
+_FP32_SOFTMAX_L1_LIVE_GRID = env_flag("TT_BIO_FP32_SOFTMAX_L1_LIVE_GRID", True)
 
 FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfused": 0,
                       "l1": 0, "l1_blocks": 0, "l1_refused": 0, "l1_cores": 0,
@@ -4054,6 +4079,16 @@ def _pair_proj_minimal_matmul(x, w, ckc, dtype, bias=None):
 # the chain once one half is already resident; obw = 8 costs 2.45 ms/call. MEASURED on qb2 card 2,
 # whole FFN at [1,512,512,256] rows=32: 17.918 -> 14.662 ms, `torch.equal`
 # (perf/esm3p4/screen_a_c2.json, screen_b_c2.json).
+#
+# Accidentally safe on the 8x9 Galaxy, and measured there rather than assumed
+# (perf/roof_bh_env/results/pair_ffn_bw_*.json, j10glx02 card 0, real `SwiGLUFFN.__call__` so every
+# fallback the module owns is in the arm). Of the 320-1024 aa window the row block rides inside,
+# 320 aa is the only size where the L1 destination is actually served -- 160 of 160 calls -- and
+# there every width from 8 to 64 lands within 0.17 % of the shipped 16 on a 0.14 % A/A floor, with
+# obw = 32, the p300c's documented clash, serving all 160. At 384 and 512 aa the class takes one
+# refusal ("L1 clash: grid=(8, 6) cores=48 buffer_addr=331776 cb_end=681248 shortfall=349472") and
+# retires, 1 served / 1 refused / 190 and 254 blocked, and at 768 aa the config gate declines all
+# 384. So on this part the constant is dark at three of four sizes and inert at the fourth.
 _PAIR_FFN_FC1_BW = 1
 _PAIR_FFN_FC1_BLOCK_W = 16
 
@@ -4286,10 +4321,37 @@ def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
     global TRANSITION_W_CHUNKING_THRESHOLD, TRIANGLE_ATT_CHUNK_SIZE_FAST
     global TRANSITION_W_CHUNK_SIZE, TRIANGLE_MULT_L1_MAX_SEQ_FAST, SMALL_GRID_SEQ_TILE
     global SMALL_GRID_PAIR_TILE_AREA, SMALL_GRID_MSA_TILE_AREA, TRIANGLE_MULT_L1_MAX_SEQ
-    global TRANSITION_L1_CHUNK_BYTES_PER_CORE
+    global TRANSITION_L1_CHUNK_BYTES_PER_CORE, _FP32_SOFTMAX_L1_GRID
     _IS_SMALL_GRID = grid[0] * grid[1] < COMPUTE_GRID_X_11 * COMPUTE_GRID_Y
     if not _IS_SMALL_GRID:
         return  # Keep Blackhole baseline values
+    # The fp32-softmax tuned rectangle is the live grid on a small part, not the fitted 8x8.
+    #
+    # `_FP32_SOFTMAX_L1_GRID` was fitted where 64 of 130 cores was a quarter of the part and the
+    # refusal boundary was 110 shards. On the 8x9 Galaxy 64 of 72 is a different occupancy AND a
+    # different byte count per core, because the block height is derived from the core count:
+    # 12 rows on 64 cores is 786432 B/core and this part refuses it, 9 rows on 72 is 524288 B/core
+    # and it does not. MEASURED on AF2-IG's triangle attention at 512 aa, two whole interleaved
+    # sessions on j10glx02 card 0, own-session A/A floor 0.017 %/0.043 %: 109.589 -> 74.034 ms and
+    # 109.545 -> 73.997 ms, 1.4803x and 1.4804x, `torch.equal` with max_abs 0.0 at every rung.
+    # 256/384/768 aa are neutral to within the A/A floor -- the floating core count already lands
+    # on 72 there -- so this is not a tuning, it is the one rung where the rectangle refuses.
+    #
+    # An op ratio is not a result, so it is priced on a whole fold too: 512 aa, 200 sampling steps,
+    # 3 recycles, ABBA in one process, two interleaved sessions of n=4 per arm -- 96.784 -> 76.480 s
+    # (1.2655x) and 96.756 -> 76.651 s (1.2623x), A/A floor 0.043 %/0.049 %, the eight paired deltas
+    # all between 19.915 and 20.465 s. All 20 folds wrote one CIF sha256 and one 0.84482 pLDDT, so
+    # bit-exact at the fold level and across sessions. That fold carries BOLTZ2_FP32_SOFTMAX=1 on
+    # BOTH arms: it is the path, not the arm, because Boltz-2 ships the fused SDPA and is the model
+    # whose weights are on that box, while OpenFold3 and AF2-IG take this path by default.
+    # perf/roof_bh_env/README.md.
+    #
+    # Deliberately inside the small-grid branch: on a 13x10 p150a and an 11x10 p300c this function
+    # returns above, so both Blackhole parts keep the fitted rectangle byte for byte. The 110-shard
+    # ceiling the constant's comment names is never reached here either -- 80 shards is already
+    # refused on 72 L1 banks -- so the live grid needs no further clamp on a part this size.
+    if _FP32_SOFTMAX_L1_LIVE_GRID:
+        _FP32_SOFTMAX_L1_GRID = (grid[1], grid[0])   # (y, x), as the constant is written
     # Scale every budget to this part's actual per-core unreserved L1, clamped to
     # <= the full-L1 calibration (so an ample-L1 Wormhole is byte-for-byte
     # unchanged — no perf regression — and only a tighter part, e.g. the Galaxy,
@@ -5567,6 +5629,15 @@ def set_trimul_inproj_rowblock(on: bool, r: int | None = None) -> tuple[bool, in
 # Measured 1.5034x on `reblock_permute_gated` and 1.0212x on the 512 aa fold, on a Blackhole
 # p150a (state/k10-p1-trimul-critpath.md, arm `b1`). Wormhole has 12 DRAM banks, so 256 % 12 = 4
 # and the serialisation this removes cannot happen there; the reorder is free on both.
+#
+# The Wormhole half of that is now MEASURED and not just argued. `dram_grid_size()` on a Galaxy
+# chip reads (x=12, y=1), so the premise holds, and `perf/k10_b1_permute/b1_equiv.py` run twice on
+# j10glx02 card 0 puts the C=128 cells -- the ones worth 1.2990x to 1.5146x on the p150a -- at
+# 1.0015x/1.0221x (N=298), 1.0138x/1.0015x (N=320), 1.0045x/1.0036x (N=512) and 1.0035x/1.0010x
+# (N=640). The C=32 cells scatter from 0.8870x to 1.0830x and change sign between the two sessions,
+# which is this rig's own cross-session floor at that width, not a lever. 16/16 cells bit-exact
+# against a live negative control. So the shipped default costs the part JapanFold serves nothing.
+# perf/roof_bh_env/results/b1_equiv_whglx_{A,B}.json.
 TRIMUL_GP_BANK_SPLIT = True
 _GP_ROLES_SPLIT = ("p_a", "g_a", "p_b", "g_b")
 _GP_ROLES_MAJOR = ("g_a", "g_b", "p_a", "p_b")
