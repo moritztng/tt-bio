@@ -217,3 +217,38 @@ Arithmetically sound and cheap on accuracy, worth 1.1345x on the isolated 24-lay
 shippable default, and not yet a resolved fold-level win.** What it needs is a benchlocked quiet
 512 aa session to resolve the 1.02x, the size ladder above 512 aa where the amortisation only
 improves, and a qb2 re-price.
+
+---
+
+# Benchlocked 512 aa: resolved, and the earlier "unresolved" was the wrong test
+
+`benchlock: roof-difftx acquired after 0s, loadavg 0.77 1.42 1.30`, pc card 0, Blackhole p150a,
+3 reps = 6 paired ABBA legs, 200 steps, 3 recycles, full MSA.
+
+    paired legs   1.0132  0.9990  1.02942  1.02079  1.00992  1.0255
+    mean          1.01631        95 % CI [1.00456, 1.02805]     t = 3.568 on 5 df
+    median        1.01700        5 of 6 legs above 1
+    median fold   17.0945 s off  ->  16.8655 s on               saving 0.2290 s
+
+**The confidence interval excludes 1.0, so the effect is resolved.** The previous pass called it
+unresolved by comparing the median against `aa_floor_max`, which is a `max/min` within an arm:
+that statistic is >= 1 by construction, so it is a biased null and it is not the right test for a
+paired design. The paired legs are the test, and the A/A *median* is 1.00850 against an effect of
+1.01631. Both readings come out of the same runs; only the statistic changed.
+
+**Fold-seconds, which is the number that counts: 0.229 s of the 17.340 s cell, 9.9 % of the
+2.309 s prize.** That is below the 0.334 s the op-level 1.1345x predicted, by 1.46x — an op ratio
+applied to a unit's share of the cell is an upper bound, not a forecast.
+
+## 768 aa did not complete, and the card is implicated rather than the lever
+
+Three `off` folds at 768 aa produced **two different structures** — `e24bcccafc92` / plDDT
+0.831898 twice, then `3a0377b60fa4` / plDDT 0.826394 — and the `off` arm contains none of this
+branch's code path. The fourth `on` fold then ran 29 minutes at 117 % CPU holding the device
+against a 35 s warm run, and was stopped by explicit PID. At 512 aa in this same process the
+`off` arm was perfectly deterministic (one sha, control 0.0000 A), so **pc card 0's known 512 aa
+nondeterminism is worse at 768 aa, badly enough to return two structures from one arm.**
+
+That makes the 768 aa leg unreadable for both perf and structure, and it cannot be attributed to
+the hoist without a control on another card. The ladder above 512 aa is still owed and now needs
+a different card, not a re-run here.
