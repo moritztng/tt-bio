@@ -25,6 +25,19 @@ and L1 refuses it). It does NOT hold flat, and a refusal is handled below rather
 
 The gate is narrow on purpose. It needs one head and one q chunk per core, a batch-broadcast mask,
 no padded mask, and bf16 interleaved DRAM throughout; anything else falls through to the stock op.
+
+RE-MEASURED on qb2 card 3 (Blackhole p300c, 11x10) at the same 512 aa shape, 40 interleaved blocks,
+own-session A/A 1.2 % (`perf/roof_triatt_levers/sdpa_bh_b40.json`):
+
+    stock op, batch-1 bias        3.6273 ms
+    stock op, no mask at all      1.3682 ms      the bias costs the stock op 2.65x
+    this kernel, mask on          1.3684 ms      at the no-mask arm, inside the A/A floor
+    this kernel, mask add ablated 1.2089 ms      1.132x, and that add is the model's own maths
+
+So the whole of the stock op's mask cost is already gone here, and what is left is the bias add
+itself. `roof-tri-close` sized that cost at 1.88x on Wormhole and named it as an unbuilt lever; it
+was already built. The Boltz-2 512 aa fold serves 560 of 560 triangle-attention calls through this
+path on this part (`perf/sizegate/baseline/census_boltz2_512_p300c.json`).
 """
 
 from __future__ import annotations
@@ -198,7 +211,12 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
     for kc in SG.chunk_divisors(seq):
         for qc in SG.chunk_divisors(seq):
             q_pf = q_parallel_factor(seq, heads, qc, cores)
-            p = SG.plan_for_shape(seq, heads, head_dim, qc, kc, split=(
+            # `plan` reads the grid only as a core count here, and its split assert is against
+            # that count -- so the grid has to carry the caller's `cores`, not the module default.
+            # On a 13x10 p150a (130 cores) the default (11, 10) made every candidate assert
+            # instead of answering, so `TT_BIO_SDPA_FUSED_LARGE_S=1` raised AssertionError out of
+            # the fold rather than falling through to the stock ladder.
+            p = SG.plan_for_shape(seq, heads, head_dim, qc, kc, grid=(cores, 1), split=(
                 max(cores // (heads * q_pf), 1), heads, q_pf), dtype=mask_dtype)
             if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"]:
                 continue
@@ -291,4 +309,106 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
         PM_L1_ERRORS[pm_key] = str(exc)
         return _reject("l1_budget", shape)
     STATS[0] += 1
+    return out
+
+
+# ROOF Phase A: the qkv projection moved inside this kernel.
+#
+# The pair it replaces is `generic_minimal_matmul(x, w) -> q, k, v` followed by `sdpa(q, k, v)`.
+# Folding deletes the projection program outright, and the SDPA's own read GROWS -- it reads
+# x[b] (Sqt*Ct tiles) where it used to read q, k and v (3*Sqt*DHt tiles). At boltz-2's 512 aa
+# triangle attention that is 201.3 -> 268.4 MB on the consumer against 268.4 MB deleted from the
+# producer, so the pair moves 603.9 -> 402.7 MB. See `state/roof-qkv-sdpa-build.md`.
+#
+# Off by default. This is a release-gated arm: it changes which arithmetic a shipped call reaches.
+_FUSE_QKV = env_flag("TT_BIO_TRIATT_FUSE_QKV", False)
+FUSE_REJECTS: dict = {}
+
+
+def _fuse_reject(reason, shape):
+    FUSE_REJECTS[reason] = FUSE_REJECTS.get(reason, 0) + 1
+    return None
+
+
+def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_default=None,
+                   x_buffer_factor=2, force=False):
+    """Triangle attention from the PRE-projection pair tensor, or `None` to decline.
+
+    `x` is `[B, S, C]` and `w` its `[C, 3*n_heads*head_dim]` qkv weight, laid out exactly as
+    `TriangleAttention.qkv_weight` already lays it (q heads, then k heads, then v heads). Returns
+    the attention output `[B, n_heads, S, head_dim]`; the caller still owns the gate and the output
+    projection.
+    """
+    if not (_FUSE_QKV or force) or bias is None:
+        return None
+    if not _ENABLED:
+        return _fuse_reject("persistent_mask_off", [])
+    shape = [int(d) for d in x.shape]
+    if len(shape) != 3 or len(bias.shape) != 4:
+        return _fuse_reject("rank", shape)
+    B, S, C = shape
+    S_pad = int(x.padded_shape[-2])
+    if C != n_heads * head_dim or head_dim != 32:
+        # The reader's K read is a tile-ORDER transpose, which is the identity only at DHt == 1.
+        return _fuse_reject("head_dim", shape)
+    if any(t.dtype != ttnn.bfloat16 for t in (x, w, bias)):
+        return _fuse_reject("dtype", shape)
+    if any(t.layout != ttnn.TILE_LAYOUT for t in (x, w, bias)):
+        return _fuse_reject("layout", shape)
+    for t in (x, w, bias):
+        mc = t.memory_config()
+        if (mc.buffer_type != ttnn.BufferType.DRAM
+                or mc.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED):
+            return _fuse_reject("memory_config", shape)
+
+    from .tenstorrent import COMPUTE_GRID_MAIN
+    grid = tuple(COMPUTE_GRID_MAIN)
+    cores = grid[0] * grid[1]
+    if cores // n_heads < 1:
+        return _fuse_reject("grid_too_small", shape)
+    # One q chunk per core AND the whole sequence in that chunk: the fold contracts x[b] once and
+    # makes q, k and v from it, so a split q would re-read x per chunk and put the byte delta back
+    # on the wrong side. q_pf stays 1 here for that reason, unlike `sdpa` above.
+    if q_chunk != S_pad:
+        return _fuse_reject("q_chunk_not_full_S", shape)
+    split = (cores // n_heads, n_heads, 1)
+
+    dev = x.device()
+    out = ttnn.allocate_tensor_on_device(
+        ttnn.Shape([B, n_heads, S, head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
+        ttnn.DRAM_MEMORY_CONFIG)
+    ckc = ckc_default or _CKC_OVERRIDE or (ttnn.MathFidelity.HiFi2, True, False, False)
+    p = SG.plan(out, out, out, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)
+    if not (p["nh_per_core"] == 1 and p["q_per_core"] == 1 and p["bcast_batch"]
+            and not p["use_padded_mask"] and p["Skt"] == p["Sq_chunk_t"]):
+        ttnn.deallocate(out)
+        return _fuse_reject("fill_preconditions", shape)
+
+    # cb_k_in and cb_v_in have to hold the whole sequence, not one chunk: one pass over the
+    # resident x produces k and v for every k chunk at once.
+    kvbf = p["k_num_chunks"]
+    p = SG.plan(out, out, out, bias, out, q_chunk, k_chunk, grid, ckc, scale, split, kvbf)
+    persistent = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
+    Ct = C // 32
+    # Drop to a single x buffer rather than refuse. The double buffer is what lets the reader
+    # fetch the next batch row while the compute kernel is still contracting this one.
+    for xbf in (x_buffer_factor, 1):
+        extra = SG.fuse_qkv_cbs(p, Ct, xbf, x.dtype)
+        if SG.cb_fits_l1(p, mask_cb_tiles=persistent, extra_cbs=extra, mask_dtype=bias.dtype):
+            break
+    else:
+        ttnn.deallocate(out)
+        return _fuse_reject("l1_budget", shape)
+    try:
+        SG.sdpa(dev, out, out, out, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
+                kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent, kv_buffer_factor=kvbf,
+                fuse_qkv=(x, w, xbf),
+                defines_extra={"PERSISTENT_MASK": p["k_num_chunks"]})
+    except Exception as exc:  # noqa: BLE001
+        ttnn.deallocate(out)
+        if "circular buffers" not in str(exc):
+            raise
+        SG.note_l1_refusal(str(exc))
+        PM_L1_ERRORS[("fuse", S, q_chunk, k_chunk)] = str(exc)
+        return _fuse_reject("l1_budget_device", shape)
     return out

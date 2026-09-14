@@ -1,0 +1,173 @@
+{
+ "attack1_contention": {
+  "published_scalar": 0.7011,
+  "published_scalar_denominator": {
+   "plain_reps_s": [
+    27.415,
+    22.047
+   ],
+   "n": 2,
+   "plain_median_s": 24.731,
+   "note": "n=2, so the 'median' is the mean of two reps that differ by 1.24x; the scalar is 17.340/rep in [0.6325, 0.7865]"
+  },
+  "times_come_from": "the instrumented fold, 74.159 s wall, whose own note says 'this fold's wall is a diagnostic, not a baseline'",
+  "ops_per_ms": {
+   "PairformerLayer|1x512x384,1x512x512x128": 7.9,
+   "MSALayer|1x512x512x128,1x1024x512x64": 6.28,
+   "DiffusionModule|": 41.38
+  },
+  "published_waste_at_cell": {
+   "PairformerLayer|1x512x384,1x512x512x128": 5.41,
+   "MSALayer|1x512x512x128,1x1024x512x64": 1.067,
+   "DiffusionModule|": 3.867
+  },
+  "per_op_gap_fitted_us": 15.82,
+  "per_op_gap_model_k": {
+   "PairformerLayer|1x512x384,1x512x512x128": 0.8751,
+   "MSALayer|1x512x512x128,1x1024x512x64": 0.9006,
+   "DiffusionModule|": 0.3455
+  },
+  "per_op_gap_model_waste_at_cell": {
+   "PairformerLayer|1x512x384,1x512x512x128": 7.795,
+   "MSALayer|1x512x512x128,1x1024x512x64": 1.608,
+   "DiffusionModule|": 0.942
+  },
+  "per_op_gap_us_that_swaps_denoiser_and_MSA": 13.76,
+  "k_denoiser_needed_to_take_rank1": 0.8886,
+  "k_denoiser_over_k_pairformer_needed_for_rank1": 1.267,
+  "k_MSA_needed_to_take_rank2": 1.7344,
+  "k_MSA_over_k_denoiser_needed_for_rank2": 2.474,
+  "reorders_under_per_op_gap_model": true
+ },
+ "attack2_tiling": {
+  "nesting_from_the_instrumented_tree": {
+   "DiffusionModule": 200,
+   "DiffusionModule/Diffusion": 200,
+   "DiffusionModule/Diffusion/DiffusionTransformer": 600,
+   "DiffusionModule/Diffusion/Transition": 400,
+   "PairformerModule": 1,
+   "PairformerModule/Pairformer": 1,
+   "PairformerModule/Pairformer/PairformerLayer": 8,
+   "TrunkModule": 1,
+   "TrunkModule/MSA": 4,
+   "TrunkModule/MSA/MSALayer": 16,
+   "TrunkModule/Pairformer": 4,
+   "TrunkModule/Pairformer/PairformerLayer": 256
+  },
+  "top_three_are_disjoint": true,
+  "why": "the tree makes PairformerLayer|1x512x512x128 (16 calls) a child of MSALayer and Diffusion / DiffusionTransformer / DiffusionTransformerLayer children of DiffusionModule; TOP names none of them",
+  "additivity": {
+   "PairformerLayer|1x512x384,1x512x512x128": {
+    "ms_parent": 51.9242,
+    "ms_children": 49.28,
+    "ops_parent": 410,
+    "ops_children": 395,
+    "GFLOP_parent": 508.189,
+    "GFLOP_children": 508.2,
+    "MB_parent": 6758.294,
+    "MB_children": 6353.4,
+    "ms_unattributed": 2.644,
+    "ops_unattributed": 15
+   },
+   "MSALayer|1x512x512x128,1x1024x512x64": {
+    "ms_parent": 169.3622,
+    "ms_children": 167.421,
+    "ops_parent": 1064,
+    "ops_children": 1029,
+    "GFLOP_parent": 1368.318,
+    "GFLOP_children": 1368.3,
+    "MB_parent": 22100.181,
+    "MB_children": 21496.2,
+    "ms_unattributed": 1.941,
+    "ops_unattributed": 35
+   },
+   "DiffusionTransformer|1x512x768,1x512x768": {
+    "ms_parent": 27.1941,
+    "ms_children": 20.105,
+    "ops_parent": 1224,
+    "ops_children": 1224,
+    "GFLOP_parent": 289.998,
+    "GFLOP_children": 290.0,
+    "MB_parent": 2894.07,
+    "MB_children": 2912.2,
+    "ms_unattributed": 7.089,
+    "ops_unattributed": 0
+   }
+  },
+  "session_s_covered_by_top_three": 24.644,
+  "session_plain_fold_s": 24.731,
+  "coverage_pct": 99.65,
+  "device_s_this_session": 25.0561,
+  "host_s_this_session": 0.401,
+  "coverage_pct_of_device_s": 98.36
+ },
+ "attack3_where_the_max_is_taken": {
+  "published_floor_s": 6.934,
+  "published_rule": "fold_B / stream_roof, summed over the three units; no max in the file",
+  "stream_roof_GBps": 424.7,
+  "compute_roof_dense_cube_TFLOPs": 104.93,
+  "shape_honest_rate_source": "wk/roof-pair-transition 6d8d50b00: the pair Transition's own shapes reach 31.40 TFLOP/s against a 124.88 TFLOP/s dense cube in that session, 25.14 %; transferred to this card's 104.93 cube as a ratio, 26.38 TFLOP/s",
+  "floors": {
+   "real_traffic_verbatim": {
+    "aggregate_max_s": 6.927,
+    "per_op_max_at_dense_cube_qb2c2_104.93": 8.099,
+    "per_op_max_at_shape_honest_pair_transition_transferred_26.38": 14.006
+   },
+   "L1_output_readers_charged": {
+    "aggregate_max_s": 7.036,
+    "per_op_max_at_dense_cube_qb2c2_104.93": 8.194,
+    "per_op_max_at_shape_honest_pair_transition_transferred_26.38": 14.058
+   }
+  },
+  "cell_s": 17.34
+ },
+ "attack5_byte_instruments": {
+  "real_traffic_handles_in_place_correctly": true,
+  "evidence": "real_traffic.counts charges an in-place op rd += size AND w += size; census.py:split_io drops the read entirely (round 1, 8.49 % on a block)",
+  "new_defect": "moves_dram() is built from the DRAM rows only, so an op whose output was allocated in L1 is not a reader of the DRAM it consumes",
+  "fold_TB_real_traffic_verbatim": 2.9449
+ },
+ "attack4_msa_depth": {
+  "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+  "fixture_depth_rows": 35,
+  "fixture_depth_is_constant_across_the_ladder": "all 30 a3m files in perf/size512/fixtures carry exactly 35 sequences, 128 aa to 1568 aa, so depth is a property of the harness and not of the target",
+  "same_target_real_alignment": "perf/capacity/cdk2_1hcl_colabfold_deep.a3m.gz, the committed ColabFold search for the same CDK2 (PDB 1HCL) the fixture tandem-repeats: 8833 rows, 8832 unique",
+  "deployed_depth_ceiling": {
+   "cli_default_max_msa_seqs": 8192,
+   "worker_default_max_msa_seqs": 16384,
+   "subsample_msa_default": false,
+   "msa_source_when_unspecified": "tt_bio/main.py:_resolve_msa_default step 5 turns on the online ColabFold server"
+  },
+  "pad_rule_today": "tt_bio/token_axis.py MSA_PAD_LADDER = (64, 128, 256, 512, 1024) (wk/roof-msa-ladder c0802981a)",
+  "depth_axis_MB_per_MSA_block": 15107.2,
+  "depth_axis_share_of_MSA_block": 0.6836,
+  "depth_axis_s_at_cell": 1.305,
+  "depth_axis_s_at_cell_by_rule": {
+   "35": {
+    "pad_1024_rule": 1.305,
+    "ladder_rule": 0.082,
+    "ladder_prize_s": 1.223
+   },
+   "1024": {
+    "pad_1024_rule": 1.305,
+    "ladder_rule": 1.305,
+    "ladder_prize_s": 0.0
+   },
+   "8192": {
+    "pad_1024_rule": 10.438,
+    "ladder_rule": 10.438,
+    "ladder_prize_s": 0.0
+   },
+   "8833": {
+    "pad_1024_rule": 11.743,
+    "ladder_rule": 11.743,
+    "ladder_prize_s": 0.0
+   }
+  },
+  "cell_s_if_folded_at_the_real_alignment": {
+   "depth": 8192,
+   "depth_axis_scale": 8.0,
+   "projected_s": 26.47
+  }
+ }
+}

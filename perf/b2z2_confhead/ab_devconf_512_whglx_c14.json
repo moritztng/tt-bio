@@ -1,0 +1,227 @@
+{
+ "env": {
+  "started": "2026-09-12T19:37:04+0000",
+  "card": "14",
+  "commit": "7fa21916",
+  "loadavg": [
+   "11.48",
+   "14.50",
+   "11.39"
+  ],
+  "size": 512,
+  "phases": [
+   "ab"
+  ],
+  "torch_threads": 32,
+  "torch_interop_threads": 32,
+  "gc_thresholds": [
+   700,
+   10,
+   10
+  ],
+  "instruments": {
+   "brackets": "time.perf_counter wall, no synchronize_device",
+   "sampler": "1.0 ms sys._current_frames on the main thread",
+   "gc": "gc.callbacks start/stop timing"
+  },
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "load_s": 4.8,
+  "n_msa": 35,
+  "card_type": "tt-galaxy-wh-l",
+  "recycling_steps": 3,
+  "timed_region": "predict_one (featurize + fold + CIF write)"
+ },
+ "cold_s": 62.54,
+ "ab": {
+  "env": "TT_BIO_DEVICE_CONFIDENCE",
+  "rows": [
+   {
+    "i": 0,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 40.517,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "6be82118d47812d094feb57c01b71a5151d821bb7deaa0be40225ccaac60e58d"
+    },
+    "loadavg": [
+     "6.47",
+     "11.83",
+     "10.77"
+    ]
+   },
+   {
+    "i": 0,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 40.8963,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+    },
+    "loadavg": [
+     "7.17",
+     "11.19",
+     "10.59"
+    ]
+   },
+   {
+    "i": 1,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 40.0481,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "6be82118d47812d094feb57c01b71a5151d821bb7deaa0be40225ccaac60e58d"
+    },
+    "loadavg": [
+     "4.78",
+     "10.06",
+     "10.24"
+    ]
+   },
+   {
+    "i": 1,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 40.7784,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+    },
+    "loadavg": [
+     "7.04",
+     "10.09",
+     "10.25"
+    ]
+   },
+   {
+    "i": 2,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 40.5059,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "6be82118d47812d094feb57c01b71a5151d821bb7deaa0be40225ccaac60e58d"
+    },
+    "loadavg": [
+     "7.38",
+     "9.76",
+     "10.12"
+    ]
+   },
+   {
+    "i": 2,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 40.7905,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+    },
+    "loadavg": [
+     "7.39",
+     "9.33",
+     "9.96"
+    ]
+   },
+   {
+    "i": 3,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 39.9715,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "6be82118d47812d094feb57c01b71a5151d821bb7deaa0be40225ccaac60e58d"
+    },
+    "loadavg": [
+     "4.67",
+     "8.41",
+     "9.62"
+    ]
+   },
+   {
+    "i": 3,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 40.5047,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+    },
+    "loadavg": [
+     "5.95",
+     "8.19",
+     "9.49"
+    ]
+   },
+   {
+    "i": 4,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 39.7853,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "6be82118d47812d094feb57c01b71a5151d821bb7deaa0be40225ccaac60e58d"
+    },
+    "loadavg": [
+     "6.33",
+     "8.08",
+     "9.40"
+    ]
+   },
+   {
+    "i": 4,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 40.6842,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+    },
+    "loadavg": [
+     "7.76",
+     "8.05",
+     "9.33"
+    ]
+   },
+   {
+    "i": 5,
+    "arm": "A",
+    "env": "1",
+    "wall_s": 40.3843,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "6be82118d47812d094feb57c01b71a5151d821bb7deaa0be40225ccaac60e58d"
+    },
+    "loadavg": [
+     "9.85",
+     "8.37",
+     "9.37"
+    ]
+   },
+   {
+    "i": 5,
+    "arm": "B",
+    "env": "0",
+    "wall_s": 40.4462,
+    "plddt": null,
+    "cif": {
+     "cdk2x2_512.cif": "da476491dbb2a8475ff43ebdcb27270946c5e0041cc06659702cfb0be1b6cffd"
+    },
+    "loadavg": [
+     "7.26",
+     "7.87",
+     "9.16"
+    ]
+   }
+  ],
+  "median_A": 40.2162,
+  "median_B": 40.7313,
+  "speedup_B_over_A": 0.9874
+ }
+}

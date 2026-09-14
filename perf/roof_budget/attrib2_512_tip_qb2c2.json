@@ -1,0 +1,527 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "2",
+  "lease_cards": "2",
+  "git_head": "f072ae02f6de655e21a4d8f388522ae826cc4ca7",
+  "ttnn": "0.68.0",
+  "torch": "2.8.0+cpu",
+  "fast": false,
+  "protocol": {
+   "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "timed_region": "predict_one (featurise + fold + CIF write)"
+  },
+  "started": "2026-09-14T00:17:55+0000",
+  "phases_requested": [
+   "attrib"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "load_s": 3.66,
+  "n_msa": 35,
+  "card_type": "p300c",
+  "aiclk_mhz": " 800"
+ },
+ "cold_s": 22.032,
+ "attrib": {
+  "instrumented_fold_s": 74.159,
+  "plddt": 0.864509,
+  "cifs": {
+   "cdk2x2_512.cif": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8"
+  },
+  "n_classes": 30,
+  "classes": [
+   "AdaLN",
+   "AttentionPairBias",
+   "ConditionedTransitionBlock",
+   "Diffusion",
+   "DiffusionModule",
+   "DiffusionTransformer",
+   "DiffusionTransformerLayer",
+   "Fp32AttentionPairBias",
+   "Fp32Pairformer",
+   "Fp32PairformerLayer",
+   "Fp32PairformerModule",
+   "Fp32Transition",
+   "Fp32TriangleAttention",
+   "Fp32TriangleMultiplication",
+   "MSA",
+   "MSALayer",
+   "MSAModule",
+   "MiniTriangularUpdate",
+   "Miniformer",
+   "MiniformerLayer",
+   "MiniformerModule",
+   "OuterProductMean",
+   "PairWeightedAveraging",
+   "Pairformer",
+   "PairformerLayer",
+   "PairformerModule",
+   "Transition",
+   "TriangleAttention",
+   "TriangleMultiplication",
+   "TrunkModule"
+  ],
+  "tree": {
+   "DiffusionModule": {
+    "calls": 200,
+    "incl_s": 24.7006,
+    "excl_s": 0.67624,
+    "median_ms": 41.12777
+   },
+   "DiffusionModule/Diffusion": {
+    "calls": 200,
+    "incl_s": 24.02437,
+    "excl_s": 0.5261,
+    "median_ms": 40.34017
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer": {
+    "calls": 600,
+    "incl_s": 23.33949,
+    "excl_s": 0.48421,
+    "median_ms": 4.64576
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer": {
+    "calls": 6000,
+    "incl_s": 22.85528,
+    "excl_s": 3.05164,
+    "median_ms": 0.84312
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN": {
+    "calls": 6000,
+    "incl_s": 3.09607,
+    "excl_s": 3.09607,
+    "median_ms": 0.11707
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias": {
+    "calls": 6000,
+    "incl_s": 8.33195,
+    "excl_s": 8.33195,
+    "median_ms": 0.27999
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock": {
+    "calls": 6000,
+    "incl_s": 8.37562,
+    "excl_s": 4.9546,
+    "median_ms": 0.30222
+   },
+   "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN": {
+    "calls": 6000,
+    "incl_s": 3.42102,
+    "excl_s": 3.42102,
+    "median_ms": 0.11766
+   },
+   "DiffusionModule/Diffusion/Transition": {
+    "calls": 400,
+    "incl_s": 0.15878,
+    "excl_s": 0.15878,
+    "median_ms": 0.1329
+   },
+   "PairformerModule": {
+    "calls": 1,
+    "incl_s": 0.50086,
+    "excl_s": 0.17935,
+    "median_ms": 500.86492
+   },
+   "PairformerModule/Pairformer": {
+    "calls": 1,
+    "incl_s": 0.32151,
+    "excl_s": 0.00623,
+    "median_ms": 321.51341
+   },
+   "PairformerModule/Pairformer/PairformerLayer": {
+    "calls": 8,
+    "incl_s": 0.31528,
+    "excl_s": 0.04851,
+    "median_ms": 38.51297
+   },
+   "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias": {
+    "calls": 8,
+    "incl_s": 0.01248,
+    "excl_s": 0.01248,
+    "median_ms": 1.07622
+   },
+   "PairformerModule/Pairformer/PairformerLayer/Transition": {
+    "calls": 16,
+    "incl_s": 0.07131,
+    "excl_s": 0.07131,
+    "median_ms": 4.8893
+   },
+   "PairformerModule/Pairformer/PairformerLayer/TriangleAttention": {
+    "calls": 16,
+    "incl_s": 0.07677,
+    "excl_s": 0.07677,
+    "median_ms": 4.91319
+   },
+   "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+    "calls": 16,
+    "incl_s": 0.10622,
+    "excl_s": 0.10622,
+    "median_ms": 6.49912
+   },
+   "TrunkModule": {
+    "calls": 1,
+    "incl_s": 42.46744,
+    "excl_s": 0.48655,
+    "median_ms": 42467.44148
+   },
+   "TrunkModule/MSA": {
+    "calls": 4,
+    "incl_s": 18.95673,
+    "excl_s": 0.18784,
+    "median_ms": 3864.13697
+   },
+   "TrunkModule/MSA/MSALayer": {
+    "calls": 16,
+    "incl_s": 18.76889,
+    "excl_s": 0.35256,
+    "median_ms": 169.36223
+   },
+   "TrunkModule/MSA/MSALayer/OuterProductMean": {
+    "calls": 16,
+    "incl_s": 0.9032,
+    "excl_s": 0.9032,
+    "median_ms": 55.7187
+   },
+   "TrunkModule/MSA/MSALayer/PairWeightedAveraging": {
+    "calls": 16,
+    "incl_s": 1.41096,
+    "excl_s": 1.41096,
+    "median_ms": 45.88998
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer": {
+    "calls": 16,
+    "incl_s": 13.73244,
+    "excl_s": 0.10853,
+    "median_ms": 51.03345
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/Transition": {
+    "calls": 16,
+    "incl_s": 1.66774,
+    "excl_s": 1.66774,
+    "median_ms": 12.99839
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleAttention": {
+    "calls": 32,
+    "incl_s": 4.65151,
+    "excl_s": 4.65151,
+    "median_ms": 8.46601
+   },
+   "TrunkModule/MSA/MSALayer/PairformerLayer/TriangleMultiplication": {
+    "calls": 32,
+    "incl_s": 7.30466,
+    "excl_s": 7.30466,
+    "median_ms": 9.38134
+   },
+   "TrunkModule/MSA/MSALayer/Transition": {
+    "calls": 16,
+    "incl_s": 2.36973,
+    "excl_s": 2.36973,
+    "median_ms": 14.77876
+   },
+   "TrunkModule/Pairformer": {
+    "calls": 4,
+    "incl_s": 23.02417,
+    "excl_s": 0.10158,
+    "median_ms": 3632.78287
+   },
+   "TrunkModule/Pairformer/PairformerLayer": {
+    "calls": 256,
+    "incl_s": 22.92258,
+    "excl_s": 1.3042,
+    "median_ms": 52.11438
+   },
+   "TrunkModule/Pairformer/PairformerLayer/AttentionPairBias": {
+    "calls": 256,
+    "incl_s": 0.63212,
+    "excl_s": 0.63212,
+    "median_ms": 1.73398
+   },
+   "TrunkModule/Pairformer/PairformerLayer/Transition": {
+    "calls": 512,
+    "incl_s": 4.69412,
+    "excl_s": 4.69412,
+    "median_ms": 8.35511
+   },
+   "TrunkModule/Pairformer/PairformerLayer/TriangleAttention": {
+    "calls": 512,
+    "incl_s": 6.87065,
+    "excl_s": 6.87065,
+    "median_ms": 7.94351
+   },
+   "TrunkModule/Pairformer/PairformerLayer/TriangleMultiplication": {
+    "calls": 512,
+    "incl_s": 9.42149,
+    "excl_s": 9.42149,
+    "median_ms": 9.80661
+   }
+  },
+  "sigs": {
+   "AdaLN|1x140x32x128,1x140x32x128": {
+    "calls": 2400,
+    "median_ms": 0.07936,
+    "total_ms": 884.987
+   },
+   "AdaLN|1x512x768,1x512x768": {
+    "calls": 9600,
+    "median_ms": 0.1178,
+    "total_ms": 5632.105
+   },
+   "AttentionPairBias|1x140x32x128,140x4x32x128": {
+    "calls": 1200,
+    "median_ms": 0.55458,
+    "total_ms": 2876.005
+   },
+   "AttentionPairBias|1x512x384,1x512x512x128": {
+    "calls": 264,
+    "median_ms": 1.73321,
+    "total_ms": 644.592
+   },
+   "AttentionPairBias|1x512x768,1x16x512x512": {
+    "calls": 4800,
+    "median_ms": 0.27831,
+    "total_ms": 5455.948
+   },
+   "ConditionedTransitionBlock|1x140x32x128,1x140x32x128": {
+    "calls": 1200,
+    "median_ms": 0.29698,
+    "total_ms": 1476.479
+   },
+   "ConditionedTransitionBlock|1x512x768,1x512x768": {
+    "calls": 4800,
+    "median_ms": 0.30282,
+    "total_ms": 6899.138
+   },
+   "DiffusionModule|": {
+    "calls": 200,
+    "median_ms": 41.12777,
+    "total_ms": 24700.603
+   },
+   "DiffusionTransformerLayer|1x140x32x128,1x140x32x128": {
+    "calls": 1200,
+    "median_ms": 1.06301,
+    "total_ms": 5290.086
+   },
+   "DiffusionTransformerLayer|1x512x768,1x512x768": {
+    "calls": 4800,
+    "median_ms": 0.83765,
+    "total_ms": 17565.192
+   },
+   "DiffusionTransformer|1x140x32x128,1x140x32x128": {
+    "calls": 400,
+    "median_ms": 3.29528,
+    "total_ms": 5426.222
+   },
+   "DiffusionTransformer|1x512x768,1x512x768": {
+    "calls": 200,
+    "median_ms": 27.19413,
+    "total_ms": 17913.267
+   },
+   "Diffusion|1x4480x3,1": {
+    "calls": 200,
+    "median_ms": 40.34017,
+    "total_ms": 24024.367
+   },
+   "MSALayer|1x512x512x128,1x1024x512x64": {
+    "calls": 16,
+    "median_ms": 169.36223,
+    "total_ms": 18768.891
+   },
+   "MSA|1x512x512x128,1x1024x512x36": {
+    "calls": 4,
+    "median_ms": 3864.13697,
+    "total_ms": 18956.729
+   },
+   "OuterProductMean|1x1024x512x64,1024x1x1": {
+    "calls": 16,
+    "median_ms": 55.7187,
+    "total_ms": 903.197
+   },
+   "PairWeightedAveraging|1x1024x512x64,1x512x512x128": {
+    "calls": 16,
+    "median_ms": 45.88998,
+    "total_ms": 1410.964
+   },
+   "PairformerLayer|1x512x384,1x512x512x128": {
+    "calls": 264,
+    "median_ms": 51.92418,
+    "total_ms": 23237.867
+   },
+   "PairformerLayer|1x512x512x128": {
+    "calls": 16,
+    "median_ms": 51.03345,
+    "total_ms": 13732.438
+   },
+   "PairformerModule|1x512x384,1x512x512x128": {
+    "calls": 1,
+    "median_ms": 500.86492,
+    "total_ms": 500.865
+   },
+   "Pairformer|1x512x384,1x512x512x128": {
+    "calls": 5,
+    "median_ms": 3543.45922,
+    "total_ms": 23345.681
+   },
+   "Transition|1x1024x512x64": {
+    "calls": 16,
+    "median_ms": 14.77876,
+    "total_ms": 2369.734
+   },
+   "Transition|1x512x384": {
+    "calls": 264,
+    "median_ms": 0.19546,
+    "total_ms": 146.899
+   },
+   "Transition|1x512x512x128": {
+    "calls": 280,
+    "median_ms": 12.8689,
+    "total_ms": 6286.27
+   },
+   "Transition|1x512x768": {
+    "calls": 400,
+    "median_ms": 0.1329,
+    "total_ms": 158.777
+   },
+   "TriangleAttention|1x512x512x128": {
+    "calls": 32,
+    "median_ms": 8.46601,
+    "total_ms": 4651.506
+   },
+   "TriangleAttention|1x512x512x128,1x1x1x512": {
+    "calls": 528,
+    "median_ms": 7.44067,
+    "total_ms": 6947.421
+   },
+   "TriangleMultiplication|1x512x512x128": {
+    "calls": 32,
+    "median_ms": 9.38134,
+    "total_ms": 7304.66
+   },
+   "TriangleMultiplication|1x512x512x128,1x512x512": {
+    "calls": 528,
+    "median_ms": 9.80058,
+    "total_ms": 9527.708
+   },
+   "TrunkModule|1x512x384,1x512x384": {
+    "calls": 1,
+    "median_ms": 42467.44148,
+    "total_ms": 42467.441
+   }
+  },
+  "captures": {
+   "TriangleMultiplication|1x512x512x128": {
+    "file": "perf/roof_budget/captures/cap_TriangleMultiplication__1x512x512x128.json.gz",
+    "nodes": 243
+   },
+   "TriangleAttention|1x512x512x128": {
+    "file": "perf/roof_budget/captures/cap_TriangleAttention__1x512x512x128.json.gz",
+    "nodes": 321
+   },
+   "MSALayer|1x512x512x128,1x1024x512x64": {
+    "file": "perf/roof_budget/captures/cap_MSALayer__1x512x512x128,1x1024x512x64.json.gz",
+    "nodes": 13403
+   },
+   "Transition|1x512x512x128": {
+    "file": "perf/roof_budget/captures/cap_Transition__1x512x512x128.json.gz",
+    "nodes": 3351
+   },
+   "TriangleMultiplication|1x512x512x128,1x512x512": {
+    "file": "perf/roof_budget/captures/cap_TriangleMultiplication__1x512x512x128,1x512x512.json.gz",
+    "nodes": 274
+   },
+   "TriangleAttention|1x512x512x128,1x1x1x512": {
+    "file": "perf/roof_budget/captures/cap_TriangleAttention__1x512x512x128,1x1x1x512.json.gz",
+    "nodes": 338
+   },
+   "AttentionPairBias|1x512x384,1x512x512x128": {
+    "file": "perf/roof_budget/captures/cap_AttentionPairBias__1x512x384,1x512x512x128.json.gz",
+    "nodes": 360
+   },
+   "Transition|1x512x384": {
+    "file": "perf/roof_budget/captures/cap_Transition__1x512x384.json.gz",
+    "nodes": 87
+   },
+   "PairformerLayer|1x512x384,1x512x512x128": {
+    "file": "perf/roof_budget/captures/cap_PairformerLayer__1x512x384,1x512x512x128.json.gz",
+    "nodes": 5076
+   },
+   "PairWeightedAveraging|1x1024x512x64,1x512x512x128": {
+    "file": "perf/roof_budget/captures/cap_PairWeightedAveraging__1x1024x512x64,1x512x512x128.json.gz",
+    "nodes": 1884
+   },
+   "Transition|1x1024x512x64": {
+    "file": "perf/roof_budget/captures/cap_Transition__1x1024x512x64.json.gz",
+    "nodes": 6705
+   },
+   "OuterProductMean|1x1024x512x64,1024x1x1": {
+    "file": "perf/roof_budget/captures/cap_OuterProductMean__1x1024x512x64,1024x1x1.json.gz",
+    "nodes": 292
+   },
+   "PairformerLayer|1x512x512x128": {
+    "file": "perf/roof_budget/captures/cap_PairformerLayer__1x512x512x128.json.gz",
+    "nodes": 4493
+   },
+   "AdaLN|1x140x32x128,1x140x32x128": {
+    "file": "perf/roof_budget/captures/cap_AdaLN__1x140x32x128,1x140x32x128.json.gz",
+    "nodes": 169
+   },
+   "AdaLN|1x512x768,1x512x768": {
+    "file": "perf/roof_budget/captures/cap_AdaLN__1x512x768,1x512x768.json.gz",
+    "nodes": 95
+   },
+   "DiffusionTransformerLayer|1x512x768,1x512x768": {
+    "file": "perf/roof_budget/captures/cap_DiffusionTransformerLayer__1x512x768,1x512x768.json.gz",
+    "nodes": 598
+   },
+   "AttentionPairBias|1x512x768,1x16x512x512": {
+    "file": "perf/roof_budget/captures/cap_AttentionPairBias__1x512x768,1x16x512x512.json.gz",
+    "nodes": 216
+   },
+   "ConditionedTransitionBlock|1x512x768,1x512x768": {
+    "file": "perf/roof_budget/captures/cap_ConditionedTransitionBlock__1x512x768,1x512x768.json.gz",
+    "nodes": 219
+   },
+   "DiffusionTransformerLayer|1x140x32x128,1x140x32x128": {
+    "file": "perf/roof_budget/captures/cap_DiffusionTransformerLayer__1x140x32x128,1x140x32x128.json.gz",
+    "nodes": 1005
+   },
+   "AttentionPairBias|1x140x32x128,140x4x32x128": {
+    "file": "perf/roof_budget/captures/cap_AttentionPairBias__1x140x32x128,140x4x32x128.json.gz",
+    "nodes": 478
+   },
+   "ConditionedTransitionBlock|1x140x32x128,1x140x32x128": {
+    "file": "perf/roof_budget/captures/cap_ConditionedTransitionBlock__1x140x32x128,1x140x32x128.json.gz",
+    "nodes": 293
+   },
+   "Transition|1x512x768": {
+    "file": "perf/roof_budget/captures/cap_Transition__1x512x768.json.gz",
+    "nodes": 87
+   },
+   "DiffusionTransformer|1x140x32x128,1x140x32x128": {
+    "file": "perf/roof_budget/captures/cap_DiffusionTransformer__1x140x32x128,1x140x32x128.json.gz",
+    "nodes": 2364
+   },
+   "DiffusionTransformer|1x512x768,1x512x768": {
+    "file": "perf/roof_budget/captures/cap_DiffusionTransformer__1x512x768,1x512x768.json.gz",
+    "nodes": 14331
+   },
+   "DiffusionModule|": {
+    "file": "perf/roof_budget/captures/cap_DiffusionModule__.json.gz",
+    "nodes": 19771
+   },
+   "Diffusion|1x4480x3,1": {
+    "file": "perf/roof_budget/captures/cap_Diffusion__1x4480x3,1.json.gz",
+    "nodes": 19714
+   }
+  },
+  "note": "per-call device syncs serialise host and device; this fold's wall is a diagnostic, not a baseline"
+ },
+ "finished": "2026-09-14T00:19:37+0000"
+}

@@ -216,11 +216,14 @@ def chunk_divisors(seq, tile=TILE):
                          if seq % n == 0 and (seq // n) % tile == 0}, reverse=True))
 
 
-def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=None):
+def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=None,
+             extra_cbs=()):
     """(buffer index, tiles, page bytes, data format) for every CB the factory creates, :405-414.
 
     `mask_cb_tiles` overrides `cb_mask_in`: K2 fronts the whole head's mask grid
     (`k_num_chunks * Sq_chunk_t * Sk_chunk_t` tiles) where the stock op double-buffers one chunk.
+    `extra_cbs` are rows in the same shape, appended -- the qkv fold's resident x block and weight
+    slices go through here so `cb_fits_l1` prices them with everything else.
     """
     im_df = stats_df = scalar_df = ttnn.bfloat16      # :651-653, always bf16
     im_ts = stats_ts = scalar_ts = 2048
@@ -242,19 +245,44 @@ def cb_table(p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles=
         (30, p["statistics_tiles"], stats_ts, stats_df),
         (31, p["statistics_tiles"], stats_ts, stats_df),
         (16, p["out0_t"], tile_bytes(out_dtype), out_dtype),
-    ]
+    ] + list(extra_cbs)
 
 
 def cb_bytes(p, q_dtype=ttnn.bfloat16, k_dtype=ttnn.bfloat16, v_dtype=ttnn.bfloat16,
-             mask_dtype=ttnn.bfloat16, out_dtype=ttnn.bfloat16, mask_cb_tiles=None) -> int:
+             mask_dtype=ttnn.bfloat16, out_dtype=ttnn.bfloat16, mask_cb_tiles=None,
+             extra_cbs=()) -> int:
     """L1 the static circular buffers hold, per core."""
     return sum(n * page for _i, n, page, _f in cb_table(
-        p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles))
+        p, q_dtype, k_dtype, v_dtype, mask_dtype, out_dtype, mask_cb_tiles, extra_cbs))
 
 
 def cb_fits_l1(p, **kw) -> bool:
     """Whether tt-metal will accept this config's CBs. `mask_cb_tiles` selects the fused kernel."""
     return cb_bytes(p, **kw) + PROGRAM_RESERVE <= L1_PER_CORE
+
+
+CB_X_IN, CB_W_IN = 10, 11
+
+
+def fuse_qkv_cbs(p, Ct, x_buffer_factor=2, dtype=ttnn.bfloat16):
+    """The two CBs the qkv fold adds: the resident x row-block and the head's weight slices.
+
+    x is [B, S, C] and one core owns one (batch, head) at a time, so the block is
+    `Sq_chunk_t * Ct` tiles; `x_buffer_factor` 2 lets the reader fetch the next batch row while the
+    compute kernel is still contracting this one. The weights are three `Ct x DHt` slices, read once
+    per core and never refilled.
+    """
+    page = tile_bytes(dtype)
+    return [(CB_X_IN, x_buffer_factor * p["Sq_chunk_t"] * Ct, page, dtype),
+            (CB_W_IN, 3 * Ct * p["DHt"], page, dtype)]
+
+
+def proj_subblock_h(p, Ct):
+    """The tall side of the projection subblock: the widest that divides the M tiles and fits DST."""
+    for h in range(min(p["Sq_chunk_t"], p["dst_size"] // max(p["DHt"], 1)), 0, -1):
+        if p["Sq_chunk_t"] % h == 0:
+            return h
+    return 1
 
 
 _MAX_L1_RX = re.compile(r"max L1 size of (\d+) B")
@@ -271,12 +299,18 @@ def note_l1_refusal(message: str) -> None:
 
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
-          split=None, kv_buffer_factor=2):
+          split=None, kv_buffer_factor=2, fuse_qkv=None):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
     a double-buffered chunk; at the shipped config those are the same 256 tiles). `kernel_dir` swaps
     in patched kernel sources. With both left alone this is the wheel's own program.
+
+    `fuse_qkv` is `(x, w, x_buffer_factor)`: the pre-projection pair tensor `[B, S, C]` and its
+    `[C, 3*NQH*DH]` weight. q, k and v are then made inside this program instead of read, and the
+    three tensors passed as `q`, `k`, `v` are used for their SHAPES and dtypes only -- the reader
+    never touches their addresses. The whole K = Ct contraction is one block, which is the order
+    `_MM_BLOCK[(4, 12)]` already gives the standalone projection at this site.
     """
     p = plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split,
              kv_buffer_factor)
@@ -285,12 +319,29 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
 
 
+    extra_cbs = []
+    Ct = proj_h = None
+    if fuse_qkv is not None:
+        x, w, x_buffer_factor = fuse_qkv
+        C = int(x.padded_shape[-1])
+        assert C % TILE == 0, C
+        Ct = C // TILE
+        assert p["DHt"] == 1, ("the fold's K layout is the reader's tile-order transpose, which is "
+                               "the identity only at DHt == 1", p["DHt"])
+        assert p["q_num_chunks"] == 1 and p["q_per_core"] == 1 and p["nh_per_core"] == 1
+        assert p["Skt"] == p["Sq_chunk_t"], (p["Skt"], p["Sq_chunk_t"])
+        # q, k and v are pushed whole, so cb_k_in / cb_v_in must hold the sequence, not a chunk.
+        assert kv_buffer_factor >= p["k_num_chunks"], (kv_buffer_factor, p["k_num_chunks"])
+        assert int(w.padded_shape[-2]) == C and int(w.padded_shape[-1]) == 3 * p["NQH"] * p["DH"]
+        extra_cbs = fuse_qkv_cbs(p, Ct, x_buffer_factor, x.dtype)
+        proj_h = proj_subblock_h(p, Ct)
+
     cbs = [ttnn.CBDescriptor(
         total_size=n_tiles * page, core_ranges=core_grid,
         format_descriptors=[ttnn.CBFormatDescriptor(buffer_index=idx, data_format=fmt,
                                                     page_size=page)])
         for idx, n_tiles, page, fmt in cb_table(
-            p, q.dtype, k.dtype, v.dtype, mask.dtype, out.dtype, mask_cb_tiles)]
+            p, q.dtype, k.dtype, v.dtype, mask.dtype, out.dtype, mask_cb_tiles, extra_cbs)]
 
     # Three semaphores, created for every non-causal call (:539), ids 0..2 in creation order.
     semaphores = [
@@ -324,6 +375,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     # [ArgConfig::None.raw(), 0] = [0, 0] -- tensor_accessor_args.cpp:128-131 and :179-186,
     # arg_config.hpp:18. The Python binding only takes a Tensor, so they are spelled out.
     reader_ct += acc(q) + acc(k) + acc(v) + acc(mask) + NULL_ACCESSOR * 3
+    if fuse_qkv is not None:
+        reader_ct += acc(fuse_qkv[0]) + acc(fuse_qkv[1])
 
     writer_ct = [
         p["B"], p["NQH"], p["NKH"], p["Sqt"], p["valid_Sqt"], p["Sk"], p["DHt"], p["vDHt"],
@@ -374,6 +427,9 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
             "TT_BIO_SDPA_ADD_GRANULARITY") or str(valid_granularity(p["Sq_chunk_t"], ds)),
         "EXP_APPROX_MODE": str(int(exp_approx_mode)),
     }
+    if fuse_qkv is not None:
+        defines["FUSE_QKV"] = str(Ct)
+        defines["PROJ_SUBBLOCK_H"] = str(proj_h)
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
     dlist = sorted(defines.items())
@@ -390,6 +446,9 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
 
     q_a, k_a, v_a = q.buffer_address(), k.buffer_address(), v.buffer_address()
     m_a, o_a = mask.buffer_address(), out.buffer_address()
+    x_a = w_a = 0
+    if fuse_qkv is not None:
+        x_a, w_a = fuse_qkv[0].buffer_address(), fuse_qkv[1].buffer_address()
 
     rr, wr, cr = [], [], []
     for i in range(num_cores):
@@ -402,7 +461,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         lqe = min(lq + p["q_per_core"], p["q_num_chunks"])
         # num_phases=1, chunked_q_chunk_offset=0, read/write_offset=0 (:807-809)
         rr.append((core, [q_a, k_a, v_a, m_a, 0, 0, 0, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]
-                   + [0] * 14))                        # chain metadata, all no-chain (0/0 chains)
+                   + [0] * 14                          # chain metadata, all no-chain (0/0 chains)
+                   + ([] if fuse_qkv is None else [x_a, w_a])))
         wr.append((core, [o_a, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0, 0]))
         cr.append((core, [i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]))
 
@@ -424,7 +484,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     ]
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=semaphores, cbs=cbs)
     return {"pd": pd, "kernels": kernels, "cbs": cbs, "semaphores": semaphores, "plan": p,
-            "rt": (rr, wr, cr), "addrs": (q_a, k_a, v_a, m_a, o_a)}
+            "rt": (rr, wr, cr), "addrs": (q_a, k_a, v_a, m_a, o_a),
+            "fuse": None if fuse_qkv is None else (Ct, proj_h, x_a, w_a)}
 
 
 def _uniform_dataformat(q, k, v, out, mask):
@@ -439,6 +500,9 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            tuple(sorted((kw.get("defines_extra") or {}).items())),
            kw.get("mask_cb_tiles"), str(kw.get("kernel_dir")), kw.get("split"),
            kw.get("kv_buffer_factor"),
+           None if kw.get("fuse_qkv") is None else (
+               str(kw["fuse_qkv"][0].padded_shape), str(kw["fuse_qkv"][1].padded_shape),
+               kw["fuse_qkv"][2]),
            # `build` reads this one define from the environment, and the cache is keyed on what
            # `build` was given -- so without it here an A/B that flips the env gets the FIRST arm's
            # compiled program back for both legs and reads a 1.000x that means nothing.
@@ -449,10 +513,14 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
                                 ckc, scale, **kw)
     addrs = (q.buffer_address(), k.buffer_address(), v.buffer_address(),
              mask.buffer_address(), out.buffer_address())
-    if addrs != e["addrs"]:
+    fuse = kw.get("fuse_qkv")
+    fuse_addrs = None if fuse is None else (fuse[0].buffer_address(), fuse[1].buffer_address())
+    if addrs != e["addrs"] or (fuse is not None and fuse_addrs != e["fuse"][2:]):
         rr, wr, cr = e["rt"]
         for _, a in rr:
             a[0], a[1], a[2], a[3] = addrs[0], addrs[1], addrs[2], addrs[3]
+            if fuse is not None:
+                a[-2], a[-1] = fuse_addrs
         for _, a in wr:
             a[0] = addrs[4]
         e["kernels"][0].runtime_args = rr
@@ -460,5 +528,10 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
         e["pd"] = ttnn.ProgramDescriptor(kernels=e["kernels"], semaphores=e["semaphores"],
                                          cbs=e["cbs"])
         e["addrs"] = addrs
-    ttnn.generic_op([q, k, v, mask, out], e["pd"])
+        if fuse is not None:
+            e["fuse"] = e["fuse"][:2] + fuse_addrs
+    # The fold's reader never touches q/k/v -- they are here for their shapes, and the tensors the
+    # program actually reads are x and w.
+    operands = [q, k, v, mask, out] if fuse is None else [fuse[0], fuse[1], mask, out]
+    ttnn.generic_op(operands, e["pd"])
     return out

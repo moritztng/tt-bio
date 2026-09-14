@@ -1,0 +1,165 @@
+{
+ "grid": [
+  11,
+  10
+ ],
+ "reps": 12,
+ "roles": [
+  "p_a",
+  "g_a",
+  "p_b",
+  "g_b"
+ ],
+ "arms": "ctgsweep",
+ "arch": "Arch.BLACKHOLE",
+ "cells": [
+  {
+   "N": 512,
+   "C": 128,
+   "Ct": 4,
+   "equal": {
+    "off": true,
+    "aa": true,
+    "ctg2": true,
+    "ctg4": true
+   },
+   "max_abs_delta": {
+    "off": 0.0,
+    "aa": 0.0,
+    "ctg2": 0.0,
+    "ctg4": 0.0
+   },
+   "cb_bytes": {
+    "off": [
+     8192,
+     8192,
+     8192,
+     8192,
+     131072,
+     4096
+    ],
+    "aa": [
+     8192,
+     8192,
+     8192,
+     8192,
+     131072,
+     4096
+    ],
+    "ctg2": [
+     8192,
+     8192,
+     8192,
+     8192,
+     262144,
+     4096
+    ],
+    "ctg4": [
+     8192,
+     8192,
+     8192,
+     8192,
+     524288,
+     4096
+    ]
+   },
+   "ctg": {
+    "off": 1,
+    "aa": 1,
+    "ctg2": 2,
+    "ctg4": 4
+   },
+   "program_distinct": true,
+   "b3_program_distinct": true,
+   "control_differs": true,
+   "us": {
+    "off": 1548.6,
+    "aa": 1997.4,
+    "ctg2": 1388.1,
+    "ctg4": 1626.5
+   },
+   "ratio": {
+    "off": 1.0,
+    "aa": 0.7753,
+    "ctg2": 1.1156,
+    "ctg4": 0.9521
+   },
+   "aa_floor_pct": -22.47
+  },
+  {
+   "N": 768,
+   "C": 128,
+   "Ct": 4,
+   "equal": {
+    "off": true,
+    "aa": true,
+    "ctg2": true,
+    "ctg4": true
+   },
+   "max_abs_delta": {
+    "off": 0.0,
+    "aa": 0.0,
+    "ctg2": 0.0,
+    "ctg4": 0.0
+   },
+   "cb_bytes": {
+    "off": [
+     8192,
+     8192,
+     8192,
+     8192,
+     131072,
+     4096
+    ],
+    "aa": [
+     8192,
+     8192,
+     8192,
+     8192,
+     131072,
+     4096
+    ],
+    "ctg2": [
+     8192,
+     8192,
+     8192,
+     8192,
+     262144,
+     4096
+    ],
+    "ctg4": [
+     8192,
+     8192,
+     8192,
+     8192,
+     524288,
+     4096
+    ]
+   },
+   "ctg": {
+    "off": 1,
+    "aa": 1,
+    "ctg2": 2,
+    "ctg4": 4
+   },
+   "program_distinct": true,
+   "b3_program_distinct": true,
+   "control_differs": true,
+   "us": {
+    "off": 2516.4,
+    "aa": 2404.7,
+    "ctg2": 2381.9,
+    "ctg4": 2711.1
+   },
+   "ratio": {
+    "off": 1.0,
+    "aa": 1.0465,
+    "ctg2": 1.0565,
+    "ctg4": 0.9282
+   },
+   "aa_floor_pct": 4.65
+  }
+ ],
+ "started_utc": "2026-09-14T01:30:52Z",
+ "all_ok": true
+}

@@ -110,6 +110,7 @@ def _block(w):
     return _block_for(_tiles(w.shape[-2]), _tiles(w.shape[-1]))
 
 STATS = [0, 0]          # served, declined
+OUT_L1_STATS = [0, 0]   # products packed straight into L1, products that went to DRAM
 REJECTS: dict = {}      # (reason, shape) -> count, so a decline is diagnosable from the fold JSON
 
 
@@ -214,18 +215,40 @@ def _repack(entry):
 _CACHE: dict = {}
 
 
-def fused_tail(xa, xb, wa, wb, ckc, grid):
-    """`p * sigmoid(g)` for `p = xa @ wa`, `g = xb @ wb`, in one kernel. None if out of scope."""
+def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None):
+    """`p * sigmoid(g)` for `p = xa @ wa`, `g = xb @ wb`, in one kernel. None if out of scope.
+
+    `out_memory_config` is where the product lands. It is a real perf decision and not a
+    detail: the three ops this replaces put their product wherever `_trimul_out_proj` put
+    `p_out`, which at c_z = 128 is L1. Allocating in DRAM there turns an L1-resident product
+    into a round trip and F1 ADDS bytes instead of deleting them (measured +2.019 ms/trimul,
+    state/b2x-trimul-fusion-unlock.md). The writer reads its buffer type out of
+    `TensorAccessorArgs`, so an L1 destination needs no kernel change -- only its own cache
+    entry, which is why the memory config is part of the key. Falls back to DRAM if the
+    allocator refuses, which is the only test that knows what the block is already holding.
+    """
     why = eligible(xa, xb, wa, wb)
     if why is not None:
         return _reject(why, "x".join(str(int(d)) for d in xa.padded_shape)
                        + "@" + "x".join(str(int(d)) for d in wa.shape))
     device = xa.device()
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID)
-    out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape([int(d) for d in xa.shape][:-1] + [int(wa.shape[-1])]),
-        ttnn.bfloat16, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
+    mem = out_memory_config or ttnn.DRAM_MEMORY_CONFIG
+    shape = ttnn.Shape([int(d) for d in xa.shape][:-1] + [int(wa.shape[-1])])
+    try:
+        out = ttnn.allocate_tensor_on_device(
+            shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mem)
+    except Exception:                                                      # noqa: BLE001
+        if mem == ttnn.DRAM_MEMORY_CONFIG:
+            raise
+        mem = ttnn.DRAM_MEMORY_CONFIG
+        OUT_L1_STATS[1] += 1
+        out = ttnn.allocate_tensor_on_device(
+            shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mem)
+    else:
+        OUT_L1_STATS[0 if mem != ttnn.DRAM_MEMORY_CONFIG else 1] += 1
+    key = (spec(xa), spec(wa), tuple(grid), tuple(str(c) for c in ckc), ROUND, SKIP_SIGMOID,
+           str(mem))
 
     entry = _CACHE.get(key)
     if entry is None:

@@ -92,6 +92,17 @@ void kernel_main() {
 
     constexpr uint32_t cb_out = tt::CBIndex::c_16;
 
+#ifdef FUSE_QKV
+    // ROOF Phase A. FUSE_QKV carries Ct; PROJ_SUBBLOCK_H is the tall side of the projection's
+    // subblock, picked on the host against this config's DST size. The reader hands over x and the
+    // head's weight slices; q, k and v are made here instead of being read.
+    constexpr uint32_t Ct = FUSE_QKV;
+    constexpr uint32_t cb_x_in = tt::CBIndex::c_10;
+    constexpr uint32_t cb_w_in = tt::CBIndex::c_11;
+    constexpr uint32_t proj_w_tiles = 3 * Ct * DHt;
+    cb_wait_front(cb_w_in, proj_w_tiles);
+#endif
+
     constexpr uint32_t cb_chunk_start_idx = tt::CBIndex::c_8;
     uint32_t chunked_q_chunk_offset = 0;
     mm_init(cb_q_in, cb_k_in, cb_out);
@@ -165,6 +176,18 @@ void kernel_main() {
 
             for (uint32_t nb = local_batch_start; nb < local_batch_end; ++nb) {
                 for (uint32_t nq = local_nh_start; nq < local_nh_end; ++nq) {
+#ifdef FUSE_QKV
+                    // Sq_chunk_t == Sqt == Skt at this gate (one q chunk per core, square
+                    // attention), so all three projections are the same M.
+                    cb_wait_front(cb_x_in, Sq_chunk_t * Ct);
+                    project_into<Sq_chunk_t, Ct, DHt, PROJ_SUBBLOCK_H>(
+                        cb_x_in, cb_w_in, cb_q_in, 0);
+                    project_into<Sq_chunk_t, Ct, DHt, PROJ_SUBBLOCK_H>(
+                        cb_x_in, cb_w_in, cb_k_in, Ct * DHt);
+                    project_into<Sq_chunk_t, Ct, DHt, PROJ_SUBBLOCK_H>(
+                        cb_x_in, cb_w_in, cb_v_in, 2 * Ct * DHt);
+                    cb_pop_front(cb_x_in, Sq_chunk_t * Ct);
+#endif
                     sdpa_standard<
                         cb_qk_im,
                         cb_identity_scale_in,

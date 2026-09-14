@@ -194,6 +194,26 @@ sha256 `71653ff72cbf01b0` either way) and reassociated at others (512 aa). Measu
 accuracy control and the domain-split reading of the 512 aa difference are in
 `perf/b2x-integrate/`; `TT_BIO_ATOM_AXIS_BUCKET=0` restores the token-derived pad for an A/B.
 
+There is a third axis and it has no ladder on by default. `MSA_PAD_MULTIPLE` pads the Boltz-2 MSA
+depth to a single 1024, so a 35-row alignment costs exactly what a 1000-row one does. The published
+512 aa fixture carries 35 rows, 29.3x padding, and the three units that read the depth axis move
+68.4 % of the MSA block's bytes. `TT_BIO_MSA_LADDER=1` pads instead to the smallest rung of
+(64, 128, 256, 512, 1024) that holds the depth, and to multiples of 1024 above that, so nothing
+deeper than 1024 rows changes shape.
+
+It is worth 0.795 fold-seconds at 512 aa with a 35-row MSA (1.0431x and 1.0584x on two interleaved
+sessions) and 0.433 s with a 300-row one, and exactly nothing above 512 rows, where both settings
+pad to the same 1024. A real ColabFold search usually lands above that, so this lever is worth far
+more on our benchmark than on a user's target.
+
+**Off by default, and not for correctness.** Poison the padded rows with garbage instead of zeros
+and the MSA module's output is bit-identical, so the padded region provably cannot reach a real
+token and a shorter rung reassociates the same terms. But it reassociates them at the front of the
+trunk, ahead of 3 recycles, 64 pairformer blocks and 200 sampling steps, and the structure ends up
+1.322 Å from the 1024 arm at 512 aa (0.245 Å at 298 aa) against a 0.60 Å bar, with an A/A floor of
+0.000 Å over 12 folds. Measurements, the audit of every depth-axis reduction and the poison test are
+in `perf/roof_msa_ladder/`.
+
 Note what this does to the ladder. Every rung is a multiple of 64 and therefore of 32 too, so the
 residue axis pads to 0 at all four and the arm cannot price this lever on Protenix-v2. It still sees
 it on OpenDDE, whose refiner runs a second token axis at roughly twice the residue count minus one

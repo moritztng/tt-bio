@@ -118,6 +118,48 @@ BoltzGen shares Boltz-2's `TrunkModule` but does not get this flag: it never ask
 the pair tensor on the device, so it takes the same deallocate it always did. No other model
 reaches the pair track at all.
 
+## `TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS` — both on, Boltz-2 only
+
+Boltz-2 scores the structure it just predicted with a confidence head, and upstream builds that
+head's input on the host: it normalises the trunk's pair tensor, adds the relative-position
+encoding, the token bonds and the contact conditioning, broadcasts the single representation into
+it and embeds the distogram. Every one of those is a channel map at each (i, j), and the trunk has
+just left the pair tensor on the card, so `TT_BIO_DEVICE_CONFIDENCE` does the assembly there. It
+also deletes the upload that used to feed the head's own pairformer: 134 MB of fp32 at 512
+residues, replaced by an index map.
+
+`TT_BIO_DEVICE_CONF_HEADS` continues the same idea past the pairformer. The pae and pde
+projections and the bin contractions behind them run on the card, and only the three aggregated
+numbers per token pair come down instead of a tile's worth of bin logits: 67.1 MB to 2.097 MB at
+512 residues, measured 32.0x on the bus. It is built on top of `TT_BIO_DEVICE_CONFIDENCE` and is
+measured with it, so set them together or not at all.
+
+**Accuracy: the coordinates cannot move, and they do not.** The confidence head runs after the
+sampler and its outputs are scores, so at one diffusion sample nothing it produces feeds back into
+a coordinate. The claim is therefore an equality rather than an Ångström bar, and it holds: every
+atom is bit-identical at 298 and 512 residues, max 0.000000 Å, against a same-arm control that is
+also exactly zero. What does move is the confidence itself, in bf16 where the host used fp32 —
+per-atom pLDDT by at most 0.362 at 512 residues and 0.185 at 298, on a 0–100 scale, mean 0.032 and
+0.022.
+
+A CIF sha256 is the wrong instrument for this flag, and the run reports both readings for that
+reason: `write_result` puts pLDDT in the B-factor column, so the file hash changes with every
+coordinate identical. `perf/b2z2_confhead/score_conf.py` reports the coordinate delta and the
+pLDDT delta separately.
+
+**Speed: 16.537 s against 17.285 s, a 512-residue fold.** Both arms in one process on one card,
+`base device device base` inside every rep so the order reverses within the rep, one cold fold per
+arm discarded, 8 folds per arm under benchlock. qb2, one Blackhole processor of a p300c board,
+physical card 0, ttnn 0.68.0, 3 recycles, 200 sampling steps, one sample, seed 0, templates off.
+Median of 8 paired ratios **1.04743x**, all 8 positive, against an A/A floor of 1.00104x median
+drawn from this session's own same-arm adjacent pairs
+(`perf/b2z2_confship/cell_512_qb2_c0.json`). The earlier Wormhole reading for the first of the two
+flags was 1.0128x; the Blackhole fold is less than half as long, so the same block of deleted host
+work is a larger fraction of it.
+
+Setting either to `0` restores the host path for that half. No other model reaches the Boltz-2
+confidence head.
+
 ## `TT_BIO_FUSE_BIAS_STACKS` — on, Boltz-2 only
 
 Boltz-2's diffusion conditioning builds a per-layer bias stack with one call per layer. This flag

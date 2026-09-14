@@ -1,0 +1,306 @@
+{
+  "env": {
+    "started": "2026-09-14T03:15:11+0200",
+    "host": "pc",
+    "card": "0",
+    "ladder": [
+      64,
+      128,
+      256,
+      512,
+      1024
+    ],
+    "bracket": false,
+    "pairs": 2,
+    "commit": "c0802981a",
+    "ttnn": "?"
+  },
+  "sizes": {
+    "512": {
+      "n_msa": 35,
+      "hardware": "blackhole",
+      "grid": [
+        13,
+        10
+      ],
+      "card_type": "p150a",
+      "recycling_steps": 3,
+      "struct_dir": "/tmp/ttbase-boltz2-_5okcfas/out",
+      "folds": [
+        {
+          "arm": "0",
+          "tag": "cold",
+          "s": 19.049,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "a41c3623f65654f0"
+          },
+          "loadavg": [
+            "3.21",
+            "2.30",
+            "1.47"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "cold",
+          "s": 16.53,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "7993123e5b2883ea"
+          },
+          "loadavg": [
+            "2.80",
+            "2.25",
+            "1.47"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm0",
+          "s": 17.333,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "a41c3623f65654f0"
+          },
+          "loadavg": [
+            "2.91",
+            "2.31",
+            "1.50"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm0",
+          "s": 16.299,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "7993123e5b2883ea"
+          },
+          "loadavg": [
+            "2.71",
+            "2.29",
+            "1.51"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm1",
+          "s": 16.283,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "7993123e5b2883ea"
+          },
+          "loadavg": [
+            "2.65",
+            "2.29",
+            "1.52"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm1",
+          "s": 17.151,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "a41c3623f65654f0"
+          },
+          "loadavg": [
+            "2.62",
+            "2.31",
+            "1.54"
+          ]
+        }
+      ],
+      "cold_s": {
+        "off": 19.049,
+        "on": 16.53
+      },
+      "warm_s": {
+        "0": [
+          17.333,
+          17.151
+        ],
+        "1": [
+          16.299,
+          16.283
+        ]
+      },
+      "warm_median_s": {
+        "0": 17.242,
+        "1": 16.291
+      },
+      "paired_delta_s": [
+        1.034,
+        0.868
+      ],
+      "paired_delta_median_s": 0.951,
+      "speedup": 1.0584,
+      "rung_compile_s": {
+        "0": 1.807,
+        "1": 0.239
+      }
+    },
+    "298": {
+      "n_msa": 35,
+      "hardware": "blackhole",
+      "grid": [
+        13,
+        10
+      ],
+      "card_type": "p150a",
+      "recycling_steps": 3,
+      "struct_dir": "/tmp/ttbase-boltz2-n1pipz6i/out",
+      "folds": [
+        {
+          "arm": "0",
+          "tag": "cold",
+          "s": 62.702,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "3f996c4a17d31565"
+          },
+          "loadavg": [
+            "4.27",
+            "2.84",
+            "1.78"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "cold",
+          "s": 13.531,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "1332f9906ef36741"
+          },
+          "loadavg": [
+            "4.24",
+            "2.90",
+            "1.81"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm0",
+          "s": 10.005,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "3f996c4a17d31565"
+          },
+          "loadavg": [
+            "4.23",
+            "2.93",
+            "1.84"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm0",
+          "s": 9.722,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "1332f9906ef36741"
+          },
+          "loadavg": [
+            "4.73",
+            "3.08",
+            "1.90"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm1",
+          "s": 9.513,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "1332f9906ef36741"
+          },
+          "loadavg": [
+            "4.51",
+            "3.07",
+            "1.90"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm1",
+          "s": 10.112,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "3f996c4a17d31565"
+          },
+          "loadavg": [
+            "4.96",
+            "3.21",
+            "1.96"
+          ]
+        }
+      ],
+      "cold_s": {
+        "off": 62.702,
+        "on": 13.531
+      },
+      "warm_s": {
+        "0": [
+          10.005,
+          10.112
+        ],
+        "1": [
+          9.722,
+          9.513
+        ]
+      },
+      "warm_median_s": {
+        "0": 10.058,
+        "1": 9.618
+      },
+      "paired_delta_s": [
+        0.283,
+        0.599
+      ],
+      "paired_delta_median_s": 0.441,
+      "speedup": 1.0457,
+      "rung_compile_s": {
+        "0": 52.644,
+        "1": 3.913
+      }
+    }
+  }
+}

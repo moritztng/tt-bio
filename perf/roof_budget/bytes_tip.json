@@ -1,0 +1,210 @@
+{
+ "AdaLN|1x140x32x128,1x140x32x128": {
+  "floor_MB": 9.25696,
+  "once_MB": 5.81632,
+  "real_MB": 11.55072,
+  "real_w_MB": 5.7344,
+  "real_r_MB": 5.81632,
+  "n_ops": 11
+ },
+ "AdaLN|1x512x768,1x512x768": {
+  "floor_MB": 10.32192,
+  "once_MB": 7.176192,
+  "real_MB": 15.040512,
+  "real_w_MB": 6.291456,
+  "real_r_MB": 8.749056,
+  "n_ops": 9
+ },
+ "AttentionPairBias|1x140x32x128,140x4x32x128": {
+  "floor_MB": 112.041984,
+  "once_MB": 58.974208,
+  "real_MB": 117.874688,
+  "real_w_MB": 53.067776,
+  "real_r_MB": 64.806912,
+  "n_ops": 41
+ },
+ "AttentionPairBias|1x512x384,1x512x512x128": {
+  "floor_MB": 117.399552,
+  "once_MB": 93.413376,
+  "real_MB": 151.379968,
+  "real_w_MB": 40.79616,
+  "real_r_MB": 110.583808,
+  "n_ops": 31
+ },
+ "AttentionPairBias|1x512x768,1x16x512x512": {
+  "floor_MB": 43.188224,
+  "once_MB": 29.81888,
+  "real_MB": 43.974656,
+  "real_w_MB": 13.369344,
+  "real_r_MB": 30.605312,
+  "n_ops": 17
+ },
+ "ConditionedTransitionBlock|1x140x32x128,1x140x32x128": {
+  "floor_MB": 27.910144,
+  "once_MB": 15.294464,
+  "real_MB": 48.553984,
+  "real_w_MB": 26.37824,
+  "real_r_MB": 22.175744,
+  "n_ops": 23
+ },
+ "ConditionedTransitionBlock|1x512x768,1x512x768": {
+  "floor_MB": 33.570816,
+  "once_MB": 24.133632,
+  "real_MB": 52.445184,
+  "real_w_MB": 20.447232,
+  "real_r_MB": 31.997952,
+  "n_ops": 21
+ },
+ "DiffusionModule|": {
+  "floor_MB": 3132.166144,
+  "once_MB": 2002.5856,
+  "real_MB": 4035.776512,
+  "real_w_MB": 1565.657088,
+  "real_r_MB": 2470.119424,
+  "n_ops": 1702
+ },
+ "DiffusionTransformerLayer|1x140x32x128,1x140x32x128": {
+  "floor_MB": 154.984448,
+  "once_MB": 81.272832,
+  "real_MB": 186.048512,
+  "real_w_MB": 89.767936,
+  "real_r_MB": 96.280576,
+  "n_ops": 79
+ },
+ "DiffusionTransformerLayer|1x512x768,1x512x768": {
+  "floor_MB": 92.24192,
+  "once_MB": 63.143936,
+  "real_MB": 121.339904,
+  "real_w_MB": 43.25376,
+  "real_r_MB": 78.086144,
+  "n_ops": 51
+ },
+ "DiffusionTransformer|1x140x32x128,1x140x32x128": {
+  "floor_MB": 442.548224,
+  "once_MB": 238.616576,
+  "real_MB": 534.593536,
+  "real_w_MB": 252.100608,
+  "real_r_MB": 282.492928,
+  "n_ops": 198
+ },
+ "DiffusionTransformer|1x512x768,1x512x768": {
+  "floor_MB": 2177.630208,
+  "once_MB": 1479.278592,
+  "real_MB": 2894.06976,
+  "real_w_MB": 1038.09024,
+  "real_r_MB": 1855.97952,
+  "n_ops": 1224
+ },
+ "Diffusion|1x4480x3,1": {
+  "floor_MB": 3131.877376,
+  "once_MB": 2002.5856,
+  "real_MB": 4035.487744,
+  "real_w_MB": 1565.36832,
+  "real_r_MB": 2470.119424,
+  "n_ops": 1698
+ },
+ "MSALayer|1x512x512x128,1x1024x512x64": {
+  "floor_MB": 15648.817152,
+  "once_MB": 7893.450752,
+  "real_MB": 22100.180992,
+  "real_w_MB": 10945.134592,
+  "real_r_MB": 11155.0464,
+  "n_ops": 1064
+ },
+ "OuterProductMean|1x1024x512x64,1024x1x1": {
+  "floor_MB": 6109.290496,
+  "once_MB": 3089.391616,
+  "real_MB": 7319.3472,
+  "real_w_MB": 3592.421376,
+  "real_r_MB": 3726.925824,
+  "n_ops": 24
+ },
+ "PairWeightedAveraging|1x1024x512x64,1x512x512x128": {
+  "floor_MB": 4026.85952,
+  "once_MB": 2080.60416,
+  "real_MB": 7181.664256,
+  "real_w_MB": 3422.650368,
+  "real_r_MB": 3759.013888,
+  "n_ops": 135
+ },
+ "PairformerLayer|1x512x384,1x512x512x128": {
+  "floor_MB": 5174.321152,
+  "once_MB": 2624.577536,
+  "real_MB": 6758.293504,
+  "real_w_MB": 3440.541696,
+  "real_r_MB": 3317.751808,
+  "n_ops": 410
+ },
+ "PairformerLayer|1x512x512x128": {
+  "floor_MB": 5109.907456,
+  "once_MB": 2589.130752,
+  "real_MB": 6389.039104,
+  "real_w_MB": 3258.974208,
+  "real_r_MB": 3130.064896,
+  "n_ops": 356
+ },
+ "Transition|1x1024x512x64": {
+  "floor_MB": 604.086272,
+  "once_MB": 335.650816,
+  "real_MB": 606.150656,
+  "real_w_MB": 268.435456,
+  "real_r_MB": 337.7152,
+  "n_ops": 514
+ },
+ "Transition|1x512x384": {
+  "floor_MB": 4.767744,
+  "once_MB": 4.374528,
+  "real_MB": 4.767744,
+  "real_w_MB": 0.393216,
+  "real_r_MB": 4.374528,
+  "n_ops": 8
+ },
+ "Transition|1x512x512x128": {
+  "floor_MB": 335.95392,
+  "once_MB": 201.736192,
+  "real_MB": 340.017152,
+  "real_w_MB": 134.217728,
+  "real_r_MB": 205.799424,
+  "n_ops": 258
+ },
+ "Transition|1x512x768": {
+  "floor_MB": 9.535488,
+  "once_MB": 8.749056,
+  "real_MB": 9.535488,
+  "real_w_MB": 0.786432,
+  "real_r_MB": 8.749056,
+  "n_ops": 8
+ },
+ "TriangleAttention|1x512x512x128,1x1x1x512": {
+  "floor_MB": 1048.797184,
+  "once_MB": 558.063616,
+  "real_MB": 1183.014912,
+  "real_w_MB": 624.951296,
+  "real_r_MB": 558.063616,
+  "n_ops": 26
+ },
+ "TriangleAttention|1x512x512x128": {
+  "floor_MB": 1044.570112,
+  "once_MB": 555.933696,
+  "real_MB": 1178.78784,
+  "real_w_MB": 622.854144,
+  "real_r_MB": 555.933696,
+  "n_ops": 25
+ },
+ "TriangleMultiplication|1x512x512x128,1x512x512": {
+  "floor_MB": 1544.257536,
+  "once_MB": 806.060032,
+  "real_MB": 1745.584128,
+  "real_w_MB": 872.415232,
+  "real_r_MB": 873.168896,
+  "n_ops": 23
+ },
+ "TriangleMultiplication|1x512x512x128": {
+  "floor_MB": 1543.733248,
+  "once_MB": 805.535744,
+  "real_MB": 1610.842112,
+  "real_w_MB": 805.306368,
+  "real_r_MB": 805.535744,
+  "n_ops": 20
+ }
+}

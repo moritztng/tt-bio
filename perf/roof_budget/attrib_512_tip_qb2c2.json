@@ -1,0 +1,186 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "2",
+  "lease_cards": "2",
+  "git_head": "f072ae02f6de655e21a4d8f388522ae826cc4ca7",
+  "ttnn": "0.68.0",
+  "torch": "2.8.0+cpu",
+  "fast": false,
+  "protocol": {
+   "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + its a3m",
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "timed_region": "predict_one (featurise + fold + CIF write)"
+  },
+  "started": "2026-09-14T00:13:41+0000",
+  "phases_requested": [
+   "baseline",
+   "attrib"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "load_s": 8.03,
+  "n_msa": 35,
+  "card_type": "p300c",
+  "aiclk_mhz": " 800"
+ },
+ "cold_s": 30.751,
+ "baseline": [
+  {
+   "arm": "plain",
+   "rep": 0,
+   "fold_s": 27.415,
+   "plddt": 0.864509,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8"
+   },
+   "loadavg": [
+    "28.11",
+    "28.60",
+    "27.72"
+   ]
+  },
+  {
+   "arm": "instr",
+   "rep": 0,
+   "fold_s": 31.977,
+   "plddt": 0.864509,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8"
+   },
+   "loadavg": [
+    "29.62",
+    "28.80",
+    "27.81"
+   ],
+   "phase": {
+    "host": 0.4356,
+    "device": 31.534,
+    "transfer": 0.0001,
+    "total": 31.9766,
+    "residual": 0.0068,
+    "per_fn": {
+     "prepare": {
+      "s": 0.3481,
+      "n": 1,
+      "nested": 0
+     },
+     "tt_bio.main:to_batch": {
+      "s": 0.0001,
+      "n": 1,
+      "nested": 0
+     },
+     "model.predict_step": {
+      "s": 31.534,
+      "n": 1,
+      "nested": 0
+     },
+     "tt_bio.main:write_result": {
+      "s": 0.0875,
+      "n": 1,
+      "nested": 0
+     }
+    }
+   }
+  },
+  {
+   "arm": "plain",
+   "rep": 1,
+   "fold_s": 22.047,
+   "plddt": 0.864509,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8"
+   },
+   "loadavg": [
+    "28.03",
+    "28.47",
+    "27.72"
+   ]
+  },
+  {
+   "arm": "instr",
+   "rep": 1,
+   "fold_s": 18.952,
+   "plddt": 0.864509,
+   "n_tokens": null,
+   "cifs": {
+    "cdk2x2_512.cif": "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8"
+   },
+   "loadavg": [
+    "28.75",
+    "28.59",
+    "27.78"
+   ],
+   "phase": {
+    "host": 0.3664,
+    "device": 18.5783,
+    "transfer": 0.0002,
+    "total": 18.9522,
+    "residual": 0.0074,
+    "per_fn": {
+     "prepare": {
+      "s": 0.2853,
+      "n": 1,
+      "nested": 0
+     },
+     "tt_bio.main:to_batch": {
+      "s": 0.0002,
+      "n": 1,
+      "nested": 0
+     },
+     "model.predict_step": {
+      "s": 18.5783,
+      "n": 1,
+      "nested": 0
+     },
+     "tt_bio.main:write_result": {
+      "s": 0.0811,
+      "n": 1,
+      "nested": 0
+     }
+    }
+   }
+  }
+ ],
+ "baseline_summary": {
+  "n": 2,
+  "plain_s": [
+   27.415,
+   22.047
+  ],
+  "instr_s": [
+   31.977,
+   18.952
+  ],
+  "plain_median_s": 24.731,
+  "instr_median_s": 25.465,
+  "aa_floor_s": 5.368,
+  "aa_floor_pct": 21.706,
+  "instr_delta_pct": 2.966,
+  "host_s": 0.401,
+  "device_s": 25.0561,
+  "transfer_s": 0.0002,
+  "residual_s": 0.0071,
+  "plddt": [
+   0.864509
+  ],
+  "cif_sha256": [
+   "2bc758a1fb24ef3096736be510eefe250444ac7f59f024cb7f9942720199afb8"
+  ],
+  "cif_sha256_16": [
+   "2bc758a1fb24ef30"
+  ],
+  "bit_identical_across_folds": true
+ },
+ "attrib_error": "Traceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/roof-budget/perf/b2x-baseline-attrib/baseline_attrib.py\", line 493, in main\n    caps[sig] = {\"file\": str(fn.relative_to(ROOT)), \"nodes\": len(g)}\n                             ^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.12/pathlib.py\", line 682, in relative_to\n    raise ValueError(f\"{str(self)!r} is not in the subpath of {str(other)!r}\")\nValueError: 'perf/roof_budget/captures/cap_TriangleMultiplication__1x512x512x128.json.gz' is not in the subpath of '/home/ttuser/.coworker/wt/roof-budget'\n",
+ "finished": "2026-09-14T00:17:10+0000"
+}

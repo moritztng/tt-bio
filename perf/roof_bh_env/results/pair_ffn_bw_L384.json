@@ -1,0 +1,120 @@
+{
+ "host": "j10glx02",
+ "arch": "Arch.WORMHOLE_B0",
+ "grid": [
+  8,
+  9
+ ],
+ "shipped_block_w": 16,
+ "bw": 1,
+ "split_swiglu": true,
+ "is_small_grid": true,
+ "l1_fc1_on": true,
+ "row_block": 32,
+ "shape": {
+  "L": 384,
+  "cz": 256,
+  "dff": 1024
+ },
+ "rows": [
+  {
+   "arm": "obw16_0",
+   "obw": 16,
+   "ms": 27.76022200123407,
+   "l1_fc1": {
+    "served": 192,
+    "declined": 0
+   },
+   "latch": {
+    "served": 1,
+    "refused": 1,
+    "blocked": 190,
+    "declined": 0
+   },
+   "why": [
+    "L1 clash: grid=(8, 4) cores=32 buffer_addr=622592 cb_end=681248 shortfall=58656"
+   ],
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "obw16_1",
+   "obw": 16,
+   "ms": 27.78250000119442,
+   "l1_fc1": {
+    "served": 192,
+    "declined": 0
+   },
+   "latch": {
+    "served": 1,
+    "refused": 1,
+    "blocked": 190,
+    "declined": 0
+   },
+   "why": [
+    "L1 clash: grid=(8, 4) cores=32 buffer_addr=622592 cb_end=681248 shortfall=58656"
+   ],
+   "equal_to_shipped": true,
+   "max_abs": 0.0
+  },
+  {
+   "arm": "obw8_2",
+   "obw": 8,
+   "ms": 27.827347003039904,
+   "l1_fc1": {
+    "served": 192,
+    "declined": 0
+   },
+   "latch": {
+    "served": 1,
+    "refused": 1,
+    "blocked": 190,
+    "declined": 0
+   },
+   "why": [
+    "L1 clash: grid=(8, 4) cores=32 buffer_addr=622592 cb_end=681248 shortfall=58656"
+   ],
+   "equal_to_shipped": true,
+   "max_abs": 0.0
+  },
+  {
+   "arm": "obw32_3",
+   "obw": 32,
+   "ms": 27.794348003226332,
+   "l1_fc1": {
+    "served": 192,
+    "declined": 0
+   },
+   "latch": {
+    "served": 1,
+    "refused": 1,
+    "blocked": 190,
+    "declined": 0
+   },
+   "why": [
+    "L1 clash: grid=(8, 4) cores=32 buffer_addr=622592 cb_end=681248 shortfall=58656"
+   ],
+   "equal_to_shipped": true,
+   "max_abs": 0.0
+  },
+  {
+   "arm": "obw64_4",
+   "obw": 64,
+   "ms": 27.80694700049935,
+   "l1_fc1": {
+    "served": 192,
+    "declined": 0
+   },
+   "latch": {
+    "served": 1,
+    "refused": 1,
+    "blocked": 190,
+    "declined": 0
+   },
+   "why": [
+    "L1 clash: grid=(8, 4) cores=32 buffer_addr=622592 cb_end=681248 shortfall=58656"
+   ],
+   "equal_to_shipped": true,
+   "max_abs": 0.0
+  }
+ ]
+}

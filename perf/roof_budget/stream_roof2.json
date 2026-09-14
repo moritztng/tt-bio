@@ -1,0 +1,107 @@
+{
+ "loadavg_before": [
+  "26.65",
+  "26.48",
+  "27.10"
+ ],
+ "aiclk_before": [
+  "\"AICLK\": \"0x320\",",
+  "\"AICLK_LIMIT_MAX\": \"0x546\",",
+  "\"AICLK_ARB_MIN\": \"0x10546\",",
+  "\"AICLK_ARB_MAX\": \"0x50320\","
+ ],
+ "stream": [
+  {
+   "op": "add",
+   "N": 2048,
+   "s": 7.298714999706135e-05,
+   "GBps": 344.7980089784742
+  },
+  {
+   "op": "clone",
+   "N": 2048,
+   "s": 4.481490000216581e-05,
+   "GBps": 374.3669181274351
+  },
+  {
+   "op": "add",
+   "N": 4096,
+   "s": 0.00022749859999748878,
+   "GBps": 442.47874932466027
+  },
+  {
+   "op": "clone",
+   "N": 4096,
+   "s": 0.0001681836999978259,
+   "GBps": 399.0212131191519
+  },
+  {
+   "op": "add",
+   "N": 8192,
+   "s": 0.0009480683000219869,
+   "GBps": 424.70904679616643
+  },
+  {
+   "op": "clone",
+   "N": 8192,
+   "s": 0.0006988026500039269,
+   "GBps": 384.13628797557016
+  }
+ ],
+ "aiclk_after_stream": [
+  "\"AICLK\": \"0x320\",",
+  "\"AICLK_LIMIT_MAX\": \"0x546\",",
+  "\"AICLK_ARB_MIN\": \"0x10546\",",
+  "\"AICLK_ARB_MAX\": \"0x50320\","
+ ],
+ "byte_control": {
+  "shape": [
+   8192,
+   8192,
+   8192
+  ],
+  "arith_min_bytes": 402653184,
+  "counter_bytes": 536870912,
+  "ratio": 1.3333333333333333,
+  "counter_write_bytes": 134217728,
+  "counter_read_bytes": 402653184,
+  "ops": [
+   "ttnn.matmul"
+  ],
+  "dram_buffers": [
+   {
+    "MB": 134.217728,
+    "alloc_op": null,
+    "n_consumers": 1,
+    "consumers": [
+     "ttnn.matmul"
+    ]
+   },
+   {
+    "MB": 134.217728,
+    "alloc_op": null,
+    "n_consumers": 1,
+    "consumers": [
+     "ttnn.matmul"
+    ]
+   },
+   {
+    "MB": 134.217728,
+    "alloc_op": "ttnn.matmul",
+    "n_consumers": 0,
+    "consumers": []
+   }
+  ]
+ },
+ "aiclk_after": [
+  "\"AICLK\": \"0x320\",",
+  "\"AICLK_LIMIT_MAX\": \"0x546\",",
+  "\"AICLK_ARB_MIN\": \"0x10546\",",
+  "\"AICLK_ARB_MAX\": \"0x50320\","
+ ],
+ "loadavg_after": [
+  "26.28",
+  "26.41",
+  "27.07"
+ ]
+}

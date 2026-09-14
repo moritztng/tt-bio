@@ -158,6 +158,18 @@ SEQ_LEN_MORE_CHUNKING = 1536
 # Row-block height for the trimul's row-local projections. One number so the input and output
 # projections cannot drift apart; a tile multiple, so a block boundary never splits a tile and the
 # blocks stay bit-exact against the whole-tensor result.
+#
+# It has NO envelope, and that is measured rather than assumed. Swept 32 to 512 at 512, 640 and
+# 768 tokens on the 8x9 Galaxy through `_pair_bias_from_z`, the one of its three use sites that
+# runs without model weights (perf/roof_bh_env/pair_row_block.py, two sessions): nothing refuses at
+# any height and every height is `torch.equal` against the whole-tensor result. The curve is
+# monotone and flat past the shipped value -- at 640 aa, 5.1476 ms at 32, 4.5366 at 128, 4.4155 at
+# 320 -- so 32 costs 1.1346x and 320 buys 1.0274x, under the bar, against a 0.65 % A/A floor. 128
+# sits just past the knee and "a tile multiple" is a sufficient justification here.
+#
+# The other two sites are the trimul's row-blocked projections, where the height bounds PEAK
+# ALLOCATION on sizes that otherwise refuse. That trade is a footprint question and this timing
+# sweep says nothing about it, so raising the constant would need the footprint measured first.
 PAIR_ROW_BLOCK = 128
 # Byte gate for row-blocking the trimul INPUT norm, which is a different question from the output
 # projections' SEQ_LEN_MORE_CHUNKING gate and must not share it.
@@ -223,6 +235,19 @@ TRANSITION_H_CHUNK_SIZE_BIG = 32  # verified envelope: W<=384 (298-aa W=320). W=
 # bound by a number measured for a wider channel. Named so it can be measured rather than
 # argued: default 384 keeps every shipped shape byte-identical.
 TRANSITION_H_CHUNK_BIG_MAX_W = 384
+# [served, declined] for the raised Transition row chunk, plus the clause that refused it.
+# Every other shipped lever carries one of these and this one did not, so the only evidence a
+# raised chunk had ever reached a real fold was that the fold did not crash -- which cannot tell
+# a lever that served from one that was silently refused back to TRANSITION_H_CHUNK_SIZE.
+# Served means the 4-D path ran a block TALLER than the unconditional base; declined means it
+# ran the base or less. Keyed by (clause, HxWxc) like the six other reject dicts.
+TRANSITION_H_CHUNK_STATS = [0, 0]
+TRANSITION_H_CHUNK_REJECTS: dict = {}
+# {("HxWxc", hidden, height): calls}. The counter above says how often the raise served; this
+# says at which shape and how tall, which is the only way to name the call that threw when a
+# ladder rung dies partway through a fold -- "served=2 then a CB clash" does not identify the
+# shape, and the row height that ships has to be derived from the shape that binds.
+TRANSITION_H_CHUNK_SHAPES: dict = {}
 # Measured ceiling for one Transition row chunk on a small grid, in L1 bytes PER CORE.
 # The chunk's live L1 (x_norm + x_1 + x_2) is interleaved across the grid, so what binds is
 # aggregate L1 / cores, and the budget above never sees core count. On UF-EV-A13-GWH02
@@ -692,13 +717,17 @@ _MIN_L1_SCALE = 0.7             # floor: keep chunks workable on a very tight pa
 # The token bucket for boltz2, boltzgen and nesso1, DERIVED from the fleet value rather than
 # restated -- a literal here is how a per-model fork starts. The pad arithmetic is one copy in
 # token_axis.py, which asserts the multiple divides the 32 tile.
-from .token_axis import bucket_enabled, bucket_multiple, pad_amount
+from .token_axis import (
+    MSA_PAD_LADDER, bucket_enabled, bucket_multiple, msa_pad_amount, pad_amount,
+)
 
 PAIRFORMER_PAD_MULTIPLE = bucket_multiple("boltz2")
-MSA_PAD_MULTIPLE = 1024  # a DIFFERENT axis, padded for the same recompilation reason; not the
-#                          token bucket, so it answers to neither TOKEN_BUCKET nor the
-#                          TT_BIO_TOKEN_BUCKET off switch -- turning the token bucket off
-#                          for an A/B must not silently change the MSA axis too.
+MSA_PAD_MULTIPLE = MSA_PAD_LADDER[-1]  # a DIFFERENT axis, padded for the same recompilation
+#                          reason; not the token bucket, so it answers to neither TOKEN_BUCKET nor
+#                          the TT_BIO_TOKEN_BUCKET off switch -- turning the token bucket off for
+#                          an A/B must not silently change the MSA axis too. This is the TOP rung:
+#                          the depth axis pads to a ladder (token_axis.msa_pad_amount), and only
+#                          depths above this one still pad to a plain multiple.
 # Upper bound on heavy atoms per token for PROTEIN residues (Trp=14); ties the atom
 # bucket to the seq_len bucket. Nucleotide tokens carry more (up to 23), so a DNA/RNA
 # target can exceed padded_seq * 14 — _populate_diffusion_cache extends the bucket to
@@ -1317,6 +1346,17 @@ _B2_BIAS_SLICE_HOIST = env_flag("BOLTZ2_BIAS_SLICE_HOIST", True)
 # The pair is held in DRAM: 24 retained L1 tensors of 1.83 MB would keep ~44 MB of L1 for the
 # whole rollout and clash with a later op's circular buffers.
 _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
+# L8. Hoist the token DiT's conditioning half out of the 24-layer loop: every layer in a sampling
+# step reads the SAME `s` through six [S,768]x[768,768] projections of its own, and
+# `nn.LayerNorm(dim, bias=False)` is `gamma_i * s_hat` with `s_hat` shared, so folding gamma_i
+# into the i-th weight block lets one parameter-free layer_norm and two concatenated matmuls
+# replace 144 matmuls and 48 layer_norms per step. Same FLOPs and the same dot products; what
+# changes is the grouping of the launches and the order of one bf16 rounding.
+# Measured integrated over a whole step (perf/roof_difftx): 15.0004 -> 13.2218 ms on a Blackhole
+# p150a, 1.1345x, against a 0.27 % A/A floor -- and 1.0122x on Wormhole, where the concatenation
+# gain and the slice tax cancel. Default OFF: release-gated until a qb2 fold-level A/B and the
+# structure arm have run. Read at CALL time, not import time, so an interleaved A/B can flip it.
+_B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", False)
 
 # L8: one `layer_norm(s)` for a whole DiffusionTransformer stack instead of one per AdaLN.
 # Every AdaLN in a stack conditions on the SAME `s` and differs only by a per-channel
@@ -1345,6 +1385,37 @@ _B2_ADALN_SHARED_SNORM = env_flag("BOLTZ2_ADALN_SHARED_SNORM", True)
 # L1, where ttnn SDPA TT_FATALs, and the forced spill is what confounded the predecessor's arm.
 _B2_TOKEN_DIT_SDPA = env_flag("BOLTZ2_TOKEN_DIT_SDPA", True)
 B2_TOKEN_DIT_SDPA_STATS = [0, 0]     # [served, declined] at the token-DiT site
+
+# One-op head re-assembly. Coming out of attention the heads sit in (B, n_heads, S, padded_head_dim)
+# and the gate wants (B, S, n_heads * head_dim), which the shipped path reaches in four launches:
+# drop the pad lanes, permute, reshape, permute. None of them computes anything.
+# `nlp_concat_heads` does the same move in one launch but KEEPS the pad lanes, so the gate and the
+# output projection run at n_heads * padded_head_dim instead of n_heads * head_dim.
+#
+# Keeping the pads is exact, not approximate. The fused qkv weight is zero-padded in those lanes and
+# the qkv bias is zero there, so v's pad lanes are zero; SDPA's output is a convex combination of v
+# rows, so o's pad lanes are zero too. Anything multiplies zero to zero, which covers the gate, and
+# zeroing the matching rows of proj_o drops them from the projection. The cost is the wider gate and
+# projection, which is why this is priced per shape and not asserted.
+_APB_CONCAT_HEADS = env_flag("TT_BIO_APB_CONCAT_HEADS", False)
+APB_CONCAT_HEADS_STATS = [0, 0]      # [served, declined] at the token head re-assembly
+
+
+def _pad_head_lanes(t: torch.Tensor, n_heads: int, head_dim: int, padded_head_dim: int,
+                    axis: int) -> torch.Tensor:
+    """Re-lane a projection weight from n_heads*head_dim to n_heads*padded_head_dim, zeros in the pad.
+
+    `axis=-1` for a weight whose OUTPUT axis is head-major (proj_g), `axis=0` for one whose INPUT
+    axis is (proj_o). Both are the already-transposed, ttnn-order weight.
+    """
+    pad = padded_head_dim - head_dim
+    if axis == -1:
+        x = t.reshape(*t.shape[:-1], n_heads, head_dim)
+        x = torch.nn.functional.pad(x, (0, pad))
+        return x.reshape(*t.shape[:-1], n_heads * padded_head_dim)
+    x = t.reshape(n_heads, head_dim, *t.shape[1:])
+    x = torch.nn.functional.pad(x, (0, 0, 0, pad))
+    return x.reshape(n_heads * padded_head_dim, *t.shape[1:])
 
 # C2, the triangle bias cast to bfloat8_b before the SDPA. OFF by default and it stays off until a
 # fold-level parity gate clears it: at N=512 the op-level error is rmsd/std 0.002547 at PCC
@@ -2060,6 +2131,15 @@ _BATCHED_MATMUL_ON = env_flag("TT_BIO_BATCHED_MATMUL", True)
 # than one legal per_core_M is fastest at 32 blocks -- DiT attn@v 0.0337 / 0.0295 / 0.0429 ms at
 # 80 / 32 / 16 blocks, AttentionPairBias attn@v 0.0305 / 0.0269 / 0.0434, DiT q@k^T 0.0510 /
 # 0.0434 / 0.0580 (perf/bmm_reconcile/pcm_sweep_c0.json).
+#
+# Accidentally safe on the 8x9 Galaxy, by exhaustion rather than by luck
+# (perf/roof_bh_env/results/pcm_sweep_whglx_{A,B}.json, the same `perf/bmm_reconcile/pcm_sweep.py`
+# that fitted it, two sessions agreeing within 0.3 %). The legality predicate `blocks <= cores`
+# already deletes the 80-block rung on 72 cores, so 8 of the 11 classes have exactly one legal
+# per_core_M and the target is inert. In the three that have a choice the legal set is {32, 16}
+# blocks and 32 is faster in all three: DiT attn@v 0.0629 against 0.1064 ms (1.691x), DiT q@k^T
+# 0.1109 against 0.1389 (1.252x), OF3 AttentionPairBias attn@v 0.0486 against 0.0855 (1.759x),
+# every rung bit-exact. There is no legal rung above 32 blocks here to be wrong about.
 _BATCHED_MATMUL_SATURATION_BLOCKS = 32
 
 
@@ -2603,6 +2683,10 @@ _SOFTMAX_CKC = env_flag("TT_BIO_SOFTMAX_CKC", False)
 # copy. Peak is 1.5x the budget, because the bf16 half of a typecast is live alongside the fp32.
 _FP32_SOFTMAX_L1_BYTES_PER_CORE = 768 << 10
 _FP32_SOFTMAX_L1_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than 110 shards.
+#: Take the rectangle from the live grid instead on a part smaller than the 11x10 baseline, where
+#: the fitted 8x8 is neither the whole grid nor a safe fraction of it. Set by
+#: `_apply_grid_thresholds`; `TT_BIO_FP32_SOFTMAX_L1_LIVE_GRID=0` pins the fitted value for an A/B.
+_FP32_SOFTMAX_L1_LIVE_GRID = env_flag("TT_BIO_FP32_SOFTMAX_L1_LIVE_GRID", True)
 
 FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfused": 0,
                       "l1": 0, "l1_blocks": 0, "l1_refused": 0, "l1_cores": 0,
@@ -3695,6 +3779,30 @@ def _trimul_in0_block_w(seq_len_tiles: int) -> int:
                if seq_len_tiles % d == 0)
 
 
+# The grid is NOT a tuning knob here, and this records the measurement rather than the argument.
+# `per_core_M/N` are ceil(Mt/gy) and ceil(Nt/gx), and the factory then engages
+# ceil(Mt/per_core_M) x ceil(Nt/per_core_N) cores -- so the DECLARED grid is inert and only the
+# engaged count moves. At 512 aa (Mt = Nt = 16) on an 11x10 p300c that is 2 x 2 per core and 8x8 =
+# 64 of 110 cores, which is the MAXIMUM this factory reaches at this shape: per_core_M = 1 would
+# need 16 core rows against gy = 10.
+#
+# MEASURED on qb2 card 3, [1,128,512,512] x [1,128,512,512] bf16 with transpose_b, 40 interleaved
+# blocks, own-session A/A 0.3 % (perf/roof_triatt_levers/product_bh_b40_r2.json). Narrowing is
+# monotonically WORSE and widening is not available:
+#
+#     engaged cores   64        32        16         8         4
+#     ms            1.2714    1.9729    3.7179    7.1612   13.2519
+#
+# The output subblock is at its best value too: 1x1 1.2714 ms, 1x2 1.4584, 2x1 1.4579, 2x2 1.6423,
+# every rung `torch.equal` against production (it does not touch `in0_block_w`).
+#
+# `roof-tri-close` measured the opposite sign on Wormhole -- the triangle product 2.10x FASTER on 32
+# cores than on 72 -- and that reproduces here, in the family it was measured in and not in this
+# one. `ttnn.matmul(core_grid=...)` does not narrow this config, it selects a different factory that
+# derives `in0_block_w = 1`; in THAT family 64 cores beat 110 by 1.39x on Blackhole (2.2085 against
+# 3.0747 ms). Every rung of it is 1.74-2.78x slower than the config below, so the grid prize is real
+# and already banked by pinning this program config. KIND=placement, and no Wormhole ratio is
+# carried across: the number above is Blackhole's own.
 @lru_cache(maxsize=None)
 def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
     gx, gy = COMPUTE_GRID_MAIN
@@ -4060,6 +4168,16 @@ def _pair_proj_minimal_matmul(x, w, ckc, dtype, bias=None):
 # the chain once one half is already resident; obw = 8 costs 2.45 ms/call. MEASURED on qb2 card 2,
 # whole FFN at [1,512,512,256] rows=32: 17.918 -> 14.662 ms, `torch.equal`
 # (perf/esm3p4/screen_a_c2.json, screen_b_c2.json).
+#
+# Accidentally safe on the 8x9 Galaxy, and measured there rather than assumed
+# (perf/roof_bh_env/results/pair_ffn_bw_*.json, j10glx02 card 0, real `SwiGLUFFN.__call__` so every
+# fallback the module owns is in the arm). Of the 320-1024 aa window the row block rides inside,
+# 320 aa is the only size where the L1 destination is actually served -- 160 of 160 calls -- and
+# there every width from 8 to 64 lands within 0.17 % of the shipped 16 on a 0.14 % A/A floor, with
+# obw = 32, the p300c's documented clash, serving all 160. At 384 and 512 aa the class takes one
+# refusal ("L1 clash: grid=(8, 6) cores=48 buffer_addr=331776 cb_end=681248 shortfall=349472") and
+# retires, 1 served / 1 refused / 190 and 254 blocked, and at 768 aa the config gate declines all
+# 384. So on this part the constant is dark at three of four sizes and inert at the fourth.
 _PAIR_FFN_FC1_BW = 1
 _PAIR_FFN_FC1_BLOCK_W = 16
 
@@ -4292,10 +4410,37 @@ def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
     global TRANSITION_W_CHUNKING_THRESHOLD, TRIANGLE_ATT_CHUNK_SIZE_FAST
     global TRANSITION_W_CHUNK_SIZE, TRIANGLE_MULT_L1_MAX_SEQ_FAST, SMALL_GRID_SEQ_TILE
     global SMALL_GRID_PAIR_TILE_AREA, SMALL_GRID_MSA_TILE_AREA, TRIANGLE_MULT_L1_MAX_SEQ
-    global TRANSITION_L1_CHUNK_BYTES_PER_CORE
+    global TRANSITION_L1_CHUNK_BYTES_PER_CORE, _FP32_SOFTMAX_L1_GRID
     _IS_SMALL_GRID = grid[0] * grid[1] < COMPUTE_GRID_X_11 * COMPUTE_GRID_Y
     if not _IS_SMALL_GRID:
         return  # Keep Blackhole baseline values
+    # The fp32-softmax tuned rectangle is the live grid on a small part, not the fitted 8x8.
+    #
+    # `_FP32_SOFTMAX_L1_GRID` was fitted where 64 of 130 cores was a quarter of the part and the
+    # refusal boundary was 110 shards. On the 8x9 Galaxy 64 of 72 is a different occupancy AND a
+    # different byte count per core, because the block height is derived from the core count:
+    # 12 rows on 64 cores is 786432 B/core and this part refuses it, 9 rows on 72 is 524288 B/core
+    # and it does not. MEASURED on AF2-IG's triangle attention at 512 aa, two whole interleaved
+    # sessions on j10glx02 card 0, own-session A/A floor 0.017 %/0.043 %: 109.589 -> 74.034 ms and
+    # 109.545 -> 73.997 ms, 1.4803x and 1.4804x, `torch.equal` with max_abs 0.0 at every rung.
+    # 256/384/768 aa are neutral to within the A/A floor -- the floating core count already lands
+    # on 72 there -- so this is not a tuning, it is the one rung where the rectangle refuses.
+    #
+    # An op ratio is not a result, so it is priced on a whole fold too: 512 aa, 200 sampling steps,
+    # 3 recycles, ABBA in one process, two interleaved sessions of n=4 per arm -- 96.784 -> 76.480 s
+    # (1.2655x) and 96.756 -> 76.651 s (1.2623x), A/A floor 0.043 %/0.049 %, the eight paired deltas
+    # all between 19.915 and 20.465 s. All 20 folds wrote one CIF sha256 and one 0.84482 pLDDT, so
+    # bit-exact at the fold level and across sessions. That fold carries BOLTZ2_FP32_SOFTMAX=1 on
+    # BOTH arms: it is the path, not the arm, because Boltz-2 ships the fused SDPA and is the model
+    # whose weights are on that box, while OpenFold3 and AF2-IG take this path by default.
+    # perf/roof_bh_env/README.md.
+    #
+    # Deliberately inside the small-grid branch: on a 13x10 p150a and an 11x10 p300c this function
+    # returns above, so both Blackhole parts keep the fitted rectangle byte for byte. The 110-shard
+    # ceiling the constant's comment names is never reached here either -- 80 shards is already
+    # refused on 72 L1 banks -- so the live grid needs no further clamp on a part this size.
+    if _FP32_SOFTMAX_L1_LIVE_GRID:
+        _FP32_SOFTMAX_L1_GRID = (grid[1], grid[0])   # (y, x), as the constant is written
     # Scale every budget to this part's actual per-core unreserved L1, clamped to
     # <= the full-L1 calibration (so an ample-L1 Wormhole is byte-for-byte
     # unchanged — no perf regression — and only a tighter part, e.g. the Galaxy,
@@ -5409,6 +5554,27 @@ TRIMUL_TAIL_F1 = True
 _TRIMUL_TAIL_F1 = os.environ.get(
     "TT_BIO_TRIMUL_TAIL_F1", "1" if TRIMUL_TAIL_F1 else "0") == "1"
 
+# Where F1's product lands. `fused_tail` shipped allocating it in DRAM, which is right only where
+# the tail it replaces was already DRAM-resident. At c_z = 128 it is not: `_trimul_out_proj` puts
+# `p_out` in L1 and `multiply_` folds the gate into that buffer in place, so a DRAM product turns
+# the one round trip F1 is supposed to delete into two it adds.
+#
+# The link this is aimed at is rank 5 of `perf/roof_orchestrator/FUSION_PAIRS.md`: 268.4 MB of one
+# Pairformer block, the tail's `g_out` projection writing a 67.11 MB pair tensor to DRAM for
+# `multiply_` to read straight back and nothing else to touch. The trace says why only `g_out`
+# round-trips -- `p_out` already holds the single L1 slot a 512 aa pair tensor fits in, so the
+# second projection's own `l1_out=True` is refused and falls to the DRAM leg. One kernel over both
+# projections is the only way to have neither of them in DRAM.
+TRIMUL_TAIL_F1_L1_OUT = True
+_TRIMUL_TAIL_F1_L1_OUT = env_flag("TT_BIO_TRIMUL_TAIL_F1_L1_OUT", TRIMUL_TAIL_F1_L1_OUT)
+
+
+def set_trimul_tail_f1_l1_out(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _TRIMUL_TAIL_F1_L1_OUT
+    prev, _TRIMUL_TAIL_F1_L1_OUT = _TRIMUL_TAIL_F1_L1_OUT, bool(on)
+    return prev
+
 # The trimul reads its own normed input TWICE: the fused four-way in-projection reads all 67.1 MB
 # of it at 512 aa, and so does the output gate `g_out` at the tail. One allocation, no write in
 # between -- 134.2 MB of the block's 8.05 GB, rank 2 of `perf/b2z2_byte_floor/CENSUS.md`.
@@ -5552,6 +5718,15 @@ def set_trimul_inproj_rowblock(on: bool, r: int | None = None) -> tuple[bool, in
 # Measured 1.5034x on `reblock_permute_gated` and 1.0212x on the 512 aa fold, on a Blackhole
 # p150a (state/k10-p1-trimul-critpath.md, arm `b1`). Wormhole has 12 DRAM banks, so 256 % 12 = 4
 # and the serialisation this removes cannot happen there; the reorder is free on both.
+#
+# The Wormhole half of that is now MEASURED and not just argued. `dram_grid_size()` on a Galaxy
+# chip reads (x=12, y=1), so the premise holds, and `perf/k10_b1_permute/b1_equiv.py` run twice on
+# j10glx02 card 0 puts the C=128 cells -- the ones worth 1.2990x to 1.5146x on the p150a -- at
+# 1.0015x/1.0221x (N=298), 1.0138x/1.0015x (N=320), 1.0045x/1.0036x (N=512) and 1.0035x/1.0010x
+# (N=640). The C=32 cells scatter from 0.8870x to 1.0830x and change sign between the two sessions,
+# which is this rig's own cross-session floor at that width, not a lever. 16/16 cells bit-exact
+# against a live negative control. So the shipped default costs the part JapanFold serves nothing.
+# perf/roof_bh_env/results/b1_equiv_whglx_{A,B}.json.
 TRIMUL_GP_BANK_SPLIT = True
 _GP_ROLES_SPLIT = ("p_a", "g_a", "p_b", "g_b")
 _GP_ROLES_MAJOR = ("g_a", "g_b", "p_a", "p_b")
@@ -6428,9 +6603,19 @@ class TriangleMultiplication(Module):
                 and self.g_out_bias is None):
             # `fused_tail` returns None for any call its descriptor does not cover (at 512 aa that
             # is the narrow-hidden trimuls, k_tiles=2), and the three ops below run unchanged.
+            # The product goes where `multiply_` would have left it: L1 when a pair tensor fits
+            # there, which is the same test `_trimul_out_proj` applies to `p_out`. Reserve the
+            # consumer's circular buffers underneath it, as the mask path does.
+            out_mc = None
+            if _TRIMUL_TAIL_F1_L1_OUT and _l1_fits(
+                    _padded_bytes([int(d) for d in x.shape][:-1]
+                                  + [int(self.out_p_weight.shape[-1])], 2),
+                    1.0, _PAIR_L1_CONSUMER_RESERVE):
+                out_mc = ttnn.L1_MEMORY_CONFIG
             fused = _trimul_tail.fused_tail(
                 x, x_norm_in, self.out_p_weight, self.g_out_weight,
-                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+                out_memory_config=out_mc)
             if fused is not None:
                 ttnn.deallocate(x)
                 ttnn.deallocate(x_norm_in)
@@ -7203,13 +7388,23 @@ class TriangleAttention(Module):
             qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
             qkv, g = ((pre_qkv, pre_g) if pre_qkv is not None
                       else self._fused_qkvg(x, qkv_cfg is None))
+            # The mask add is hoisted above the projection so the fold below sees the bias the
+            # attention actually uses; without the fold this is the same tensor, one line earlier.
+            if attn_mask is not None:
+                triangle_bias = ttnn.add(triangle_bias, attn_mask)
+            # ROOF Phase A: the qkv projection folded into the SDPA. When it takes the call the
+            # projection program does not run at all. The gate still needs its own pass over x.
+            if qkv is not None:
+                _triatt_sdpa._fuse_reject("qkv_already_fused_with_gate", [int(d) for d in x.shape])
+            fold_o = None if qkv is not None else _tri_att_fused_qkv_sdpa(self, x, triangle_bias)
             # When the head-major projection takes the call, `qkv` is already the (q, k, v)
             # triple and no head split follows. It declines an L1 projection outright.
-            qkv = qkv if qkv is not None else None if qkv_cfg is not None else _triatt_qkv.qkv_heads(
+            qkv = qkv if qkv is not None else None if qkv_cfg is not None or fold_o is not None \
+                else _triatt_qkv.qkv_heads(
                 x, self.qkv_weight, self.compute_kernel_config,
                 self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight),
             )
-            if qkv is None:
+            if qkv is None and fold_o is None:
                 if qkv_cfg is not None:
                     qkv = ttnn.linear(
                         x,
@@ -7227,7 +7422,8 @@ class TriangleAttention(Module):
                         dtype=_dtype(),
                         config=_qkv_mm_config(x, self.qkv_weight),
                     )
-            if g is None and isinstance(qkv, tuple) and not self.biased:
+            if g is None and (isinstance(qkv, tuple) or fold_o is not None) \
+                    and not self.biased:
                 g = _triatt_qkv.gate_proj(
                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.g_weight),
@@ -7248,10 +7444,18 @@ class TriangleAttention(Module):
                 g = ttnn.add_(g, self.g_bias)
                 _pair_bias_stat("g_add")
             ttnn.deallocate(x)
-            if attn_mask is not None:
-                triangle_bias = ttnn.add(triangle_bias, attn_mask)
-            o = attend(qkv, triangle_bias, len(g.shape) == 4)
-            if not isinstance(qkv, tuple):        # the triple is freed inside attend
+            if fold_o is not None:
+                o = fold_o
+                if len(g.shape) != 4:
+                    # The gate projection declined its head-major form, so the fold's head-major
+                    # output has to be concat'ed the way `_attend_heads` does for keep_heads=False.
+                    o_heads = ttnn.experimental.nlp_concat_heads(
+                        o, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                    ttnn.deallocate(o)
+                    o = ttnn.squeeze(o_heads, 1)
+            else:
+                o = attend(qkv, triangle_bias, len(g.shape) == 4)
+            if qkv is not None and not isinstance(qkv, tuple):  # the triple is freed inside attend
                 ttnn.deallocate(qkv)
             ttnn.deallocate(triangle_bias)
             x = gate_and_project(o, g, l1_dest=_RESIDUAL_L1 and not self.ending)
@@ -7260,6 +7464,39 @@ class TriangleAttention(Module):
                 x, _transpose_memory_config(x, self.transpose_l1_reserve))
         x = ttnn.reshape(x, (1, *x.shape))
         return x
+
+
+def _tri_att_fused_qkv_sdpa(att, x, bias):
+    """Triangle attention straight off the normed pair tensor, or None to leave the call alone.
+
+    ROOF Phase A. The qkv projection does not run: the fused SDPA reads x and the head's three
+    weight slices and contracts them inside its own compute kernel. Returns head-major
+    `[B, n_heads, S, head_dim]`, the same layout `_attend_heads(..., keep_heads=True)` returns, so
+    the caller's gate and output projection are untouched.
+
+    MEASURED on pc, Blackhole p150a, 130 cores, ttnn 0.68.0, interleaved, at the boltz-2 512 aa
+    triangle attention: 1.4982x / 1.5502x on the pair over two sessions against A/A floors of
+    1.05 % and 2.61 %, and 1.5273x at 320 padded tokens. See `state/roof-qkv-sdpa-build.md`.
+    """
+    if att.biased or att.subtile or _FP32_SOFTMAX or att.fp32_softmax:
+        return _triatt_sdpa._fuse_reject("site", [int(d) for d in x.shape])
+    S = int(x.padded_shape[-2])
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    kc = next((k for q, k in _triatt_sdpa.fused_pairs(
+        S, att.n_heads, att.head_dim, cores, bias.dtype) if q == S), None)
+    if kc is None:
+        return _triatt_sdpa._fuse_reject("no_full_S_chunk", [int(d) for d in x.shape])
+    # The kernel adds the bias BEFORE applying scale, so it wants it pre-baked by sqrt(head_dim);
+    # same correction `_attend_heads` makes for the unfused route.
+    b = bias
+    if att._bias_scale != att.scale:
+        b = ttnn.multiply(bias, att.scale / att._bias_scale)
+    o = _triatt_sdpa.sdpa_fused_qkv(
+        x, att.qkv_weight, b, att.scale ** -1, att.n_heads, att.head_dim, S, kc,
+        _TRIATT_FUSED_HIFI_CKC if att.sdpa_hifi else None)
+    if b is not bias:
+        ttnn.deallocate(b)
+    return o
 
 
 class AttentionPairBias(Module):
@@ -7327,7 +7564,16 @@ class AttentionPairBias(Module):
                 device=self.device,
                 dtype=self.dtype,
             )
-        self.g_weight = self.torch_to_tt("proj_g.weight", dtype=self.dtype)
+        # The head re-assembly is decided here, not per call: everything it depends on -- the site,
+        # the storage dtype and the pad width -- is known at load time, and the weights it needs are
+        # a different shape. torch_to_tt runs exactly once either way, so the shared tiled-weight
+        # cache's call index does not move.
+        self._concat_heads = _APB_CONCAT_HEADS and not atom_level and self.dtype != ttnn.float32
+        _relane = (lambda ax: (lambda w: _pad_head_lanes(w.t(), self.n_heads, self.head_dim,
+                                                         self.padded_head_dim, ax))) \
+            if self._concat_heads and getattr(self, "padded_head_dim", head_dim) != head_dim \
+            else (lambda ax: (lambda w: w.t()))
+        self.g_weight = self.torch_to_tt("proj_g.weight", transform=_relane(-1), dtype=self.dtype)
         # A caller that passes an already-computed bias still reaches the fp32-softmax
         # path, which divides by this. Undefined here meant that combination raised
         # AttributeError instead of running; 1.0 is the right value, since a
@@ -7344,7 +7590,8 @@ class AttentionPairBias(Module):
                 self.torch_to_tt("proj_z.1.weight", dtype=self.dtype),
                 self._bias_scale,
             )
-        self.o_weight = self.torch_to_tt("proj_o.weight", dtype=self.dtype)
+        self.o_weight = self.torch_to_tt("proj_o.weight", transform=_relane(0),
+                                          dtype=self.dtype)
 
     def compute_bias(self, z: ttnn.Tensor) -> ttnn.Tensor:
         """Project the (LN'd) pair tensor z -> per-head additive attention bias
@@ -7659,10 +7906,17 @@ class AttentionPairBias(Module):
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
-            o = o[:, :, :, :self.head_dim]
-            o = ttnn.permute(o, (0, 1, 3, 2))
-            o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))
-            o = ttnn.permute(o, (0, 2, 1))
+            if self._concat_heads:
+                APB_CONCAT_HEADS_STATS[0] += 1
+                b, seq = o.shape[0], o.shape[2]
+                o = ttnn.experimental.nlp_concat_heads(o)
+                o = ttnn.reshape(o, (b, seq, self.n_heads * self.padded_head_dim))
+            else:
+                APB_CONCAT_HEADS_STATS[1] += 1
+                o = o[:, :, :, :self.head_dim]
+                o = ttnn.permute(o, (0, 1, 3, 2))
+                o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))
+                o = ttnn.permute(o, (0, 2, 1))
         else:
             s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
@@ -7958,6 +8212,21 @@ class Transition(Module):
         _h = os.environ.get("TT_BIO_TRANSITION_H_CHUNK")
         if _h:
             transition_h_chunk_size = max(1, min(int(_h), H))
+        # Record what the height actually came out as, AFTER every clause including the screen
+        # hook, because a ladder rung that reads "served" off a constant and not off the call is
+        # reading the wrong thing: the ratio, the small-grid L1 cap and the H clamp all still get
+        # to shrink it below the value the guard nominally admits.
+        _shape_k = (f"{H}x{W}x{x.shape[-1]}", _hid, transition_h_chunk_size)
+        TRANSITION_H_CHUNK_SHAPES[_shape_k] = TRANSITION_H_CHUNK_SHAPES.get(_shape_k, 0) + 1
+        if transition_h_chunk_size > TRANSITION_H_CHUNK_SIZE:
+            TRANSITION_H_CHUNK_STATS[0] += 1
+        else:
+            TRANSITION_H_CHUNK_STATS[1] += 1
+            _why = ("h-clamped-to-H" if transition_h_chunk_size >= H
+                    else "ratio-shrunk" if _rows_at(w_eff) < _base_h
+                    else "base-unraised")
+            _k = (_why, f"{H}x{W}x{x.shape[-1]}")
+            TRANSITION_H_CHUNK_REJECTS[_k] = TRANSITION_H_CHUNK_REJECTS.get(_k, 0) + 1
         if H > SEQ_LEN_MORE_CHUNKING:
             # Tag on ENTRY as well as on exit. The eager branch below tags before its loop, so a
             # long call there is visible as a tag with no successor; this branch only tagged after
@@ -8966,6 +9235,16 @@ class AdaLN(Module):
             return self._s_memo
         return s_scale, s_bias
 
+    def folded_weights(self):
+        """`(gamma * s_scale_w, s_scale_b, gamma * s_bias_w)` for the concatenated projection.
+
+        `s_terms` computes `layer_norm(s, weight=gamma) @ W`; this returns the `W` that gives the
+        same product from the parameter-free `s_hat`. Built on host from the checkpoint, so the
+        gamma multiply is rounded to bf16 once, offline, instead of per activation element."""
+        g = self.weights["s_norm.weight"].reshape(-1, 1)
+        return (self.weights["s_scale.weight"].t() * g, self.weights["s_scale.bias"],
+                self.weights["s_bias.weight"].t() * g)
+
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False,
                  s_terms=None, s_normed=None) -> ttnn.Tensor:
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
@@ -9018,9 +9297,17 @@ class ConditionedTransitionBlock(Module):
         self.output_projection_bias = self.torch_to_tt("output_projection.0.bias")
 
     def __call__(
-        self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False, s_normed=None
+        self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False, cond=None,
+        s_normed=None,
     ) -> ttnn.Tensor:
-        a = self.adaln(a, s, large_seq_len=large_seq_len, s_normed=s_normed)
+        """`cond`, when given, is `(s_terms, s_out)` already computed by the caller, with `s_out`
+        ALREADY through its sigmoid -- the concatenated projection applies it in the matmul own
+        activation epilogue, where it is free, instead of at the multiply below.
+
+        `s_normed` is the weaker L8 variant and applies only when `cond` is absent: `cond` hands
+        over `s_terms` outright, so the two can never both fire."""
+        s_terms, s_out = cond if cond is not None else (None, None)
+        a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms, s_normed=s_normed)
         a_swish = ttnn.linear(
             a,
             self.swish_weight,
@@ -9047,13 +9334,14 @@ class ConditionedTransitionBlock(Module):
         else:
             ttnn.deallocate(a)
             b = a_swish
-        s = ttnn.linear(
-            s,
-            self.output_projection_weight,
-            bias=self.output_projection_bias,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        if s_out is None:
+            s = ttnn.linear(
+                s,
+                self.output_projection_weight,
+                bias=self.output_projection_bias,
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
         b_a = ttnn.linear(
             b,
             self.b_to_a_weight,
@@ -9061,7 +9349,8 @@ class ConditionedTransitionBlock(Module):
             core_grid=CORE_GRID_MAIN,
         )
         ttnn.deallocate(b)
-        a = ttnn.multiply_(s, b_a, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID])
+        a = (ttnn.multiply(s_out, b_a) if s_out is not None else
+             ttnn.multiply_(s, b_a, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID]))
         ttnn.deallocate(b_a)
         return a
 
@@ -9123,15 +9412,21 @@ class DiffusionTransformerLayer(Module):
         z: ttnn.Tensor,
         keys_indexing: "ttnn.Tensor | _AtomShiftGather | None" = None,
         large_seq_len: bool = False,
+        cond=None,
         s_normed=None,
     ) -> ttnn.Tensor:
-        b = self.adaln(a, s, large_seq_len=large_seq_len, s_normed=s_normed)
+        """`cond`, when given, is this layer slice of the hoisted conditioning half:
+        `(attn_s_terms, attn_s_out, trans_s_terms, trans_s_out)`, both `s_out` post-sigmoid."""
+        t_attn, s_o_pre, t_trans, s_o2_pre = cond if cond is not None else (None,) * 4
+        b = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=t_attn, s_normed=s_normed)
         if not self.atom_level:
             b = self.attn_pair_bias(b, z)
         else:
             b = self.attn_pair_bias(b, z, keys_indexing)
         key = tuple(s.shape)
-        if self.s_o is None or self._s_o_key != key:
+        if s_o_pre is not None:
+            s_o = s_o_pre
+        elif self.s_o is None or self._s_o_key != key:
             s_o = ttnn.linear(
                 s,
                 self.output_projection_weight,
@@ -9148,11 +9443,15 @@ class DiffusionTransformerLayer(Module):
         if self.no_residual:
             # transition reads the block input, so it must be evaluated BEFORE a
             # absorbs the attention output
-            a_t = self.transition(a, s, large_seq_len=large_seq_len, s_normed=s_normed)
+            a_t = self.transition(a, s, large_seq_len=large_seq_len,
+                                  cond=None if cond is None else (t_trans, s_o2_pre),
+                                  s_normed=s_normed)
             a = ttnn.add(ttnn.add(a, b), a_t)
         else:
             a = ttnn.add(a, b)
-            a_t = self.transition(a, s, large_seq_len=large_seq_len, s_normed=s_normed)
+            a_t = self.transition(a, s, large_seq_len=large_seq_len,
+                                  cond=None if cond is None else (t_trans, s_o2_pre),
+                                  s_normed=s_normed)
             a = ttnn.add(a, a_t)
         return a
 
@@ -9184,8 +9483,40 @@ class DiffusionTransformer(Module):
             )
             for i in range(n_layers)
         ]
-        # L8 applies where `s_terms` is recomputed per call. The atom stack memoises it for the
-        # whole rollout (L6), so a shared norm there would add a program and save none.
+        self.atom_level = atom_level
+        self.dim = dim
+        self._cond_w = None
+
+    def _cond_weights(self):
+        """The 24 layers' conditioning projections, concatenated into two weight blocks.
+
+        Block order per layer i: the four AdaLN projections
+        `(attn s_scale, attn s_bias, transition s_scale, transition s_bias)` with each layer's
+        `s_norm` gain folded in, then separately the two output projections. Built once from the
+        checkpoint the layers were built from, so nothing is read back off the device."""
+        if self._cond_w is not None:
+            return self._cond_w
+        ad_w, ad_b, op_w, op_b = [], [], [], []
+        for layer in self.layers:
+            for ad in (layer.adaln, layer.transition.adaln):
+                scale_w, scale_b, bias_w = ad.folded_weights()
+                ad_w += [scale_w, bias_w]
+                ad_b += [scale_b, torch.zeros_like(scale_b)]
+            op_w.append(layer.weights["output_projection_linear.weight"].t())
+            op_b.append(layer.weights["output_projection_linear.bias"])
+            op_w.append(layer.transition.weights["output_projection.0.weight"].t())
+            op_b.append(layer.transition.weights["output_projection.0.bias"])
+        dt = _dtype(ttnn.bfloat16)
+
+        def cat(parts, dim):
+            return ttnn.from_torch(torch.cat(parts, dim=dim), layout=ttnn.TILE_LAYOUT,
+                                   device=self.device, dtype=dt)
+
+        self._cond_w = (cat(ad_w, 1), cat(ad_b, 0), cat(op_w, 1), cat(op_b, 0))
+        return self._cond_w
+        # The shared-norm fallback applies where `s_terms` is recomputed per call. The atom stack
+        # memoises it for the whole rollout (L6), so a shared norm there would add a program and
+        # save none.
         self.shared_s_norm = not atom_level
 
     def __call__(
@@ -9196,37 +9527,82 @@ class DiffusionTransformer(Module):
         keys_indexing: "ttnn.Tensor | _AtomShiftGather | None" = None,
         large_seq_len: bool = False,
     ) -> ttnn.Tensor:
-        # L8: every AdaLN below normalises this same `s`. Do it once, without the per-site
-        # weight, and let each site's `folded_projections` carry the weight instead.
+        # L8. One layer_norm and two concatenated matmuls in place of the 24 layers' own 144
+        # projections and 48 layer_norms. Read at call time so an interleaved A/B can flip it.
+        cond_all = None
+        if _B2_DIT_COND_HOIST and not self.atom_level:
+            adw, adb, opw, opb = self._cond_weights()
+            s_hat = ttnn.layer_norm(s, epsilon=1e-5,
+                                    compute_kernel_config=self.compute_kernel_config)
+            o_ad = ttnn.linear(s_hat, adw, bias=adb,
+                               compute_kernel_config=self.compute_kernel_config)
+            ttnn.deallocate(s_hat)
+            # `activation="sigmoid"` here is where both output projections' sigmoids go: the
+            # attention one already carried it in its own linear, and the transition one moves
+            # off its multiply, which is told not to re-apply it.
+            o_op = ttnn.linear(s, opw, bias=opb,
+                               compute_kernel_config=self.compute_kernel_config,
+                               activation="sigmoid")
+            cond_all = (o_ad, o_op)
+
+        # L8, weaker variant. One parameter-free norm of `s` shared by every AdaLN below, each
+        # site carrying its own gain in `folded_projections`. Strictly subsumed by the hoist
+        # above: it deletes the same 48 layer_norms and none of the 144 projections, so it runs
+        # only where the hoist declines.
         s_normed = (
             ttnn.layer_norm(s, epsilon=1e-5,
                             compute_kernel_config=self.compute_kernel_config)
-            if _B2_ADALN_SHARED_SNORM and self.shared_s_norm else None
+            if cond_all is None and _B2_ADALN_SHARED_SNORM and self.shared_s_norm else None
         )
-        a = self._layers(a, s, z, keys_indexing, large_seq_len, s_normed)
-        if s_normed is not None:
-            ttnn.deallocate(s_normed)
-        return a
 
-    def _layers(self, a, s, z, keys_indexing, large_seq_len, s_normed):
-        if isinstance(z, (list, tuple)):
-            # L7: the head-ranges were cut once per fold (AtomDiffusion._hoist_layer_bias),
-            # because z is constant across the whole denoise rollout.
-            for layer, z_layer in zip(self.layers, z):
-                a = layer(a, s, z_layer, keys_indexing, large_seq_len=large_seq_len,
-                          s_normed=s_normed)
+        d = self.dim
+
+        def cut(i):
+            if cond_all is None:
+                return None, ()
+            o_ad, o_op = cond_all
+            parts = [o_ad[..., (4 * i + j) * d:(4 * i + j + 1) * d] for j in range(4)]
+            parts += [o_op[..., (2 * i + j) * d:(2 * i + j + 1) * d] for j in range(2)]
+            return (parts[0], parts[1]), parts
+
+        def bundle(i):
+            terms, parts = cut(i)
+            if terms is None:
+                return None, ()
+            return (terms, parts[4], (parts[2], parts[3]), parts[5]), parts
+
+        try:
+            if isinstance(z, (list, tuple)):
+                # L7: the head-ranges were cut once per fold (AtomDiffusion._hoist_layer_bias),
+                # because z is constant across the whole denoise rollout.
+                for i, (layer, z_layer) in enumerate(zip(self.layers, z)):
+                    cond, parts = bundle(i)
+                    a = layer(a, s, z_layer, keys_indexing, large_seq_len=large_seq_len,
+                              cond=cond, s_normed=s_normed)
+                    for x in parts:
+                        ttnn.deallocate(x)
+                return a
+            dim = z.shape[1] // len(self.layers)
+            for i, layer in enumerate(self.layers):
+                cond, parts = bundle(i)
+                a = layer(
+                    a,
+                    s,
+                    z[:, i * dim : (i + 1) * dim, :, :],
+                    keys_indexing,
+                    large_seq_len=large_seq_len,
+                    cond=cond,
+                    s_normed=s_normed,
+                )
+                for x in parts:
+                    ttnn.deallocate(x)
             return a
-        dim = z.shape[1] // len(self.layers)
-        for i, layer in enumerate(self.layers):
-            a = layer(
-                a,
-                s,
-                z[:, i * dim : (i + 1) * dim, :, :],
-                keys_indexing,
-                large_seq_len=large_seq_len,
-                s_normed=s_normed,
-            )
-        return a
+        finally:
+            if cond_all is not None:
+                for x in cond_all:
+                    ttnn.deallocate(x)
+            if s_normed is not None:
+                ttnn.deallocate(s_normed)
 
 
 class PairWeightedAveraging(Module):
@@ -10412,13 +10788,24 @@ class PairformerModule(TorchWrapper):
     def forward(
         self,
         s: torch.Tensor | None,
-        z: torch.Tensor,
+        z: torch.Tensor | None,
         mask: torch.Tensor | None = None,
         pair_mask: torch.Tensor | None = None,
         use_kernels: bool = False,
+        z_device: "ttnn.Tensor | None" = None,
+        seq_len: int | None = None,
+        keep_z_device: bool = False,
     ) -> tuple[torch.Tensor | None, torch.Tensor]:
-        seq_len = z.shape[1]
-        pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
+        # `z_device` is an already-padded device tensor from a caller that built z where the
+        # previous stage left it (see ConfidencePairDevice): nothing to upload, nothing to pad.
+        # It is padded to this module's own multiple, which is what makes it substitutable --
+        # `seq_len` is the only thing that padding hid.
+        if z_device is not None:
+            assert seq_len is not None, "z_device needs the unpadded seq_len"
+            pad = int(z_device.shape[1]) - seq_len
+        else:
+            seq_len = z.shape[1]
+            pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
 
         required_cache_keys = ("mask_tt", "attn_mask_start_tt", "attn_mask_end_tt")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -10426,7 +10813,8 @@ class PairformerModule(TorchWrapper):
             self._first_forward_pass = True
 
         if pad:
-            z = torch.nn.functional.pad(z, (0, 0, 0, pad, 0, pad))
+            if z is not None:
+                z = torch.nn.functional.pad(z, (0, 0, 0, pad, 0, pad))
             if s is not None:
                 s = torch.nn.functional.pad(s, (0, 0, 0, pad))
 
@@ -10450,7 +10838,7 @@ class PairformerModule(TorchWrapper):
                 if mask_1d is None:
                     mask_1d = (
                         torch.diagonal(pair_mask, dim1=-2, dim2=-1)
-                        if pair_mask is not None else z.new_ones(1, seq_len)
+                        if pair_mask is not None else torch.ones(1, seq_len)
                     )
                 if pad:
                     mask_1d = torch.nn.functional.pad(mask_1d, (0, pad))
@@ -10477,13 +10865,18 @@ class PairformerModule(TorchWrapper):
 
         s_out, z_out = self.module(
             self._from_torch(s) if s is not None else None,
-            self._from_torch(z),
+            z_device if z_device is not None else self._from_torch(z),
             self._cache_get("mask_tt"),
             self._cache_get("attn_mask_start_tt"),
             self._cache_get("attn_mask_end_tt"),
         )
 
         s_result = self._to_torch(s_out)[:, :seq_len, :] if s_out is not None else None
+        if keep_z_device:
+            # The caller consumes z on the card and owns the buffer from here. Nothing else in
+            # this module needs it, and the download is the whole point of asking: 67.1 MB on
+            # the bus at 512 tokens, for a tensor the next stage only reads channel-wise.
+            return s_result, z_out
         z_result = self._to_torch(z_out)[:, :seq_len, :seq_len, :]
         return s_result, z_result
 
@@ -11069,7 +11462,7 @@ class MSAModule(TorchWrapper):
         seq_len = z.shape[1]
         n_msa = m.shape[1]
         seq_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
-        msa_pad = pad_amount(n_msa, MSA_PAD_MULTIPLE)
+        msa_pad = msa_pad_amount(n_msa)
 
         required_cache_keys = ("mask_tt", "attn_mask_tt", "msa_mask_tt", "n_msa")
         if (not self._first_forward_pass) and (not self._cache_has_all(required_cache_keys)):
@@ -11191,6 +11584,98 @@ class TrunkRecycle:
         return s_out, z_out
 
 
+def free(*tensors):
+    """Release device tensors for a caller that owns them but does not import ttnn.
+
+    ``tt_bio.boltz2`` is the host model and deliberately never imports ttnn, yet it owns the
+    trunk's pair tensor for the length of a fold because two device stages read it: the diffusion
+    conditioning before the sampler and the confidence head after it.
+    """
+    for t in tensors:
+        if t is not None:
+            ttnn.deallocate(t)
+
+
+class StageWall:
+    """Wall seconds per stage of a device track, with an explicit sync at each boundary.
+
+    Off unless its env flag is set, because the syncs it inserts ARE the measurement: without
+    them the first ``to_torch`` collects the whole track's device time and every stage before it
+    reads as free. Read per call, so an A/B can arm it inside one process.
+    """
+
+    def __init__(self, flag: str, label: str):
+        self.flag, self.label, self.on, self.t0 = flag, label, False, 0.0
+
+    def start(self):
+        self.on = env_flag(self.flag, False)
+        self.t0 = time.perf_counter()
+
+    def mark(self, stage: str):
+        if not self.on:
+            return
+        ttnn.synchronize_device(get_device())
+        now = time.perf_counter()
+        print(f"[{self.label}] {stage:22s} {1e3 * (now - self.t0):8.2f} ms", flush=True)
+        self.t0 = now
+
+
+def pair_gather(index, table, padded):
+    """``table[index]`` for an ``[n, n]`` integer map, zero-padded to ``[1, padded, padded, c]``.
+
+    Every per-``(i, j)`` embedding in this model family -- relative position, distogram bucket,
+    bond type -- is one row of a small table per token pair, so what crosses the bus is the
+    index map (1 MB at 512 tokens) and not the tensor it selects (134 MB at ``c = 128``).
+    ``table`` must already be a ROW_MAJOR device tensor, which is what ``ttnn.embedding`` takes.
+    """
+    index = index.reshape(index.shape[-2], index.shape[-1]).to(torch.int32)
+    pad = padded - index.shape[-1]
+    if pad:
+        index = torch.nn.functional.pad(index, (0, pad, 0, pad))
+    index_tt = ttnn.from_torch(index, layout=ttnn.ROW_MAJOR_LAYOUT, device=get_device(),
+                               dtype=ttnn.uint32)
+    rows = ttnn.embedding(index_tt, table, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+    ttnn.deallocate(index_tt)
+    return ttnn.reshape(rows, (1, padded, padded, -1))
+
+
+class RelPosGather:
+    """``RelativePositionEncoder`` as four table gathers, where the tensor is needed.
+
+    The encoder one-hots three integer maps, concatenates a boolean, and projects the result, so
+    the projection reads four rows of one weight matrix per ``(i, j)`` and multiplies 135 of its
+    139 channels by zero. What has to reach the device is therefore the four tables plus 4 MB of
+    indices, not the ``[1, n, n, token_z]`` tensor they add up to (134 MB at 512 tokens).
+
+    Boltz-2 has two independent ``RelativePositionEncoder`` instances -- the trunk/diffusion one
+    and the confidence head's -- with different weights, so each device consumer owns its own
+    gather.
+    """
+
+    def __init__(self, rel_pos):
+        self.rel_pos = rel_pos
+        device = get_device()
+        # ROW_MAJOR because that is what ttnn.embedding takes.
+        self.tables = [
+            ttnn.from_torch(t.detach().contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+                            device=device, dtype=ttnn.bfloat16)
+            for t in rel_pos.tables()
+        ]
+
+    def __call__(self, feats, padded):
+        d_residue, d_token, d_chain, same_entity = self.rel_pos.index_features(feats)
+        out = None
+        for table, index in zip(self.tables,
+                                (d_residue, d_token, same_entity.long(), d_chain)):
+            rows = pair_gather(index, table, padded)
+            if out is None:
+                out = rows
+            else:
+                out = ttnn.add_(out, rows)
+                ttnn.deallocate(rows)
+        return out
+
+
 class PairConditioningDevice:
     """Boltz-2's diffusion-conditioning pair track, run where the trunk left the tensor.
 
@@ -11254,7 +11739,8 @@ class PairConditioningDevice:
     def __call__(self, z, relative_position_encoding, seq_len, seq_pad):
         """``(z_to_p, token_trans_bias)`` from the trunk's device pair tensor.
 
-        ``z`` is consumed (deallocated); ``z_to_p`` comes back as torch sliced to ``seq_len``,
+        ``z`` is NOT consumed -- the caller owns it, so the confidence head can read the same
+        buffer after the sampler. ``z_to_p`` comes back as torch sliced to ``seq_len``,
         ``token_trans_bias`` stays on the device padded, which is the shape the diffusion cache
         wants.
         """
@@ -11264,7 +11750,6 @@ class PairConditioningDevice:
         rel_pos_tt = ttnn.from_torch(rel_pos, layout=ttnn.TILE_LAYOUT, device=get_device(),
                                      dtype=ttnn.bfloat16)
         x = ttnn.concat([z, rel_pos_tt], dim=-1)
-        ttnn.deallocate(z)
         ttnn.deallocate(rel_pos_tt)
         x_norm = ttnn.layer_norm(
             x, weight=self.init_norm_weight, bias=self.init_norm_bias,
@@ -11313,6 +11798,386 @@ class PairConditioningDevice:
         out = torch.Tensor(ttnn.to_torch(z_to_p)).to(torch.float32)[:, :seq_len, :seq_len, :]
         ttnn.deallocate(z_to_p)
         return out, bias
+
+
+class ConfidencePairDevice:
+    """Boltz-2's confidence-head pair assembly, run where the trunk left the tensor.
+
+    Everything ``ConfidenceModule.forward`` does to ``z`` before its pairformer is a channel map
+    applied independently at each ``(i, j)``: ``z_norm``, ``+ rel_pos``, ``+ token_bonds``,
+    ``+ contact_conditioning``, the two ``s_to_z`` broadcasts and the distogram embedding. The
+    pairformer behind it is already device-resident and the trunk still holds the pair tensor, so
+    running the assembly here deletes the host passes AND the ``[1, n, n, token_z]`` upload that
+    used to feed the pairformer -- 134 MB of fp32 read at 512 tokens. What goes up instead is an
+    index map or an ``[n, c]`` vector: the rel_pos indices, the distogram bucket indices, the
+    bond and contact features.
+
+    ``supports`` is the gate, and it reads the module, never a model name. The head is
+    configurable and the flags come from the checkpoint, so the device path declares what it
+    computes and the caller falls back to torch for the rest. ``bond_type_feature`` and
+    ``add_s_to_z_prod`` are both implemented here; ``add_z_input_to_z=False`` is not, because
+    then there is no pair assembly left to move.
+
+    Padding: the trunk's tensor is padded to the pairformer's own multiple, which is exactly the
+    padding ``PairformerModule`` would have applied, and every op here is per-``(i, j)``. The one
+    thing that is not automatic is that the host path pads with ZEROS while the trunk's padded
+    rows carry whatever the last block left there, so the pad is re-zeroed before the pairformer
+    sees it.
+    """
+
+    @staticmethod
+    def supports(conf) -> bool:
+        return (
+            getattr(conf, "add_z_input_to_z", False)
+            and isinstance(getattr(conf, "pairformer_stack", None), PairformerModule)
+        )
+
+    def __init__(self, conf, compute_kernel_config):
+        self.compute_kernel_config = compute_kernel_config
+        self.conf = conf
+        self.wall = StageWall("TT_BIO_DEVICE_CONFIDENCE_PROFILE", "confpair")
+        device = get_device()
+
+        def w(tensor, transpose=False):
+            t = tensor.detach()
+            if transpose:
+                t = t.t().contiguous()
+            return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+
+        def row(tensor):
+            return ttnn.from_torch(tensor.detach().reshape(1, -1).contiguous(),
+                                   layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+
+        self.z_norm_weight = w(conf.z_norm.weight)
+        self.z_norm_bias = w(conf.z_norm.bias)
+        self.z_norm_eps = conf.z_norm.eps
+        self.rel_pos = RelPosGather(conf.rel_pos)
+        self.bonds_type_table = (
+            ttnn.from_torch(conf.token_bonds_type.weight.detach().contiguous(),
+                            layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
+            if getattr(conf, "bond_type_feature", False) else None)
+
+        # ---- the packed feature upload -------------------------------------------------------
+        # Five host feature maps feed this track -- the contact one-hot, the contact threshold,
+        # the UNSPECIFIED/UNSELECTED keep mask, and token_bonds -- and every one of them is
+        # narrower than a tile. A [1, n, n, 1] upload tilizes to 32 channels, so five separate
+        # uploads cost five times the bus and five host tilize passes for the same 6 columns.
+        # Pack them into one [1, n, n, K] tensor and give each consumer a [K, out] weight whose
+        # unused rows are zero: one upload, and the column selection happens inside a matmul
+        # that was going to run anyway.
+        cc = conf.contact_conditioning
+        self.cutoff_min, self.cutoff_max = cc.cutoff_min, cc.cutoff_max
+        # encoder input is cat([cc[2:], threshold, fourier]), so its non-Fourier width fixes the
+        # contact one-hot's: n_small = (n_cc - 2) + 1. Read it off the module rather than
+        # importing the constant table, so the pack follows the checkpoint.
+        n_small = cc.encoder.in_features - cc.fourier_embedding.proj.out_features
+        n_cc = n_small + 1
+        n_tb = conf.token_bonds.in_features
+        self.n_pack = n_cc + 2 + n_tb           # cc | threshold | keep | token_bonds
+        i_thr, i_keep, i_tb = n_cc, n_cc + 1, n_cc + 2
+
+        def packed(cols: dict, out_dim: int):
+            """``[n_pack, out_dim]`` with ``cols[j]`` written at packed column ``j``."""
+            m = torch.zeros(self.n_pack, out_dim)
+            for j, v in cols.items():
+                m[j:j + v.shape[0]] = v
+            return w(m)
+
+        # Split the encoder weight at the Fourier boundary so the block that comes from host
+        # features rides the packed tensor and the block that comes from the Fourier embedding
+        # is its own matmul.
+        ew = cc.encoder.weight.detach()
+        self.contact_weight = packed({2: ew[:, :n_small - 1].t(),
+                                      i_thr: ew[:, n_small - 1:n_small].t()}, ew.shape[0])
+        self.fourier_in_weight = packed(
+            {i_thr: cc.fourier_embedding.proj.weight.detach().t()},
+            cc.fourier_embedding.proj.out_features)
+        self.fourier_bias = row(cc.fourier_embedding.proj.bias)
+        self.fourier_out_weight = w(ew[:, n_small:], transpose=True)
+        self.contact_bias = row(cc.encoder.bias)
+        self.override_weight = packed(
+            {0: torch.stack([cc.encoding_unspecified.detach(),
+                             cc.encoding_unselected.detach()])}, ew.shape[0])
+        self.keep_weight = packed({i_keep: torch.ones(1, 1)}, 1)
+        self.bonds_weight = packed({i_tb: conf.token_bonds.weight.detach().t()},
+                                   conf.token_bonds.out_features)
+
+        self.s_to_z_weight = w(conf.s_to_z.weight, transpose=True)
+        self.s_to_z_t_weight = w(conf.s_to_z_transpose.weight, transpose=True)
+        self.prod = None
+        if getattr(conf, "add_s_to_z_prod", False):
+            self.prod = (w(conf.s_to_z_prod_in1.weight, transpose=True),
+                         w(conf.s_to_z_prod_in2.weight, transpose=True),
+                         w(conf.s_to_z_prod_out.weight, transpose=True))
+        # 64 rows of token_z: the distogram bucket is a gather, so the [1, n, n] bucket index
+        # goes up (1 MB) instead of the embedding it selects (134 MB).
+        self.dist_table = ttnn.from_torch(
+            conf.dist_bin_pairwise_embed.weight.detach().contiguous(),
+            layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
+
+    def _linear(self, x, weight, bias=None, activation=None, core_grid=CORE_GRID_MAIN):
+        return ttnn.linear(
+            x, weight, bias=bias, activation=activation,
+            compute_kernel_config=self.compute_kernel_config, core_grid=core_grid,
+        )
+
+    def _pack(self, feats, padded):
+        """The one host feature upload: ``[1, padded, padded, n_pack]``, zero-padded.
+
+        Columns, in order: the contact one-hot, the normalised contact threshold, the
+        UNSPECIFIED/UNSELECTED keep mask, ``token_bonds``.
+        """
+        cc = feats["contact_conditioning"].float()
+        b, n = cc.shape[0], cc.shape[1]
+        thr = feats["contact_threshold"].float().reshape(b, n, n, 1)
+        thr = (thr - self.cutoff_min) / (self.cutoff_max - self.cutoff_min)
+        keep = 1.0 - cc[..., 0:2].sum(dim=-1, keepdim=True)
+        tb = feats["token_bonds"].float().reshape(b, n, n, -1)
+        t = torch.cat([cc, thr, keep, tb], dim=-1)
+        pad = padded - n
+        if pad:
+            t = torch.nn.functional.pad(t, (0, 0, 0, pad, 0, pad))
+        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(),
+                               dtype=ttnn.bfloat16)
+
+    def _contact(self, packed):
+        """``ContactConditioning.forward`` over the packed upload.
+
+        The host form materialises the Fourier embedding of the contact threshold as a full
+        ``[1, n, n, token_z]`` tensor -- 134 MB at 512 tokens -- to project one scalar per
+        ``(i, j)``. Here the scalar is a column of the packed tensor and the embedding is built
+        where it is consumed.
+        """
+        fourier = self._linear(packed, self.fourier_in_weight, bias=self.fourier_bias)
+        fourier = ttnn.cos(ttnn.multiply(fourier, 2 * pi))
+        out = self._linear(fourier, self.fourier_out_weight, bias=self.contact_bias)
+        ttnn.deallocate(fourier)
+        out = ttnn.add_(out, self._linear(packed, self.contact_weight))
+        keep = self._linear(packed, self.keep_weight, core_grid=None)
+        out = ttnn.multiply_(out, keep)
+        ttnn.deallocate(keep)
+        out = ttnn.add_(out, self._linear(packed, self.override_weight))
+        return out
+
+    def __call__(self, z_tt, s_inputs, feats, dist_index, seq_len, seq_pad):
+        """The padded device ``z`` the confidence pairformer consumes.
+
+        ``z_tt`` is the trunk's padded pair tensor and is NOT consumed -- the caller owns it, so
+        one fold can feed both this and the diffusion conditioning from the same buffer.
+        ``s_inputs`` is the already-normalised host ``[1, n, token_s]``; ``dist_index`` the host
+        ``[1, n, n]`` distogram bucket index, which the head computes for its own heads anyway.
+        """
+        self.wall.start()
+        padded = seq_len + seq_pad
+        z = ttnn.layer_norm(z_tt, weight=self.z_norm_weight, bias=self.z_norm_bias,
+                            epsilon=self.z_norm_eps,
+                            compute_kernel_config=self.compute_kernel_config)
+        self.wall.mark("z_norm")
+
+        rel = self.rel_pos(feats, padded)
+        z = ttnn.add_(z, rel)
+        ttnn.deallocate(rel)
+        self.wall.mark("rel_pos")
+
+        packed = self._pack(feats, padded)
+        self.wall.mark("pack upload")
+
+        bonds = self._linear(packed, self.bonds_weight)
+        z = ttnn.add_(z, bonds)
+        ttnn.deallocate(bonds)
+
+        if self.bonds_type_table is not None:
+            types = pair_gather(feats["type_bonds"].long(), self.bonds_type_table, padded)
+            z = ttnn.add_(z, types)
+            ttnn.deallocate(types)
+        self.wall.mark("bonds")
+
+        contact = self._contact(packed)
+        ttnn.deallocate(packed)
+        z = ttnn.add_(z, contact)
+        ttnn.deallocate(contact)
+        self.wall.mark("contact")
+
+        s_in = torch.nn.functional.pad(s_inputs.float(), (0, 0, 0, seq_pad))
+        s_in = ttnn.from_torch(s_in, layout=ttnn.TILE_LAYOUT, device=get_device(),
+                               dtype=ttnn.bfloat16)
+        a = self._linear(s_in, self.s_to_z_weight)
+        b = self._linear(s_in, self.s_to_z_t_weight)
+        z = ttnn.add(z, ttnn.unsqueeze(a, -2))
+        z = ttnn.add(z, ttnn.unsqueeze(b, -3))
+        ttnn.deallocate(a)
+        ttnn.deallocate(b)
+        if self.prod is not None:
+            w1, w2, wout = self.prod
+            p1 = self._linear(s_in, w1)
+            p2 = self._linear(s_in, w2)
+            p = ttnn.multiply(ttnn.unsqueeze(p1, -2), ttnn.unsqueeze(p2, -3))
+            ttnn.deallocate(p1)
+            ttnn.deallocate(p2)
+            p = self._linear(p, wout)
+            z = ttnn.add_(z, p)
+            ttnn.deallocate(p)
+        ttnn.deallocate(s_in)
+        self.wall.mark("s_to_z")
+
+        dist = pair_gather(dist_index, self.dist_table, padded)
+        z = ttnn.add_(z, dist)
+        ttnn.deallocate(dist)
+        self.wall.mark("distogram")
+
+        if seq_pad:
+            # The host path builds z unpadded and PairformerModule pads it with zeros; the
+            # trunk's padded rows carry whatever its last block left there, so re-zero them.
+            keep = torch.zeros(1, padded, padded, 1)
+            keep[:, :seq_len, :seq_len, :] = 1.0
+            keep_tt = ttnn.from_torch(keep, layout=ttnn.TILE_LAYOUT, device=get_device(),
+                                      dtype=ttnn.bfloat16)
+            z = ttnn.multiply_(z, keep_tt)
+            ttnn.deallocate(keep_tt)
+        self.wall.mark("pad zero")
+        return z
+
+
+
+class ConfidenceHeadsDevice:
+    """Boltz-2's pae/pde heads and the pTM contraction, where the pairformer left the tensor.
+
+    ``ConfidenceHeads`` reads ``z`` four times -- ``to_pae_{intra,inter}_logits`` and
+    ``to_pde_{intra,inter}_logits``, each a ``[1, n, n, token_z] -> 64`` projection -- and then
+    throws the logits away. Every reader downstream takes an aggregate over the 64 bins:
+    ``worker.py`` writes the ``[1, n, n]`` pae and pde, ``main.py`` takes scalars, and nothing in
+    the boltz-2 path reads ``out_dict["pae_logits"]`` at all. So the projections belong where
+    ``z`` already is, and what crosses the bus is the reductions: 16.8 MB at 512 tokens instead
+    of the 67.1 MB the pairformer's ``z_out`` download used to cost.
+
+    The intra/inter pair is a SELECT, not a blend -- ``is_same_chain`` masks one, its complement
+    masks the other, and the two are summed. That mask is per ``(i, j)`` and covers all 64 bins
+    at once, so it commutes with the softmax and with the bin contraction:
+
+        select(softmax(a), softmax(c)) . b  ==  select(softmax(a) . b, softmax(c) . b)
+
+    Selecting after the contraction instead of before it is what makes one download carry
+    everything: three numbers per ``(i, j)`` -- pae, pde, and the TM expectation ``compute_ptms``
+    wants -- ride three channels of a single 32-wide tensor, because the two bin-centre vectors
+    and the TM curve are all just columns of one ``[bins, 32]`` matrix.
+
+    Not bit-exact against torch (bf16 device math against fp32), and it does not need to be: the
+    head runs after ``structure_module.sample``, so at one diffusion sample nothing it computes
+    can re-enter a coordinate. The scores move by a bf16 rounding; the atoms do not move at all.
+    """
+
+    CH_PAE, CH_TM, CH_PDE = 0, 1, 2
+    CH = 32                                   # one tile: the narrowest a device result can be
+    CH_KEEP = 4                               # ... but only three channels carry anything
+
+    @staticmethod
+    def supports(heads) -> bool:
+        """Gated on the module, never on a model name.
+
+        ``use_separate_heads`` is the configuration this implements -- the masked intra/inter
+        pair. The single-head form is a different (and cheaper) shape and falls back to torch.
+        """
+        return bool(getattr(heads, "use_separate_heads", False))
+
+    def __init__(self, heads, compute_kernel_config):
+        self.compute_kernel_config = compute_kernel_config
+        self.wall = StageWall("TT_BIO_DEVICE_CONFIDENCE_PROFILE", "confheads")
+        device = get_device()
+
+        def w(linear):
+            return ttnn.from_torch(linear.weight.detach().t().contiguous(),
+                                   layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
+
+        self.pae = (w(heads.to_pae_intra_logits), w(heads.to_pae_inter_logits))
+        self.pde = (w(heads.to_pde_intra_logits), w(heads.to_pde_inter_logits))
+        self.n_pae_bins = heads.to_pae_intra_logits.weight.shape[0]
+        self.n_pde_bins = heads.to_pde_intra_logits.weight.shape[0]
+        # The same-chain select, as a two-row table: the [n, n] chain-equality map goes up as an
+        # index (1 MB) and the [1, n, n, 32] mask is built by the gather, not by the bus.
+        self.select_table = ttnn.from_torch(
+            torch.stack([torch.zeros(self.CH), torch.ones(self.CH)]),
+            layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
+
+    def _contract(self, n_bins: int, columns: dict) -> "ttnn.Tensor":
+        """``[n_bins, 32]`` whose column ``j`` is the bin vector ``columns[j]``.
+
+        One matmul per head does every reduction that head feeds, and the unused 29 columns are
+        zero. The result is a tile wide because a tile is the floor, not because 32 numbers are
+        wanted -- three of them are.
+        """
+        m = torch.zeros(n_bins, self.CH)
+        for j, v in columns.items():
+            m[:, j] = v
+        return ttnn.from_torch(m, layout=ttnn.TILE_LAYOUT, device=get_device(),
+                               dtype=ttnn.bfloat16)
+
+    def _linear(self, x, weight):
+        return ttnn.linear(x, weight, compute_kernel_config=self.compute_kernel_config,
+                           core_grid=CORE_GRID_MAIN)
+
+    def _reduce(self, z, weight, contract):
+        """``softmax(z @ weight) @ contract``: one head's bins, already contracted."""
+        logits = self._linear(z, weight)
+        probs = ttnn.softmax(logits, dim=-1)
+        ttnn.deallocate(logits)
+        out = self._linear(probs, contract)
+        ttnn.deallocate(probs)
+        return out
+
+    def __call__(self, z_tt, asym_id, bins, seq_len, padded):
+        """``{"pae", "pde", "tm"}``, each host ``[1, n, n]``, from the device ``z``.
+
+        ``z_tt`` is the confidence pairformer's own output and IS consumed here -- the caller
+        hands it over rather than downloading it. ``bins`` is ``(pae centres, TM curve over the
+        pae centres, pde centres)``, built by the caller so the bin definition stays in the one
+        place that owns it. ``tm`` is the expectation ``compute_ptms`` would otherwise take over
+        the full pae logits on the host.
+        """
+        self.wall.start()
+        zt = ttnn.permute(z_tt, (0, 2, 1, 3))
+        zsym = ttnn.add(z_tt, zt)
+        ttnn.deallocate(zt)
+        self.wall.mark("z transpose")
+
+        pae_centres, tm_value, pde_centres = bins
+        a_pae = self._contract(self.n_pae_bins,
+                               {self.CH_PAE: pae_centres, self.CH_TM: tm_value})
+        a_pde = self._contract(self.n_pde_bins, {self.CH_PDE: pde_centres})
+
+        # intra and inter are summed under complementary masks, so compute each arm whole --
+        # pae and pde land in disjoint channels of the same 32-wide tensor and add for free.
+        arms = []
+        for i in (0, 1):
+            arm = self._reduce(z_tt, self.pae[i], a_pae)
+            arm = ttnn.add_(arm, self._reduce(zsym, self.pde[i], a_pde))
+            arms.append(arm)
+        ttnn.deallocate(zsym)
+        ttnn.deallocate(z_tt)
+        ttnn.deallocate(a_pae)
+        ttnn.deallocate(a_pde)
+        self.wall.mark("heads")
+
+        same = asym_id.reshape(-1)
+        same = (same[:, None] == same[None, :]).long()
+        mask = pair_gather(same, self.select_table, padded)
+        out = ttnn.where(mask, arms[0], arms[1])
+        ttnn.deallocate(mask)
+        for arm in arms:
+            ttnn.deallocate(arm)
+        self.wall.mark("same-chain select")
+
+        # A tiled download moves all 32 channels and both padded axes. Untilizing on the card
+        # and slicing there instead costs one data-movement pass and takes 14.7 MB off the bus
+        # at 512 tokens -- the result is three numbers per (i, j), so that is what should cross.
+        out = ttnn.to_layout(out, ttnn.ROW_MAJOR_LAYOUT)
+        self.wall.mark("untilize")
+        out = ttnn.slice(out, [0, 0, 0, 0], [1, seq_len, seq_len, self.CH_KEEP])
+        t = torch.Tensor(ttnn.to_torch(out)).to(torch.float32)
+        ttnn.deallocate(out)
+        self.wall.mark("download")
+        return {"pae": t[..., self.CH_PAE].contiguous(),
+                "pde": t[..., self.CH_PDE].contiguous(),
+                "tm": t[..., self.CH_TM].contiguous()}
 
 
 class TemplateRecycle:
@@ -11558,7 +12423,7 @@ class TrunkModule(TorchWrapper):
             dim=-1,
         )
         n_msa = m.shape[1]
-        msa_pad = pad_amount(n_msa, MSA_PAD_MULTIPLE)
+        msa_pad = msa_pad_amount(n_msa)
 
         # ---- pad the per-protein constants ----
         pad = torch.nn.functional.pad
@@ -11793,7 +12658,9 @@ class TrunkModule(TorchWrapper):
     def pop_device_z(self):
         """``(padded pair tensor, seq_pad)`` kept by the last ``forward(keep_device_z=True)``.
 
-        Ownership moves to the caller: the conditioning consumes it. Returns ``None`` if the
+        Ownership moves to the caller, which frees it once every stage that reads it is done
+        -- the diffusion conditioning before the sampler, the confidence head after. Returns
+        ``None`` if the
         last forward did not keep one, so a caller that asks for it without having asked for it
         fails on the spot rather than reading a previous fold's buffer.
         """

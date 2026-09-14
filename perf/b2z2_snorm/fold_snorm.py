@@ -51,11 +51,18 @@ import ab_flag_levers as AB  # noqa: E402  -- the fixtures, cfg and MSA seeding,
 
 FLAG = "BOLTZ2_ADALN_SHARED_SNORM"
 ATTR = "_B2_ADALN_SHARED_SNORM"
+FLAG_HOIST = "TT_BIO_DIT_COND_HOIST"
+ATTR_HOIST = "_B2_DIT_COND_HOIST"
 
-# arm -> value for ATTR, or None for "touch nothing". `default` tests the SHIPPED DEFAULT rather
-# than a value this driver sets: flipping a default and then measuring an arm that overrides it
-# proves nothing about the default.
-ARMS = {"base": False, "snorm": True, "default": None}
+# arm -> (shared-snorm, cond-hoist), or None for "touch nothing". `default` tests the SHIPPED
+# DEFAULT rather than a value this driver sets: flipping a default and then measuring an arm that
+# overrides it proves nothing about the default.
+#
+# `hoist` is main TT_BIO_DIT_COND_HOIST, added here 2026-09-14 because main landed it while this
+# row was measuring and it deletes the SAME 48 layer_norms per step that `snorm` does, plus 144
+# projections. The two are never on together: a tree carrying both would be measuring one lever
+# through the other.
+ARMS = {"base": (False, False), "snorm": (True, False), "hoist": (False, True), "default": None}
 
 
 def check_arms(arms, T):
@@ -68,6 +75,8 @@ def check_arms(arms, T):
         assert arm in ARMS, f"unknown arm {arm}"
     assert hasattr(T, ATTR), (
         f"this checkout has no tt_bio.tenstorrent.{ATTR}; both arms would be identical")
+    assert hasattr(T, ATTR_HOIST), (
+        f"this checkout has no tt_bio.tenstorrent.{ATTR_HOIST}; the hoist arm would be a null")
     assert hasattr(T, "DiffusionTransformer"), "no DiffusionTransformer to gate"
 
 
@@ -110,8 +119,9 @@ def main() -> int:
         f"imported tt_bio from {_TB.__file__}, not this worktree")
     import tt_bio.boltz2 as B2
     assert FLAG not in os.environ, f"{FLAG} may not be pinned; the arm is set per fold"
+    assert FLAG_HOIST not in os.environ, f"{FLAG_HOIST} may not be pinned; set per fold"
     check_arms(list(plan) + args.timing_arms.split(","), T)
-    SHIPPED_DEFAULT = bool(getattr(T, ATTR))
+    SHIPPED = (bool(getattr(T, ATTR)), bool(getattr(T, ATTR_HOIST)))
 
     AB.SAMPLING_STEPS, AB.RECYCLING_STEPS = args.steps, args.recycles
     dev = get_device()
@@ -151,19 +161,23 @@ def main() -> int:
 
     # Count the shared norms a fold takes, at the site that decides to take one. A digest that
     # does not move is then a lever that fired and did nothing, not a lever that never fired.
-    fired = {"n": 0}
+    fired = {"n": 0, "h": 0}
     _dt_call = T.DiffusionTransformer.__call__
 
     def _counted(self, *a, **kw):
-        if getattr(T, ATTR) and self.shared_s_norm:
+        if getattr(T, ATTR_HOIST) and not self.atom_level:
+            fired["h"] += 1
+        elif getattr(T, ATTR) and self.shared_s_norm:
             fired["n"] += 1
         return _dt_call(self, *a, **kw)
 
     T.DiffusionTransformer.__call__ = _counted
 
     def fold(arm, seed, target, keep):
-        setattr(T, ATTR, SHIPPED_DEFAULT if ARMS[arm] is None else ARMS[arm])
-        fired["n"] = 0
+        sn, ho = SHIPPED if ARMS[arm] is None else ARMS[arm]
+        setattr(T, ATTR, sn)
+        setattr(T, ATTR_HOIST, ho)
+        fired["n"] = fired["h"] = 0
         cfg["seed"] = seed
         try:
             state.model.structure_module.score_model.reset_static_cache()
@@ -184,6 +198,7 @@ def main() -> int:
         return {"arm": arm, "seed": seed, "target": target.stem, "fold_s": round(wall, 3),
                 "sha256": hashlib.sha256(body).hexdigest()[:16],
                 "shared_snorm": bool(getattr(T, ATTR)), "shared_norms": fired["n"],
+                "cond_hoist": bool(getattr(T, ATTR_HOIST)), "hoist_norms": fired["h"],
                 "plddt": round(float(metrics.get("plddt", metrics.get("confidence_score", 0))), 6)}
 
     if args.timing_reps:
