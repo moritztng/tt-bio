@@ -42,8 +42,17 @@ from tt_bio.tenstorrent import get_device, gp_roles
 
 # (ct_inside, pg_deep). `off` and `aa` are the same configuration under two names: their ratio is
 # the A/A floor.
-ARMS = {"off": (False, False), "aa": (False, False),
-        "b2": (True, False), "b3": (False, True), "b2b3": (True, True)}
+# (ct_inside, pg_deep, ctg_max). `off` and `aa` are the same configuration under two names.
+PRESETS = {
+    "base": {"off": (False, False, None), "aa": (False, False, None),
+             "b2": (True, False, None), "b3": (False, True, None), "b2b3": (True, True, None)},
+    # B2's block width, one value at a time. B2 as built loses; this says whether the loss is the
+    # writer's L1 gather stride and window (which scale with Ctg) or the coarser work split (which
+    # does not scale the same way), and whether any width is positive.
+    "ctgsweep": {"off": (False, False, None), "aa": (False, False, None),
+                 "ctg2": (True, False, 2), "ctg4": (True, False, 4)},
+}
+ARMS = PRESETS["base"]
 
 
 def call(dev, xw, p_off, g_off, C):
@@ -75,12 +84,15 @@ def main():
     ap.add_argument("--cells", default="298x32,298x128,512x32,512x128,768x32,768x128")
     ap.add_argument("--reps", type=int, default=8)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--arms", default="base", choices=sorted(PRESETS))
     a = ap.parse_args()
+    global ARMS
+    ARMS = PRESETS[a.arms]
 
     dev = get_device()
     g = dev.compute_with_storage_grid_size()
     torch.manual_seed(0)
-    res = {"grid": [g.x, g.y], "reps": a.reps, "roles": list(gp_roles()),
+    res = {"grid": [g.x, g.y], "reps": a.reps, "roles": list(gp_roles()), "arms": a.arms,
            "arch": str(dev.arch()), "cells": [],
            "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     bad = 0
@@ -98,25 +110,33 @@ def main():
             ref, shapes, us = None, {}, {k: [] for k in ARMS}
             # warm every arm once and keep its output for the equality check
             outs = {}
-            for name, (ci, pd) in ARMS.items():
-                RB.set_gated_bank_tuning(ct_inside=ci, pg_deep=pd)
+            for name, (ci, pd, cm) in ARMS.items():
+                RB.set_gated_bank_tuning(ct_inside=ci, pg_deep=pd, ctg_max=cm)
                 o = call(dev, xw, p_off, g_off, C)
                 outs[name] = ttnn.to_torch(o)
                 ttnn.deallocate(o)
-                key = [k for k in RB._CACHE_GATED if k[-2:] == (ci, pd)]
+                # The cache holds every shape this run has touched, so qualify on the shape as
+                # well as on the arm: `_cache_key_gated` is
+                # (dev, N, 4C, C, N, ..., GRAN, ct_inside, pg_deep).
+                key = [k for k in RB._CACHE_GATED
+                       if k[1] == N and k[3] == C and k[-3:] == (ci, pd, cm)]
                 assert len(key) == 1, (name, len(key))
                 shapes[name] = descriptor_shape(RB._CACHE_GATED[key[0]])
+                shapes[name]["ctg"] = RB._gated_ctg(C // 32, RB._gated_pg_depth())
             ref = outs["off"]
             cell["equal"] = {k: bool(torch.equal(v, ref)) for k, v in outs.items()}
             cell["max_abs_delta"] = {
                 k: float((v.float() - ref.float()).abs().max()) for k, v in outs.items()}
             cell["cb_bytes"] = {k: v["cb_bytes"] for k, v in shapes.items()}
+            cell["ctg"] = {k: v["ctg"] for k, v in shapes.items()}
             # the programs must actually differ where the arm says they do
-            cell["program_distinct"] = (shapes["b2"]["cb_bytes"] != shapes["off"]["cb_bytes"]
+            probe = "b2" if "b2" in shapes else "ctg4"
+            cell["program_distinct"] = (shapes[probe]["cb_bytes"] != shapes["off"]["cb_bytes"]
                                         if C // 32 > 1 else None)
-            cell["b3_program_distinct"] = shapes["b3"]["cb_bytes"] != shapes["off"]["cb_bytes"]
+            cell["b3_program_distinct"] = (
+                shapes["b3"]["cb_bytes"] != shapes["off"]["cb_bytes"] if "b3" in shapes else True)
             # live negative control: split layout, pre-B1 value offset -> a per-channel mix-up
-            RB.set_gated_bank_tuning(ct_inside=False, pg_deep=False)
+            RB.set_gated_bank_tuning(ct_inside=False, pg_deep=False, ctg_max=None)
             ctl = ttnn.to_torch(call(dev, xw, bad_off, g_off, C))
             cell["control_differs"] = not bool(torch.equal(ctl, ref))
             del outs, ctl
@@ -124,8 +144,8 @@ def main():
             names = list(ARMS)
             for r in range(a.reps):
                 for name in (names if r % 2 == 0 else names[::-1]):
-                    ci, pd = ARMS[name]
-                    RB.set_gated_bank_tuning(ct_inside=ci, pg_deep=pd)
+                    ci, pd, cm = ARMS[name]
+                    RB.set_gated_bank_tuning(ct_inside=ci, pg_deep=pd, ctg_max=cm)
                     us[name].append(timed(dev, xw, p_off, g_off, C))
             cell["us"] = {k: round(st.median(v), 1) for k, v in us.items()}
             base = cell["us"]["off"]
@@ -144,7 +164,7 @@ def main():
         a.out.write_text(json.dumps(res, indent=1))
         print(f"  N={N:4d} C={C:3d} equal={cell.get('equal')} ctl={cell.get('control_differs')} "
               f"us={cell.get('us')} ratio={cell.get('ratio')} {cell.get('error', '')}", flush=True)
-    RB.set_gated_bank_tuning(ct_inside=True, pg_deep=True)
+    RB.set_gated_bank_tuning(ct_inside=True, pg_deep=True, ctg_max=None)
     res["all_ok"] = bad == 0
     a.out.write_text(json.dumps(res, indent=1))
     print(f"\n{len(res['cells']) - bad}/{len(res['cells'])} cells clean")

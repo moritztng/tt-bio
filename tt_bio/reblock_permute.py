@@ -601,20 +601,25 @@ GATE_CB_BUDGET = 1 << 20
 _GATE_BANK_SPLIT = env_flag("TT_BIO_TRIMUL_GP_BANK_SPLIT", True)
 _GATE_CT_INSIDE = _GATE_BANK_SPLIT
 _GATE_PG_DEEP = _GATE_BANK_SPLIT
+# Cap on Ctg, for the harness that has to price the block width rather than assume it. None = the
+# budget decides.
+_GATE_CTG_MAX = None
 
 
-def set_gated_bank_tuning(ct_inside=None, pg_deep=None) -> tuple[bool, bool]:
-    """A/B switch for B2 and B3, separately. Returns the previous (ct_inside, pg_deep).
+def set_gated_bank_tuning(ct_inside=None, pg_deep=None, ctg_max=...) -> tuple:
+    """A/B switch for B2 and B3, separately. Returns the previous (ct_inside, pg_deep, ctg_max).
 
-    Separable because the two have to be priced one at a time at the op, not because either ships
-    on its own: `tt_bio.tenstorrent.set_trimul_gp_bank_split` moves both with B1.
+    Separable because the three have to be priced one at a time at the op, not because any of them
+    ships on its own: `tt_bio.tenstorrent.set_trimul_gp_bank_split` moves them with B1.
     """
-    global _GATE_CT_INSIDE, _GATE_PG_DEEP
-    prev = (_GATE_CT_INSIDE, _GATE_PG_DEEP)
+    global _GATE_CT_INSIDE, _GATE_PG_DEEP, _GATE_CTG_MAX
+    prev = (_GATE_CT_INSIDE, _GATE_PG_DEEP, _GATE_CTG_MAX)
     if ct_inside is not None:
         _GATE_CT_INSIDE = bool(ct_inside)
     if pg_deep is not None:
         _GATE_PG_DEEP = bool(pg_deep)
+    if ctg_max is not ...:
+        _GATE_CTG_MAX = ctg_max
     return prev
 
 
@@ -633,7 +638,7 @@ def _gated_ctg(Ct: int, pg_depth: int) -> int:
         return 1
     tile_bytes = TILE_H * TILE_W * 2
     fixed = (2 * pg_depth + 2 * 2 * GATE_GRANULARITY + 2) * tile_bytes  # p, g, sig, mul, stage
-    for d in range(Ct, 0, -1):
+    for d in range(min(Ct, _GATE_CTG_MAX or Ct), 0, -1):
         if Ct % d == 0 and fixed + GROUP_TILES * d * 2 * tile_bytes <= GATE_CB_BUDGET:
             return d
     return 1
@@ -662,7 +667,7 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
         GATE_GRANULARITY,
         # Same trap for B2 and B3: both change the work split, the CB depths and the runtime args,
         # and neither is visible in any other term of this key.
-        _GATE_CT_INSIDE, _GATE_PG_DEEP,
+        _GATE_CT_INSIDE, _GATE_PG_DEEP, _GATE_CTG_MAX,
     )
 
 
