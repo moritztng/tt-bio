@@ -25,8 +25,7 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
 
-    for f in ("TT_BIO_DIT_FUSED_QKV", "TT_BIO_HEAD_PAD_TAIL", "TT_BIO_APB_CONCAT_HEADS",
-              "TT_BIO_UNFUSED_SILU"):
+    for f in ("TT_BIO_DIT_FUSED_QKV", "TT_BIO_APB_CONCAT_HEADS", "TT_BIO_UNFUSED_SILU"):
         assert f not in os.environ, f"{f} is pinned; this run would not be the default path"
 
     import torch
