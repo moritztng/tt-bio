@@ -59,8 +59,12 @@ def run_size(ttnn, T, B, size, pairs, cifdir, bracket):
     patch_cfg()
     T.get_device()
     fix = ROOT / "perf" / "size512" / "fixtures"
-    one_fold, meta, _state = B.build_fold(
-        "boltz2", HERE / f".msa_{size}", fix / f"cdk2x2_{size}.yaml", fix / f"cdk2x2_{size}.a3m")
+    # A "size" may name a local deep-MSA fixture instead of a token count, so one harness covers
+    # both axes: the token sweep lives in perf/size512, the depth sweep next to this file.
+    yml, a3m = fix / f"cdk2x2_{size}.yaml", fix / f"cdk2x2_{size}.a3m"
+    if not yml.is_file():
+        yml, a3m = HERE / f"{size}.yaml", HERE / f"{size}.a3m"
+    one_fold, meta, _state = B.build_fold("boltz2", HERE / f".msa_{size}", yml, a3m)
     dev = T.get_device()
     rec = {"n_msa": meta["n_msa"], "hardware": meta["hardware"], "grid": meta.get("grid"),
            "card_type": meta.get("card_type"), "recycling_steps": meta["recycling_steps"],
@@ -163,7 +167,7 @@ def main() -> int:
                   "commit": os.popen(f"git -C {ROOT} rev-parse --short HEAD").read().strip(),
                   "ttnn": getattr(ttnn, "__version__", "?")}
     dump()
-    for s in (int(x) for x in a.sizes.split(",")):
+    for s in a.sizes.split(","):
         run_size(ttnn, T, B, s, a.pairs, a.cifdir, a.bracket)
     T.cleanup()
     return 0
