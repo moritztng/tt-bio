@@ -764,6 +764,7 @@ The engine ships its device optimizations on. Each one is an environment variabl
 
 | Flag | Default | What it does |
 |------|---------|--------------|
+| `BOLTZ2_ADALN_SHARED_SNORM` | on | Boltz-2 and BoltzGen: normalizes the diffusion conditioning once per transformer stack instead of once per adaptive layer norm, folding each site's weight into the projection that follows it. **Not bit-exact** — scored against 1HCL it is flat at 512 residues and slightly better at 298. |
 | `TT_BIO_ATOM_SHIFT_GATHER` | on | Builds each atom's attention key window by slicing the atom sequence instead of selecting it with a matrix multiply. Same structure, bit for bit. |
 | `TT_BIO_DEVICE_CONDITIONING` | on | Boltz-2 only: runs the diffusion conditioning's pair track on the card, where the trunk already left the tensor. **Not bit-exact** — device bf16 where the host path was fp32. Scored against 1HCL it is flat to slightly closer. |
 | `TT_BIO_FUSE_BIAS_STACKS` | on | Boltz-2 only: builds the diffusion conditioning's per-layer bias stack in one pass instead of one call per layer. **Not bit-exact** — moves a 298 aa structure 0.218 Å all-atom, inside its 0.35 Å bar. |
