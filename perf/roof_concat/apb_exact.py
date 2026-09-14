@@ -55,7 +55,7 @@ def metrics(x, ref):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, default=HERE / "apb_exact.json")
-    ap.add_argument("--seq", type=int, nargs="+", default=[320, 512])
+    ap.add_argument("--seq", type=int, nargs="+", default=[320, 512, 768, 1024])
     ap.add_argument("--dim", type=int, default=768)
     ap.add_argument("--heads", type=int, default=16)
     a = ap.parse_args()
@@ -94,9 +94,13 @@ def main() -> int:
                               memory_config=ttnn.DRAM_MEMORY_CONFIG)
         z_d = ttnn.from_torch(z_t.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev,
                               memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        got = {}
+        got, stats = {}, {}
         for name, mod in (("ship", ship), ("concat", cat)):
+            T.APB_CONCAT_HEADS_STATS[:] = [0, 0]
             r = mod(a_d, z_d)
+            # the guard's own [served, declined], read here rather than inferred from the
+            # absence of a crash: the shipped arm must decline and the fused arm must serve
+            stats[name] = list(T.APB_CONCAT_HEADS_STATS)
             got[name] = ttnn.to_torch(r).to(torch.float32)
             ttnn.deallocate(r)
         ttnn.deallocate(a_d); ttnn.deallocate(z_d)
@@ -106,6 +110,7 @@ def main() -> int:
         z64 = z_t.to(torch.bfloat16).to(torch.float64)
         ref = torch_ref(w, a64, z64, H, hd, torch.float64)
         rec = {"S": S, "bit_exact": bool(torch.equal(got["ship"], got["concat"])),
+               "served_declined": stats,
                "arm_vs_arm": metrics(got["concat"].to(torch.float64),
                                      got["ship"].to(torch.float64))}
         for n in ("ship", "concat"):
