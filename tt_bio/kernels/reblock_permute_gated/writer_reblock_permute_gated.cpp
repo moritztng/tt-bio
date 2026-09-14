@@ -5,12 +5,14 @@
 // reblock_permute GATED gather writer. A fork of writer_reblock_permute.cpp with two changes and
 // nothing else; the gather, the staging and the DRAM write are identical.
 //
-//   1. THE WORK UNIT IS (it, jt, ct), not (it, jt). The ungated writer owns a tile column and
-//      loops the channel tiles inside it, which is even at a whole-tensor move -- Nt*Nt = 256
-//      groups over 110 cores -- and badly uneven at a row block: a 64-row block is Nrt*Nt = 32
-//      groups, so 8 blocks cost 8 waves against the whole move's 3. Keying on the channel tile
-//      too gives 2*16*8 = 256 groups per block and puts the packing back. This is exactly what
-//      writer_reblock_permute_back.cpp already does, for the same reason.
+//   1. THE WORK UNIT IS (it, jt, channel-tile block of Ctg), not (it, jt). The ungated writer
+//      owns a tile column and loops all Ct channel tiles inside it, which is even at a
+//      whole-tensor move -- Nt*Nt = 256 groups over 110 cores -- and badly uneven at a row block:
+//      a 64-row block is Nrt*Nt = 32 groups, so 8 blocks cost 8 waves against the whole move's 3.
+//      Ctg = 1 keys on the channel tile too and gives 2*16*8 = 256 groups per block, which is
+//      what writer_reblock_permute_back.cpp does for the same reason. Ctg = Ct is B2: the reader
+//      then walks Ctg DRAM banks instead of one (see that kernel), and the price is an L1 window
+//      of Ctg*32 tiles here instead of 32.
 //   2. A ROW-TILE OFFSET. The destination is always the full [1, C, D1, N] tensor, so a row
 //      block writes a slab of it and every page index here is absolute.
 //
@@ -68,6 +70,8 @@ void kernel_main() {
     // padding sits on the contracted axis, so a non-zero there changes the product.
     uint32_t D1 = get_arg_val<uint32_t>(3);
     uint32_t Ct = get_arg_val<uint32_t>(4);
+    // B2: channel tiles per group, read inside the row loop by the reader. See that kernel.
+    uint32_t Ctg = get_arg_val<uint32_t>(5);
 
     constexpr uint32_t element_size = get_compile_time_arg_val(0);
     constexpr uint32_t cb_id_in = get_compile_time_arg_val(1);     // c_16 (post-WH tiles)
@@ -97,14 +101,17 @@ void kernel_main() {
     bool slot_dirty[2] = {false, false};
 
     const uint32_t NtNt = Nt * Nt;
-    const uint32_t NtCt = Nt * Ct;
+    const uint32_t Cgs = Ct / Ctg;      // channel-tile groups per (it, jt)
+    const uint32_t NtCgs = Nt * Cgs;
+    const uint32_t window = Ctg * TILE_HEIGHT;      // tiles the compute hands over per group
+    const uint32_t il_stride = Ctg * tile_bytes;    // consecutive rows are Ctg tiles apart
     const uint32_t end_group = start_group + num_groups;
     for (uint32_t group = start_group; group < end_group; ++group) {
-        // (it, jt, ct) with ct fastest, the same order the reader walks.
-        const uint32_t itl = group / NtCt;
-        const uint32_t rem = group - itl * NtCt;
-        const uint32_t jt = rem / Ct;
-        const uint32_t ct = rem - jt * Ct;
+        // (it, jt, channel-tile block), the same decomposition the reader walks.
+        const uint32_t itl = group / NtCgs;
+        const uint32_t rem = group - itl * NtCgs;
+        const uint32_t jt = rem / Cgs;
+        const uint32_t ct0 = (rem - jt * Cgs) * Ctg;
         const uint32_t it = itl + it_off;
         const uint32_t page_base = it * Nt + jt;
 
@@ -138,11 +145,13 @@ void kernel_main() {
         const uint32_t rows_lo = rows_valid < FACE_HEIGHT ? rows_valid : FACE_HEIGHT;
         const uint32_t rows_hi = rows_valid > FACE_HEIGHT ? rows_valid - FACE_HEIGHT : 0;
 
-        // Channel plane ct*32 + c lives at page (ct*32 + c) * Nt*Nt + it*Nt + jt.
-        uint32_t out_page = page_base + ct * TILE_HEIGHT * NtNt;
-        {
-            cb_wait_front(cb_id_in, TILE_HEIGHT);
-            const uint32_t group_l1_base = get_read_ptr(cb_id_in);
+        cb_wait_front(cb_id_in, window);
+        const uint32_t group_l1_base = get_read_ptr(cb_id_in);
+
+        for (uint32_t k = 0; k < Ctg; ++k) {
+            // Channel plane ct*32 + c lives at page (ct*32 + c) * Nt*Nt + it*Nt + jt.
+            uint32_t out_page = page_base + (ct0 + k) * TILE_HEIGHT * NtNt;
+            const uint32_t k_l1_base = group_l1_base + k * tile_bytes;
 
             for (uint32_t c = 0; c < TILE_HEIGHT; ++c) {
                 const uint32_t slot = c & 1u;
@@ -153,7 +162,7 @@ void kernel_main() {
 
                 // Source offset of channel `c`, invariant in `il`: (c / 16) selects the source face
                 // pair, (c % 16) the row inside it.
-                const uint32_t src_c = group_l1_base
+                const uint32_t src_c = k_l1_base
                                      + (c / FACE_HEIGHT) * NUM_FACES_W * FACE_BYTES
                                      + (c % FACE_HEIGHT) * FACE_ROW_BYTES;
                 uint32_t s0 = src_c;                // face_w = 0
@@ -163,21 +172,21 @@ void kernel_main() {
                 for (uint32_t il = 0; il < rows_lo; ++il) {
                     noc_async_read_one_packet_with_state(s0, d0);
                     noc_async_read_one_packet_with_state(s1, d1);
-                    s0 += tile_bytes;
-                    s1 += tile_bytes;
+                    s0 += il_stride;
+                    s1 += il_stride;
                     d0 += FACE_ROW_BYTES;
                     d1 += FACE_ROW_BYTES;
                 }
                 if (rows_hi) {
-                    s0 = src_c + FACE_HEIGHT * tile_bytes;
+                    s0 = src_c + FACE_HEIGHT * il_stride;
                     s1 = s0 + FACE_BYTES;
                     d0 = stage_base + 2 * FACE_BYTES;
                     d1 = stage_base + 3 * FACE_BYTES;
                     for (uint32_t il = 0; il < rows_hi; ++il) {
                         noc_async_read_one_packet_with_state(s0, d0);
                         noc_async_read_one_packet_with_state(s1, d1);
-                        s0 += tile_bytes;
-                        s1 += tile_bytes;
+                        s0 += il_stride;
+                        s1 += il_stride;
                         d0 += FACE_ROW_BYTES;
                         d1 += FACE_ROW_BYTES;
                     }
@@ -194,7 +203,7 @@ void kernel_main() {
             noc_async_write_barrier();
             slot_dirty[0] = false;
             slot_dirty[1] = false;
-            cb_pop_front(cb_id_in, TILE_HEIGHT);
         }
+        cb_pop_front(cb_id_in, window);
     }
 }
