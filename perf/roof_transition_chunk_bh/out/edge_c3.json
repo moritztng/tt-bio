@@ -1,0 +1,34 @@
+{
+ "doc": "Peak memory and gate engagement for the three trunk byte levers, 512 -> 1536 aa.\n\nThe levers are bit-exact on both architectures across 87 folds, so this row is not a parity row\nand not a perf row. It is the one question the two rows that measured them both left open: does a\nlever that allocates a concatenated qkv+gate+bias weight per triangle attention, and holds the\ntrimul gate live across the channel loop, still fit at a large target?\n\nPass/fail, so contention cannot corrupt it. No ratio is computed here and none may be quoted from\nit -- the probes below are cheap but they are not free, and the arms do not share a wall clock.\n\nPer (size, arm):\n\n  verdict        PASS (a CIF with the right residue count) or OOM (an allocator refusal, classified\n                 by the ENGINE's own pattern) or FAIL.\n  peak           device DRAM and L1 high-water, sampled at the `dram_peak` tag sites the model\n                 already carries -- which sit inside trimul, tri_att, the transition and every\n                 pairformer block, i.e. exactly where these levers act. `ttnn.get_memory_view`\n                 measured at <0.05 ms on this wheel, so every tag is sampled and nothing is\n                 decimated.\n  fragmentation  the smallest `largest_contiguous_bytes_free_per_bank` seen, and the allocator's\n                 own free-block count at the DRAM high-water. A literal live-allocation count is\n                 NOT available: `MemoryView.block_table` does not convert through this wheel's\n                 pybind layer (it returns list[unordered_map<string,string>] and raises). The\n                 free-block census is the observable that `of3-1024aa-oom-allocation-count-not-size`\n                 is actually about -- many co-live allocations show up as a collapsing largest free\n                 block against a still-large total free.\n  engagement     `QKVG_STATS`, `QKVGB_STATS`, `TRIMUL_GOUT_STATS` and every named reject reason,\n                 reset per fold. A lever that silently falls back reads as \"it worked\"; this row\n                 asserts on the counter, per size, in both arms.\n  digest         sha256[:16] of the CIF. The two arms at one size must be byte-identical, and at\n                 512 aa both must be `a91aa44441f0d9c5`.\n\nArms are applied in-process. That is legal here for a reason the flag-lever harnesses had to\nargue and this one does not: the fused path is a DIFFERENT op on a DIFFERENT weight, so it cannot\nbe handed the other arm's compiled program out of the cache.\n\n    ladder.py --out <json> --cifdir <dir> --sizes 512,640,1024,1536\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "3",
+  "commit": "23b5b12f03d78e86ec63b992b845479c7c160d1e",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/roof-transition-chunk-bh/tt_bio/__init__.py",
+  "started_utc": "2026-09-14T02:35:40Z",
+  "loadavg": [
+   36.716796875,
+   37.48486328125,
+   37.248046875
+  ],
+  "seq_len_more_chunking": 1536,
+  "fast_mode": false,
+  "dram_total_b": 34225520128,
+  "l1_total_b": 160793600,
+  "levers": "transition_h",
+  "protocol": {
+   "sampling_steps": 200,
+   "recycling_steps": 3,
+   "seed": 0,
+   "diffusion_trace": false
+  }
+ },
+ "runs": [],
+ "model_load_s": 8.692,
+ "dram_after_load_b": 1134182400
+}
