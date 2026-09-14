@@ -40,7 +40,10 @@ def test_the_above_cap_route_is_strictly_above_the_cap():
     from tt_bio import tenstorrent as T
     src = inspect.getsource(T._tri_att_sdpa_at)
     assert "q_len > _triatt_sdpa._Q_SPLIT_MAX_S" in src
-    assert T._SDPA_FUSED_LARGE_S is True, "the above-cap route ships on"
+    # Off until a paired fold A/B prices it. The op-level win is 2.737x at 1536 tokens and
+    # the refusal fallback is bit-identical to the stock path, but neither is a fold number,
+    # so the default stays off rather than ship one nobody has measured.
+    assert T._SDPA_FUSED_LARGE_S is False, "the above-cap route ships off"
     assert TS._Q_SPLIT_MAX_S == 1024, "the cap moved; the neutrality argument moved with it"
 
 

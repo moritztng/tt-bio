@@ -1762,7 +1762,7 @@ _SDPA_QK_OVER_L1: set = set()
 # NOT bit-exact above the cap: k_chunk sets the online-softmax reduction order. It has no digest to
 # break -- no length above 1024 served fused before -- and the fold-level Angstrom evidence is in
 # `perf/ttx_a3/`.
-_SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", True)
+_SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", False)
 
 
 def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
