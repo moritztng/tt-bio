@@ -143,11 +143,14 @@ native CA-lDDT goes 0.93357 to 0.93238 on one pseudo-domain and 0.91382 to 0.912
 paired differences of -0.00119 and -0.00093 with t of -0.49 and -0.34, against a per-arm spread of
 0.0096 to 0.0116. Four and five of the eight seeds move up. That is flat, not a loss.
 
-Per-pseudo-domain RMSD is not the instrument at 512 residues on this fixture and the reason is
-measured, not asserted: `cdk2x2_512` is a chimera whose two halves hinge, and any change that is
-not bit-exact flips the hinge basin. On the same card and the same day, main's own shipped
-`TT_BIO_DEVICE_CONDITIONING` moves that column 1.5146 Å with an 86.67 degree hinge; this flag
-moves it 1.6372 Å with an 87.21 degree hinge, and the seed floor on the column is 2.79626 Å.
+Per-pseudo-domain RMSD cannot carry a 0.60 Å bar at 512 residues on this fixture, and the reason
+is measured rather than argued: `cdk2x2_512` is a chimera whose two halves hinge, so re-running the
+same build with nothing changed but the seed moves the worst pseudo-domain up to 2.79626 Å all-atom
+across eight seeds. The bar sits below the column's own noise. Against that floor the flag moves
+1.6372 Å, and every other column reads the same way: domain 2 1.26886 Å against a 1.74577 Å floor,
+hinge-free 1.49445 Å against 2.38987 Å, CA-only 1.32167 Å against 2.37177 Å, whole molecule
+12.0147 Å against 21.8416 Å. Every column moves less than a seed change does, which is why the
+reading above is taken against the experimental structure instead.
 
 **Speed: 1.01955x on a 512-residue Blackhole fold, ten of ten paired reps positive.** One p300c
 processor, ten `base,on,base` brackets in one process under the box benchlock, 17.523 s against
