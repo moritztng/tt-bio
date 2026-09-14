@@ -516,7 +516,13 @@ def load_ttnn_esmfold2(esmfold2_repo: str = "biohub/ESMFold2",
     tenstorrent.set_fast_mode(fast)
     from tt_bio._vendor.esmfold2_hf.modeling_esmfold2 import ESMFold2Model
 
-    model = ESMFold2Model.from_pretrained(esmfold2_repo, load_esmc=False).eval()
+    # Pinned commit, not `main` — see weights.HF_REVISIONS for why an unpinned repo
+    # took production down. A repo with no pin still tracks the hub default.
+    from tt_bio.weights import hf_revision
+
+    rev = hf_revision(esmfold2_repo)
+    kwargs = {"revision": rev} if rev else {}
+    model = ESMFold2Model.from_pretrained(esmfold2_repo, load_esmc=False, **kwargs).eval()
     return patch_esmfold2(model, esmc_repo=esmc_repo, persistent_lm=persistent_lm)
 
 
