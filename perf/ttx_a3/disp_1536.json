@@ -1,0 +1,30 @@
+{
+ "dir": "perf/ttx_a3/f1536",
+ "atoms": 12344,
+ "chains": {
+  "A": 12344
+ },
+ "readings": {
+  "AA_same_arm_two_processes": {
+   "global_all_atom": 0.0,
+   "per_chain": {
+    "A": 0.0
+   },
+   "worst_chain": 0.0
+  },
+  "seed_floor_off_seed0_vs_seed7": {
+   "global_all_atom": 36.60927,
+   "per_chain": {
+    "A": 36.60927
+   },
+   "worst_chain": 36.60927
+  },
+  "AB_route_off_vs_on_same_seed": {
+   "global_all_atom": 1.00659,
+   "per_chain": {
+    "A": 1.00659
+   },
+   "worst_chain": 1.00659
+  }
+ }
+}
