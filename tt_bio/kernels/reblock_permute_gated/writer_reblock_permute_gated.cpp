@@ -68,6 +68,14 @@ void kernel_main() {
     // padding sits on the contracted axis, so a non-zero there changes the product.
     uint32_t D1 = get_arg_val<uint32_t>(3);
     uint32_t Ct = get_arg_val<uint32_t>(4);
+    // The groups this core owns are STRIDED by the total core count, not a contiguous block, and
+    // that is a bandwidth decision. Interleaved DRAM puts page p in bank p %% 8, and both the read
+    // and the write index of a group are congruent to the group index, so the cores running their
+    // i-th group together touch banks {start_k + i*stride}. A contiguous block makes start_k = k*w,
+    // so the whole machine sits on 8/gcd(w, 8) banks -- two of eight at w = 4, which measured 1.71x
+    // slower per wave than w = 5 at the same total traffic. Striding by the core count makes the
+    // concurrent groups CONSECUTIVE, so all 8 banks are live at every core count and every shape.
+    uint32_t group_stride = get_arg_val<uint32_t>(5);
 
     constexpr uint32_t element_size = get_compile_time_arg_val(0);
     constexpr uint32_t cb_id_in = get_compile_time_arg_val(1);     // c_16 (post-WH tiles)
@@ -98,8 +106,7 @@ void kernel_main() {
 
     const uint32_t NtNt = Nt * Nt;
     const uint32_t NtCt = Nt * Ct;
-    const uint32_t end_group = start_group + num_groups;
-    for (uint32_t group = start_group; group < end_group; ++group) {
+    for (uint32_t gi = 0, group = start_group; gi < num_groups; ++gi, group += group_stride) {
         // (it, jt, ct) with ct fastest, the same order the reader walks.
         const uint32_t itl = group / NtCt;
         const uint32_t rem = group - itl * NtCt;

@@ -44,7 +44,15 @@ void kernel_main() {
     // a real page so the group stays a fixed 32 pushes, and the writer zeroes them.
     const uint32_t D1 = get_arg_val<uint32_t>(3);
     const uint32_t Ct = get_arg_val<uint32_t>(4);   // channel tiles of ONE slice
-    const uint32_t Ctw = get_arg_val<uint32_t>(5);  // channel tiles of the wide input
+    const uint32_t Ctw = get_arg_val<uint32_t>(5);
+    // The groups this core owns are STRIDED by the total core count, not a contiguous block, and
+    // that is a bandwidth decision. Interleaved DRAM puts page p in bank p %% 8, and both the read
+    // and the write index of a group are congruent to the group index, so the cores running their
+    // i-th group together touch banks {start_k + i*stride}. A contiguous block makes start_k = k*w,
+    // so the whole machine sits on 8/gcd(w, 8) banks -- two of eight at w = 4, which measured 1.71x
+    // slower per wave than w = 5 at the same total traffic. Striding by the core count makes the
+    // concurrent groups CONSECUTIVE, so all 8 banks are live at every core count and every shape.
+    const uint32_t group_stride = get_arg_val<uint32_t>(6);  // channel tiles of the wide input
 
     constexpr uint32_t cb_p = 0;   // c_0
     constexpr uint32_t cb_g = 1;   // c_1
@@ -56,8 +64,7 @@ void kernel_main() {
     constexpr uint32_t onetile = 1;
     const uint32_t row_stride = Nt * Ctw;
     const uint32_t NtCt = Nt * Ct;
-    const uint32_t end_group = start_group + num_groups;
-    for (uint32_t group = start_group; group < end_group; ++group) {
+    for (uint32_t gi = 0, group = start_group; gi < num_groups; ++gi, group += group_stride) {
         // A group is (it, jt, ct) with ct fastest, not (it, jt) with the channel tiles looped
         // inside. At a row block the (it, jt) key leaves most of the grid idle -- 32 groups for a
         // 64-row block against 110 cores -- and this key gives 256. writer_reblock_permute_back

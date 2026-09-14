@@ -74,6 +74,9 @@ def main():
     ap.add_argument("--reps", type=int, default=9)
     ap.add_argument("--iters", type=int, default=100)
     ap.add_argument("--caps", default="60,70,80,88,90,95,99,100,104,108,110")
+    ap.add_argument("--modes", default="blocked,strided",
+                    help="group->core assignments to measure; the control is always blocked "
+                         "at the full grid, which is what main shipped")
     ap.add_argument("--bracket-tol", type=float, default=0.03)
     ap.add_argument("--out", default="perf/ttx_splitwork/core_count_sweep.json")
     a = ap.parse_args()
@@ -93,37 +96,42 @@ def main():
             perm = (0, 2, 3, 1) if leg == "back" else (0, 3, 1, 2)
             op = rp.reblock_permute_back if leg == "back" else rp.reblock_permute
             # Every cap above `units` is the same split, so keep exactly one of them.
+            modes = [m == "strided" for m in a.modes.split(",")]
             caps = sorted({min(c, units, full) for c in [int(v) for v in a.caps.split(",")]}
                           | {min(units, full)})
-            ctl = min(units, full)
+            # An arm is (core cap, strided). The control is the whole grid in blocked order: that
+            # is exactly what main ships, so every ratio below reads against today's default.
+            arms = [(c, st) for st in modes for c in caps]
+            ctl = (min(units, full), False)
             x = ttnn.from_torch(torch.randn(shape, dtype=torch.bfloat16), dtype=ttnn.bfloat16,
                                 layout=ttnn.TILE_LAYOUT, device=device, memory_config=dram)
             ref_t = ttnn.to_torch(ttnn.permute(x, perm, memory_config=dram))
 
-            caches = {c: {} for c in caps}
+            caches = {arm: {} for arm in set(arms) | {ctl}}
 
-            def use(cap):
+            def use(arm):
+                cap, rp.STRIDED = arm
                 rp._split_plan = lambda d, u, _c=cap: _plan_for(
                     d.compute_with_storage_grid_size(), u, _c)
-                rp._CACHE, rp._CACHE_BACK, rp._SPLIT_CACHE = caches[cap], caches[cap], {}
+                rp._CACHE, rp._CACHE_BACK, rp._SPLIT_CACHE = caches[arm], caches[arm], {}
 
             def run():
                 return _timed(device, lambda z: op(z, memory_config=dram), x, a.iters)
 
             exact = {}
-            for cap in caps:
+            for cap in arms:
                 use(cap)
                 o = op(x, memory_config=dram)
                 exact[cap] = bool(torch.equal(ttnn.to_torch(o), ref_t))
                 ttnn.deallocate(o)
 
-            ratios = {c: [] for c in caps}
-            spreads = {c: [] for c in caps}
-            ms = {c: [] for c in caps}
+            ratios = {c: [] for c in arms}
+            spreads = {c: [] for c in arms}
+            ms = {c: [] for c in arms}
             for _ in range(a.reps):
                 use(ctl)
                 before = run()
-                for cap in caps:
+                for cap in arms:
                     use(cap)
                     t = run()
                     use(ctl)
@@ -137,18 +145,20 @@ def main():
             del ref_t
 
             hole = units > full and units % full and units % full % g.y == 0
-            print(f"\n{leg} N={N} C={C} units={units}   control = {ctl} cores, "
+            print(f"\n{leg} N={N} C={C} units={units}   control = {ctl[0]} cores blocked, "
                   f"{'a hole' if hole else 'not a hole'}")
-            print(f"  {'cores':>6}{'depth':>7}{'ms':>10}{'vs control':>12}{'bracket':>9}  exact")
-            for cap in caps:
-                n, _n1, w1, _w2 = core_split.units_per_core(units, cap)
+            print(f"  {'assign':>8}{'cores':>6}{'depth':>7}{'ms':>10}{'vs control':>12}"
+                  f"{'bracket':>9}  exact")
+            for cap in arms:
+                n, _n1, w1, _w2 = core_split.units_per_core(units, cap[0])
                 r, spread = _median(ratios[cap]), _median(spreads[cap])
                 flag = "  UNUSABLE (bracket drift)" if spread > a.bracket_tol else ""
-                print(f"  {n:>6}{w1:>7}{_median(ms[cap]):>10.4f}{r:>12.4f}{spread:>9.1%}  "
-                      f"{exact[cap]}{flag}")
+                print(f"  {'strided' if cap[1] else 'blocked':>8}{n:>6}{w1:>7}"
+                      f"{_median(ms[cap]):>10.4f}{r:>12.4f}{spread:>9.1%}  {exact[cap]}{flag}")
                 out_rows.append({"leg": leg, "N": N, "C": C, "units": units, "cores": n,
+                                 "strided": cap[1],
                                  "depth": w1, "ms": _median(ms[cap]), "ratio_vs_control": r,
-                                 "control_cores": ctl, "bracket_spread": spread,
+                                 "control_cores": ctl[0], "bracket_spread": spread,
                                  "usable": spread <= a.bracket_tol, "bit_exact": exact[cap],
                                  "all_ratios": ratios[cap]})
     finally:

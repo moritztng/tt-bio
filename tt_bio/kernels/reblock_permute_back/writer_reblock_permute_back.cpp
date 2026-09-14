@@ -30,6 +30,14 @@ void kernel_main() {
     const uint32_t num_groups = get_arg_val<uint32_t>(1);
     const uint32_t Nt = get_arg_val<uint32_t>(2);
     const uint32_t Ct = get_arg_val<uint32_t>(3);
+    // The groups this core owns are STRIDED by the total core count, not a contiguous block, and
+    // that is a bandwidth decision. Interleaved DRAM puts page p in bank p %% 8, and both the read
+    // and the write index of a group are congruent to the group index, so the cores running their
+    // i-th group together touch banks {start_k + i*stride}. A contiguous block makes start_k = k*w,
+    // so the whole machine sits on 8/gcd(w, 8) banks -- two of eight at w = 4, which measured 1.71x
+    // slower per wave than w = 5 at the same total traffic. Striding by the core count makes the
+    // concurrent groups CONSECUTIVE, so all 8 banks are live at every core count and every shape.
+    const uint32_t group_stride = get_arg_val<uint32_t>(4);
 
     constexpr uint32_t element_size = get_compile_time_arg_val(0);
     constexpr uint32_t cb_id_out = get_compile_time_arg_val(1);     // c_16
@@ -42,8 +50,7 @@ void kernel_main() {
     const auto s = TensorAccessor(dst_args, dst_addr);
 
     const uint32_t NtCt = Nt * Ct;
-    const uint32_t end_group = start_group + num_groups;
-    for (uint32_t group = start_group; group < end_group; ++group) {
+    for (uint32_t gi = 0, group = start_group; gi < num_groups; ++gi, group += group_stride) {
         const uint32_t it = group / NtCt;
         const uint32_t rem = group - it * NtCt;
         const uint32_t jt = rem / Ct;

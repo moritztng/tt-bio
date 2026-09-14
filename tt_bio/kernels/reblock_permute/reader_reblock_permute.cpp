@@ -44,6 +44,14 @@ void kernel_main() {
     // 97 us op, and the page index is an induction variable (+Nt*Ct per row) once the test is gone.
     const uint32_t D1 = get_arg_val<uint32_t>(3);
     const uint32_t Ct = get_arg_val<uint32_t>(4);
+    // The groups this core owns are STRIDED by the total core count, not a contiguous block, and
+    // that is a bandwidth decision. Interleaved DRAM puts page p in bank p %% 8, and both the read
+    // and the write index of a group are congruent to the group index, so the cores running their
+    // i-th group together touch banks {start_k + i*stride}. A contiguous block makes start_k = k*w,
+    // so the whole machine sits on 8/gcd(w, 8) banks -- two of eight at w = 4, which measured 1.71x
+    // slower per wave than w = 5 at the same total traffic. Striding by the core count makes the
+    // concurrent groups CONSECUTIVE, so all 8 banks are live at every core count and every shape.
+    const uint32_t group_stride = get_arg_val<uint32_t>(5);
 
     constexpr uint32_t cb_id_in = 0;  // c_0
     constexpr uint32_t TILE_HEIGHT = 32;
@@ -53,8 +61,7 @@ void kernel_main() {
 
     constexpr uint32_t onetile = 1;
     const uint32_t row_stride = Nt * Ct;
-    const uint32_t end_group = start_group + num_groups;
-    for (uint32_t group = start_group; group < end_group; ++group) {
+    for (uint32_t gi = 0, group = start_group; gi < num_groups; ++gi, group += group_stride) {
         const uint32_t it = group / Nt;
         const uint32_t jt = group % Nt;
         const uint32_t row_base = it * TILE_HEIGHT;

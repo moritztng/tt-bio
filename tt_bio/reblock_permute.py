@@ -70,14 +70,25 @@ REJECTS: dict = {}
 # 15 deep. `scripts/verify_core_split.py` prints that census and checks the replacement against the
 # wheel on every unit count the wheel can serve.
 
-# How many cores a split may use, 0 meaning the whole grid. A knob, not a tuning: the whole grid is
-# what every shape the wheel could already split gets today, and the sweep that measured this leg
-# against core count found no rule that picks the best point. At 400 groups the whole grid is the
-# fastest of eleven counts and 100 cores the slowest (1.185x); at 900 groups it is the other way
-# round, 100 cores 1.129x ahead of the whole grid, and the forward and back legs agree within a
-# shape against a 0.3 % A/A floor. Every point is bit-identical against `ttnn.permute`, so this
-# moves scheduling and never a number. See `perf/ttx_splitwork/core_count_sweep.py`.
+# How many cores a split may use, 0 meaning the whole grid. The whole grid is right at every shape
+# measured and this exists only to reproduce a reduced grid for an A/B.
+#
+# It used to look like a real tuning knob: sweeping it moved this leg 1.10x-1.19x with optima at
+# 80/100/88 cores rather than 110, and the best count differed per shape. That was an artifact of
+# how groups were handed to cores, not a property of the core count. Interleaved DRAM puts page p in
+# bank p % 8 and a group's pages are congruent to its group index, so the cores running their i-th
+# group together land on banks {start_k + i*stride}. With a contiguous block per core start_k = k*w,
+# which covers 8/gcd(w, 8) banks: two of eight at w = 4. Hence the fastest core count was whichever
+# one made `w` odd, and that moves with the shape. `STRIDED` below removes the aliasing instead of
+# tuning around it, and with it the cost is a function of depth alone: at 400 groups the 80..99-core
+# band lands within 1.2 % of itself where it used to spread 1.30x, and the whole grid is the fastest
+# point at all four shapes. See `perf/ttx_splitwork/core_count_sweep.py` and the JSON beside it.
 REBLOCK_CORES = int(os.environ.get("TT_BIO_REBLOCK_CORES", "0"))
+
+# Strided group assignment: core i takes groups i, i+num_cores, i+2*num_cores, ... Default on. Set
+# `TT_BIO_REBLOCK_STRIDE=0` for the old contiguous block, which is a stride of 1 and the same
+# kernels. Bit-identical either way at all 88 sweep points, since the groups are independent.
+STRIDED = os.environ.get("TT_BIO_REBLOCK_STRIDE", "1") != "0"
 
 _SPLIT_CACHE: dict = {}
 
@@ -121,7 +132,7 @@ def _cache_key(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[3]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y,
+        g.x, g.y, STRIDED,
         tuple(reader_ct), tuple(writer_ct),
     )
 
@@ -138,7 +149,7 @@ def _build(x, out, device, reader_ct, writer_ct):
     # `eligible` has already refused any shape with no plan, so this cannot fire from the production
     # path. It stays as an assertion because a direct caller of `reblock_permute` bypasses the gate.
     assert plan is not None, f"no expressible work split for {num_groups} groups"
-    _, _, (_, core_grid, cg1, cg2, work1, work2) = plan
+    _, _, (num_cores, core_grid, cg1, cg2, work1, work2) = plan
 
     tile_bytes = TILE_H * TILE_W * 2  # bf16
 
@@ -154,16 +165,26 @@ def _build(x, out, device, reader_ct, writer_ct):
     cbs = [cb(IN_CB, 2), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    start = 0
+    # Core i takes groups i, i+num_cores, i+2*num_cores, ... rather than a contiguous block of
+    # `per_core`. The counts are unchanged: core i owns ceil((num_groups - i) / num_cores) groups,
+    # which is `work1` for the first `num_groups % num_cores` cores and `work2` for the rest, exactly
+    # what `core_split.units_per_core` distributes. So is the output, since the groups are
+    # independent. What changes is which groups are in flight together, consecutive instead of
+    # strided by `per_core`, so every DRAM bank is live. The kernels take the stride as their last
+    # runtime arg; the reader carries the measurement that made this change.
+    first, placed, block = 0, 0, 0
+    stride = num_cores if STRIDED else 1
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [start, per_core, Nt, N, Ct]
+                    reader_rt[cx][cy] = [first if STRIDED else block, per_core, Nt, N, Ct, stride]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct]
-                    writer_rt[cx][cy] = [start, per_core, Nt, N, Ct]
-                    start += per_core
-    assert start == num_groups, (start, num_groups)
+                    writer_rt[cx][cy] = [first if STRIDED else block, per_core, Nt, N, Ct, stride]
+                    first += 1
+                    block += per_core
+                    placed += per_core
+    assert (first, placed) == (num_cores, num_groups), (first, placed, num_cores, num_groups)
 
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader_reblock_permute.cpp"),
@@ -354,7 +375,7 @@ def _cache_key_back(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[2]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y,
+        g.x, g.y, STRIDED,
         tuple(reader_ct), tuple(writer_ct),
     )
 
@@ -370,7 +391,7 @@ def _build_back(x, out, device, reader_ct, writer_ct):
 
     plan = _split_plan(device, num_groups)
     assert plan is not None, f"no expressible work split for {num_groups} groups"
-    _, _, (_, core_grid, cg1, cg2, work1, work2) = plan
+    _, _, (num_cores, core_grid, cg1, cg2, work1, work2) = plan
 
     tile_bytes = TILE_H * TILE_W * 2  # bf16
 
@@ -390,16 +411,26 @@ def _build_back(x, out, device, reader_ct, writer_ct):
     cbs = [cb(IN_CB, 2), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, GROUP_TILES * 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    start = 0
+    # Core i takes groups i, i+num_cores, i+2*num_cores, ... rather than a contiguous block of
+    # `per_core`. The counts are unchanged: core i owns ceil((num_groups - i) / num_cores) groups,
+    # which is `work1` for the first `num_groups % num_cores` cores and `work2` for the rest, exactly
+    # what `core_split.units_per_core` distributes. So is the output, since the groups are
+    # independent. What changes is which groups are in flight together, consecutive instead of
+    # strided by `per_core`, so every DRAM bank is live. The kernels take the stride as their last
+    # runtime arg; the reader carries the measurement that made this change.
+    first, placed, block = 0, 0, 0
+    stride = num_cores if STRIDED else 1
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [start, per_core, Nt, Ct]
+                    reader_rt[cx][cy] = [first if STRIDED else block, per_core, Nt, Ct, stride]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES]
-                    writer_rt[cx][cy] = [start, per_core, Nt, Ct]
-                    start += per_core
-    assert start == num_groups, (start, num_groups)
+                    writer_rt[cx][cy] = [first if STRIDED else block, per_core, Nt, Ct, stride]
+                    first += 1
+                    block += per_core
+                    placed += per_core
+    assert (first, placed) == (num_cores, num_groups), (first, placed, num_cores, num_groups)
 
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_BACK / "reader_reblock_permute_back.cpp"),
@@ -568,7 +599,7 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[3]), int(out.shape[1]), int(out.shape[2]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y,
+        g.x, g.y, STRIDED,
         tuple(reader_ct), tuple(writer_ct),
         # `_build_gated` bakes this into the compute kernel's compile-time args AND into four CB
         # depths, so it has to be in the key. Without it an A/B that flips the granularity gets the
@@ -596,7 +627,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
 
     plan = _split_plan(device, num_groups)
     assert plan is not None, f"no expressible work split for {num_groups} groups"
-    _, _, (_, core_grid, cg1, cg2, work1, work2) = plan
+    _, _, (num_cores, core_grid, cg1, cg2, work1, work2) = plan
 
     tile_bytes = TILE_H * TILE_W * 2  # bf16
 
@@ -618,16 +649,26 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
            cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    start = 0
+    # Core i takes groups i, i+num_cores, i+2*num_cores, ... rather than a contiguous block of
+    # `per_core`. The counts are unchanged: core i owns ceil((num_groups - i) / num_cores) groups,
+    # which is `work1` for the first `num_groups % num_cores` cores and `work2` for the rest, exactly
+    # what `core_split.units_per_core` distributes. So is the output, since the groups are
+    # independent. What changes is which groups are in flight together, consecutive instead of
+    # strided by `per_core`, so every DRAM bank is live. The kernels take the stride as their last
+    # runtime arg; the reader carries the measurement that made this change.
+    first, placed, block = 0, 0, 0
+    stride = num_cores if STRIDED else 1
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [start, per_core, Nt, N, Ct, Ctw]
+                    reader_rt[cx][cy] = [first if STRIDED else block, per_core, Nt, N, Ct, Ctw, stride]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES]
-                    writer_rt[cx][cy] = [start, per_core, Nt, N, Ct]
-                    start += per_core
-    assert start == num_groups, (start, num_groups)
+                    writer_rt[cx][cy] = [first if STRIDED else block, per_core, Nt, N, Ct, stride]
+                    first += 1
+                    block += per_core
+                    placed += per_core
+    assert (first, placed) == (num_cores, num_groups), (first, placed, num_cores, num_groups)
 
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_GATED / "reader_reblock_permute_gated.cpp"),
