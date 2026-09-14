@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # One stack arm of the Blackhole shared-draw fold, run out-of-tree so the pin never moves.
 #
-#   run_arm.sh <new|old> <card> <sizes> <outdir>
+#   run_arm.sh <new|old|VERSION> <card> <sizes> <outdir>
 #
 # new = /home/ttuser/scratch/ttx/venv-new (ttnn 0.78.0 + SFPI 7.72.0 in its own runtime/)
 # old = /home/ttuser/tt-bio-dev/env      (ttnn 0.68.0, the pin, used read-only)
+# VERSION = /home/ttuser/scratch/ttx/venv-<VERSION>, built by mkvenv.sh, for the version bisect
 #
 # Both arms run with every hand-written fused kernel OFF: they do not compile against 0.78's LLK
 # surface, and the old arm with them off folds byte-identically to the old arm with them on
@@ -15,8 +16,9 @@ REPO=$(cd "$(dirname "$0")/../.." && pwd)
 case "$ARM" in
   new) PY=/home/ttuser/scratch/ttx/venv-new/bin/python ;;
   old) PY=/home/ttuser/tt-bio-dev/env/bin/python ;;
-  *) echo "arm must be new|old" >&2; exit 2 ;;
+  *)   PY=/home/ttuser/scratch/ttx/venv-$ARM/bin/python ;;   # a bisect arm, mkvenv.sh <version>
 esac
+[ -x "$PY" ] || { echo "no interpreter for arm $ARM at $PY" >&2; exit 2; }
 mkdir -p "$OUT"
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD
 export TT_BIO_LEASE_HOLDER=worker:ttx-version-recon

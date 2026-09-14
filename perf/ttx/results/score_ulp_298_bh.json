@@ -1,0 +1,495 @@
+{
+ "cifdir": "/home/ttuser/scratch/ttx/out/ulpscore2/scorecif",
+ "split_seq_id": 298,
+ "gt": "1hcl.cif",
+ "env": {
+  "tt": {
+   "ulp0": {
+    "ttnn": "0.69.0",
+    "arch": "Arch.BLACKHOLE",
+    "ulp": 0,
+    "shape": [
+     8,
+     320,
+     320
+    ]
+   },
+   "ulp1": {
+    "ttnn": "0.69.0",
+    "arch": "Arch.BLACKHOLE",
+    "ulp": 1,
+    "shape": [
+     8,
+     320,
+     320
+    ]
+   },
+   "ulp1c": {
+    "ttnn": "0.69.0",
+    "arch": "Arch.BLACKHOLE",
+    "ulp": 1,
+    "shape": [
+     8,
+     320,
+     320
+    ]
+   }
+  },
+  "gpu": {
+   "host": "00f6c9d768ef",
+   "gpu": "NVIDIA RTX 6000 Ada Generation",
+   "torch": "2.14.0+cu130",
+   "cuda": "13.0",
+   "driver": "595.58.03",
+   "tf32_matmul": false,
+   "tf32_cudnn": true,
+   "boltz": "2.2.1",
+   "no_kernels": true,
+   "precision": "32",
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "mode": "cuda"
+  }
+ },
+ "sizes": {
+  "298": {
+   "n_atoms": 2397,
+   "arms": [
+    "gpuref-s0",
+    "gpuref-s1",
+    "gpuref-s2",
+    "gpuref-s3",
+    "gpurefshared-s0",
+    "ulp0-s0",
+    "ulp0-s1",
+    "ulp1-s0",
+    "ulp1-s1",
+    "ulp1c-s0",
+    "ulp1c-s1"
+   ],
+   "seeds": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "plddt": {
+    "gpuref-s0": 0.911531,
+    "gpuref-s1": 0.911292,
+    "gpuref-s2": 0.909198,
+    "gpuref-s3": 0.909156,
+    "gpurefshared-s0": 0.910272,
+    "ulp0-s0": 0.0,
+    "ulp0-s1": 0.0,
+    "ulp1-s0": 0.0,
+    "ulp1-s1": 0.0,
+    "ulp1c-s0": 0.0,
+    "ulp1c-s1": 0.0
+   },
+   "sha256": {
+    "gpuref-s0": "64ab4254350a0b78",
+    "gpuref-s1": "7d8b16da302079d0",
+    "gpuref-s2": "54f6a31f2797b11d",
+    "gpuref-s3": "be06f5fc9f0e1fac",
+    "gpurefshared-s0": "77cc6f0e35969677",
+    "ulp0-s0": "aacd32c44c59ba85",
+    "ulp0-s1": "19af5b1ca39ceea0",
+    "ulp1-s0": "b705470bc887a834",
+    "ulp1-s1": "9e1c758f3c3729eb",
+    "ulp1c-s0": "67faf29774d6b05a",
+    "ulp1c-s1": "635c393c3005bf14"
+   },
+   "fold_s": {
+    "gpuref-s0": 40.342,
+    "gpuref-s1": 37.865,
+    "gpuref-s2": 36.144,
+    "gpuref-s3": 37.48,
+    "gpurefshared-s0": 42.26,
+    "ulp0-s0": 18.107,
+    "ulp0-s1": 17.814,
+    "ulp1-s0": 18.183,
+    "ulp1-s1": 17.912,
+    "ulp1c-s0": 18.308,
+    "ulp1c-s1": 17.76
+   },
+   "lever": {
+    "ulp0 seed0": {
+     "whole_all_atom_A": 0.4241,
+     "whole_ca_A": 0.26906,
+     "domain1_all_atom_A": 0.4241,
+     "domain1_ca_A": 0.26906,
+     "hinge_deg": 0.0,
+     "hinge_free_all_atom_A": 0.4241,
+     "lddt_ca": 0.99636,
+     "lddt_ca_domain1": 0.99636
+    },
+    "ulp1 seed0": {
+     "whole_all_atom_A": 0.70283,
+     "whole_ca_A": 0.54454,
+     "domain1_all_atom_A": 0.70283,
+     "domain1_ca_A": 0.54454,
+     "hinge_deg": 0.0,
+     "hinge_free_all_atom_A": 0.70283,
+     "lddt_ca": 0.97907,
+     "lddt_ca_domain1": 0.97907
+    },
+    "ulp1c seed0": {
+     "whole_all_atom_A": 0.51327,
+     "whole_ca_A": 0.35618,
+     "domain1_all_atom_A": 0.51327,
+     "domain1_ca_A": 0.35618,
+     "hinge_deg": 0.0,
+     "hinge_free_all_atom_A": 0.51327,
+     "lddt_ca": 0.99124,
+     "lddt_ca_domain1": 0.99124
+    }
+   },
+   "seed_floor": {
+    "ulp0: s0 vs s1": {
+     "whole_all_atom_A": 1.24374,
+     "whole_ca_A": 0.91958,
+     "domain1_all_atom_A": 1.24374,
+     "domain1_ca_A": 0.91958,
+     "hinge_deg": 0.0,
+     "hinge_free_all_atom_A": 1.24374,
+     "lddt_ca": 0.96821,
+     "lddt_ca_domain1": 0.96821
+    },
+    "ulp1: s0 vs s1": {
+     "whole_all_atom_A": 1.04178,
+     "whole_ca_A": 0.70644,
+     "domain1_all_atom_A": 1.04178,
+     "domain1_ca_A": 0.70644,
+     "hinge_deg": 0.0,
+     "hinge_free_all_atom_A": 1.04178,
+     "lddt_ca": 0.97459,
+     "lddt_ca_domain1": 0.97459
+    },
+    "ulp1c: s0 vs s1": {
+     "whole_all_atom_A": 1.17629,
+     "whole_ca_A": 0.83662,
+     "domain1_all_atom_A": 1.17629,
+     "domain1_ca_A": 0.83662,
+     "hinge_deg": 0.0,
+     "hinge_free_all_atom_A": 1.17629,
+     "lddt_ca": 0.96828,
+     "lddt_ca_domain1": 0.96828
+    }
+   },
+   "native": {
+    "gpuref-s0": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.59742,
+      "lddt_ca": 0.98082
+     }
+    },
+    "gpuref-s1": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.66631,
+      "lddt_ca": 0.98134
+     }
+    },
+    "gpuref-s2": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.72041,
+      "lddt_ca": 0.97786
+     }
+    },
+    "gpuref-s3": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.73978,
+      "lddt_ca": 0.97045
+     }
+    },
+    "gpurefshared-s0": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.60389,
+      "lddt_ca": 0.98351
+     }
+    },
+    "ulp0-s0": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.7457,
+      "lddt_ca": 0.97882
+     }
+    },
+    "ulp0-s1": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.98737,
+      "lddt_ca": 0.95833
+     }
+    },
+    "ulp1-s0": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.8743,
+      "lddt_ca": 0.97245
+     }
+    },
+    "ulp1-s1": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.99853,
+      "lddt_ca": 0.95441
+     }
+    },
+    "ulp1c-s0": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.78084,
+      "lddt_ca": 0.97744
+     }
+    },
+    "ulp1c-s1": {
+     "whole": {
+      "n_ca": 294,
+      "ca_rmsd_A": 0.99645,
+      "lddt_ca": 0.9563
+     }
+    }
+   },
+   "summary": {
+    "domain1_all_atom_A": {
+     "ulp0": {
+      "n": 1,
+      "min": 0.4241,
+      "max": 0.4241,
+      "mean": 0.4241
+     },
+     "ulp1": {
+      "n": 1,
+      "min": 0.70283,
+      "max": 0.70283,
+      "mean": 0.70283
+     },
+     "ulp1c": {
+      "n": 1,
+      "min": 0.51327,
+      "max": 0.51327,
+      "mean": 0.51327
+     },
+     "seed_floor": {
+      "n": 3,
+      "min": 1.04178,
+      "max": 1.24374,
+      "mean": 1.15394
+     }
+    },
+    "hinge_free_all_atom_A": {
+     "ulp0": {
+      "n": 1,
+      "min": 0.4241,
+      "max": 0.4241,
+      "mean": 0.4241
+     },
+     "ulp1": {
+      "n": 1,
+      "min": 0.70283,
+      "max": 0.70283,
+      "mean": 0.70283
+     },
+     "ulp1c": {
+      "n": 1,
+      "min": 0.51327,
+      "max": 0.51327,
+      "mean": 0.51327
+     },
+     "seed_floor": {
+      "n": 3,
+      "min": 1.04178,
+      "max": 1.24374,
+      "mean": 1.15394
+     }
+    },
+    "domain1_ca_A": {
+     "ulp0": {
+      "n": 1,
+      "min": 0.26906,
+      "max": 0.26906,
+      "mean": 0.26906
+     },
+     "ulp1": {
+      "n": 1,
+      "min": 0.54454,
+      "max": 0.54454,
+      "mean": 0.54454
+     },
+     "ulp1c": {
+      "n": 1,
+      "min": 0.35618,
+      "max": 0.35618,
+      "mean": 0.35618
+     },
+     "seed_floor": {
+      "n": 3,
+      "min": 0.70644,
+      "max": 0.91958,
+      "mean": 0.82088
+     }
+    },
+    "lddt_ca": {
+     "ulp0": {
+      "n": 1,
+      "min": 0.99636,
+      "max": 0.99636,
+      "mean": 0.99636
+     },
+     "ulp1": {
+      "n": 1,
+      "min": 0.97907,
+      "max": 0.97907,
+      "mean": 0.97907
+     },
+     "ulp1c": {
+      "n": 1,
+      "min": 0.99124,
+      "max": 0.99124,
+      "mean": 0.99124
+     },
+     "seed_floor": {
+      "n": 3,
+      "min": 0.96821,
+      "max": 0.97459,
+      "mean": 0.97036
+     }
+    },
+    "lddt_ca_domain1": {
+     "ulp0": {
+      "n": 1,
+      "min": 0.99636,
+      "max": 0.99636,
+      "mean": 0.99636
+     },
+     "ulp1": {
+      "n": 1,
+      "min": 0.97907,
+      "max": 0.97907,
+      "mean": 0.97907
+     },
+     "ulp1c": {
+      "n": 1,
+      "min": 0.99124,
+      "max": 0.99124,
+      "mean": 0.99124
+     },
+     "seed_floor": {
+      "n": 3,
+      "min": 0.96821,
+      "max": 0.97459,
+      "mean": 0.97036
+     }
+    },
+    "whole_all_atom_A": {
+     "ulp0": {
+      "n": 1,
+      "min": 0.4241,
+      "max": 0.4241,
+      "mean": 0.4241
+     },
+     "ulp1": {
+      "n": 1,
+      "min": 0.70283,
+      "max": 0.70283,
+      "mean": 0.70283
+     },
+     "ulp1c": {
+      "n": 1,
+      "min": 0.51327,
+      "max": 0.51327,
+      "mean": 0.51327
+     },
+     "seed_floor": {
+      "n": 3,
+      "min": 1.04178,
+      "max": 1.24374,
+      "mean": 1.15394
+     }
+    },
+    "hinge_deg": {
+     "ulp0": {
+      "n": 1,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+     },
+     "ulp1": {
+      "n": 1,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+     },
+     "ulp1c": {
+      "n": 1,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+     },
+     "seed_floor": {
+      "n": 3,
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+     }
+    }
+   },
+   "native_summary": {
+    "gpurefshared whole ca_rmsd_A": {
+     "n": 1,
+     "min": 0.60389,
+     "max": 0.60389,
+     "mean": 0.60389
+    },
+    "gpurefshared whole lddt_ca": {
+     "n": 1,
+     "min": 0.98351,
+     "max": 0.98351,
+     "mean": 0.98351
+    },
+    "ulp0 whole ca_rmsd_A": {
+     "n": 2,
+     "min": 0.7457,
+     "max": 0.98737,
+     "mean": 0.86654
+    },
+    "ulp0 whole lddt_ca": {
+     "n": 2,
+     "min": 0.95833,
+     "max": 0.97882,
+     "mean": 0.96857
+    },
+    "ulp1 whole ca_rmsd_A": {
+     "n": 2,
+     "min": 0.8743,
+     "max": 0.99853,
+     "mean": 0.93641
+    },
+    "ulp1 whole lddt_ca": {
+     "n": 2,
+     "min": 0.95441,
+     "max": 0.97245,
+     "mean": 0.96343
+    },
+    "ulp1c whole ca_rmsd_A": {
+     "n": 2,
+     "min": 0.78084,
+     "max": 0.99645,
+     "mean": 0.88864
+    },
+    "ulp1c whole lddt_ca": {
+     "n": 2,
+     "min": 0.9563,
+     "max": 0.97744,
+     "mean": 0.96687
+    }
+   }
+  }
+ }
+}
