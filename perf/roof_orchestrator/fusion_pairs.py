@@ -70,7 +70,10 @@ ELEMENTWISE = {
 MATMUL = {"ttnn.matmul", "ttnn.linear", "ttnn.bmm"}
 REORDER = {"ttnn.transpose", "ttnn.permute", "ttnn.concat", "ttnn.split", "ttnn.slice",
            "ttnn.pad", "ttnn.repeat", "ttnn.repeat_interleave", "ttnn.tilize", "ttnn.untilize",
-           "ttnn.sum", "ttnn.mean", "ttnn.max", "ttnn.min", "ttnn.argmax"}
+           "ttnn.sum", "ttnn.mean", "ttnn.max", "ttnn.min", "ttnn.argmax",
+           "ttnn.to_memory_config", "ttnn.reshape",
+           "ttnn.experimental.nlp_create_qkv_heads", "experimental.nlp_create_qkv_heads",
+           "ttnn.transformer.scaled_dot_product_attention"}
 
 
 # `ttnn.generic_op` is four different kernels in tt-bio and the op code alone cannot tell them
