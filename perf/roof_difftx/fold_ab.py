@@ -80,7 +80,12 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=2)
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--recycles", type=int, default=3)
-    ap.add_argument("--fixture", default="cdk2x2_512")
+    ap.add_argument("--fixture", default="cdk2x2_512",
+                    help="comma-separated; the ladder runs in ONE process on ONE loaded model, "
+                         "so a size sweep pays the model load once and the arms stay paired "
+                         "inside each size")
+    ap.add_argument("--reps-per", default="",
+                    help="comma-separated reps, one per fixture; falls back to --reps")
     args = ap.parse_args()
     OUT_PATH = args.out
     LEV.SAMPLING_STEPS, LEV.RECYCLING_STEPS = args.steps, args.recycles
@@ -109,11 +114,16 @@ def main() -> int:
         "commit": os.popen(f"git -C {REPO} rev-parse HEAD").read().strip()}
     dump()
 
+    fixtures = [x for x in args.fixture.split(",") if x]
+    reps_per = [int(x) for x in args.reps_per.split(",") if x] or [args.reps] * len(fixtures)
+    assert len(reps_per) == len(fixtures), "reps-per must match fixture count"
+
     work = Path(tempfile.mkdtemp(prefix="roof-difftx-"))
     struct_dir = work / "out"; struct_dir.mkdir(parents=True)
     keep_dir = work / "keep"; keep_dir.mkdir(parents=True)
     msa_dir = work / "msa"; msa_dir.mkdir(parents=True)
-    LEV._seed_msa(FIX / f"{args.fixture}.yaml", (FIX / f"{args.fixture}.a3m").read_text(), msa_dir)
+    for fx in fixtures:
+        LEV._seed_msa(FIX / f"{fx}.yaml", (FIX / f"{fx}.a3m").read_text(), msa_dir)
     cfg = LEV.build_cfg(msa_dir, struct_dir)
     LEV._ensure_local_artifacts = _ensure_local_artifacts
     _ensure_local_artifacts(cfg)
@@ -123,7 +133,7 @@ def main() -> int:
     state.bind_run("roof-difftx-cond-hoist", cfg)
     diff_mod = state.model.structure_module.score_model
 
-    def fold(arm: str, tag: str) -> dict:
+    def fold(arm: str, tag: str, fixture: str) -> dict:
         TT._B2_DIT_COND_HOIST = arm == "on"
         try:
             diff_mod.reset_static_cache()
@@ -133,67 +143,75 @@ def main() -> int:
             p.unlink() if p.is_file() else shutil.rmtree(p)
         ttnn.synchronize_device(dev)
         t0 = time.perf_counter()
-        metrics, _b, _f = state.predict_one(FIX / f"{args.fixture}.yaml", cfg)
+        metrics, _b, _f = state.predict_one(FIX / f"{fixture}.yaml", cfg)
         ttnn.synchronize_device(dev)
         wall = time.perf_counter() - t0
         cifs = sorted(struct_dir.glob("*.cif"))
         assert cifs, "no CIF written"
         kept = keep_dir / f"{tag}.cif"
         shutil.copyfile(cifs[0], kept)
-        return {"arm": arm, "tag": tag, "fold_s": round(wall, 3), "cif": str(kept),
+        return {"arm": arm, "tag": tag, "fixture": fixture,
+                "fold_s": round(wall, 3), "cif": str(kept),
                 "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
                 "cif_sha256": hashlib.sha256(cifs[0].read_bytes()).hexdigest(),
                 "loadavg1": round(os.getloadavg()[0], 2)}
 
-    runs = []
-    for arm in ("off", "on"):
-        r = fold(arm, f"warm_{arm}"); r["warmup"] = True; runs.append(r)
-        print(f"  warm {arm:3s} {r['fold_s']:7.3f}s plddt={r['plddt']} "
-              f"cif {r['cif_sha256'][:16]}", flush=True)
-        OUT["runs"] = runs; dump()
-    for i in range(args.reps):
-        for j, arm in enumerate(ORDER):
-            r = fold(arm, f"r{i}_{j}_{arm}"); r["warmup"] = False; r["rep"] = i; runs.append(r)
-            print(f"  rep{i} {arm:3s} {r['fold_s']:7.3f}s plddt={r['plddt']} "
-                  f"load={r['loadavg1']} cif {r['cif_sha256'][:16]}", flush=True)
-            OUT["runs"] = runs; dump()
+    OUT["by_fixture"] = {}
+    for fx, nrep in zip(fixtures, reps_per):
+        runs = []
+        for arm in ("off", "on"):
+            r = fold(arm, f"{fx}_warm_{arm}", fx); r["warmup"] = True; runs.append(r)
+            print(f"  {fx} warm {arm:3s} {r['fold_s']:7.3f}s plddt={r['plddt']} "
+                  f"cif {r['cif_sha256'][:16]}", flush=True)
+            OUT["by_fixture"].setdefault(fx, {})["runs"] = runs; dump()
+        for i in range(nrep):
+            for j, arm in enumerate(ORDER):
+                r = fold(arm, f"{fx}_r{i}_{j}_{arm}", fx)
+                r["warmup"] = False; r["rep"] = i; runs.append(r)
+                print(f"  {fx} rep{i} {arm:3s} {r['fold_s']:7.3f}s plddt={r['plddt']} "
+                      f"load={r['loadavg1']} cif {r['cif_sha256'][:16]}", flush=True)
+                OUT["by_fixture"][fx]["runs"] = runs; dump()
 
-    timed = [r for r in runs if not r["warmup"]]
-    med = {a: st.median([r["fold_s"] for r in timed if r["arm"] == a]) for a in ("off", "on")}
-    rep: dict = {}
-    for r in timed:
-        rep.setdefault(r["rep"], []).append(r)
-    ab, aa = [], []
-    for i in sorted(rep):
-        g = rep[i]
-        assert [x["arm"] for x in g] == ORDER, [x["arm"] for x in g]
-        off, on = [g[0]["fold_s"], g[3]["fold_s"]], [g[1]["fold_s"], g[2]["fold_s"]]
-        ab += [round(o / n, 5) for o, n in zip(off, on)]
-        aa += [round(max(off) / min(off), 5), round(max(on) / min(on), 5)]
-    shas = {a: sorted({r["cif_sha256"] for r in timed if r["arm"] == a}) for a in ("off", "on")}
-    OUT["median_fold_s"] = med
-    OUT["ratio_median"] = round(med["off"] / med["on"], 5)
-    OUT["ab_paired_ratios"] = ab
-    OUT["ab_paired_median"] = round(st.median(ab), 5)
-    OUT["ab_paired_all_positive"] = all(x > 1 for x in ab)
-    OUT["aa_floor_max"] = max(aa) if aa else None
-    OUT["aa_ratios"] = aa
-    OUT["plddt"] = {a: sorted({r["plddt"] for r in timed if r["arm"] == a})
-                    for a in ("off", "on")}
-    OUT["cif_sha256"] = shas
-    OUT["bit_exact"] = len(shas["off"]) == 1 and shas["off"] == shas["on"]
+        timed = [r for r in runs if not r["warmup"]]
+        med = {a: st.median([r["fold_s"] for r in timed if r["arm"] == a]) for a in ("off", "on")}
+        rep: dict = {}
+        for r in timed:
+            rep.setdefault(r["rep"], []).append(r)
+        ab, aa = [], []
+        for i in sorted(rep):
+            g = rep[i]
+            assert [x["arm"] for x in g] == ORDER, [x["arm"] for x in g]
+            off, on = [g[0]["fold_s"], g[3]["fold_s"]], [g[1]["fold_s"], g[2]["fold_s"]]
+            ab += [round(o / n, 5) for o, n in zip(off, on)]
+            aa += [round(max(off) / min(off), 5), round(max(on) / min(on), 5)]
+        shas = {a: sorted({r["cif_sha256"] for r in timed if r["arm"] == a})
+                for a in ("off", "on")}
+        offs = [r for r in timed if r["arm"] == "off"]
+        ons = [r for r in timed if r["arm"] == "on"]
+        e = OUT["by_fixture"][fx]
+        e["median_fold_s"] = med
+        e["ratio_median"] = round(med["off"] / med["on"], 5)
+        e["ab_paired_ratios"] = ab
+        e["ab_paired_median"] = round(st.median(ab), 5)
+        e["ab_paired_all_positive"] = all(x > 1 for x in ab)
+        e["aa_floor_max"] = max(aa) if aa else None
+        e["aa_ratios"] = aa
+        e["resolved_above_aa_floor"] = bool(aa) and st.median(ab) > max(aa)
+        e["plddt"] = {a: sorted({r["plddt"] for r in timed if r["arm"] == a})
+                      for a in ("off", "on")}
+        e["cif_sha256"] = shas
+        e["bit_exact"] = len(shas["off"]) == 1 and shas["off"] == shas["on"]
+        e["structure"] = {
+            "control_off_vs_off": compare(offs[0]["cif"], offs[-1]["cif"]) if len(offs) > 1
+            else None,
+            "on_vs_off": compare(offs[0]["cif"], ons[0]["cif"])}
+        dump()
+        print(f"  == {fx}: {e['ab_paired_median']}x  A/A {e['aa_floor_max']}  "
+              f"resolved={e['resolved_above_aa_floor']}  "
+              f"CA-RMSD {e['structure']['on_vs_off']['kabsch_rmsd_A']} A  "
+              f"lDDT {e['structure']['on_vs_off']['ca_lddt']}", flush=True)
 
-    offs = [r for r in timed if r["arm"] == "off"]
-    ons = [r for r in timed if r["arm"] == "on"]
-    OUT["structure"] = {
-        # the floor these numbers sit on: the same arm against itself, this card, this session
-        "control_off_vs_off": compare(offs[0]["cif"], offs[-1]["cif"]) if len(offs) > 1 else None,
-        "control_on_vs_on": compare(ons[0]["cif"], ons[-1]["cif"]) if len(ons) > 1 else None,
-        "on_vs_off": [compare(o["cif"], n["cif"]) for o, n in zip(offs, ons)]}
-    dump()
-    keys = ("median_fold_s", "ratio_median", "ab_paired_median", "ab_paired_ratios",
-            "ab_paired_all_positive", "aa_floor_max", "plddt", "bit_exact", "structure")
-    print(json.dumps({k: OUT[k] for k in keys if k in OUT}, indent=1), flush=True)
+    print(json.dumps(OUT["by_fixture"], indent=1, default=str)[:4000], flush=True)
     return 0
 
 
