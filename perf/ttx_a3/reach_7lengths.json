@@ -1,0 +1,1446 @@
+{
+ "h4_c130": {
+  "cores": 130,
+  "heads": 4,
+  "part": "Blackhole p150a, 13x10 custom fw",
+  "lengths": {
+   "1024": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     512,
+     1180160
+    ]
+   },
+   "1280": {
+    "shipped_ladder": [
+     "stock",
+     320,
+     256
+    ],
+    "cap_raised_ladder": [
+     "fused",
+     320,
+     256
+    ],
+    "this_route": [
+     320,
+     320,
+     1405440
+    ]
+   },
+   "1536": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     192,
+     768,
+     1307136
+    ]
+   },
+   "1792": {
+    "shipped_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "this_route": [
+     224,
+     448,
+     1362432
+    ]
+   },
+   "2048": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     256,
+     1507840
+    ]
+   },
+   "2304": {
+    "shipped_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "this_route": [
+     256,
+     128,
+     1540608
+    ]
+   },
+   "2592": {
+    "shipped_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "this_route": [
+     96,
+     864,
+     1055232
+    ]
+   }
+  }
+ },
+ "h4_c110": {
+  "cores": 110,
+  "heads": 4,
+  "part": "Blackhole p300c / p150a, 11x10",
+  "lengths": {
+   "1024": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     512,
+     64,
+     1540608
+    ]
+   },
+   "1280": {
+    "shipped_ladder": [
+     "stock",
+     320,
+     256
+    ],
+    "cap_raised_ladder": [
+     "fused",
+     320,
+     256
+    ],
+    "this_route": [
+     256,
+     640,
+     1409536
+    ]
+   },
+   "1536": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     512,
+     1442304
+    ]
+   },
+   "1792": {
+    "shipped_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "this_route": [
+     224,
+     448,
+     1362432
+    ]
+   },
+   "2048": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     256,
+     1507840
+    ]
+   },
+   "2304": {
+    "shipped_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "this_route": [
+     256,
+     128,
+     1540608
+    ]
+   },
+   "2592": {
+    "shipped_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "this_route": [
+     96,
+     864,
+     1055232
+    ]
+   }
+  }
+ },
+ "h4_c72": {
+  "cores": 72,
+  "heads": 4,
+  "part": "Wormhole Galaxy, 8x9",
+  "lengths": {
+   "1024": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     512,
+     64,
+     1540608
+    ]
+   },
+   "1280": {
+    "shipped_ladder": [
+     "stock",
+     320,
+     256
+    ],
+    "cap_raised_ladder": [
+     "fused",
+     320,
+     256
+    ],
+    "this_route": [
+     320,
+     320,
+     1405440
+    ]
+   },
+   "1536": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     512,
+     1442304
+    ]
+   },
+   "1792": {
+    "shipped_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "this_route": [
+     224,
+     448,
+     1362432
+    ]
+   },
+   "2048": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     256,
+     1507840
+    ]
+   },
+   "2304": {
+    "shipped_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "this_route": [
+     256,
+     128,
+     1540608
+    ]
+   },
+   "2592": {
+    "shipped_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "this_route": null
+   }
+  }
+ },
+ "h4_c64": {
+  "cores": 64,
+  "heads": 4,
+  "part": "Wormhole n150/n300, 8x8",
+  "lengths": {
+   "1024": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     512,
+     1180160
+    ]
+   },
+   "1280": {
+    "shipped_ladder": [
+     "stock",
+     320,
+     256
+    ],
+    "cap_raised_ladder": [
+     "fused",
+     320,
+     256
+    ],
+    "this_route": [
+     320,
+     320,
+     1405440
+    ]
+   },
+   "1536": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     192,
+     768,
+     1307136
+    ]
+   },
+   "1792": {
+    "shipped_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "this_route": [
+     224,
+     448,
+     1362432
+    ]
+   },
+   "2048": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     256,
+     1507840
+    ]
+   },
+   "2304": {
+    "shipped_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "this_route": [
+     192,
+     576,
+     1479168
+    ]
+   },
+   "2592": {
+    "shipped_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "this_route": null
+   }
+  }
+ },
+ "h8_c130": {
+  "cores": 130,
+  "heads": 8,
+  "part": "Blackhole p150a, 13x10 custom fw",
+  "lengths": {
+   "1024": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     512,
+     1180160
+    ]
+   },
+   "1280": {
+    "shipped_ladder": [
+     "stock",
+     320,
+     256
+    ],
+    "cap_raised_ladder": [
+     "fused",
+     320,
+     256
+    ],
+    "this_route": [
+     320,
+     320,
+     1405440
+    ]
+   },
+   "1536": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     192,
+     768,
+     1307136
+    ]
+   },
+   "1792": {
+    "shipped_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "this_route": [
+     224,
+     448,
+     1362432
+    ]
+   },
+   "2048": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     256,
+     1507840
+    ]
+   },
+   "2304": {
+    "shipped_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "this_route": [
+     192,
+     576,
+     1479168
+    ]
+   },
+   "2592": {
+    "shipped_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "this_route": null
+   }
+  }
+ },
+ "h8_c110": {
+  "cores": 110,
+  "heads": 8,
+  "part": "Blackhole p300c / p150a, 11x10",
+  "lengths": {
+   "1024": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     512,
+     1180160
+    ]
+   },
+   "1280": {
+    "shipped_ladder": [
+     "stock",
+     320,
+     256
+    ],
+    "cap_raised_ladder": [
+     "fused",
+     320,
+     256
+    ],
+    "this_route": [
+     320,
+     320,
+     1405440
+    ]
+   },
+   "1536": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     512,
+     1442304
+    ]
+   },
+   "1792": {
+    "shipped_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "this_route": [
+     224,
+     448,
+     1362432
+    ]
+   },
+   "2048": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     256,
+     1507840
+    ]
+   },
+   "2304": {
+    "shipped_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "this_route": [
+     192,
+     576,
+     1479168
+    ]
+   },
+   "2592": {
+    "shipped_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "this_route": null
+   }
+  }
+ },
+ "h8_c72": {
+  "cores": 72,
+  "heads": 8,
+  "part": "Wormhole Galaxy, 8x9",
+  "lengths": {
+   "1024": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     512,
+     1180160
+    ]
+   },
+   "1280": {
+    "shipped_ladder": [
+     "stock",
+     320,
+     256
+    ],
+    "cap_raised_ladder": [
+     "fused",
+     320,
+     256
+    ],
+    "this_route": [
+     320,
+     320,
+     1405440
+    ]
+   },
+   "1536": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     192,
+     768,
+     1307136
+    ]
+   },
+   "1792": {
+    "shipped_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "this_route": [
+     224,
+     448,
+     1362432
+    ]
+   },
+   "2048": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     256,
+     1507840
+    ]
+   },
+   "2304": {
+    "shipped_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "this_route": [
+     256,
+     128,
+     1540608
+    ]
+   },
+   "2592": {
+    "shipped_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "this_route": null
+   }
+  }
+ },
+ "h8_c64": {
+  "cores": 64,
+  "heads": 8,
+  "part": "Wormhole n150/n300, 8x8",
+  "lengths": {
+   "1024": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     512,
+     1180160
+    ]
+   },
+   "1280": {
+    "shipped_ladder": [
+     "stock",
+     320,
+     256
+    ],
+    "cap_raised_ladder": [
+     "fused",
+     320,
+     256
+    ],
+    "this_route": [
+     320,
+     320,
+     1405440
+    ]
+   },
+   "1536": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     192,
+     768,
+     1307136
+    ]
+   },
+   "1792": {
+    "shipped_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "this_route": [
+     224,
+     448,
+     1362432
+    ]
+   },
+   "2048": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     256,
+     1507840
+    ]
+   },
+   "2304": {
+    "shipped_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "this_route": null
+   },
+   "2592": {
+    "shipped_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "this_route": null
+   }
+  }
+ },
+ "h12_c130": {
+  "cores": 130,
+  "heads": 12,
+  "part": "Blackhole p150a, 13x10 custom fw",
+  "lengths": {
+   "1024": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     512,
+     64,
+     1540608
+    ]
+   },
+   "1280": {
+    "shipped_ladder": [
+     "stock",
+     320,
+     256
+    ],
+    "cap_raised_ladder": [
+     "fused",
+     320,
+     256
+    ],
+    "this_route": [
+     256,
+     640,
+     1409536
+    ]
+   },
+   "1536": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     192,
+     768,
+     1307136
+    ]
+   },
+   "1792": {
+    "shipped_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "this_route": [
+     224,
+     448,
+     1362432
+    ]
+   },
+   "2048": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     256,
+     1507840
+    ]
+   },
+   "2304": {
+    "shipped_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "this_route": [
+     256,
+     128,
+     1540608
+    ]
+   },
+   "2592": {
+    "shipped_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "this_route": null
+   }
+  }
+ },
+ "h12_c110": {
+  "cores": 110,
+  "heads": 12,
+  "part": "Blackhole p300c / p150a, 11x10",
+  "lengths": {
+   "1024": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     512,
+     1180160
+    ]
+   },
+   "1280": {
+    "shipped_ladder": [
+     "stock",
+     320,
+     256
+    ],
+    "cap_raised_ladder": [
+     "fused",
+     320,
+     256
+    ],
+    "this_route": [
+     320,
+     320,
+     1405440
+    ]
+   },
+   "1536": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     192,
+     768,
+     1307136
+    ]
+   },
+   "1792": {
+    "shipped_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "this_route": [
+     224,
+     448,
+     1362432
+    ]
+   },
+   "2048": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     256,
+     1507840
+    ]
+   },
+   "2304": {
+    "shipped_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "this_route": [
+     256,
+     128,
+     1540608
+    ]
+   },
+   "2592": {
+    "shipped_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "this_route": null
+   }
+  }
+ },
+ "h12_c72": {
+  "cores": 72,
+  "heads": 12,
+  "part": "Wormhole Galaxy, 8x9",
+  "lengths": {
+   "1024": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     512,
+     64,
+     1540608
+    ]
+   },
+   "1280": {
+    "shipped_ladder": [
+     "stock",
+     320,
+     256
+    ],
+    "cap_raised_ladder": [
+     "fused",
+     320,
+     256
+    ],
+    "this_route": [
+     256,
+     640,
+     1409536
+    ]
+   },
+   "1536": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     512,
+     1442304
+    ]
+   },
+   "1792": {
+    "shipped_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "this_route": null
+   },
+   "2048": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": null
+   },
+   "2304": {
+    "shipped_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "this_route": null
+   },
+   "2592": {
+    "shipped_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "this_route": null
+   }
+  }
+ },
+ "h12_c64": {
+  "cores": 64,
+  "heads": 12,
+  "part": "Wormhole n150/n300, 8x8",
+  "lengths": {
+   "1024": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     256,
+     512,
+     1180160
+    ]
+   },
+   "1280": {
+    "shipped_ladder": [
+     "stock",
+     320,
+     256
+    ],
+    "cap_raised_ladder": [
+     "fused",
+     320,
+     256
+    ],
+    "this_route": [
+     256,
+     640,
+     1409536
+    ]
+   },
+   "1536": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": [
+     384,
+     32,
+     1548800
+    ]
+   },
+   "1792": {
+    "shipped_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     448,
+     256
+    ],
+    "this_route": null
+   },
+   "2048": {
+    "shipped_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     512,
+     256
+    ],
+    "this_route": null
+   },
+   "2304": {
+    "shipped_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     576,
+     256
+    ],
+    "this_route": null
+   },
+   "2592": {
+    "shipped_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "cap_raised_ladder": [
+     "stock",
+     288,
+     256
+    ],
+    "this_route": null
+   }
+  }
+ }
+}
