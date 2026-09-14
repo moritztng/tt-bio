@@ -1,0 +1,57 @@
+{
+ "grid": [
+  8,
+  9
+ ],
+ "block": [
+  4,
+  4,
+  1,
+  4,
+  1
+ ],
+ "rows": [
+  {
+   "inner": 1,
+   "linear_ms": 0.11158,
+   "generic_ms": 0.14522,
+   "generic_vs_linear": 1.3015
+  },
+  {
+   "inner": 2,
+   "linear_ms": 0.09217,
+   "generic_ms": 0.11103,
+   "generic_vs_linear": 1.2046
+  },
+  {
+   "inner": 4,
+   "linear_ms": 0.08286,
+   "generic_ms": 0.09539,
+   "generic_vs_linear": 1.1511
+  },
+  {
+   "inner": 8,
+   "linear_ms": 0.07845,
+   "generic_ms": 0.0866,
+   "generic_vs_linear": 1.1039
+  },
+  {
+   "inner": 16,
+   "linear_ms": 0.07611,
+   "generic_ms": 0.0826,
+   "generic_vs_linear": 1.0853
+  },
+  {
+   "inner": 32,
+   "linear_ms": 0.07488,
+   "generic_ms": 0.08095,
+   "generic_vs_linear": 1.0811
+  },
+  {
+   "inner": 64,
+   "linear_ms": 0.07436,
+   "generic_ms": 0.08005,
+   "generic_vs_linear": 1.0765
+  }
+ ]
+}
