@@ -99,6 +99,8 @@ LEVERS = [
     # could not have told a shipped-on lever from a dark one.
     ("B2_TOKEN_DIT_SDPA", "tt_bio.tenstorrent", "_B2_TOKEN_DIT_SDPA",
      "tt_bio.tenstorrent.B2_TOKEN_DIT_SDPA_STATS", "stats"),
+    ("APB_CONCAT_HEADS", "tt_bio.tenstorrent", "_APB_CONCAT_HEADS",
+     "tt_bio.tenstorrent.APB_CONCAT_HEADS_STATS", "stats"),
     ("ATOM_AXIS_BUCKET", "tt_bio.tenstorrent", "_ATOM_AXIS_BUCKET",
      "tt_bio.tenstorrent.ATOM_AXIS_BUCKET_STATS", "stats"),
     # The two size-conditioned L1 gates that `tt-bio-tuned-at-512-l1-gates-go-dark-above-640aa`

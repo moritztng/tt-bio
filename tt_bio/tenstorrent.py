@@ -1340,6 +1340,37 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 _B2_TOKEN_DIT_SDPA = env_flag("BOLTZ2_TOKEN_DIT_SDPA", True)
 B2_TOKEN_DIT_SDPA_STATS = [0, 0]     # [served, declined] at the token-DiT site
 
+# One-op head re-assembly. Coming out of attention the heads sit in (B, n_heads, S, padded_head_dim)
+# and the gate wants (B, S, n_heads * head_dim), which the shipped path reaches in four launches:
+# drop the pad lanes, permute, reshape, permute. None of them computes anything.
+# `nlp_concat_heads` does the same move in one launch but KEEPS the pad lanes, so the gate and the
+# output projection run at n_heads * padded_head_dim instead of n_heads * head_dim.
+#
+# Keeping the pads is exact, not approximate. The fused qkv weight is zero-padded in those lanes and
+# the qkv bias is zero there, so v's pad lanes are zero; SDPA's output is a convex combination of v
+# rows, so o's pad lanes are zero too. Anything multiplies zero to zero, which covers the gate, and
+# zeroing the matching rows of proj_o drops them from the projection. The cost is the wider gate and
+# projection, which is why this is priced per shape and not asserted.
+_APB_CONCAT_HEADS = env_flag("TT_BIO_APB_CONCAT_HEADS", True)
+APB_CONCAT_HEADS_STATS = [0, 0]      # [served, declined] at the token head re-assembly
+
+
+def _pad_head_lanes(t: torch.Tensor, n_heads: int, head_dim: int, padded_head_dim: int,
+                    axis: int) -> torch.Tensor:
+    """Re-lane a projection weight from n_heads*head_dim to n_heads*padded_head_dim, zeros in the pad.
+
+    `axis=-1` for a weight whose OUTPUT axis is head-major (proj_g), `axis=0` for one whose INPUT
+    axis is (proj_o). Both are the already-transposed, ttnn-order weight.
+    """
+    pad = padded_head_dim - head_dim
+    if axis == -1:
+        x = t.reshape(*t.shape[:-1], n_heads, head_dim)
+        x = torch.nn.functional.pad(x, (0, pad))
+        return x.reshape(*t.shape[:-1], n_heads * padded_head_dim)
+    x = t.reshape(n_heads, head_dim, *t.shape[1:])
+    x = torch.nn.functional.pad(x, (0, 0, 0, pad))
+    return x.reshape(n_heads * padded_head_dim, *t.shape[1:])
+
 # C2, the triangle bias cast to bfloat8_b before the SDPA. OFF by default and it stays off until a
 # fold-level parity gate clears it: at N=512 the op-level error is rmsd/std 0.002547 at PCC
 # 1.000000, but W9 measured z rmsd/std 0.04179 on a block at N=320 against a shipped band of
@@ -7404,7 +7435,16 @@ class AttentionPairBias(Module):
                 device=self.device,
                 dtype=self.dtype,
             )
-        self.g_weight = self.torch_to_tt("proj_g.weight", dtype=self.dtype)
+        # The head re-assembly is decided here, not per call: everything it depends on -- the site,
+        # the storage dtype and the pad width -- is known at load time, and the weights it needs are
+        # a different shape. torch_to_tt runs exactly once either way, so the shared tiled-weight
+        # cache's call index does not move.
+        self._concat_heads = _APB_CONCAT_HEADS and not atom_level and self.dtype != ttnn.float32
+        _relane = (lambda ax: (lambda w: _pad_head_lanes(w.t(), self.n_heads, self.head_dim,
+                                                         self.padded_head_dim, ax))) \
+            if self._concat_heads and getattr(self, "padded_head_dim", head_dim) != head_dim \
+            else (lambda ax: (lambda w: w.t()))
+        self.g_weight = self.torch_to_tt("proj_g.weight", transform=_relane(-1), dtype=self.dtype)
         # A caller that passes an already-computed bias still reaches the fp32-softmax
         # path, which divides by this. Undefined here meant that combination raised
         # AttributeError instead of running; 1.0 is the right value, since a
@@ -7421,7 +7461,8 @@ class AttentionPairBias(Module):
                 self.torch_to_tt("proj_z.1.weight", dtype=self.dtype),
                 self._bias_scale,
             )
-        self.o_weight = self.torch_to_tt("proj_o.weight", dtype=self.dtype)
+        self.o_weight = self.torch_to_tt("proj_o.weight", transform=_relane(0),
+                                          dtype=self.dtype)
 
     def compute_bias(self, z: ttnn.Tensor) -> ttnn.Tensor:
         """Project the (LN'd) pair tensor z -> per-head additive attention bias
@@ -7736,10 +7777,17 @@ class AttentionPairBias(Module):
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             ttnn.deallocate(v)
-            o = o[:, :, :, :self.head_dim]
-            o = ttnn.permute(o, (0, 1, 3, 2))
-            o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))
-            o = ttnn.permute(o, (0, 2, 1))
+            if self._concat_heads:
+                APB_CONCAT_HEADS_STATS[0] += 1
+                b, seq = o.shape[0], o.shape[2]
+                o = ttnn.experimental.nlp_concat_heads(o)
+                o = ttnn.reshape(o, (b, seq, self.n_heads * self.padded_head_dim))
+            else:
+                APB_CONCAT_HEADS_STATS[1] += 1
+                o = o[:, :, :, :self.head_dim]
+                o = ttnn.permute(o, (0, 1, 3, 2))
+                o = ttnn.reshape(o, (o.shape[0], -1, o.shape[3]))
+                o = ttnn.permute(o, (0, 2, 1))
         else:
             s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
