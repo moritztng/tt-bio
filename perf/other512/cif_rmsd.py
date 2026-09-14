@@ -20,8 +20,8 @@ from pathlib import Path
 import numpy as np
 
 
-def read_atoms(p: Path):
-    """Parse the mmCIF atom_site loop. Returns (keys, coords[N,3])."""
+def atom_site_table(p: Path):
+    """Parse the mmCIF atom_site loop once. Returns (column -> field position, rows of fields)."""
     lines = p.read_text().splitlines()
     i = 0
     while i < len(lines):
@@ -31,28 +31,51 @@ def read_atoms(p: Path):
                 cols.append(lines[j].strip())
                 j += 1
             if cols:
-                idx = {c: k for k, c in enumerate(cols)}
-                need = ["_atom_site.Cartn_x", "_atom_site.Cartn_y", "_atom_site.Cartn_z"]
-                if all(n in idx for n in need):
-                    keycols = [c for c in ("_atom_site.label_asym_id", "_atom_site.label_seq_id",
-                                           "_atom_site.label_atom_id", "_atom_site.label_comp_id")
-                               if c in idx]
-                    keys, xyz = [], []
-                    while j < len(lines):
-                        s = lines[j].strip()
-                        if not s or s.startswith("#") or s.startswith("loop_") or s.startswith("_"):
-                            break
-                        f = s.split()
-                        if len(f) < len(cols):
-                            break
-                        keys.append(tuple(f[idx[c]] for c in keycols))
-                        xyz.append([float(f[idx[n]]) for n in need])
-                        j += 1
-                    return keys, np.asarray(xyz, dtype=np.float64)
+                rows = []
+                while j < len(lines):
+                    s = lines[j].strip()
+                    if not s or s.startswith("#") or s.startswith("loop_") or s.startswith("_"):
+                        break
+                    f = s.split()
+                    if len(f) < len(cols):
+                        break
+                    rows.append(f)
+                    j += 1
+                return {c: k for k, c in enumerate(cols)}, rows
             i = j
         else:
             i += 1
     raise SystemExit(f"no _atom_site loop in {p}")
+
+
+def read_atoms(p: Path):
+    """Parse the mmCIF atom_site loop. Returns (keys, coords[N,3])."""
+    idx, rows = atom_site_table(p)
+    need = ["_atom_site.Cartn_x", "_atom_site.Cartn_y", "_atom_site.Cartn_z"]
+    if not all(n in idx for n in need):
+        raise SystemExit(f"no coordinates in the _atom_site loop of {p}")
+    keycols = [c for c in ("_atom_site.label_asym_id", "_atom_site.label_seq_id",
+                           "_atom_site.label_atom_id", "_atom_site.label_comp_id")
+               if c in idx]
+    keys = [tuple(f[idx[c]] for c in keycols) for f in rows]
+    xyz = [[float(f[idx[n]]) for n in need] for f in rows]
+    return keys, np.asarray(xyz, dtype=np.float64)
+
+
+def mean_ca_bfactor(p: Path):
+    """Mean B_iso over CA atoms, which is where Boltz-2 writes plDDT.
+
+    This is the only plDDT reading comparable across stacks. `boltz predict` and tt_bio report
+    different quantities under the same `plddt` name, mean CA B-factor against tt-bio"s own
+    metrics plDDT, and at 512 aa they differ by 0.049 on two structures 0.025 A apart
+    (`perf/k10_p2/FINDINGS.md`). Returns None when the CIF carries no B-factor column.
+    """
+    idx, rows = atom_site_table(p)
+    col, name = "_atom_site.B_iso_or_equiv", "_atom_site.label_atom_id"
+    if col not in idx or name not in idx:
+        return None
+    vals = [float(f[idx[col]]) for f in rows if f[idx[name]].strip(chr(34)) == "CA"]
+    return round(sum(vals) / len(vals), 4) if vals else None
 
 
 def kabsch_rmsd(P, Q):
