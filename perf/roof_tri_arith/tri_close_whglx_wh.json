@@ -1,0 +1,206 @@
+{
+ "host": "j10glx02",
+ "arch": "Arch.WORMHOLE_B0",
+ "grid": [
+  8,
+  9
+ ],
+ "cores": 72,
+ "roof_bytes": 4194304,
+ "ctl_m_rows": 9216,
+ "per_core_M": 4,
+ "s_prod": 288,
+ "s_sdpa": 288,
+ "sdpa_chunk": 96,
+ "blocks": 9,
+ "loadavg": [
+  "9.85",
+  "6.89",
+  "5.81"
+ ],
+ "refused": {
+  "abl_product_l1out_shard": "RuntimeError: TT_FATAL @ /project/tt_metal/impl/tensor/spec/tensor_spec.cpp:37: physical_width == physical_shard_width"
+ },
+ "rows": [
+  {
+   "arm": "roof_write_l1_to_dram",
+   "ms": 0.0455150002380833,
+   "GBps": 92.15212519081881,
+   "ns_per_tile_mac": null
+  },
+  {
+   "arm": "roof_read_dram_to_l1",
+   "ms": 0.03486566614204397,
+   "GBps": 120.29897788019467,
+   "ns_per_tile_mac": null
+  },
+  {
+   "arm": "ctl_proj_dramout",
+   "ms": 0.2764149976428598,
+   "TFLOPs": 5.462617632459004,
+   "ns_per_tile_mac": 11.997178717138013
+  },
+  {
+   "arm": "ctl_proj_l1out_int",
+   "ms": 0.5468076657659063,
+   "TFLOPs": 2.7613904020256075,
+   "ns_per_tile_mac": 23.732971604423017
+  },
+  {
+   "arm": "ctl_proj_l1out_shard",
+   "ms": 0.12105500112132479,
+   "TFLOPs": 12.47325121650022,
+   "ns_per_tile_mac": 5.2541233125575
+  },
+  {
+   "arm": "ctl_proj_l1in_dramout",
+   "ms": 0.27203833451494575,
+   "TFLOPs": 5.550502441842599,
+   "ns_per_tile_mac": 11.807219379988965
+  },
+  {
+   "arm": "abl_product_dramout",
+   "ms": 1.2479790020734072,
+   "TFLOPs": 4.900158754145684,
+   "ns_per_tile_mac": 13.374260567487646
+  },
+  {
+   "arm": "abl_product_l1out_int",
+   "ms": 10.20031399821164,
+   "TFLOPs": 0.5995202925196379,
+   "ns_per_tile_mac": 109.31406462418168
+  },
+  {
+   "arm": "abl_sdpa_dramout",
+   "ms": 1.9023464992642403,
+   "TFLOPs": 6.4292128004705535,
+   "ns_per_tile_mac": 10.193471896777693
+  },
+  {
+   "arm": "abl_sdpa_l1out_int",
+   "ms": 1.8561664983280934,
+   "TFLOPs": 6.589166691143532,
+   "ns_per_tile_mac": 9.946022474751873
+  },
+  {
+   "arm": "abl_sdpa_l1out_shard",
+   "ms": 1.8876039976021275,
+   "TFLOPs": 6.479426023433326,
+   "ns_per_tile_mac": 10.114476153132113
+  },
+  {
+   "arm": "abl_sdpa_chunk32",
+   "ms": 4.111732996534556,
+   "TFLOPs": 2.9745585314776437,
+   "ns_per_tile_mac": 22.03217697903033
+  },
+  {
+   "arm": "abl_sdpa_chunk96",
+   "ms": 1.8546444989624433,
+   "TFLOPs": 6.59457403876713,
+   "ns_per_tile_mac": 9.937867042622832
+  },
+  {
+   "arm": "abl_sdpa_cores32",
+   "ms": 2.585065994935576,
+   "TFLOPs": 4.7312488299954625,
+   "ns_per_tile_mac": 13.851733940627014
+  },
+  {
+   "arm": "abl_product_cores32",
+   "ms": 0.5931705018156208,
+   "TFLOPs": 10.309506648226513,
+   "ns_per_tile_mac": 6.356851228305264
+  },
+  {
+   "arm": "abl_sdpa_cores16",
+   "ms": 5.084939002699684,
+   "TFLOPs": 2.4052580488195754,
+   "ns_per_tile_mac": 27.24697253675671
+  },
+  {
+   "arm": "abl_product_cores16",
+   "ms": 0.871192998602055,
+   "TFLOPs": 7.019449469650014,
+   "ns_per_tile_mac": 9.336344720958238
+  },
+  {
+   "arm": "abl_product_lofi",
+   "ms": 1.2261709998711012,
+   "TFLOPs": 4.987310279433177,
+   "ns_per_tile_mac": 13.14054998147185
+  },
+  {
+   "arm": "abl_sdpa_lofi",
+   "ms": 1.8572984990896657,
+   "TFLOPs": 6.585150674484844,
+   "ns_per_tile_mac": 9.952088150986292
+  },
+  {
+   "arm": "abl_sdpa_approx",
+   "ms": 1.8616849993122742,
+   "TFLOPs": 6.569634749443707,
+   "ns_per_tile_mac": 9.975592631774445
+  },
+  {
+   "arm": "abl_sdpa_nomask",
+   "ms": 1.010001498798374,
+   "TFLOPs": 12.1094775389453,
+   "ns_per_tile_mac": 5.411959334267694
+  },
+  {
+   "arm": "abl_product_nopl1acc",
+   "ms": 1.2245953306167696,
+   "TFLOPs": 4.993727380064417,
+   "ns_per_tile_mac": 13.12366395122567
+  },
+  {
+   "arm": "ladder_s320_proj",
+   "ms": 2.9001040020375513,
+   "GBps": 45.19562053909502,
+   "ns_per_tile_mac": null
+  },
+  {
+   "arm": "ladder_s512_proj",
+   "ms": 7.398597495921422,
+   "GBps": 45.35242256184005,
+   "ns_per_tile_mac": null
+  },
+  {
+   "arm": "ladder_s768_proj",
+   "ms": 16.047272001742385,
+   "GBps": 47.04691987012036,
+   "ns_per_tile_mac": null
+  },
+  {
+   "arm": "roof_write_AA",
+   "ms": 0.06008000248887887,
+   "GBps": 69.81198112926823,
+   "ns_per_tile_mac": null
+  },
+  {
+   "arm": "ctl_proj_dramout_AA",
+   "ms": 0.2824339996247242,
+   "TFLOPs": 5.34620280138475,
+   "ns_per_tile_mac": 12.258420122600878
+  },
+  {
+   "arm": "ctl_proj_l1out_shard_AA",
+   "ms": 0.07232200005091727,
+   "TFLOPs": 20.878148266598572,
+   "ns_per_tile_mac": 3.1389756966543954
+  },
+  {
+   "arm": "abl_product_dramout_AA",
+   "ms": 1.2397964965202846,
+   "TFLOPs": 4.932499203831995,
+   "ns_per_tile_mac": 13.286570821762309
+  },
+  {
+   "arm": "abl_sdpa_dramout_AA",
+   "ms": 1.869361505669076,
+   "TFLOPs": 6.542656638060205,
+   "ns_per_tile_mac": 10.016726174924319
+  }
+ ]
+}
