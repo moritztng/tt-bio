@@ -431,16 +431,23 @@ between 24 and 48 clashes on some size.
 11x10 Blackhole p300c (`perf/roof_transition_chunk_bh_ship/`). Digests `a8c6fd65f70f4418`,
 `45781db716ebf020`, `9e1a1fdd392e0b4c`, `9a049ee58a5a0f7e`.
 
-**Speed: 1.0230x on a 512-residue fold**, 15.217 s to 14.875 s, and 1.0134x at 1024 residues,
-56.573 s to 55.825 s. Four paired reps per size with the off arm run on both sides of the on arm, so
-the session's own A/A floor comes out of the same folds: 0.030 s at 512 and 0.078 s at 1024, which
-puts both savings about ten times clear of it. 768 residues is not resolved. Two reps in a quiet
-session read 0.262 s against a 0.242 s floor, and a four-rep re-run landed on a box that went from
-load 0.2 to load 12 partway through, so its floor blew out to 9.6% and the harness refused the
-number.
+**Speed: 1.023-1.035x at 512 residues, 1.030x at 768, 1.013x at 1024.** Four paired reps per
+measurement, the off arm run on both sides of the on arm so the session's own A/A floor comes out of
+the same folds, one process and one card:
 
-The saving grows with the sequence even though the win per block shrinks: 512 residues goes from 32
-row blocks to 11, 1024 from 64 to 43, and there is more to remove at the larger size.
+| size | off | on | saved | A/A floor |
+|---|---|---|---|---|
+| 512 | 15.270 s | 14.750 s | 0.519 s | 0.005 s |
+| 512, second session | 15.217 s | 14.875 s | 0.342 s | 0.030 s |
+| 768 | 31.733 s | 30.806 s | 0.927 s | 0.120 s |
+| 1024 | 56.573 s | 55.825 s | 0.748 s | 0.078 s |
+
+512 is quoted as a range on purpose. Both sessions clear their own floor by an order of magnitude
+and they still disagree by 0.177 s, because an A/A floor bounds contention inside a session, not
+where the session itself sits.
+
+The saving does not shrink as the win per block does: 512 residues goes from 32 row blocks to 11 and
+1024 from 64 to 43, but 1024 has four times as many blocks to remove.
 
 Boltz-2, BoltzGen, Protenix-v2 and OpenFold3 all reach it, because they share the same transition
 block. AF2-IG's transition is a different one (ReLU, not SwiGLU) and OpenFold3's diffusion
