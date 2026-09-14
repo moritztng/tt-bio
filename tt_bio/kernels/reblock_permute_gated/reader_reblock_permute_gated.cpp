@@ -45,9 +45,6 @@ void kernel_main() {
     const uint32_t D1 = get_arg_val<uint32_t>(3);
     const uint32_t Ct = get_arg_val<uint32_t>(4);   // channel tiles of ONE slice
     const uint32_t Ctw = get_arg_val<uint32_t>(5);  // channel tiles of the wide input
-    // B2: how many consecutive channel tiles one group owns, read INSIDE the row loop. 1 is the
-    // (it, jt, ct) key, Ct is the (it, jt) key. Divides Ct. See the loop below for why it matters.
-    const uint32_t Ctg = get_arg_val<uint32_t>(6);
 
     constexpr uint32_t cb_p = 0;   // c_0
     constexpr uint32_t cb_g = 1;   // c_1
@@ -58,22 +55,17 @@ void kernel_main() {
 
     constexpr uint32_t onetile = 1;
     const uint32_t row_stride = Nt * Ctw;
-    const uint32_t Cgs = Ct / Ctg;      // channel-tile groups per (it, jt)
-    const uint32_t NtCgs = Nt * Cgs;
+    const uint32_t NtCt = Nt * Ct;
     const uint32_t end_group = start_group + num_groups;
     for (uint32_t group = start_group; group < end_group; ++group) {
-        // A group is (it, jt, channel-tile block) and the block's Ctg tiles are read INSIDE the
-        // row loop. Ctg = 1 is the (it, jt, ct) key, which keeps the split even on a row block (32
-        // groups for a 64-row block against 110 cores becomes 256). Ctg = Ct is B2, and the reason
-        // it exists is bank serialisation: page = (row*Nt + jt)*Ctw + off + ct, and at the 512 aa
-        // trimul both row_stride = Nt*Ctw = 256 and the jt stride Ctw = 16 are 0 mod the 8 DRAM
-        // banks, so `off + ct` is the ONLY term that can move the bank. With ct fixed for a whole
-        // group every one of a core's 64 reads lands on one bank; with ct the fast axis the reads
-        // walk Ctg banks. Bit-exact either way: this reorders whole tiles, it touches no value.
-        const uint32_t it = group / NtCgs;
-        const uint32_t rem = group - it * NtCgs;
-        const uint32_t jt = rem / Cgs;
-        const uint32_t ct = (rem - jt * Cgs) * Ctg;
+        // A group is (it, jt, ct) with ct fastest, not (it, jt) with the channel tiles looped
+        // inside. At a row block the (it, jt) key leaves most of the grid idle -- 32 groups for a
+        // 64-row block against 110 cores -- and this key gives 256. writer_reblock_permute_back
+        // already does the same thing for the same reason.
+        const uint32_t it = group / NtCt;
+        const uint32_t rem = group - it * NtCt;
+        const uint32_t jt = rem / Ct;
+        const uint32_t ct = rem - jt * Ct;
         const uint32_t row_abs = (it + it_off) * TILE_HEIGHT;
         const uint32_t rows_valid = (row_abs + TILE_HEIGHT <= D1) ? TILE_HEIGHT
                                                                   : (D1 - row_abs);
@@ -82,36 +74,29 @@ void kernel_main() {
         const uint32_t pad_page = jt * Ctw;  // row 0 of this tile column; always valid
 
         {
-            // Tile order in the two CBs is (il, k): row-major over the block's channel tiles. The
-            // writer reads it back with an il stride of Ctg tiles, which is the only change it
-            // needs. At Ctg = 1 both loops are byte-for-byte the ones this kernel shipped with.
             uint32_t p_page = first_page + p_off + ct;
             uint32_t g_page = first_page + g_off + ct;
             for (uint32_t il = 0; il < rows_valid; ++il) {
-                for (uint32_t k = 0; k < Ctg; ++k) {
-                    cb_reserve_back(cb_p, onetile);
-                    cb_reserve_back(cb_g, onetile);
-                    noc_async_read_page(p_page + k, s, get_write_ptr(cb_p));
-                    noc_async_read_page(g_page + k, s, get_write_ptr(cb_g));
-                    noc_async_read_barrier();
-                    cb_push_back(cb_p, onetile);
-                    cb_push_back(cb_g, onetile);
-                }
+                cb_reserve_back(cb_p, onetile);
+                cb_reserve_back(cb_g, onetile);
+                noc_async_read_page(p_page, s, get_write_ptr(cb_p));
+                noc_async_read_page(g_page, s, get_write_ptr(cb_g));
+                noc_async_read_barrier();
+                cb_push_back(cb_p, onetile);
+                cb_push_back(cb_g, onetile);
                 p_page += row_stride;
                 g_page += row_stride;
             }
             const uint32_t p_pad = pad_page + p_off + ct;
             const uint32_t g_pad = pad_page + g_off + ct;
             for (uint32_t il = rows_valid; il < TILE_HEIGHT; ++il) {
-                for (uint32_t k = 0; k < Ctg; ++k) {
-                    cb_reserve_back(cb_p, onetile);
-                    cb_reserve_back(cb_g, onetile);
-                    noc_async_read_page(p_pad + k, s, get_write_ptr(cb_p));
-                    noc_async_read_page(g_pad + k, s, get_write_ptr(cb_g));
-                    noc_async_read_barrier();
-                    cb_push_back(cb_p, onetile);
-                    cb_push_back(cb_g, onetile);
-                }
+                cb_reserve_back(cb_p, onetile);
+                cb_reserve_back(cb_g, onetile);
+                noc_async_read_page(p_pad, s, get_write_ptr(cb_p));
+                noc_async_read_page(g_pad, s, get_write_ptr(cb_g));
+                noc_async_read_barrier();
+                cb_push_back(cb_p, onetile);
+                cb_push_back(cb_g, onetile);
             }
         }
     }

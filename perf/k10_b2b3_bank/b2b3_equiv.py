@@ -23,6 +23,14 @@ The rig carries three guards a bit-exact claim needs and a ratio claim needs:
   * an A/A floor arm, the `off` configuration entered twice under two names and timed the same way
     as everything else, so the ratios are read against this session's own noise.
 
+THE CODE THIS DRIVES IS NOT IN THE TREE ANY MORE. B2 and B3 both measured NEGATIVE (0.7239x and
+0.9977x at the production 512 aa shape, against an A/A floor of -0.19 % to +0.04 %), so they were
+reverted and the gated kernel is byte-for-byte the B1 one again. Their numbers are
+`b2b3_equiv_qb2c2.json`, beside this file. To run this again, put the code back first:
+
+    git checkout c7b737bcf -- tt_bio/reblock_permute.py tt_bio/tenstorrent.py \
+        tt_bio/kernels/reblock_permute_gated/
+
 Arms are interleaved (and the order reversed on alternate reps) so compile and warm-up bias
 cannot land on one arm.
 """

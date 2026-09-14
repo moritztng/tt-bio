@@ -577,73 +577,6 @@ KERNEL_DIR_GATED = Path(__file__).resolve().parent / "kernels" / "reblock_permut
 # DST; above that the kernel would corrupt.
 GATE_GRANULARITY = max(1, min(4, int(os.environ.get("TT_BIO_GATE_GRANULARITY", "2"))))
 
-# B2 and B3, the other two thirds of the bank split. They ride `TT_BIO_TRIMUL_GP_BANK_SPLIT`
-# because they attack the same defect B1 does and are worthless without it: the gated reader's
-# page index is `(row * Nt + jt) * Ctw + off + ct`, and at the trimul's shapes the row stride and
-# the jt stride are both 0 mod the 8 DRAM banks Blackhole has, so `off + ct` is the only term left
-# that can move the bank. B1 splits `off` between the value and the gate read of a pair. B2 makes
-# `ct` the fast axis inside a group so successive pairs walk banks instead of hammering one, and
-# B3 gives the reader enough circular buffer to keep those reads in flight.
-#
-#   B2  group key (it, jt, channel-tile block of Ctg) with the block read inside the row loop,
-#       Ctg = Ct where the writer's L1 window fits. Costs an L1 window of Ctg*32 tiles in the
-#       writer instead of 32, which is what `_gated_ctg` prices.
-#   B3  p/g circular buffers 4 -> 32 tiles.
-#
-# Both are pure reorderings of whole tiles through the same three compute stages, so both are
-# bit-exact by construction and are checked with `torch.equal`, not a tolerance.
-GATE_PG_DEPTH_DEEP = 32
-# Total circular-buffer bytes one core may hold for this kernel. Fixed, not derived from the live
-# device: a budget read off the grid makes the chosen Ctg host-dependent, and the whole point of
-# `_gated_ctg` is that the same shape picks the same program everywhere. 1 MB leaves room on the
-# 1464 kB of a Blackhole or Wormhole Tensix for the runtime's own reservations.
-GATE_CB_BUDGET = 1 << 20
-_GATE_BANK_SPLIT = env_flag("TT_BIO_TRIMUL_GP_BANK_SPLIT", True)
-_GATE_CT_INSIDE = _GATE_BANK_SPLIT
-_GATE_PG_DEEP = _GATE_BANK_SPLIT
-# Cap on Ctg, for the harness that has to price the block width rather than assume it. None = the
-# budget decides.
-_GATE_CTG_MAX = None
-
-
-def set_gated_bank_tuning(ct_inside=None, pg_deep=None, ctg_max=...) -> tuple:
-    """A/B switch for B2 and B3, separately. Returns the previous (ct_inside, pg_deep, ctg_max).
-
-    Separable because the three have to be priced one at a time at the op, not because any of them
-    ships on its own: `tt_bio.tenstorrent.set_trimul_gp_bank_split` moves them with B1.
-    """
-    global _GATE_CT_INSIDE, _GATE_PG_DEEP, _GATE_CTG_MAX
-    prev = (_GATE_CT_INSIDE, _GATE_PG_DEEP, _GATE_CTG_MAX)
-    if ct_inside is not None:
-        _GATE_CT_INSIDE = bool(ct_inside)
-    if pg_deep is not None:
-        _GATE_PG_DEEP = bool(pg_deep)
-    if ctg_max is not ...:
-        _GATE_CTG_MAX = ctg_max
-    return prev
-
-
-def _gated_pg_depth() -> int:
-    return GATE_PG_DEPTH_DEEP if _GATE_PG_DEEP else 2 * GATE_GRANULARITY
-
-
-def _gated_ctg(Ct: int, pg_depth: int) -> int:
-    """Channel tiles per group: the largest divisor of `Ct` whose writer window fits the budget.
-
-    The writer holds one whole group in L1 before it can gather any of it, because output tile
-    (ct, c) needs row `c` of all 32 row tiles at that ct and the reader interleaves the block's
-    channel tiles across them. That window is `Ctg * 32` tiles, double-buffered.
-    """
-    if not _GATE_CT_INSIDE:
-        return 1
-    tile_bytes = TILE_H * TILE_W * 2
-    fixed = (2 * pg_depth + 2 * 2 * GATE_GRANULARITY + 2) * tile_bytes  # p, g, sig, mul, stage
-    for d in range(min(Ct, _GATE_CTG_MAX or Ct), 0, -1):
-        if Ct % d == 0 and fixed + GROUP_TILES * d * 2 * tile_bytes <= GATE_CB_BUDGET:
-            return d
-    return 1
-
-
 P_CB, G_CB, SIG_CB, MUL_CB = 0, 1, 2, 3
 
 _CACHE_GATED: dict = {}
@@ -665,9 +598,6 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
         # depths, so it has to be in the key. Without it an A/B that flips the granularity gets the
         # FIRST arm's compiled program back for both legs and reads a 1.000x that means nothing.
         GATE_GRANULARITY,
-        # Same trap for B2 and B3: both change the work split, the CB depths and the runtime args,
-        # and neither is visible in any other term of this key.
-        _GATE_CT_INSIDE, _GATE_PG_DEEP, _GATE_CTG_MAX,
     )
 
 
@@ -682,16 +612,11 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     Ct = int(out.shape[1]) // TILE_W      # channel tiles of one slice
     Nt = (N + TILE_H - 1) // TILE_H
     Nrt = (int(x.shape[1]) + TILE_H - 1) // TILE_H
-    # A group is (row-tile, col-tile, channel-tile block of `ctg`). Keeping the channel tile in the
-    # group index is what makes the split even on a row block: a 64-row block at 512 aa is
-    # 2*16*8 = 256 groups over 110 cores where (row-tile, col-tile) alone would be 32, i.e. 8 waves
-    # against the whole-tensor move's 3. `_build_back` does the same and records the same
-    # arithmetic. B2 widens the block to `ctg` so the reader's page index walks DRAM banks; see
-    # `_gated_ctg` and the reader kernel.
-    pg_depth = _gated_pg_depth()
-    ctg = _gated_ctg(Ct, pg_depth)
-    assert Ct % ctg == 0, (Ct, ctg)
-    num_groups = Nrt * Nt * (Ct // ctg)
+    # A group is (row-tile, col-tile, channel-tile). Keeping the channel tile INSIDE the group
+    # index is what makes the split even on a row block: a 64-row block at 512 aa is 2*16*8 = 256
+    # groups over 110 cores where (row-tile, col-tile) alone would be 32, i.e. 8 waves against the
+    # whole-tensor move's 3. `_build_back` does the same and records the same arithmetic.
+    num_groups = Nrt * Nt * Ct
 
     plan = _split_plan(device, num_groups)
     assert plan is not None, f"no expressible work split for {num_groups} groups"
@@ -707,14 +632,14 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
             total_size=depth * tile_bytes, core_ranges=core_grid, format_descriptors=[fmt]
         )
 
-    # c_16 holds one whole group twice over, which is the window the writer gathers from. sig and
-    # mul stay double-buffered singles: the compute kernel consumes and produces one tile at a time
-    # and a deeper ring there would only hold more of a stream the writer is the slow end of, which
-    # is what GATE_GRANULARITY tests. p and g are the exception, and B3 is why -- they are fed by
-    # DRAM, not by the compute, so depth there buys reads in flight rather than barriers removed.
-    cbs = [cb(P_CB, pg_depth), cb(G_CB, pg_depth),
+    # c_16 keeps the 32-tile group multiple the writer's L1 window needs. The four working CBs are
+    # double-buffered singles at the default granularity: the compute kernel consumes and produces
+    # one tile at a time, and a deeper ring would only hold more of a stream the writer is already
+    # the slow end of. That last clause is exactly what GATE_GRANULARITY tests -- if the writer is
+    # the slow end then removing compute barriers buys nothing and the A/B reads 1.00x.
+    cbs = [cb(P_CB, 2 * GATE_GRANULARITY), cb(G_CB, 2 * GATE_GRANULARITY),
            cb(SIG_CB, 2 * GATE_GRANULARITY), cb(MUL_CB, 2 * GATE_GRANULARITY),
-           cb(OUT_CB, GROUP_TILES * ctg * 2), cb(STAGE_CB, 2)]
+           cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     start = 0
@@ -722,9 +647,9 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [start, per_core, Nt, N, Ct, Ctw, ctg]
-                    compute_rt[cx][cy] = [per_core * GROUP_TILES * ctg]
-                    writer_rt[cx][cy] = [start, per_core, Nt, N, Ct, ctg]
+                    reader_rt[cx][cy] = [start, per_core, Nt, N, Ct, Ctw]
+                    compute_rt[cx][cy] = [per_core * GROUP_TILES]
+                    writer_rt[cx][cy] = [start, per_core, Nt, N, Ct]
                     start += per_core
     assert start == num_groups, (start, num_groups)
 
@@ -882,14 +807,12 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if not ((bt == ttnn.BufferType.DRAM and N >= 256)
             or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
         return _reject(f"gated_window_{bt}", shape)
-    # Screen the group count the DESCRIPTOR actually builds -- Nrt * Nt * Ct/Ctg, through the same
-    # `_gated_ctg` the build calls, so B2's coarser work unit is screened rather than assumed. The
-    # old `Nt ** 2` was a different number again, and a gate that screens a different number from
-    # the one the build uses can pass a shape the build then refuses
-    # (`pcc-gate-can-pass-without-the-op-it-names`).
+    # Screen the group count the DESCRIPTOR actually builds -- Nrt * Nt * Ct, exactly as
+    # `_build_gated` computes it and asserts on. The old `Nt ** 2` is a different number, and a
+    # gate that screens a different number from the one the build uses can pass a shape the build
+    # then refuses (`pcc-gate-can-pass-without-the-op-it-names`).
     nt = (N + TILE_H - 1) // TILE_H
     nrt = (shape[1] + TILE_H - 1) // TILE_H
-    ct = slice_c // TILE_W
-    if _split_plan(xw.device(), nrt * nt * (ct // _gated_ctg(ct, _gated_pg_depth()))) is None:
+    if _split_plan(xw.device(), nrt * nt * (slice_c // TILE_W)) is None:
         return _reject("gated_work_split", shape)
     return True

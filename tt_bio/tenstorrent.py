@@ -5580,15 +5580,13 @@ def gp_off(role: str, slice_c: int) -> int:
 
 
 def set_trimul_gp_bank_split(on: bool) -> bool:
-    """A/B switch for the paired harness, all three parts at once. Returns the previous state.
+    """A/B switch for the paired harness. Returns the previous state.
 
-    Safe to flip mid-process: the weight caches are keyed on the order and the kernel descriptor
-    cache is keyed on B2 and B3, so a flipped arm rebuilds its own layout and its own program
-    instead of reading the other arm's.
+    Safe to flip mid-process: the weight caches are keyed on the order, so a flipped arm rebuilds
+    its own layout instead of reading the other arm's.
     """
     global _TRIMUL_GP_BANK_SPLIT
     prev, _TRIMUL_GP_BANK_SPLIT = _TRIMUL_GP_BANK_SPLIT, bool(on)
-    _reblock.set_gated_bank_tuning(ct_inside=bool(on), pg_deep=bool(on))
     return prev
 
 
