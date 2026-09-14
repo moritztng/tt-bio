@@ -98,12 +98,14 @@ def build(dev):
     atom_x = t((1, ATOM_N, ATOM_W, ATOM_C)); atom_w = t((ATOM_C, 2 * ATOM_C))
     atom_flat = t((ATOM_N * ATOM_W, ATOM_C))
     cube4 = t((4096, 4096)); cube4b = t((4096, 4096))
+    big = t((8192, 8192)); bigb = t((8192, 8192))    # the starved add that measures the DRAM roof
     wide_l1 = t((1, 16, S, 4 * CZ), L1)         # one hidden-width Transition row block in L1
     blk = t((1, 16, S, CZ))                     # one shipped Transition row block, DRAM
 
     keep = [z, zflat, w640, w544, w128, ta, tb, q, k, v, bias, tw1, tw3, x768, x1536,
             d768, d1536, d3072, d1536_768, x768_l1, x1536_l1, opa, opb, pwa_a, pwa_b,
-            atom_x, atom_w, cube4, cube4b, wide_l1, blk, pwa_b2, pwa_flat, atom_flat]
+            atom_x, atom_w, cube4, cube4b, wide_l1, blk, pwa_b2, pwa_flat, atom_flat,
+            big, bigb]
 
     def blocked(w, h, out_mc=DRAM, grid=None):
         """The pair tensor through one linear, row-blocked h rows at a time, as the fold blocks."""
@@ -169,6 +171,10 @@ def build(dev):
     FC1 = _f(1, 16 * S, CZ, 4 * CZ) * NB                  # one fc1-shaped matmul over the unit
     A = {}
     # name -> (callable, FLOP, reps)
+    # the bandwidth roof, measured the same way the budget measured it: a starved 8192^2 add,
+    # two reads and a write. Its FLOP field carries BYTES, so `TFLOPs` for this one arm reads
+    # TB/s -- the table prints it as GB/s and nothing else divides by it.
+    A["bw_add8192"] = (lambda: ttnn.add(big, bigb, memory_config=DRAM), 3 * 8192 * 8192 * 2, 3)
     A["cube4096"] = (lambda: ttnn.matmul(cube4, cube4b, compute_kernel_config=kc,
                                          memory_config=DRAM), _f(4096, 4096, 4096), 3)
 
