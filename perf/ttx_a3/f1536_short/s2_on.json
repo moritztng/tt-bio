@@ -1,0 +1,38 @@
+{
+ "arm": "on",
+ "tag": "s2_on",
+ "fixture": "cdk2x2_1536",
+ "seed": 0,
+ "steps": 20,
+ "recycles": 3,
+ "fold_s": 146.489,
+ "plddt": 0.825379,
+ "cif_sha256": "87c75f31600c1019fabb9d5f2a525fd3ce74965d82185c0e2e8ed9cd0bc98bb9",
+ "fused_large_s": true,
+ "q_split_max_s": 1024,
+ "triatt_served": 560,
+ "triatt_declined": 0,
+ "pm_over_l1": [],
+ "pm_l1_errors": {},
+ "sdpa_picks": {
+  "(1536, 1536)": [
+   256,
+   512,
+   "fused"
+  ]
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "grid_measured": true,
+ "maxrss_mb": 11160.1,
+ "host": "tt-quietbox2",
+ "card": "3",
+ "loadavg": [
+  4.14013671875,
+  4.2607421875,
+  4.96923828125
+ ],
+ "commit": "5e4d09d7624735cf74e555236c8ca8b1b7450a32"
+}
