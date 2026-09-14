@@ -25,8 +25,10 @@ then the chain's extra rounding is a no-op -- so a bit-exactness check on a
 power-of-two scale proves nothing about the other sites.
 
 Each fusion has its own gate because they are independent ops at independent sites
-with independently measured fold-level effects. The gate is read once at import;
-flipping it mid-process would let one fold mix arms.
+with independently measured fold-level effects. The environment is read once at
+import, but the helpers read the module global at call time, so an A/B driver can
+hold both arms in one process (one model load, one device, one program cache) by
+assigning the module attribute, the same way the other lever A/Bs do.
 """
 
 from __future__ import annotations
