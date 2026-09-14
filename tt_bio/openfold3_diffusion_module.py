@@ -42,6 +42,7 @@ from .tenstorrent import Module, CORE_GRID_MAIN, _dtype, _cached, pad_dim
 from .openfold3_atom_transformer import OF3AtomTransformer
 from .openfold3_diffusion_transformer import OF3DiffusionTransformer
 from .openfold3_diffusion_decoder import OF3AtomAttentionDecoder
+from .eltwise_fusion import mask_add
 
 
 def _sub(sd, prefix):
@@ -339,8 +340,7 @@ class OF3DiffusionModule(Module):
         ttnn.deallocate(cl_l); ttnn.deallocate(cl_m)
         cl_lm = ttnn.add(ll, lm)                               # [1, nb, NQ, NK, 16]
         ttnn.deallocate(ll); ttnn.deallocate(lm)
-        cl_lm = ttnn.multiply(cl_lm, enc_pair_mask)            # * mask_trunked
-        plm = ttnn.add(plm, cl_lm)
+        plm = mask_add(plm, cl_lm, enc_pair_mask)              # + cl_lm * mask_trunked
         ttnn.deallocate(cl_lm)
         # pair_mlp = Sequential(ReLU, Linear, ReLU, Linear, ReLU, Linear): relu BEFORE
         # each linear (no trailing relu). out = L5(relu(L3(relu(L1(relu(plm)))))).

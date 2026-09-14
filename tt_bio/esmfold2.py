@@ -38,6 +38,7 @@ from tt_bio.tenstorrent import (
     accurate_softmax_site,
     attn_value_matmul,
 )
+from tt_bio.eltwise_fusion import scale_add
 
 _ROW = lambda x: x.reshape(1, -1)
 
@@ -77,9 +78,11 @@ def _attn_fp32(q, k, v, attn_mask, scale, ck, accurate_softmax: bool = False):
     f32 = ttnn.float32
     qf = ttnn.typecast(q, f32); kf = ttnn.typecast(k, f32); vf = ttnn.typecast(v, f32)
     kt = ttnn.permute(kf, (0, 1, 3, 2))  # [B,H,Dp,L]
-    logits = ttnn.multiply(ttnn.matmul(qf, kt, compute_kernel_config=ck, dtype=f32), scale)
-    if attn_mask is not None:
-        logits = ttnn.add(logits, ttnn.typecast(attn_mask, f32))
+    logits = ttnn.matmul(qf, kt, compute_kernel_config=ck, dtype=f32)
+    if attn_mask is None:
+        logits = ttnn.multiply(logits, scale)
+    else:
+        logits = scale_add(logits, scale, ttnn.typecast(attn_mask, f32))
     attn = (_accurate_softmax(logits, ck) if accurate_softmax
             else ttnn.softmax(logits, dim=-1))  # over keys
     ctx = attn_value_matmul(attn, vf, ck, f32)  # [B,H,L,Dp]
