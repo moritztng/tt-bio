@@ -427,9 +427,16 @@ its own taller block from the same budget, and a model with a wider channel gets
 A fixed height cannot do this. 768 residues refuses 48 rows and 1024 refuses 28, so every constant
 between 24 and 48 clashes on some size.
 
-**Accuracy: identical.** Byte-identical CIF at 298, 512, 768 and 1024 residues, both arms, on an
-11x10 Blackhole p300c (`perf/roof_transition_chunk_bh_ship/`). Digests `a8c6fd65f70f4418`,
-`45781db716ebf020`, `9e1a1fdd392e0b4c`, `9a049ee58a5a0f7e`.
+**Accuracy: identical on the shapes it was measured on, and inside the noise elsewhere.**
+Byte-identical CIF at 298, 512, 768 and 1024 residues, both arms, on an 11x10 Blackhole p300c
+(`perf/roof_transition_chunk_bh_ship/`). Digests `a8c6fd65f70f4418`, `45781db716ebf020`,
+`9e1a1fdd392e0b4c`, `9a049ee58a5a0f7e`. Also byte-identical with the MSA depth axis at its full
+1024 rows, where the rule gives the MSA track a 96-row block instead of 16.
+
+Bit-exactness is not a property of every shape, though, and the page should not claim it is. On the
+release gate's no-MSA prot leg the two arms differ: 7.2161 Å from the fp32 reference with the flag
+on against 7.0511 Å with it off, a 0.165 Å move on a target whose arms both already sit 7 Å out.
+That leg is a documented bf16 floor and its verdict does not change with the flag.
 
 **Speed: 1.023-1.035x at 512 residues, 1.030x at 768, 1.013x at 1024.** Four paired reps per
 measurement, the off arm run on both sides of the on arm so the session's own A/A floor comes out of
