@@ -11,7 +11,7 @@ Three independent sources, none of them a release note.
 **1. The op census, from our own source.** Every `ttnn.*` symbol in the eleven modules on the
 Boltz-2 device path (`tenstorrent.py` 12,601 lines, `boltz2.py` 6,228, plus `triatt_sdpa`,
 `triatt_qkv`, `trimul_tail`, `reblock_permute`, `mm_generic`, `mm_dualnoc`, `sdpa_generic`,
-`softmax_generic`, `token_axis` — 22,829 lines in total). 127 distinct symbols. The counts below
+`softmax_generic`, `token_axis` — 22,829 lines in total). 123 distinct symbols. The counts below
 are call sites, not dynamic calls.
 
 **2. The upstream paths our tree names outright**, from grepping `tt_bio/`, `perf/` and `docs/` for
