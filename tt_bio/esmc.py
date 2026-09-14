@@ -331,11 +331,17 @@ PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)
 # median of 5: 18.095 -> 14.657 ms per call, 1.235x, `torch.equal`
 # (perf/esm3p4/accept_l2_c0.json). At the 512 aa fold it is worth -1.926 s.
 #
-# Ships ON. The 320-1024 aa window it rides inside is now checked end to end at 298 / 512 / 768 /
-# 1024 aa on qb2 card 1, ttnn 0.68.0, 11x10: byte-identical CIF and plDDT against the OFF arm at
-# every size, and inert at 298 because that sits below the window
-# (perf/esm3p4close/fold_ab_*_c1.json). Still gated, so an A/B stays one call away. 13x10 is
-# unchecked with this config, the same exposure the row block already ships with.
+# Ships ON, and checked end to end at 298 / 512 / 768 / 1024 aa on qb2, ttnn 0.68.0, 11x10:
+# byte-identical CIF and plDDT against the OFF arm at every size. The fold deltas are 1.0234x at
+# 298, 1.0879x at 512, and 0.9998x / 0.9999x at 768 and 1024, where the block's other L1 residents
+# leave no room, the device refuses the first call and the class retires to DRAM
+# (perf/ttx_b3/fold_ab_esm512_c0.json, fold_ab_esm768_c0.json, perf/esm3p4close/fold_ab_*_c1.json).
+#
+# `PAIR_FFN_ROW_BLOCK_SEQ` reads the PADDED token axis, so 298 aa is INSIDE the window, not below
+# it: it runs 320/32 = 10 row blocks and the gated-call census is 538 x 10 x 2 = 10760, exactly
+# 10/16 of the 17216 at 512 aa. An earlier version of this note called it inert at 298, which its
+# own artifact contradicts. Still gated, so an A/B stays one call away. 13x10 is unchecked with
+# this config, the same exposure the row block already ships with.
 PAIR_FFN_L1_FC1 = True
 _PAIR_FFN_L1_FC1 = os.environ.get(
     "TT_BIO_PAIR_FFN_L1_FC1", "1" if PAIR_FFN_L1_FC1 else "0") == "1"
