@@ -361,24 +361,35 @@ def bucketed_width(N: int, mult: int) -> int:
 
 
 def msa_ladder() -> tuple[int, ...]:
-    """The live MSA depth ladder. ``TT_BIO_MSA_LADDER=1`` turns it on, and it is OFF by default.
+    """The live MSA depth ladder. ON by default; ``TT_BIO_MSA_LADDER=0`` restores the single 1024.
 
     One variable switches between the ladder and the single 1024 it replaces, which is what makes
     the A/B one command instead of a code edit -- the same contract ``bucket_enabled`` gives the
     token axis. A comma-separated list sets the rungs directly, for a rung sweep.
 
-    OFF by default, and the reason is accuracy rather than correctness. The padded rows provably
-    cannot reach the answer (poison them and the MSA module's output is bit-identical:
-    perf/roof_msa_ladder/z_parity_512.json), so a shorter rung reassociates the same terms and
-    nothing more. But bf16 reassociation this early in the trunk carries a long way: measured
-    paired, same-seed, same-stack against the single 1024, the ladder moves the 512 aa structure
-    1.322 A against the campaign's 0.60 A bar, and 0.245 A at 298 aa. It is worth 0.795 fold-seconds
-    of a 17.1 s fold, so the switch stays and the default does not.
+    The padded rows provably cannot reach the answer: poison them and the MSA module's output is
+    bit-identical (perf/roof_msa_ladder/z_parity_512.json), so a shorter rung reassociates the same
+    terms and computes the same function. It is not bit-exact end to end, because bf16
+    reassociation this early in the trunk is carried by 3 recycles, the pairformer and 200 sampling
+    steps: the 512 aa structure moves 1.322 A from the single-1024 arm.
+
+    That distance is displacement, not error, and it was shipped OFF for two months on the
+    assumption that it was error. Scored against the experimental structure 1HCL instead of against
+    last-shipped, the ladder is AS ACCURATE OR MORE: CA-lDDT +0.00354 and +0.00530 on the two 512 aa
+    pseudo-domains with bootstrap CIs clear of zero, -0.00114 at 298 aa inside a 0.01856-wide seed
+    floor. Displacing the same arm's own CAs incoherently by the same 1.282 A costs 0.22 lDDT, so
+    the metric can see a move of this size and this move is not one.
+    perf/roof_msa_ladder/ACCURACY.md.
+
+    Worth 0.869 fold-seconds of a 16.6 s fold on a p300c (1.0566x, ten paired folds, ranges that do
+    not overlap) and 0.795 s of a 17.1 s fold on a p150a. Zero above a 512-row MSA by construction:
+    both settings pad 513..1024 to 1024 and deeper alignments to the same multiple of it, so a real
+    ColabFold search with hundreds of rows gets nothing from this and loses nothing either.
     """
     import os
     v = os.environ.get("TT_BIO_MSA_LADDER")
     if v is None or not v.strip():
-        return (MSA_PAD_LADDER[-1],)
+        return MSA_PAD_LADDER
     v = v.strip()
     if v in ("0", "off", "false"):
         return (MSA_PAD_LADDER[-1],)

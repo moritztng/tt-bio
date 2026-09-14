@@ -1,0 +1,18 @@
+{
+  "mode": "af2ig_featurizer",
+  "verdict": "PASS",
+  "keys_total": 60,
+  "keys_bitexact": 60,
+  "mismatches": [],
+  "fixture": {
+    "pdb": "/tmp/af2ig_featurizer_parity/complex.pdb",
+    "target_residues": 128,
+    "binder_residues": 80,
+    "n_tokens": 208,
+    "complex_atoms": 1653,
+    "binder_seq": "GHGANHDALYRWIKSVDPSRPVQYEGGGADTTATDIICPMYARVDEDQPFPAVPKWSIKKWLSLPGETRPLILCEYAHAM",
+    "binder_shift_a": 60.0
+  },
+  "capture_arrays": 79,
+  "non_feature_arrays": 46
+}

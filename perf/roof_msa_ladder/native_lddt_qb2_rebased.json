@@ -1,0 +1,111 @@
+{
+ "gt": "1hcl.cif",
+ "arms": {
+  "0": "off",
+  "1": "on"
+ },
+ "sizes": {
+  "512": {
+   "n_folds": 22,
+   "domains": [
+    "copy1(res 1-298)",
+    "copy2(res 299-512)"
+   ],
+   "arm_bitexact": {
+    "off": true,
+    "on": true
+   },
+   "arm_sha256": {
+    "off": [
+     "9aaff566b4888d96"
+    ],
+    "on": [
+     "45781db716ebf020"
+    ]
+   },
+   "scored_cif": {
+    "off": "perf/roof_msa_ladder/cif_qb2_rebased/512_cold_0_cdk2x2_512.cif",
+    "on": "perf/roof_msa_ladder/cif_qb2_rebased/512_cold_1_cdk2x2_512.cif"
+   },
+   "native": {
+    "off": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 1.69996,
+      "lddt_ca": 0.91822
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 1.52799,
+      "lddt_ca": 0.89503
+     }
+    },
+    "on": {
+     "copy1(res 1-298)": {
+      "n_ca": 294,
+      "ca_rmsd_A": 1.56454,
+      "lddt_ca": 0.92249
+     },
+     "copy2(res 299-512)": {
+      "n_ca": 210,
+      "ca_rmsd_A": 1.41323,
+      "lddt_ca": 0.90295
+     }
+    }
+   },
+   "deficit_on_minus_off": {
+    "copy1(res 1-298)": {
+     "lddt_ca": 0.00427,
+     "ca_rmsd_A": -0.13542
+    },
+    "copy2(res 299-512)": {
+     "lddt_ca": 0.00792,
+     "ca_rmsd_A": -0.11476
+    }
+   },
+   "arm_vs_arm": {
+    "whole_all_atom_A": 0.98555,
+    "whole_ca_A": 0.90385,
+    "domain1_all_atom_A": 0.47518,
+    "domain1_ca_A": 0.2943,
+    "domain2_all_atom_A": 0.42002,
+    "domain2_ca_A": 0.26743,
+    "hinge_deg": 6.63591,
+    "hinge_free_all_atom_A": 0.45296,
+    "lddt_ca": 0.98483,
+    "lddt_ca_domain1": 0.99467,
+    "lddt_ca_domain2": 0.99437
+   },
+   "per_residue": {
+    "copy1(res 1-298)": {
+     "mean": 0.0043,
+     "ci95": [
+      0.00139,
+      0.00642
+     ],
+     "frac_residues_improved": 0.4694,
+     "n_residues": 294
+    },
+    "copy2(res 299-512)": {
+     "mean": 0.00743,
+     "ci95": [
+      0.00374,
+      0.01063
+     ],
+     "frac_residues_improved": 0.6095,
+     "n_residues": 210
+    }
+   },
+   "negative_control": {
+    "copy1(res 1-298)": {
+     "displacement_A": 0.90385,
+     "lddt_ca": 0.77617
+    },
+    "copy2(res 299-512)": {
+     "displacement_A": 0.90385,
+     "lddt_ca": 0.77632
+    }
+   }
+  }
+ }
+}
