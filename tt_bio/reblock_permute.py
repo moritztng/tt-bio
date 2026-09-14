@@ -42,6 +42,27 @@ IN_CB, OUT_CB, STAGE_CB = 0, 16, 24
 # only so a probe can report which path the wheel took.
 ADDR_WRITE_MODE = None
 
+# The element width the kernels are built for. bf16 at every call site in the engine; a probe moves
+# it so the BYTE SENSITIVITY of this path can be measured instead of assumed. The three gates below
+# admit only `_DTYPE`, so moving this alone changes nothing a caller can reach -- a probe that wants
+# a different width sets it and forces the call. `perf/ttx_reblock_bfp8/byte_sensitivity.py` is the
+# reader; its header says why fp32 (2x the bytes at an unchanged transaction count) is the control
+# that decides whether bfp8 (half the bytes) could ever pay here.
+_DTYPE = ttnn.bfloat16
+_ELEM_BYTES = {ttnn.bfloat16: 2, ttnn.float32: 4}
+
+
+def set_dtype(dtype):
+    """Probe-only: build the kernels for ``dtype``. Returns the previous value."""
+    global _DTYPE
+    prev, _DTYPE = _DTYPE, dtype
+    return prev
+
+
+def _elem():
+    return _ELEM_BYTES[_DTYPE]
+
+
 _CACHE: dict = {}
 _CACHE_BACK: dict = {}
 # Counters for the A/B harness: (eligible calls served, calls that fell through to ttnn.permute).
@@ -140,11 +161,11 @@ def _build(x, out, device, reader_ct, writer_ct):
     assert plan is not None, f"no expressible work split for {num_groups} groups"
     _, _, (_, core_grid, cg1, cg2, work1, work2) = plan
 
-    tile_bytes = TILE_H * TILE_W * 2  # bf16
+    tile_bytes = TILE_H * TILE_W * _elem()
 
     def cb(idx, depth):
         fmt = ttnn.CBFormatDescriptor(
-            buffer_index=idx, data_format=ttnn.bfloat16, page_size=tile_bytes
+            buffer_index=idx, data_format=_DTYPE, page_size=tile_bytes
         )
         return ttnn.CBDescriptor(
             total_size=depth * tile_bytes, core_ranges=core_grid, format_descriptors=[fmt]
@@ -204,7 +225,7 @@ def _build(x, out, device, reader_ct, writer_ct):
 
 def _prepare(x, out, device):
     reader_ct = list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
-    writer_ct = [2, OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB]
+    writer_ct = [_elem(), OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB]
     writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     key = _cache_key(x, out, device, reader_ct, writer_ct)
     entry = _CACHE.get(key)
@@ -219,7 +240,7 @@ def reblock_permute(x, memory_config=None, device=None):
     mc = memory_config or x.memory_config()
     N, C = int(x.shape[1]), int(x.shape[3])
     out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape([1, C, N, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
+        ttnn.Shape([1, C, N, N]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
     )
     entry = _prepare(x, out, device)
     src, dst = x.buffer_address(), out.buffer_address()
@@ -292,7 +313,7 @@ def eligible(x, memory_config) -> bool:
     if len(shape) != 4 or shape[0] != 1 or shape[1] != shape[2] or shape[3] % TILE_W:
         return _reject("shape", shape)
     N = shape[1]
-    if x.dtype != ttnn.bfloat16 or x.layout != ttnn.TILE_LAYOUT:
+    if x.dtype != _DTYPE or x.layout != ttnn.TILE_LAYOUT:
         return _reject("dtype_layout", shape)
     if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("sharded_out", shape)
@@ -372,11 +393,11 @@ def _build_back(x, out, device, reader_ct, writer_ct):
     assert plan is not None, f"no expressible work split for {num_groups} groups"
     _, _, (_, core_grid, cg1, cg2, work1, work2) = plan
 
-    tile_bytes = TILE_H * TILE_W * 2  # bf16
+    tile_bytes = TILE_H * TILE_W * _elem()
 
     def cb(idx, depth):
         fmt = ttnn.CBFormatDescriptor(
-            buffer_index=idx, data_format=ttnn.bfloat16, page_size=tile_bytes
+            buffer_index=idx, data_format=_DTYPE, page_size=tile_bytes
         )
         return ttnn.CBDescriptor(
             total_size=depth * tile_bytes, core_ranges=core_grid, format_descriptors=[fmt]
@@ -439,9 +460,9 @@ def _build_back(x, out, device, reader_ct, writer_ct):
 
 
 def _prepare_back(x, out, device):
-    reader_ct = [2, STAGE_CB, IN_CB, TILE_H, TILE_W, FACE_H, FACE_W]
+    reader_ct = [_elem(), STAGE_CB, IN_CB, TILE_H, TILE_W, FACE_H, FACE_W]
     reader_ct.extend(ttnn.TensorAccessorArgs(x).get_compile_time_args())
-    writer_ct = [2, OUT_CB, TILE_H, TILE_W]
+    writer_ct = [_elem(), OUT_CB, TILE_H, TILE_W]
     writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     key = _cache_key_back(x, out, device, reader_ct, writer_ct)
     entry = _CACHE_BACK.get(key)
@@ -456,7 +477,7 @@ def reblock_permute_back(x, memory_config=None, device=None):
     mc = memory_config or x.memory_config()
     C, N = int(x.shape[1]), int(x.shape[2])
     out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape([1, N, N, C]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
+        ttnn.Shape([1, N, N, C]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
     )
     entry = _prepare_back(x, out, device)
     src, dst = x.buffer_address(), out.buffer_address()
@@ -506,7 +527,7 @@ def eligible_back(x, memory_config) -> bool:
     C, N = shape[1], shape[2]
     if N % TILE_H:
         return _reject("back_ragged", shape)
-    if x.dtype != ttnn.bfloat16 or x.layout != ttnn.TILE_LAYOUT:
+    if x.dtype != _DTYPE or x.layout != ttnn.TILE_LAYOUT:
         return _reject("back_dtype_layout", shape)
     if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("back_sharded_out", shape)
@@ -598,11 +619,11 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     assert plan is not None, f"no expressible work split for {num_groups} groups"
     _, _, (_, core_grid, cg1, cg2, work1, work2) = plan
 
-    tile_bytes = TILE_H * TILE_W * 2  # bf16
+    tile_bytes = TILE_H * TILE_W * _elem()
 
     def cb(idx, depth):
         fmt = ttnn.CBFormatDescriptor(
-            buffer_index=idx, data_format=ttnn.bfloat16, page_size=tile_bytes
+            buffer_index=idx, data_format=_DTYPE, page_size=tile_bytes
         )
         return ttnn.CBDescriptor(
             total_size=depth * tile_bytes, core_ranges=core_grid, format_descriptors=[fmt]
@@ -669,7 +690,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
 
 def _prepare_gated(x, out, device, fidelity, fp32_acc):
     reader_ct = list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
-    writer_ct = [2, OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB]
+    writer_ct = [_elem(), OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB]
     writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     key = _cache_key_gated(x, out, device, reader_ct, writer_ct)
     entry = _CACHE_GATED.get(key)
@@ -708,7 +729,7 @@ def reblock_permute_gated(xw, p_slice, g_slice, slice_c, memory_config=None, dev
         mc = memory_config or xw.memory_config()
         N = int(xw.shape[1])
         out = ttnn.allocate_tensor_on_device(
-            ttnn.Shape([1, slice_c, N, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device, mc
+            ttnn.Shape([1, slice_c, N, N]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
         )
     assert row_off % TILE_H == 0, f"row_off {row_off} is not a tile boundary"
     entry = _prepare_gated(xw, out, device, GATE_FIDELITY, GATE_FP32_ACC)
@@ -773,7 +794,7 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if shape[3] != 4 * slice_c or slice_c % TILE_W:
         return _reject("gated_slice", shape)
     N = shape[2]
-    if xw.dtype != ttnn.bfloat16 or xw.layout != ttnn.TILE_LAYOUT:
+    if xw.dtype != _DTYPE or xw.layout != ttnn.TILE_LAYOUT:
         return _reject("gated_dtype_layout", shape)
     if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("gated_sharded_out", shape)

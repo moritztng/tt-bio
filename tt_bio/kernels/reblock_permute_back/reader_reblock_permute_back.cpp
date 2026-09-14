@@ -23,9 +23,12 @@
 // 16 B-aligned length is exact. This is the mirror of the forward direction,
 // which pays the same cost on its writer.
 //
-// THE BINDING RESOURCE IS INSTRUCTION COUNT ON THIS RISC, not bytes: the gather
-// is 64 transactions per output tile whatever the kernel structure, so the only
-// axis left is instructions per transaction. Two things are done for it, both
+// TRANSACTION COUNT ON THIS RISC DOMINATES, but it is not the whole cost: the
+// gather is 64 transactions per output tile whatever the kernel structure, so the
+// axis left is instructions per transaction. Doubling the element width still
+// costs 1.20x at C=32 and 1.78x at C=128 on this leg, so the byte term is real and
+// grows with C (perf/ttx_reblock_bfp8/byte_sensitivity_qb2c3.json); see the
+// forward writer for the claim that measurement replaced. Two things are done for it, both
 // copied from the forward writer: the reads issue
 // `noc_async_read_one_packet_with_state` with the NOC coordinates and the 32-byte
 // length set ONCE per invocation, and every address in the gather body is an

@@ -1,0 +1,57 @@
+{
+ "host": "tt-quietbox2",
+ "visible_devices": "3",
+ "grid": "11x10",
+ "fixture": "cdk2x2_298",
+ "steps": 200,
+ "recycles": 3,
+ "git": "bd96764ecdc8df20441da80bbc65643ad57d99a0",
+ "arms": {
+  "fast=False": {
+   "fast_mode": false,
+   "trimul_chunk_dtype_helper": "DataType.BFLOAT16",
+   "total_gate_calls": 4480,
+   "calls_by_dtype": {
+    "DataType.BFLOAT16": 4480
+   },
+   "rows": [
+    {
+     "gate": "eligible",
+     "dtype": "DataType.BFLOAT16",
+     "layout": "Layout.TILE",
+     "shape": [
+      1,
+      320,
+      320,
+      32
+     ],
+     "eligible": true,
+     "calls": 4480
+    }
+   ]
+  },
+  "fast=True": {
+   "fast_mode": true,
+   "trimul_chunk_dtype_helper": "DataType.BFLOAT8_B",
+   "total_gate_calls": 2240,
+   "calls_by_dtype": {
+    "DataType.BFLOAT16": 2240
+   },
+   "rows": [
+    {
+     "gate": "eligible",
+     "dtype": "DataType.BFLOAT16",
+     "layout": "Layout.TILE",
+     "shape": [
+      1,
+      320,
+      320,
+      32
+     ],
+     "eligible": true,
+     "calls": 2240
+    }
+   ]
+  }
+ }
+}
