@@ -50,7 +50,7 @@ def patch_cfg():
     patch_boltz2_cfg()
 
 
-def run_size(ttnn, T, B, size, pairs, cifdir, bracket):
+def run_size(ttnn, T, B, size, pairs, cifdir, bracket, aa=False):
     import tt_bio.token_axis as TA
 
     # fold_ab_multi's config patch reads these off tt_baseline, which only defines
@@ -92,7 +92,10 @@ def run_size(ttnn, T, B, size, pairs, cifdir, bracket):
     cifdir.mkdir(parents=True, exist_ok=True)
 
     def fold(arm, tag):
-        os.environ["TT_BIO_MSA_LADDER"] = arm
+        # --aa runs BOTH labelled arms at the shipped setting, so the same schedule, the same
+        # interleave and the same host produce the null: whatever ratio this reports is what
+        # this harness reads when there is no effect to read.
+        os.environ["TT_BIO_MSA_LADDER"] = "0" if aa else arm
         depths.clear(); track_ms.clear()
         t, m = one_fold()
         cifs = {}
@@ -145,6 +148,8 @@ def main() -> int:
     ap.add_argument("--cifdir", type=Path, required=True)
     ap.add_argument("--sizes", default="512")
     ap.add_argument("--pairs", type=int, default=3)
+    ap.add_argument("--aa", action="store_true",
+                    help="A/A null: both arms run TT_BIO_MSA_LADDER=0. The floor the A/B ratio has to clear.")
     ap.add_argument("--bracket", action="store_true",
                     help="sync-bracket every MSA.__call__. Attribution only: it perturbs the "
                          "fold, so the headline ratio is taken without it.")
@@ -163,12 +168,12 @@ def main() -> int:
                   "host": os.uname().nodename,
                   "card": os.environ.get("TT_VISIBLE_DEVICES"),
                   "ladder": list(TA.MSA_PAD_LADDER),
-                  "bracket": a.bracket, "pairs": a.pairs,
+                  "bracket": a.bracket, "pairs": a.pairs, "aa": a.aa,
                   "commit": os.popen(f"git -C {ROOT} rev-parse --short HEAD").read().strip(),
                   "ttnn": getattr(ttnn, "__version__", "?")}
     dump()
     for s in a.sizes.split(","):
-        run_size(ttnn, T, B, s, a.pairs, a.cifdir, a.bracket)
+        run_size(ttnn, T, B, s, a.pairs, a.cifdir, a.bracket, a.aa)
     T.cleanup()
     return 0
 
