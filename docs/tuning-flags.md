@@ -246,6 +246,64 @@ this flag is worth more on the reference fixture than on a deep-MSA target.
 Boltz-2's MSA module and trunk read the ladder, and BoltzGen reaches it through the trunk it shares.
 Protenix-v2, OpenFold3 and RF3 have their own MSA modules and do not read it.
 
+## `TT_BIO_PAIR_FFN_L1_FC1` — on, ESMFold2 only
+
+ESMFold2's trunk runs its pair transition in 32-row blocks. Inside a block the first matmul is
+split into two halves whose product the SiLU multiply consumes immediately, and both halves used
+to write their result to DRAM for that multiply to read straight back. This flag gives them an L1
+destination instead, so 2.15 GB per call never leaves the chip.
+
+The matmul had to be told how to drain. Its default schedule spends 1,212,416 B of a 1,461,760 B
+bank on the two input buffers, which leaves no room for an L1 output, so the allocator refused one
+at every row height and both halves fell back to DRAM without a word. Naming the output block
+width at 16 fits the destination into what is left. The contraction block stays at 1, because that
+is the accumulation order the DRAM path used: of 80 configs swept at this shape, all 20 with a
+contraction block of 1 are bit-exact against the shipped call and all 60 above it differ by one
+bf16 ULP.
+
+**Accuracy: identical, bit for bit.** Only a destination moves, so this is not a precision trade.
+Both arms in one process on one card, arms alternating, three rounds at 512 residues: the same
+CIF, byte for byte, and the same pLDDT to four places
+(`perf/ttx_b3/fold_ab_esm512_c0.json`). A second card says the same at 298, 512, 768 and 1024
+residues (`perf/esm3p4close/fold_ab_*_c1.json`).
+
+**Speed: 27.780 s against 30.222 s, a 512-residue fold.** 1.0879x, three folds per arm after a
+discarded cold fold, arms alternating, every fold in the fast arm ahead of every fold in the slow
+one on a 0.056 s A/A spread. qb2, one Blackhole processor of a p300c, ttnn 0.68.0, 11x10 grid, 10
+recycles and 100 sampling steps, one fold at a time under the bench lock.
+
+Where it pays depends on the size, so the four sizes were folded end to end rather than inferred:
+
+| residues | fold, flag off | fold, flag on | |
+|---|---|---|---|
+| 298 | 18.613 s | 18.188 s | 1.0234x |
+| 512 | 30.222 s | 27.780 s | 1.0879x |
+| 768 | 66.601 s | 66.615 s | 0.9998x, inside a 0.126 s floor |
+| 1024 | 147.230 s | 147.241 s | 0.9999x, inside a 0.108 s floor |
+
+298 and 1024 are card 1, 512 and 768 card 0, so read each row against itself and not across rows.
+At 512 residues the destination is not merely requested but served: the device's own latch census
+counts 17216 served, 0 refused, 0 blocked and 0 declined with the flag on, against nothing at all
+with it off (`perf/ttx_b3/fold_ab_esm512_latch_c1.json`). That is the number to read, because the
+per-call counter next to it counts requests and is incremented before the call that can still
+fall back.
+The token axis pads to a multiple of 32, which is why 298 residues gets the lever at all: it runs
+10 row blocks, 10/16 of what 512 runs, and the gated-call census is exactly 10/16 of it. Below
+that nothing is row-blocked. At 768 and 1024 the block's other L1 residents leave too little room,
+the device refuses the first call and the class retires to DRAM for the rest of the fold, so the
+flag neither costs nor saves anything there.
+
+No other model reaches it, by construction rather than by luck: the gated path needs a
+`SwiGLUFFN` built with `fuse_swiglu=True`, and ESMFold2's `PairUpdateBlock`
+(`tt_bio/esmfold2.py:161`) is the only place in the engine that builds one. Boltz-2, BoltzGen,
+Protenix-v2, OpenDDE, RF3 and OpenFold3's MSA stack use the shared `Transition`, whose two
+matmuls already write to L1, so the round trip this removes does not exist for them. OpenFold3's
+diffusion track and AF2-IG have their own transitions again. Measured rather than assumed for the
+two that were folded: zero gated calls in either arm, and 1.0004x and 0.9998x
+(`perf/ttx_b3/fold_ab_px2_512_c0.json`, `perf/esm3p4close/fold_ab_odde512_c1.json`).
+
+`TT_BIO_PAIR_FFN_L1_FC1=0` restores the DRAM output and the same coordinates.
+
 ## `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` — on
 
 The MSA track weights each row of the alignment by a softmax over the token axis, one softmax per
