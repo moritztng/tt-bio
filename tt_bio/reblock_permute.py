@@ -70,6 +70,15 @@ REJECTS: dict = {}
 # 15 deep. `scripts/verify_core_split.py` prints that census and checks the replacement against the
 # wheel on every unit count the wheel can serve.
 
+# How many cores a split may use, 0 meaning the whole grid. A knob, not a tuning: the whole grid is
+# what every shape the wheel could already split gets today, and the sweep that measured this leg
+# against core count found no rule that picks the best point. At 400 groups the whole grid is the
+# fastest of eleven counts and 100 cores the slowest (1.185x); at 900 groups it is the other way
+# round, 100 cores 1.129x ahead of the whole grid, and the forward and back legs agree within a
+# shape against a 0.3 % A/A floor. Every point is bit-identical against `ttnn.permute`, so this
+# moves scheduling and never a number. See `perf/ttx_splitwork/core_count_sweep.py`.
+REBLOCK_CORES = int(os.environ.get("TT_BIO_REBLOCK_CORES", "0"))
+
 _SPLIT_CACHE: dict = {}
 
 
@@ -77,13 +86,15 @@ def _split_plan(device, units):
     """The work split for ``units`` groups over the whole compute grid.
 
     ``(grid_x, grid_y, <the six-tuple ttnn.split_work_to_cores returns>)``, or ``None`` when there
-    is no work to split at all. Cached per ``(device, grid, units)`` because `_channel_move` runs
-    4352 times in a 298 aa fold.
+    is no work to split at all. Cached per ``(device, grid, units, REBLOCK_CORES)`` because
+    `_channel_move` runs 4352 times in a 298 aa fold, and with the knob in the key so an in-process
+    A/B can move it between two arms.
     """
     g = device.compute_with_storage_grid_size()
-    key = (device.id(), g.x, g.y, units)
+    key = (device.id(), g.x, g.y, units, REBLOCK_CORES)
     if key not in _SPLIT_CACHE:
-        plan = (g.x, g.y, core_split.split_work_to_cores(g, units)) if units > 0 else None
+        plan = ((g.x, g.y, core_split.split_work_to_cores(g, units, REBLOCK_CORES))
+                if units > 0 else None)
         _SPLIT_CACHE[key] = plan
     return _SPLIT_CACHE[key]
 

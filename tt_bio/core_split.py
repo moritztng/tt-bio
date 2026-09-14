@@ -71,15 +71,23 @@ def column_ranges(start: int, count: int, height: int) -> list:
     return out
 
 
-def split_work_to_cores(grid, units: int):
+def split_work_to_cores(grid, units: int, max_cores: int = 0):
     """``ttnn.split_work_to_cores(<grid as one CoreRangeSet>, units)`` without the group-2 bug.
 
     Returns the wheel's own 6-tuple ``(num_cores, all_cores, core_group_1, core_group_2, units_1,
     units_2)``, so a caller can swap one for the other. ``grid`` is a grid size, as
     ``device.compute_with_storage_grid_size()`` returns it.
+
+    ``max_cores`` caps the split below the grid, 0 meaning the whole grid. It exists because the
+    core count turned out to be a live performance knob and not a monotone one: on qb2's 11x10 grid
+    the channel move at 400 groups is fastest on all 110 cores and slowest on 100 (1.185x), while at
+    900 groups 100 cores is fastest and 110 sits 1.129x behind it. The output is bit-identical at
+    every point, so this moves scheduling and never a number.
+    ``perf/ttx_splitwork/core_count_sweep.py`` is the harness and the data sits beside it.
     """
     height = int(grid.y)
-    num_cores, n1, w1, w2 = units_per_core(units, core_count(grid))
+    cores = core_count(grid)
+    num_cores, n1, w1, w2 = units_per_core(units, min(max_cores, cores) if max_cores else cores)
     crs = ttnn.CoreRangeSet
     return (
         num_cores,
