@@ -334,6 +334,7 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
     if len(shape) != 3 or len(bias.shape) != 4:
         return _fuse_reject("rank", shape)
     B, S, C = shape
+    S_pad = int(x.padded_shape[-2])
     if C != n_heads * head_dim or head_dim != 32:
         # The reader's K read is a tile-ORDER transpose, which is the identity only at DHt == 1.
         return _fuse_reject("head_dim", shape)
@@ -355,7 +356,7 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
     # One q chunk per core AND the whole sequence in that chunk: the fold contracts x[b] once and
     # makes q, k and v from it, so a split q would re-read x per chunk and put the byte delta back
     # on the wrong side. q_pf stays 1 here for that reason, unlike `sdpa` above.
-    if q_chunk != S:
+    if q_chunk != S_pad:
         return _fuse_reject("q_chunk_not_full_S", shape)
     split = (cores // n_heads, n_heads, 1)
 
