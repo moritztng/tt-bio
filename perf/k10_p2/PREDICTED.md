@@ -38,3 +38,32 @@ So the featurization and the sampler configuration are not the mechanism. The pr
    checkpoint key mapped differently), in which case `ttcpufp32` misses the reference by a lot
    more than 0.25 A and prediction 1 fails loudly rather than quietly. That is the outcome worth
    having.
+
+---
+
+# Predicted before the 512 aa arms were scored
+
+Written 2026-09-14 17:55Z. Both 512 aa CPU folds were still running on pc, neither had been
+scored, and nothing about them was known beyond the 298 aa result they follow. At 298 aa the
+split came out: `ttcpufp32` 0.03420 A from `gpurefshared-s0` with CA-lDDT 1.00000 against it, and
+-0.00011 of the -0.00586 lDDT deficit, so 1.9 % is our torch code. At 512 aa the deficit is 2.5x
+larger, -0.01487 on copy 1 and -0.01462 on copy 2, and the device arm sits 0.68922 A out.
+
+6. **`ttcpufp32` at 512 aa lands 0.05 to 0.20 A from `gpurefshared-s0`** (worst per-pseudo-domain
+   all-atom), above the 298 aa 0.03420 A because the trajectory is longer and the chimeric
+   fixture's inter-domain hinge amplifies any small displacement. CA-lDDT against upstream
+   >= 0.998.
+7. **The port-code share of the deficit stays small**: |CA-lDDT(`ttcpufp32`) -
+   CA-lDDT(`gpurefshared`)| against 1HCL <= 0.003 on each pseudo-domain, i.e. under 20 % of
+   -0.0147. If the 298 aa 1.9 % were an artefact of the smaller size, this is where it breaks.
+8. **No third direction at 512 aa either**: d(`ttshared`, `ttcpufp32`) within 15 % of
+   d(`ttshared`, `gpurefshared`) = 0.68922 A.
+9. **`ttcpubf16` at 512 aa is worse than its 298 aa 1.21511 A**: 1.5 to 3.5 A, CA-lDDT against
+   1HCL down by more than 0.15 from `ttcpufp32`. Prediction 4 was already refuted at 298 aa (CPU
+   autocast is not the GPU `bf16-mixed` the anchor controlled with), so this is the corrected
+   form of it, and the point it carries is the same: the device arm's 0.00586 / 0.0147 is at the
+   good end of the bf16 class, not the bad end.
+10. Confidence in 6 to 9: high for 8, moderate for 6 and 7, low for the magnitude in 9. The
+    outcome that would change the conclusion is 7 failing, i.e. our torch fp32 code carrying most
+    of the 512 aa deficit while carrying 1.9 % of the 298 aa one. That would mean a
+    size-dependent divergence in our port rather than a precision floor.
