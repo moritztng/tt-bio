@@ -62,20 +62,51 @@ def read_atoms(p: Path):
     return keys, np.asarray(xyz, dtype=np.float64)
 
 
-def mean_ca_bfactor(p: Path):
-    """Mean B_iso over CA atoms, which is where Boltz-2 writes plDDT.
+def bfactor_plddt(p: Path):
+    """Both readings of the CIF"s own B-factor column, on the 0..1 plDDT scale.
 
-    This is the only plDDT reading comparable across stacks. `boltz predict` and tt_bio report
-    different quantities under the same `plddt` name, mean CA B-factor against tt-bio"s own
-    metrics plDDT, and at 512 aa they differ by 0.049 on two structures 0.025 A apart
-    (`perf/k10_p2/FINDINGS.md`). Returns None when the CIF carries no B-factor column.
+    Which one a model"s reported plDDT equals depends on what it writes per atom. Boltz-2
+    writes one plDDT per residue, broadcast to that residue"s atoms, so its reported
+    `complex_plddt` is the CA mean; the all-atom mean of the same column is atom-count weighted
+    and sits 0.002 higher on cdk2x2_298. Protenix-v2 / OpenFold3 / OpenBind-0 / OpenDDE write a
+    genuine per-atom column and report its all-atom mean, 0.025 BELOW the CA mean on the same
+    fixture. Reading the wrong one of the two is what made the reported plDDT look inconsistent
+    with the column in `perf/k10_p2/FINDINGS.md`. Returns None when there is no B-factor column.
     """
     idx, rows = atom_site_table(p)
     col, name = "_atom_site.B_iso_or_equiv", "_atom_site.label_atom_id"
     if col not in idx or name not in idx:
         return None
-    vals = [float(f[idx[col]]) for f in rows if f[idx[name]].strip(chr(34)) == "CA"]
-    return round(sum(vals) / len(vals), 4) if vals else None
+    b = [float(f[idx[col]]) for f in rows]
+    ca = [v for v, f in zip(b, rows) if f[idx[name]].strip(chr(34)) == "CA"]
+    return {"n_atoms": len(b), "n_ca": len(ca),
+            "mean_all": round(sum(b) / len(b) / 100.0, 6) if b else None,
+            "mean_ca": round(sum(ca) / len(ca) / 100.0, 6) if ca else None}
+
+
+def mean_ca_bfactor(p: Path):
+    """Mean B_iso over CA atoms, on the 0..100 scale the column itself carries."""
+    col = bfactor_plddt(p)
+    return None if col is None or col["mean_ca"] is None else round(col["mean_ca"] * 100.0, 4)
+
+
+def plddt_column_check(p: Path, reported, tol: float = 5e-4):
+    """Does a reported plDDT equal the mean of the B-factor column the same fold wrote?
+
+    A model writes either one plDDT per atom or one per residue, so exactly one of
+    `bfactor_plddt`"s two readings is the number it reports. No model list here on purpose: a
+    report path that leaked padding, re-ordered a tensor or picked up a different scalar
+    (confidence_score is 0.8*plDDT + 0.2*pTM, so it misses by up to 0.05) matches NEITHER
+    reading, which is the regression this catches. `tol` is one count of the writer"s own
+    rounding, 3 decimals on the 0..100 scale.
+    """
+    col = bfactor_plddt(p)
+    if col is None or reported is None:
+        return {"ok": None, "reason": "no B-factor column" if col is None else "no plddt reported"}
+    gaps = {k: round(reported - col[k], 6) for k in ("mean_all", "mean_ca") if col[k] is not None}
+    reading = min(gaps, key=lambda k: abs(gaps[k]))
+    return {"ok": abs(gaps[reading]) <= tol, "reading": reading, "gap": gaps[reading],
+            "reported": reported, **col}
 
 
 def kabsch_rmsd(P, Q):

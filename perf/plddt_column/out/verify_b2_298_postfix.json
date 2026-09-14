@@ -1,0 +1,62 @@
+{
+ "doc": "Does the plDDT a model reports equal the mean of the B-factor column it writes?\n\n`k10-p2` flagged that tt-bio's reported plDDT was 0.048 away from the mean B-factor of its own\nCIF at 512 aa and 0.008 away with the opposite sign at 298 aa. This runs the comparison inside\none process, on folds short enough to run on CPU, so the two numbers come from one fold and the\nanswer is a measurement rather than a reading of two tables.\n\nFor every model the check is the same: `metrics` must carry a complex-level plDDT that equals the\nmean of the per-atom B-factor column of the CIF that fold just wrote, to the writer's own\nrounding. Boltz-2 writes one plDDT per residue, so its mean over all atoms is atom-count weighted\nand only its mean over CA matches; Protenix-v2 / OpenFold3 / OpenBind-0 / OpenDDE write a genuine\nper-atom column and their mean over all atoms must match. Both readings are reported for every\nfold, no device is opened, and the B-factor parser is `perf/other512/cif_rmsd.py`'s.\n\n    verify_plddt_column.py --out out/verify.json --models boltz2 --steps 10 --recycles 0\n",
+ "env": {
+  "host": "pc",
+  "accelerator": "cpu",
+  "torch": "2.8.0+cpu",
+  "threads": 6,
+  "tt_bio_file": "/home/moritz/.coworker/wt/tt-bio-plddt-metric-bfactor-mismatch/tt_bio/__init__.py",
+  "commit": "b7093b024c850fda42b5d4fb08be5bed4465c37f",
+  "started_utc": "2026-09-14T19:20:39Z",
+  "protocol": {
+   "sampling_steps": 10,
+   "recycling_steps": 0,
+   "diffusion_samples": 1,
+   "seed": 0
+  }
+ },
+ "runs": [
+  {
+   "model": "boltz2",
+   "fixture": "cdk2x2_298",
+   "fold_s": 95.4,
+   "metrics": {
+    "confidence_score": 0.465067,
+    "ptm": 0.549303,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.444008,
+    "complex_iplddt": 0.444008,
+    "complex_pde": 1.657385,
+    "complex_ipde": 0.0,
+    "plddt": 0.444008
+   },
+   "metrics_keys": [
+    "chains_ptm",
+    "complex_ipde",
+    "complex_iplddt",
+    "complex_pde",
+    "complex_plddt",
+    "confidence_score",
+    "iptm",
+    "ligand_iptm",
+    "pair_chains_iptm",
+    "plddt",
+    "protein_iptm",
+    "ptm"
+   ],
+   "bfactor": {
+    "n_atoms": 2397,
+    "n_ca": 298,
+    "mean_all": 0.446019,
+    "mean_ca": 0.444008
+   },
+   "reported_plddt": 0.444008,
+   "d_mean_all": -0.002011,
+   "d_mean_ca": 0.0,
+   "plddt_key_present": true,
+   "confidence_score_fallback": 0.465067
+  }
+ ]
+}

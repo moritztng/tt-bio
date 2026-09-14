@@ -36,7 +36,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "perf" / "other512"))
 sys.path.insert(0, str(REPO / "perf" / "b2x-flag-levers"))
 sys.path.insert(0, str(REPO / "perf" / "fused_sdpa"))
-from cif_rmsd import kabsch_rmsd, mean_ca_bfactor, read_atoms            # noqa: E402
+from cif_rmsd import kabsch_rmsd, mean_ca_bfactor, plddt_column_check, read_atoms  # noqa: E402
 from domain_split import angle_between, kabsch                           # noqa: E402
 from basin_lddt import lddt_per_residue                                  # noqa: E402
 from of3_score_ref import GT_SEGMENTS, ca_map                            # noqa: E402
@@ -134,6 +134,12 @@ def main() -> int:
         sec = {"n_atoms": len(next(iter(S.values()))["keys"]), "arms": sorted(tags),
                "seeds": seeds, "plddt": {t: tags[t]["plddt"] for t in sorted(tags)},
                "plddt_cif": {t: mean_ca_bfactor(S[t]["cif"]) for t in sorted(tags)},
+               # The reported plDDT has to be the mean of the B-factor column the same fold
+               # wrote. A fold harness that reads the wrong metrics key gets confidence_score
+               # (0.8*plDDT + 0.2*pTM) and lands 0.05 out with a sign that flips with size, which
+               # is what made the plDDT rows in perf/k10_p2/FINDINGS.md disagree with the column.
+               "plddt_column": {t: plddt_column_check(S[t]["cif"], tags[t]["plddt"])
+                                for t in sorted(tags)},
                "sha256": {t: tags[t]["sha256"] for t in sorted(tags)},
                "fold_s": {t: tags[t]["fold_s"] for t in sorted(tags)}}
 
