@@ -99,7 +99,7 @@ def main() -> int:
     a = ap.parse_args()
     if a.cifdir:
         SESSIONS.clear()
-        SESSIONS.update({d.name: d for d in a.cifdir})
+        SESSIONS.update({d.name: d.resolve() for d in a.cifdir})
 
     gt = ca_map(GT)
     rep = {"gt": GT.name, "arms": ARM, "sizes": {}}

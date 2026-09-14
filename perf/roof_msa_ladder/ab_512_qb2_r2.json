@@ -1,0 +1,312 @@
+{
+  "env": {
+    "started": "2026-09-14T09:29:40+0000",
+    "host": "tt-quietbox2",
+    "card": "1",
+    "ladder": [
+      64,
+      128,
+      256,
+      512,
+      1024
+    ],
+    "bracket": false,
+    "pairs": 6,
+    "aa": false,
+    "commit": "45a20cf9d",
+    "ttnn": "?"
+  },
+  "sizes": {
+    "512": {
+      "n_msa": 35,
+      "hardware": "blackhole",
+      "grid": [
+        11,
+        10
+      ],
+      "card_type": "p300c",
+      "recycling_steps": 3,
+      "struct_dir": "/tmp/ttbase-boltz2-rvyvy9fa/out",
+      "folds": [
+        {
+          "arm": "0",
+          "tag": "cold",
+          "s": 16.915,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "1f5b388246489fa1"
+          },
+          "loadavg": [
+            "3.25",
+            "1.86",
+            "0.78"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "cold",
+          "s": 18.584,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "89ea1c9d8515eba2"
+          },
+          "loadavg": [
+            "8.54",
+            "3.11",
+            "1.21"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm0",
+          "s": 17.224,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "1f5b388246489fa1"
+          },
+          "loadavg": [
+            "7.90",
+            "3.34",
+            "1.33"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm0",
+          "s": 15.709,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "89ea1c9d8515eba2"
+          },
+          "loadavg": [
+            "6.82",
+            "3.32",
+            "1.36"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm1",
+          "s": 16.253,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "89ea1c9d8515eba2"
+          },
+          "loadavg": [
+            "6.53",
+            "3.42",
+            "1.42"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm1",
+          "s": 16.763,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "1f5b388246489fa1"
+          },
+          "loadavg": [
+            "5.67",
+            "3.39",
+            "1.44"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm2",
+          "s": 18.335,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "1f5b388246489fa1"
+          },
+          "loadavg": [
+            "5.35",
+            "3.47",
+            "1.52"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm2",
+          "s": 16.988,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "89ea1c9d8515eba2"
+          },
+          "loadavg": [
+            "6.03",
+            "3.70",
+            "1.62"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm3",
+          "s": 17.083,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "89ea1c9d8515eba2"
+          },
+          "loadavg": [
+            "8.03",
+            "4.30",
+            "1.86"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm3",
+          "s": 17.745,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "1f5b388246489fa1"
+          },
+          "loadavg": [
+            "8.50",
+            "4.58",
+            "2.00"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm4",
+          "s": 17.657,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "1f5b388246489fa1"
+          },
+          "loadavg": [
+            "10.37",
+            "5.27",
+            "2.28"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm4",
+          "s": 17.298,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "89ea1c9d8515eba2"
+          },
+          "loadavg": [
+            "9.25",
+            "5.27",
+            "2.33"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm5",
+          "s": 18.19,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "89ea1c9d8515eba2"
+          },
+          "loadavg": [
+            "11.27",
+            "5.95",
+            "2.61"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm5",
+          "s": 17.521,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "1f5b388246489fa1"
+          },
+          "loadavg": [
+            "10.46",
+            "6.04",
+            "2.70"
+          ]
+        }
+      ],
+      "cold_s": {
+        "off": 16.915,
+        "on": 18.584
+      },
+      "warm_s": {
+        "0": [
+          17.224,
+          16.763,
+          18.335,
+          17.745,
+          17.657,
+          17.521
+        ],
+        "1": [
+          15.709,
+          16.253,
+          16.988,
+          17.083,
+          17.298,
+          18.19
+        ]
+      },
+      "warm_median_s": {
+        "0": 17.589,
+        "1": 17.035
+      },
+      "paired_delta_s": [
+        1.515,
+        0.51,
+        1.348,
+        0.662,
+        0.359,
+        -0.669
+      ],
+      "paired_delta_median_s": 0.586,
+      "speedup": 1.0325,
+      "rung_compile_s": {
+        "0": -0.674,
+        "1": 1.549
+      }
+    }
+  }
+}
