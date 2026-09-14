@@ -28,7 +28,7 @@ export TT_BIO_LEASE_TIMEOUT=1800
 export TT_VISIBLE_DEVICES=3
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
 
-for m in boltz2 nesso1 pxdesign; do
+for m in ${CTRL_MODELS:-boltz2 nesso1 pxdesign}; do
   for arm in on off; do
     echo "=== $m arm=$arm start $(date -Is) loadavg $(cut -d" " -f1-3 /proc/loadavg) ==="
     if [ "$arm" = off ]; then
