@@ -1,0 +1,17 @@
+{
+ "label": "myold_vs_ref_298",
+ "ref": "perf/b2x-baseline-attrib/ref/main20260911_71653ff7_cdk2x2_298.cif",
+ "arm": "/home/mthuening/work/b2z-ttnn/out/cif298/old_r298_1.cif",
+ "n_atoms_ref": 2397,
+ "n_atoms_arm": 2397,
+ "n_matched": 2397,
+ "n_CA": 298,
+ "allatom_rmsd_A": 0.2947,
+ "ca_rmsd_A": 0.1477,
+ "bar": {
+  "pass_A": 0.35,
+  "hold_A": 0.6
+ },
+ "verdict": "pass",
+ "identical_bytes": false
+}
