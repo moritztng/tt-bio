@@ -75,6 +75,48 @@ BoltzGen shares Boltz-2's `TrunkModule` but does not get this flag: it never ask
 the pair tensor on the device, so it takes the same deallocate it always did. No other model
 reaches the pair track at all.
 
+## `TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS` — both on, Boltz-2 only
+
+Boltz-2 scores the structure it just predicted with a confidence head, and upstream builds that
+head's input on the host: it normalises the trunk's pair tensor, adds the relative-position
+encoding, the token bonds and the contact conditioning, broadcasts the single representation into
+it and embeds the distogram. Every one of those is a channel map at each (i, j), and the trunk has
+just left the pair tensor on the card, so `TT_BIO_DEVICE_CONFIDENCE` does the assembly there. It
+also deletes the upload that used to feed the head's own pairformer: 134 MB of fp32 at 512
+residues, replaced by an index map.
+
+`TT_BIO_DEVICE_CONF_HEADS` continues the same idea past the pairformer. The pae and pde
+projections and the bin contractions behind them run on the card, and only the three aggregated
+numbers per token pair come down instead of a tile's worth of bin logits: 67.1 MB to 2.097 MB at
+512 residues, measured 32.0x on the bus. It is built on top of `TT_BIO_DEVICE_CONFIDENCE` and is
+measured with it, so set them together or not at all.
+
+**Accuracy: the coordinates cannot move, and they do not.** The confidence head runs after the
+sampler and its outputs are scores, so at one diffusion sample nothing it produces feeds back into
+a coordinate. The claim is therefore an equality rather than an Ångström bar, and it holds: every
+atom is bit-identical at 298 and 512 residues, max 0.000000 Å, against a same-arm control that is
+also exactly zero. What does move is the confidence itself, in bf16 where the host used fp32 —
+per-atom pLDDT by at most 0.362 at 512 residues and 0.185 at 298, on a 0–100 scale, mean 0.032 and
+0.022.
+
+A CIF sha256 is the wrong instrument for this flag, and the run reports both readings for that
+reason: `write_result` puts pLDDT in the B-factor column, so the file hash changes with every
+coordinate identical. `perf/b2z2_confhead/score_conf.py` reports the coordinate delta and the
+pLDDT delta separately.
+
+**Speed: 16.537 s against 17.285 s, a 512-residue fold.** Both arms in one process on one card,
+`base device device base` inside every rep so the order reverses within the rep, one cold fold per
+arm discarded, 8 folds per arm under benchlock. qb2, one Blackhole processor of a p300c board,
+physical card 0, ttnn 0.68.0, 3 recycles, 200 sampling steps, one sample, seed 0, templates off.
+Median of 8 paired ratios **1.04743x**, all 8 positive, against an A/A floor of 1.00104x median
+drawn from this session's own same-arm adjacent pairs
+(`perf/b2z2_confship/cell_512_qb2_c0.json`). The earlier Wormhole reading for the first of the two
+flags was 1.0128x; the Blackhole fold is less than half as long, so the same block of deleted host
+work is a larger fraction of it.
+
+Setting either to `0` restores the host path for that half. No other model reaches the Boltz-2
+confidence head.
+
 ## `TT_BIO_DEVICE_ZINIT` — on, Boltz-2 only
 
 Boltz-2 starts the trunk from `z_init`, a `[1, n, n, token_z]` pair tensor built by summing five
@@ -185,6 +227,29 @@ call and an engaged one write the same structure, so an identical digest on its 
 consistent with the optimization never having run. Every fold is recorded with the number of batched
 and per-head projections it actually made: 16 on Boltz-2, 30 on Protenix-v2, 12 on OpenFold3, and
 zero in every arm that had the flag off.
+
+## `TT_BIO_RESIDUAL_L1` — on
+
+A Pairformer layer adds each sub-layer's output back into the pair tensor. Two of those updates
+used to be written to DRAM and read straight back by the very next op: the starting triangle
+attention's output projection, and the pair transition's assembled result. This flag has both
+producers write into L1 instead, so the update never crosses DRAM in either direction.
+
+It is a gate, not a placement. Each site asks whether the update fits across the grid's banks at
+the live grid size, with the consuming matmul's per-core buffers reserved underneath it, and
+leaves the result in DRAM when it does not. At 512 aa and below it fits; at 768 aa and above it
+does not, and the site falls back. The large-target outcome is "no win", never "no fold".
+
+**Accuracy: identical.** A memory config decides which banks a tile lands in, not what is in it.
+Off the device the projection and the concat reproduce their DRAM output under `torch.equal`, max
+|delta| exactly 0.0, at every size where the gate engages, and the same comparison refuses a
+perturbed control (`perf/k10_binaryng_land/test_l1_equal.py`). At the fold, sixteen timed folds at
+512 aa wrote one CIF sha256 and one plDDT, `0.864509`, in both arms, and 298, 512, 768 and 1024 aa
+each wrote a single digest across both arms.
+
+**Speed: measured with `TT_BIO_TRIMUL_MASK_L1`, not separately.** The two flags touch three
+different sites in the same block and the pair was measured as a pair. See the next section for
+the number.
 
 ## `TT_BIO_SDPA_ADD_GRANULARITY` — auto
 
@@ -326,6 +391,31 @@ declined every call by then. The 1024 and 1536 sizes were re-run after the singl
 0.8 percentage points of the table. No size refused an allocation: 7.26 GiB is 22.8 % of the 31.87 GiB
 part, and the smallest largest-contiguous free block per bank at the high-water mark is 3013 MiB
 with the flags on against 3157 MiB without them.
+
+## `TT_BIO_TRIMUL_MASK_L1` — on
+
+The triangle multiplication masks its pair input before the contraction. The mask is `[1, 1, L, L]`
+against a `[1, C, L, L]` chunk, so the multiply broadcasts it along the channel axis, and a
+broadcast operand is read once per channel block rather than once. This flag puts the mask in L1,
+where those re-reads cost no DRAM traffic.
+
+It is the best ratio of the two: the mask is 0.52 MB, and moving that much on chip removes a whole
+pair tensor's worth of DRAM reads. It fits at every size tested, 298 through 1024 aa, so unlike
+`TT_BIO_RESIDUAL_L1` it does not go dark on large targets.
+
+**Accuracy: identical**, on the same evidence as the section above: `torch.equal` at the op with a
+control that fires, and one digest per size at the fold.
+
+**Speed: 1.01492x on the trunk, taken with `TT_BIO_RESIDUAL_L1`.** The two flags place three
+tensors in the same block, so they were measured together rather than multiplied together. Eight
+folds an arm at 512 aa, interleaved ABBA in one process on an idle box: the Pairformer block wall
+goes 9.5479 s to 9.4087 s, all eight paired ratios positive, against a same-arm floor of 1.0042x.
+
+On the whole fold that is **17.736 s to 17.6325 s, 0.1035 s, 1.00748x**. Read the block number
+rather than this one. The levers act only in the trunk, the fold wall is dominated by 200
+diffusion steps they never touch, and the fold wall's own same-arm floor at this size is 1.01483x,
+which is wider than the effect. All eight paired folds still came out positive, so the direction
+is not in doubt; the size of it is better read where it happens.
 
 ## `TT_BIO_TRIMUL_MM_TRANSPOSE` — on
 

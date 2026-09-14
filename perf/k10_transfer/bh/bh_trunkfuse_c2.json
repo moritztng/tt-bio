@@ -1,0 +1,26 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "2",
+  "lever": "trunkfuse",
+  "kind": "arithmetic",
+  "what": "triangle qkv+gate, +bias and trimul g_out folded into one weight read",
+  "fixture": "cdk2x2_512",
+  "steps": 200,
+  "recycles": 3,
+  "tt_bio_file": "/home/ttuser/wt-k10xfer/tt_bio/__init__.py",
+  "commit": "0cd6c4152bbe3c2fbcdde74c9c54ac16bb3c5e82",
+  "started_utc": "2026-09-13T17:56:06Z",
+  "loadavg_at_start": [
+   1.18505859375,
+   0.9326171875,
+   0.4453125
+  ],
+  "lease_dir": "/tmp/tt-bio-device-leases",
+  "open_lock": "NONE (library lock only)",
+  "width": 1,
+  "omp_num_threads": null,
+  "compute_grid": "11x10",
+  "arch": "Arch.BLACKHOLE"
+ }
+}

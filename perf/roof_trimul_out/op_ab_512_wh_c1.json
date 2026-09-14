@@ -1,0 +1,107 @@
+{
+ "n": 512,
+ "cz": 128,
+ "grid": [
+  8,
+  9
+ ],
+ "arch": "Arch.WORMHOLE_B0",
+ "reps": 7,
+ "f1_keys_default": [
+  [
+   8,
+   8
+  ]
+ ],
+ "f1_eligible": null,
+ "where": {
+  "B": "BufferType.L1",
+  "C": "BufferType.DRAM",
+  "A2": "BufferType.L1"
+ },
+ "parity": {
+  "B": {
+   "equal": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "n_elem": 33554432
+  },
+  "C": {
+   "equal": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "n_elem": 33554432
+  },
+  "A2": {
+   "equal": true,
+   "max_abs": 0.0,
+   "n_diff": 0,
+   "n_elem": 33554432
+  }
+ },
+ "f1_out_l1_stats": [
+  1,
+  1
+ ],
+ "bytes": {
+  "A": {
+   "error": "TypeError(\"'function' object is not subscriptable\")"
+  },
+  "B": {
+   "error": "TypeError(\"'function' object is not subscriptable\")"
+  },
+  "C": {
+   "error": "TypeError(\"'function' object is not subscriptable\")"
+  }
+ },
+ "ms": {
+  "A": [
+   4.4092,
+   4.4027,
+   4.427,
+   4.3337,
+   4.345,
+   4.3459,
+   4.3719
+  ],
+  "B": [
+   5.1594,
+   5.1595,
+   5.1764,
+   5.1314,
+   5.136,
+   5.048,
+   5.0506
+  ],
+  "C": [
+   5.1684,
+   5.2022,
+   5.1857,
+   5.1929,
+   5.1053,
+   5.0609,
+   5.0604
+  ],
+  "A2": [
+   4.406,
+   4.4286,
+   4.379,
+   4.3917,
+   4.3291,
+   4.3052,
+   4.3769
+  ]
+ },
+ "median_ms": {
+  "A": 4.3719,
+  "B": 5.136,
+  "C": 5.1684,
+  "A2": 4.379
+ },
+ "ratio_vs_A": {
+  "B": 0.8512,
+  "C": 0.8459,
+  "A2": 0.9984
+ },
+ "aa_floor_pct": 0.162
+}

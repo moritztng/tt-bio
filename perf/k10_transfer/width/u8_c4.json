@@ -1,0 +1,133 @@
+{
+ "env": {
+  "host": "j10glx02",
+  "card": "4",
+  "lever": "null",
+  "kind": "control",
+  "what": "both arms are the shipped default; the answer is 1.0",
+  "fixture": "cdk2x2_512",
+  "steps": 200,
+  "recycles": 3,
+  "tt_bio_file": "/home/agent/wt-k10xfer/tt_bio/__init__.py",
+  "commit": "0cd6c4152bbe3c2fbcdde74c9c54ac16bb3c5e82",
+  "started_utc": "2026-09-13T17:14:38Z",
+  "loadavg_at_start": [
+   9.4482421875,
+   8.91015625,
+   14.8212890625
+  ],
+  "lease_dir": "/home/agent/leases",
+  "open_lock": "/home/agent/k10out/width/device-open.lock",
+  "width": 8,
+  "thread_capped": false,
+  "omp_num_threads": null,
+  "compute_grid": "8x9",
+  "arch": "Arch.WORMHOLE_B0"
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 185.751,
+   "stats": {},
+   "plddt": 0.845633,
+   "cif_sha256": "8cabfca3308ed3cd2947250f9e627516abf576d3448bffa6448d2fda3df3839e",
+   "loadavg1": 152.65,
+   "t_end": 1789319887.9,
+   "warmup": true,
+   "rep": -1
+  },
+  {
+   "arm": "on",
+   "fold_s": 111.552,
+   "stats": {},
+   "plddt": 0.845633,
+   "cif_sha256": "8cabfca3308ed3cd2947250f9e627516abf576d3448bffa6448d2fda3df3839e",
+   "loadavg1": 156.94,
+   "t_end": 1789319999.4,
+   "warmup": true,
+   "rep": -1
+  },
+  {
+   "arm": "off",
+   "fold_s": 110.3,
+   "stats": {},
+   "plddt": 0.845633,
+   "cif_sha256": "8cabfca3308ed3cd2947250f9e627516abf576d3448bffa6448d2fda3df3839e",
+   "loadavg1": 181.29,
+   "t_end": 1789320109.7,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 109.683,
+   "stats": {},
+   "plddt": 0.845633,
+   "cif_sha256": "8cabfca3308ed3cd2947250f9e627516abf576d3448bffa6448d2fda3df3839e",
+   "loadavg1": 172.62,
+   "t_end": 1789320219.4,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 105.819,
+   "stats": {},
+   "plddt": 0.845633,
+   "cif_sha256": "8cabfca3308ed3cd2947250f9e627516abf576d3448bffa6448d2fda3df3839e",
+   "loadavg1": 164.64,
+   "t_end": 1789320325.2,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "off",
+   "fold_s": 41.595,
+   "stats": {},
+   "plddt": 0.845633,
+   "cif_sha256": "8cabfca3308ed3cd2947250f9e627516abf576d3448bffa6448d2fda3df3839e",
+   "loadavg1": 104.45,
+   "t_end": 1789320366.8,
+   "warmup": false,
+   "rep": 0
+  }
+ ],
+ "median_fold_s": {
+  "off": 75.94749999999999,
+  "on": 107.751
+ },
+ "ratio": 0.70484,
+ "aa_floors": [
+  2.65176,
+  1.03652
+ ],
+ "aa_floor_worst": 2.65176,
+ "paired_ratios": [
+  1.00563,
+  0.39308
+ ],
+ "separates_from_floor": false,
+ "cif_sha256": {
+  "off": [
+   "8cabfca3308ed3cd2947250f9e627516abf576d3448bffa6448d2fda3df3839e"
+  ],
+  "on": [
+   "8cabfca3308ed3cd2947250f9e627516abf576d3448bffa6448d2fda3df3839e"
+  ]
+ },
+ "bit_exact": true,
+ "plddt": {
+  "off": [
+   0.845633
+  ],
+  "on": [
+   0.845633
+  ]
+ },
+ "engagement": {
+  "on_served": 0,
+  "off_served": 0,
+  "instrumented": false
+ },
+ "engagement_control": "uninstrumented"
+}

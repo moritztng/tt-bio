@@ -57,7 +57,7 @@ def main() -> int:
         ps = getattr(conf, "pairformer_stack", None)
         print("  pairformer_stack     ", type(ps).__module__ + "." + type(ps).__name__)
         print("  isinstance(T.Pairformer", isinstance(ps, T.PairformerModule))
-        print("  supports()           ", T.ConfidencePairDevice.supports(conf))
+        print("  supports()           ", T.PairAssemblyDevice.supports_confidence(conf))
         print("  _device_confidence() ", boltz2._device_confidence())
         print("  env                  ", os.environ.get("TT_BIO_DEVICE_CONFIDENCE"))
     return 0

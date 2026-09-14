@@ -1,0 +1,15 @@
+{
+  "size": 512,
+  "depth_off": 1024,
+  "depth_on": 64,
+  "AA_equal": true,
+  "AA_max_abs": 0.0,
+  "AB_equal": false,
+  "AB_max_abs": 4.0,
+  "AB_mean_abs": 0.0374852679669857,
+  "z_max_abs": 416.0,
+  "negative_control_must_be_False": false,
+  "poison_depth": 1024,
+  "poison_equal": true,
+  "poison_max_abs": 0.0
+}

@@ -1219,6 +1219,52 @@ __attribute__((optimize("Os"))) void sub_block(uint32_t in0_cb, uint32_t in1_cb,
     cb_push_back(out_cb, num_tiles);
 }
 
+#ifdef FUSE_QKV
+/**
+ * ROOF Phase A: one (batch, head) slice of the qkv projection, done inside the consumer.
+ *
+ * in0_cb holds M x K tiles of the pre-projection pair tensor and is left in place -- q, k and v are
+ * three passes over the same resident block. in1_cb holds the head's three K x N weight slices laid
+ * q|k|v; in1_base selects one and it is never popped.
+ *
+ * The whole K = Ct contraction is one block with an N-wide, SUBBLOCK_H-tall subblock, which is what
+ * `_MM_BLOCK[(4, 12)] = (4, 4, 1, 4, 1)` already does at this site -- so every output element is
+ * accumulated in the order the standalone projection accumulates it. What is NOT the same is the
+ * accumulator width: the standalone matmul runs with fp32_dest_acc_en on and this kernel's own ckc
+ * decides it here.
+ */
+template <uint32_t M, uint32_t K, uint32_t N, uint32_t SUBBLOCK_H>
+ALWI void project_into(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb, uint32_t in1_base) {
+    mm_block_init_short(in0_cb, in1_cb, false /*transpose*/, N /*ct_dim*/, SUBBLOCK_H /*rt_dim*/,
+                        K /*kt_dim*/);
+    reconfig_data_format(in1_cb, in0_cb);
+    cb_reserve_back(out_cb, M * N);
+    uint32_t in0_index_offset = 0;
+    for (uint32_t sub = 0; sub < M / SUBBLOCK_H; ++sub) {
+        tile_regs_acquire();
+        uint32_t in0_index = in0_index_offset;
+        uint32_t in1_index = in1_base;
+        for (uint32_t inner = 0; inner < K; ++inner) {
+            matmul_block(in0_cb, in1_cb, in0_index, in1_index, 0 /*dst*/, false, N, SUBBLOCK_H, K);
+            in0_index++;
+            in1_index += N;
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        uint32_t dst_idx = 0;
+        for (uint32_t r = 0; r < SUBBLOCK_H; ++r) {
+            const uint32_t out_row = (sub * SUBBLOCK_H + r) * N;
+            for (uint32_t c = 0; c < N; ++c) {
+                pack_tile<true>(dst_idx++, out_cb, out_row + c);
+            }
+        }
+        tile_regs_release();
+        in0_index_offset += SUBBLOCK_H * K;
+    }
+    cb_push_back(out_cb, M * N);
+}
+#endif
+
 /**
  * out_cb = in0_cb @ in1_cb
  */

@@ -1,0 +1,200 @@
+{
+  "env": {
+    "started": "2026-09-14T03:12:17+0200",
+    "host": "pc",
+    "card": "0",
+    "ladder": [
+      64,
+      128,
+      256,
+      512,
+      1024
+    ],
+    "bracket": false,
+    "pairs": 3,
+    "commit": "c0802981a",
+    "ttnn": "?"
+  },
+  "sizes": {
+    "512": {
+      "n_msa": 35,
+      "hardware": "blackhole",
+      "grid": [
+        13,
+        10
+      ],
+      "card_type": "p150a",
+      "recycling_steps": 3,
+      "struct_dir": "/tmp/ttbase-boltz2-ytuikfp5/out",
+      "folds": [
+        {
+          "arm": "0",
+          "tag": "cold",
+          "s": 18.625,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "a41c3623f65654f0"
+          },
+          "loadavg": [
+            "2.86",
+            "1.70",
+            "1.14"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "cold",
+          "s": 19.536,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "7993123e5b2883ea"
+          },
+          "loadavg": [
+            "3.43",
+            "1.90",
+            "1.22"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm0",
+          "s": 17.192,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "a41c3623f65654f0"
+          },
+          "loadavg": [
+            "3.44",
+            "1.97",
+            "1.25"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm0",
+          "s": 16.424,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "7993123e5b2883ea"
+          },
+          "loadavg": [
+            "3.15",
+            "2.01",
+            "1.28"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm1",
+          "s": 16.254,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "7993123e5b2883ea"
+          },
+          "loadavg": [
+            "2.84",
+            "1.99",
+            "1.28"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm1",
+          "s": 17.049,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "a41c3623f65654f0"
+          },
+          "loadavg": [
+            "2.83",
+            "2.02",
+            "1.31"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm2",
+          "s": 17.132,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "a41c3623f65654f0"
+          },
+          "loadavg": [
+            "2.90",
+            "2.09",
+            "1.34"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm2",
+          "s": 16.484,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_512.cif": "7993123e5b2883ea"
+          },
+          "loadavg": [
+            "3.09",
+            "2.17",
+            "1.38"
+          ]
+        }
+      ],
+      "cold_s": {
+        "off": 18.625,
+        "on": 19.536
+      },
+      "warm_s": {
+        "0": [
+          17.192,
+          17.049,
+          17.132
+        ],
+        "1": [
+          16.424,
+          16.254,
+          16.484
+        ]
+      },
+      "warm_median_s": {
+        "0": 17.132,
+        "1": 16.424
+      },
+      "paired_delta_s": [
+        0.768,
+        0.795,
+        0.648
+      ],
+      "paired_delta_median_s": 0.768,
+      "speedup": 1.0431,
+      "rung_compile_s": {
+        "0": 1.493,
+        "1": 3.112
+      }
+    }
+  }
+}

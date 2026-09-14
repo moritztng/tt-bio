@@ -1,0 +1,50 @@
+====================================================================================================
+TOKEN DIT LAYER  --  difftx|1x512x768,1x512x768, 4800 calls/fold
+====================================================================================================
+  DRAM allocated in the call                81.0 MB
+  single-use intermediates               18 allocations, 48.8 MB of read+write
+    fusable as epilogue/prologue            38.8 MB    x 4800 calls =   186.2 GB/fold
+    blocked by tile reorder                 10.0 MB    x 4800 calls =    47.8 GB/fold
+    unclassified                             0.0 MB
+
+removable MB   GB/fold    n  class     producer                       -> consumer                      
+       16.78     80.53    1  PROLOGUE  softmax                        -> matmul                        
+       11.01     52.85    5  EPILOGUE  linear                         -> multiply_                     
+        4.72     22.65    3  EPILOGUE  linear                         -> multiply                      
+        4.19     20.13    2  REORDER   experimental.nlp_create_qkv_heads -> matmul                        
+        3.15     15.10    2  EPILOGUE  linear                         -> add_                          
+        2.10     10.07    1  REORDER   experimental.nlp_create_qkv_heads -> transpose                     
+        2.10     10.07    1  REORDER   transpose                      -> matmul                        
+        1.57      7.55    1  REORDER   permute                        -> multiply                      
+        1.57      7.55    1  PROLOGUE  multiply                       -> linear                        
+        1.57      7.55    1  EPILOGUE  multiply                       -> add                           
+
+====================================================================================================
+ATOM TRANSFORMER LAYER  --  difftx|1x224x32x128,1x224x32x128, 1200 calls/fold
+====================================================================================================
+  DRAM allocated in the call               136.9 MB
+  single-use intermediates               15 allocations, 73.4 MB of read+write
+    fusable as epilogue/prologue            36.7 MB    x 1200 calls =    44.0 GB/fold
+    blocked by tile reorder                 36.7 MB    x 1200 calls =    44.0 GB/fold
+    unclassified                             0.0 MB
+
+removable MB   GB/fold    n  class     producer                       -> consumer                      
+       18.35     22.02    3  EPILOGUE  linear                         -> multiply_                     
+       14.68     17.62    1  REORDER   matmul                         -> permute                       
+       11.01     13.21    3  EPILOGUE  linear                         -> multiply                      
+        7.34      8.81    2  REORDER   to_memory_config               -> multiply_                     
+        7.34      8.81    2  REORDER   to_memory_config               -> add_                          
+        3.67      4.40    1  REORDER   permute                        -> matmul                        
+        3.67      4.40    1  REORDER   linear                         -> pad                           
+        3.67      4.40    1  PROLOGUE  multiply                       -> linear                        
+        3.67      4.40    1  EPILOGUE  multiply                       -> add                           
+
+====================================================================================================
+DIFFUSION PATH, BOTH LAYER SHAPES, 200 STEPS
+  single-use DRAM round trip               322.1 GB/fold
+    fusable                                230.3 GB/fold
+    blocked by tile reorder                 91.9 GB/fold
+  For scale: the whole fold moved 3.405 TB at the 23.841 s baseline (state/b2x-baseline-attrib.md:212),
+  of which the diffusion path was 1.320 TB. Both are stale at the 17.34 s tip.
+
+wrote /home/moritz/.coworker/wt/roof-orchestrator/perf/roof_orchestrator/fusion_pairs_diff.json

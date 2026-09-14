@@ -12,6 +12,7 @@ UNCENSUSED and IMMUNE are all failures now (Moritz, 2026-08-22: "i want to have 
 implemented for every model"), with one allow-list entry for the row a live task owns.
 """
 import importlib
+import os
 import sys
 
 from tt_bio import token_axis as TA
@@ -87,13 +88,37 @@ def check_declared_multiples_match_the_live_constants():
             bad.append(f"{mod_name}.{attr} is {live}, {model} buckets at {want}")
         elif live % TA.TILE:
             bad.append(f"{mod_name}.{attr} = {live} is not a multiple of {TA.TILE}")
-    mod_name, attr, want = TA.MSA_AXIS_MULTIPLE
-    try:
-        live = getattr(importlib.import_module(mod_name), attr)
-        if live != want:
-            bad.append(f"{mod_name}.{attr} is {live}, expected {want}")
-    except Exception as exc:
-        bad.append(f"{mod_name}.{attr} unreadable ({type(exc).__name__})")
+    for mod_name, attr, want in (TA.MSA_AXIS_MULTIPLE, TA.MSA_AXIS_LADDER):
+        try:
+            live = getattr(importlib.import_module(mod_name), attr)
+            if live != want:
+                bad.append(f"{mod_name}.{attr} is {live}, expected {want}")
+        except Exception as exc:
+            bad.append(f"{mod_name}.{attr} unreadable ({type(exc).__name__})")
+    # The MSA axis is a LADDER, so the pin is on every rung, not just on the top one. A rung that
+    # is not a multiple of the tile, or a ladder that is not increasing, breaks the pad arithmetic
+    # silently -- msa_pad_amount returns the FIRST rung that holds N.
+    rungs = TA.MSA_PAD_LADDER
+    if list(rungs) != sorted(set(rungs)):
+        bad.append(f"MSA_PAD_LADDER {rungs} is not strictly increasing")
+    for rung in rungs:
+        if not isinstance(rung, int) or rung <= 0 or rung % TA.TILE:
+            bad.append(f"MSA ladder rung {rung!r} is not a positive multiple of {TA.TILE}")
+    if rungs[-1] != TA.MSA_AXIS_MULTIPLE[2]:
+        bad.append(f"MSA_PAD_MULTIPLE {TA.MSA_AXIS_MULTIPLE[2]} is not the top rung {rungs[-1]}")
+    # The two axes must not drift into each other: the MSA ladder answers to TT_BIO_MSA_LADDER and
+    # the token bucket to TT_BIO_TOKEN_BUCKET, and neither switch may move the other.
+    # The ladder is OFF by default (it costs 1.322 A at 512 aa), so the arithmetic is checked on
+    # the ladder explicitly AND the default is checked to be the single top rung. Both, or the
+    # test cannot tell "the ladder is off" from "the ladder is broken".
+    if TA.msa_pad_amount(35, rungs) != rungs[0] - 35:
+        bad.append(f"msa_pad_amount(35, ladder) = {TA.msa_pad_amount(35, rungs)}, "
+                   f"not the {rungs[0]} rung")
+    if TA.msa_pad_amount(rungs[-1] + 1, rungs) != TA.pad_amount(rungs[-1] + 1, rungs[-1]):
+        bad.append("above the top rung the MSA pad is not a multiple of it")
+    if "TT_BIO_MSA_LADDER" not in os.environ and TA.msa_ladder() != (rungs[-1],):
+        bad.append(f"the shipped default is {TA.msa_ladder()}, not the single top rung "
+                   f"({rungs[-1]},) -- turning the ladder on by default is a 1.322 A change")
     return _fail(not bad, "the live pad constants derive from the fleet value and divide "
                  + str(TA.TILE) + ("" if not bad else "; " + "; ".join(bad)))
 

@@ -1,0 +1,60 @@
+{
+ "compute_roof_TFLOPs": 104.93,
+ "stream_roof_GBps": 424.7,
+ "balance_flop_per_byte": 247.1,
+ "units": {
+  "PairformerLayer|1x512x384,1x512x512x128": {
+   "calls": 264,
+   "TFLOP_per_call": 0.5082,
+   "MB_per_call": 6754.3,
+   "AI": 75.24,
+   "n_ops": 410,
+   "s_fold_floor_aggregate": 4.1985,
+   "s_fold_floor_per_op": 5.2131,
+   "n_compute_bound_ops": 33,
+   "compute_bound_op_names": [
+    "ttnn.linear"
+   ],
+   "compute_bound_share_of_call_FLOP": 0.0688,
+   "s_fold_added_by_compute_bound_ops": 0.001
+  },
+  "MSALayer|1x512x512x128,1x1024x512x64": {
+   "calls": 16,
+   "TFLOP_per_call": 1.3683,
+   "MB_per_call": 22099.1,
+   "AI": 61.92,
+   "n_ops": 1064,
+   "s_fold_floor_aggregate": 0.8325,
+   "s_fold_floor_per_op": 0.9609,
+   "n_compute_bound_ops": 105,
+   "compute_bound_op_names": [
+    "ttnn.linear",
+    "ttnn.matmul"
+   ],
+   "compute_bound_share_of_call_FLOP": 0.5399,
+   "s_fold_added_by_compute_bound_ops": 0.0618
+  },
+  "DiffusionModule|": {
+   "calls": 200,
+   "TFLOP_per_call": 0.3172,
+   "MB_per_call": 4026.1,
+   "AI": 78.78,
+   "n_ops": 1702,
+   "s_fold_floor_aggregate": 1.896,
+   "s_fold_floor_per_op": 1.9251,
+   "n_compute_bound_ops": 122,
+   "compute_bound_op_names": [
+    "ttnn.linear"
+   ],
+   "compute_bound_share_of_call_FLOP": 0.556,
+   "s_fold_added_by_compute_bound_ops": 0.0199
+  }
+ },
+ "fold_floor_aggregate_s": 6.927,
+ "fold_floor_per_op_s": 8.099,
+ "published_floor_s": 6.934,
+ "ratio_per_op_over_published": 1.168,
+ "cell_s": 17.34,
+ "cell_above_published_floor_s": 10.406,
+ "cell_above_per_op_floor_s": 9.241
+}

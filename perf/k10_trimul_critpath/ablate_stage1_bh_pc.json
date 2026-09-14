@@ -1,0 +1,207 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "arch": "Arch.BLACKHOLE",
+  "shape": {
+    "N": 512,
+    "Cw": 512,
+    "slice_c": 128
+  },
+  "reps": 25,
+  "rounds": 4,
+  "num_groups": 1024,
+  "aa_floor": 1.0007801563172711,
+  "results": {
+    "base": {
+      "us": 1206.8604002706707,
+      "all": [
+        1204.374199733138,
+        1205.7319201994687,
+        1209.9985999520868,
+        1207.9888803418726
+      ],
+      "spread": 1.00466997733777,
+      "delta_us": 0.0,
+      "ratio": 1.0,
+      "note": "shipped kernels, GATE_GRANULARITY=2",
+      "wrong_data": false
+    },
+    "nogather": {
+      "us": 1140.031439717859,
+      "all": [
+        1137.670479947701,
+        1138.9596399385482,
+        1141.1032394971699,
+        1148.9593994338065
+      ],
+      "spread": 1.009922837662646,
+      "delta_us": -66.82896055281162,
+      "ratio": 1.0586202785506957,
+      "note": "writer L1->L1 gather transactions deleted (WRONG DATA)",
+      "wrong_data": true
+    },
+    "nowrite": {
+      "us": 1001.7940000398085,
+      "all": [
+        1001.5631606802343,
+        1002.0368406549096,
+        1002.0248393993825,
+        1000.2655594144017
+      ],
+      "spread": 1.0017708109849797,
+      "delta_us": -205.0664002308622,
+      "ratio": 1.2046991699118914,
+      "note": "writer DRAM tile write deleted (WRONG DATA)",
+      "wrong_data": true
+    },
+    "nosigmoid": {
+      "us": 1116.5983200771734,
+      "all": [
+        1113.2827994879335,
+        1117.915759095922,
+        1119.2053998820484,
+        1115.2808810584247
+      ],
+      "spread": 1.00531994242329,
+      "delta_us": -90.26208019349724,
+      "ratio": 1.0808366612868079,
+      "note": "SFPU sigmoid deleted, sig_cb round trip kept (WRONG DATA)",
+      "wrong_data": true
+    },
+    "notranspose": {
+      "us": 1211.5703203016892,
+      "all": [
+        1215.3345195110887,
+        1211.716600228101,
+        1209.6932402346283,
+        1211.4240403752774
+      ],
+      "spread": 1.0046633965445373,
+      "delta_us": 4.709920031018555,
+      "ratio": 0.9961125491834054,
+      "note": "transpose_wh -> copy_tile (WRONG DATA)",
+      "wrong_data": true
+    },
+    "fusedsig": {
+      "us": 1197.5705798249692,
+      "all": [
+        1201.9553210120648,
+        1198.9821994211525,
+        1190.1205603498966,
+        1196.1589602287859
+      ],
+      "spread": 1.009944169571097,
+      "delta_us": -9.28982044570148,
+      "ratio": 1.0077572216637614,
+      "note": "sigmoid folded into the multiply's DST, sig_cb round trip deleted",
+      "wrong_data": false
+    },
+    "readbatch8": {
+      "us": 1350.1586200436577,
+      "all": [
+        1349.6316398959607,
+        1350.6856001913548,
+        1347.192720277235,
+        1350.770159624517
+      ],
+      "spread": 1.0026554770475198,
+      "delta_us": 143.29821977298707,
+      "ratio": 0.8938656409360601,
+      "note": "reader: 8 tile pairs behind one barrier, p/g CBs 16 tiles deep",
+      "wrong_data": false
+    },
+    "deepcb": {
+      "us": 1176.504499744624,
+      "all": [
+        1182.000320404768,
+        1174.2122401483357,
+        1178.796759340912,
+        1173.8042789511383
+      ],
+      "spread": 1.006982460023875,
+      "delta_us": -30.355900526046753,
+      "ratio": 1.0258017717166708,
+      "note": "p/g CBs 16 tiles deep, one barrier per pair as shipped",
+      "wrong_data": false
+    },
+    "noread": {
+      "us": 587.8040206152946,
+      "all": [
+        590.643280884251,
+        579.650120344013,
+        584.9647603463382,
+        591.5685999207199
+      ],
+      "spread": 1.02056150625766,
+      "delta_us": -619.0563796553761,
+      "ratio": 2.0531679912760166,
+      "note": "reader DRAM page reads deleted (WRONG DATA)",
+      "wrong_data": true
+    },
+    "nomul": {
+      "us": 1109.5929803559557,
+      "all": [
+        1105.5801203474402,
+        1109.0782401151955,
+        1110.1077205967158,
+        1110.7773601543158
+      ],
+      "spread": 1.0047009164792529,
+      "delta_us": -97.26741991471499,
+      "ratio": 1.0876604499458096,
+      "note": "SFPU multiply deleted, both copies and all CB traffic kept (WRONG DATA)",
+      "wrong_data": true
+    },
+    "passthru": {
+      "us": 1106.8248201627284,
+      "all": [
+        1106.648079585284,
+        1107.6619592495263,
+        1107.0015607401729,
+        1106.535519938916
+      ],
+      "spread": 1.0010179874846425,
+      "delta_us": -100.03558010794222,
+      "ratio": 1.090380680199451,
+      "note": "compute collapsed to one transpose stage, 7 tile moves -> 2 (WRONG DATA)",
+      "wrong_data": true
+    },
+    "base_aa": {
+      "us": 1207.8019400360063,
+      "all": [
+        1205.3067202214152,
+        1207.537279697135,
+        1213.1448392756283,
+        1208.0666003748775
+      ],
+      "spread": 1.0065030078424961,
+      "delta_us": 0.9415397653356194,
+      "ratio": 0.9992204518521409,
+      "note": "shipped kernels, GATE_GRANULARITY=2",
+      "wrong_data": false
+    }
+  },
+  "parity": {
+    "base_vs_fp32_host": {
+      "max_abs_diff": 0.017985820770263672
+    },
+    "fusedsig": {
+      "max_abs_diff_vs_base": 0.0,
+      "bit_exact_vs_base": true,
+      "max_abs_diff_vs_fp32_host": 0.017985820770263672
+    },
+    "readbatch8": {
+      "max_abs_diff_vs_base": 0.0,
+      "bit_exact_vs_base": true,
+      "max_abs_diff_vs_fp32_host": 0.017985820770263672
+    },
+    "deepcb": {
+      "max_abs_diff_vs_base": 0.0,
+      "bit_exact_vs_base": true,
+      "max_abs_diff_vs_fp32_host": 0.017985820770263672
+    }
+  }
+}

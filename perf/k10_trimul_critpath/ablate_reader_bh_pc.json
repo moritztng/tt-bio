@@ -1,0 +1,199 @@
+{
+  "grid": [
+    13,
+    10
+  ],
+  "cores": 130,
+  "arch": "Arch.BLACKHOLE",
+  "shape": {
+    "N": 512,
+    "Cw": 512,
+    "slice_c": 128
+  },
+  "reps": 25,
+  "rounds": 4,
+  "num_groups": 1024,
+  "aa_floor": 1.0012227556082525,
+  "results": {
+    "base": {
+      "us": 1206.9126404821873,
+      "all": [
+        1207.9800001811236,
+        1204.399400157854,
+        1205.845280783251,
+        1212.3957998119295
+      ],
+      "spread": 1.006639325503672,
+      "delta_us": 0.0,
+      "ratio": 1.0,
+      "note": "shipped kernels, GATE_GRANULARITY=2",
+      "wrong_data": false
+    },
+    "noread": {
+      "us": 592.0440598856658,
+      "all": [
+        593.0969992186874,
+        590.9911205526441,
+        594.2042404785752,
+        583.6574791464955
+      ],
+      "spread": 1.0180701211051089,
+      "delta_us": -614.8685805965215,
+      "ratio": 2.0385520643772077,
+      "note": "reader DRAM page reads deleted (WRONG DATA)",
+      "wrong_data": true
+    },
+    "deepcb": {
+      "us": 1180.0251400563866,
+      "all": [
+        1183.0438009928912,
+        1177.9210402164608,
+        1182.1292398963124,
+        1174.5207605417818
+      ],
+      "spread": 1.0072566111536232,
+      "delta_us": -26.88750042580068,
+      "ratio": 1.0227855318612245,
+      "note": "p/g CBs 16 tiles deep, one barrier per pair as shipped",
+      "wrong_data": false
+    },
+    "deepcb32": {
+      "us": 1164.1030391911045,
+      "all": [
+        1165.5709194019437,
+        1162.3509600758553,
+        1162.6351589802653,
+        1170.3815194778144
+      ],
+      "spread": 1.0069088938520214,
+      "delta_us": -42.8096012910828,
+      "ratio": 1.0367747526205495,
+      "note": "p/g CBs 32 tiles deep, one barrier per pair as shipped",
+      "wrong_data": false
+    },
+    "deepcb64": {
+      "us": 1191.7102395091206,
+      "all": [
+        1191.0842801444232,
+        1191.8593593873084,
+        1192.605480318889,
+        1191.5611196309328
+      ],
+      "spread": 1.0012771557813536,
+      "delta_us": -15.202400973066688,
+      "ratio": 1.0127567931104868,
+      "note": "p/g CBs 64 tiles deep, one barrier per pair as shipped",
+      "wrong_data": false
+    },
+    "batch2d16": {
+      "us": 1273.3711197506636,
+      "all": [
+        1269.4528803694993,
+        1269.7381596080959,
+        1277.0040798932314,
+        1277.850039768964
+      ],
+      "spread": 1.0066147862038177,
+      "delta_us": 66.45847926847637,
+      "ratio": 0.9478090257917193,
+      "note": "reader: 2 tile pairs behind one barrier, p/g CBs 16 tiles deep (8 batches in flight)",
+      "wrong_data": false
+    },
+    "batch4d32": {
+      "us": 1323.2133799465373,
+      "all": [
+        1321.2633202783763,
+        1318.1459589395672,
+        1325.1634396146983,
+        1328.7079997826368
+      ],
+      "spread": 1.0080128006852644,
+      "delta_us": 116.30073946435004,
+      "ratio": 0.9121073432094157,
+      "note": "reader: 4 tile pairs behind one barrier, p/g CBs 32 tiles deep (8 batches in flight)",
+      "wrong_data": false
+    },
+    "batch8d64": {
+      "us": 1354.4900197302923,
+      "all": [
+        1351.428119232878,
+        1352.148320293054,
+        1356.8317191675305,
+        1363.2103602867573
+      ],
+      "spread": 1.0087183631050738,
+      "delta_us": 147.577379248105,
+      "ratio": 0.8910457979767981,
+      "note": "reader: 8 tile pairs behind one barrier, p/g CBs 64 tiles deep (8 batches in flight)",
+      "wrong_data": false
+    },
+    "readbatch8": {
+      "us": 1347.997720586136,
+      "all": [
+        1345.1428397092968,
+        1345.6461601890624,
+        1351.279040100053,
+        1350.3492809832096
+      ],
+      "spread": 1.0045617463139322,
+      "delta_us": 141.0850801039487,
+      "ratio": 0.8953373006872726,
+      "note": "reader: 8 tile pairs behind one barrier, p/g CBs 16 tiles deep (2 batches in flight)",
+      "wrong_data": false
+    },
+    "base_aa": {
+      "us": 1208.3883996820077,
+      "all": [
+        1201.3212405145168,
+        1206.3521996606141,
+        1210.4245997034013,
+        1211.597160436213
+      ],
+      "spread": 1.008553848525391,
+      "delta_us": 1.475759199820459,
+      "ratio": 0.9987787376970775,
+      "note": "shipped kernels, GATE_GRANULARITY=2",
+      "wrong_data": false
+    }
+  },
+  "parity": {
+    "base_vs_fp32_host": {
+      "max_abs_diff": 0.017985820770263672
+    },
+    "deepcb": {
+      "max_abs_diff_vs_base": 0.0,
+      "bit_exact_vs_base": true,
+      "max_abs_diff_vs_fp32_host": 0.017985820770263672
+    },
+    "deepcb32": {
+      "max_abs_diff_vs_base": 0.0,
+      "bit_exact_vs_base": true,
+      "max_abs_diff_vs_fp32_host": 0.017985820770263672
+    },
+    "deepcb64": {
+      "max_abs_diff_vs_base": 0.0,
+      "bit_exact_vs_base": true,
+      "max_abs_diff_vs_fp32_host": 0.017985820770263672
+    },
+    "batch2d16": {
+      "max_abs_diff_vs_base": 0.0,
+      "bit_exact_vs_base": true,
+      "max_abs_diff_vs_fp32_host": 0.017985820770263672
+    },
+    "batch4d32": {
+      "max_abs_diff_vs_base": 0.0,
+      "bit_exact_vs_base": true,
+      "max_abs_diff_vs_fp32_host": 0.017985820770263672
+    },
+    "batch8d64": {
+      "max_abs_diff_vs_base": 0.0,
+      "bit_exact_vs_base": true,
+      "max_abs_diff_vs_fp32_host": 0.017985820770263672
+    },
+    "readbatch8": {
+      "max_abs_diff_vs_base": 0.0,
+      "bit_exact_vs_base": true,
+      "max_abs_diff_vs_fp32_host": 0.017985820770263672
+    }
+  }
+}
