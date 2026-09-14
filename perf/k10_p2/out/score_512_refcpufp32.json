@@ -93,6 +93,19 @@
     "ttshared-s0": 0.811365,
     "ttshared-s1": 0.835675
    },
+   "plddt_cif": {
+    "gpuref-s0": 88.1107,
+    "gpuref-s1": 88.077,
+    "gpuref-s2": 85.8483,
+    "gpuref-s3": 87.6713,
+    "gpurefshared-s0": 86.3003,
+    "ttcpubf16-s0": 77.7739,
+    "ttcpufp32-s0": 86.3725,
+    "ttplain-s0": 84.5633,
+    "ttplain-s1": 86.2448,
+    "ttshared-s0": 85.9296,
+    "ttshared-s1": 86.8243
+   },
    "sha256": {
     "gpuref-s0": "18d70c83f203ec7b",
     "gpuref-s1": "f4878c14dae90f50",
