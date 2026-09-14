@@ -297,29 +297,25 @@ def main():
         patch_boltz2_cfg()
 
     # ---- decision counters: read the branch taken, never infer it from the shape -------------
+    # Every wrapper below takes `*a, **kw` and forwards them. These are censuses, not shims:
+    # each one pins a `tenstorrent.py` helper whose signature main keeps growing, and a pinned
+    # wrapper does not produce a wrong number, it produces a TypeError in the middle of the cold
+    # fold. Three of the five here had drifted before this run got a single arm out.
     ORIG_TMC, ORIG_LN, ORIG_PPC = T._transpose_memory_config, T._l1_layer_norm, T._pair_proj_config
 
-    def tmc(t):
-        mc = ORIG_TMC(t)
+    def tmc(t, *a, **kw):
+        mc = ORIG_TMC(t, *a, **kw)
         DEC[f"transpose|{'x'.join(str(int(d)) for d in t.shape)}"][
             "L1" if mc.buffer_type == ttnn.BufferType.L1 else "DRAM"] += 1
         return mc
 
     def ln(x, headroom, *a, **kw):
-        # `*a` for the same reason `ppc` below takes `**kw`: `_l1_layer_norm` gained
-        # `reserve_per_core` as a third positional after this harness was written, and a census
-        # wrapper that pins the signature it wraps kills the fold it was meant to observe.
         out, in_l1 = ORIG_LN(x, headroom, *a, **kw)
         DEC[f"l1_layer_norm|h={headroom}|{'x'.join(str(int(d)) for d in x.shape)}"][
             "L1" if in_l1 else "DRAM"] += 1
         return out, in_l1
 
     def ppc(x, w, bw_cap=-1, out_l1=False, **kw):
-        # `**kw`, because this wrapper is a census and must not pin the signature it wraps.
-        # `_pair_proj_config` gained `block_w` after this harness was written and every model this
-        # script folds died on `ppc() got an unexpected keyword argument 'block_w'` before the cold
-        # fold finished -- a census wrapper that rejects a new argument turns a neutrality check
-        # into a TypeError.
         cfg = ORIG_PPC(x, w, bw_cap=bw_cap, out_l1=out_l1, **kw)
         if out_l1:
             DEC[f"pair_proj_out_l1|{'x'.join(str(int(d)) for d in x.shape)}"
@@ -356,8 +352,8 @@ def main():
     # an arm that ships the divisor search and still returns 4 at 640 aa is an inert lever.
     ORIG_GROUP = T._trimul_inproj_group
 
-    def group_census(seq_len, chunk, batch, n_pairs):
-        g = ORIG_GROUP(seq_len, chunk, batch, n_pairs)
+    def group_census(seq_len, chunk, batch, n_pairs, *a, **kw):
+        g = ORIG_GROUP(seq_len, chunk, batch, n_pairs, *a, **kw)
         GROUPS[f"S={seq_len},n_pairs={n_pairs}->g={g}"] += 1
         return g
 
@@ -368,12 +364,12 @@ def main():
 
     ORIG_TAS = T._tri_att_sdpa
 
-    def tas(qq, kk, vv, bias, scale):
+    def tas(qq, kk, vv, bias, scale, *a, **kw):
         ql, kl = int(qq.shape[2]), int(kk.shape[2])
         fits = [c for c in T._tri_att_q_chunks(ql, kl)
                 if (ql, kl, c) not in T._SDPA_Q_CHUNK_OVER_L1]
         DEC[f"tri_att_sdpa|q{ql}k{kl}"][f"q_chunk={fits[0] if fits else None}"] += 1
-        return ORIG_TAS(qq, kk, vv, bias, scale)
+        return ORIG_TAS(qq, kk, vv, bias, scale, *a, **kw)
 
     T._tri_att_sdpa = tas
 
