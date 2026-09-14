@@ -98,15 +98,22 @@ def plddt_column_check(p: Path, reported, tol: float = 5e-4):
     report path that leaked padding, re-ordered a tensor or picked up a different scalar
     (confidence_score is 0.8*plDDT + 0.2*pTM, so it misses by up to 0.05) matches NEITHER
     reading, which is the regression this catches. `tol` is one count of the writer"s own
-    rounding, 3 decimals on the 0..100 scale.
+    rounding, 3 decimals on the 0..100 scale. `reported` may be on either scale: upstream
+    Protenix-v2 and OpenBind report plDDT 0..100 in their own results.json where tt-bio and
+    boltz report 0..1, so anything above 1.5 is read as a percentage. A column that is flat zero
+    carries no plDDT at all (upstream OpenDDE writes none) and is reported as such rather than as
+    a mismatch.
     """
     col = bfactor_plddt(p)
     if col is None or reported is None:
         return {"ok": None, "reason": "no B-factor column" if col is None else "no plddt reported"}
-    gaps = {k: round(reported - col[k], 6) for k in ("mean_all", "mean_ca") if col[k] is not None}
+    if col["mean_all"] == 0.0:
+        return {"ok": None, "reason": "B-factor column is flat zero, no plDDT written", **col}
+    r = round(reported / 100.0, 6) if reported > 1.5 else reported
+    gaps = {k: round(r - col[k], 6) for k in ("mean_all", "mean_ca") if col[k] is not None}
     reading = min(gaps, key=lambda k: abs(gaps[k]))
     return {"ok": abs(gaps[reading]) <= tol, "reading": reading, "gap": gaps[reading],
-            "reported": reported, **col}
+            "reported": r, **col}
 
 
 def kabsch_rmsd(P, Q):
