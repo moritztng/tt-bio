@@ -1,0 +1,78 @@
+{
+  "host": "pc",
+  "sizes": {
+    "298": {
+      "hardware": "blackhole",
+      "grid": [
+        13,
+        10
+      ],
+      "card_type": "p150a",
+      "recycling_steps": 3,
+      "struct_dir": "/tmp/ttbase-boltz2-zpt_zige/out",
+      "folds": [
+        {
+          "arm": "0",
+          "tag": "cold",
+          "s": 14.218,
+          "plddt": null,
+          "cif_sha256": {
+            "cdk2x2_298.cif": "3f996c4a17d31565"
+          },
+          "fuse_rejects": {},
+          "stock_fused_sdpa_calls": 560
+        },
+        {
+          "arm": "1",
+          "tag": "cold",
+          "s": 10.036,
+          "plddt": null,
+          "cif_sha256": {
+            "cdk2x2_298.cif": "3f996c4a17d31565"
+          },
+          "fuse_rejects": {},
+          "stock_fused_sdpa_calls": 560
+        },
+        {
+          "arm": "0",
+          "tag": "warm0",
+          "s": 10.011,
+          "plddt": null,
+          "cif_sha256": {
+            "cdk2x2_298.cif": "3f996c4a17d31565"
+          },
+          "fuse_rejects": {},
+          "stock_fused_sdpa_calls": 560
+        },
+        {
+          "arm": "1",
+          "tag": "warm0",
+          "s": 9.865,
+          "plddt": null,
+          "cif_sha256": {
+            "cdk2x2_298.cif": "3f996c4a17d31565"
+          },
+          "fuse_rejects": {},
+          "stock_fused_sdpa_calls": 560
+        }
+      ],
+      "cold_s": {
+        "off": 14.218,
+        "on": 10.036
+      },
+      "warm_s": {
+        "0": [
+          10.011
+        ],
+        "1": [
+          9.865
+        ]
+      },
+      "warm_median_s": {
+        "0": 10.011,
+        "1": 9.865
+      },
+      "speedup": 1.0148
+    }
+  }
+}

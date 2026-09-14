@@ -7224,13 +7224,23 @@ class TriangleAttention(Module):
             qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
             qkv, g = ((pre_qkv, pre_g) if pre_qkv is not None
                       else self._fused_qkvg(x, qkv_cfg is None))
+            # The mask add is hoisted above the projection so the fold below sees the bias the
+            # attention actually uses; without the fold this is the same tensor, one line earlier.
+            if attn_mask is not None:
+                triangle_bias = ttnn.add(triangle_bias, attn_mask)
+            # ROOF Phase A: the qkv projection folded into the SDPA. When it takes the call the
+            # projection program does not run at all. The gate still needs its own pass over x.
+            if qkv is not None:
+                _triatt_sdpa._fuse_reject("qkv_already_fused_with_gate", [int(d) for d in x.shape])
+            fold_o = None if qkv is not None else _tri_att_fused_qkv_sdpa(self, x, triangle_bias)
             # When the head-major projection takes the call, `qkv` is already the (q, k, v)
             # triple and no head split follows. It declines an L1 projection outright.
-            qkv = qkv if qkv is not None else None if qkv_cfg is not None else _triatt_qkv.qkv_heads(
+            qkv = qkv if qkv is not None else None if qkv_cfg is not None or fold_o is not None \
+                else _triatt_qkv.qkv_heads(
                 x, self.qkv_weight, self.compute_kernel_config,
                 self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkv_weight),
             )
-            if qkv is None:
+            if qkv is None and fold_o is None:
                 if qkv_cfg is not None:
                     qkv = ttnn.linear(
                         x,
@@ -7248,7 +7258,8 @@ class TriangleAttention(Module):
                         dtype=_dtype(),
                         config=_qkv_mm_config(x, self.qkv_weight),
                     )
-            if g is None and isinstance(qkv, tuple) and not self.biased:
+            if g is None and (isinstance(qkv, tuple) or fold_o is not None) \
+                    and not self.biased:
                 g = _triatt_qkv.gate_proj(
                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
                     self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.g_weight),
@@ -7269,10 +7280,18 @@ class TriangleAttention(Module):
                 g = ttnn.add_(g, self.g_bias)
                 _pair_bias_stat("g_add")
             ttnn.deallocate(x)
-            if attn_mask is not None:
-                triangle_bias = ttnn.add(triangle_bias, attn_mask)
-            o = attend(qkv, triangle_bias, len(g.shape) == 4)
-            if not isinstance(qkv, tuple):        # the triple is freed inside attend
+            if fold_o is not None:
+                o = fold_o
+                if len(g.shape) != 4:
+                    # The gate projection declined its head-major form, so the fold's head-major
+                    # output has to be concat'ed the way `_attend_heads` does for keep_heads=False.
+                    o_heads = ttnn.experimental.nlp_concat_heads(
+                        o, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                    ttnn.deallocate(o)
+                    o = ttnn.squeeze(o_heads, 1)
+            else:
+                o = attend(qkv, triangle_bias, len(g.shape) == 4)
+            if qkv is not None and not isinstance(qkv, tuple):  # the triple is freed inside attend
                 ttnn.deallocate(qkv)
             ttnn.deallocate(triangle_bias)
             x = gate_and_project(o, g, l1_dest=_RESIDUAL_L1 and not self.ending)
@@ -7281,6 +7300,39 @@ class TriangleAttention(Module):
                 x, _transpose_memory_config(x, self.transpose_l1_reserve))
         x = ttnn.reshape(x, (1, *x.shape))
         return x
+
+
+def _tri_att_fused_qkv_sdpa(att, x, bias):
+    """Triangle attention straight off the normed pair tensor, or None to leave the call alone.
+
+    ROOF Phase A. The qkv projection does not run: the fused SDPA reads x and the head's three
+    weight slices and contracts them inside its own compute kernel. Returns head-major
+    `[B, n_heads, S, head_dim]`, the same layout `_attend_heads(..., keep_heads=True)` returns, so
+    the caller's gate and output projection are untouched.
+
+    MEASURED on pc, Blackhole p150a, 130 cores, ttnn 0.68.0, interleaved, at the boltz-2 512 aa
+    triangle attention: 1.4982x / 1.5502x on the pair over two sessions against A/A floors of
+    1.05 % and 2.61 %, and 1.5273x at 320 padded tokens. See `state/roof-qkv-sdpa-build.md`.
+    """
+    if att.biased or att.subtile or _FP32_SOFTMAX or att.fp32_softmax:
+        return _triatt_sdpa._fuse_reject("site", [int(d) for d in x.shape])
+    S = int(x.padded_shape[-2])
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    kc = next((k for q, k in _triatt_sdpa.fused_pairs(
+        S, att.n_heads, att.head_dim, cores, bias.dtype) if q == S), None)
+    if kc is None:
+        return _triatt_sdpa._fuse_reject("no_full_S_chunk", [int(d) for d in x.shape])
+    # The kernel adds the bias BEFORE applying scale, so it wants it pre-baked by sqrt(head_dim);
+    # same correction `_attend_heads` makes for the unfused route.
+    b = bias
+    if att._bias_scale != att.scale:
+        b = ttnn.multiply(bias, att.scale / att._bias_scale)
+    o = _triatt_sdpa.sdpa_fused_qkv(
+        x, att.qkv_weight, b, att.scale ** -1, att.n_heads, att.head_dim, S, kc,
+        _TRIATT_FUSED_HIFI_CKC if att.sdpa_hifi else None)
+    if b is not bias:
+        ttnn.deallocate(b)
+    return o
 
 
 class AttentionPairBias(Module):

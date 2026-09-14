@@ -90,6 +90,12 @@ void kernel_main() {
     constexpr auto page_table_args = TensorAccessorArgs<mask_args.next_compile_time_args_offset()>();
     constexpr auto attention_sink_args = TensorAccessorArgs<page_table_args.next_compile_time_args_offset()>();
     constexpr auto chunk_start_idx_args = TensorAccessorArgs<attention_sink_args.next_compile_time_args_offset()>();
+#ifdef FUSE_QKV
+    // ROOF Phase A: the qkv projection folded into this reader. x is the pre-projection pair
+    // tensor [B, S, C] and w its [C, 3*NQH*DH] weight; the compute kernel does the contraction.
+    constexpr auto x_args = TensorAccessorArgs<chunk_start_idx_args.next_compile_time_args_offset()>();
+    constexpr auto w_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
+#endif
 
     uint32_t argidx = 0;
     const uint32_t q_addr = get_arg_val<uint32_t>(argidx++);
@@ -194,6 +200,13 @@ void kernel_main() {
         }
     }
 
+#ifdef FUSE_QKV
+    // Appended by `sdpa_generic.build` after the 14 chain args. The fold is gated on !is_causal,
+    // so the block above always ran and always consumed all 14, and argidx lands exactly here.
+    const uint32_t x_addr = get_arg_val<uint32_t>(argidx++);
+    const uint32_t w_addr = get_arg_val<uint32_t>(argidx++);
+#endif
+
     // When chunked: only process K/V up to (chunk_start_idx + Q_chunk_length) tokens.
     // valid_Skt_bound = min(offset_tiles + valid_Sqt, valid_Skt); cap at valid_Skt for callers that pass
     // different valid_Sqt (e.g. ring_distributed uses full Q length in tiles).
@@ -211,6 +224,10 @@ void kernel_main() {
     constexpr uint32_t cb_id_page_table = tt::CBIndex::c_6;
     constexpr uint32_t cb_id_chunk_start_idx_compute = tt::CBIndex::c_8;
     constexpr uint32_t cb_id_chunk_start_idx_writer = tt::CBIndex::c_9;
+#ifdef FUSE_QKV
+    constexpr uint32_t cb_x_in = tt::CBIndex::c_10;
+    constexpr uint32_t cb_w_in = tt::CBIndex::c_11;
+#endif
 
     constexpr uint32_t q_tile_bytes = get_tile_size(cb_q_in);
     constexpr uint32_t k_tile_bytes = get_tile_size(cb_k_in);
@@ -322,6 +339,51 @@ void kernel_main() {
     }
 #endif
 
+#ifdef FUSE_QKV
+        // ROOF Phase A. The three projected operands are gone: this reader moves the tensor they
+        // are projected FROM, once per (batch, head) this core owns, and the compute kernel
+        // contracts it. Paging, the attention sink, the KV forwarding chain and the q subblock
+        // push are all off by construction at this gate, so none of the stock path below applies.
+        // FUSE_QKV carries Ct, the contraction in tiles.
+        constexpr uint32_t x_tile_bytes = get_tile_size(cb_x_in);
+        constexpr uint32_t w_tile_bytes = get_tile_size(cb_w_in);
+        constexpr uint32_t w_cols = 3 * NQH * DHt;
+        const auto x_reader = TensorAccessor(x_args, x_addr, x_tile_bytes);
+        const auto w_reader = TensorAccessor(w_args, w_addr, w_tile_bytes);
+
+        // The head's three weight slices, read once and never refilled: q at tile column
+        // nq*DHt of the [Ct, 3*NQH*DHt] grid, k at (NQH+nq)*DHt, v at (2*NQH+nq)*DHt. One head
+        // per core is a precondition of this gate, so local_nh_start is that head.
+        cb_reserve_back(cb_w_in, 3 * FUSE_QKV * DHt);
+        {
+            uint32_t wp = get_write_ptr(cb_w_in);
+            for (uint32_t which = 0; which < 3; ++which) {
+                const uint32_t col0 = (which * NQH + local_nh_start) * DHt;
+                for (uint32_t r = 0; r < FUSE_QKV; ++r) {
+                    for (uint32_t c = 0; c < DHt; ++c) {
+                        noc_async_read_tile(r * w_cols + col0 + c, w_reader, wp);
+                        wp += w_tile_bytes;
+                    }
+                }
+            }
+            noc_async_read_barrier();
+        }
+        cb_push_back(cb_w_in, 3 * FUSE_QKV * DHt);
+
+        for (uint32_t nb = local_batch_start; nb < local_batch_end; ++nb) {
+            for (uint32_t nq = local_nh_start; nq < local_nh_end; ++nq) {
+                read_chunk_with_padding<x_tile_bytes>(
+                    x_reader,
+                    cb_x_in,
+                    nb * Sqt * FUSE_QKV,
+                    Sqt,
+                    FUSE_QKV,
+                    Sqt,
+                    FUSE_QKV,
+                    barrier_threshold);
+            }
+        }
+#else
         for (uint32_t nb = local_batch_start; nb < local_batch_end; ++nb) {
             if constexpr (is_chunked) {
                 // Chunked means that we have paged attention
@@ -676,5 +738,6 @@ void kernel_main() {
                 cb_pop_front(cb_id_page_table, 1);
             }
         }
+#endif
     }
 }
