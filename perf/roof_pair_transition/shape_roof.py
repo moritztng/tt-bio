@@ -63,6 +63,7 @@ def build(dev, gx, gy):
     nw = ttnn.from_torch(torch.ones(C, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
     nb = ttnn.from_torch(torch.zeros(C, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev)
 
+    w12 = t((C, 2 * HID))                     # fc1 and fc2 side by side: one matmul, same math
     z = t((1, H, W, C))                       # the pair tensor the unit is called on
     blk = t((1, SHIP_H, W, C))                # one shipped row block, DRAM (what chunk() leaves)
     blk_l1 = t((1, SHIP_H, W, C), L1)         # one row block already in L1
@@ -71,7 +72,8 @@ def build(dev, gx, gy):
     cube2 = t((2048, 2048)); cube2b = t((2048, 2048))
     flat = t((1, H * W, C))                   # the whole unit as ONE matmul, no row blocking
 
-    keep = [w1, w2, w3, nw, nb, z, blk, blk_l1, wide_l1, cube4, cube4b, cube2, cube2b, flat]
+    keep = [w1, w2, w3, w12, nw, nb, z, blk, blk_l1, wide_l1, cube4, cube4b,
+            cube2, cube2b, flat]
 
     def lin(x, w, out_mc, act=None):
         return ttnn.linear(x, w, activation=act, compute_kernel_config=kc,
@@ -94,9 +96,30 @@ def build(dev, gx, gy):
         ttnn.deallocate(a)
         return o
 
-    def full(h, concat=True, out_mc=DRAM):
+    def swiglu12(x, out_mc=DRAM, act="silu"):
+        """Same chain, but fc1 and fc2 are ONE matmul against the concatenated weight.
+
+        Every output element is the same reduction over the same K in the same order, so this is
+        the same arithmetic -- only the launch count and x_norm's read count change.
+        """
+        xn = ttnn.layer_norm(x, weight=nw, bias=nb, epsilon=1e-5,
+                             compute_kernel_config=kc, memory_config=L1)
+        ab = lin(xn, w12, L1)
+        ttnn.deallocate(xn)
+        a = ab[..., :HID]
+        b = ab[..., HID:]
+        if act is not None:
+            a = ttnn.silu(a, memory_config=L1)
+        a = ttnn.multiply_(a, b)
+        ttnn.deallocate(ab)
+        o = lin(a, w3, out_mc)
+        ttnn.deallocate(a)
+        return o
+
+    def full(h, concat=True, out_mc=DRAM, fn=None):
+        fn = fn or swiglu
         chunks = ttnn.chunk(z, -(-H // h), dim=1)
-        parts = [swiglu(c, out_mc) for c in chunks]
+        parts = [fn(c, out_mc) for c in chunks]
         for c in chunks:
             ttnn.deallocate(c)
         if not concat:
@@ -167,6 +190,32 @@ def build(dev, gx, gy):
         ttnn.deallocate(a)
         return o
     A["full_flat_dram"] = (flat_chain, FULL_FLOP)
+    # the levers this part's own numbers point at
+    A["block_w12"] = (lambda: swiglu12(blk, DRAM), 3 * BF)
+    A["full_h16_unfused"] = (lambda: full(16, fn=lambda c, m: swiglu(c, m, None)), FULL_FLOP)
+    A["full_h32_unfused"] = (lambda: full(32, fn=lambda c, m: swiglu(c, m, None)), FULL_FLOP)
+    A["full_h16_w12"] = (lambda: full(16, fn=swiglu12), FULL_FLOP)
+    A["full_h24_w12"] = (lambda: full(24, fn=swiglu12), FULL_FLOP)
+    A["full_h32_w12"] = (lambda: full(32, fn=swiglu12), FULL_FLOP)
+    A["full_h24"] = (lambda: full(24), FULL_FLOP)
+    A["full_h40"] = (lambda: full(40), FULL_FLOP)
+    A["full_h48"] = (lambda: full(48), FULL_FLOP)
+    A["full_h40_unfused"] = (lambda: full(40, fn=lambda c, m: swiglu(c, m, None)), FULL_FLOP)
+    A["full_h48_unfused"] = (lambda: full(48, fn=lambda c, m: swiglu(c, m, None)), FULL_FLOP)
+    # the same arm under a second name: the own-session A/A floor every lever is read against
+    A["full_h16_ship_AA"] = (lambda: full(16), FULL_FLOP)
+
+    def mm3_only(x, out_mc=DRAM):
+        """The unit's arithmetic alone: three matmuls at the real shapes, no LN, silu or multiply."""
+        a = lin(x, w1, L1)
+        b = lin(x, w2, L1)
+        ttnn.deallocate(b)
+        o = lin(a, w3, out_mc)
+        ttnn.deallocate(a)
+        return o
+    A["full_h16_mm3only"] = (lambda: full(16, fn=mm3_only), FULL_FLOP)
+    A["full_h32_mm3only"] = (lambda: full(32, fn=mm3_only), FULL_FLOP)
+    A["full_h48_mm3only"] = (lambda: full(48, fn=mm3_only), FULL_FLOP)
     return A, keep, kc, cg
 
 
