@@ -1,0 +1,86 @@
+--- a/ttnn/cpp/ttnn/operations/data_movement/gather/device/kernels/dataflow/gather_reader_single_row_multi_core.cpp	2026-09-14 11:47:30.627642831 +0000
++++ b/ttnn/cpp/ttnn/operations/data_movement/gather/device/kernels/dataflow/gather_reader_single_row_multi_core.cpp	2026-09-14 11:47:30.627983018 +0000
+@@ -66,6 +66,8 @@
+ 
+     constexpr uint32_t one_tile = 1;
+     const uint32_t TILE_WIDTH_MASK = tile_width - 1;
++    // Hoisted so both the pre-scan and the inner scan skip a per-iteration ctz on a runtime arg.
++    const uint32_t tile_width_shift = __builtin_ctz(tile_width);
+ 
+     // Index tensor config
+     constexpr uint32_t input_index_tensor_tile_size_bytes = get_tile_size(input_index_tensor_cb_index);
+@@ -81,6 +83,18 @@
+     constexpr uint32_t output_tensor_data_format_size =
+         get_tile_size(output_tensor_cb_index) / get_tile_hw(input_tensor_cb_index);
+ 
++    // needed[]: one bit per Wt_input tile, so the wi loop can skip an input tile that no
++    // index in this index tile references. Backport of upstream dcdde8f414d onto 0.68.0.
++    constexpr uint32_t tile_faces = 2;
++    constexpr uint32_t face_size = 16;
++    constexpr uint32_t FACE_SIZE_MASK = face_size - 1;
++    constexpr uint32_t tile_hw = tile_faces * tile_faces * face_size * face_size;
++    constexpr uint32_t bitmap_words = (Wt_input + 31) / 32;
++    constexpr uint32_t BITMAP_WORDS_MAX = 256;  // 1 KB, covers Wt_input <= 8192
++    constexpr bool use_bitmap = (bitmap_words <= BITMAP_WORDS_MAX);
++    uint32_t needed[use_bitmap ? bitmap_words : 1];
++    static_assert(sizeof(needed) <= 1024, "gather needed[] > 1 KB; may overflow local region");
++
+     for (uint32_t h = 0; h < Ht; h++) {
+         for (uint32_t core_loop = 0; core_loop < core_loop_count; core_loop++) {
+             const uint32_t current_index_tile_id = core_id + core_loop * total_number_of_cores;
+@@ -99,17 +113,38 @@
+ 
+             cb_reserve_back(output_tensor_cb_index, one_tile);
+ 
++            // Invariant across wi: neither CB is pushed or popped inside the wi loop.
++            const uint32_t input_index_tensor_l1_read_addr = get_read_ptr(input_index_tensor_cb_index);
++            const uint32_t output_tensor_l1_read_addr = get_read_ptr(output_tensor_cb_index);
++
++            if constexpr (use_bitmap) {
++                for (uint32_t w = 0; w < bitmap_words; ++w) {
++                    needed[w] = 0;
++                }
++                for (uint32_t count = 0; count < tile_hw; ++count) {
++                    const uint32_t global_index = get_value_from_tile(
++                        input_index_tensor_l1_read_addr, count, input_index_tensor_data_format_size);
++                    const uint32_t tile_idx = global_index >> tile_width_shift;
++                    if (tile_idx < Wt_input) {
++                        needed[tile_idx >> 5] |= (1u << (tile_idx & 31u));
++                    }
++                }
++            }
++
+             for (uint32_t wi = 0; wi < Wt_input; wi++) {
+                 cb_wait_front(input_tensor_cb_index, one_tile);
+ 
++                if constexpr (use_bitmap) {
++                    if ((needed[wi >> 5] & (1u << (wi & 31u))) == 0) {
++                        // No index in this index tile maps to wi; drop it without the inner scan.
++                        cb_pop_front(input_tensor_cb_index, one_tile);
++                        continue;
++                    }
++                }
++
+                 const uint32_t input_tensor_l1_read_addr = get_read_ptr(input_tensor_cb_index);
+-                const uint32_t input_index_tensor_l1_read_addr = get_read_ptr(input_index_tensor_cb_index);
+-                const uint32_t output_tensor_l1_read_addr = get_read_ptr(output_tensor_cb_index);
+ 
+                 uint32_t count = 0;
+-                constexpr uint32_t tile_faces = 2;
+-                constexpr uint32_t face_size = 16;
+-                constexpr uint32_t FACE_SIZE_MASK = face_size - 1;
+                 for (uint32_t i = 0; i < tile_faces; ++i) {
+                     for (uint32_t j = 0; j < tile_faces; ++j) {
+                         for (uint32_t k = 0; k < face_size; ++k) {
+@@ -119,9 +154,9 @@
+                                     input_index_tensor_l1_read_addr, count, input_index_tensor_data_format_size);
+ 
+                                 // Calculate local index
+-                                const uint32_t tile_idx = global_index >> __builtin_ctz(tile_width);
++                                const uint32_t tile_idx = global_index >> tile_width_shift;
+ 
+-                                ASSERT(tile_idx <= Wt_input);
++                                ASSERT(tile_idx < Wt_input);
+ 
+                                 if (tile_idx != wi) {
+                                     // Index not in current input tile, skip
