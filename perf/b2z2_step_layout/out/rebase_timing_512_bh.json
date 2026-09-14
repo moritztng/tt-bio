@@ -1,0 +1,759 @@
+{
+ "doc": "The folds a per-pseudo-domain + CA-lDDT reading of the step-layout elisions needs.\n\nThe `pad` arm this driver used to carry is gone. Main landed the same lever as\n`TT_BIO_APB_CONCAT_HEADS`, which is read at MODULE LOAD and not per call, so a module-attribute\nflip after the model is built would serve every arm the same code and score a null. Its readings\nare in `out/acc.json` and `out/score.json` from the pre-merge run and in `docs/tuning-flags.md`.\n\nSame protocol, the same fixtures and the same scorer as the conditioning and SiLU campaigns\n(`perf/b2z2_cond/fold_cond.py`, scored by `perf/b2z2_fusebias/score.py`) -- this is that driver\nwith one thing changed, the arm mechanism, because these two levers are read at module scope and\nnot per call, so an env var set after import would serve every arm the same code.\n\n    base   the elision off: ttnn.linear + nlp_create_qkv_heads\n    qkv    TT_BIO_DIT_FUSED_QKV -- the projection writes the head split itself\n    default   the checkout untouched, to prove the defaults are what this run says they are\n\nThe reading that has teeth is CA-lDDT against the experimental structure 1HCL, not per-domain RMSD\nagainst the seed floor: `b2z2-union-land` showed the seed-floor screen clears an arm that has lost\n0.07 CA-lDDT, because a model can scatter widely on this fixture while landing at the same quality\nevery time.\n\n    fold_layout.py --out <json> --cifdir <dir> [--plan base:0,1,2,3;qkv:0,1,2,3]\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "tt_visible_devices": "3",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-step-layout-rebase-merge/tt_bio/__init__.py",
+  "commit": "f5311fc61af59927735d097a52b37b9b5f050c1d",
+  "started_utc": "2026-09-14T09:27:18Z",
+  "loadavg": [
+   2.0546875,
+   0.728515625,
+   0.2666015625
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "base:0,1,2,3;qkv:0,1,2,3",
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 26.25,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": -1,
+   "pos": 0,
+   "cold": true,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 24.442,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 0,
+   "pos": 0,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "qkv",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 24.822,
+   "sha256": "260906b45ec5b44e",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064
+   ],
+   "plddt": 0.798452,
+   "rep": 0,
+   "pos": 1,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 24.425,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 0,
+   "pos": 2,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 24.606,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 1,
+   "pos": 0,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "qkv",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 24.253,
+   "sha256": "260906b45ec5b44e",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064
+   ],
+   "plddt": 0.798452,
+   "rep": 1,
+   "pos": 1,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 26.732,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 1,
+   "pos": 2,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 18.844,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 2,
+   "pos": 0,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "qkv",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 16.685,
+   "sha256": "260906b45ec5b44e",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064
+   ],
+   "plddt": 0.798452,
+   "rep": 2,
+   "pos": 1,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 16.972,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 2,
+   "pos": 2,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 16.724,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 3,
+   "pos": 0,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "qkv",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.61,
+   "sha256": "260906b45ec5b44e",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064
+   ],
+   "plddt": 0.798452,
+   "rep": 3,
+   "pos": 1,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.142,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 3,
+   "pos": 2,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 18.85,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 4,
+   "pos": 0,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "qkv",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 18.427,
+   "sha256": "260906b45ec5b44e",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064
+   ],
+   "plddt": 0.798452,
+   "rep": 4,
+   "pos": 1,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 18.883,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 4,
+   "pos": 2,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 25.525,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 5,
+   "pos": 0,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "qkv",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.136,
+   "sha256": "260906b45ec5b44e",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064
+   ],
+   "plddt": 0.798452,
+   "rep": 5,
+   "pos": 1,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 16.59,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 5,
+   "pos": 2,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 16.596,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 6,
+   "pos": 0,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "qkv",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 16.375,
+   "sha256": "260906b45ec5b44e",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064
+   ],
+   "plddt": 0.798452,
+   "rep": 6,
+   "pos": 1,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 18.343,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 6,
+   "pos": 2,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 17.68,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 7,
+   "pos": 0,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "qkv",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 17.8,
+   "sha256": "260906b45ec5b44e",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064
+   ],
+   "plddt": 0.798452,
+   "rep": 7,
+   "pos": 1,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 18.112,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 7,
+   "pos": 2,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 17.999,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 8,
+   "pos": 0,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "qkv",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 22.883,
+   "sha256": "260906b45ec5b44e",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064
+   ],
+   "plddt": 0.798452,
+   "rep": 8,
+   "pos": 1,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 25.161,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 8,
+   "pos": 2,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 21.645,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 9,
+   "pos": 0,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "qkv",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 22.818,
+   "sha256": "260906b45ec5b44e",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064
+   ],
+   "plddt": 0.798452,
+   "rep": 9,
+   "pos": 1,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 20.981,
+   "sha256": "1f5b388246489fa1",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.818499,
+   "rep": 9,
+   "pos": 2,
+   "cold": false,
+   "block_s": 0.0,
+   "block_n": 0
+  }
+ ],
+ "model_load_s": 2.77,
+ "timing": {
+  "arms": [
+   "base",
+   "qkv",
+   "base"
+  ],
+  "reps": 10,
+  "seed": 0,
+  "block_timed": false,
+  "summary": {
+   "base": {
+    "n": 20,
+    "median_fold_s": 18.867,
+    "fold_ratio_vs_base": 1.0,
+    "spread_pct": 53.76
+   },
+   "qkv": {
+    "n": 10,
+    "median_fold_s": 19.373,
+    "fold_ratio_vs_base": 0.97386,
+    "spread_pct": 43.6
+   },
+   "aa_floor": 0.9913,
+   "identical_across_arms": false
+  }
+ },
+ "paired": {
+  "method": "each rep's qkv against the mean of its own two base neighbours, which is the only reading a drifting box supports",
+  "rows": [
+   {
+    "rep": 0,
+    "base_neighbour_mean_s": 24.434,
+    "qkv_s": 24.822,
+    "ratio": 0.98435
+   },
+   {
+    "rep": 1,
+    "base_neighbour_mean_s": 25.669,
+    "qkv_s": 24.253,
+    "ratio": 1.05838
+   },
+   {
+    "rep": 2,
+    "base_neighbour_mean_s": 17.908,
+    "qkv_s": 16.685,
+    "ratio": 1.0733
+   },
+   {
+    "rep": 3,
+    "base_neighbour_mean_s": 17.933,
+    "qkv_s": 19.61,
+    "ratio": 0.91448
+   },
+   {
+    "rep": 4,
+    "base_neighbour_mean_s": 18.867,
+    "qkv_s": 18.427,
+    "ratio": 1.02385
+   },
+   {
+    "rep": 5,
+    "base_neighbour_mean_s": 21.057,
+    "qkv_s": 19.136,
+    "ratio": 1.10041
+   },
+   {
+    "rep": 6,
+    "base_neighbour_mean_s": 17.47,
+    "qkv_s": 16.375,
+    "ratio": 1.06684
+   },
+   {
+    "rep": 7,
+    "base_neighbour_mean_s": 17.896,
+    "qkv_s": 17.8,
+    "ratio": 1.00539
+   },
+   {
+    "rep": 8,
+    "base_neighbour_mean_s": 21.58,
+    "qkv_s": 22.883,
+    "ratio": 0.94306
+   },
+   {
+    "rep": 9,
+    "base_neighbour_mean_s": 21.313,
+    "qkv_s": 22.818,
+    "ratio": 0.93404
+   }
+  ],
+  "median_ratio": 1.01462,
+  "positive_of": "6/10",
+  "ratio_range": [
+   0.91448,
+   1.10041
+  ],
+  "within_rep_base_base_spread_median_pct": 9.14,
+  "fold_s_range_same_arm_same_seed": [
+   16.375,
+   26.732
+  ],
+  "digest_base": [
+   "1f5b388246489fa1"
+  ],
+  "digest_qkv": [
+   "260906b45ec5b44e"
+  ],
+  "verdict": "REFUSED. The within-rep base/base spread is larger than the effect, the paired ratios straddle 1.0 in both directions, and a cotenant job held card 1 for the whole run. No Blackhole whole-fold number for TT_BIO_DIT_FUSED_QKV comes out of this. Both arms are deterministic across the repeats, which is what it does show."
+ }
+}
