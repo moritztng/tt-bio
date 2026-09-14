@@ -91,7 +91,7 @@ def _collect_fp32(root, seen=None, depth=0):
     return out
 
 ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hifi",
-        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2",
+        "nonewmm", "oldkey", "nofp32_trunk", "nofp32_msatmpl", "nos2", "kb2", "mmretune",
         # sizes-recheck. `noqsplit` ablates the SDPA q-split that main ships ON up to
         # 1024 padded tokens; `tr250` restores the pre-227cdb41 transpose headroom.
         "noqsplit", "tr250",
@@ -147,6 +147,24 @@ CKC_HIFI = None            # bound in main() once ttnn is imported
 # (kt, nt), so it cannot see a projection main served at some kt != 8 -- which is exactly the
 # regression this task exists to rule out. OLDKEY_HITS proves the arm actually ran.
 _MM_BLOCK_OLD = {24: (4, 8, 1, 4, 1), 8: (4, 8, 1, 4, 1)}
+
+# `kb2` is catalogue row B4: halve `K_block` on every entry, leaving M, N and the subblocks where
+# they ship. That is the lever the WH gap row measured at 1.159x on an L1 microbenchmark whose M is
+# 1/32 of the fold's. `mmretune` is the control the same screen produced at the PRODUCTION shape
+# (DRAM operands, mt = 8192, BH 11x10, perf/b2z2_mmgap/out/b4_widths_qb2c3.json): the best block
+# that KEEPS `K_block == kt`, so the contraction folds in the shipped order and `torch.equal`
+# holds. Both are written per (kt, nt) key, so an entry with no better candidate keeps its own.
+_MM_BLOCK_RETUNE = {
+    (2, 2): (8, 2, 1, 4, 1),      # 1.3345x, torch.equal
+    (2, 12): (4, 2, 2, 2, 2),     # 1.1581x, torch.equal
+    (4, 4): (8, 4, 1, 4, 1),      # 1.2561x, torch.equal
+    (4, 12): (8, 4, 2, 2, 2),     # 1.0641x, torch.equal
+    (4, 16): (4, 4, 2, 2, 2),     # 1.0891x, torch.equal
+    (4, 17): (8, 4, 1, 4, 1),     # 1.0369x, torch.equal
+    (8, 24): (4, 8, 2, 2, 2),     # 1.4473x, torch.equal
+    # (8, 8), (12, 12) and (12, 36) keep their shipped entry: nothing bit-exact beat it by more
+    # than the screen's own spread.
+}
 OLDKEY_HITS = [0, 0]
 
 
@@ -279,26 +297,25 @@ def main():
         patch_boltz2_cfg()
 
     # ---- decision counters: read the branch taken, never infer it from the shape -------------
+    # Every wrapper below takes `*a, **kw` and forwards them. These are censuses, not shims:
+    # each one pins a `tenstorrent.py` helper whose signature main keeps growing, and a pinned
+    # wrapper does not produce a wrong number, it produces a TypeError in the middle of the cold
+    # fold. Three of the five here had drifted before this run got a single arm out.
     ORIG_TMC, ORIG_LN, ORIG_PPC = T._transpose_memory_config, T._l1_layer_norm, T._pair_proj_config
 
-    def tmc(t):
-        mc = ORIG_TMC(t)
+    def tmc(t, *a, **kw):
+        mc = ORIG_TMC(t, *a, **kw)
         DEC[f"transpose|{'x'.join(str(int(d)) for d in t.shape)}"][
             "L1" if mc.buffer_type == ttnn.BufferType.L1 else "DRAM"] += 1
         return mc
 
-    def ln(x, headroom, **kw):
-        out, in_l1 = ORIG_LN(x, headroom, **kw)
+    def ln(x, headroom, *a, **kw):
+        out, in_l1 = ORIG_LN(x, headroom, *a, **kw)
         DEC[f"l1_layer_norm|h={headroom}|{'x'.join(str(int(d)) for d in x.shape)}"][
             "L1" if in_l1 else "DRAM"] += 1
         return out, in_l1
 
     def ppc(x, w, bw_cap=-1, out_l1=False, **kw):
-        # `**kw`, because this wrapper is a census and must not pin the signature it wraps.
-        # `_pair_proj_config` gained `block_w` after this harness was written and every model this
-        # script folds died on `ppc() got an unexpected keyword argument 'block_w'` before the cold
-        # fold finished -- a census wrapper that rejects a new argument turns a neutrality check
-        # into a TypeError.
         cfg = ORIG_PPC(x, w, bw_cap=bw_cap, out_l1=out_l1, **kw)
         if out_l1:
             DEC[f"pair_proj_out_l1|{'x'.join(str(int(d)) for d in x.shape)}"
@@ -321,32 +338,56 @@ def main():
     def qkvmm(x, w, *args, **kw):
         cfg = ORIG_QKVMM(x, w, *args, **kw)
         kt, nt = int(x.shape[-1]) // 32, int(w.shape[-1]) // 32
+        mt = 1
+        for d in [int(d) for d in x.shape][:-1]:
+            mt *= d
+        mt = (mt + 31) // 32
         DEC[f"qkv_mm_config|kt={kt},nt={nt}"]["config" if cfg is not None else "None"] += 1
+        DEC[f"qkv_mm_M|kt={kt},nt={nt}"][f"mt={mt}"] += 1
         return cfg
 
     T._qkv_mm_config = qkvmm
+
+    # `_qkv_mm_config` is only ONE of the table's readers. `triatt_qkv.py` reads `_mm_block_for`
+    # directly for the generic_op legs (the gated out-projection, gate_proj, the qkvg/qkvgb
+    # fusions), so a census that stops at `_qkv_mm_config` undercounts the lever's reach. Attribute
+    # by calling frame: the row keyed `tenstorrent.py` IS the `_qkv_mm_config` call above it and
+    # must be subtracted, every other row is a generic_op site the row-B4 lever also moves.
+    import sys as _sys
+    ORIG_MMBLK = T._mm_block_for
+
+    def mmblk(w):
+        blk = ORIG_MMBLK(w)
+        f = _sys._getframe(1)
+        where = f.f_code.co_filename.rsplit("/", 1)[-1] + ":" + str(f.f_lineno)
+        kt, nt = (int(w.shape[-2]) + 31) // 32, (int(w.shape[-1]) + 31) // 32
+        DEC["mm_block_for|kt=%d,nt=%d" % (kt, nt)][where + ("" if blk else " MISS")] += 1
+        return blk
+
+    T._mm_block_for = mmblk
 
     # Read the in-projection divisor group back off the live fold rather than inferring it:
     # an arm that ships the divisor search and still returns 4 at 640 aa is an inert lever.
     ORIG_GROUP = T._trimul_inproj_group
 
-    def group_census(seq_len, chunk, batch, n_pairs):
-        g = ORIG_GROUP(seq_len, chunk, batch, n_pairs)
+    def group_census(seq_len, chunk, batch, n_pairs, *a, **kw):
+        g = ORIG_GROUP(seq_len, chunk, batch, n_pairs, *a, **kw)
         GROUPS[f"S={seq_len},n_pairs={n_pairs}->g={g}"] += 1
         return g
 
     T._trimul_inproj_group = group_census
 
+    _MM_BLOCK_SHIPPED = dict(T._MM_BLOCK)
     ORIG_MM_BLOCK_FOR = T._mm_block_for
 
     ORIG_TAS = T._tri_att_sdpa
 
-    def tas(qq, kk, vv, bias, scale):
+    def tas(qq, kk, vv, bias, scale, *a, **kw):
         ql, kl = int(qq.shape[2]), int(kk.shape[2])
         fits = [c for c in T._tri_att_q_chunks(ql, kl)
                 if (ql, kl, c) not in T._SDPA_Q_CHUNK_OVER_L1]
         DEC[f"tri_att_sdpa|q{ql}k{kl}"][f"q_chunk={fits[0] if fits else None}"] += 1
-        return ORIG_TAS(qq, kk, vv, bias, scale)
+        return ORIG_TAS(qq, kk, vv, bias, scale, *a, **kw)
 
     T._tri_att_sdpa = tas
 
@@ -439,6 +480,9 @@ def main():
 
         T._TRANSPOSE_L1_HEADROOM = {"tr125": 1.25, "tr250": 2.5}.get(
             name, SHIPPED["headroom"])
+        # every arm starts from the shipped table, so no arm can inherit the last one's blocks
+        T._MM_BLOCK.clear()
+        T._MM_BLOCK.update(_MM_BLOCK_SHIPPED)
         T._PAIR_PROJ_MM = name != "nomm"
         T._mm_block_for = _mm_block_old if name == "oldkey" else ORIG_MM_BLOCK_FOR
         OLDKEY_HITS[0] = OLDKEY_HITS[1] = 0
@@ -450,6 +494,15 @@ def main():
                 T._MM_BLOCK.pop(k, None)
             else:
                 T._MM_BLOCK[k] = (4, k[0], 1, 4, 1)
+
+        # B4: `kb2` halves every `K_block`, `mmretune` installs the best block that keeps it.
+        # Written last so they override the re-key loop rather than race it.
+        for k, v in _MM_BLOCK_SHIPPED.items():
+            if name == "kb2":
+                m, kb, n, sh, sw = v
+                T._MM_BLOCK[k] = (m, max(1, kb // 2), n, sh, sw)
+            elif name == "mmretune":
+                T._MM_BLOCK[k] = _MM_BLOCK_RETUNE.get(k, v)
 
         # capacity gates stay at production defaults on every arm: they are not under test here
         # `nofp32`/`nofp32hifi` flip every site except the confidence head, whatever the partition
@@ -668,7 +721,8 @@ def main():
                   f"{rec['persistent_mask']['declined']} {rec['persistent_mask']['rejects']}  "
                   f"E6 {rec['gated_kernel']}", flush=True)
             for k, v in sorted(DEC.items()):
-                if k.startswith(("qkv_mm_config", "transpose", "tri_att_sdpa")):
+                if k.startswith(("qkv_mm_config", "qkv_mm_M", "mm_block_for",
+                                 "transpose", "tri_att_sdpa")):
                     print(f"      DEC {k:46s} {dict(v)}", flush=True)
 
     per = {}

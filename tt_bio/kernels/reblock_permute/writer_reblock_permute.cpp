@@ -24,11 +24,19 @@
 // Double-buffered staging (c_24 depth 2) lets the DRAM write of channel c
 // overlap the L1 gather of channel c+1.
 //
-// THE BINDING RESOURCE IS INSTRUCTION COUNT ON THIS RISC, not bytes: 64 NOC
-// transactions per source tile is a floor over all kernel structures (proved by
-// P4's bf16 -> fp32 test, which left the time unchanged while the byte-bound
-// control rose 1.36x), so the only axis left is instructions per transaction.
-// Two things are done for it and neither changes the transaction count:
+// TRANSACTION COUNT ON THIS RISC DOMINATES, but it is not the whole cost, and the
+// mix moves with C. 64 NOC transactions per source tile is a floor over all kernel
+// structures, so the axis left is instructions per transaction. Two things are
+// done for it and neither changes the transaction count:
+//
+// An earlier version of this comment claimed a bf16 -> fp32 control "left the time
+// unchanged", i.e. zero byte sensitivity. That does not reproduce and no record of
+// it survives anywhere in the repo. Re-measured on qb2 card 3 at ttnn 0.68.0,
+// doubling the element width costs 1.20-1.25x at C=32 and 1.62-1.78x at C=128, so
+// 75-80% of the time is byte-independent at the narrow width and only ~22% at the
+// wide one (perf/ttx_reblock_bfp8/byte_sensitivity_qb2c3.json). The op does still
+// run at 0.7-1.2% of the 435.2 GB/s Blackhole DRAM roof, which is why transactions
+// dominate -- it is just not the absolute byte floor the old sentence asserted.
 //
 //   * the gather issues `noc_async_read_one_packet_with_state`, with the NOC
 //     coordinates and the 32-byte length written ONCE per kernel invocation

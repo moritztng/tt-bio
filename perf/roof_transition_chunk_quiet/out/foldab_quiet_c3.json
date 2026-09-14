@@ -1,0 +1,34 @@
+{
+ "doc": "What the Transition row chunk is worth in FOLD SECONDS, and what its own session's floor is.\n\nThe op ratio is not the deliverable any more. `roof-true-floor` put the whole remaining prize at\n2.309 s against a 17.340 s cell, so a lever is worth what it moves on the fold and nothing else.\n\nOne process, one device open, model loaded once. Arms alternate INSIDE the process with the\nshipped arm run twice per rep, so the session's own A/A floor falls out of the same data instead\nof being a separate run that a load change can sit between. Arm order is fixed and the whole set\nruns once per rep, so a clock ramp or a JIT warm-up cannot bias one arm against another.\n\nThe floor is the contention detector and it has the last word: `roof-pair-transition` got 0.157 %\non a quiet box, and this row's contention guard says a session above ~1 % is not interpretable.\nWhen that happens the ratio is BLOCKED, not scaled -- publish a number you trust or none.\n\nEvery arm is bit-exact (proved fold-level at 298/512/768 aa by the ladder in this directory), so\nthe digest is carried here only as the cheap regression signal it is.\n\n    foldab.py --out <json> --legs 512:h48,768:h32 --reps 4\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "3",
+  "commit": "bd96764ecdc8df20441da80bbc65643ad57d99a0",
+  "started_utc": "2026-09-14T13:08:37Z",
+  "loadavg_start": [
+   0.62109375,
+   1.9794921875,
+   3.50341796875
+  ],
+  "unfused_silu": false,
+  "protocol": {
+   "sampling_steps": 200,
+   "recycling_steps": 3,
+   "seed": 0,
+   "reps": 20
+  },
+  "loadavg_now": [
+   0.65185546875,
+   1.962890625,
+   3.48974609375
+  ]
+ },
+ "folds": [],
+ "legs": {},
+ "model_load_s": 3.163
+}

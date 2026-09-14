@@ -1,0 +1,70 @@
+{
+ "doc": "Split the standing TT-vs-upstream CA-lDDT deficit into port code and device arithmetic.\n\n`perf/roof_shared` closed the owed arithmetic-only comparison: with `TT_BIO_SHARED_DRAW_SEED=0`\non both stacks the port lands 0.43277 A (298 aa) / 0.68922 A (512 aa) from upstream\n`boltz==2.2.1` fp32, and the CA-lDDT deficit against the experimental structure 1HCL SURVIVES the\npairing -- -0.00586 at 298 aa, -0.01487 / -0.01462 on the two 512 aa pseudo-domains. That number\nis a single scalar covering everything between the two stacks: our port\"s own torch code, the\nbf16 dtype boundary, and ttnn\"s arithmetic. This run splits it.\n\ntt-bio carries its own torch CPU path for Boltz-2 (the one `scripts/full_parity_gate.py` uses as\n`reference_fp32`), so the same three arms the release gate already defines answer the question,\nall at seed 0 with shared draws, all scored against the committed `gpurefshared-s0` CIFs:\n\n  ttcpufp32   tt-bio\"s torch code, CPU, fp32, no kernels.  d(ttcpufp32, gpurefshared) is the\n              PORT CODE delta: two fp32 torch implementations of the same checkpoint, so\n              anything left is our code differing from upstream\"s, not a dtype.\n  ttcpubf16   the same, under `TT_BIO_REF_BF16=1` (bf16 autocast), i.e. tt_bio/worker.py\"s own\n              reference-bf16 hook.  d(ttcpubf16, ttcpufp32) is the intrinsic bf16 cost of the\n              full sampler trajectory in torch.\n  ttshared    the device arm, already committed under perf/roof_shared/cif/.  Its distance to\n              ttcpufp32 is what ttnn adds on top of the two above.\n\nWhichever arm carries the -0.015 lDDT is where the deficit lives. No device is opened here.\n\n    fold_cpu_ref.py --out out/cpu_folds.json --cifdir cif --sizes 298 --arms fp32\n",
+ "env": {
+  "host": "pc",
+  "accelerator": "cpu",
+  "torch": "2.8.0+cpu",
+  "threads": 6,
+  "tt_bio_file": "/home/moritz/k10p2-scratch/tt-bio/tt_bio/__init__.py",
+  "commit": "5c245e157cbc3f9916c79ca1de853a737f4d0913",
+  "started_utc": "2026-09-14T17:04:15Z",
+  "float32_matmul_precision": "highest",
+  "use_kernels": false,
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "arms": "fp32"
+  }
+ },
+ "runs": [
+  {
+   "arm": "ttcpufp32",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 2810.861,
+   "mode": "cpu-fp32",
+   "sha256": "f9022e867ad9cfdc",
+   "shared_draw_seed": "0",
+   "ref_bf16": null,
+   "n_atoms_cif": 4116,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      4128,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "5936883ad8f94f53"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "96ffa2884fbdcc3d"
+    },
+    {
+     "shape": [
+      1,
+      1,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "a3469063c51c337b"
+    }
+   ],
+   "n_randn": 1112,
+   "manual_seeds": [
+    0,
+    0
+   ],
+   "plddt": 0.813571,
+   "tag": "ttcpufp32-s0"
+  }
+ ],
+ "model_load_s": 24.818
+}

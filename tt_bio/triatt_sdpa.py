@@ -182,18 +182,45 @@ def ckc_from_env(spec=None):
 _CKC_OVERRIDE = ckc_from_env()
 
 
-def q_parallel_factor(S: int, H: int, q_chunk: int, cores: int) -> int:
+def q_parallel_factor(S: int, H: int, q_chunk: int, cores: int, cap: int = -1) -> int:
     """The q-chunk split `fill_preconditions` needs, or 1 when there is none.
 
     The hoisted fill wants one q chunk per core, and the factory's own choice of `q_pf = 1` hands
     every core all of them -- so above the size where the widest q_chunk still spans the whole
     sequence, `q_per_core > 1` and this kernel declines every call. Pure, so
     `perf/bgsdpa/fused_reach.py` can ask which sizes it reaches without a device.
+
+    `cap` defaults to the shipped `_Q_SPLIT_MAX_S`. `_tri_att_sdpa_at`'s above-cap route passes
+    `cap=0` for the uncapped answer: the cap is what keeps the STOCK ladder off the fused kernel
+    above 1024, and that route is the one thing allowed past it.
     """
-    if not _Q_SPLIT or S > _Q_SPLIT_MAX_S:
+    if cap < 0:
+        cap = _Q_SPLIT_MAX_S
+    if not _Q_SPLIT or (cap and S > cap):
         return 1
     qnc = -(-S // q_chunk)
     return qnc if qnc > 1 and cores // (H * qnc) >= 1 else 1
+
+
+def per_core_cost(p, q_chunk: int, seq: int) -> int:
+    """What one core pays for this (q_chunk, k_chunk), in tensor elements, ranked not absolute.
+
+    Three terms, and only the first is fixed by the shape:
+
+      * the two matmuls, `work * 2 * seq` where `work = batch_per_core * q_chunk` is the q rows
+        this core owns. Constant across the surface only when the split lights up the same number
+        of cores; it is the term that punishes a q_chunk whose `q_pf` leaves cores idle.
+      * the online-softmax rescale, `work * (k_num_chunks - 1)`: the accumulator is rescaled once
+        per k chunk after the first, so one k chunk pays nothing and a 32-wide k pays `seq/32`.
+      * K and V, `batch_per_core * 2 * seq`: the whole of both is re-read from DRAM once per
+        (batch row, q chunk) a core owns, so a wider q_chunk reads them fewer times.
+
+    Everything is divided through by head_dim, which multiplies all three. Ranked against the
+    measured surface in `fused_pairs`; its top pick is the measured optimum at padded 1920 and
+    2208 and 4.4 % off it at 1536.
+    """
+    return (p["batch_per_core"] * q_chunk * (2 * seq + p["k_num_chunks"] - 1)
+            + p["batch_per_core"] * 2 * seq)
 
 
 @lru_cache(maxsize=None)
@@ -208,9 +235,17 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
         out to `seq * q_chunk / 1024` and carries NO k_chunk term. So a wide q is what breaks L1;
         a wide k costs only the k and v CBs, 4 tiles per k tile-row.
 
-    Hence widest k first, and under each k the widest q that fits -- which is also the order K5
-    measured at padded 864, where the widest k was 3.588x the incumbent and the arm closest to a
-    torch fp32 reference, one k chunk needing no online-softmax rescale at all.
+    So the pair is a narrow q against a wide k, which is exactly what the stock ladder never
+    offers. Ordered by `per_core_cost`, which is where widest-k-first stops being the answer.
+
+    K5 measured widest-k-first at padded 864 and it was right there: every candidate had the same
+    core utilisation, so only the rescale count separated them. Above 1024 the candidates no
+    longer tie, and the widest k forces a q narrow enough to cost more cores than the rescale
+    saves. MEASURED interleaved against the incumbent ladder at padded 1536 / 1920 / 2208
+    (`perf/ttx_a3/ab1536_qb2c2.json` on qb2 card 2 p300c 11x10, `perf/bgsdpa/ab1920.json` and
+    `ab2208.json`): widest-k-first picks 2.061x / 1.518x / 1.865x, this order picks
+    2.737x / 2.678x / 1.865x, and the surface's own best over all 47 / 44 / 3 configs that fit is
+    2.862x / 2.678x / 1.865x. Exact at two of the three, 4.4 % off at 1536.
 
     Empty when nothing fits, which is the answer at 1184, 1312, 1856 and every other padded
     length whose only 32-aligned divisors are 32 and itself.
@@ -218,7 +253,7 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
     out = []
     for kc in SG.chunk_divisors(seq):
         for qc in SG.chunk_divisors(seq):
-            q_pf = q_parallel_factor(seq, heads, qc, cores)
+            q_pf = q_parallel_factor(seq, heads, qc, cores, cap=0)
             # `plan` reads the grid only as a core count here, and its split assert is against
             # that count -- so the grid has to carry the caller's `cores`, not the module default.
             # On a 13x10 p150a (130 cores) the default (11, 10) made every candidate assert
@@ -231,9 +266,8 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
             pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
             if SG.cb_fits_l1(p, mask_cb_tiles=pers,
                              **({} if mask_dtype is None else {"mask_dtype": mask_dtype})):
-                out.append((qc, kc))
-                break
-    return tuple(out)
+                out.append((per_core_cost(p, qc, seq), qc, kc))
+    return tuple((qc, kc) for _c, qc, kc in sorted(out))
 
 
 def _reject(reason, shape):
@@ -243,8 +277,13 @@ def _reject(reason, shape):
     return None
 
 
-def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_factor=2):
-    """The fold's SDPA with the mask read once per head, or `None` to leave the call alone."""
+def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_factor=2,
+         q_split_cap: int = -1):
+    """The fold's SDPA with the mask read once per head, or `None` to leave the call alone.
+
+    `q_split_cap=0` lifts `_Q_SPLIT_MAX_S` for this call. Only `_tri_att_sdpa_at`'s above-cap
+    route passes it, and it passes a pair `fused_pairs` already priced against the same L1 model.
+    """
     if not _ENABLED or bias is None:
         return None
     shape = [int(d) for d in q.shape]
@@ -284,7 +323,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     # gate then declines the whole fold (0 of 2424 calls served at 768, 0 of 2528 at 1024, all
     # `fill_preconditions`, all on this one term). Give the q chunks their own factor instead. Tiles
     # per core are unchanged: the batch factor shrinks by exactly the amount the q factor grows.
-    q_pf = q_parallel_factor(shape[2], H, q_chunk, cores)
+    q_pf = q_parallel_factor(shape[2], H, q_chunk, cores, cap=q_split_cap)
     split = (cores // (H * q_pf), H, q_pf)
 
     dev = q.device()

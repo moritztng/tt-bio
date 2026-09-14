@@ -379,6 +379,52 @@ adds happen in the same order — only how many run per pass changes.
 **Speed: 1.0317x on the fused SDPA on Blackhole** (2.8299 to 2.7430 ms at 512x512) and **1.0267x on
 Wormhole**. `TT_BIO_SDPA_ADD_GRANULARITY=1` restores the per-tile loop.
 
+## `TT_BIO_SDPA_FUSED_LARGE_S` — off
+
+Triangle attention re-reads the same pair bias once per row of the pair tensor. The fused kernel
+reads it once per head instead and holds it, and it needs a narrow query chunk against a wide key
+chunk to fit. The chunk ladder that picks those two numbers walks query chunks widest first and
+takes the first pair that runs at all, so above 1024 tokens it settled on a wide query the fused
+kernel cannot take and handed the call to the stock attention. Every length from 1024 to 2592
+tokens fell off the fast path this way. This flag lets the ladder try the fused pair first above
+1024, ordered by the work each pair puts on a core, and serves 36 of the 50 lengths in that range
+on an 11x10 grid at 4 heads. The other 14 have no 32-aligned divisor between 32 and themselves,
+which the kernel declines by construction; that is a property of the token count, not of L1.
+
+Nothing at or below 1024 tokens changes. There the ladder already lands on a fused pair, 560 of 560
+calls at both 512 and 1024 residues, and those digests are bit-exact and shipped.
+
+**Accuracy: not bit-exact above 1024 tokens, and there is no shipped digest to break** — no length
+above 1024 served this kernel before. The key chunk sets the online-softmax reduction order, so a
+wider key means fewer rescales of the accumulator. Against an fp32 evaluation of the same bf16
+operands at 1536 tokens the fused pair is marginally closer than the ladder it replaces, 0.402555
+against 0.402814. At the fold, a 1536-residue structure moves 1.007 Å all-atom and pLDDT goes from
+0.786016 to 0.789493. That is above the 0.60 Å bar, which was set at 512 residues where re-running
+with a different seed moves the structure 1.84 Å; at 1536 residues the same seed change moves it
+36.6 Å, so the flag sits 36x inside the variation this size already carries, and it moves pLDDT the
+favourable way. Two folds of the same arm in two processes are byte-identical.
+
+An L1 refusal costs speed and not correctness. With every fused pair refused the call falls back to
+the same stock attention the flag-off arm takes, bit-identical, max absolute difference 0.0.
+
+**Speed: 4.23x on the attention op at 1536 tokens** (136.143 to 32.184 ms on a Blackhole
+p300c), 2.678x at 1920 and 1.865x at 2208. The win survives changing operands: timed per call with
+a fresh bias every call it is still 2.71x, and rotating whole operand sets 4.06x. At the fold it
+saves **28.9 s of trunk time** at 1536 residues, which on a 20-step fold is 1.1973x (175.388 to
+146.489 s, adjacent arms, one process per fold).
+
+**It is off by default because that 1.1973x is not a full-fold number.** Triangle attention is in
+the trunk, and a 20-step fold gives the trunk a much larger share than the default 200 steps does,
+so the same 28.9 s buys a smaller ratio in the shipped configuration. Nothing measured came back
+negative; the full-fold pair is simply still missing. Turn it on to get the op gain.
+
+**Reach depends on the head count and the grid, not on the model.** The fused pair needs one query
+chunk per core, so a card with fewer cores, or a model with more heads on the same card, serves
+fewer lengths: 36 of 50 at 4 heads on 110 cores, 25 at 8 heads, 18 at 12. Boltz-2, BoltzGen and
+Nesso-1 run their trunk at 4 heads and get the full reach. Sites that run triangle attention in
+fp32 (`Fp32TriangleAttention`, and the `fp32_softmax` branch that reaches `_tri_att_sdpa_hifi`)
+never consult this flag.
+
 ## `TT_BIO_SDPA_GRID_Q_CHUNK` — on
 
 Scaled dot-product attention is computed in chunks of query rows, and ttnn hands one chunk to one

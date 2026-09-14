@@ -1,0 +1,70 @@
+{
+ "seq": 1536,
+ "heads": 4,
+ "head_dim": 32,
+ "batch": 64,
+ "grid": [
+  11,
+  10
+ ],
+ "card": "0",
+ "ts": "2026-09-14T15:32:00Z",
+ "off_pick": {
+  "(1536, 1536)": [
+   512,
+   256,
+   "stock"
+  ]
+ },
+ "pairs_offered_with_the_model_lying": 90,
+ "pm_over_l1": [
+  "(1536, 1536, 256, 1536, 2)",
+  "(1536, 1536, 256, 768, 2)",
+  "(1536, 1536, 384, 1536, 2)",
+  "(1536, 1536, 384, 256, 2)",
+  "(1536, 1536, 384, 384, 2)",
+  "(1536, 1536, 384, 512, 2)",
+  "(1536, 1536, 384, 768, 2)",
+  "(1536, 1536, 512, 128, 2)",
+  "(1536, 1536, 512, 1536, 2)",
+  "(1536, 1536, 512, 192, 2)",
+  "(1536, 1536, 512, 256, 2)",
+  "(1536, 1536, 512, 32, 2)",
+  "(1536, 1536, 512, 384, 2)",
+  "(1536, 1536, 512, 512, 2)",
+  "(1536, 1536, 512, 64, 2)",
+  "(1536, 1536, 512, 768, 2)",
+  "(1536, 1536, 512, 96, 2)"
+ ],
+ "pm_l1_errors": {
+  "(1536, 1536, 512, 1536, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 512, 768, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 512, 512, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 512, 384, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 512, 256, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 512, 192, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 512, 128, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 512, 96, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 512, 64, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 512, 32, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 384, 1536, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 384, 768, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 384, 512, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 384, 384, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 256, 1536, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 256, 768, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 384, 256, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+ },
+ "on_pick": {
+  "(1536, 1536)": [
+   256,
+   512,
+   "fused"
+  ]
+ },
+ "bit_identical_to_off": false,
+ "second_call_bit_identical": false,
+ "max_abs_diff": 0.002197265625,
+ "triatt_served": 2,
+ "triatt_declined": 74
+}
