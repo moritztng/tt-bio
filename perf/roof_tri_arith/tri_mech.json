@@ -1,0 +1,306 @@
+{
+ "host": "pc",
+ "arch": "Arch.BLACKHOLE",
+ "grid": [
+  13,
+  10
+ ],
+ "grid_full": [
+  11,
+  10
+ ],
+ "grid_half": [
+  11,
+  5
+ ],
+ "blocks": 5,
+ "loadavg": [
+  "1.74",
+  "1.12",
+  "0.98"
+ ],
+ "cube4096_HiFi4_TFLOPs": 127.90174608093805,
+ "refused": {},
+ "rows": [
+  {
+   "arm": "bw_add8192",
+   "ms": 0.9567280067130923,
+   "TFLOPs": 0.4208648447361167,
+   "reps": 3,
+   "pct_of_cube_hifi4": 0.3290532440970645
+  },
+  {
+   "arm": "cube4096_LoFi",
+   "ms": 0.8932200047032287,
+   "TFLOPs": 153.86909467803954,
+   "reps": 3,
+   "pct_of_cube_hifi4": 120.30257552595802
+  },
+  {
+   "arm": "trimul_in_LoFi",
+   "ms": 2.147724007954821,
+   "TFLOPs": 19.997761724002427,
+   "reps": 2,
+   "pct_of_cube_hifi4": 15.635253103853294
+  },
+  {
+   "arm": "triatt_in_LoFi",
+   "ms": 1.8497609999030828,
+   "TFLOPs": 19.736183224704583,
+   "reps": 2,
+   "pct_of_cube_hifi4": 15.430737913628828
+  },
+  {
+   "arm": "pair_out128_LoFi",
+   "ms": 0.5115086678415537,
+   "TFLOPs": 16.79333143707516,
+   "reps": 3,
+   "pct_of_cube_hifi4": 13.129868787286219
+  },
+  {
+   "arm": "trimul_einsum_LoFi",
+   "ms": 1.8668063275981694,
+   "TFLOPs": 18.405625618489946,
+   "reps": 3,
+   "pct_of_cube_hifi4": 14.390441242954262
+  },
+  {
+   "arm": "triatt_sdpa_LoFi",
+   "ms": 3.577486000722274,
+   "TFLOPs": 19.20887369569746,
+   "reps": 2,
+   "pct_of_cube_hifi4": 15.018460876634014
+  },
+  {
+   "arm": "cube4096_HiFi2",
+   "ms": 0.9354886715300381,
+   "TFLOPs": 146.9167480641019,
+   "reps": 3,
+   "pct_of_cube_hifi4": 114.86688224813669
+  },
+  {
+   "arm": "trimul_in_HiFi2",
+   "ms": 2.167886501410976,
+   "TFLOPs": 19.811771941033843,
+   "reps": 2,
+   "pct_of_cube_hifi4": 15.489836963208205
+  },
+  {
+   "arm": "triatt_in_HiFi2",
+   "ms": 1.864217992988415,
+   "TFLOPs": 19.58312930854051,
+   "reps": 2,
+   "pct_of_cube_hifi4": 15.31107268555038
+  },
+  {
+   "arm": "pair_out128_HiFi2",
+   "ms": 0.5154326693930974,
+   "TFLOPs": 16.665483393038173,
+   "reps": 3,
+   "pct_of_cube_hifi4": 13.029910774237607
+  },
+  {
+   "arm": "trimul_einsum_HiFi2",
+   "ms": 1.8822516625126202,
+   "TFLOPs": 18.254593183428586,
+   "reps": 3,
+   "pct_of_cube_hifi4": 14.272356510189327
+  },
+  {
+   "arm": "triatt_sdpa_HiFi2",
+   "ms": 3.5865325044142082,
+   "TFLOPs": 19.160422121205343,
+   "reps": 2,
+   "pct_of_cube_hifi4": 14.980579005606659
+  },
+  {
+   "arm": "cube4096_HiFi4",
+   "ms": 1.0745666707710673,
+   "TFLOPs": 127.90174608093805,
+   "reps": 3,
+   "pct_of_cube_hifi4": 100.0
+  },
+  {
+   "arm": "trimul_in_HiFi4",
+   "ms": 2.2304875019472092,
+   "TFLOPs": 19.255733521261632,
+   "reps": 2,
+   "pct_of_cube_hifi4": 15.055098238515312
+  },
+  {
+   "arm": "triatt_in_HiFi4",
+   "ms": 1.9251360063208267,
+   "TFLOPs": 18.963450839907058,
+   "reps": 2,
+   "pct_of_cube_hifi4": 14.826576978790198
+  },
+  {
+   "arm": "pair_out128_HiFi4",
+   "ms": 0.5194670035659025,
+   "TFLOPs": 16.53605432690439,
+   "reps": 3,
+   "pct_of_cube_hifi4": 12.928716638817534
+  },
+  {
+   "arm": "trimul_einsum_HiFi4",
+   "ms": 1.932244000878806,
+   "TFLOPs": 17.78229786319575,
+   "reps": 3,
+   "pct_of_cube_hifi4": 13.903092340852687
+  },
+  {
+   "arm": "triatt_sdpa_HiFi4",
+   "ms": 3.583127007004805,
+   "TFLOPs": 19.17863268638187,
+   "reps": 2,
+   "pct_of_cube_hifi4": 14.994816938812827
+  },
+  {
+   "arm": "cube4096_LoFi_noacc",
+   "ms": 0.6002399992818633,
+   "TFLOPs": 228.97333339403264,
+   "reps": 3,
+   "pct_of_cube_hifi4": 179.02283620829934
+  },
+  {
+   "arm": "trimul_in_LoFi_noacc",
+   "ms": 2.1114965056767687,
+   "TFLOPs": 20.340868594633992,
+   "reps": 2,
+   "pct_of_cube_hifi4": 15.903511263843106
+  },
+  {
+   "arm": "pair_out128_LoFi_noacc",
+   "ms": 0.502435335268577,
+   "TFLOPs": 17.09659729128774,
+   "reps": 3,
+   "pct_of_cube_hifi4": 13.366977242412913
+  },
+  {
+   "arm": "trimul_einsum_LoFi_noacc",
+   "ms": 1.8520589995508392,
+   "TFLOPs": 18.552183475976154,
+   "reps": 3,
+   "pct_of_cube_hifi4": 14.505027526548439
+  },
+  {
+   "arm": "triatt_sdpa_LoFi_noacc",
+   "ms": 3.5741299943765625,
+   "TFLOPs": 19.22691028141711,
+   "reps": 2,
+   "pct_of_cube_hifi4": 15.032562783974852
+  },
+  {
+   "arm": "cube4096_HiFi4_noacc",
+   "ms": 1.0259699968931575,
+   "TFLOPs": 133.96001236702114,
+   "reps": 3,
+   "pct_of_cube_hifi4": 104.73665643489286
+  },
+  {
+   "arm": "trimul_in_HiFi4_noacc",
+   "ms": 2.214638006989844,
+   "TFLOPs": 19.393540987033624,
+   "reps": 2,
+   "pct_of_cube_hifi4": 15.162843026991293
+  },
+  {
+   "arm": "pair_out128_HiFi4_noacc",
+   "ms": 0.5151756631676108,
+   "TFLOPs": 16.6737973202847,
+   "reps": 3,
+   "pct_of_cube_hifi4": 13.036411019544081
+  },
+  {
+   "arm": "trimul_einsum_HiFi4_noacc",
+   "ms": 1.9023986727309723,
+   "TFLOPs": 18.061271204881137,
+   "reps": 3,
+   "pct_of_cube_hifi4": 14.121207691294305
+  },
+  {
+   "arm": "triatt_sdpa_HiFi4_noacc",
+   "ms": 3.5868679988197982,
+   "TFLOPs": 19.158629968711157,
+   "reps": 2,
+   "pct_of_cube_hifi4": 14.97917781090127
+  },
+  {
+   "arm": "kladder_k128",
+   "ms": 0.5214203362508366,
+   "TFLOPs": 16.474107346414833,
+   "reps": 3,
+   "pct_of_cube_hifi4": 12.880283382519096
+  },
+  {
+   "arm": "kladder_k256",
+   "ms": 0.9199633398869386,
+   "TFLOPs": 18.67451499329459,
+   "reps": 3,
+   "pct_of_cube_hifi4": 14.600672442327012
+  },
+  {
+   "arm": "kladder_k512",
+   "ms": 1.8156313356788207,
+   "TFLOPs": 18.92440259913983,
+   "reps": 3,
+   "pct_of_cube_hifi4": 14.796047105693303
+  },
+  {
+   "arm": "nladder_n128",
+   "ms": 0.5326230020727962,
+   "TFLOPs": 16.127607254231897,
+   "reps": 2,
+   "pct_of_cube_hifi4": 12.609372231733348
+  },
+  {
+   "arm": "nladder_n256",
+   "ms": 0.9499270090600476,
+   "TFLOPs": 18.08546237778782,
+   "reps": 2,
+   "pct_of_cube_hifi4": 14.140121563581378
+  },
+  {
+   "arm": "nladder_n640",
+   "ms": 2.231955499155447,
+   "TFLOPs": 19.243068679573494,
+   "reps": 2,
+   "pct_of_cube_hifi4": 15.045196230078208
+  },
+  {
+   "arm": "trimul_in_HiFi4_gfull",
+   "ms": 2.449123508995399,
+   "TFLOPs": 17.536752557496555,
+   "reps": 2,
+   "pct_of_cube_hifi4": 13.711112705528702
+  },
+  {
+   "arm": "trimul_in_HiFi4_ghalf",
+   "ms": 3.342771000461653,
+   "TFLOPs": 12.848523860613977,
+   "reps": 2,
+   "pct_of_cube_hifi4": 10.045620372127873
+  },
+  {
+   "arm": "cube4096_HiFi4_AA",
+   "ms": 1.0781563372196008,
+   "TFLOPs": 127.47590375105888,
+   "reps": 3,
+   "pct_of_cube_hifi4": 99.66705510837225
+  },
+  {
+   "arm": "trimul_in_HiFi4_AA",
+   "ms": 2.237145003164187,
+   "TFLOPs": 19.198430543953375,
+   "reps": 2,
+   "pct_of_cube_hifi4": 15.010295896824061
+  },
+  {
+   "arm": "pair_out128_HiFi4_AA",
+   "ms": 0.5196873389650136,
+   "TFLOPs": 16.529043422738248,
+   "reps": 3,
+   "pct_of_cube_hifi4": 12.923235162308444
+  }
+ ]
+}
