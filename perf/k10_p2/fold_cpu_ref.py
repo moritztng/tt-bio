@@ -80,6 +80,20 @@ def n_atoms(cif: Path) -> int:
                if ln.startswith("ATOM ") or ln.startswith("HETATM"))
 
 
+def plddt_of(metrics: dict) -> float:
+    """The complex-level plDDT, and nothing else.
+
+    This used to fall back to `confidence_score`, which for Boltz-2 is 0.8*plDDT + 0.2*pTM: no
+    `plddt` key was emitted for that model, so the fallback fired every time and the plDDT rows
+    in FINDINGS.md sat 0.008 above the CIF's own column at 298 aa and 0.050 below it at 512 aa,
+    sign flipping with size. Raise rather than substitute a different quantity.
+    """
+    for k in ("complex_plddt", "plddt"):
+        if k in metrics:
+            return metrics[k]
+    raise KeyError(f"no complex plDDT in metrics: {sorted(metrics)}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
@@ -168,7 +182,7 @@ def main() -> int:
                 "n_atoms_cif": n_atoms(keep / cifs[0].name),
                 "sampler_draws": traces[-1]["draws"], "n_randn": traces[-1]["n_randn"],
                 "manual_seeds": traces[-1]["seeds"],
-                "plddt": round(float(metrics.get("plddt", metrics.get("confidence_score", 0))), 6)}
+                "plddt": round(float(plddt_of(metrics)), 6)}
 
     for size in args.sizes.split(","):
         target = AB.FIX / f"cdk2x2_{size}.yaml"

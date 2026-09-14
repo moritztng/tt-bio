@@ -536,7 +536,7 @@ MSA results are cached in `<out_dir>/msa/` (default `./msa/`), keyed by sequence
 
 ### Confidence Scores
 
-Each target entry in `results.json` contains confidence metrics. The fields below are Boltz-2's; Protenix-v2 and OpenFold3 report the same `confidence_score` / `ptm` / `iptm` / `plddt` (and `all_runs` when `--diffusion_samples` > 1, ranked best-first), while an ESMFold2 entry instead carries `plddt` (mean, 0-1), `ptm` when available, and `n_residues` / `n_chains`.
+Each target entry in `results.json` contains confidence metrics. The fields below are Boltz-2's; Protenix-v2 and OpenFold3 report the same `confidence_score` / `ptm` / `iptm` / `plddt` (and `all_runs` when `--diffusion_samples` > 1, ranked best-first), while an ESMFold2 entry instead carries `plddt` (mean, 0-1), `ptm` when available, and `n_residues` / `n_chains`. Every model reports its complex mean pLDDT under `plddt`.
 
 ```json
 {
@@ -546,6 +546,7 @@ Each target entry in `results.json` contains confidence metrics. The fields belo
     "ptm": 0.84,
     "iptm": 0.82,
     "complex_plddt": 0.84,
+    "plddt": 0.84,
     "chains_ptm": {
         "0": 0.85,
         "1": 0.83
@@ -557,10 +558,10 @@ Each target entry in `results.json` contains confidence metrics. The fields belo
 }
 ```
 
-- `confidence_score`: Overall confidence (0-1, higher is better), calculated as 0.8 × `complex_plddt` + 0.2 × `iptm`. Models are ranked by this score. OpenFold3 uses its own upstream ranking score instead (0.8 × `iptm` + 0.2 × `ptm` + 0.5 × disorder − 100 × clash), so its values are not comparable to the other models'
+- `confidence_score`: Overall confidence (0-1, higher is better), calculated as 0.8 × `complex_plddt` + 0.2 × `iptm`, or 0.8 × `complex_plddt` + 0.2 × `ptm` for a single-chain target, where there is no interface and `iptm` is 0. Models are ranked by this score. It is not a pLDDT and can sit either side of one: on CDK2 it is 0.008 above `complex_plddt` at 298 aa and 0.050 below it at 512 aa. OpenFold3 uses its own upstream ranking score instead (0.8 × `iptm` + 0.2 × `ptm` + 0.5 × disorder − 100 × clash), so its values are not comparable to the other models'
 - `ptm`: Predicted TM-score for complex (0-1)
 - `iptm`: Interface TM-score (0-1)
-- `complex_plddt`: Average per-residue confidence (0-1)
+- `complex_plddt`, `plddt`: Mean confidence (0-1), the same value under both names. It is the mean of the B-factor column of the structure file the same fold wrote, so averaging that column reproduces it. Boltz-2 writes one pLDDT per residue, so average over one atom per residue (CA); Protenix-v2, OpenFold3, OpenBind-0 and OpenDDE write one per atom, so average over all of them
 - `chains_ptm`: Per-chain TM-scores (0-1)
 - `pair_chains_iptm`: Per-chain-pair interface TM-scores (0-1)
 

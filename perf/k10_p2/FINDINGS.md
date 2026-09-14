@@ -146,14 +146,21 @@ already loads, so the comparable column exists in every report the instrument pr
 upstream rather than 0.05 behind it. The refactor was verified by re-scoring the 512 aa set and
 diffing: every pre-existing block byte-identical, `plddt_cif` the only new key.
 
-One thing this turned up and did not answer. tt-bio's reported plDDT is not the mean of the
-per-atom plDDT it writes into its own B-factor column: 0.811365 against 0.859296 (CA) and
-0.860440 (all atoms) at 512 aa, 0.918296 against 0.910437 at 298 aa, so the sign flips with size.
-Upstream's `complex_plddt` equals its own CA B-factor mean to six decimals on all 13 committed
-reference runs. Both of ours come from one confidence dict in `tt_bio/worker.py`, `metrics` from
-`c["plddt"]` and the B-factors from `c["plddt_atom"]`, so localising it is cheap. It touches no
-lDDT or RMSD number in this campaign, those come from coordinates, but the reported confidence is
-user-facing on JapanFold and a 0.05 discrepancy at 512 aa is worth one task.
+One thing this turned up and did not answer at the time: our reported plDDT looked like it was
+not the mean of the B-factor column we write, 0.811365 against 0.859296 at 512 aa and 0.918296
+against 0.910437 at 298 aa with the sign flipping. **Closed by
+`tt-bio-plddt-metric-bfactor-mismatch`, and the engine was not at fault.** Both numbers on our
+side came from a fold harness, not from the engine: Boltz-2 was the only model whose metrics dict
+carried no `plddt` key, so `fold_cpu_ref.py`'s
+`metrics.get("plddt", metrics.get("confidence_score", 0))` recorded `confidence_score`, which is
+0.8*plDDT + 0.2*pTM. That is 0.008 above the column at 298 aa and 0.050 below it at 512 aa
+precisely because pTM sits above plDDT at one size and below it at the other. tt-bio's actual
+`complex_plddt` equals the mean CA B-factor of its own CIF to 0.0 on a re-measured 298 aa CPU
+fold, the same convention upstream follows. `write_result` now emits `plddt` for Boltz-2 too, so
+the five other harnesses carrying that same fallback line read the right quantity as well, and
+`score.py` emits a `plddt_column` check that fires on all six arms recorded through the old
+reader. The plDDT rows in the two tables above are `plddt_cif`, the column, so they were already
+right; only this paragraph's reading of the reported number was wrong.
 
 ## Predictions, scored
 
