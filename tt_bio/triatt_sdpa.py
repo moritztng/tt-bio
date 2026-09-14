@@ -51,6 +51,14 @@ import ttnn
 from . import sdpa_generic as SG
 from .envflags import env_flag, env_int
 
+# Five files, not the fifteen the stock kernel directory holds. Three carry our edits:
+# `compute/sdpa.cpp`, `compute/compute_common.hpp`, `dataflow/reader_interleaved.cpp`. The other
+# two, `compute/compute_streaming.hpp` and `dataflow/dataflow_common.hpp`, are byte-identical to
+# the wheel and stay only because those two entry points include them by bare name, which the
+# kernel compiler resolves against the directory the including kernel lives in. The rest of the
+# original copy -- the joint and ring-joint kernels with their headers, and
+# `dataflow/writer_interleaved.cpp`, since `sdpa_generic.sdpa` takes the writer from the wheel --
+# was reachable from nothing and was deleted.
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_sdpa"
 
 # (calls served, calls declined)
