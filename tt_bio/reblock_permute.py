@@ -75,60 +75,54 @@ REJECTS: dict = {}
 #
 # It used to look like a real tuning knob: sweeping it moved this leg 1.10x-1.19x with optima at
 # 80/100/88 cores rather than 110, and the best count differed per shape. That was an artifact of
-# how groups were handed to cores, not a property of the core count. Interleaved DRAM puts page p in
-# bank p % 8 and a group's pages are congruent to its group index, so the cores running their i-th
-# group together land on banks {start_k + i*stride}. With a contiguous block per core start_k = k*w,
-# which covers 8/gcd(w, 8) banks: two of eight at w = 4. Hence the fastest core count was whichever
-# one made `w` odd, and that moves with the shape. `WALK` below removes the aliasing instead of
-# tuning around it, and with it the cost is a function of depth alone: at 400 groups the 80..99-core
-# band lands within 1.2 % of itself where it used to spread 1.30x, and the whole grid is the fastest
-# point at all four shapes. See `perf/ttx_splitwork/core_count_sweep.py` and the JSON beside it.
+# how groups are handed to cores, not a property of the core count -- see `WALK` below for the bank
+# arithmetic. Once the aliasing is removed the cost is a function of depth alone: the 400-group
+# 80..99-core band lands within 1.2% of itself where it spread 1.30x, and the whole grid is the
+# fastest point at all four shapes. So there was never a core count to fit.
+# `perf/ttx_splitwork/core_count_sweep.py` is the harness and the JSON sits beside it.
 REBLOCK_CORES = int(os.environ.get("TT_BIO_REBLOCK_CORES", "0"))
 
 # How a core walks the groups it owns. Every mode gives every core the SAME groups and the same
 # count, so the output is bit-identical; what moves is which groups are in flight together, and
 # therefore which DRAM banks are live at once.
 #
-#   "rotate"  (default) the contiguous block, started at the core's own phase `i % per_core`.
-#             Spreads the banks and keeps the pages of one core's groups near each other.
-#   "block"   the plain contiguous walk, which is what main shipped and what aliases.
-#   "stride"  round-robin: core i takes groups i, i+num_cores, ... Spreads the banks perfectly and
-#             costs the page locality; it wins big where "block" aliases hard and loses a few
-#             percent where "block" was already clean.
+#   "block"   (default, and what main ships) the contiguous run of `per_core` groups.
+#   "stride"  round-robin: core i takes groups i, i+num_cores, ... Concurrent groups become
+#             consecutive indices, so every bank is live, at the cost of page locality.
+#   "rotate"  the contiguous run kept, started at the core's own phase `i % per_core`. Spreads the
+#             banks without scattering the pages.
 #
-# All three are the same kernel loop, `num_groups` steps of `group_stride` from `first_group` with
+# All three are the same kernel loop: `num_groups` steps of `group_stride` from `first_group`, with
 # a fold back to `group_wrap_lo` at `group_wrap_hi`.
-WALK = os.environ.get("TT_BIO_REBLOCK_WALK", "auto")
+#
+# The default stays "block" because NEITHER alternative is safe, which was measured and is the
+# whole finding. Aliasing is real and large: page p lives in bank p % banks, every page of group g
+# is congruent to g, and a contiguous block puts core k at k*w, so the machine sits on
+# banks/gcd(w, banks) of them -- two of eight at w = 4, which reads 1.71x slower per wave at
+# identical traffic. Fixing it is worth 1.10x-1.44x. But the shapes that pay it are not the shapes
+# a fold asks for. On the Boltz-2 ladder (`perf/ttx_splitwork/shape_census_ladder.json`) 298 aa
+# runs the forward leg at 100 groups over 110 cores, one group a core, where all three walks are
+# the same walk; every larger size runs only the gated and back legs, at 1024, 1600 and 4096
+# groups. Measured there, against "block" on the whole grid
+# (`prod_shapes_ab.json`, `prod_ladder_ab.json`):
+#
+#             512 aa   640 aa   1024 aa
+#   gated     stride    0.964x   1.082x   0.910x        rotate  1.030x  0.753x  1.004x
+#   back      stride    1.019x   1.023x   1.188x        rotate  1.018x  0.831x  1.077x
+#
+# Each column wants a different walk and each alternative regresses by up to 33% somewhere, so no
+# fixed walk ships. Neither does a rule: `work1 >= banks`, fitted on six Blackhole shapes, mispicks
+# twice on Wormhole's 12 banks (`walk_wh_j10glx02c0.json`) and picks the 0.753x at 640 aa. The bank
+# arithmetic alone cannot choose either -- `perf/ttx_splitwork/bank_model.py` computes the exact
+# per-wave bank histogram from the kernels' own index expressions and gets "block is never the
+# cheapest walk" right at 12 of 12 while picking the device's winner at only 6, because the forward
+# and back legs at N=960 have IDENTICAL bank costs and opposite winners. What separates them is the
+# per-kernel issue pattern, which an index model cannot see.
+#
+# So: the knob is understood, it is bit-exact, and it stays off. The flag is here so a future pass
+# can re-open it with wider coverage without rebuilding any of this.
+WALK = os.environ.get("TT_BIO_REBLOCK_WALK", "block")
 _NO_WRAP = 0xFFFFFFFF
-
-
-def _walk_mode(device, work1):
-    """Which walk this split gets. ``auto`` is the shipped default and is derived, not fitted.
-
-    Rotation offers exactly ``work1`` distinct phases, so it can spread the concurrent groups over
-    at most that many DRAM banks: it is the right walk only when the block is at least as deep as
-    the machine has banks. Below that it cannot cover them and striding, which makes the concurrent
-    groups consecutive, does. The bank count is read from the device, so this carries to a Wormhole
-    chip (12 banks) without a second rule.
-
-    Measured on qb2's 11x10 grid against the contiguous block on the whole grid, at the six shapes
-    in `perf/ttx_splitwork/core_count_sweep.py` (`walk_ab.json`). The rule picks the best arm at
-    four of them and lands within 0.6% of the best at the other two:
-
-        work1  shape                       rule     ratio   the arm the rule did not pick
-           10  gated N=512 C=512 (fold)    rotate   1.030x  stride 0.964x, a LOSS
-           10  back  N=512 C=128 (fold)    rotate   1.018x  stride 1.019x
-            9  back  N=960 C=32            rotate   1.144x  stride 1.116x
-            9  fwd   N=960 C=32            rotate   1.121x  stride 1.128x
-            4  fwd   N=640 C=32            stride   1.438x  rotate 1.417x
-            3  fwd   N=512 C=32            stride   1.101x  rotate 0.974x, a LOSS
-
-    The two losses are the point: neither single walk is safe everywhere, and the depth is what
-    tells them apart.
-    """
-    if WALK != "auto":
-        return WALK
-    return "rotate" if work1 >= int(device.dram_grid_size().x) else "stride"
 
 
 def _walk(mode, i, block, per_core, num_cores):
@@ -220,12 +214,11 @@ def _build(x, out, device, reader_ct, writer_ct):
     # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
     # counters are kept for every mode because `_walk` needs each of them; `placed` is the audit.
     first, placed, block = 0, 0, 0
-    mode = _walk_mode(device, work1)
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    g0, gs, ghi, glo = _walk(mode, first, block, per_core, num_cores)
+                    g0, gs, ghi, glo = _walk(WALK, first, block, per_core, num_cores)
                     reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct]
                     writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
@@ -462,12 +455,11 @@ def _build_back(x, out, device, reader_ct, writer_ct):
     # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
     # counters are kept for every mode because `_walk` needs each of them; `placed` is the audit.
     first, placed, block = 0, 0, 0
-    mode = _walk_mode(device, work1)
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    g0, gs, ghi, glo = _walk(mode, first, block, per_core, num_cores)
+                    g0, gs, ghi, glo = _walk(WALK, first, block, per_core, num_cores)
                     reader_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES]
                     writer_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
@@ -696,12 +688,11 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
     # counters are kept for every mode because `_walk` needs each of them; `placed` is the audit.
     first, placed, block = 0, 0, 0
-    mode = _walk_mode(device, work1)
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    g0, gs, ghi, glo = _walk(mode, first, block, per_core, num_cores)
+                    g0, gs, ghi, glo = _walk(WALK, first, block, per_core, num_cores)
                     reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, Ctw, gs, ghi, glo]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES]
                     writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]

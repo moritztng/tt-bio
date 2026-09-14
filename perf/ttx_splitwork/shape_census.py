@@ -23,7 +23,7 @@ FIX = REPO / "perf" / "size512" / "fixtures"
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--fixture", default="cdk2x2_512")
+    ap.add_argument("--fixtures", default="cdk2x2_512")
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--recycles", type=int, default=3)
     args = ap.parse_args()
@@ -57,32 +57,36 @@ def main() -> int:
     RB.reblock_permute_gated = gated
     TT._reblock.reblock_permute_gated = gated
 
-    work = Path(tempfile.mkdtemp(prefix="ttx-census-"))
-    struct_dir = work / "out"; struct_dir.mkdir(parents=True)
-    msa_dir = work / "msa"; msa_dir.mkdir(parents=True)
-    LEV._seed_msa(FIX / f"{args.fixture}.yaml", (FIX / f"{args.fixture}.a3m").read_text(), msa_dir)
-    cfg = LEV.build_cfg(msa_dir, struct_dir)
-    LEV._ensure_local_artifacts = _ensure_local_artifacts
-    _ensure_local_artifacts(cfg)
-    state = _WorkerState("tenstorrent")
-    state.load_model(cfg)
-    state.bind_run("ttx-reblock-cores-ship-census", cfg)
+    allrows = []
+    for fixture in args.fixtures.split(","):
+      work = Path(tempfile.mkdtemp(prefix="ttx-census-"))
+      struct_dir = work / "out"; struct_dir.mkdir(parents=True)
+      msa_dir = work / "msa"; msa_dir.mkdir(parents=True)
+      LEV._seed_msa(FIX / f"{fixture}.yaml", (FIX / f"{fixture}.a3m").read_text(), msa_dir)
+      cfg = LEV.build_cfg(msa_dir, struct_dir)
+      LEV._ensure_local_artifacts = _ensure_local_artifacts
+      _ensure_local_artifacts(cfg)
+      state = _WorkerState("tenstorrent")
+      state.load_model(cfg)
+      state.bind_run("ttx-reblock-cores-ship-census", cfg)
 
-    t0 = time.perf_counter()
-    state.predict_one(FIX / f"{args.fixture}.yaml", cfg)
-    wall = time.perf_counter() - t0
+      seen.clear()
+      t0 = time.perf_counter()
+      state.predict_one(FIX / f"{fixture}.yaml", cfg)
+      wall = time.perf_counter() - t0
 
-    rows = [{"leg": k[0], "shape": list(k[1]), "eligible": bool(k[2]), "calls": n}
-            for k, n in sorted(seen.items(), key=lambda kv: -kv[1])]
-    out = {"host": socket.gethostname(), "fixture": args.fixture, "fold_s": round(wall, 3),
-           "steps": args.steps, "recycles": args.recycles, "rows": rows}
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(out, indent=1))
-    print(f"fold {wall:.3f}s")
-    for r in rows:
-        print(f"  {r['leg']:>6} {str(r['shape']):>24} eligible={r['eligible']!s:5} "
-              f"calls={r['calls']}")
-    shutil.rmtree(work, ignore_errors=True)
+      rows = [{"leg": k[0], "shape": list(k[1]), "eligible": bool(k[2]), "calls": n}
+              for k, n in sorted(seen.items(), key=lambda kv: -kv[1])]
+      allrows.append({"fixture": fixture, "fold_s": round(wall, 3), "rows": rows})
+      print(f"{fixture}: fold {wall:.3f}s")
+      for r in rows:
+          print(f"  {r['leg']:>6} {str(r['shape']):>24} eligible={r['eligible']!s:5} "
+                f"calls={r['calls']}")
+      args.out.parent.mkdir(parents=True, exist_ok=True)
+      args.out.write_text(json.dumps(
+          {"host": socket.gethostname(), "steps": args.steps, "recycles": args.recycles,
+           "folds": allrows}, indent=1))
+      shutil.rmtree(work, ignore_errors=True)
     return 0
 
 
