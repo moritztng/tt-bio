@@ -7230,6 +7230,8 @@ class TriangleAttention(Module):
                 triangle_bias = ttnn.add(triangle_bias, attn_mask)
             # ROOF Phase A: the qkv projection folded into the SDPA. When it takes the call the
             # projection program does not run at all. The gate still needs its own pass over x.
+            if qkv is not None:
+                _triatt_sdpa._fuse_reject("qkv_already_fused_with_gate", [int(d) for d in x.shape])
             fold_o = None if qkv is not None else _tri_att_fused_qkv_sdpa(self, x, triangle_bias)
             # When the head-major projection takes the call, `qkv` is already the (q, k, v)
             # triple and no head split follows. It declines an L1 projection outright.
@@ -7313,13 +7315,13 @@ def _tri_att_fused_qkv_sdpa(att, x, bias):
     1.05 % and 2.61 %, and 1.5273x at 320 padded tokens. See `state/roof-qkv-sdpa-build.md`.
     """
     if att.biased or att.subtile or _FP32_SOFTMAX or att.fp32_softmax:
-        return None
+        return _triatt_sdpa._fuse_reject("site", [int(d) for d in x.shape])
     S = int(x.padded_shape[-2])
     cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
     kc = next((k for q, k in _triatt_sdpa.fused_pairs(
         S, att.n_heads, att.head_dim, cores, bias.dtype) if q == S), None)
     if kc is None:
-        return None
+        return _triatt_sdpa._fuse_reject("no_full_S_chunk", [int(d) for d in x.shape])
     # The kernel adds the bias BEFORE applying scale, so it wants it pre-baked by sqrt(head_dim);
     # same correction `_attend_heads` makes for the unfused route.
     b = bias
