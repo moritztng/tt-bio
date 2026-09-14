@@ -47,7 +47,7 @@ void kernel_main() {
     // See the reader: the destination address is the only per-call value, so it is a common
     // runtime arg and the descriptor above it is cacheable.
     uint32_t dst_addr = get_common_arg_val<uint32_t>(0);
-    uint32_t start_group = get_arg_val<uint32_t>(0);
+    uint32_t first_group = get_arg_val<uint32_t>(0);
     uint32_t num_groups = get_arg_val<uint32_t>(1);
     uint32_t Nt = get_arg_val<uint32_t>(2);
     // Logical length of the permuted axis; see the reader. Rows at or above it are output tile
@@ -55,6 +55,21 @@ void kernel_main() {
     // padding sits on the contracted axis, so a non-zero there changes the product.
     uint32_t D1 = get_arg_val<uint32_t>(3);
     uint32_t Ct = get_arg_val<uint32_t>(4);
+    // The group walk is (first, stride, wrap), not (start, +1), and that is a bandwidth decision.
+    // Interleaved DRAM puts page p in bank p % 8 and every page of group g is congruent to g, so
+    // the cores running their i-th group together land on banks {first_k + i*stride}. A plain
+    // contiguous block makes first_k = k*w, which covers 8/gcd(w, 8) of them: two of eight at
+    // w = 4, measured 1.71x slower per wave than w = 5 at the same traffic. Two ways out, and the
+    // host picks between them per split (see `tt_bio/reblock_permute.py`):
+    //   stride = num_cores   concurrent groups become consecutive indices;
+    //   wrap                 the block is kept and its START is rotated by the core's own phase,
+    //                        which spreads the banks the same way without scattering the pages.
+    // A core walks `num_groups` steps of `group_stride` from `first_group`, folding back to
+    // `group_wrap_lo` whenever it reaches `group_wrap_hi`. Blocked order is stride 1 and a wrap
+    // that never fires, so all three modes are this one loop.
+    uint32_t group_stride = get_arg_val<uint32_t>(5);
+    uint32_t group_wrap_hi = get_arg_val<uint32_t>(6);
+    uint32_t group_wrap_lo = get_arg_val<uint32_t>(7);
 
     constexpr uint32_t element_size = get_compile_time_arg_val(0);
     constexpr uint32_t cb_id_in = get_compile_time_arg_val(1);     // c_16 (post-WH tiles)
@@ -84,8 +99,8 @@ void kernel_main() {
     bool slot_dirty[2] = {false, false};
 
     const uint32_t NtNt = Nt * Nt;
-    const uint32_t end_group = start_group + num_groups;
-    for (uint32_t group = start_group; group < end_group; ++group) {
+    uint32_t group = first_group;
+    for (uint32_t gi = 0; gi < num_groups; ++gi) {
         const uint32_t it = group / Nt;
         const uint32_t jt = group % Nt;
         const uint32_t page_base = it * Nt + jt;
@@ -176,6 +191,11 @@ void kernel_main() {
             slot_dirty[0] = false;
             slot_dirty[1] = false;
             cb_pop_front(cb_id_in, TILE_HEIGHT);
+        }
+
+        group += group_stride;
+        if (group == group_wrap_hi) {
+            group = group_wrap_lo;
         }
     }
 }

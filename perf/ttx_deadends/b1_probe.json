@@ -1,0 +1,158 @@
+{
+ "host": "tt-quietbox2",
+ "arch": "Arch.BLACKHOLE",
+ "C": 128,
+ "S": 288,
+ "Mt": 9,
+ "cases": {
+  "4d|none|dram": {
+   "ok": true,
+   "shard": null,
+   "layout": "TensorMemoryLayout.INTERLEAVED"
+  },
+  "4d|none|l1_int": {
+   "ok": true,
+   "shard": null,
+   "layout": "TensorMemoryLayout.INTERLEAVED"
+  },
+  "4d|none|l1_hs_auto": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/tensor/spec/tensor_spec.cpp:37: physical_width == physical_shard_width\ninfo:\nShard width 256 must match physical width 288 for height sharded\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55def9) [0x7e4ae595def9]\n --- tt::tt_metal::TensorSpec::TensorSpec(tt::tt_metal::Shape, tt::tt_metal::TensorLayout)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfc0309) [0x7e4ae63c0309]\n --- ttnn::prim::MatmulDeviceOperation::compute_output_specs(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- ttnn::prim::MatmulDeviceOperation::create_output_tensors"
+  },
+  "4d|none|l1_hs_spec": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/tensor/spec/tensor_spec.cpp:37: physical_width == physical_shard_width\ninfo:\nShard width 256 must match physical width 288 for height sharded\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55def9) [0x7e4ae595def9]\n --- tt::tt_metal::TensorSpec::TensorSpec(tt::tt_metal::Shape, tt::tt_metal::TensorLayout)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfc0309) [0x7e4ae63c0309]\n --- ttnn::prim::MatmulDeviceOperation::compute_output_specs(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- ttnn::prim::MatmulDeviceOperation::create_output_tensors"
+  },
+  "4d|mcast2d_fb0|dram": {
+   "ok": true,
+   "shard": null,
+   "layout": "TensorMemoryLayout.INTERLEAVED"
+  },
+  "4d|mcast2d_fb0|l1_int": {
+   "ok": true,
+   "shard": null,
+   "layout": "TensorMemoryLayout.INTERLEAVED"
+  },
+  "4d|mcast2d_fb0|l1_hs_auto": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:407: num_shards.value() <= num_compute_banks\ninfo:\nExpected number of shards 1152 to be less than or equal to total number of L1 banks 110 in compute cores\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x77b559) [0x7e4ae5b7b559]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::cr"
+  },
+  "4d|mcast2d_fb0|l1_hs_spec": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:407: num_shards.value() <= num_compute_banks\ninfo:\nExpected number of shards 1152 to be less than or equal to total number of L1 banks 110 in compute cores\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x77b559) [0x7e4ae5b7b559]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::cr"
+  },
+  "4d|mcast2d_fb1|dram": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:393: get_batch_size(b_shape_padded) == 1\ninfo:\nMatmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config.\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7e4ae595d668]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfbe44a) [0x7e4ae63be44a]\n --- ttnn::prim::MatmulDeviceOperation::validate_on_program_cache_miss(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/"
+  },
+  "4d|mcast2d_fb1|l1_int": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:393: get_batch_size(b_shape_padded) == 1\ninfo:\nMatmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config.\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7e4ae595d668]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfbe44a) [0x7e4ae63be44a]\n --- ttnn::prim::MatmulDeviceOperation::validate_on_program_cache_miss(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/"
+  },
+  "4d|mcast2d_fb1|l1_hs_auto": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:407: num_shards.value() <= num_compute_banks\ninfo:\nExpected number of shards 1152 to be less than or equal to total number of L1 banks 110 in compute cores\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x77b559) [0x7e4ae5b7b559]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::cr"
+  },
+  "4d|mcast2d_fb1|l1_hs_spec": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:407: num_shards.value() <= num_compute_banks\ninfo:\nExpected number of shards 1152 to be less than or equal to total number of L1 banks 110 in compute cores\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x77b559) [0x7e4ae5b7b559]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::cr"
+  },
+  "4d|mcast1d_fuse|dram": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:393: get_batch_size(b_shape_padded) == 1\ninfo:\nMatmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config.\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7e4ae595d668]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfbe44a) [0x7e4ae63be44a]\n --- ttnn::prim::MatmulDeviceOperation::validate_on_program_cache_miss(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/"
+  },
+  "4d|mcast1d_fuse|l1_int": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:393: get_batch_size(b_shape_padded) == 1\ninfo:\nMatmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config.\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7e4ae595d668]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfbe44a) [0x7e4ae63be44a]\n --- ttnn::prim::MatmulDeviceOperation::validate_on_program_cache_miss(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/"
+  },
+  "4d|mcast1d_fuse|l1_hs_auto": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:393: get_batch_size(b_shape_padded) == 1\ninfo:\nMatmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config.\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7e4ae595d668]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfbe44a) [0x7e4ae63be44a]\n --- ttnn::prim::MatmulDeviceOperation::validate_on_program_cache_miss(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/"
+  },
+  "4d|mcast1d_fuse|l1_hs_spec": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:393: get_batch_size(b_shape_padded) == 1\ninfo:\nMatmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config.\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7e4ae595d668]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfbe44a) [0x7e4ae63be44a]\n --- ttnn::prim::MatmulDeviceOperation::validate_on_program_cache_miss(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/"
+  },
+  "3d|none|dram": {
+   "ok": true,
+   "shard": null,
+   "layout": "TensorMemoryLayout.INTERLEAVED"
+  },
+  "3d|none|l1_int": {
+   "ok": true,
+   "shard": null,
+   "layout": "TensorMemoryLayout.INTERLEAVED"
+  },
+  "3d|none|l1_hs_auto": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/tensor/spec/tensor_spec.cpp:37: physical_width == physical_shard_width\ninfo:\nShard width 256 must match physical width 288 for height sharded\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55def9) [0x7e4ae595def9]\n --- tt::tt_metal::TensorSpec::TensorSpec(tt::tt_metal::Shape, tt::tt_metal::TensorLayout)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfc0309) [0x7e4ae63c0309]\n --- ttnn::prim::MatmulDeviceOperation::compute_output_specs(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- ttnn::prim::MatmulDeviceOperation::create_output_tensors"
+  },
+  "3d|none|l1_hs_spec": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/tensor/spec/tensor_spec.cpp:37: physical_width == physical_shard_width\ninfo:\nShard width 256 must match physical width 288 for height sharded\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55def9) [0x7e4ae595def9]\n --- tt::tt_metal::TensorSpec::TensorSpec(tt::tt_metal::Shape, tt::tt_metal::TensorLayout)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfc0309) [0x7e4ae63c0309]\n --- ttnn::prim::MatmulDeviceOperation::compute_output_specs(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- ttnn::prim::MatmulDeviceOperation::create_output_tensors"
+  },
+  "3d|mcast2d_fb0|dram": {
+   "ok": true,
+   "shard": null,
+   "layout": "TensorMemoryLayout.INTERLEAVED"
+  },
+  "3d|mcast2d_fb0|l1_int": {
+   "ok": true,
+   "shard": null,
+   "layout": "TensorMemoryLayout.INTERLEAVED"
+  },
+  "3d|mcast2d_fb0|l1_hs_auto": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:407: num_shards.value() <= num_compute_banks\ninfo:\nExpected number of shards 1152 to be less than or equal to total number of L1 banks 110 in compute cores\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x77b559) [0x7e4ae5b7b559]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::cr"
+  },
+  "3d|mcast2d_fb0|l1_hs_spec": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:407: num_shards.value() <= num_compute_banks\ninfo:\nExpected number of shards 1152 to be less than or equal to total number of L1 banks 110 in compute cores\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x77b559) [0x7e4ae5b7b559]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::cr"
+  },
+  "3d|mcast2d_fb1|dram": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:393: get_batch_size(b_shape_padded) == 1\ninfo:\nMatmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config.\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7e4ae595d668]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfbe44a) [0x7e4ae63be44a]\n --- ttnn::prim::MatmulDeviceOperation::validate_on_program_cache_miss(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/"
+  },
+  "3d|mcast2d_fb1|l1_int": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:393: get_batch_size(b_shape_padded) == 1\ninfo:\nMatmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config.\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7e4ae595d668]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfbe44a) [0x7e4ae63be44a]\n --- ttnn::prim::MatmulDeviceOperation::validate_on_program_cache_miss(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/"
+  },
+  "3d|mcast2d_fb1|l1_hs_auto": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:407: num_shards.value() <= num_compute_banks\ninfo:\nExpected number of shards 1152 to be less than or equal to total number of L1 banks 110 in compute cores\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x77b559) [0x7e4ae5b7b559]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::cr"
+  },
+  "3d|mcast2d_fb1|l1_hs_spec": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:407: num_shards.value() <= num_compute_banks\ninfo:\nExpected number of shards 1152 to be less than or equal to total number of L1 banks 110 in compute cores\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x77b559) [0x7e4ae5b7b559]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::cr"
+  },
+  "3d|mcast1d_fuse|dram": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:393: get_batch_size(b_shape_padded) == 1\ninfo:\nMatmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config.\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7e4ae595d668]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfbe44a) [0x7e4ae63be44a]\n --- ttnn::prim::MatmulDeviceOperation::validate_on_program_cache_miss(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/"
+  },
+  "3d|mcast1d_fuse|l1_int": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:393: get_batch_size(b_shape_padded) == 1\ninfo:\nMatmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config.\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7e4ae595d668]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfbe44a) [0x7e4ae63be44a]\n --- ttnn::prim::MatmulDeviceOperation::validate_on_program_cache_miss(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/"
+  },
+  "3d|mcast1d_fuse|l1_hs_auto": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:393: get_batch_size(b_shape_padded) == 1\ninfo:\nMatmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config.\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7e4ae595d668]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfbe44a) [0x7e4ae63be44a]\n --- ttnn::prim::MatmulDeviceOperation::validate_on_program_cache_miss(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/"
+  },
+  "3d|mcast1d_fuse|l1_hs_spec": {
+   "ok": false,
+   "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:393: get_batch_size(b_shape_padded) == 1\ninfo:\nMatmul with fused batch requires input tensors of shapes BCMK*11KN=BCMN or equivalent. Please change the second input tensor or adjust the program config.\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7e4ae595d668]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfbe44a) [0x7e4ae63be44a]\n --- ttnn::prim::MatmulDeviceOperation::validate_on_program_cache_miss(ttnn::prim::MatmulParams const&, ttnn::prim::MatmulInputs const&)\n --- /home/ttuser/tt-bio-dev/"
+  }
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "in0_block_w": 3,
+ "mcast1d_grid": [
+  9,
+  8
+ ],
+ "hs_spec_grid": [
+  9,
+  8
+ ]
+}

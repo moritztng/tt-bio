@@ -1,0 +1,218 @@
+{
+ "host": "tt-quietbox2",
+ "arch": "Arch.BLACKHOLE",
+ "shapes": "64x288,64x512,32x512,110x288",
+ "loadavg": [
+  "2.10",
+  "1.49",
+  "1.41"
+ ],
+ "geo": {
+  "c64s288": {
+   "Mt": 9,
+   "in0_block_w": 3,
+   "reuse_grid": [
+    8,
+    8
+   ],
+   "out_MB": 10.616832
+  },
+  "c64s512": {
+   "Mt": 16,
+   "in0_block_w": 4,
+   "reuse_grid": [
+    8,
+    8
+   ],
+   "out_MB": 33.554432
+  },
+  "c32s512": {
+   "Mt": 16,
+   "in0_block_w": 4,
+   "reuse_grid": [
+    8,
+    4
+   ],
+   "out_MB": 16.777216
+  },
+  "c110s288": {
+   "Mt": 9,
+   "in0_block_w": 3,
+   "reuse_grid": [
+    11,
+    10
+   ],
+   "out_MB": 18.24768
+  }
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "rows": [
+  {
+   "arm": "c64s288_prodcfg_dram",
+   "ms": 0.2194714998040581,
+   "TFLOPs": 13.931866409669757,
+   "ns_per_tile_mac": 4.704035918296856
+  },
+  {
+   "arm": "c64s288_prodcfg_dram_AA",
+   "ms": 0.21853450016351417,
+   "TFLOPs": 13.991601388852446,
+   "ns_per_tile_mac": 4.683952764135677
+  },
+  {
+   "arm": "c64s288_prodcfg_l1int",
+   "ms": 0.20510749982349807,
+   "TFLOPs": 14.907536870329992,
+   "ns_per_tile_mac": 4.396165548343151
+  },
+  {
+   "arm": "c64s288_reuse_dram",
+   "ms": 0.10027649932453642,
+   "TFLOPs": 30.492165528277784,
+   "ns_per_tile_mac": 2.1492733908722657
+  },
+  {
+   "arm": "c64s288_reuse_dram_AA",
+   "ms": 0.09880349989543902,
+   "TFLOPs": 30.946754105227274,
+   "ns_per_tile_mac": 2.1177019010510763
+  },
+  {
+   "arm": "c64s288_reuse_l1hs",
+   "ms": 0.09232599950337317,
+   "TFLOPs": 33.11794762523299,
+   "ns_per_tile_mac": 1.9788665874351246
+  },
+  {
+   "arm": "c64s288_reuse_l1hs_AA",
+   "ms": 0.09124850021180464,
+   "TFLOPs": 33.509017780047174,
+   "ns_per_tile_mac": 1.9557720381473902
+  },
+  {
+   "arm": "c64s288_default_dram",
+   "ms": 0.4242784998496063,
+   "TFLOPs": 7.206699413436792,
+   "ns_per_tile_mac": 9.093760713511795
+  },
+  {
+   "arm": "c64s512_prodcfg_dram",
+   "ms": 0.5294599995977478,
+   "TFLOPs": 32.44790767395505,
+   "ns_per_tile_mac": 2.019729612723342
+  },
+  {
+   "arm": "c64s512_prodcfg_dram_AA",
+   "ms": 0.5360779996408382,
+   "TFLOPs": 32.047331163581,
+   "ns_per_tile_mac": 2.0449752793916254
+  },
+  {
+   "arm": "c64s512_prodcfg_l1int",
+   "ms": 0.46841250059515005,
+   "TFLOPs": 36.67679483825005,
+   "ns_per_tile_mac": 1.7868518852048876
+  },
+  {
+   "arm": "c64s512_default_dram",
+   "ms": 0.9785034999367781,
+   "TFLOPs": 17.55728945794267,
+   "ns_per_tile_mac": 3.7326946256133198
+  },
+  {
+   "arm": "c32s512_prodcfg_dram",
+   "ms": 0.27595499977906,
+   "TFLOPs": 31.12802666694724,
+   "ns_per_tile_mac": 2.1053695661854555
+  },
+  {
+   "arm": "c32s512_prodcfg_dram_AA",
+   "ms": 0.2731695003603818,
+   "TFLOPs": 31.44543801803509,
+   "ns_per_tile_mac": 2.0841178921537917
+  },
+  {
+   "arm": "c32s512_prodcfg_l1int",
+   "ms": 0.24003749967960175,
+   "TFLOPs": 35.78580264944314,
+   "ns_per_tile_mac": 1.8313407873504772
+  },
+  {
+   "arm": "c32s512_default_dram",
+   "ms": 0.4942244995618239,
+   "TFLOPs": 17.38063288974095,
+   "ns_per_tile_mac": 3.7706336941667473
+  },
+  {
+   "arm": "c110s288_prodcfg_dram",
+   "ms": 0.36772449948330177,
+   "TFLOPs": 14.291492264954847,
+   "ns_per_tile_mac": 4.585665288481129
+  },
+  {
+   "arm": "c110s288_prodcfg_dram_AA",
+   "ms": 0.3648140000223066,
+   "TFLOPs": 14.405510313964546,
+   "ns_per_tile_mac": 4.549370245944713
+  },
+  {
+   "arm": "c110s288_prodcfg_l1int",
+   "ms": 0.34031450013571884,
+   "TFLOPs": 15.442573965858498,
+   "ns_per_tile_mac": 4.2438521029519745
+  },
+  {
+   "arm": "c110s288_reuse_dram",
+   "ms": 0.15069800065248273,
+   "TFLOPs": 34.87326850552625,
+   "ns_per_tile_mac": 1.8792617614725369
+  },
+  {
+   "arm": "c110s288_reuse_dram_AA",
+   "ms": 0.14965100035624346,
+   "TFLOPs": 35.117251655449735,
+   "ns_per_tile_mac": 1.8662052669440512
+  },
+  {
+   "arm": "c110s288_reuse_l1hs",
+   "ms": 0.12443549985619029,
+   "TFLOPs": 42.23338071590157,
+   "ns_per_tile_mac": 1.551758322187184
+  },
+  {
+   "arm": "c110s288_reuse_l1hs_AA",
+   "ms": 0.1231125006597722,
+   "TFLOPs": 42.687231693257395,
+   "ns_per_tile_mac": 1.5352600157098415
+  },
+  {
+   "arm": "c110s288_default_dram",
+   "ms": 0.714030999915849,
+   "TFLOPs": 7.360089184670357,
+   "ns_per_tile_mac": 8.90423992911646
+  }
+ ],
+ "refused": {
+  "c64s512_reuse_dram": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "c64s512_reuse_dram_AA": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "c64s512_reuse_l1hs": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "c64s512_reuse_l1hs_AA": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "c32s512_reuse_dram": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "c32s512_reuse_dram_AA": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "c32s512_reuse_l1hs": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "c32s512_reuse_l1hs_AA": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+ },
+ "exact": {
+  "c64s288": {
+   "torch_equal": true,
+   "max_abs": 0.0
+  },
+  "c110s288": {
+   "torch_equal": true,
+   "max_abs": 0.0
+  }
+ }
+}

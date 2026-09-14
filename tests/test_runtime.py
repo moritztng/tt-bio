@@ -132,3 +132,78 @@ def test_host_thread_cap_env_is_byte_identical_above_the_line(monkeypatch):
         cap = runtime.host_thread_cap(n_workers, host_threads)
         if cap > runtime.IDLE_PARK_THREAD_SHARE:
             assert env == {var: str(cap) for var in runtime.HOST_THREAD_VARS}
+
+
+def _boltzgen_child_envs(monkeypatch, tmp_path, n_devices, cores, operator_env=None):
+    """Run BoltzGen's multi-device fan-out far enough to capture each child's environment.
+
+    ``--debug`` is the branch with no progress view, so a fake Popen that reports success is
+    enough to reach the end of the function. Nothing here opens a device.
+    """
+    import argparse
+    import subprocess as _subprocess
+    from tt_bio.boltzgen.cli import boltzgen as bg
+    import tt_bio.main as bg_main
+
+    for var in runtime.HOST_THREAD_VARS + tuple(runtime.IDLE_THREADS_PARK):
+        monkeypatch.delenv(var, raising=False)
+    for var, val in (operator_env or {}).items():
+        monkeypatch.setenv(var, val)
+    monkeypatch.setattr(os, "sched_getaffinity", lambda pid: set(range(cores)))
+    monkeypatch.setattr(bg_main, "_detect_p300_devices", lambda: [])
+    monkeypatch.setattr(bg.sys, "argv", ["boltzgen", "run", "--output", str(tmp_path)])
+
+    captured = []
+
+    class _Launched(Exception):
+        """Every worker is up and its environment recorded; the merge past here is not our subject."""
+
+    class _Proc:
+        returncode = 0
+
+        def wait(self):
+            # _run_distributed launches all N workers before it waits on any, so the first wait
+            # is the exact point where the captured environments are complete.
+            raise _Launched
+
+    def _fake_popen(cmd, env=None, **kwargs):
+        captured.append(env)
+        return _Proc()
+
+    monkeypatch.setattr(_subprocess, "Popen", _fake_popen)
+    args = argparse.Namespace(output=tmp_path, num_designs=n_devices, device_ids=None, debug=True)
+    with pytest.raises(_Launched):
+        bg._run_distributed(args, list(range(n_devices)))
+    assert len(captured) == n_devices
+    return captured
+
+
+def test_boltzgen_fanout_uses_the_one_thread_cap_builder(monkeypatch, tmp_path):
+    """BoltzGen's per-card fan-out is a DP path and must get the same child env ``predict`` does.
+
+    It used to build that env itself -- a second copy of ``cores // workers`` that never picked up
+    idle-thread parking, so the one dispatch path that routinely starves the host (32 single-chip
+    design workers on whglx's 64 threads, a 2-thread share) kept spinning its pool threads through
+    every device sync. Same builder now, so the rule lands in one place.
+    """
+    for env in _boltzgen_child_envs(monkeypatch, tmp_path, n_devices=32, cores=64):
+        assert env["OMP_NUM_THREADS"] == "2"
+        assert runtime.IDLE_THREADS_PARK.items() <= env.items()
+
+
+def test_boltzgen_fanout_leaves_the_thread_cap_unchanged_above_the_line(monkeypatch, tmp_path):
+    """The cap itself must not move: 64 threads over 4 workers is still 16 each, and a fan-out
+    with cores to spare still spins, exactly as it did before the builder was shared."""
+    for env in _boltzgen_child_envs(monkeypatch, tmp_path, n_devices=4, cores=64):
+        assert env["OMP_NUM_THREADS"] == "16"
+        assert all(env[var] == "16" for var in runtime.HOST_THREAD_VARS)
+        assert not set(runtime.IDLE_THREADS_PARK) & set(env)
+
+
+def test_boltzgen_fanout_still_respects_an_explicit_operator_setting(monkeypatch, tmp_path):
+    """The old code used ``setdefault`` so an operator's OMP_NUM_THREADS survived. Keep that."""
+    for env in _boltzgen_child_envs(monkeypatch, tmp_path, n_devices=32, cores=64,
+                                    operator_env={"OMP_NUM_THREADS": "7"}):
+        assert env["OMP_NUM_THREADS"] == "7"
+        # They capped threads, not the wait policy, so parking is still ours to set.
+        assert runtime.IDLE_THREADS_PARK.items() <= env.items()

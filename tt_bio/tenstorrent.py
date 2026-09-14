@@ -543,6 +543,21 @@ _TRIMUL_TAIL_L1 = env_flag("TT_BIO_TRIMUL_TAIL_L1", False)
 # a real setting, not a fallback: with the product written straight to DRAM the tail still deletes
 # both operands' round trip, at two thirds of the L1 the full residency asks for.
 _TRIMUL_TAIL_L1_LIVE = 3
+# The PRODUCT alone, which is a different trade from the tail above and had never been tried:
+# `_TRIMUL_TAIL_L1_LIVE = 2` offers the operands without the product, this is the other half. The
+# product is written once and read once by the channel move that follows it, and at the production
+# chunk width it is 8-38 MB against 160.79 MB of usable L1, so it fits where the full tail does
+# not. Op level, production program config, qb2 p300c, 9 interleaved blocks: 1.033x at 384 aa,
+# 1.105x at 512, 1.182x at 640, 1.067x at 768, each above its own A/A floor
+# (perf/ttx_deadends/b1_prod_ab.json). Catalogue row B1 asked for a HEIGHT-SHARDED L1 result
+# instead, and that one is worth nothing: 0.984-1.005x inside one program config.
+_TRIMUL_OUT_L1 = env_flag("TT_BIO_TRIMUL_OUT_L1", False)
+
+
+def set_trimul_out_l1(on: bool) -> None:
+    """A/B switch for the product's L1 destination (perf/ttx_deadends/b1_fold_ab_512.py)."""
+    global _TRIMUL_OUT_L1
+    _TRIMUL_OUT_L1 = bool(on)
 # Share of each bank the tail may claim. The rest is the triangle matmul's circular buffers and
 # whatever the enclosing Pairformer block still holds.
 _TRIMUL_TAIL_L1_SHARE = float(os.environ.get("TT_BIO_TRIMUL_TAIL_L1_SHARE", "0.5"))
@@ -990,19 +1005,24 @@ def _trimul_l1_max_seq() -> int:
     return TRIANGLE_MULT_L1_MAX_SEQ
 
 
-def _trimul_tail_memory_config(batch: int, chunk_c: int, H: int, elem_bytes: int,
-                               tensors: int = _TRIMUL_TAIL_L1_LIVE) -> ttnn.MemoryConfig | None:
-    """L1 for the chunk tail when `tensors` of them fit the grid's banks at once, else None.
+def _trimul_l1_fits(batch: int, chunk_c: int, H: int, elem_bytes: int, tensors: int) -> bool:
+    """Do `tensors` copies of one [batch, chunk_c, H, H] chunk fit the share of L1 the loop may take?
 
-    Priced on the tail's own bytes, per bank, the way `_FP32_SOFTMAX_L1_BYTES_PER_CORE` and
+    Priced on the chunk's own bytes, per bank, the way `_FP32_SOFTMAX_L1_BYTES_PER_CORE` and
     `_TRIMUL_INPROJ_FUSED_BYTES` are -- never on a sequence length.
     """
-    if not _TRIMUL_TAIL_L1:
-        return None
     ht = -(-int(H) // 32) * 32
     gx, gy = COMPUTE_GRID_MAIN
-    live = tensors * batch * chunk_c * ht * ht * elem_bytes
-    if live <= _TRIMUL_TAIL_L1_SHARE * _l1_bank_bytes() * gx * gy:
+    return (tensors * batch * chunk_c * ht * ht * elem_bytes
+            <= _TRIMUL_TAIL_L1_SHARE * _l1_bank_bytes() * gx * gy)
+
+
+def _trimul_tail_memory_config(batch: int, chunk_c: int, H: int, elem_bytes: int,
+                               tensors: int = _TRIMUL_TAIL_L1_LIVE) -> ttnn.MemoryConfig | None:
+    """L1 for the chunk tail when `tensors` of them fit the grid's banks at once, else None."""
+    if not _TRIMUL_TAIL_L1:
+        return None
+    if _trimul_l1_fits(batch, chunk_c, H, elem_bytes, tensors):
         TRIMUL_TAIL_L1_STATS["l1"] += 1
         return ttnn.L1_MEMORY_CONFIG
     TRIMUL_TAIL_L1_STATS["dram"] += 1
@@ -6347,7 +6367,10 @@ class TriangleMultiplication(Module):
                         _full = _trimul_tail_memory_config(batch, slice_c, H, _eb, 3)
                         tail_mc = _full or _trimul_tail_memory_config(batch, slice_c, H, _eb, 2) \
                             or memory_config
-                        out_mc = _full or memory_config
+                        out_mc = _full or (
+                            ttnn.L1_MEMORY_CONFIG
+                            if _TRIMUL_OUT_L1 and _trimul_l1_fits(batch, slice_c, H, _eb, 1)
+                            else memory_config)
                         # The fused path only replaces the (0,3,1,2) move, which is the leg `_transform_chunk`
                         # decomposes to on the DRAM path. A mask multiply or --fast's typecasts would have to
                         # ride inside the kernel too, so those keep the four-way split.

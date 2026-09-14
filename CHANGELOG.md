@@ -7,6 +7,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **A BoltzGen design spread over a full box now gets the same idle-thread parking a full box of
+  folds does.** The design fan-out built its per-card worker environment itself, with its own copy
+  of the cores-over-workers split, so it capped threads but never parked them: 32 single-chip design
+  workers on a 64-thread host sat at a two-thread share spinning their OpenMP pools through every
+  device sync, which is the one regime parking is for. It now takes that environment from
+  `runtime.host_thread_cap_env`, the same builder `predict` and ESMC use. The thread cap itself is
+  unchanged at every width, and an operator's own `OMP_NUM_THREADS` still wins.
+
 - **A host where the device bring-up lock file is not writable no longer brings chips up
   unserialized in silence.** `/tmp/tt-bio-device-open.lock` belongs to whichever account created
   it, so a second account on a shared box got a `PermissionError`, and tt-bio answered it by
