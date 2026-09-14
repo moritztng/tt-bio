@@ -1,0 +1,35 @@
+{
+ "host": "pc",
+ "arch": "Arch.BLACKHOLE",
+ "core_grid_main": [
+  13,
+  10
+ ],
+ "gamma_fold": {
+  "shipped_rel_rms": 0.0035718046645173114,
+  "shipped_pcc": 0.9999941034855906,
+  "folded_rel_rms": 0.0029623739756379753,
+  "folded_pcc": 0.9999956549250684,
+  "folded_over_shipped": 0.8293773747110289,
+  "arm_to_arm_rel_rms": 0.0044152664759445626
+ },
+ "sigmoid_placement": {
+  "shipped_at_multiply_rel_rms": 0.0025246015414672304,
+  "shipped_at_multiply_pcc": 0.9999968154423438,
+  "hoisted_in_matmul_rel_rms": 0.0025246015414672304,
+  "hoisted_in_matmul_pcc": 0.9999968154423438,
+  "hoisted_over_shipped": 1.0,
+  "arm_to_arm_rel_rms": 0.0
+ },
+ "module": {
+  "layers": 24,
+  "tokens": 512,
+  "dim": 768,
+  "heads": 16,
+  "off_vs_off2_rel_rms": 0.0,
+  "on_vs_off_rel_rms": 0.005949679365069529,
+  "on_vs_off_pcc": 0.9999823026166077,
+  "on_vs_off_max_abs": 0.046875,
+  "off_abs_mean": 0.41071341740219697
+ }
+}
