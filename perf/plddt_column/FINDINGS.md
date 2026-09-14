@@ -53,6 +53,12 @@ interface. On cdk2x2 that term sits ABOVE plDDT at 298 aa (pTM 0.9497) and BELOW
 flip. Backing the implied term out of the four committed k10-p2 arms gives 0.9497, 0.8264,
 0.6130 and 0.4873 — all in range and ordered by arm quality, none of them a plDDT.
 
+The hypothesised mechanism could not have produced it either. `_write_protenix_structure` does
+`arr = struc.AtomArray(coords.shape[0])` and then `arr.b_factor[:] = b_factors.numpy()`, so a
+`plddt_atom` still carrying pad slots would be a length mismatch on that assignment and would
+raise, not silently write a shorter column. There is no slice in the writer for the metric's
+`.mean()` to disagree with.
+
 ## Both families are internally consistent, and match upstream
 
 Boltz-2 writes one plDDT per residue, broadcast to that residue's atoms, so its reported value is
@@ -111,6 +117,13 @@ other model, so `mean(B-factor column) / 100` is one invariant with no per-model
 code matches the README instead of contradicting it. **This changes a user-facing number**: an
 RF3 `results.json` entry that read `"plddt": 81.7155` now reads `"plddt": 0.817155`. No
 coordinate moves.
+
+## Test suite
+
+`TT_VISIBLE_DEVICES= pytest tests/ -q`: 3561 passed, 183 skipped, 7 failed. All seven fail the
+same way on `origin/main` and none of them reads a plDDT: `artifacts` and `patches` are tracked in
+the repo root, `tt_bio/tenstorrent.py` cites two perf artifacts that were never committed, and
+four want capacity-gate cells recorded for p150a and for p300c/opendde, which needs a card.
 
 ## What this does not touch
 
