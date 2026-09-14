@@ -151,3 +151,69 @@ of the step before it): 1.436x on the Blackhole conditioning half against the co
 4. **The size ladder.** 298 / 512 / 768 / 1024. The concatenated conditioning output is
    96 x 768 wide regardless of sequence length but scales with the token axis: 113 MB live at
    512 aa, 226 MB at 1024 aa, held across the whole 24-layer pass.
+
+---
+
+# The fold-level arm, and what it did to the verdict
+
+The op-level number above is not the number of record. `TT_BIO_DIT_COND_HOIST` is now implemented
+in `tt_bio/tenstorrent.py` (default off) and run as a paired ABBA fold A/B in one process against
+one loaded model, `perf/roof_difftx/fold_ab.py`, pc card 0, Blackhole p150a, 13x10, 200 sampling
+steps, 3 recycles, full MSA.
+
+## Perf: the lever is size-dependent, and it is not resolved at 512 aa
+
+| | 512 aa (`cdk2x2_512`) | 298 aa (`cdk2x2_298`) |
+|---|---|---|
+| median fold, off | 17.039 s | 9.8625 s |
+| median fold, on | 16.693 s | 10.0085 s |
+| paired ABBA ratios | 1.01842, 1.03934, 1.01609, 1.02858 | 0.98917, 0.98169 |
+| paired median | **1.0235x** | **0.98541x** |
+| A/A floor, same session | **1.02409** | 1.00772 |
+
+**At 512 aa the effect is the same size as the session's own A/A floor.** All four paired ratios
+are above 1 and the median, 1.0235x, is what the op-level 1.1345x predicts once the token DiT
+layer's 2.819 s share of the 17.340 s cell is applied (1.0196x) — the sign and the magnitude both
+agree — but a 1.02409 A/A floor cannot resolve a 1.02x effect, and one contended leg at loadavg
+2.46 produced that floor. This needs a benchlocked quiet session, not a stronger claim.
+
+**At 298 aa it is a 1.5 % regression**, resolved against a 1.0077 floor, both paired ratios below
+1. The concatenated weights are 170 MB read once per sampling step no matter how long the
+sequence is, so the shorter the token axis the less there is to amortise them over. The lever is
+therefore **eligibility**-gated by size in the campaign's taxonomy, and eligibility does not
+transfer at all. It cannot ship as an unconditional default.
+
+## Accuracy: the 512 aa reading is unreadable, and the control passes
+
+`cdk2x2_512` is CDK2 fused to a truncated copy of itself with no real inter-domain interface, and
+memory `cdk2x2-chimeric-fixture-cannot-score-non-bit-exact-parity` records that its hinge
+saturates RMSD for *any* non-bit-exact change. This arm reproduced that exactly: global CA Kabsch
+11.9336 A, but superposing each pseudo-domain on itself gives **0.7957 A for the first and
+12.2002 A for the second** — a number invariant to cause is not measuring the change. Its
+CA-lDDT 93.6643, mean local |dd| 0.4857 A and plDDT 0.864509 -> 0.846391 are quoted here only to
+be set aside.
+
+The monomeric control that memory prescribes, with its pre-fixed threshold
+(<=0.35 A merge / 0.35-0.60 hold / >0.60 reject):
+
+    cdk2x2_298     CA Kabsch RMSD    0.1233 A     <-- merge band
+                   CA-lDDT          99.9705
+                   mean local |dd|   0.0409 A
+                   complex plDDT     0.90916 -> 0.910982   (+0.0018, up)
+
+Determinism controls, both sizes, both arms: CA-lDDT 100.0 and RMSD exactly 0.0000 A, so every
+number above is the arm difference and none of it is run-to-run noise.
+
+That is the campaign's stated shape for an acceptable lever — coordinates move and lDDT does not
+— with 20x more margin than the 0.60 A bar. It agrees with the device float64 primitive checks:
+the gamma fold is **0.8294x** the shipped path's own distance from a float64 reference, i.e.
+closer to the truth, because folding gamma onto the weight removes one bf16 rounding of the
+activation; moving the sigmoid into the matmul's activation epilogue is identical to 1.0000x.
+
+## Where that leaves it
+
+Arithmetically sound and cheap on accuracy, worth 1.1345x on the isolated 24-layer step, worth
+1.0235x at the 512 aa fold inside a 1.02409 A/A floor, and worth -1.5 % at 298 aa. **Not a
+shippable default, and not yet a resolved fold-level win.** What it needs is a benchlocked quiet
+512 aa session to resolve the 1.02x, the size ladder above 512 aa where the amortisation only
+improves, and a qb2 re-price.
