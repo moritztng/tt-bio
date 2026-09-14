@@ -96,6 +96,14 @@ def main():
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
 
+    # `build_fold`'s cfg carries no Boltz-2 hyperparameters, so `_WorkerState.load_model` dies on
+    # KeyError('conf_kwargs') before the fold starts. `perf/other512/fold_ab_multi.py` already
+    # owns the injector and reads B.RECYCLING_STEPS, so it goes here and not one line earlier.
+    if a.model in ("boltz2", "boltzgen"):
+        sys.path.insert(0, str(ROOT / "perf" / "other512"))
+        from fold_ab_multi import patch_boltz2_cfg
+        patch_boltz2_cfg()
+
     import importlib.metadata as im
     res = {"ttnn": im.version("ttnn"), "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"), "model": a.model, "size": a.size,
@@ -153,6 +161,14 @@ def main():
             raise SystemExit("arm %s needs set_pair_ffn_fill_assembly, absent here" % arm)
         DN.STATS[0] = DN.STATS[1] = 0
         DN.REJECTS.clear()
+        # The fc1 census above counts REQUESTS: `L1_FC1_STATS[0] += 2` runs before
+        # `_pair_proj_linear`, which can still decline the config or take a device refusal and
+        # fall back to DRAM. `LATCH_STATS["l1_out"]` is what actually landed, so a claim that the
+        # halves stayed on chip reads this and not the request count. Shared with the other
+        # l1_out sites (trimul in-projection, Pairformer residual), so it is the l2-minus-base
+        # delta that isolates fc1.
+        T.LATCH_STATS["l1_out"] = {"served": 0, "refused": 0, "blocked": 0, "declined": 0,
+                                   "why": []}
         RT.LM_HANDOFF_STATS[0] = RT.LM_HANDOFF_STATS[1] = 0
         RP.STATS_GATED[0] = RP.STATS_GATED[1] = 0
         EC.L1_FC1_STATS[0] = EC.L1_FC1_STATS[1] = 0
@@ -181,14 +197,16 @@ def main():
                "lm_handoff": list(RT.LM_HANDOFF_STATS),
                "fwd_move": list(RP.STATS), "back_move": list(RP.STATS_BACK),
                "l1_out_refused": len(T._L1_OUT_REFUSED),
+               "l1_out_latch": {k: v for k, v in T.LATCH_STATS["l1_out"].items()},
                "dual_noc": list(DN.STATS),
                "dual_noc_rejects": {str(k): v for k, v in DN.REJECTS.items()},
                "trimul_tail_f1": (arm in ("f1", "nof1")) and list(F1M.STATS) or None,
                "loadavg": open("/proc/loadavg").read().split()[0]}
         res["runs"].append(row)
         a.out.write_text(json.dumps(res, indent=1))
+        lo = T.LATCH_STATS["l1_out"]
         print("  %-14s %8.3fs plddt=%s e6=%d/%d l1fc1=%d/%d lmh=%d/%d dn=%d/%d ln=%s "
-              "sl=%s fr=%s l1refused=%d cif=%s load=%s"
+              "sl=%s fr=%s l1refused=%d l1out=%d/%d/%d/%d cif=%s load=%s"
               % (tag, fold_s, m.get("plddt"), RP.STATS_GATED[0], RP.STATS_GATED[1],
                  EC.L1_FC1_STATS[0], EC.L1_FC1_STATS[1],
                  RT.LM_HANDOFF_STATS[0], RT.LM_HANDOFF_STATS[1],
@@ -197,6 +215,7 @@ def main():
                  "%d/%d" % tuple(getattr(EC, "L1_SLICE_STATS", [-1, -1])),
                  "%d/%d" % tuple(getattr(EC, "FUSED_RESID_STATS", [-1, -1])),
                  row["l1_out_refused"],
+                 lo["served"], lo["refused"], lo["blocked"], lo["declined"],
                  list(row["cif"].values())[0] if row["cif"] else "-", row["loadavg"]),
               flush=True)
         return fold_s
