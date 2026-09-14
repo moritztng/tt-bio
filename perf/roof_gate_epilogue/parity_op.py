@@ -36,6 +36,18 @@ def main():
     ap.add_argument("--heads", type=int, default=4)
     ap.add_argument("--head-dim", type=int, default=32)
     ap.add_argument("--out", default="perf/roof_gate_epilogue/parity_op_512_qb2_c2.json")
+    ap.add_argument("--route", choices=("direct", "at"), default="direct",
+                    help="direct: call triatt_sdpa.sdpa on the q-chunk ladder, the protocol the "
+                         "512 aa row used. at: go through tenstorrent._tri_att_sdpa_at, whose "
+                         "above-cap branch is the one call site that passes q_split_cap and gate "
+                         "together.")
+    ap.add_argument("--fused-large-s", action="store_true",
+                    help="set tenstorrent._SDPA_FUSED_LARGE_S for this run. With --route at and "
+                         "n above _Q_SPLIT_MAX_S this is what selects the above-cap route.")
+    ap.add_argument("--no-fp64", action="store_true",
+                    help="skip the float64 reference. It materialises an S*H*S*S double logit "
+                         "tensor: 4.3 GB at 512, 116 GB at 1536. Above ~768 the affordable "
+                         "comparison is arm B against arm A.")
     a = ap.parse_args()
     S, H, D = a.n, a.heads, a.head_dim
     # The kernel's own scale, which rides the exp AFTER the bias add. The model passes
@@ -54,12 +66,17 @@ def main():
 
     # fp64 reference. The kernel applies `scale` AFTER the bias add (compute_common: the scale
     # rides the exp, exp((qk + mask - max) * scale)), so the reference must too.
-    q64, k64, v64 = qt.double(), kt.double(), vt.double()
-    logits = (q64 @ k64.transpose(-1, -2) + bt.double()) * scale
-    w = torch.softmax(logits, dim=-1)
-    ref_ungated = w @ v64
-    ref = ref_ungated * torch.sigmoid(gt.double())
-    del logits, w, q64, k64, v64
+    ref = None
+    if not a.no_fp64:
+        q64, k64, v64 = qt.double(), kt.double(), vt.double()
+        logits = (q64 @ k64.transpose(-1, -2) + bt.double()) * scale
+        w = torch.softmax(logits, dim=-1)
+        ref_ungated = w @ v64
+        ref = ref_ungated * torch.sigmoid(gt.double())
+        del logits, w, q64, k64, v64
+
+    if a.fused_large_s:
+        T._SDPA_FUSED_LARGE_S = True
 
     f = lambda x: ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
                                   memory_config=ttnn.DRAM_MEMORY_CONFIG)
@@ -67,7 +84,9 @@ def main():
     pairs = TS.fused_pairs(S, H, D, cores, ttnn.bfloat16)
     res = {"n": S, "heads": H, "head_dim": D, "arch": str(dev.arch()), "grid": list(grid),
            "host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
-           "fused_pairs": [list(p) for p in pairs]}
+           "fused_pairs": [list(p) for p in pairs],
+           "route": a.route, "fused_large_s": bool(T._SDPA_FUSED_LARGE_S),
+           "q_split_max_s": TS._Q_SPLIT_MAX_S}
 
     # the rung the fold actually takes: `_tri_att_sdpa_at`'s `fits` loop, widest q first
     k_chunk = T._tri_att_k_chunks(S, S)[-1]
@@ -77,12 +96,19 @@ def main():
 
     def arm(gated):
         q, k, v, b, g = f(qt), f(kt), f(vt), f(bt), f(gt)
-        o = None
-        for qc in fits:
-            o = TS.sdpa(q, k, v, b, scale, qc, k_chunk, gate=g if gated else None)
-            if o is not None:
-                used = qc
-                break
+        o, used = None, None
+        if a.route == "at":
+            # The merged call site. Above _Q_SPLIT_MAX_S with _SDPA_FUSED_LARGE_S set this
+            # reaches sdpa(..., q_split_cap=0, gate=gate), the one line where main's cap
+            # argument and this branch's gate argument are passed together.
+            o = T._tri_att_sdpa_at(q, k, v, b, scale, None, gate=g if gated else None)
+            used = T.SDPA_CHUNK_PICKS.get((S, S))
+        else:
+            for qc in fits:
+                o = TS.sdpa(q, k, v, b, scale, qc, k_chunk, gate=g if gated else None)
+                if o is not None:
+                    used = qc
+                    break
         if o is None:
             for t in (q, k, v, b, g):
                 ttnn.deallocate(t)
@@ -110,15 +136,18 @@ def main():
         (REPO / a.out).write_text(json.dumps(res, indent=1))
         return 1
 
-    # the bf16 storage ceiling: what the answer costs just by being written in bf16
-    res["bf16_ceiling"] = err(ref.bfloat16().double(), ref)
-    res["A_vs_fp64"] = err(a_out, ref)
-    res["B_vs_fp64"] = err(b_out, ref)
+    keys = ["bit_exact_A_vs_B", "B_vs_A", "gate_stats", "gate_rejects", "route_counts"]
+    if ref is not None:
+        # the bf16 storage ceiling: what the answer costs just by being written in bf16
+        res["bf16_ceiling"] = err(ref.bfloat16().double(), ref)
+        res["A_vs_fp64"] = err(a_out, ref)
+        res["B_vs_fp64"] = err(b_out, ref)
+        keys = ["bf16_ceiling", "A_vs_fp64", "B_vs_fp64"] + keys
     res["bit_exact_A_vs_B"] = bool(torch.equal(a_out, b_out))
     res["B_vs_A"] = err(b_out, a_out)
-    print(json.dumps({k2: res[k2] for k2 in
-                      ("bf16_ceiling", "A_vs_fp64", "B_vs_fp64", "bit_exact_A_vs_B", "B_vs_A",
-                       "gate_stats", "gate_rejects")}, indent=1), flush=True)
+    res["route_counts"] = dict(T.SDPA_ROUTE_COUNTS)
+    res["chunk_picks"] = {str(kk): vv for kk, vv in T.SDPA_CHUNK_PICKS.items()}
+    print(json.dumps({k2: res[k2] for k2 in keys}, indent=1), flush=True)
     p = REPO / a.out
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(res, indent=1))
