@@ -47,3 +47,72 @@ patch either, which this Blackhole run does not use. What remains open, and is t
 whether 0.78.0 mis-serves a *configured* call tt-bio makes or is broken in an op outright: 20 ops at
 their default configurations agree between the stacks, 16 of them bit-identically
 (`perf/b2z_ttnn`), so the failure lives somewhere those defaults do not reach.
+
+## The break is one release: ttnn 0.70.1
+
+Same fold, same protocol, `TT_BIO_SHARED_DRAW_SEED=0`, qb2 card 2, plDDT and the CIF digest:
+
+| ttnn | plDDT | CIF sha256[:16] |
+|---|---|---|
+| 0.68.0, the pin | 0.9132 | `aacd32c44c59ba85` |
+| 0.69.0 | 0.9132 | `aacd32c44c59ba85` — byte-identical to the pin |
+| **0.70.1** | **0.3642** | `e22acff2a06c6681` |
+| 0.71.2 | 0.3642 | `e22acff2a06c6681` — byte-identical to 0.70.1 |
+| 0.73.1 | 0.5764 | `01a6109c5aa0b069` |
+| 0.78.0 | 0.3597 | `f5a4b4a1b9b098f2` |
+
+0.69.0 reproduces the pin byte for byte, so ten minor versions of API and library change cost
+nothing up to that point. 0.70.1 breaks it, and 0.71.2 breaks it identically, which makes this one
+deterministic change rather than drift. The release window is 2026-05-05 to 2026-05-15.
+
+## Three alternatives, all closed
+
+**Seed-basin luck.** One seed in four can sit on a sampler decision boundary, where any bf16
+perturbation flips the fold. Not this: seeds 1, 2, 3 read plDDT 0.9110 / 0.9133 / 0.9143 on 0.69.0
+and 0.3638 / 0.3557 / 0.3561 on 0.70.1. Four for four, both ways.
+
+**The UMD heartbeat patch** the Wormhole pass had to apply. Blackhole needs no patch, and the
+failure reproduces here anyway.
+
+**Our own sensitivity at the first diverging call.** The op trace puts the first disagreement at the
+MSA pair-weighted-averaging softmax (`tt_bio/tenstorrent.py:9591`), and the divergence grows from
+there with no step: 3.3e-4 at call 16, 1.7e-2 by call 40, 0.33 by call 253, 1.0 by call 557. So the
+obvious reading is that the stacks differ a little there and the model amplifies it. Measured, that
+reading is wrong. The real difference entering at that call is **0.08 bf16 ULP averaged over the
+5.74% of elements that differ, max 2 ULP, 99.8% coherent**, and perturbing every element of that
+same output on the good stack by a full ULP, coherently, costs:
+
+| arm | vs upstream fp32, all-atom | CA-lDDT | vs 1HCL crystal, CA |
+|---|---|---|---|
+| unperturbed control | 0.42410 A | 0.99636 | 0.7457 A |
+| +-1 ULP, random sign | 0.70283 A | 0.97907 | 0.8743 A |
+| +1 ULP, coherent | 0.51327 A | 0.99124 | 0.7808 A |
+
+A perturbation strictly larger than the observed one costs 0.09 A and keeps CA-lDDT at 0.991. The
+model is not knife-edge there, so that call is not the cause.
+
+## Where it is not, which is most of the way there
+
+Every op the trace covers is individually accurate on 0.70.1, scored in situ against a float64
+reference built from the operands the device actually got, with the fold's own program config and
+memory config:
+
+| call | op | shapes | 0.69.0 rel L2 vs float64 | 0.70.1 rel L2 vs float64 |
+|---|---|---|---|---|
+| 16 | `softmax` | [8,320,320] | 1.8e-3 | 1.9e-3 |
+| 246 | `linear` | [1,320,320,128] @ [128,128] | 1.636e-3 | 1.636e-3 |
+| 247 | `linear` | same, larger operands | 1.730e-3 | 1.730e-3 |
+| 250 | `linear` | [320,320,128] @ [128,4] | 1.650e-3 | 1.656e-3 |
+| 253 | `linear` | [320,320,128] @ [128,128] | 1.630e-3 | 1.768e-3 |
+
+PCC is 0.9999984 or better on both sides everywhere. Call 253 is where the relative L2 between the
+two stacks' outputs steps from 2.3e-3 to 0.559 in a single call, and it is still computing its own
+inputs correctly: what changed is that its **inputs** arrived 22% apart (float64 reference absmax
+21.786 against 26.583). Those inputs come from a call the wrapper does not cover.
+
+So the traced surface is clean and the damage enters through the untraced one. `op_trace.py`'s `OPS`
+list covers the out-of-place ops only. It misses the in-place variants tt-bio leans on (`add_`,
+`mul_`, `softmax_in_place`), `ttnn.experimental.*` including `minimal_matmul` and
+`nlp_create_qkv_heads`, and `ttnn.transformer.scaled_dot_product_attention`. Widening the wrapper
+to those and re-running the 236-257 window is the next step, and it is short: the window is already
+known and so is the instrument.

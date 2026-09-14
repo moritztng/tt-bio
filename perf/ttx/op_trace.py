@@ -56,8 +56,15 @@ def _dtype_of(x):
     return None if d is None else str(d)
 
 
+def _ref_linear(torch, a, b, bias):
+    """float64 reference for `ttnn.linear`/`ttnn.matmul`, from the operands the device got."""
+    out = a.to(torch.float64) @ b.to(torch.float64)
+    return out if bias is None else out + bias.to(torch.float64)
+
+
 def install(ttnn, sink: list, cap: int, names: list[str],
-            dump: set[int] | None = None, dump_dir: Path | None = None) -> None:
+            dump: set[int] | None = None, dump_dir: Path | None = None,
+            score: set[int] | None = None) -> None:
     """Wrap ttnn ops in place. tt-bio calls them as `ttnn.<name>`, so a module attribute is the
     whole interception point: no model code is touched and the wrapper is invisible to it."""
     Tensor = ttnn.Tensor
@@ -90,6 +97,32 @@ def install(ttnn, sink: list, cap: int, names: list[str],
                     rec["sha"] = f"unreadable:{type(e).__name__}"
             else:
                 rec["sha"] = "not-a-tensor"
+            if score and len(sink) in score and name in ("linear", "matmul"):
+                # Score the call the fold actually made -- its own shapes, its own
+                # program_config, its own memory_config -- against float64 built from the same
+                # operands. No config is reconstructed and no reference build is needed, so
+                # nothing can differ between the arms except the op.
+                import torch as _t
+                try:
+                    ta = [ttnn.to_torch(x) for x in a if isinstance(x, Tensor)]
+                    bias = kw.get("bias")
+                    tb = ttnn.to_torch(bias) if isinstance(bias, Tensor) else None
+                    ref = _ref_linear(_t, ta[0], ta[1], tb)
+                    got = ttnn.to_torch(out).to(_t.float64)
+                    if got.shape != ref.shape:
+                        ref = ref.reshape(got.shape)
+                    err = got - ref
+                    rec["vs_float64"] = {
+                        "rel_l2": float(err.norm() / ref.norm()),
+                        "max_abs": float(err.abs().max()),
+                        "ref_absmax": float(ref.abs().max()),
+                        "pcc": float(_t.corrcoef(_t.stack(
+                            [got.flatten(), ref.flatten()]))[0, 1]),
+                        "kw": {k: str(v)[:300] for k, v in kw.items()
+                               if not isinstance(v, Tensor)},
+                    }
+                except Exception as e:
+                    rec["vs_float64"] = {"raised": f"{type(e).__name__}: {e}"}
             sink.append(rec)
             return out
         return inner
@@ -112,7 +145,8 @@ OPS = [
 ]
 
 
-def run(out: Path, cap: int, dump: set[int] | None, dump_dir: Path | None) -> int:
+def run(out: Path, cap: int, dump: set[int] | None, dump_dir: Path | None,
+        score: set[int] | None) -> int:
     import torch
     torch.set_grad_enabled(False)
     import ttnn
@@ -139,7 +173,7 @@ def run(out: Path, cap: int, dump: set[int] | None, dump_dir: Path | None) -> in
 
     sink: list = []
     os.environ["TT_BIO_SHARED_DRAW_SEED"] = "0"
-    install(ttnn, sink, cap, OPS, dump, dump_dir)
+    install(ttnn, sink, cap, OPS, dump, dump_dir, score)
     try:
         state.predict_one(AB.FIX / "cdk2x2_298.yaml", cfg)
     except StopTrace:
@@ -202,6 +236,7 @@ def main() -> int:
     ap.add_argument("--diff", nargs=2, type=Path)
     ap.add_argument("--dump", default="", help="comma separated call indices to save as .npy")
     ap.add_argument("--dump-dir", type=Path)
+    ap.add_argument("--score", default="", help="call indices to score against float64")
     a = ap.parse_args()
     if a.diff:
         return diff(*a.diff)
@@ -211,7 +246,8 @@ def main() -> int:
     dd = a.dump_dir or a.out.parent
     if dump:
         dd.mkdir(parents=True, exist_ok=True)
-    return run(a.out, a.calls, dump, dd)
+    scored = {int(x) for x in a.score.split(",") if x.strip()} or None
+    return run(a.out, a.calls, dump, dd, scored)
 
 
 if __name__ == "__main__":
