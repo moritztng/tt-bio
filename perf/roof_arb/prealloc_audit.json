@@ -1,0 +1,342 @@
+{
+ "n_sites": 22,
+ "n_write": 22,
+ "helpers": {
+  "G.generic_minimal_matmul": [
+   "outs, positional 4 of (device, in0, in1, outs, ...)",
+   "tt_bio/mm_generic.py:372 ttnn.generic_op([in0, in1, *outs], pd)"
+  ],
+  "SG.sdpa": [
+   "out, positional 6",
+   "tt_bio/triatt_sdpa.py:283 SG.sdpa(dev, q, k, v, bias, out, ...)"
+  ],
+  "ttnn.generic_op": [
+   "last element of the io tensor list",
+   "tt_bio/trimul_tail.py:280, rfd3_bias.py:224/440/641, reblock_permute.py:254/497/754"
+  ],
+  "_reblock.reblock_permute_gated": [
+   "out=, keyword",
+   "tt_bio/reblock_permute.py:754 generic_op([xw, out], pd)"
+  ],
+  "ttnn.fill_cache": [
+   "cache, positional 1, through ttnn.experimental.view",
+   "tt_bio/esmc.py:761 ttnn.fill_cache(view, out, i)"
+  ],
+  "ttnn.copy_host_to_device_tensor": [
+   "dst, positional 2",
+   "tt_bio/rfd3/model.py:2342 and three siblings"
+  ]
+ },
+ "sites": [
+  {
+   "file": "tt_bio/esmc.py",
+   "line": 735,
+   "func": "_row_blocked",
+   "bound_to": "dst",
+   "bind_form": "assign",
+   "aliased_as": [
+    "ttnn.experimental.view -> view"
+   ],
+   "passed_to": [
+    "ttnn.fill_cache [positional 0]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/mm_dualnoc.py",
+   "line": 120,
+   "func": "in_proj",
+   "bound_to": "outs",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "G.generic_minimal_matmul [positional 3]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/reblock_permute.py",
+   "line": 237,
+   "func": "reblock_permute",
+   "bound_to": "out",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "ttnn.generic_op [io list position 1 of 2]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/reblock_permute.py",
+   "line": 480,
+   "func": "reblock_permute_back",
+   "bound_to": "out",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "ttnn.generic_op [io list position 1 of 2]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/reblock_permute.py",
+   "line": 734,
+   "func": "reblock_permute_gated",
+   "bound_to": "out",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "ttnn.generic_op [io list position 1 of 2]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/rfd3/model.py",
+   "line": 2341,
+   "func": "_persist",
+   "bound_to": "dev_t",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "ttnn.copy_host_to_device_tensor [positional 1]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/rfd3/model.py",
+   "line": 2552,
+   "func": "_persist",
+   "bound_to": "dev_t",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "ttnn.copy_host_to_device_tensor [positional 1]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/rfd3/model.py",
+   "line": 2558,
+   "func": "_persist_index",
+   "bound_to": "dev_t",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "ttnn.copy_host_to_device_tensor [positional 1]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/rfd3/model.py",
+   "line": 3644,
+   "func": "_persist_ed",
+   "bound_to": "dev_t",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "ttnn.copy_host_to_device_tensor [positional 1]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/rfd3_bias.py",
+   "line": 197,
+   "func": "sparse_bias_fp32",
+   "bound_to": "out",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "ttnn.generic_op [io list position 2 of 3]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/rfd3_bias.py",
+   "line": 410,
+   "func": "fused_scores_bias_fp32",
+   "bound_to": "out",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "ttnn.generic_op [io list position 3 of 4]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/rfd3_bias.py",
+   "line": 613,
+   "func": "dense_fused_scores_bias_fp32",
+   "bound_to": "out",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "ttnn.generic_op [io list position 2 of 3]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 5931,
+   "func": "_gated_rowblocked",
+   "bound_to": "(a, b)",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "_reblock.reblock_permute_gated [out=]"
+   ],
+   "returned": true,
+   "n_writers": "2 (partial, disjoint)",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/triatt_qkv.py",
+   "line": 210,
+   "func": "gate_proj",
+   "bound_to": "out",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "G.generic_minimal_matmul [positional 3]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/triatt_qkv.py",
+   "line": 318,
+   "func": "out_proj",
+   "bound_to": "out",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "G.generic_minimal_matmul [positional 3]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/triatt_qkv.py",
+   "line": 90,
+   "func": "qkv_heads",
+   "bound_to": "outs",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "G.generic_minimal_matmul [positional 3]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/triatt_qkv.py",
+   "line": 295,
+   "func": "qkvg_heads",
+   "bound_to": "outs",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "G.generic_minimal_matmul [positional 3]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/triatt_qkv.py",
+   "line": 414,
+   "func": "qkvgb_heads",
+   "bound_to": "outs",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "G.generic_minimal_matmul [positional 3]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/triatt_qkv.py",
+   "line": 417,
+   "func": "qkvgb_heads",
+   "bound_to": "outs",
+   "bind_form": "append",
+   "aliased_as": [],
+   "passed_to": [
+    "G.generic_minimal_matmul [positional 3]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/triatt_sdpa.py",
+   "line": 270,
+   "func": "sdpa",
+   "bound_to": "out",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "SG.sdpa [positional 5]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/trimul_tail.py",
+   "line": 239,
+   "func": "fused_tail",
+   "bound_to": "out",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "ttnn.generic_op [io list position 4 of 5]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  },
+  {
+   "file": "tt_bio/trimul_tail.py",
+   "line": 246,
+   "func": "fused_tail",
+   "bound_to": "out",
+   "bind_form": "assign",
+   "aliased_as": [],
+   "passed_to": [
+    "ttnn.generic_op [io list position 4 of 5]"
+   ],
+   "returned": true,
+   "n_writers": "1",
+   "verdict": "WRITE"
+  }
+ ]
+}
