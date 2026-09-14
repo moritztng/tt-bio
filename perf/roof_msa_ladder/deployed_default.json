@@ -1,0 +1,10 @@
+{
+  "env_TT_BIO_MSA_LADDER": null,
+  "n_msa": 35,
+  "padded_depth_seen": [
+    64
+  ],
+  "calls": 4,
+  "fold_s": 24.14,
+  "card_type": "p300c"
+}
