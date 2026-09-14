@@ -252,3 +252,51 @@ nondeterminism is worse at 768 aa, badly enough to return two structures from on
 That makes the 768 aa leg unreadable for both perf and structure, and it cannot be attributed to
 the hoist without a control on another card. The ladder above 512 aa is still owed and now needs
 a different card, not a re-run here.
+
+---
+
+# CORRECTION, and the bound this row concludes on
+
+**The 512 aa fold effect is UNRESOLVED, and the previous section's "resolved" was my error.**
+An ABBA quad `off on on off` yields two paired ratios, but they share a rep — the same thermal
+state, the same cache, the same neighbours. Treating six legs as six independent samples inflated
+`n` from 3 to 6 and shrank the interval until it excluded 1.0. At the correct level of
+independence, the three rep means:
+
+    512 aa, benchlocked, loadavg 0.77 at acquire, 3 reps
+      rep means     1.0061   1.0251   1.01771
+      ratio         1.01631      95 % CI [0.99251, 1.04010]   t crit 4.303 on 2 df
+      saving        +0.274 s     95 % CI [-0.129 s, +0.659 s]
+      the interval INCLUDES 1.0
+
+That is the row's number, stated as a bound and not collapsed to its point estimate, the same
+shape `roof-transition-chunk-bh` published (`-0.448 s, 95 % CI [-1.073, +0.177] s`). The point
+estimate agrees with the op-level prediction to within 20 %, and the interval is too wide to call
+it. Three reps cannot resolve a 1.6 % effect; that needs a quiet card and more of them.
+
+The 298 aa leg is a **single** rep and gets the same treatment: point 0.98543x, saving -0.146 s,
+**no interval available**. Both of its legs are below 1 by more than the 1.0077 A/A floor, so the
+sign is credible and the magnitude is not. Calling it a "resolved 1.5 % regression" earlier was
+the same mistake in the other direction.
+
+## Every number in this row came from a card marked down for parity
+
+`state/pc-card0-down`, set 2026-09-11, bars pc card 0 because it "miscomputes 512 aa Boltz-2 fold
+matmuls nondeterministically". The only thing standing between that marker and the accuracy
+verdict above is this row's own within-session determinism controls, which were exactly
+**0.0000 A with a single CIF sha per arm at both 298 and 512 aa** — and which **failed at 768 aa**,
+where three `off` folds returned two different structures. So the marker is right, the fault is
+size-dependent, and it was silent at the two sizes that carry the accuracy number. The 0.1233 A /
+CA-lDDT 99.9705 verdict is usable as a screen and must be re-taken on a clean card before anything
+ships.
+
+## Owed, one line each, not attempted
+
+1. A quiet benchlocked 512 aa session with enough reps to resolve a 1.6 % effect — qb2 is at
+   loadavg 22-44 with all four cards held by 44-leg release gates to 07:45/08:30.
+2. The ladder above 512 aa, on a card that is not pc 0.
+3. A size guard: 298 aa is negative and 512 aa positive, so the threshold sits between them and
+   must be fitted on that ladder, not guessed.
+4. A p300c re-price: every number here is p150a and the cell of record is p300c.
+5. `nlp_concat_heads` head re-assembly is measured (1.0246x BH / 1.0401x WH standalone) but is
+   NOT implemented in the fold arm.
