@@ -56,15 +56,39 @@ def _dtype_of(x):
     return None if d is None else str(d)
 
 
+def _ref_sdpa(torch, q, k, v, mask, scale):
+    """float64 reference for `ttnn.transformer.scaled_dot_product_attention`, non-causal, from
+    the operands the device got. Same definition the op documents: softmax(QK^T*scale + mask) V."""
+    q, k, v = (x.to(torch.float64) for x in (q, k, v))
+    if scale is None:
+        scale = q.shape[-1] ** -0.5
+    logits = (q @ k.transpose(-1, -2)) * float(scale)
+    if mask is not None:
+        logits = logits + mask.to(torch.float64)
+    return torch.softmax(logits, dim=-1) @ v
+
+
 def _ref_linear(torch, a, b, bias):
     """float64 reference for `ttnn.linear`/`ttnn.matmul`, from the operands the device got."""
     out = a.to(torch.float64) @ b.to(torch.float64)
     return out if bias is None else out + bias.to(torch.float64)
 
 
+def _resolve(ttnn, dotted: str):
+    """`"softmax"` -> (ttnn, "softmax"); `"experimental.minimal_matmul"` -> (ttnn.experimental,
+    "minimal_matmul"). tt-bio calls both forms as attributes, so both are interceptable."""
+    obj = ttnn
+    parts = dotted.split(".")
+    for part in parts[:-1]:
+        obj = getattr(obj, part, None)
+        if obj is None:
+            return None, None
+    return obj, parts[-1]
+
+
 def install(ttnn, sink: list, cap: int, names: list[str],
             dump: set[int] | None = None, dump_dir: Path | None = None,
-            score: set[int] | None = None) -> None:
+            score: set[int] | None = None, dump_args: set[int] | None = None) -> None:
     """Wrap ttnn ops in place. tt-bio calls them as `ttnn.<name>`, so a module attribute is the
     whole interception point: no model code is touched and the wrapper is invisible to it."""
     Tensor = ttnn.Tensor
@@ -81,10 +105,24 @@ def install(ttnn, sink: list, cap: int, names: list[str],
                 "kw": sorted(k for k in kw if kw[k] is not None),
                 "out_shape": _shape_of(out), "out_dtype": _dtype_of(out),
             }
-            if isinstance(out, Tensor):
+            outs = list(out) if isinstance(out, (tuple, list)) else [out]
+            outs = [o for o in outs if isinstance(o, Tensor)]
+            if outs:
                 try:
-                    t = ttnn.to_torch(out).float().contiguous()
-                    rec["sha"] = hashlib.sha256(t.numpy().tobytes()).hexdigest()[:16]
+                    ts = [ttnn.to_torch(o).float().contiguous() for o in outs]
+                    h = hashlib.sha256()
+                    for t_ in ts:
+                        h.update(t_.numpy().tobytes())
+                    t = ts[0] if len(ts) == 1 else None
+                    rec["sha"] = h.hexdigest()[:16]
+                    if len(ts) > 1:
+                        rec["parts"] = len(ts)
+                        # one scalar per returned tensor keeps the per-output reading separable;
+                        # the summed L2 alone would hide a break in only one of the three heads
+                        rec["l2s"] = [round(float(x.pow(2).sum().sqrt()), 6) for x in ts]
+                        rec["absmaxs"] = [round(float(x.abs().max()), 6) for x in ts]
+                        import torch as _tc
+                        t = _tc.cat([x.reshape(-1) for x in ts])
                     rec["absmax"] = round(float(t.abs().max()), 6)
                     rec["mean"] = round(float(t.mean()), 8)
                     # the mean cancels a sign-symmetric difference; the L2 norm does not, so a
@@ -93,10 +131,45 @@ def install(ttnn, sink: list, cap: int, names: list[str],
                     rec["l2"] = round(float(t.pow(2).sum().sqrt()), 6)
                     if dump is not None and len(sink) in dump:
                         np.save(dump_dir / f"call{len(sink)}.npy", t.numpy())
+                        for j, x in enumerate(ts):
+                            if len(ts) > 1:
+                                np.save(dump_dir / f"call{len(sink)}_{j}.npy", x.numpy())
                 except Exception as e:                       # a tensor a readback cannot reach
                     rec["sha"] = f"unreadable:{type(e).__name__}"
             else:
                 rec["sha"] = "not-a-tensor"
+            if score and len(sink) in score:
+                # the operands, so "the op amplified a small input difference" and "the op was
+                # handed a big one" are separable without dumping a tensor
+                try:
+                    rec["in_l2"] = [round(float(ttnn.to_torch(x).float().pow(2).sum().sqrt()), 6)
+                                    for x in a if isinstance(x, Tensor)]
+                    mk = kw.get("attn_mask")
+                    if isinstance(mk, Tensor):
+                        rec["mask_l2"] = round(
+                            float(ttnn.to_torch(mk).float().pow(2).sum().sqrt()), 6)
+                except Exception as e:
+                    rec["in_l2"] = f"unreadable:{type(e).__name__}"
+            if score and len(sink) in score and name.endswith("scaled_dot_product_attention"):
+                import torch as _t
+                try:
+                    ta = [ttnn.to_torch(x) for x in a if isinstance(x, Tensor)]
+                    mk = kw.get("attn_mask")
+                    tm = ttnn.to_torch(mk) if isinstance(mk, Tensor) else None
+                    ref = _ref_sdpa(_t, ta[0], ta[1], ta[2], tm, kw.get("scale"))
+                    got = ttnn.to_torch(out).to(_t.float64)
+                    err = got - ref
+                    rec["vs_float64"] = {
+                        "rel_l2": float(err.norm() / ref.norm()),
+                        "max_abs": float(err.abs().max()),
+                        "ref_absmax": float(ref.abs().max()),
+                        "pcc": float(_t.corrcoef(_t.stack(
+                            [got.flatten(), ref.flatten()]))[0, 1]),
+                        "kw": {k: str(v)[:300] for k, v in kw.items()
+                               if not isinstance(v, Tensor)},
+                    }
+                except Exception as e:
+                    rec["vs_float64"] = {"raised": f"{type(e).__name__}: {e}"}
             if score and len(sink) in score and name in ("linear", "matmul"):
                 # Score the call the fold actually made -- its own shapes, its own
                 # program_config, its own memory_config -- against float64 built from the same
@@ -123,14 +196,36 @@ def install(ttnn, sink: list, cap: int, names: list[str],
                     }
                 except Exception as e:
                     rec["vs_float64"] = {"raised": f"{type(e).__name__}: {e}"}
+            if dump_args and len(sink) in dump_args:
+                # every operand, every tensor kwarg and the output, so the op can be re-scored
+                # off-device against any reference without paying for another fold
+                i = len(sink)
+                for j, x in enumerate(a):
+                    if isinstance(x, Tensor):
+                        np.save(dump_dir / f"arg{i}_in{j}.npy", ttnn.to_torch(x).float().numpy())
+                for k, x in kw.items():
+                    if isinstance(x, Tensor):
+                        np.save(dump_dir / f"arg{i}_kw_{k}.npy",
+                                ttnn.to_torch(x).float().numpy())
+                for j, o in enumerate(outs):
+                    np.save(dump_dir / f"arg{i}_out{j}.npy", ttnn.to_torch(o).float().numpy())
+                (dump_dir / f"arg{i}_meta.json").write_text(json.dumps(
+                    {"op": name, "kw": {k: str(v)[:400] for k, v in kw.items()
+                                        if not isinstance(v, Tensor)}}, indent=1))
             sink.append(rec)
             return out
         return inner
 
-    for name in names:
-        fn = getattr(ttnn, name, None)
+    missing = []
+    for dotted in names:
+        mod, attr = _resolve(ttnn, dotted)
+        fn = getattr(mod, attr, None) if mod is not None else None
         if callable(fn):
-            setattr(ttnn, name, wrap(name, fn))
+            setattr(mod, attr, wrap(dotted, fn))
+        else:
+            missing.append(dotted)
+    if missing:
+        print(f"not present in this ttnn, not wrapped: {' '.join(missing)}", flush=True)
 
 
 # The ops a Boltz-2 trunk step actually issues, plus every reduction (the four ops the default
@@ -144,9 +239,22 @@ OPS = [
     "sharded_to_interleaved", "multiply", "subtract", "where", "sigmoid_accurate",
 ]
 
+# The surface the out-of-place list above misses, and where the damage has to enter: the narrow
+# trace's first large step is call 253, an out-projection `linear` that computes its own inputs
+# correctly (rel L2 1.77e-3 against float64) while those inputs arrive 22% apart. Nothing between
+# the previous traced call and it was wrapped. These are the ops tt-bio issues there.
+UNTRACED = [
+    "add_", "mul_", "sub_", "div_", "subtract_", "multiply_",
+    "softmax_in_place", "scale_mask_softmax_in_place", "scale_causal_mask_hw_dims_softmax_in_place",
+    "transformer.scaled_dot_product_attention",
+    "transformer.concatenate_heads", "transformer.split_query_key_value_and_split_heads",
+    "experimental.minimal_matmul", "experimental.nlp_create_qkv_heads",
+    "experimental.nlp_concat_heads", "experimental.nlp_create_qkv_heads_decode",
+]
+
 
 def run(out: Path, cap: int, dump: set[int] | None, dump_dir: Path | None,
-        score: set[int] | None) -> int:
+        score: set[int] | None, dump_args: set[int] | None = None) -> int:
     import torch
     torch.set_grad_enabled(False)
     import ttnn
@@ -173,7 +281,7 @@ def run(out: Path, cap: int, dump: set[int] | None, dump_dir: Path | None,
 
     sink: list = []
     os.environ["TT_BIO_SHARED_DRAW_SEED"] = "0"
-    install(ttnn, sink, cap, OPS, dump, dump_dir, score)
+    install(ttnn, sink, cap, OPS + UNTRACED, dump, dump_dir, score, dump_args)
     try:
         state.predict_one(AB.FIX / "cdk2x2_298.yaml", cfg)
     except StopTrace:
@@ -237,6 +345,7 @@ def main() -> int:
     ap.add_argument("--dump", default="", help="comma separated call indices to save as .npy")
     ap.add_argument("--dump-dir", type=Path)
     ap.add_argument("--score", default="", help="call indices to score against float64")
+    ap.add_argument("--dump-args", default="", help="call indices whose operands+output to save")
     a = ap.parse_args()
     if a.diff:
         return diff(*a.diff)
@@ -247,7 +356,10 @@ def main() -> int:
     if dump:
         dd.mkdir(parents=True, exist_ok=True)
     scored = {int(x) for x in a.score.split(",") if x.strip()} or None
-    return run(a.out, a.calls, dump, dd, scored)
+    dargs = {int(x) for x in a.dump_args.split(",") if x.strip()} or None
+    if dargs:
+        dd.mkdir(parents=True, exist_ok=True)
+    return run(a.out, a.calls, dump, dd, scored, dargs)
 
 
 if __name__ == "__main__":

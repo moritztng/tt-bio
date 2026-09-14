@@ -110,9 +110,107 @@ two stacks' outputs steps from 2.3e-3 to 0.559 in a single call, and it is still
 inputs correctly: what changed is that its **inputs** arrived 22% apart (float64 reference absmax
 21.786 against 26.583). Those inputs come from a call the wrapper does not cover.
 
-So the traced surface is clean and the damage enters through the untraced one. `op_trace.py`'s `OPS`
-list covers the out-of-place ops only. It misses the in-place variants tt-bio leans on (`add_`,
-`mul_`, `softmax_in_place`), `ttnn.experimental.*` including `minimal_matmul` and
-`nlp_create_qkv_heads`, and `ttnn.transformer.scaled_dot_product_attention`. Widening the wrapper
-to those and re-running the 236-257 window is the next step, and it is short: the window is already
-known and so is the instrument.
+So the traced surface is clean and the damage enters through the untraced one: the first `OPS`
+list in `op_trace.py` covered the out-of-place ops only. Widening it found the call in one pass.
+
+## Root cause: ttnn 0.70.1 changed what `attn_mask` means, and tt-bio compensates for the old one
+
+`ttnn.transformer.scaled_dot_product_attention` applies `attn_mask` differently on the two sides
+of 0.70.1:
+
+| ttnn | what the op computes |
+|---|---|
+| 0.69.0 and earlier | `softmax((QK^T + mask) * scale) @ V` |
+| 0.70.1 and later | `softmax(QK^T * scale + mask) @ V`, which is torch's convention |
+
+Measured, not read. `op_trace.py --dump-args 346` saves the operands and the output of the first
+call whose cross-stack difference is not rounding, and `sdpa_mask_convention.py` scores each arm's
+real output against both float64 references built from that arm's own operands:
+
+| ttnn | vs mask-after-scale | vs mask-inside-scale |
+|---|---|---|
+| 0.69.0 | rel L2 **3.6437e-1**, PCC 0.9309 | rel L2 **1.3888e-2**, PCC 0.99994 |
+| 0.70.1 | rel L2 **2.0057e-2**, PCC 0.99989 | rel L2 **3.7956e-1**, PCC 0.9319 |
+
+Each arm sits at bf16 distance from one convention and 18 to 27 times further from the other. The
+operands agree across the arms to 1e-5 relative going in (`in_l2` in the scored record), so this
+is the op, not something it was handed.
+
+tt-bio pre-multiplies the pair bias by `_bias_scale = head_dim**0.5` (`tenstorrent.py:7578`) and
+passes `scale = head_dim**-0.5`, so under the old convention the bias arrives at 1x. Under the new
+one nothing cancels it and the bias arrives `sqrt(32) = 5.657x` too large. That is the whole 18 A.
+
+**Whose bug: ours.** Both versions' docstrings say the same thing, "This API mimics the PyTorch
+API of the same name", and torch adds `attn_mask` after scaling. 0.69.0 did not do what it
+documented; 0.70.1 does. Our `_bias_scale` pre-scaling is a compensation for undocumented
+behaviour, so the call was always wrong against the contract and only worked because the
+implementation was wrong the matching way. Upstream shipped the correction silently, with no
+docstring change and nothing in the release notes, which is why nobody caught it — but the latent
+dependency is in our code and we own it.
+
+Nothing is wrong on the pin today: `_fp32_softmax_attention` and the fused `_triatt_sdpa` kernel
+both add the bias before applying scale (`tenstorrent.py:7166`), so every path agrees with itself
+on 0.68.0. The break is confined to upgrading.
+
+### The fold recovers, on both broken versions
+
+`fold_maskfix.py` scales the mask by `scale` before the call, which restores the old identity
+`softmax(QK^T*scale + mask*scale) == softmax((QK^T + mask)*scale)` without touching model code.
+Same fixture, same shared draws, qb2 card 2, scored with `b2z2_fusebias/score.py` unmodified:
+
+| arm | vs upstream boltz 2.2.1 fp32, all-atom | CA-lDDT | vs 1HCL crystal, CA | plDDT |
+|---|---|---|---|---|
+| 0.68.0, the pin | 0.4241 A | 0.99636 | 0.7457 A | 0.9132 |
+| 0.69.0 | 0.4241 A | 0.99636 | 0.7457 A | 0.9132 |
+| 0.70.1 | 21.0793 A | 0.31142 | 20.6619 A | 0.3642 |
+| **0.70.1 + mask fix** | **0.5140 A** | **0.99174** | **0.7749 A** | **0.9128** |
+| 0.78.0 | 19.5562 A | 0.31453 | 19.1921 A | 0.3597 |
+| **0.78.0 + mask fix** | **0.4677 A** | **0.99167** | **0.7070 A** | **0.9125** |
+| upstream fp32, seeds 0-3 | (reference) | | 0.5974 - 0.7398 A | 0.9092 - 0.9115 |
+
+0.78.0 with the fix lands 0.4677 A from upstream fp32 and 0.7070 A from the crystal, inside the
+reference's own four-seed spread and closer to the crystal than the pin is. The porting bill for
+the accuracy half of this upgrade is one op-convention fix.
+
+`fold_maskfix.py` is a blanket wrapper, correct only where every SDPA site pre-scales its bias.
+Boltz-2 does (`scale_pair_bias=True`). An OpenFold3 site constructs with `scale_pair_bias=False`
+and `_bias_scale = 1.0`, and those sites are already right under the new convention and would be
+broken by a blanket wrapper. The shipping fix is per-site: on ttnn >= 0.70.1, divide the bias by
+`_bias_scale` at the `ttnn.transformer.scaled_dot_product_attention` call sites only, leaving the
+fp32-softmax and fused-kernel paths alone. Not applied here: the pin does not move in this task.
+
+### How it was found, and the instrument that hid it
+
+`op_trace.py`'s first version wrapped out-of-place `ttnn.<op>` only, and reported the first call
+whose output hash differs. That is call 18, the MSA pair-weighted-averaging softmax, and it is a
+0.08 bf16 ULP rounding difference which a deliberate full-ULP perturbation showed costs 0.09 A.
+Two things fixed the instrument:
+
+* **Scan the L2 of each output, not the hash** (`scan_l2.py`). Hash difference finds the first
+  bit that moves; relative L2 finds the first call that moves the answer. On the widened trace
+  everything before call 346 is under 0.2% and call 346 is 5.7%.
+* **Wrap the in-place and submodule ops** (`UNTRACED` in `op_trace.py`): `add_`, `multiply_`,
+  `softmax_in_place`, `ttnn.experimental.*` and `ttnn.transformer.*`. The 600-call census is 109
+  `multiply_`, 26 `add_`, 12 `minimal_matmul`, 2 `nlp_create_qkv_heads`, 2 `nlp_concat_heads` and
+  2 SDPA, none of which the first wrapper could see. The culprit was in that set.
+
+The reference discipline matters as much: every score here is against float64 built from the
+operands the device actually got, with the fold's own program config and memory config. Comparing
+the two builds to each other names no culprit, and it would have pointed at 0.70.1 as the broken
+side when 0.70.1 is the side that is right.
+
+### Reproducing
+
+    perf/ttx/trace_arm.sh 0.69.0 2 600 /tmp/w69.jsonl          # widened trace, both arms
+    perf/ttx/trace_arm.sh 0.70.1 2 600 /tmp/w70.jsonl
+    perf/ttx/scan_l2.py /tmp/w69.jsonl /tmp/w70.jsonl          # -> call 346, SDPA, 5.7%
+    perf/ttx/trace_arm.sh 0.70.1 2 370 /tmp/s70.jsonl --score 346,349
+    perf/ttx/report_scored.py /tmp/s69.jsonl /tmp/s70.jsonl    # operands agree, outputs do not
+    perf/ttx/trace_arm.sh 0.70.1 2 350 /tmp/d/trace.jsonl --dump-args 346 --dump-dir /tmp/d/0.70.1
+    perf/ttx/sdpa_mask_convention.py /tmp/d                    # which convention each arm obeys
+    TTX_FOLD_ENTRY=$PWD/perf/ttx/fold_maskfix.py perf/ttx/run_arm.sh new 2 298 /tmp/fix
+
+One wrinkle worth knowing: 0.70.1 and 0.78.0 both dump a stack trace at interpreter teardown after
+the fold has written its output, and 0.78.0 segfaults there. It is after `folds.json` and the CIF
+are on disk, so it costs nothing, but a runner that checks the exit status will call a good fold a
+failure.

@@ -1,0 +1,415 @@
+{
+ "doc": "TT shared/plain draws vs upstream boltz 2.2.1 fp32",
+ "env": {
+  "tt": {
+   "ttshared69": {
+    "host": "tt-quietbox2",
+    "grid": [
+     11,
+     10
+    ],
+    "arch": "Arch.BLACKHOLE",
+    "torch": "2.8.0+cpu",
+    "tt_visible_devices": "2",
+    "tt_bio_file": "/home/ttuser/.coworker/wt/ttx-version-recon/tt_bio/__init__.py",
+    "commit": "4e47ae8ab907679c8e7563410b65479ae53b2b2d",
+    "started_utc": "2026-09-14T11:11:22Z",
+    "protocol": {
+     "recycling_steps": 3,
+     "sampling_steps": 200,
+     "diffusion_samples": 1,
+     "seed": 0,
+     "arms": "shared"
+    }
+   },
+   "ttshared70": {
+    "host": "tt-quietbox2",
+    "grid": [
+     11,
+     10
+    ],
+    "arch": "Arch.BLACKHOLE",
+    "torch": "2.8.0+cpu",
+    "tt_visible_devices": "2",
+    "tt_bio_file": "/home/ttuser/.coworker/wt/ttx-version-recon/tt_bio/__init__.py",
+    "commit": "4e47ae8ab907679c8e7563410b65479ae53b2b2d",
+    "started_utc": "2026-09-14T11:18:00Z",
+    "protocol": {
+     "recycling_steps": 3,
+     "sampling_steps": 200,
+     "diffusion_samples": 1,
+     "seed": 0,
+     "arms": "shared"
+    }
+   },
+   "ttshared70fix": {
+    "host": "tt-quietbox2",
+    "grid": [
+     11,
+     10
+    ],
+    "arch": "Arch.BLACKHOLE",
+    "torch": "2.8.0+cpu",
+    "tt_visible_devices": "2",
+    "tt_bio_file": "/home/ttuser/.coworker/wt/ttx-version-recon/tt_bio/__init__.py",
+    "commit": "8f3f65b1dac7ef73b193b360a7c49b0f3e7cf384",
+    "started_utc": "2026-09-14T11:51:17Z",
+    "protocol": {
+     "recycling_steps": 3,
+     "sampling_steps": 200,
+     "diffusion_samples": 1,
+     "seed": 0,
+     "arms": "shared"
+    }
+   },
+   "ttshared78": {
+    "host": "tt-quietbox2",
+    "grid": [
+     11,
+     10
+    ],
+    "arch": "Arch.BLACKHOLE",
+    "torch": "2.8.0+cpu",
+    "tt_visible_devices": "2",
+    "tt_bio_file": "/home/ttuser/.coworker/wt/ttx-version-recon/tt_bio/__init__.py",
+    "commit": "46180fa6b177afeebe461e913ca1210c6bde39b6",
+    "started_utc": "2026-09-14T10:59:30Z",
+    "protocol": {
+     "recycling_steps": 3,
+     "sampling_steps": 200,
+     "diffusion_samples": 1,
+     "seed": 0,
+     "arms": "shared"
+    }
+   },
+   "ttshared78fix": {
+    "host": "tt-quietbox2",
+    "grid": [
+     11,
+     10
+    ],
+    "arch": "Arch.BLACKHOLE",
+    "torch": "2.8.0+cpu",
+    "tt_visible_devices": "2",
+    "tt_bio_file": "/home/ttuser/.coworker/wt/ttx-version-recon/tt_bio/__init__.py",
+    "commit": "8f3f65b1dac7ef73b193b360a7c49b0f3e7cf384",
+    "started_utc": "2026-09-14T11:53:24Z",
+    "protocol": {
+     "recycling_steps": 3,
+     "sampling_steps": 200,
+     "diffusion_samples": 1,
+     "seed": 0,
+     "arms": "shared"
+    }
+   }
+  },
+  "gpu": {
+   "host": "00f6c9d768ef",
+   "gpu": "NVIDIA RTX 6000 Ada Generation",
+   "torch": "2.14.0+cu130",
+   "cuda": "13.0",
+   "driver": "595.58.03",
+   "tf32_matmul": false,
+   "tf32_cudnn": true,
+   "boltz": "2.2.1",
+   "no_kernels": true,
+   "precision": "32",
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "mode": "cuda"
+  }
+ },
+ "runs": [
+  {
+   "arm": "ttshared69",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 84.926,
+   "mode": "shared",
+   "sha256": "aacd32c44c59ba85",
+   "shared_draw_seed": "0",
+   "n_atoms_cif": 2397,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      2400,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "84c748a64d2a8963"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "0221d7a064b23ef4"
+    },
+    {
+     "shape": [
+      1,
+      1,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "d4598badfc09f9ba"
+    }
+   ],
+   "n_randn": 898,
+   "manual_seeds": [
+    0,
+    0
+   ],
+   "plddt": 0.913153,
+   "tag": "ttshared69-s0",
+   "stack": "ttshared69"
+  },
+  {
+   "arm": "ttshared70",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 123.094,
+   "mode": "shared",
+   "sha256": "e22acff2a06c6681",
+   "shared_draw_seed": "0",
+   "n_atoms_cif": 2397,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      2400,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "84c748a64d2a8963"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "0221d7a064b23ef4"
+    },
+    {
+     "shape": [
+      1,
+      1,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "d4598badfc09f9ba"
+    }
+   ],
+   "n_randn": 898,
+   "manual_seeds": [
+    0,
+    0
+   ],
+   "plddt": 0.364238,
+   "tag": "ttshared70-s0",
+   "stack": "ttshared70"
+  },
+  {
+   "arm": "ttshared70fix",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 17.398,
+   "mode": "shared",
+   "sha256": "17a15a2c39f8a25d",
+   "shared_draw_seed": "0",
+   "n_atoms_cif": 2397,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      2400,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "84c748a64d2a8963"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "0221d7a064b23ef4"
+    },
+    {
+     "shape": [
+      1,
+      1,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "d4598badfc09f9ba"
+    }
+   ],
+   "n_randn": 898,
+   "manual_seeds": [
+    0,
+    0
+   ],
+   "plddt": 0.912785,
+   "tag": "ttshared70fix-s0",
+   "stack": "ttshared70fix"
+  },
+  {
+   "arm": "ttshared78",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 76.848,
+   "mode": "shared",
+   "sha256": "f5a4b4a1b9b098f2",
+   "shared_draw_seed": "0",
+   "n_atoms_cif": 2397,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      2400,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "84c748a64d2a8963"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "0221d7a064b23ef4"
+    },
+    {
+     "shape": [
+      1,
+      1,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "d4598badfc09f9ba"
+    }
+   ],
+   "n_randn": 898,
+   "manual_seeds": [
+    0,
+    0
+   ],
+   "plddt": 0.359736,
+   "tag": "ttshared78-s0",
+   "stack": "ttshared78"
+  },
+  {
+   "arm": "ttshared78fix",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 18.112,
+   "mode": "shared",
+   "sha256": "837735180604f03d",
+   "shared_draw_seed": "0",
+   "n_atoms_cif": 2397,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      2400,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "84c748a64d2a8963"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "0221d7a064b23ef4"
+    },
+    {
+     "shape": [
+      1,
+      1,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "d4598badfc09f9ba"
+    }
+   ],
+   "n_randn": 898,
+   "manual_seeds": [
+    0,
+    0
+   ],
+   "plddt": 0.912546,
+   "tag": "ttshared78fix-s0",
+   "stack": "ttshared78fix"
+  },
+  {
+   "target": "cdk2x2_298",
+   "tag": "gpurefshared-s0",
+   "seed": 0,
+   "arm": "gpurefshared",
+   "mode": "shared",
+   "fold_s": 42.26,
+   "sha256": "77cc6f0e35969677",
+   "plddt": 0.910272,
+   "confidence_plddt": 0.9102718830108643,
+   "cif": "/home/ttuser/scratch/ttx/out/maskmerged/scorecif/298_gpurefshared-s0/cdk2x2_298.cif"
+  },
+  {
+   "target": "cdk2x2_298",
+   "tag": "gpuref-s0",
+   "seed": 0,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 40.342,
+   "sha256": "64ab4254350a0b78",
+   "plddt": 0.911531,
+   "confidence_plddt": 0.9115307927131653,
+   "cif": "/home/ttuser/scratch/ttx/out/maskmerged/scorecif/298_gpuref-s0/cdk2x2_298.cif"
+  },
+  {
+   "target": "cdk2x2_298",
+   "tag": "gpuref-s1",
+   "seed": 1,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 37.865,
+   "sha256": "7d8b16da302079d0",
+   "plddt": 0.911292,
+   "confidence_plddt": 0.9112915396690369,
+   "cif": "/home/ttuser/scratch/ttx/out/maskmerged/scorecif/298_gpuref-s1/cdk2x2_298.cif"
+  },
+  {
+   "target": "cdk2x2_298",
+   "tag": "gpuref-s2",
+   "seed": 2,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 36.144,
+   "sha256": "54f6a31f2797b11d",
+   "plddt": 0.909198,
+   "confidence_plddt": 0.9091984033584595,
+   "cif": "/home/ttuser/scratch/ttx/out/maskmerged/scorecif/298_gpuref-s2/cdk2x2_298.cif"
+  },
+  {
+   "target": "cdk2x2_298",
+   "tag": "gpuref-s3",
+   "seed": 3,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 37.48,
+   "sha256": "be06f5fc9f0e1fac",
+   "plddt": 0.909156,
+   "confidence_plddt": 0.9091564416885376,
+   "cif": "/home/ttuser/scratch/ttx/out/maskmerged/scorecif/298_gpuref-s3/cdk2x2_298.cif"
+  }
+ ]
+}

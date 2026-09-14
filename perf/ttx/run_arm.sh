@@ -28,5 +28,5 @@ export TT_MESH_GRAPH_DESC_PATH=$REPO/perf/ttx/mgd/bh_1x1.textproto
 export TT_BIO_TRIATT_PERSISTENT_MASK=0 TT_BIO_TRIATT_HEAD_MAJOR_QKV=0 \
        TT_BIO_TRIATT_HEAD_MAJOR_TAIL=0 TT_BIO_REBLOCK_PERMUTE_BACK=0 \
        TT_BIO_REBLOCK_PERMUTE_GATED=0 TT_BIO_TRIMUL_DUAL_NOC=0
-exec "$PY" "$REPO/perf/roof_shared/fold_shared.py" \
+exec "$PY" "${TTX_FOLD_ENTRY:-$REPO/perf/roof_shared/fold_shared.py}" \
   --out "$OUT/folds.json" --cifdir "$OUT/cif" --sizes "$SIZES" --arms shared --seed 0
