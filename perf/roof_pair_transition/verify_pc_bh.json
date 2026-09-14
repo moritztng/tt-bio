@@ -1,0 +1,54 @@
+{
+ "seed": 0,
+ "ref": "float64 CPU, same bf16 inputs and weights",
+ "rows": [
+  {
+   "arm": "h16_fused_SHIPPED",
+   "rel_rms": 0.004364454522456318,
+   "max_abs": 0.0245960960638274,
+   "pcc": 0.9999908282858315,
+   "bit_exact_vs_shipped": true,
+   "rel_rms_vs_shipped": 0.0
+  },
+  {
+   "arm": "h32_fused",
+   "rel_rms": 0.004364454522456318,
+   "max_abs": 0.0245960960638274,
+   "pcc": 0.9999908282858315,
+   "bit_exact_vs_shipped": true,
+   "rel_rms_vs_shipped": 0.0
+  },
+  {
+   "arm": "h48_fused",
+   "rel_rms": 0.004364454522456318,
+   "max_abs": 0.0245960960638274,
+   "pcc": 0.9999908282858315,
+   "bit_exact_vs_shipped": true,
+   "rel_rms_vs_shipped": 0.0
+  },
+  {
+   "arm": "h16_unfused",
+   "rel_rms": 0.004855215883941107,
+   "max_abs": 0.0245960960638274,
+   "pcc": 0.9999886616692508,
+   "bit_exact_vs_shipped": false,
+   "rel_rms_vs_shipped": 0.004145350452888005
+  },
+  {
+   "arm": "h32_unfused",
+   "rel_rms": 0.004855215883941107,
+   "max_abs": 0.0245960960638274,
+   "pcc": 0.9999886616692508,
+   "bit_exact_vs_shipped": false,
+   "rel_rms_vs_shipped": 0.004145350452888005
+  },
+  {
+   "arm": "h48_unfused",
+   "rel_rms": 0.004855215883941107,
+   "max_abs": 0.0245960960638274,
+   "pcc": 0.9999886616692508,
+   "bit_exact_vs_shipped": false,
+   "rel_rms_vs_shipped": 0.004145350452888005
+  }
+ ]
+}
