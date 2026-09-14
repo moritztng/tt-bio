@@ -46,6 +46,13 @@ Bit-exact: `torch.equal` and max_abs 0.0 at every rung and every grid.
 Served, not "it did not crash": on the live grid the counters read `l1_blocks` 448 of 456 with
 `l1_refused` 0, against 8 of 344 on the fitted rectangle.
 
+`scripts/lever_census.py` is not the instrument for this one, for two reasons: it scores the
+installed package rather than this tree, and its `stats-dict` reader takes `calls`/`blocked` off
+`FP32_SOFTMAX_STATS`, which are the bias-hoist lever's counters, not the L1 grid's. The counters
+that answer the question are `l1` and `l1_refused`, read in-process here, which is sound because
+`fold_ab.py` folds via `_WorkerState` in the process that reads them and never spawns a worker. If
+this lever merges, the census needs a `stats-dict` variant that can name its key pair.
+
 The measured envelope on this part is **72 shards**, not the 110 the comment names. At 80 the
 allocator refuses outright ("Expected number of shards 80 to be less than or equal to total number
 of L1 banks 72 in compute cores"), so the fitted ceiling never binds here and the live grid needs
@@ -55,18 +62,20 @@ no extra clamp.
 
 An op ratio is not a result, so the same change was priced on a whole fold. `fold_ab.py`, ABBA
 inside each rep, both arms in one process with the plan caches cleared between them, 200 sampling
-steps and 3 recycles at 512 aa, two sessions:
+steps and 3 recycles at 512 aa, two interleaved sessions of n=4 per arm:
 
-| | session A (n=4/arm) | session B |
+| | session A | session B |
 |---|---|---|
-| fitted (8,8) | 96.784 s | see `fold_ab_512_B.json` |
-| live grid (9,8) | 76.480 s | |
-| **fold ratio** | **1.2655x** | |
-| A/A floor | 0.043 % | |
-| paired deltas | 20.019 / 20.465 / 20.165 / 20.403 s | |
+| fitted (8,8) | 96.784 s | 96.756 s |
+| live grid (9,8) | 76.480 s | 76.651 s |
+| **fold ratio** | **1.2655x** | **1.2623x** |
+| own-session A/A floor | 0.043 % | 0.049 % |
 
-Every fold in both arms wrote the same CIF (sha256 `a0aa3b72…`) and the same 0.84482 pLDDT, so the
-lever is bit-exact at the fold level, not just on the op.
+The two sessions agree to 0.25 %. All eight paired deltas fall between 19.915 s and 20.465 s, so
+the ~20.1 s the lever saves on a 96.8 s fold is the same fold to fold and not one outlier.
+
+All 20 folds of both arms of both sessions wrote the same CIF (sha256 `a0aa3b72…`) and the same
+0.84482 pLDDT, so the lever is bit-exact at the fold level and across sessions, not just on the op.
 
 The fold carries `BOLTZ2_FP32_SOFTMAX=1`, and that flag is the **path**, not the arm — both arms
 have it. Boltz-2 ships the fused SDPA instead, so this prices the constant on a model whose weights

@@ -4336,6 +4336,14 @@ def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
     # 109.545 -> 73.997 ms, 1.4803x and 1.4804x, `torch.equal` with max_abs 0.0 at every rung.
     # 256/384/768 aa are neutral to within the A/A floor -- the floating core count already lands
     # on 72 there -- so this is not a tuning, it is the one rung where the rectangle refuses.
+    #
+    # An op ratio is not a result, so it is priced on a whole fold too: 512 aa, 200 sampling steps,
+    # 3 recycles, ABBA in one process, two interleaved sessions of n=4 per arm -- 96.784 -> 76.480 s
+    # (1.2655x) and 96.756 -> 76.651 s (1.2623x), A/A floor 0.043 %/0.049 %, the eight paired deltas
+    # all between 19.915 and 20.465 s. All 20 folds wrote one CIF sha256 and one 0.84482 pLDDT, so
+    # bit-exact at the fold level and across sessions. That fold carries BOLTZ2_FP32_SOFTMAX=1 on
+    # BOTH arms: it is the path, not the arm, because Boltz-2 ships the fused SDPA and is the model
+    # whose weights are on that box, while OpenFold3 and AF2-IG take this path by default.
     # perf/roof_bh_env/README.md.
     #
     # Deliberately inside the small-grid branch: on a 13x10 p150a and an 11x10 p300c this function
