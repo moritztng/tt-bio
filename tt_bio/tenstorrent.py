@@ -2597,6 +2597,10 @@ _SOFTMAX_CKC = env_flag("TT_BIO_SOFTMAX_CKC", False)
 # copy. Peak is 1.5x the budget, because the bf16 half of a typecast is live alongside the fp32.
 _FP32_SOFTMAX_L1_BYTES_PER_CORE = 768 << 10
 _FP32_SOFTMAX_L1_GRID = (8, 8)  # (y, x). 8x8 = 64; this p150a refuses more than 110 shards.
+#: Take the rectangle from the live grid instead on a part smaller than the 11x10 baseline, where
+#: the fitted 8x8 is neither the whole grid nor a safe fraction of it. Set by
+#: `_apply_grid_thresholds`; `TT_BIO_FP32_SOFTMAX_L1_LIVE_GRID=0` pins the fitted value for an A/B.
+_FP32_SOFTMAX_L1_LIVE_GRID = env_flag("TT_BIO_FP32_SOFTMAX_L1_LIVE_GRID", True)
 
 FP32_SOFTMAX_STATS = {"calls": 0, "blocked": 0, "blocks": 0, "fused": 0, "unfused": 0,
                       "l1": 0, "l1_blocks": 0, "l1_refused": 0, "l1_cores": 0,
@@ -4286,10 +4290,29 @@ def _apply_grid_thresholds(grid: tuple[int, int], device=None) -> None:
     global TRANSITION_W_CHUNKING_THRESHOLD, TRIANGLE_ATT_CHUNK_SIZE_FAST
     global TRANSITION_W_CHUNK_SIZE, TRIANGLE_MULT_L1_MAX_SEQ_FAST, SMALL_GRID_SEQ_TILE
     global SMALL_GRID_PAIR_TILE_AREA, SMALL_GRID_MSA_TILE_AREA, TRIANGLE_MULT_L1_MAX_SEQ
-    global TRANSITION_L1_CHUNK_BYTES_PER_CORE
+    global TRANSITION_L1_CHUNK_BYTES_PER_CORE, _FP32_SOFTMAX_L1_GRID
     _IS_SMALL_GRID = grid[0] * grid[1] < COMPUTE_GRID_X_11 * COMPUTE_GRID_Y
     if not _IS_SMALL_GRID:
         return  # Keep Blackhole baseline values
+    # The fp32-softmax tuned rectangle is the live grid on a small part, not the fitted 8x8.
+    #
+    # `_FP32_SOFTMAX_L1_GRID` was fitted where 64 of 130 cores was a quarter of the part and the
+    # refusal boundary was 110 shards. On the 8x9 Galaxy 64 of 72 is a different occupancy AND a
+    # different byte count per core, because the block height is derived from the core count:
+    # 12 rows on 64 cores is 786432 B/core and this part refuses it, 9 rows on 72 is 524288 B/core
+    # and it does not. MEASURED on AF2-IG's triangle attention at 512 aa, two whole interleaved
+    # sessions on j10glx02 card 0, own-session A/A floor 0.017 %/0.043 %: 109.589 -> 74.034 ms and
+    # 109.545 -> 73.997 ms, 1.4803x and 1.4804x, `torch.equal` with max_abs 0.0 at every rung.
+    # 256/384/768 aa are neutral to within the A/A floor -- the floating core count already lands
+    # on 72 there -- so this is not a tuning, it is the one rung where the rectangle refuses.
+    # perf/roof_bh_env/README.md.
+    #
+    # Deliberately inside the small-grid branch: on a 13x10 p150a and an 11x10 p300c this function
+    # returns above, so both Blackhole parts keep the fitted rectangle byte for byte. The 110-shard
+    # ceiling the constant's comment names is never reached here either -- 80 shards is already
+    # refused on 72 L1 banks -- so the live grid needs no further clamp on a part this size.
+    if _FP32_SOFTMAX_L1_LIVE_GRID:
+        _FP32_SOFTMAX_L1_GRID = (grid[1], grid[0])   # (y, x), as the constant is written
     # Scale every budget to this part's actual per-core unreserved L1, clamped to
     # <= the full-L1 calibration (so an ample-L1 Wormhole is byte-for-byte
     # unchanged — no perf regression — and only a tighter part, e.g. the Galaxy,
