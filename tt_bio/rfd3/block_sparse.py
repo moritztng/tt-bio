@@ -8,6 +8,16 @@ kernel. Every earlier route at this site treated the index as an arbitrary per-r
 measured dead (a shared key block is not gathered attention; an honest per-row gather is 7.2x
 slower than the dense chain; ``ttnn.gather`` is silently wrong above 1920 on the indexed axis).
 
+Both of those gather numbers are true of ``ttnn==0.68.0``, which is what we ship, and neither is
+a standing property of a per-row gather. Upstream fixed the correctness bug in
+``da92873a78a`` (#40390, 2026-03-30, one day after the 0.68.0 tag): the reader initialised
+``current_index_tile_id`` outside its row loop, so every tile-row after the first read the wrong
+index tiles. A later commit ``dcdde8f414d`` (#53112) skips a 1024-value rescan and moved their
+own case 9.5 s -> 0.76 s. So the 7.2x was measured against a gather that was both broken and
+~100x slow, and it would have to be re-measured before it could rule anything out. This does not
+put the dense route in doubt -- that route is measured good on its own terms, above -- it only
+means the gather comparison is not evidence for it. See ``ttx-orchestrator`` (2026-09-14).
+
 Two constraints decide whether this is a win, and both were found by measurement:
 
 * **Q must be a multiple of 32.** The blocked scores come out ``[H, nb, Q, U]`` and have to be
