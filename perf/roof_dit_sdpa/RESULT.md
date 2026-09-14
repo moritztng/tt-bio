@@ -36,6 +36,7 @@ Boltz-2, `--single_sequence`, 6 sampling steps, seed 0, whglx card 3 (Wormhole).
 | 512 | True | 144 | 0 |
 | 640 | True | 144 | 0 |
 | 768 | True | 144 | 0 |
+| 1024 | True | 144 | 0 |
 
 144 = 24 token-DiT layers x 6 steps. At the production 200 steps that is 4800, which is the call
 count of record, and **none of them decline at any size on the ladder**. That closes kill criterion
