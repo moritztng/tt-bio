@@ -96,6 +96,12 @@ void kernel_main() {
     constexpr auto x_args = TensorAccessorArgs<chunk_start_idx_args.next_compile_time_args_offset()>();
     constexpr auto w_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
 #endif
+#ifdef GATE_EPILOGUE
+    // The triangle-attention gate, so the compute kernel's pack stage can fold `o * sigmoid(g)`
+    // in and the caller's own multiply program disappears. Mutually exclusive with FUSE_QKV
+    // (asserted on the host), so this accessor follows chunk_start_idx's.
+    constexpr auto gate_args = TensorAccessorArgs<chunk_start_idx_args.next_compile_time_args_offset()>();
+#endif
 
     uint32_t argidx = 0;
     const uint32_t q_addr = get_arg_val<uint32_t>(argidx++);
@@ -206,6 +212,9 @@ void kernel_main() {
     const uint32_t x_addr = get_arg_val<uint32_t>(argidx++);
     const uint32_t w_addr = get_arg_val<uint32_t>(argidx++);
 #endif
+#ifdef GATE_EPILOGUE
+    const uint32_t gate_addr = get_arg_val<uint32_t>(argidx++);
+#endif
 
     // When chunked: only process K/V up to (chunk_start_idx + Q_chunk_length) tokens.
     // valid_Skt_bound = min(offset_tiles + valid_Sqt, valid_Skt); cap at valid_Skt for callers that pass
@@ -227,6 +236,9 @@ void kernel_main() {
 #ifdef FUSE_QKV
     constexpr uint32_t cb_x_in = tt::CBIndex::c_10;
     constexpr uint32_t cb_w_in = tt::CBIndex::c_11;
+#endif
+#ifdef GATE_EPILOGUE
+    constexpr uint32_t cb_gate_in = tt::CBIndex::c_12;
 #endif
 
     constexpr uint32_t q_tile_bytes = get_tile_size(cb_q_in);
@@ -253,6 +265,13 @@ void kernel_main() {
     constexpr uint32_t skip_src_cols = (use_mla && mla_kv_overlap) ? DHt - vDHt : 0;
 
     const auto q_tile_shape = TensorTileShape(B, NQH, valid_Sqt, DHt);
+#ifdef GATE_EPILOGUE
+    constexpr uint32_t gate_tile_bytes = get_tile_size(cb_gate_in);
+    const auto gate_reader = TensorAccessor(gate_args, gate_addr, gate_tile_bytes);
+    // The gate has the OUTPUT's tile grid, [B, NQH, valid_Sqt, vDHt], which is q's whenever
+    // DHt == vDHt -- and the host refuses the epilogue unless both are 1.
+    const auto gate_tile_shape = TensorTileShape(B, NQH, valid_Sqt, vDHt);
+#endif
     const auto k_tile_shape = TensorTileShape(B, NKH, valid_Skt, DHt);
 
     // If we have MLA:
@@ -468,6 +487,21 @@ void kernel_main() {
                             DHt,
                             barrier_threshold);
                     }
+
+#ifdef GATE_EPILOGUE
+                    // One gate block per q chunk, at the same (batch, head, row) the writer uses
+                    // for the output. Pushed before the K loop, consumed by the epilogue after it,
+                    // so the compute kernel never waits on this ahead of the scores.
+                    read_chunk_with_padding<gate_tile_bytes>(
+                        gate_reader,
+                        cb_gate_in,
+                        gate_tile_shape.id_of(nb, nq, read_offset + q_row_start_tile, 0),
+                        q_row_tile_count,
+                        vDHt,
+                        Sq_chunk_t,
+                        vDHt,
+                        barrier_threshold);
+#endif
 
                     q_chunk = chunked_q_chunk_offset + q_chunk;
                     uint32_t q_low_idx =
