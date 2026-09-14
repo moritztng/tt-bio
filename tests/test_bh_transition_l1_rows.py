@@ -30,6 +30,8 @@ def _height(W, c=C, hid=HID, grid=P300C, budget=None):
     b = (T.TRANSITION_H_CHUNK_SIZE_BIG
          if W <= T.TRANSITION_H_CHUNK_BIG_MAX_W and c <= 256 else T.TRANSITION_H_CHUNK_SIZE)
     base = max(1, int(b * min(1.0, (1024 * 128) / (W * c))))
+    if c > T._BH_TRANSITION_L1_ROWS_MAX_C:
+        return base
     l1_rows = budget * gx * gy / (2 * tile(W) * (tile(c) + 2 * tile(hid)))
     return max(base, max(1, int(min(l1_rows, T._BH_TRANSITION_CHUNK_ELEMS / (W * c)))))
 
@@ -95,3 +97,25 @@ def test_the_byte_budget_binds_when_hidden_exceeds_four_channels():
     wide = _height(512, c=C, hid=8 * C)
     assert wide < T._BH_TRANSITION_CHUNK_ELEMS / (512 * C)
     assert 2 * wide * 512 * (C + 2 * 8 * C) <= 56_623_104
+
+
+@pytest.mark.parametrize("c,hid", [(256, 1024), (384, 1536)])
+def test_a_wider_channel_keeps_todays_height(c, hid):
+    """The budget was fitted at c=128 and it over-predicts above it.
+
+    Unbounded, the raise gives OpenDDE (c_z=384) 25 rows at W=320 and the fold dies on
+    `program.cpp:1052` on every seed of `opendde-prot-prod`, `opendde-abag` and the gate's capacity
+    leg, all three of which PASS with `TT_BIO_TRANSITION_L1_ROWS=0`. So the rule declines above the
+    channel it can speak for, and those shapes keep the height they ship today.
+    """
+    assert T._BH_TRANSITION_L1_ROWS_MAX_C == 128
+    for W in (320, 512, 768, 1024):
+        b = (T.TRANSITION_H_CHUNK_SIZE_BIG
+             if W <= T.TRANSITION_H_CHUNK_BIG_MAX_W and c <= 256 else T.TRANSITION_H_CHUNK_SIZE)
+        assert _height(W, c=c, hid=hid) == max(1, int(b * min(1.0, (1024 * 128) / (W * c))))
+
+
+def test_the_channels_that_do_ship_are_unaffected_by_the_bound():
+    """c=128 pair track and c=64 MSA track, the two the heights were measured at."""
+    assert _height(512) == 48 and _height(768) == 32 and _height(1024) == 24
+    assert _height(512, c=MSA_C, hid=MSA_HID) == 96

@@ -456,10 +456,16 @@ where the session itself sits.
 The saving does not shrink as the win per block does: 512 residues goes from 32 row blocks to 11 and
 1024 from 64 to 43, but 1024 has four times as many blocks to remove.
 
-Boltz-2, BoltzGen, Protenix-v2 and OpenFold3 all reach it, because they share the same transition
-block. AF2-IG's transition is a different one (ReLU, not SwiGLU) and OpenFold3's diffusion
-conditioning has its own unchunked copy; neither changes. Wormhole is untouched: there the same
-budget only ever shortens the block, which is what it already did.
+**Which models it reaches.** Boltz-2, BoltzGen and OpenFold3, whose pair track is 128 channels
+wide and whose MSA track is 64. Protenix-v2 (256) and OpenDDE (384) share the same transition block
+but keep the height they ship today, because the budget was fitted at 128 and over-predicts above
+it: unbounded, it kills every seed of OpenDDE's structure and abag legs and the release gate's
+capacity leg with an L1 circular-buffer clash, all of which pass with the flag off. Getting the
+wider channels in needs a budget measured at that channel, not this one extrapolated.
+
+AF2-IG's transition is a different block (ReLU, not SwiGLU) and OpenFold3's diffusion conditioning
+has its own unchunked copy; neither changes. Wormhole is untouched: there the same budget only ever
+shortens the block, which is what it already did.
 
 ## `TT_BIO_TRIATT_FUSED_QKVG` — on
 

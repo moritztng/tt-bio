@@ -277,6 +277,18 @@ _BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE = 514756
 # that was measured instead of extrapolating off it. Applied as a min with the byte budget, which
 # is the physical expression and is the one that binds when hidden exceeds 4x the channel.
 _BH_TRANSITION_CHUNK_ELEMS = 3145728
+# The channel this budget is allowed to speak for. It was fitted at c=128 with hidden=512 and
+# verified at c=64; above that it over-predicts and the fold dies. MEASURED, not argued: with the
+# raise unbounded, OpenDDE (c_z=384) throws program.cpp:1052 on every seed of opendde-prot-prod and
+# opendde-abag -- "circular buffers in program 378 clash with L1 buffers on core range
+# [(x=0,y=0) - (x=9,y=9)], L1 buffer at 1286144, static CB region ends at 1417728" -- and the
+# release gate's capacity leg dies with them, while all three PASS with TT_BIO_TRANSITION_L1_ROWS=0.
+# The mechanism is in the numbers: the clash lands on a 10x10 core range while `_l1_rows_at`
+# divides by COMPUTE_GRID_MAIN = 11x10, a 10% underestimate of the per-core bytes against a 9.3%
+# overshoot, and a wider channel makes every per-core count larger so it bites there first.
+# Raising this bound needs a per-core budget measured AT that channel and a core count the matmul
+# actually uses, not an extrapolation of this one.
+_BH_TRANSITION_L1_ROWS_MAX_C = 128
 TRANSITION_L1_CHUNK_BYTES_PER_CORE = _BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE
 # Screen hook for the Blackhole raise, same pattern as every other lever here: the shipped
 # default has to stay A/B-able on one build without editing a derivation. On by default.
@@ -8237,7 +8249,7 @@ class Transition(Module):
             # undo that measured raise.
             transition_h_chunk_size = min(transition_h_chunk_size,
                                           max(1, int(_l1_rows_at(w_eff))))
-        elif _TRANSITION_L1_ROWS:
+        elif _TRANSITION_L1_ROWS and _c <= _BH_TRANSITION_L1_ROWS_MAX_C:
             # Blackhole: the same per-core budget, read the other way round. On a small grid the
             # measured L1 ceiling always sits BELOW the tuned base, so it only ever shrinks; on
             # Blackhole it sits well above it (48 rows against a shipped 16 at 512 aa), and the
