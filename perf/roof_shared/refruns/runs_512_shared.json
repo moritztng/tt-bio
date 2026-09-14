@@ -1,0 +1,33 @@
+{
+ "doc": "upstream boltz 2.2.1 reference folds",
+ "env": {
+  "host": "00f6c9d768ef",
+  "gpu": "NVIDIA RTX 6000 Ada Generation",
+  "torch": "2.14.0+cu130",
+  "cuda": "13.0",
+  "driver": "595.58.03",
+  "tf32_matmul": false,
+  "tf32_cudnn": true,
+  "boltz": "2.2.1",
+  "no_kernels": true,
+  "precision": "32",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "mode": "shared"
+ },
+ "runs": [
+  {
+   "target": "cdk2x2_512",
+   "tag": "gpurefshared-s0",
+   "seed": 0,
+   "arm": "gpurefshared",
+   "mode": "shared",
+   "fold_s": 59.267,
+   "sha256": "6ce316c5046d4298e3616098f76889a961b2e12c10361bafd04c915ac45298da",
+   "plddt": 86.3003,
+   "confidence_plddt": 0.8630034923553467,
+   "cif": "/root/results/cif/512_gpurefshared-s0/cdk2x2_512.cif"
+  }
+ ]
+}
