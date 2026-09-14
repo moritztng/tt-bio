@@ -347,13 +347,16 @@ favourable way. Two folds of the same arm in two processes are byte-identical.
 An L1 refusal costs speed and not correctness. With every fused pair refused the call falls back to
 the same stock attention the flag-off arm takes, bit-identical, max absolute difference 0.0.
 
-**Speed: 2.737x on the attention op at 1536 tokens** (137.555 to 50.3 ms), 2.678x at 1920 and
-1.865x at 2208, interleaved arms with the spread under 0.2 %. **It is off by default because the
-fold-level gain has not been measured yet** — not because a fold measurement came back negative.
-A 1536 aa fold issues 560 of these calls, so the op number predicts a large gain, but the two
-measurements attempted so far were both defeated by their instrument rather than by the lever
-(session drift of 27.6 % across processes, and program-cache thrash when both arms run in one
-process). Turn it on to get the op gain; the default flips once a paired fold A/B exists.
+**Speed: 4.23x on the attention op at 1536 tokens** (136.143 to 32.184 ms on a Blackhole
+p300c), 2.678x at 1920 and 1.865x at 2208. The win survives changing operands: timed per call with
+a fresh bias every call it is still 2.71x, and rotating whole operand sets 4.06x. At the fold it
+saves **28.9 s of trunk time** at 1536 residues, which on a 20-step fold is 1.1973x (175.388 to
+146.489 s, adjacent arms, one process per fold).
+
+**It is off by default because that 1.1973x is not a full-fold number.** Triangle attention is in
+the trunk, and a 20-step fold gives the trunk a much larger share than the default 200 steps does,
+so the same 28.9 s buys a smaller ratio in the shipped configuration. Nothing measured came back
+negative; the full-fold pair is simply still missing. Turn it on to get the op gain.
 
 **Reach depends on the head count and the grid, not on the model.** The fused pair needs one query
 chunk per core, so a card with fewer cores, or a model with more heads on the same card, serves
