@@ -1,0 +1,12 @@
+### 15:13:39 start cdk2x2_1536_offseed card=0
+2026-09-14 15:13:40.467 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+2026-09-14 15:13:48.328 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 6572544 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-09-14 15:13:48.333 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3424768 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+[tt-bio] tri_att_sdpa/q_chunk: device refused this L1 plan, retrying a narrower one (expected, not a crash)
+[tt-bio] L1 census: grid=(11, 10) cores=110 cb_need=3424768 l1_top=1572864 resident_per_core=0 shortfall=1851904
+2026-09-14 15:13:48.338 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1851904 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+[tt-bio] tri_att_sdpa/q_chunk: device refused this L1 plan, retrying a narrower one (expected, not a crash)
+[tt-bio] L1 census: grid=(11, 10) cores=110 cb_need=1851904 l1_top=1572864 resident_per_core=0 shortfall=279040
+{"arm": "off", "tag": "cdk2x2_1536_offseed", "fixture": "cdk2x2_1536", "seed": 7, "steps": 200, "recycles": 3, "fold_s": 175.435, "plddt": 0.820473, "cif_sha256": "14154b619604a192fc05355d5a90e18e770cd69942923b59042885c92f31805a", "fused_large_s": false, "q_split_max_s": 1024, "triatt_served": 0, "triatt_declined": 1682, "pm_over_l1": ["(1536, 1536, 1536, 256, 2)"], "pm_l1_errors": {"(1536, 1536, 1536, 256, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 6572544 B which is beyond max L1 si"}, "sdpa_picks": {"(1536, 1536)": [512, 256, "stock"]}, "grid": [11, 10], "grid_measured": true, "maxrss_mb": 11166.4, "host": "tt-quietbox2", "card": "0", "loadavg": [5.3203125, 2.7197265625, 1.19677734375], "commit": "9460ab75de75c51e9636ef1ec6e75975d04910cb"}
+### 15:16:42 done cdk2x2_1536_offseed rc=0
+### CHAIN DONE card=0

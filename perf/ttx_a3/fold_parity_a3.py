@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """Fold-level speed and parity of K6 -- the fused triangle-attention SDPA above the 1024 aa cap.
 
-Two module globals make the arm, both read at call time, so nothing about the loaded model
-changes between them:
-
-    tenstorrent._SDPA_FUSED_LARGE_S   offer `triatt_sdpa.fused_pairs` ahead of the stock ladder
-    triatt_sdpa._Q_SPLIT_MAX_S        the cap that makes `q_parallel_factor` return 1 above it
+`tenstorrent._SDPA_FUSED_LARGE_S` makes the arm: above `triatt_sdpa._Q_SPLIT_MAX_S` it offers
+`fused_pairs` ahead of the stock ladder. It is read at call time, so nothing about the loaded
+model changes between the arms. "off" is what shipped before this row.
 
 One arm per process anyway, because a fold that has already compiled the other arm's kernels
 carries its program cache into the timing. `--compare` reads the directory and prints CA-lDDT,
@@ -66,10 +64,8 @@ def main() -> int:
     assert Path(_TB.__file__).resolve().is_relative_to(REPO), (
         f"imported tt_bio from {_TB.__file__}, not this tree")
 
-    if a.arm == "on":
-        TT._SDPA_FUSED_LARGE_S = True
-        TS._Q_SPLIT_MAX_S = 1 << 30
-        TS.fused_pairs.cache_clear()
+    TT._SDPA_FUSED_LARGE_S = a.arm == "on"
+    TS.fused_pairs.cache_clear()
     TS.STATS[:] = [0, 0]
 
     dev = get_device()
