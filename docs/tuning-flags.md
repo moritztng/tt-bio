@@ -149,9 +149,12 @@ not bit-exact flips the hinge basin. On the same card and the same day, main's o
 `TT_BIO_DEVICE_CONDITIONING` moves that column 1.5146 Å with an 86.67 degree hinge; this flag
 moves it 1.6372 Å with an 87.21 degree hinge, and the seed floor on the column is 2.79626 Å.
 
-**Speed: 1.01090x on a 512-residue Wormhole fold, six of six paired reps positive.** That is the
-reading the flag was built against, on an n300 rather than on Blackhole. `TT_BIO_DEVICE_ZINIT=0`
-restores the host path and the previous coordinates.
+**Speed: 1.01955x on a 512-residue Blackhole fold, ten of ten paired reps positive.** One p300c
+processor, ten `base,on,base` brackets in one process under the box benchlock, 17.523 s against
+17.195 s. The A/A floor taken from the same brackets is 1.00361x and its widest pair is 1.00992x,
+below the slowest of the ten lever pairs (1.01566x), so every pair clears the floor. Wormhole read
+1.01090x on an n300, six of six positive. `TT_BIO_DEVICE_ZINIT=0` restores the host path and the
+previous coordinates.
 
 ## `TT_BIO_FUSE_BIAS_STACKS` — on, Boltz-2 only
 
