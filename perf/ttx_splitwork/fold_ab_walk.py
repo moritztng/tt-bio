@@ -61,9 +61,9 @@ def main() -> int:
     import tt_bio as _TB
     assert Path(_TB.__file__).resolve().is_relative_to(REPO), (
         f"imported tt_bio from {_TB.__file__}, not this tree")
-    assert "TT_BIO_REBLOCK_STRIDE" not in os.environ, \
+    assert "TT_BIO_REBLOCK_WALK" not in os.environ, \
         "the arms are set in-process; an env pin would make both arms the same arm"
-    assert RB.STRIDED, "this branch ships strided on; arm `on` must be the default"
+    assert RB.WALK == "auto", "this branch ships auto; arm `on` must be the default"
 
     dev = get_device()
     OUT["env"] = {
@@ -88,7 +88,7 @@ def main() -> int:
     state.bind_run("ttx-reblock-cores-ship", cfg)
 
     def fold(arm: str) -> dict:
-        RB.STRIDED = (arm == "on")
+        RB.WALK = "auto" if arm == "on" else "block"
         for s in (RB.STATS, RB.STATS_BACK, RB.STATS_GATED):
             s[0] = s[1] = 0
         RB.REJECTS.clear()
@@ -101,7 +101,7 @@ def main() -> int:
         wall = time.perf_counter() - t0
         cifs = sorted(struct_dir.glob("*.cif"))
         assert cifs, "no CIF written"
-        return {"arm": arm, "fold_s": round(wall, 3), "strided": RB.STRIDED,
+        return {"arm": arm, "fold_s": round(wall, 3), "walk": RB.WALK,
                 "calls": {"fwd": list(RB.STATS), "back": list(RB.STATS_BACK),
                           "gated": list(RB.STATS_GATED)},
                 "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
