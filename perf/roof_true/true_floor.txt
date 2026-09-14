@@ -1,0 +1,122 @@
+granularity: per top-level ttnn op, in the three disjoint top-level captures, summed over their calls per fold
+roofs: stream 424.7 GB/s, dense cube 104.93 TFLOP/s (qb2 p300c). Shape-honest fractions from pc, cube 128.70 TFLOP/s.
+
+unit class (deepest open frame)     ops/fold          TB  s traffic    s arith      s MAX
+TriangleAttention                      13968      0.5684     1.3383     4.1251     4.5534
+TriangleMultiplication                 12784      0.9002     2.1196     3.2060     4.4405
+AttentionPairBias                     144048      0.3872     0.9118     0.6607     1.3599
+Transition                             85776      0.1110     0.2613     1.0697     1.2659
+ConditionedTransitionBlock             72000      0.2267     0.5338     0.9061     1.1751
+AdaLN                                  98400      0.1609     0.3789     0.5540     0.8073
+(own) PairformerLayer                   4224      0.1782     0.4197     0.0000     0.4197
+OuterProductMean                         384      0.1160     0.2732     0.1244     0.3603
+PairWeightedAveraging                   2672      0.1149     0.2706     0.0734     0.3134
+DiffusionTransformerLayer              26600      0.0655     0.1542     0.1407     0.2610
+(own) MSALayer                            48      0.0129     0.0303     0.0000     0.0303
+PairformerLayer                          160      0.0107     0.0253     0.0000     0.0253
+Diffusion                               4200      0.0062     0.0146     0.0075     0.0191
+(own) DiffusionModule                    400      0.0001     0.0001     0.0000     0.0001
+
+kind            ops/fold          TB       TFLOP  s traffic    s arith      s MAX arith-bnd
+matmul            112280      1.1549      219.06     2.7194    10.8676    11.0190     99528
+layout/free       281808      1.2500        0.00     2.9432     0.0000     2.9432         0
+eltwise            71576      0.4541        0.11     1.0691     0.0000     1.0691         0
+
+matmul class                                                   TFLOP   s arith     s MAX
+TriangleAttention fused SDPA  (QK^T and AV)                    38.48    2.4558    2.4558
+TriangleMultiplication in-proj  [g_a|g_b|p_a|p_b|g_out]        24.05    1.5271    1.5271
+TriangleMultiplication triangle product                        19.24    1.3251    1.3251
+TriangleAttention in-proj  [q|k|v|g|bias]                      20.44    1.3154    1.3154
+DiffusionTransformer token linear 768x768                      23.31    1.1138    1.1138
+pair Transition fc1 / fc2                                      19.24    0.6127    0.6127
+DiffusionTransformer token linear 768x1536                     18.36    0.5306    0.5306
+pair Transition fc3                                             9.62    0.3924    0.3924
+TriangleMultiplication out-proj                                 4.81    0.3539    0.3539
+TriangleAttention out-proj                                      4.81    0.3539    0.3539
+DiffusionTransformer token linear 768x3072                     11.60    0.2678    0.2678
+DiffusionTransformer token linear 1536x768                      6.28    0.2656    0.2656
+OuterProductMean depth contraction                              8.80    0.1098    0.1098
+atom transformer linear                                         1.41    0.1010    0.1010
+PairWeightedAveraging                                           2.20    0.0630    0.0630
+
+traffic-only aggregate           6.732 s   (2.8589 TB / 424.7 GB/s)
+arithmetic-only aggregate       10.868 s   (219.06 matmul TFLOP at shape-honest class rates)
+   covered 212.66 TFLOP in 10.788 s = 19.71 TFLOP/s = 18.79 % of the 104.93 TFLOP/s cube, which is roof-shape's 18.8 %
+   the uncovered 6.40 TFLOP at the fastest measured class 80.12 TFLOP/s adds 0.080 s; at the covered effective rate it would add 0.325 s, which is the 11.134 s of record
+TRUE FLOOR, max per op          15.031 s   bracket [15.031, 15.307] from the uncovered 2.92 % of matmul FLOPs
+  set by arithmetic             10.808 s  (71.9 %, 99528 of 465664 op calls)
+  set by traffic                 4.224 s  (28.1 %, 366136 of 465664 op calls)
+  non-matmul, in neither published floor as a term: 4.012 s
+  if non-matmul FLOPs are priced at 13.59 TFLOP/s too: 15.031 s (+0.000)
+
+PRIZE  17.340 s cell - 15.031 s floor = 2.309 s   (replaces 6.206 s against the 11.134 s arithmetic aggregate)
+
+THE ONE CLASS WITH REAL FLOPs AND NO MEASURED RATE: ttnn.transformer.scaled_dot_product_attention
+  exec_flops.py charges it 1 FLOP per output element, so 5.506 TFLOP/fold of QK^T+AV is missing from the 219.058 TFLOP census and from the floor of record.
+  priced at the fastest measured class      80.12 TFLOP/s -> floor 15.031 s (+0.000)
+  priced at the fused triangle SDPA class   15.67 TFLOP/s -> floor 15.218 s (+0.187)
+  priced at the slowest measured class      13.59 TFLOP/s -> floor 15.268 s (+0.237)
+
+OPS WITH NO MATMUL CLASS -- the rule is the traffic term, and this is what it covers
+ttnn op                             calls/fold          TB       TFLOP          s
+multiply_                                42720      0.3268      0.0000     0.7696
+generic_op                                1680      0.3006      0.0000     0.7079
+layer_norm                               35304      0.2823      0.0862     0.6648
+add_                                     14616      0.2718      0.0000     0.6401
+permute                                  12432      0.1088      0.0000     0.2561
+transformer.scaled_dot_product_attention        6000      0.0797      0.0032     0.1876
+experimental.nlp_create_qkv_heads         6264      0.0641      0.0000     0.1508
+to_layout                                 2464      0.0505      0.0000     0.1188
+chunk                                      296      0.0397      0.0000     0.0935
+add                                      13728      0.0363      0.0062     0.0854
+concat                                    1496      0.0332      0.0000     0.0782
+multiply                                 12464      0.0312      0.0052     0.0735
+slice                                    12776      0.0306      0.0000     0.0721
+pad                                       3600      0.0201      0.0062     0.0474
+ALL non-matmul                          353384      1.7040      0.1082     4.0123
+
+MATMUL SHAPES WITH NO MEASURED CLASS -- bracketed, never priced at the cube
+batch,M,K,N                         calls/fold       TFLOP
+512,512,1024,128                            16      1.0995
+140,32,128,256                            3600      1.0570
+140,32,128,128                            4800      0.7046
+1024,512,64,32                             288      0.6185
+16,512,64,256                             2048      0.5498
+1,512,384,1536                             792      0.4784
+140,32,256,128                            1200      0.3523
+512,512,128,16                             264      0.2835
+1024,512,32,64                             128      0.2749
+16,512,256,64                             1024      0.2749
+ALL uncovered (22 shapes)                16896      6.3980  -> 0.080 s at 80.12 TFLOP/s, 0.471 s at 13.59 TFLOP/s
+
+THE FLOOR BESIDE THE TIME EACH CLASS ACTUALLY TAKES (own work at the cell, roof-residual)
+class                           measured s     floor s of which ar    % meas
+TriangleAttention                    2.945       4.553       4.125     155 %
+TriangleMultiplication               3.839       4.440       3.206     116 %
+AttentionPairBias                    1.724       1.360       0.661      79 %
+Transition                           2.765       1.266       1.070      46 %
+ConditionedTransitionBlock           0.806       1.175       0.906     146 %
+AdaLN                                0.926       0.807       0.554      87 %
+PairformerLayer                      0.517       0.445       0.000      86 %
+OuterProductMean                     0.625       0.360       0.124      58 %
+PairWeightedAveraging                0.515       0.313       0.073      61 %
+DiffusionTransformerLayer            0.578       0.261       0.141      45 %
+MSALayer                             0.022       0.030       0.000     139 %
+Diffusion                            0.882       0.019       0.007       2 %
+DiffusionModule                      0.111       0.000       0.000       0 %
+DiffusionTransformer                 1.024       0.000       0.000         -
+TOTAL                               17.278      15.031
+
+  PairformerLayer|1x512x384,1x512x512x128              x264  measured   9.611 s  floor  10.123 s  105.3 %
+  MSALayer|1x512x512x128,1x1024x512x64                 x16   measured   1.900 s  floor   1.334 s   70.2 %
+  DiffusionModule|                                     x200  measured   5.767 s  floor   3.574 s   62.0 %
+  capping every class at its own measured time gives the conservative floor 12.443 s, prize 4.897 s
+
+CALIBRATION
+  bytes        2.8589 TB against roof-byte-arbitration's 2.8589 TB   +0.002 %
+  matmul FLOPs 219.058 TFLOP against shape_census's 219.058 TFLOP        +0.000 %
+  op set       the 3 top-level captures at 264/16/200 calls = 24.644 s of session fold, 17.278 s at the cell, against the 17.340 s cell of record  -0.36 %
+  2nd reading  the 26-capture per-unit own-work partition: 2.9366 TB (+2.72 %), floor 15.124 s (+0.62 %)
+  above both aggregates: 15.031 s > 11.134 s arithmetic, > 6.732 s traffic  -- yes
+
+WROTE /home/moritz/.coworker/wt/roof-true-floor/perf/roof_true/true_floor_512_qb2c2.json
