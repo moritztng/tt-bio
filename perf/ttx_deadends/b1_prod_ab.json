@@ -1,0 +1,460 @@
+{
+ "host": "tt-quietbox2",
+ "arch": "Arch.BLACKHOLE",
+ "loadavg": [
+  "2.01",
+  "1.67",
+  "1.49"
+ ],
+ "shapes": {
+  "h128": {
+   "H": 128,
+   "chunk_C": 128,
+   "Mt": 4,
+   "prod_out": "BufferType.L1",
+   "prod_pcm": 1,
+   "prod_pcn": 1,
+   "prod_ibw": 4,
+   "out_MB": 4.194304,
+   "reuse": null
+  },
+  "h256": {
+   "H": 256,
+   "chunk_C": 64,
+   "Mt": 8,
+   "prod_out": "BufferType.L1",
+   "prod_pcm": 1,
+   "prod_pcn": 1,
+   "prod_ibw": 8,
+   "out_MB": 8.388608,
+   "reuse": {
+    "per_core_M": 8,
+    "in0_block_w": 8,
+    "shards": 64,
+    "grid": [
+     8,
+     8
+    ],
+    "shard_shape": [
+     256,
+     256
+    ]
+   }
+  },
+  "h288": {
+   "H": 288,
+   "chunk_C": 64,
+   "Mt": 9,
+   "prod_out": "BufferType.L1",
+   "prod_pcm": 1,
+   "prod_pcn": 1,
+   "prod_ibw": 9,
+   "out_MB": 10.616832,
+   "reuse": {
+    "per_core_M": 9,
+    "in0_block_w": 9,
+    "shards": 64,
+    "grid": [
+     8,
+     8
+    ],
+    "shard_shape": [
+     288,
+     288
+    ]
+   }
+  },
+  "h384": {
+   "H": 384,
+   "chunk_C": 32,
+   "Mt": 12,
+   "prod_out": "BufferType.DRAM",
+   "prod_pcm": 2,
+   "prod_pcn": 2,
+   "prod_ibw": 6,
+   "out_MB": 9.437184,
+   "reuse": {
+    "per_core_M": 12,
+    "in0_block_w": 4,
+    "shards": 32,
+    "grid": [
+     8,
+     4
+    ],
+    "shard_shape": [
+     384,
+     384
+    ]
+   }
+  },
+  "h512": {
+   "H": 512,
+   "chunk_C": 32,
+   "Mt": 16,
+   "prod_out": "BufferType.DRAM",
+   "prod_pcm": 2,
+   "prod_pcn": 2,
+   "prod_ibw": 8,
+   "out_MB": 16.777216,
+   "reuse": {
+    "per_core_M": 8,
+    "in0_block_w": 4,
+    "shards": 64,
+    "grid": [
+     8,
+     8
+    ],
+    "shard_shape": [
+     256,
+     512
+    ]
+   }
+  },
+  "h640": {
+   "H": 640,
+   "chunk_C": 32,
+   "Mt": 20,
+   "prod_out": "BufferType.DRAM",
+   "prod_pcm": 2,
+   "prod_pcn": 2,
+   "prod_ibw": 10,
+   "out_MB": 26.2144,
+   "reuse": {
+    "per_core_M": 10,
+    "in0_block_w": 1,
+    "shards": 64,
+    "grid": [
+     8,
+     8
+    ],
+    "shard_shape": [
+     320,
+     640
+    ]
+   }
+  },
+  "h768": {
+   "H": 768,
+   "chunk_C": 32,
+   "Mt": 24,
+   "prod_out": "BufferType.DRAM",
+   "prod_pcm": 3,
+   "prod_pcn": 3,
+   "prod_ibw": 8,
+   "out_MB": 37.748736,
+   "reuse": {
+    "per_core_M": 8,
+    "in0_block_w": 2,
+    "shards": 96,
+    "grid": [
+     11,
+     9
+    ],
+    "shard_shape": [
+     256,
+     768
+    ]
+   }
+  }
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "rows": [
+  {
+   "arm": "h128_prod",
+   "ms": 0.19615149994933745,
+   "TFLOPs": 2.737021700770397,
+   "ns_per_tile_mac": 23.944274896159357
+  },
+  {
+   "arm": "h128_prod_AA",
+   "ms": 0.19158250051987125,
+   "TFLOPs": 2.8022961937711783,
+   "ns_per_tile_mac": 23.386535707992095
+  },
+  {
+   "arm": "h128_prod_flip",
+   "ms": 0.19484400036162697,
+   "TFLOPs": 2.7553884697685187,
+   "ns_per_tile_mac": 23.784668012893917
+  },
+  {
+   "arm": "h256_prod",
+   "ms": 0.13576600031228736,
+   "TFLOPs": 15.817536371848497,
+   "ns_per_tile_mac": 4.143249521249004
+  },
+  {
+   "arm": "h256_prod_AA",
+   "ms": 0.13540500003728084,
+   "TFLOPs": 15.85970715563485,
+   "ns_per_tile_mac": 4.132232667153346
+  },
+  {
+   "arm": "h256_prod_flip",
+   "ms": 0.15310050002881326,
+   "TFLOPs": 14.026627265069985,
+   "ns_per_tile_mac": 4.672256470605873
+  },
+  {
+   "arm": "h256_reuse_dram",
+   "ms": 0.07819600068614818,
+   "TFLOPs": 27.462832231270497,
+   "ns_per_tile_mac": 2.3863525600020807
+  },
+  {
+   "arm": "h256_reuse_l1int",
+   "ms": 0.07397250010399148,
+   "TFLOPs": 29.030837743499816,
+   "ns_per_tile_mac": 2.2574615510251306
+  },
+  {
+   "arm": "h256_reuse_l1hs",
+   "ms": 0.07887199990364024,
+   "TFLOPs": 27.227452716092284,
+   "ns_per_tile_mac": 2.4069824189343336
+  },
+  {
+   "arm": "h256_reuse_l1hs_AA",
+   "ms": 0.07790549989294959,
+   "TFLOPs": 27.565238024925968,
+   "ns_per_tile_mac": 2.3774871793502683
+  },
+  {
+   "arm": "h288_prod",
+   "ms": 0.14250000003812602,
+   "TFLOPs": 21.45717624689069,
+   "ns_per_tile_mac": 3.0542695481422757
+  },
+  {
+   "arm": "h288_prod_AA",
+   "ms": 0.141757999699621,
+   "TFLOPs": 21.569489005763497,
+   "ns_per_tile_mac": 3.0383659057703403
+  },
+  {
+   "arm": "h288_prod_flip",
+   "ms": 0.15690799955336843,
+   "TFLOPs": 19.486881642130783,
+   "ns_per_tile_mac": 3.3630829808249407
+  },
+  {
+   "arm": "h288_reuse_dram",
+   "ms": 0.09856650012807222,
+   "TFLOPs": 31.02116451357257,
+   "ns_per_tile_mac": 2.1126221735269253
+  },
+  {
+   "arm": "h288_reuse_l1int",
+   "ms": 0.09560099988448201,
+   "TFLOPs": 31.98342715760987,
+   "ns_per_tile_mac": 2.049061211515818
+  },
+  {
+   "arm": "h288_reuse_l1hs",
+   "ms": 0.10015999941970222,
+   "TFLOPs": 30.52763212574997,
+   "ns_per_tile_mac": 2.14677639359787
+  },
+  {
+   "arm": "h288_reuse_l1hs_AA",
+   "ms": 0.09959349972632481,
+   "TFLOPs": 30.701276934761587,
+   "ns_per_tile_mac": 2.134634339127332
+  },
+  {
+   "arm": "h384_prod",
+   "ms": 0.1676995007073856,
+   "TFLOPs": 21.609358648736883,
+   "ns_per_tile_mac": 3.0327600677695603
+  },
+  {
+   "arm": "h384_prod_AA",
+   "ms": 0.16757950015744427,
+   "TFLOPs": 21.624832706836422,
+   "ns_per_tile_mac": 3.0305899189352625
+  },
+  {
+   "arm": "h384_prod_flip",
+   "ms": 0.16227400010393467,
+   "TFLOPs": 22.331850165023027,
+   "ns_per_tile_mac": 2.9346426523425686
+  },
+  {
+   "arm": "h384_reuse_dram",
+   "ms": 0.1456359996154788,
+   "TFLOPs": 24.883124128430396,
+   "ns_per_tile_mac": 2.6337528865646482
+  },
+  {
+   "arm": "h384_reuse_l1int",
+   "ms": 0.14161299986881204,
+   "TFLOPs": 25.59001404784237,
+   "ns_per_tile_mac": 2.560998984896051
+  },
+  {
+   "arm": "h512_prod",
+   "ms": 0.21618150003632763,
+   "TFLOPs": 39.73482740454909,
+   "ns_per_tile_mac": 1.6493339541345797
+  },
+  {
+   "arm": "h512_prod_AA",
+   "ms": 0.21867650048079668,
+   "TFLOPs": 39.281470908458836,
+   "ns_per_tile_mac": 1.6683692968810782
+  },
+  {
+   "arm": "h512_prod_flip",
+   "ms": 0.1955954994627973,
+   "TFLOPs": 43.916831499662514,
+   "ns_per_tile_mac": 1.492275233938578
+  },
+  {
+   "arm": "h512_reuse_dram",
+   "ms": 0.24023500009207055,
+   "TFLOPs": 35.7563826615934,
+   "ns_per_tile_mac": 1.8328475959172863
+  },
+  {
+   "arm": "h512_reuse_l1hs",
+   "ms": 0.23912750020826934,
+   "TFLOPs": 35.921985486899466,
+   "ns_per_tile_mac": 1.8243980423604533
+  },
+  {
+   "arm": "h512_reuse_l1hs_AA",
+   "ms": 0.238301000536012,
+   "TFLOPs": 36.04657375621002,
+   "ns_per_tile_mac": 1.8180923502808533
+  },
+  {
+   "arm": "h640_prod",
+   "ms": 0.28665199988608947,
+   "TFLOPs": 58.528166580616826,
+   "ns_per_tile_mac": 1.119734374555037
+  },
+  {
+   "arm": "h640_prod_AA",
+   "ms": 0.28821050000260584,
+   "TFLOPs": 58.21167514663175,
+   "ns_per_tile_mac": 1.125822265635179
+  },
+  {
+   "arm": "h640_prod_flip",
+   "ms": 0.2426094997645123,
+   "TFLOPs": 69.15317007901471,
+   "ns_per_tile_mac": 0.9476933584551261
+  },
+  {
+   "arm": "h640_reuse_dram",
+   "ms": 0.35312499949213816,
+   "TFLOPs": 47.5107002453207,
+   "ns_per_tile_mac": 1.3793945292661647
+  },
+  {
+   "arm": "h768_prod",
+   "ms": 0.5229645003055339,
+   "TFLOPs": 55.43594112231794,
+   "ns_per_tile_mac": 1.182193332938942
+  },
+  {
+   "arm": "h768_prod_AA",
+   "ms": 0.521951999871817,
+   "TFLOPs": 55.543477666758115,
+   "ns_per_tile_mac": 1.1799045135991233
+  },
+  {
+   "arm": "h768_prod_flip",
+   "ms": 0.490313499540207,
+   "TFLOPs": 59.1275363113323,
+   "ns_per_tile_mac": 1.1083837428118828
+  },
+  {
+   "arm": "h768_reuse_dram",
+   "ms": 0.6872669991935254,
+   "TFLOPs": 42.18306608933584,
+   "ns_per_tile_mac": 1.553609210416498
+  }
+ ],
+ "refused": {
+  "h640_reuse_l1int": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "h768_reuse_l1int": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "h384_reuse_l1hs": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "h384_reuse_l1hs_AA": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "h512_reuse_l1int": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "h640_reuse_l1hs": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "h640_reuse_l1hs_AA": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "h768_reuse_l1hs": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "h768_reuse_l1hs_AA": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "h384_tried": [
+   "pcm=12 ibw=12 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 1880576 B which is beyond ",
+   "pcm=12 ibw=6 blocks=32: Statically allocated circular buffers in program 7 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=3)]"
+  ],
+  "h512_tried": [
+   "pcm=16 ibw=16 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 3256832 B which is beyond ",
+   "pcm=16 ibw=8 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 2208256 B which is beyond ",
+   "pcm=16 ibw=4 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 1683968 B which is beyond ",
+   "pcm=16 ibw=2 blocks=32: Statically allocated circular buffers in program 17 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=3)",
+   "pcm=16 ibw=1 blocks=32: Statically allocated circular buffers in program 19 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=3)",
+   "pcm=8 ibw=16 blocks=64: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=7)] grow to 2208256 B which is beyond ",
+   "pcm=8 ibw=8 blocks=64: Statically allocated circular buffers in program 23 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)"
+  ],
+  "h640_tried": [
+   "pcm=20 ibw=20 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 5026304 B which is beyond ",
+   "pcm=20 ibw=10 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 3387904 B which is beyond ",
+   "pcm=20 ibw=5 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 2568704 B which is beyond ",
+   "pcm=20 ibw=4 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 2404864 B which is beyond ",
+   "pcm=20 ibw=2 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 2077184 B which is beyond ",
+   "pcm=20 ibw=1 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 1913344 B which is beyond ",
+   "pcm=10 ibw=20 blocks=64: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=7)] grow to 3387904 B which is beyond ",
+   "pcm=10 ibw=10 blocks=64: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=7)] grow to 2159104 B which is beyond ",
+   "pcm=10 ibw=5 blocks=64: Statically allocated circular buffers in program 43 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)",
+   "pcm=10 ibw=4 blocks=64: Statically allocated circular buffers in program 45 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)",
+   "pcm=10 ibw=2 blocks=64: Statically allocated circular buffers in program 47 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)"
+  ],
+  "h768_tried": [
+   "pcm=24 ibw=24 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 7188992 B which is beyond ",
+   "pcm=24 ibw=12 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 4829696 B which is beyond ",
+   "pcm=24 ibw=8 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 4043264 B which is beyond ",
+   "pcm=24 ibw=6 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 3650048 B which is beyond ",
+   "pcm=24 ibw=4 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 3256832 B which is beyond ",
+   "pcm=24 ibw=3 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 3060224 B which is beyond ",
+   "pcm=24 ibw=2 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 2863616 B which is beyond ",
+   "pcm=24 ibw=1 blocks=32: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=3)] grow to 2667008 B which is beyond ",
+   "pcm=12 ibw=24 blocks=64: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=7)] grow to 4829696 B which is beyond ",
+   "pcm=12 ibw=12 blocks=64: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=7)] grow to 3060224 B which is beyond ",
+   "pcm=12 ibw=8 blocks=64: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=7)] grow to 2470400 B which is beyond ",
+   "pcm=12 ibw=6 blocks=64: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=7)] grow to 2175488 B which is beyond ",
+   "pcm=12 ibw=4 blocks=64: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=7)] grow to 1880576 B which is beyond ",
+   "pcm=12 ibw=3 blocks=64: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=7)] grow to 1733120 B which is beyond ",
+   "pcm=12 ibw=2 blocks=64: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=7)] grow to 1585664 B which is beyond ",
+   "pcm=12 ibw=1 blocks=64: Statically allocated circular buffers in program 81 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=7)",
+   "pcm=8 ibw=24 blocks=96: Statically allocated circular buffers on core range [(x=0,y=0) - (x=9,y=8)] grow to 4043264 B which is beyond ",
+   "pcm=8 ibw=12 blocks=96: Statically allocated circular buffers on core range [(x=0,y=0) - (x=9,y=8)] grow to 2470400 B which is beyond ",
+   "pcm=8 ibw=8 blocks=96: Statically allocated circular buffers on core range [(x=0,y=0) - (x=9,y=8)] grow to 1946112 B which is beyond ",
+   "pcm=8 ibw=6 blocks=96: Statically allocated circular buffers on core range [(x=0,y=0) - (x=9,y=8)] grow to 1683968 B which is beyond ",
+   "pcm=8 ibw=4 blocks=96: Statically allocated circular buffers in program 91 clash with L1 buffers on core range [(x=0,y=0) - (x=9,y=8)",
+   "pcm=8 ibw=3 blocks=96: Statically allocated circular buffers in program 93 clash with L1 buffers on core range [(x=0,y=0) - (x=9,y=8)"
+  ]
+ },
+ "exact": {
+  "h256": {
+   "torch_equal": true,
+   "max_abs": 0.0,
+   "rel": 0.0
+  },
+  "h288": {
+   "torch_equal": true,
+   "max_abs": 0.0,
+   "rel": 0.0
+  },
+  "h512": {
+   "torch_equal": false,
+   "max_abs": 0.5,
+   "rel": 0.00413223123177886
+  }
+ }
+}
