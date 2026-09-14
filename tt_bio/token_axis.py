@@ -288,7 +288,15 @@ LIVE_MULTIPLES = {
 
 # The MSA axis is padded for the same recompilation reason on a DIFFERENT axis, so it is not the
 # token bucket and does not answer to TOKEN_BUCKET. Pinned separately so it cannot drift unseen.
-MSA_AXIS_MULTIPLE = ("tt_bio.tenstorrent", "MSA_PAD_MULTIPLE", 1024)
+#
+# It pads to a LADDER rather than to one multiple. A single 1024 makes a 35-row alignment cost
+# exactly what a 1000-row one does, and the 35-row case is the common one: the depth axis is the
+# fold's largest single structural item at the 512 aa cell. Every rung is a multiple of TILE, and
+# above the top rung the arithmetic falls back to multiples of it, so nothing above 1024 rows
+# changes shape. The rung count is the real cost -- each rung is another set of compiled programs.
+MSA_PAD_LADDER = (64, 128, 256, 512, 1024)
+MSA_AXIS_MULTIPLE = ("tt_bio.tenstorrent", "MSA_PAD_MULTIPLE", MSA_PAD_LADDER[-1])
+MSA_AXIS_LADDER = ("tt_bio.token_axis", "MSA_PAD_LADDER", MSA_PAD_LADDER)
 
 # ---------------------------------------------------------------------------------------------
 # The mechanism. One copy of it, next to the census, so a new adoption is a table row and a call.
@@ -350,6 +358,39 @@ def pad_amount(N: int, mult: int) -> int:
 
 def bucketed_width(N: int, mult: int) -> int:
     return N + pad_amount(N, mult)
+
+
+def msa_ladder() -> tuple[int, ...]:
+    """The live MSA depth ladder. ``TT_BIO_MSA_LADDER=0`` collapses it to the top rung alone.
+
+    One variable turns the ladder into the single 1024 it replaced, which is what makes the A/B one
+    command instead of a code edit -- the same contract ``bucket_enabled`` gives the token axis.
+    A comma-separated list sets the rungs directly, for a rung sweep.
+    """
+    import os
+    v = os.environ.get("TT_BIO_MSA_LADDER")
+    if v is None or not v.strip():
+        return MSA_PAD_LADDER
+    v = v.strip()
+    if v in ("0", "off", "false"):
+        return (MSA_PAD_LADDER[-1],)
+    if v in ("1", "on", "true"):
+        return MSA_PAD_LADDER
+    return tuple(int(x) for x in v.split(","))
+
+
+def msa_pad_amount(N: int, ladder: tuple[int, ...] | None = None) -> int:
+    """Rows of padding for an MSA of depth ``N``: up to the smallest rung that holds it.
+
+    Above the top rung it is ``pad_amount`` against that rung, so a deep MSA keeps exactly the
+    shape it has today and only the shallow regime moves.
+    """
+    ladder = msa_ladder() if ladder is None else ladder
+    for rung in ladder:
+        assert rung % TILE == 0, f"MSA ladder rung {rung} is not a multiple of the {TILE} tile"
+        if N <= rung:
+            return rung - N
+    return pad_amount(N, ladder[-1])
 
 
 def token_pad_masks_torch(N: int, Np: int):
