@@ -877,12 +877,14 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if not ((bt == ttnn.BufferType.DRAM and N >= 256)
             or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
         return _reject(f"gated_window_{bt}", shape)
-    # Screen the group count the DESCRIPTOR actually builds -- Nrt * Nt * Ct, exactly as
-    # `_build_gated` computes it and asserts on. The old `Nt ** 2` is a different number, and a
-    # gate that screens a different number from the one the build uses can pass a shape the build
-    # then refuses (`pcc-gate-can-pass-without-the-op-it-names`).
+    # Screen the group count the DESCRIPTOR actually builds -- Nrt * Nt * Ct/Ctg, through the same
+    # `_gated_ctg` the build calls, so B2's coarser work unit is screened rather than assumed. The
+    # old `Nt ** 2` was a different number again, and a gate that screens a different number from
+    # the one the build uses can pass a shape the build then refuses
+    # (`pcc-gate-can-pass-without-the-op-it-names`).
     nt = (N + TILE_H - 1) // TILE_H
     nrt = (shape[1] + TILE_H - 1) // TILE_H
-    if _split_plan(xw.device(), nrt * nt * (slice_c // TILE_W)) is None:
+    ct = slice_c // TILE_W
+    if _split_plan(xw.device(), nrt * nt * (ct // _gated_ctg(ct, _gated_pg_depth()))) is None:
         return _reject("gated_work_split", shape)
     return True
