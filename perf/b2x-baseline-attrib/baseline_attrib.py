@@ -85,6 +85,13 @@ class Brackets:
         self.times: dict[str, list[float]] = defaultdict(list)   # path -> inclusive seconds
         self.child_s: dict[str, float] = defaultdict(float)      # path -> children inclusive
         self.sig_times: dict[str, list[float]] = defaultdict(list)
+        # Per-call, not reduced. The reduced columns below keep a median and a total per unit and
+        # nothing between them, so a re-run has to bracket the answer instead of measuring it
+        # (roof-residual-census: 3.940 s by one estimator against 2.226 s by the other). These
+        # three keep every call's own wall, so the sum IS the measurement.
+        self.own_times: dict[str, list[float]] = defaultdict(list)   # path -> exclusive seconds
+        self.sig_own: dict[str, list[float]] = defaultdict(list)     # sig  -> exclusive seconds
+        self.captured_at: dict[str, int] = {}                        # sig  -> captured call index
         self.captures: dict[str, list] = {}                      # sig -> raw graph
         self.capturing = False
         self._orig: list = []
@@ -125,7 +132,10 @@ class Brackets:
             self._sync()
             self.ttnn.graph.begin_graph_capture(self.ttnn.graph.RunMode.NORMAL)
             self.ttnn.graph.track_function_start(f"unit::{name}")
+        if want:
+            self.captured_at[sig] = n_before      # this one call also pays for the capture
         self.stack.append(name)
+        child_before = self.child_s[path]
         self._sync()
         t0 = time.perf_counter()
         try:
@@ -140,8 +150,11 @@ class Brackets:
                 self.capturing = False
             elif marker:
                 self.ttnn.graph.track_function_end()
+            own = dt - (self.child_s[path] - child_before)
             self.times[path].append(dt)
             self.sig_times[sig].append(dt)
+            self.own_times[path].append(own)
+            self.sig_own[sig].append(own)
             if self.stack:
                 self.child_s["/".join(self.stack)] += dt
 
@@ -184,12 +197,18 @@ class Brackets:
                 "incl_s": round(sum(ts), 5),
                 "excl_s": round(sum(ts) - self.child_s.get(path, 0.0), 5),
                 "median_ms": round(1e3 * st.median(ts), 5),
+                "incl_ms_per_call": [round(1e3 * t, 5) for t in ts],
+                "own_ms_per_call": [round(1e3 * t, 5) for t in self.own_times[path]],
             }
         return rows
 
     def sigs(self) -> dict:
         return {s: {"calls": len(ts), "median_ms": round(1e3 * st.median(ts), 5),
-                    "total_ms": round(1e3 * sum(ts), 3)}
+                    "total_ms": round(1e3 * sum(ts), 3),
+                    "own_total_ms": round(1e3 * sum(self.sig_own[s]), 3),
+                    "captured_call": self.captured_at.get(s),
+                    "incl_ms_per_call": [round(1e3 * t, 5) for t in ts],
+                    "own_ms_per_call": [round(1e3 * t, 5) for t in self.sig_own[s]]}
                 for s, ts in sorted(self.sig_times.items())}
 
 
