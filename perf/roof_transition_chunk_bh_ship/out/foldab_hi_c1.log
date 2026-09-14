@@ -1,0 +1,16 @@
+2026-09-14 15:09:05.808 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-09-14 15:09:11.222 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2198016 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+    768 rep0  shipA  off     31.670s load=  0.7 served=0/296 sha=9e1a1fdd392e0b4c
+    768 rep0  test   on      31.276s load=  1.4 served=296/0 sha=9e1a1fdd392e0b4c
+    768 rep0  shipB  off     31.182s load=  1.2 served=0/296 sha=9e1a1fdd392e0b4c
+    768 rep1  shipA  off     31.210s load=  1.1 served=0/296 sha=9e1a1fdd392e0b4c
+    768 rep1  test   on      30.623s load=  1.1 served=296/0 sha=9e1a1fdd392e0b4c
+    768 rep1  shipB  off     31.214s load=  1.1 served=0/296 sha=9e1a1fdd392e0b4c
+[leg 768:on] {"ship_median_s": 31.212, "arm_median_s": 30.95, "shipA_median_s": 31.44, "shipB_median_s": 31.198, "fold_seconds_saved": 0.262, "ratio": 1.0085, "aa_floor_pct": 0.775, "aa_floor_s": 0.242, "n": {"shipA": 2, "shipB": 2, "test": 2}, "bit_exact_across_arms": true, "digest": ["9e1a1fdd392e0b4c"], "loadavg_span": [0.65, 1.42], "verdict": "INTERPRETABLE"}
+2026-09-14 15:12:18.924 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-09-14 15:12:18.933 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+   1024 rep0  shipA  off     56.592s load=  1.6 served=0/296 sha=9a049ee58a5a0f7e
+   1024 rep0  test   on      55.523s load=  1.8 served=296/0 sha=9a049ee58a5a0f7e
+   1024 rep0  shipB  off     56.783s load=  2.6 served=0/296 sha=9a049ee58a5a0f7e
+   1024 rep1  shipA  off     57.178s load=  3.6 served=0/296 sha=9a049ee58a5a0f7e
