@@ -68,7 +68,14 @@ def main():
     def arm_norm():
         return norm(x)
 
-    fns = {"both": arm_both, "proj": arm_proj, "norm": arm_norm, "both2": arm_both}
+    def arm_copy():
+        # The same 67.11 MB read and 67.11 MB write with no arithmetic at all. This is what the
+        # round trip the fusion deletes actually costs at this site, and 134.2 MB over it is the
+        # achieved stream rate the deleted bytes would come back at.
+        return ttnn.clone(x, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+    fns = {"both": arm_both, "proj": arm_proj, "norm": arm_norm, "copy": arm_copy,
+           "both2": arm_both}
 
     def once(fn):
         t0 = time.perf_counter()
@@ -92,9 +99,12 @@ def main():
            "ms": {k: [round(x * 1e3, 4) for x in v] for k, v in s.items()},
            "prologue_ceiling_ms": round(ceiling, 4),
            "aa_floor_pct": round(100 * (med["both2"] - med["both"]) / med["both"], 3),
-           "ceiling_ratio_on_pair": round(med["both"] / (med["both"] - ceiling), 4)}
+           "ceiling_ratio_on_pair": round(med["both"] / (med["both"] - ceiling), 4),
+           "roundtrip_MB": round(2 * 2 * N * N * C / 1e6, 3),
+           "achieved_GB_s": round(2 * 2 * N * N * C / 1e9 / (med["copy"] / 1e3), 2)}
     print(json.dumps({k: res[k] for k in ("median_ms", "prologue_ceiling_ms", "aa_floor_pct",
-                                          "ceiling_ratio_on_pair")}, indent=1), flush=True)
+                                          "ceiling_ratio_on_pair", "roundtrip_MB",
+                                          "achieved_GB_s")}, indent=1), flush=True)
     json.dump(res, open(a.out, "w"), indent=1)
     print("wrote", a.out)
 
