@@ -103,7 +103,7 @@ def build(dev, roof_mb, abl_s):
         A["abl_sdpa_%s" % tag] = (
             lambda mc=mc: ttnn.transformer.scaled_dot_product_attention(
                 q, k, v, attn_mask=bias, is_causal=False, scale=HD ** -0.5,
-                program_config=pc, compute_kernel_config=kc()),
+                memory_config=mc, program_config=pc, compute_kernel_config=kc()),
             2 * 2 * s * NH * s * s * HD, 2)
 
     # Does the product's accumulation depth, not its result, set it? in0_block_w controls how
