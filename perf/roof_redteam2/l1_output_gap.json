@@ -1,0 +1,34 @@
+{
+ "stream_roof_GBps": 424.7,
+ "units": {
+  "PairformerLayer|1x512x384,1x512x512x128": {
+   "calls": 264,
+   "published_MB_per_call": 6758.3,
+   "corrected_MB_per_call": 6902.1,
+   "ratio": 1.0213,
+   "n_ops": 410,
+   "n_ops_with_L1_output": 110
+  },
+  "MSALayer|1x512x512x128,1x1024x512x64": {
+   "calls": 16,
+   "published_MB_per_call": 22100.2,
+   "corrected_MB_per_call": 22247.7,
+   "ratio": 1.0067,
+   "n_ops": 1064,
+   "n_ops_with_L1_output": 306
+  },
+  "DiffusionModule|": {
+   "calls": 200,
+   "published_MB_per_call": 4035.8,
+   "corrected_MB_per_call": 4051.1,
+   "ratio": 1.0038,
+   "n_ops": 1702,
+   "n_ops_with_L1_output": 30
+  }
+ },
+ "published_fold_TB": 2.9449,
+ "corrected_fold_TB": 2.9883,
+ "ratio": 1.0147,
+ "published_traffic_floor_s": 6.934,
+ "corrected_traffic_floor_s": 7.036
+}
