@@ -1351,7 +1351,7 @@ B2_TOKEN_DIT_SDPA_STATS = [0, 0]     # [served, declined] at the token-DiT site
 # rows, so o's pad lanes are zero too. Anything multiplies zero to zero, which covers the gate, and
 # zeroing the matching rows of proj_o drops them from the projection. The cost is the wider gate and
 # projection, which is why this is priced per shape and not asserted.
-_APB_CONCAT_HEADS = env_flag("TT_BIO_APB_CONCAT_HEADS", True)
+_APB_CONCAT_HEADS = env_flag("TT_BIO_APB_CONCAT_HEADS", False)
 APB_CONCAT_HEADS_STATS = [0, 0]      # [served, declined] at the token head re-assembly
 
 
