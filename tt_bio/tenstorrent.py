@@ -5590,6 +5590,15 @@ def set_trimul_inproj_rowblock(on: bool, r: int | None = None) -> tuple[bool, in
 # Measured 1.5034x on `reblock_permute_gated` and 1.0212x on the 512 aa fold, on a Blackhole
 # p150a (state/k10-p1-trimul-critpath.md, arm `b1`). Wormhole has 12 DRAM banks, so 256 % 12 = 4
 # and the serialisation this removes cannot happen there; the reorder is free on both.
+#
+# The Wormhole half of that is now MEASURED and not just argued. `dram_grid_size()` on a Galaxy
+# chip reads (x=12, y=1), so the premise holds, and `perf/k10_b1_permute/b1_equiv.py` run twice on
+# j10glx02 card 0 puts the C=128 cells -- the ones worth 1.2990x to 1.5146x on the p150a -- at
+# 1.0015x/1.0221x (N=298), 1.0138x/1.0015x (N=320), 1.0045x/1.0036x (N=512) and 1.0035x/1.0010x
+# (N=640). The C=32 cells scatter from 0.8870x to 1.0830x and change sign between the two sessions,
+# which is this rig's own cross-session floor at that width, not a lever. 16/16 cells bit-exact
+# against a live negative control. So the shipped default costs the part JapanFold serves nothing.
+# perf/roof_bh_env/results/b1_equiv_whglx_{A,B}.json.
 TRIMUL_GP_BANK_SPLIT = True
 _GP_ROLES_SPLIT = ("p_a", "g_a", "p_b", "g_b")
 _GP_ROLES_MAJOR = ("g_a", "g_b", "p_a", "p_b")
