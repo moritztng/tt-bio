@@ -23,6 +23,7 @@ from __future__ import annotations
 import ttnn
 
 from tt_bio.tenstorrent import Module
+from .eltwise_fusion import mask_add
 
 
 class InputEmbedderGlue(Module):
@@ -140,11 +141,15 @@ class RefAtomFeatureEmbedder(Module):
         cl = ttnn.add(cl, lin(ref_atom_chars, self.w_ref_chars))
 
         # Pair leg -> plm [1, N_blk, N_q, N_k, c_atom_pair]
+        # Three legs all masked by vlm then summed: two of the multiplies fold into the
+        # adds that consume them, so five eltwise ops become three.
         off = ttnn.multiply(lin(dlm, self.w_ref_offset), vlm)
-        isd = ttnn.multiply(lin(inv_sq_dists, self.w_inv_sq), vlm)
-        vm = ttnn.multiply(lin(vlm, self.w_valid), vlm)
-        plm = ttnn.add(ttnn.add(off, isd), vm)
+        isd = lin(inv_sq_dists, self.w_inv_sq)
+        vm = lin(vlm, self.w_valid)
+        acc = mask_add(off, isd, vlm)
         ttnn.deallocate(off)
         ttnn.deallocate(isd)
+        plm = mask_add(acc, vm, vlm)
+        ttnn.deallocate(acc)
         ttnn.deallocate(vm)
         return cl, plm

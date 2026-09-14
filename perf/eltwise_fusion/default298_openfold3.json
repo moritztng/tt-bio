@@ -1,0 +1,94 @@
+{
+ "arms": [
+  {
+   "arm": "off",
+   "fixture": "cdk2x2_298",
+   "gates_on": [],
+   "seed": 0,
+   "fold_s": 12.169,
+   "plddt": 0.497667,
+   "cif_sha256": "46fec3e5b027b36ce57f4a12646551a7fa31afb297b18c2afd31d127d95cbcb5",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/openfold3_dflt/cdk2x2_298_off/cdk2x2_298.cif",
+   "loadavg1": 3.88
+  },
+  {
+   "arm": "dflt",
+   "fixture": "cdk2x2_298",
+   "gates_on": [
+    "FUSE_MASK_ADD",
+    "FUSE_NORM_RESIDUAL"
+   ],
+   "seed": 0,
+   "fold_s": 10.285,
+   "plddt": 0.497667,
+   "cif_sha256": "46fec3e5b027b36ce57f4a12646551a7fa31afb297b18c2afd31d127d95cbcb5",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/openfold3_dflt/cdk2x2_298_dflt/cdk2x2_298.cif",
+   "loadavg1": 5.8
+  },
+  {
+   "arm": "off2",
+   "fixture": "cdk2x2_298",
+   "gates_on": [],
+   "seed": 0,
+   "fold_s": 10.402,
+   "plddt": 0.497667,
+   "cif_sha256": "46fec3e5b027b36ce57f4a12646551a7fa31afb297b18c2afd31d127d95cbcb5",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/openfold3_dflt/cdk2x2_298_off2/cdk2x2_298.cif",
+   "loadavg1": 5.37
+  }
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "2",
+  "lease_cards": "2",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/tt_bio/__init__.py",
+  "model": "openfold3",
+  "torch": "2.8.0+cpu",
+  "loadavg": [
+   3.1728515625,
+   3.75732421875,
+   4.7490234375
+  ],
+  "started_utc": "2026-09-14T12:57:25Z",
+  "protocol": {
+   "recycles": 1,
+   "steps": 50,
+   "samples": 1,
+   "seed": 0,
+   "fixtures": [
+    "cdk2x2_298"
+   ]
+  },
+  "gate_defaults": {
+   "FUSE_SCALE_ADD": false,
+   "FUSE_MASK_ADD": true,
+   "FUSE_NORM_RESIDUAL": true
+  },
+  "ttnn": "0.68.0"
+ },
+ "model_load_s": 1.477,
+ "scores": {
+  "cdk2x2_298": {
+   "dflt": {
+    "all_atom_rmsd": 9.317452830877927e-15,
+    "n_atoms": 2397,
+    "n_off": 2397,
+    "n_arm": 2397,
+    "max_atom_dev": 0.0,
+    "ca_rmsd": 6.981705164237146e-15,
+    "n_ca": 298,
+    "bit_exact": true
+   },
+   "off2": {
+    "all_atom_rmsd": 9.317452830877927e-15,
+    "n_atoms": 2397,
+    "n_off": 2397,
+    "n_arm": 2397,
+    "max_atom_dev": 0.0,
+    "ca_rmsd": 6.981705164237146e-15,
+    "n_ca": 298,
+    "bit_exact": true
+   }
+  }
+ }
+}

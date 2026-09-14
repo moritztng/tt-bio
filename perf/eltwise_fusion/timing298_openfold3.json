@@ -1,0 +1,206 @@
+{
+ "arms": [
+  {
+   "arm": "off",
+   "fixture": "cdk2x2_298",
+   "gates_on": [],
+   "seed": 0,
+   "fold_s": 12.633,
+   "plddt": 0.497667,
+   "cif_sha256": "46fec3e5b027b36ce57f4a12646551a7fa31afb297b18c2afd31d127d95cbcb5",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/of3_timing/cdk2x2_298_off/cdk2x2_298.cif",
+   "loadavg1": 4.16
+  },
+  {
+   "arm": "on",
+   "fixture": "cdk2x2_298",
+   "gates_on": [
+    "FUSE_MASK_ADD",
+    "FUSE_NORM_RESIDUAL",
+    "FUSE_SCALE_ADD"
+   ],
+   "seed": 0,
+   "fold_s": 10.261,
+   "plddt": 0.494665,
+   "cif_sha256": "a9c6d6d8aaf99c11eda0189b86a4ad98570cb27d33e1b7d7d28931bcfb66a68d",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/of3_timing/cdk2x2_298_on/cdk2x2_298.cif",
+   "loadavg1": 4.61
+  },
+  {
+   "arm": "off2",
+   "fixture": "cdk2x2_298",
+   "gates_on": [],
+   "seed": 0,
+   "fold_s": 10.471,
+   "plddt": 0.497667,
+   "cif_sha256": "46fec3e5b027b36ce57f4a12646551a7fa31afb297b18c2afd31d127d95cbcb5",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/of3_timing/cdk2x2_298_off2/cdk2x2_298.cif",
+   "loadavg1": 4.21
+  },
+  {
+   "arm": "off",
+   "fixture": "cdk2x2_298",
+   "gates_on": [],
+   "seed": 0,
+   "fold_s": 11.224,
+   "plddt": 0.497667,
+   "cif_sha256": "46fec3e5b027b36ce57f4a12646551a7fa31afb297b18c2afd31d127d95cbcb5",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/of3_timing/cdk2x2_298_off/cdk2x2_298.cif",
+   "loadavg1": 4.5
+  },
+  {
+   "arm": "on",
+   "fixture": "cdk2x2_298",
+   "gates_on": [
+    "FUSE_MASK_ADD",
+    "FUSE_NORM_RESIDUAL",
+    "FUSE_SCALE_ADD"
+   ],
+   "seed": 0,
+   "fold_s": 10.282,
+   "plddt": 0.494665,
+   "cif_sha256": "a9c6d6d8aaf99c11eda0189b86a4ad98570cb27d33e1b7d7d28931bcfb66a68d",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/of3_timing/cdk2x2_298_on/cdk2x2_298.cif",
+   "loadavg1": 4.27
+  },
+  {
+   "arm": "off2",
+   "fixture": "cdk2x2_298",
+   "gates_on": [],
+   "seed": 0,
+   "fold_s": 11.63,
+   "plddt": 0.497667,
+   "cif_sha256": "46fec3e5b027b36ce57f4a12646551a7fa31afb297b18c2afd31d127d95cbcb5",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/of3_timing/cdk2x2_298_off2/cdk2x2_298.cif",
+   "loadavg1": 3.92
+  },
+  {
+   "arm": "off",
+   "fixture": "cdk2x2_298",
+   "gates_on": [],
+   "seed": 0,
+   "fold_s": 11.267,
+   "plddt": 0.497667,
+   "cif_sha256": "46fec3e5b027b36ce57f4a12646551a7fa31afb297b18c2afd31d127d95cbcb5",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/of3_timing/cdk2x2_298_off/cdk2x2_298.cif",
+   "loadavg1": 5.18
+  },
+  {
+   "arm": "on",
+   "fixture": "cdk2x2_298",
+   "gates_on": [
+    "FUSE_MASK_ADD",
+    "FUSE_NORM_RESIDUAL",
+    "FUSE_SCALE_ADD"
+   ],
+   "seed": 0,
+   "fold_s": 10.233,
+   "plddt": 0.494665,
+   "cif_sha256": "a9c6d6d8aaf99c11eda0189b86a4ad98570cb27d33e1b7d7d28931bcfb66a68d",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/of3_timing/cdk2x2_298_on/cdk2x2_298.cif",
+   "loadavg1": 6.75
+  },
+  {
+   "arm": "off2",
+   "fixture": "cdk2x2_298",
+   "gates_on": [],
+   "seed": 0,
+   "fold_s": 10.974,
+   "plddt": 0.497667,
+   "cif_sha256": "46fec3e5b027b36ce57f4a12646551a7fa31afb297b18c2afd31d127d95cbcb5",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/of3_timing/cdk2x2_298_off2/cdk2x2_298.cif",
+   "loadavg1": 6.02
+  },
+  {
+   "arm": "off",
+   "fixture": "cdk2x2_298",
+   "gates_on": [],
+   "seed": 0,
+   "fold_s": 10.719,
+   "plddt": 0.497667,
+   "cif_sha256": "46fec3e5b027b36ce57f4a12646551a7fa31afb297b18c2afd31d127d95cbcb5",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/of3_timing/cdk2x2_298_off/cdk2x2_298.cif",
+   "loadavg1": 7.04
+  },
+  {
+   "arm": "on",
+   "fixture": "cdk2x2_298",
+   "gates_on": [
+    "FUSE_MASK_ADD",
+    "FUSE_NORM_RESIDUAL",
+    "FUSE_SCALE_ADD"
+   ],
+   "seed": 0,
+   "fold_s": 11.18,
+   "plddt": 0.494665,
+   "cif_sha256": "a9c6d6d8aaf99c11eda0189b86a4ad98570cb27d33e1b7d7d28931bcfb66a68d",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/of3_timing/cdk2x2_298_on/cdk2x2_298.cif",
+   "loadavg1": 7.9
+  },
+  {
+   "arm": "off2",
+   "fixture": "cdk2x2_298",
+   "gates_on": [],
+   "seed": 0,
+   "fold_s": 11.297,
+   "plddt": 0.497667,
+   "cif_sha256": "46fec3e5b027b36ce57f4a12646551a7fa31afb297b18c2afd31d127d95cbcb5",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/of3_timing/cdk2x2_298_off2/cdk2x2_298.cif",
+   "loadavg1": 8.07
+  }
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "2",
+  "lease_cards": "2",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/tt_bio/__init__.py",
+  "model": "openfold3",
+  "torch": "2.8.0+cpu",
+  "loadavg": [
+   3.13427734375,
+   4.47119140625,
+   4.90234375
+  ],
+  "started_utc": "2026-09-14T12:43:54Z",
+  "protocol": {
+   "recycles": 1,
+   "steps": 50,
+   "samples": 1,
+   "seed": 0,
+   "fixtures": [
+    "cdk2x2_298"
+   ]
+  },
+  "gate_defaults": {
+   "FUSE_SCALE_ADD": true,
+   "FUSE_MASK_ADD": true,
+   "FUSE_NORM_RESIDUAL": true
+  },
+  "ttnn": "0.68.0"
+ },
+ "model_load_s": 1.241,
+ "scores": {
+  "cdk2x2_298": {
+   "on": {
+    "all_atom_rmsd": 1.4753024657585796,
+    "n_atoms": 2397,
+    "n_off": 2397,
+    "n_arm": 2397,
+    "max_atom_dev": 10.5397435,
+    "ca_rmsd": 1.161712805819076,
+    "n_ca": 298,
+    "bit_exact": false
+   },
+   "off2": {
+    "all_atom_rmsd": 9.317452830877927e-15,
+    "n_atoms": 2397,
+    "n_off": 2397,
+    "n_arm": 2397,
+    "max_atom_dev": 0.0,
+    "ca_rmsd": 6.981705164237146e-15,
+    "n_ca": 298,
+    "bit_exact": true
+   }
+  }
+ }
+}

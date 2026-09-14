@@ -17,6 +17,7 @@ from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
 from .envflags import env_flag, env_int
 from .device_lease import device_init_lock
+from .eltwise_fusion import scale_add
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
@@ -7846,8 +7847,7 @@ class AttentionPairBias(Module):
                 sc = batched_matmul(q, kt,
                                     compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(kt)
-                sc = ttnn.multiply(sc, self.head_dim ** -0.5)
-                sc = ttnn.add(sc, z)
+                sc = scale_add(sc, self.head_dim ** -0.5, z)
                 attn = ttnn.softmax(sc, dim=-1)
                 o = batched_matmul(attn, v,
                                    compute_kernel_config=self.compute_kernel_config)

@@ -39,6 +39,7 @@ from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, _narrow_proj_linear, _l1_layer_norm,
                           device_generation, accurate_softmax_site)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
+from .eltwise_fusion import scale_add, norm_residual
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
@@ -566,8 +567,8 @@ class AtomTransformer(_KeyedWeights, Module):
         Qb = self._windows_q(Q, N, NP); Kb = self._windows_kv(K, N, NP); Vb = self._windows_kv(V, N, NP)
         z = z_pre if z_pre is not None else self._pair_bias(p, apb)   # precomputed (fixed p) or inline
         sc = batched_matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
-        sc = ttnn.multiply(sc, dh ** -0.5)
-        sc = ttnn.add(ttnn.add(sc, z), pad_bias)
+        sc = scale_add(sc, dh ** -0.5, z)
+        sc = ttnn.add(sc, pad_bias)
         o = batched_matmul(ttnn.softmax(sc, dim=-1), Vb, compute_kernel_config=self.compute_kernel_config)
         o = ttnn.permute(o, (0, 2, 1, 3))
         o = ttnn.reshape(o, (NP, H * dh))
@@ -650,18 +651,18 @@ class AtomTransformer(_KeyedWeights, Module):
         Qb = self._windows_q_m(Q, M, N, NP); Kb = self._windows_kv_m(K, M, N, NP); Vb = self._windows_kv_m(V, M, N, NP)
         z = z_pre if z_pre is not None else self._pair_bias(p, apb)
         sc = batched_matmul(Qb, ttnn.permute(Kb, (0, 1, 3, 2)), compute_kernel_config=self.compute_kernel_config)
-        sc = ttnn.multiply(sc, dh ** -0.5)
         if z.shape[0] != sc.shape[0]:
             # z is the sample-INVARIANT precomputed bias, still (nb,H,nq,nk). Fold the
             # (M*nb, H) leading dims into (M, nb*H) so the add broadcasts it over M --
             # the last two dims are untouched, so both reshapes are free in tile layout.
             # Replicating z instead cost M copies of the whole per-block bias in DRAM.
             nb, g = sc.shape[0] // M, sc.shape[1] * (sc.shape[0] // M)
-            sc = ttnn.reshape(ttnn.add(ttnn.reshape(sc, (M, g, sc.shape[2], sc.shape[3])),
-                                       ttnn.reshape(z, (1, g, z.shape[2], z.shape[3]))),
+            sc = ttnn.reshape(scale_add(ttnn.reshape(sc, (M, g, sc.shape[2], sc.shape[3])),
+                                        dh ** -0.5,
+                                        ttnn.reshape(z, (1, g, z.shape[2], z.shape[3]))),
                               (M * nb, H, sc.shape[2], sc.shape[3]))
         else:
-            sc = ttnn.add(sc, z)
+            sc = scale_add(sc, dh ** -0.5, z)
         sc = ttnn.add(sc, pad_bias)
         o = batched_matmul(ttnn.softmax(sc, dim=-1), Vb, compute_kernel_config=self.compute_kernel_config)
         o = ttnn.permute(o, (0, 2, 1, 3))                       # (M*nb, nq, H, dh)
@@ -1634,10 +1635,11 @@ class ConfidenceHead:
                                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         pae_logits = self._dev_lin(pae_ln, "linear_no_bias_pae.weight")      # (1,N,N,64)
         zot = ttnn.permute(zof, (0, 2, 1, 3))                                # transpose token axes
-        zsym = ttnn.add(zof, zot)
-        pde_ln = ttnn.layer_norm(zsym, weight=self._wtt("pde_ln.weight", False),
-                                 bias=(self._wtt("pde_ln.bias", False) if "pde_ln.bias" in self._w else None),
-                                 epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+        # The symmetrising add feeds nothing but this norm, so it folds into the norm's
+        # own kernel (tt_bio/eltwise_fusion.py).
+        pde_ln = norm_residual(zof, zot, weight=self._wtt("pde_ln.weight", False),
+                               bias=(self._wtt("pde_ln.bias", False) if "pde_ln.bias" in self._w else None),
+                               epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
         pde_logits = self._dev_lin(pde_ln, "linear_no_bias_pde.weight")      # (1,N,N,64)
         # plddt: a = s_single[a2t]; aln = LN(a)*w+b; logits = einsum('nc,ncb->nb', aln, pw[a2ta])
         s_single = ttnn.reshape(so, (N, 384))
