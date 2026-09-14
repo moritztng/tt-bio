@@ -277,6 +277,19 @@ def fuse_qkv_cbs(p, Ct, x_buffer_factor=2, dtype=ttnn.bfloat16):
             (CB_W_IN, 3 * Ct * p["DHt"], page, dtype)]
 
 
+CB_GATE_IN = 12
+
+
+def gate_cbs(p, gate_buffer_factor=2, dtype=ttnn.bfloat16):
+    """The one CB the gate epilogue adds: the q chunk's gate block, `Sq_chunk_t * vDHt` tiles.
+
+    `gate_buffer_factor` 2 lets the reader fetch the next chunk's gate while the compute kernel is
+    still on this one; 1 is the fall-back when L1 will not hold two.
+    """
+    return [(CB_GATE_IN, gate_buffer_factor * p["Sq_chunk_t"] * p["vDHt"], tile_bytes(dtype),
+             dtype)]
+
+
 def proj_subblock_h(p, Ct):
     """The tall side of the projection subblock: the widest that divides the M tiles and fits DST."""
     for h in range(min(p["Sq_chunk_t"], p["dst_size"] // max(p["DHt"], 1)), 0, -1):
@@ -299,12 +312,16 @@ def note_l1_refusal(message: str) -> None:
 
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
-          split=None, kv_buffer_factor=2, fuse_qkv=None):
+          split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
     a double-buffered chunk; at the shipped config those are the same 256 tiles). `kernel_dir` swaps
     in patched kernel sources. With both left alone this is the wheel's own program.
+
+    `gate` is `(g, gate_buffer_factor)`: triangle attention's `[B, NQH, Sq, DH]` gate, which the
+    compute kernel's pack stage multiplies in as `out * sigmoid(g)` instead of the caller running
+    that multiply as its own program. Head-major and DHt == 1, so gate tile i is output tile i.
 
     `fuse_qkv` is `(x, w, x_buffer_factor)`: the pre-projection pair tensor `[B, S, C]` and its
     `[C, 3*NQH*DH]` weight. q, k and v are then made inside this program instead of read, and the
@@ -335,6 +352,17 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         assert int(w.padded_shape[-2]) == C and int(w.padded_shape[-1]) == 3 * p["NQH"] * p["DH"]
         extra_cbs = fuse_qkv_cbs(p, Ct, x_buffer_factor, x.dtype)
         proj_h = proj_subblock_h(p, Ct)
+
+    if gate is not None:
+        # One reader tail, two levers: both append their addresses after the chain args, so only
+        # one of them can own that tail. The qkv fold is an unshipped arm and the host refuses the
+        # combination rather than guessing an order.
+        assert fuse_qkv is None, "the gate epilogue and the qkv fold share the reader's tail args"
+        gate_t, gate_buffer_factor = gate
+        assert p["DHt"] == 1 and p["vDHt"] == 1, (p["DHt"], p["vDHt"])
+        assert [int(d) for d in gate_t.padded_shape] == [p["B"], p["NQH"], p["Sq"], p["DH"]], \
+            (gate_t.padded_shape, (p["B"], p["NQH"], p["Sq"], p["DH"]))
+        extra_cbs = list(extra_cbs) + gate_cbs(p, gate_buffer_factor, gate_t.dtype)
 
     cbs = [ttnn.CBDescriptor(
         total_size=n_tiles * page, core_ranges=core_grid,
@@ -377,6 +405,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     reader_ct += acc(q) + acc(k) + acc(v) + acc(mask) + NULL_ACCESSOR * 3
     if fuse_qkv is not None:
         reader_ct += acc(fuse_qkv[0]) + acc(fuse_qkv[1])
+    if gate is not None:
+        reader_ct += acc(gate[0])
 
     writer_ct = [
         p["B"], p["NQH"], p["NKH"], p["Sqt"], p["valid_Sqt"], p["Sk"], p["DHt"], p["vDHt"],
@@ -430,6 +460,13 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     if fuse_qkv is not None:
         defines["FUSE_QKV"] = str(Ct)
         defines["PROJ_SUBBLOCK_H"] = str(proj_h)
+    if gate is not None:
+        defines["GATE_EPILOGUE"] = "1"
+        # A binary SFPU op takes half of DST per operand, so the epilogue processes dst_size / 2
+        # output tiles at a time -- narrowed to a divisor of Sq_chunk_t by the same helper the
+        # kernel's other granularities use.
+        defines["GATE_GRANULARITY"] = str(
+            valid_granularity(p["Sq_chunk_t"], max(p["dst_size"] // 2, 1)))
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
     dlist = sorted(defines.items())
@@ -446,9 +483,11 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
 
     q_a, k_a, v_a = q.buffer_address(), k.buffer_address(), v.buffer_address()
     m_a, o_a = mask.buffer_address(), out.buffer_address()
-    x_a = w_a = 0
+    x_a = w_a = g_a = 0
     if fuse_qkv is not None:
         x_a, w_a = fuse_qkv[0].buffer_address(), fuse_qkv[1].buffer_address()
+    if gate is not None:
+        g_a = gate[0].buffer_address()
 
     rr, wr, cr = [], [], []
     for i in range(num_cores):
@@ -462,7 +501,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         # num_phases=1, chunked_q_chunk_offset=0, read/write_offset=0 (:807-809)
         rr.append((core, [q_a, k_a, v_a, m_a, 0, 0, 0, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]
                    + [0] * 14                          # chain metadata, all no-chain (0/0 chains)
-                   + ([] if fuse_qkv is None else [x_a, w_a])))
+                   + ([] if fuse_qkv is None else [x_a, w_a])
+                   + ([] if gate is None else [g_a])))
         wr.append((core, [o_a, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0, 0]))
         cr.append((core, [i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]))
 
@@ -485,7 +525,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=semaphores, cbs=cbs)
     return {"pd": pd, "kernels": kernels, "cbs": cbs, "semaphores": semaphores, "plan": p,
             "rt": (rr, wr, cr), "addrs": (q_a, k_a, v_a, m_a, o_a),
-            "fuse": None if fuse_qkv is None else (Ct, proj_h, x_a, w_a)}
+            "fuse": None if fuse_qkv is None else (Ct, proj_h, x_a, w_a),
+            "gate": None if gate is None else g_a}
 
 
 def _uniform_dataformat(q, k, v, out, mask):
@@ -503,6 +544,8 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            None if kw.get("fuse_qkv") is None else (
                str(kw["fuse_qkv"][0].padded_shape), str(kw["fuse_qkv"][1].padded_shape),
                kw["fuse_qkv"][2]),
+           None if kw.get("gate") is None else (
+               str(kw["gate"][0].padded_shape), kw["gate"][1]),
            # `build` reads this one define from the environment, and the cache is keyed on what
            # `build` was given -- so without it here an A/B that flips the env gets the FIRST arm's
            # compiled program back for both legs and reads a 1.000x that means nothing.
@@ -515,12 +558,19 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
              mask.buffer_address(), out.buffer_address())
     fuse = kw.get("fuse_qkv")
     fuse_addrs = None if fuse is None else (fuse[0].buffer_address(), fuse[1].buffer_address())
-    if addrs != e["addrs"] or (fuse is not None and fuse_addrs != e["fuse"][2:]):
+    gate = kw.get("gate")
+    gate_addr = None if gate is None else gate[0].buffer_address()
+    if (addrs != e["addrs"] or (fuse is not None and fuse_addrs != e["fuse"][2:])
+            or (gate is not None and gate_addr != e["gate"])):
         rr, wr, cr = e["rt"]
         for _, a in rr:
             a[0], a[1], a[2], a[3] = addrs[0], addrs[1], addrs[2], addrs[3]
+            # The two levers are mutually exclusive (`build` asserts it), so whichever is on owns
+            # the tail of the reader's runtime args.
             if fuse is not None:
                 a[-2], a[-1] = fuse_addrs
+            elif gate is not None:
+                a[-1] = gate_addr
         for _, a in wr:
             a[0] = addrs[4]
         e["kernels"][0].runtime_args = rr
@@ -530,8 +580,12 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
         e["addrs"] = addrs
         if fuse is not None:
             e["fuse"] = e["fuse"][:2] + fuse_addrs
+        if gate is not None:
+            e["gate"] = gate_addr
     # The fold's reader never touches q/k/v -- they are here for their shapes, and the tensors the
     # program actually reads are x and w.
     operands = [q, k, v, mask, out] if fuse is None else [fuse[0], fuse[1], mask, out]
+    if gate is not None:
+        operands = operands + [gate[0]]
     ttnn.generic_op(operands, e["pd"])
     return out
