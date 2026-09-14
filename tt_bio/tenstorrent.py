@@ -1366,7 +1366,14 @@ _B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", False)
 # `s` once. At 512 aa that is 48 of the diffusion step's 114 LayerNorm programs replaced by 1.
 # NOT bit-exact -- bf16(w*W) is not bf16(w)*bf16(W), and the normed value is rounded before the
 # weight instead of after -- so it stays off until a fold-level parity gate clears it.
-_B2_ADALN_SHARED_SNORM = env_flag("BOLTZ2_ADALN_SHARED_SNORM", True)
+#
+# DEFAULT OFF, and not because it failed: `TT_BIO_DIT_COND_HOIST` above deletes the same 48
+# layer_norms and 144 projections on top, so this is the strictly smaller half of a lever the tree
+# already carries. Measured against each other on one card in one interleaved session at 512 aa
+# (b2z2-adaln-snorm-ship, 2026-09-14): 1.01237x here, 1.01503x there, an A/A floor of 1.00265x,
+# and the hoist is the closer of the two on the monomeric accuracy control (0.243 A against
+# 0.294 A, bar 0.60 A). Shipping both would be two mechanisms for one saving.
+_B2_ADALN_SHARED_SNORM = env_flag("BOLTZ2_ADALN_SHARED_SNORM", False)
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
@@ -9486,6 +9493,10 @@ class DiffusionTransformer(Module):
         self.atom_level = atom_level
         self.dim = dim
         self._cond_w = None
+        # The shared-norm fallback applies where `s_terms` is recomputed per call. The atom stack
+        # memoises it for the whole rollout (L6), so a shared norm there would add a program and
+        # save none.
+        self.shared_s_norm = not atom_level
 
     def _cond_weights(self):
         """The 24 layers' conditioning projections, concatenated into two weight blocks.
@@ -9514,10 +9525,6 @@ class DiffusionTransformer(Module):
 
         self._cond_w = (cat(ad_w, 1), cat(ad_b, 0), cat(op_w, 1), cat(op_b, 0))
         return self._cond_w
-        # The shared-norm fallback applies where `s_terms` is recomputed per call. The atom stack
-        # memoises it for the whole rollout (L6), so a shared norm there would add a program and
-        # save none.
-        self.shared_s_norm = not atom_level
 
     def __call__(
         self,

@@ -8,49 +8,6 @@ Reference numbers are Boltz-2 on one Blackhole processor of a p300c (Tenstorrent
 200 sampling steps, 3 recycles, `perf/size512/fixtures/cdk2x2_512.yaml`. Fold ratios are paired: both
 arms are interleaved inside one process, so a ratio is never read across two sessions.
 
-## `BOLTZ2_ADALN_SHARED_SNORM` — on, Boltz-2 and BoltzGen
-
-Every adaptive layer norm in a diffusion transformer stack conditions on the same tensor, and each
-one normalizes it again: at 512 residues that is 48 of the diffusion step's 114 layer
-normalizations computing one value 48 times. The normalization differs per site only by a
-per-channel weight, and
-
-    layer_norm(s, weight=w) @ W  ==  layer_norm(s) @ (w[:, None] * W)
-
-holds exactly, so tt-bio folds each site's weight into the projection that consumes it at load time
-and normalizes once for the whole stack. The atom stack does not take this path: it already reuses
-its conditioning for the whole rollout, so a shared norm there would add a program and save none.
-
-**Accuracy: not identical.** `bf16(w*W)` is not `bf16(w)*bf16(W)`, and the normalized value is
-rounded before the weight instead of after, so the structure moves. Which arm is closer is a
-question with an answer: scored against a float32 reference at all 48 sites, the folded form is
-nearer on every statistic, and its worst layer improves 22% and 30%.
-
-Scored against the experimental structure 1HCL rather than against the previous coordinates, four
-seeds per arm, both arms in one process. At 298 residues native CA-lDDT goes up, 0.96741 to
-0.96809 as a mean of four seeds, and native CA-RMSD improves 0.7668 to 0.7591 Å. At 512 residues
-it moves −0.0023 and −0.0030 on the two pseudo-domains against per-arm seed spreads of 0.0121 and
-0.0134, with no consistent sign: two seeds go up, two go down, and the best fold of the whole run
-belongs to this path on both domains.
-
-The structure itself moves 0.294 Å all-atom at 298 residues, worst of four seeds, against a
-1.251 Å seed floor. At 512 residues three seeds move 0.227, 0.343 and 0.362 Å per pseudo-domain and
-the fourth moves 1.381 Å. That fourth seed is the fixture, not the flag: `cdk2x2_512` is CDK2 fused
-to a truncated copy of itself with no interface between the halves, so the hinge between them is
-free, and on that seed it rotates 96.7°. The same flag on the monomeric fixture, 3% smaller in
-token count and with no hinge at all, moves 0.294 Å. It is also the hardest seed for both arms:
-every fold either arm produced on it is the worst fold of its arm.
-
-**Speed: 1.0359× on the diffusion step**, back-to-back replay of one settled step with both arms
-interleaved in one process, against an A/A floor of 1.0021×; 1.0269× on the step's in-fold wall.
-Blackhole, one processor of a p300c, 512 residues, ttnn 0.68.0. That is a step measurement, not a
-fold measurement: the fold-level effect has not been separated from session noise on a quiet box.
-
-`BOLTZ2_ADALN_SHARED_SNORM=0` restores one normalization per site and the previous coordinates.
-
-Protenix-v2, OpenFold3, RFdiffusion3 and ESMFold-2 each build their own diffusion transformer and
-never reach this path, so the flag does not change them.
-
 ## `TT_BIO_ATOM_SHIFT_GATHER` — on
 
 The atom transformer attends within a sliding window. Upstream assembles each window's key set by
