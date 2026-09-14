@@ -196,6 +196,43 @@ without losing much on the other. Worth 0.014 s on a 512 aa Blackhole fold, unde
 floor — it ships because it is free and bit-exact, not because the fold moves. Capped at 4: above
 that the kernel's multiply stage would need more DST slots than a 16-bit DST has to give it.
 
+## `TT_BIO_MSA_LADDER` — on, Boltz-2 and BoltzGen
+
+The MSA depth axis used to pad to a single 1024, so a 35-row alignment cost exactly what a 1000-row
+one did. This flag pads it instead to the smallest rung of (64, 128, 256, 512, 1024) that holds the
+depth, and to multiples of 1024 above that, so nothing deeper than 1024 rows changes shape. Three
+units read the depth axis and between them they move 68.4 % of the MSA block's bytes. The reference
+512 aa fixture carries 35 real rows, which is 29.3x padding.
+
+**Accuracy: not identical, and the difference is displacement rather than error.** Poison the padded
+rows with garbage instead of zeros and the MSA module's output is bit-identical
+(`perf/roof_msa_ladder/z_parity_512.json`), so the padded region provably cannot reach a real token
+and a shorter rung only reassociates the same terms. It reassociates them at the front of the trunk
+though, ahead of 3 recycles, 64 pairformer blocks and 200 sampling steps, so the structure lands
+1.322 Å from the 1024 arm at 512 residues, and 0.245 Å at 298, against an A/A floor of 0.000 Å over
+twelve folds. Scored against the experimental structure 1HCL instead of against the other arm, the
+ladder is as accurate or more: native CA-lDDT +0.00354 and +0.00530 on the two 512 aa
+pseudo-domains, both bootstrap CIs clear of zero, and −0.00114 at 298 residues inside a seed floor
+0.019 wide. Displacing the same arm's own CA atoms incoherently by that same 1.282 Å costs 0.22
+lDDT, so the metric can see a move this big and this move is not one.
+
+**Speed: 15.703 s against 16.592 s, a 512-residue fold.** 1.0566x, a paired median of 0.869 s over
+ten pairs, arms alternating inside a pair with the pair order flipped every block, one process and
+one card. All ten pairs favour the ladder and the two arms' ranges do not overlap: the slowest
+ladder fold, 16.224 s, beats the fastest 1024 fold, 16.524 s. The A/A null on the same harness and
+host reads 0.9981x. qb2, one Blackhole processor of a p300c, ttnn 0.68.0. A p150a reads 0.795 s on
+the same fixture. Rung 64 costs 0.131 s to compile, once
+(`perf/roof_msa_ladder/ab_512_qb2.json`).
+
+The win tracks how shallow the alignment is: 0.433 s with 300 rows, and exactly nothing above 512
+rows, where both settings pad to the same 1024. A real ColabFold search usually lands above that, so
+this flag is worth more on the reference fixture than on a deep-MSA target.
+
+`TT_BIO_MSA_LADDER=0` restores the single 1024 rung and the previous coordinates.
+
+Boltz-2's MSA module and trunk read the ladder, and BoltzGen reaches it through the trunk it shares.
+Protenix-v2, OpenFold3 and RF3 have their own MSA modules and do not read it.
+
 ## `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` — on
 
 The MSA track weights each row of the alignment by a softmax over the token axis, one softmax per
