@@ -296,7 +296,7 @@ flag neither costs nor saves anything there.
 
 No other model reaches it, by construction rather than by luck: the gated path needs a
 `SwiGLUFFN` built with `fuse_swiglu=True`, and ESMFold2's `PairUpdateBlock`
-(`tt_bio/esmfold2.py:161`) is the only place in the engine that builds one. Boltz-2, BoltzGen,
+(`tt_bio/esmfold2.py::PairUpdateBlock`) is the only place in the engine that builds one. Boltz-2, BoltzGen,
 Protenix-v2, OpenDDE, RF3 and OpenFold3's MSA stack use the shared `Transition`, whose two
 matmuls already write to L1, so the round trip this removes does not exist for them. OpenFold3's
 diffusion track and AF2-IG have their own transitions again. Measured rather than assumed for the
