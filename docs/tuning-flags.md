@@ -408,6 +408,42 @@ because the win is occupancy and occupancy depends on the grid. Narrower chunks 
 keys and values once more per chunk, 20.1 GB more traffic over the fold, which the idle cores more
 than pay for here but would not on every card.
 
+## `TT_BIO_TRANSITION_L1_ROWS` — on, Blackhole only
+
+Every transition block splits its input into row blocks so the SwiGLU's intermediates fit in L1.
+The height of that block was 16 rows everywhere, a number fitted on Wormhole. Blackhole has more L1
+per core and more cores, and nothing ever revisited the height for it, so a 512-residue pair tensor
+was cut into 32 blocks when its own budget allows 11.
+
+The flag makes the height a function of the shape and the card instead of a constant: the tallest
+block whose live bytes (the normalized input plus the SwiGLU's two halves, tile-padded) fit the
+card's measured per-core L1 budget, floored at the height that ships today so nothing gets shorter.
+On Blackhole the budget is 514,756 B per core. At the pair channel that works out to
+`height x width = 24576`, which is 48 rows at 512 residues, 32 at 768 and 24 at 1024, and 16 at
+1536, where the old constant already sat at the budget. Above that the flag does nothing at all.
+
+It is one expression, not a table: the MSA track has a quarter of the pair track's channel and gets
+its own taller block from the same budget, and a model with a wider channel gets a shorter one.
+A fixed height cannot do this. 768 residues refuses 48 rows and 1024 refuses 28, so every constant
+between 24 and 48 clashes on some size.
+
+**Accuracy: identical.** Byte-identical CIF at 298, 512, 768 and 1024 residues, both arms, on an
+11x10 Blackhole p300c (`perf/roof_transition_chunk_bh_ship/`). Digests `a8c6fd65f70f4418`,
+`45781db716ebf020`, `9e1a1fdd392e0b4c`, `9a049ee58a5a0f7e`.
+
+**Speed: 1.0332x on a 512-residue fold**, 24.266 s to 23.474 s, a paired delta of 0.779 s with a
+95% confidence interval of [0.675, 0.883] s, faster in all eight paired reps, against a same-session
+A/A floor of 0.006 s. At 768 residues the same measurement reads 31.212 s to 30.950 s, 1.0085x,
+which is 0.262 s against an A/A floor of 0.242 s over two reps: real but close enough to the floor
+that it is not separately resolved. That is the expected shape. The flag removes row blocks in
+proportion to `1536 / width`, so it is worth three times fewer blocks at 512 residues, twice fewer
+at 768, and half as many again at 1024.
+
+Boltz-2, BoltzGen, Protenix-v2 and OpenFold3 all reach it, because they share the same transition
+block. AF2-IG's transition is a different one (ReLU, not SwiGLU) and OpenFold3's diffusion
+conditioning has its own unchunked copy; neither changes. Wormhole is untouched: there the same
+budget only ever shortens the block, which is what it already did.
+
 ## `TT_BIO_TRIATT_FUSED_QKVG` — on
 
 A triangle attention's query, key, value and gate projections all read the same normed pair tensor,
