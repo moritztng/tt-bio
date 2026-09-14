@@ -8,6 +8,19 @@ kernel. Every earlier route at this site treated the index as an arbitrary per-r
 measured dead (a shared key block is not gathered attention; an honest per-row gather is 7.2x
 slower than the dense chain; ``ttnn.gather`` is silently wrong above 1920 on the indexed axis).
 
+Both of those gather numbers are properties of ``ttnn==0.68.0`` rather than of a per-row gather,
+and both have now been re-measured against the two upstream fixes backported onto our own pin
+(``patches/tt-metal-0.68.0-gather``, ``scripts/rfd3_port/p97_gather_backport.py`` and
+``p99_gather_bands.py``, 2026-09-14). The correctness half was real: patched, ``ttnn.gather`` on
+dim 3 is exact at every key axis up to the production 6080 in both fp32 and bf16, and 0 of
+3112960 elements are wrong at ``[1,4,6080,6080]``, so the 1920 ceiling is an artefact of the pin.
+The speed half survives the fix and gets worse with size: gathered against dense is 6.4x slower
+at 512 atoms, 6.2x at 1920, 48.9x at 2048 and 38.2x at 6080, against an A/A floor of 0.01-0.60
+ms. ``ttnn.gather`` splits its work over the INDEX width alone, which here is K/32 = 4 tiles, so
+4 cores serve the op and its writer makes each of them read the whole 591.5 MB input. That is the
+ceiling, and neither backported commit touches it. The dense route below therefore stands on its
+own measurements, and the gather comparison is now closed on a number rather than on a bug.
+
 Two constraints decide whether this is a win, and both were found by measurement:
 
 * **Q must be a multiple of 32.** The blocked scores come out ``[H, nb, Q, U]`` and have to be

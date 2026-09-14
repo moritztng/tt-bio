@@ -304,6 +304,13 @@ _GATHERED_SOFTMAX = env_flag("RFD3_GATHERED_SOFTMAX", False)
 # [1,4,6051,6080], and ~100x slower at the same threshold. The trigger is element count, not
 # bytes -- bf16 breaks at 2048 while fp32 at 1920 (7.5 KB/row) is exact. Measured in
 # scripts/rfd3_port/p81{,b,c}_*.py, perf/p81/*.json. ttnn.scatter at the same shape is clean.
+#
+# Upstream fixed this one day after our tag and the fix is backported in
+# patches/tt-metal-0.68.0-gather, where p97 finds no threshold at any key axis up to 6080. The
+# ceiling stays here because it guards the wheel we SHIP, not the private patched runtime that
+# backport builds. Raising it is not worth doing anyway: with the gather correct, the gathered
+# chain is still 6.2-48.9x slower than the dense one in every atom band (p99), so this flag is
+# now off on a measured loss rather than on a limitation.
 _TTNN_GATHER_MAX_KEY_AXIS = 1920
 
 
