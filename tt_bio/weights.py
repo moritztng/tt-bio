@@ -1384,17 +1384,26 @@ def superseded_revisions() -> tuple[list[str], int]:
     revisions share blobs, so summing per-revision sizes double counts.
 
     Repos with zero refs are left alone entirely: with nothing live there is no
-    "superseded", only a cache we do not understand."""
+    "superseded", only a cache we do not understand.
+
+    A pinned revision is never superseded, whatever the refs say. "No ref" means "not the
+    default branch", and for a pinned repo whose upstream has moved that describes exactly
+    the revision we run on. Measured on the JapanFold Galaxy the day ESMC-6B was
+    re-published: `--prune` would have deleted 26.3 GB including both
+    `45b0fa5d` (ESMC-6B) and `8fc3ff47` (ESMFold2), the two snapshots production was
+    serving from, and refetched the broken upstream schema in their place."""
     try:
         from huggingface_hub import scan_cache_dir
         info = scan_cache_dir()
     except Exception:
         return [], 0
+    pinned = set(HF_REVISIONS.values())
     dead: list[str] = []
     for repo in info.repos:
         if not any(r.refs for r in repo.revisions):
             continue
-        dead += [r.commit_hash for r in repo.revisions if not r.refs]
+        dead += [r.commit_hash for r in repo.revisions
+                 if not r.refs and r.commit_hash not in pinned]
     if not dead:
         return [], 0
     return dead, info.delete_revisions(*dead).expected_freed_size
