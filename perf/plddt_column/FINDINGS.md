@@ -13,21 +13,25 @@ metrics key.
 
 ## Reproduction
 
-One 298 aa Boltz-2 fold, tt-bio's torch CPU path, no device, 10 sampling steps and 0 recycles
-(the defect class is indexing, so it does not need the production step count):
+Two Boltz-2 folds, tt-bio's torch CPU path, no device, 10 sampling steps and 0 recycles (the
+defect class is indexing, so it does not need the production step count), at both sizes the flag
+quoted:
 
-| | |
-|---|---|
-| `complex_plddt` | 0.444008 |
-| mean CA B-factor of the CIF that fold wrote | 0.444008 |
-| gap | **0.0** |
-| mean all-atom B-factor of the same column | 0.446019 |
-| `confidence_score` | 0.465067 |
-| `plddt` key in `metrics` | **absent** |
+| | 298 aa | 512 aa |
+|---|---|---|
+| `complex_plddt` | 0.444008 | 0.410867 |
+| mean CA B-factor of the CIF that fold wrote | 0.444008 | 0.410867 |
+| **gap** | **0.0** | **0.0** |
+| mean all-atom B-factor of the same column | 0.446019 | 0.412284 |
+| `confidence_score` | 0.465067 | 0.401478 |
+| gap to the CA reading if a reader takes `confidence_score` instead | +0.021059 | **-0.009389** |
+| `plddt` key in `metrics` before the fix | absent | absent |
 
-`perf/plddt_column/out/verify_b2_298.json`. The reported number and the column are the same
-number. What is 0.021 away is `confidence_score`, and `(4*0.444008 + 0.549303)/5 = 0.465067`
-reproduces it from `complex_plddt` and `ptm` exactly.
+`out/verify_b2_298.json`, `out/verify_b2_512.json`, 94.6 s and 451.8 s on pc. The reported number
+and the column are the same number, exactly, at both sizes. What is 0.009 to 0.021 away is
+`confidence_score` — and it flips sign between the two sizes inside this one pair of folds, which
+is the signature the flag read as a size-dependent padding ratio.
+`(4*0.444008 + 0.549303)/5 = 0.465067` reproduces it from `complex_plddt` and `ptm` exactly.
 
 ## The mechanism
 
@@ -63,7 +67,7 @@ per-atom report, or the reverse, is a 0.025 error on a correct fold.
 | upstream Protenix-v2 reference fixtures | 12 | all-atom mean | 2e-6 |
 | upstream OpenBind reference fixtures | 10 | all-atom mean | 1e-6 |
 | tt-bio OpenFold3 device folds, 298 aa and 512 aa (`perf/of3_4xpd`) | 18 | all-atom mean | 0.0 |
-| tt-bio Boltz-2 CPU fold, 298 aa (this pass) | 1 | CA mean | 0.0 |
+| tt-bio Boltz-2 CPU folds, 298 aa and 512 aa (this pass) | 2 | CA mean | 0.0 |
 | upstream Boltz-2 GPU folds, its own `complex_plddt` vs its own column (`perf/k10_anchor`) | 10 | CA mean | 1e-7 |
 
 A further 11 upstream Protenix-v2 and OpenDDE reference CIFs carry a flat-zero B-factor column:
@@ -118,3 +122,26 @@ paragraph reading the reported number was wrong, and it is corrected in place.
 Boltz-2's `_sample_scalars` at `tt_bio/worker.py:865` is ESMFold2's, not Boltz-2's. It reports
 `s.plddt.mean()` under `plddt`, so it has the key and cannot hit the fallback; ESMFold2 has no
 CPU path, so its column was not re-measured here.
+
+## Repro
+
+No device. `PYTHONPATH` must point at this checkout, not the venv's installed package.
+
+```
+PYTHONPATH=$PWD python3 perf/plddt_column/verify_plddt_column.py \
+    --out perf/plddt_column/out/verify_b2_298.json --models boltz2 \
+    --fixtures cdk2x2_298 --steps 10 --recycles 0 --keep-cif perf/plddt_column/cif
+```
+
+Protenix-v2, OpenFold3, OpenBind-0, OpenDDE and RF3 are Tenstorrent-only (`load_model` refuses
+them on a CPU worker), so their legs are committed device folds and upstream reference fixtures
+rather than fresh folds. `--sweep` checks all of them plus the negative control in one pass, folds
+nothing, and exits non-zero on a mismatch or on the check going blind:
+
+```
+PYTHONPATH=$PWD python3 perf/plddt_column/verify_plddt_column.py \
+    --sweep --out perf/plddt_column/out/sweep.json
+```
+
+83 folds, 0 mismatches, worst gap 2e-6, and `confidence_score` rejected on all three folds it is
+fed to. `out/sweep.json` carries the per-fold rows.

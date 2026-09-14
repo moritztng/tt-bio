@@ -32,20 +32,90 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "perf" / "b2x-flag-levers"))
 sys.path.insert(0, str(REPO / "perf" / "other512"))
 
-from cif_rmsd import atom_site_table  # noqa: E402  -- one B-factor parser for this lineage
+from cif_rmsd import bfactor_plddt, plddt_column_check  # noqa: E402  -- one B-factor parser
 
 FIX = REPO / "perf" / "size512" / "fixtures"
 
 
-def bfactor_means(cif: Path) -> dict:
-    """Mean B-factor over all atoms and over CA only, both on the 0..1 plDDT scale."""
-    idx, rows = atom_site_table(cif)
-    col, name = "_atom_site.B_iso_or_equiv", "_atom_site.label_atom_id"
-    b = [float(f[idx[col]]) for f in rows]
-    ca = [v for v, f in zip(b, rows) if f[idx[name]].strip('"') == "CA"]
-    return {"n_atoms": len(b), "n_ca": len(ca),
-            "mean_all": round(sum(b) / len(b) / 100.0, 6),
-            "mean_ca": round(sum(ca) / len(ca) / 100.0, 6) if ca else None}
+def sweep() -> dict:
+    """Run the column check over every fold on disk that ships a plDDT and a structure.
+
+    The models this cannot fold here are covered by what is already committed: upstream
+    reference fixtures under docs/, tt-bio OpenFold3 device folds under perf/of3_4xpd, tt-bio RF3
+    device folds under perf/fused_sdpa (matched to their recorded plDDT by CIF digest, since that
+    harness keeps the CIFs in one directory and the metrics in per-arm JSONs).
+    """
+    import hashlib
+    rows = []
+
+    def add(kind, name, cif, reported):
+        rows.append({"kind": kind, "name": name, "cif": str(cif.relative_to(REPO)),
+                     **plddt_column_check(cif, round(float(reported), 6))})
+
+    for f in sorted((REPO / "docs/implementation-parity-data/ref-fixtures").glob("*/*/*/*/results.json")):
+        cifs = sorted((f.parent / "structures").glob("*.cif"))
+        if not cifs:
+            continue
+        try:
+            rs = json.loads(f.read_text())
+        except ValueError:
+            continue
+        r = rs[0] if isinstance(rs, list) else rs
+        rep = next((r[k] for k in ("plddt", "complex_plddt") if k in r), None)
+        if rep is not None:
+            add("upstream-ref", str(f.parent).split("ref-fixtures/")[1], cifs[0], rep)
+
+    for js, cd, size in (("ab_298_H_qb1c1.json", "h298_cifs", 298),
+                         ("ab_512_H_qb1c1.json", "h_cifs", 512),
+                         ("ab_512_AH_qb1c1.json", "ah_cifs", 512)):
+        j = REPO / "perf/of3_4xpd" / js
+        if not j.exists():
+            continue
+        for fo in json.loads(j.read_text())["folds"]:
+            tag = fo["tag"] + ("_memo" if fo["memo"] else "_plain")
+            cif = REPO / "perf/of3_4xpd" / cd / f"{tag}_cdk2x2_{size}.cif"
+            if cif.exists():
+                add("tt-openfold3", f"{js}:{tag}", cif, fo["plddt"])
+
+    digests = {}
+    for j in sorted((REPO / "perf/fused_sdpa").rglob("fold.json")):
+        for fo in json.loads(j.read_text()).get("folds", []):
+            for v in (fo.get("cif_sha256") or {}).values():
+                digests[v] = fo.get("plddt")
+    for cif in sorted((REPO / "perf/fused_sdpa/cifs").glob("rf3_*.cif")):
+        rep = digests.get(hashlib.sha256(cif.read_bytes()).hexdigest()[:16])
+        if rep is not None:
+            add("tt-rf3", cif.name, cif, rep)
+
+    # The check has to be able to fail, or a green sweep proves nothing
+    # (memory `negative-control-must-break-what-check-reads`). confidence_score is the quantity
+    # the harnesses used to record under the name plddt, so feed it in deliberately: every one of
+    # these must come back ok=false, and if any comes back true the check has gone blind.
+    sens = []
+    for j in sorted((REPO / "perf/plddt_column/out").glob("verify_*.json")):
+        for r in json.loads(j.read_text())["runs"]:
+            cif = REPO / "perf/plddt_column/cif" / f"{r['fixture']}_{r['model']}" / f"{r['fixture']}.cif"
+            if not cif.exists():
+                continue
+            if r["reported_plddt"] is not None:
+                add(f"tt-{r['model']}", f"{j.name}:{r['fixture']}", cif, r["reported_plddt"])
+            if r.get("confidence_score_fallback") is not None:
+                c = plddt_column_check(cif, round(float(r["confidence_score_fallback"]), 6))
+                sens.append({"name": f"{j.stem}:{r['fixture']}", "fed": "confidence_score",
+                             "rejected": c["ok"] is False, "gap": c["gap"]})
+
+    bad = [r for r in rows if r["ok"] is False]
+    return {"n": len(rows), "mismatches": bad,
+            "sensitivity": sens, "blind": [x for x in sens if not x["rejected"]],
+            "by_kind": {k: {"n": sum(1 for r in rows if r["kind"] == k),
+                            "pass": sum(1 for r in rows if r["kind"] == k and r["ok"] is True),
+                            "no_column": sum(1 for r in rows if r["kind"] == k and r["ok"] is None),
+                            "worst_gap": max([abs(r["gap"]) for r in rows
+                                              if r["kind"] == k and r["ok"] is True], default=None),
+                            "readings": sorted({r["reading"] for r in rows
+                                                if r["kind"] == k and r["ok"] is not None})}
+                        for k in sorted({r["kind"] for r in rows})},
+            "rows": rows}
 
 
 def main() -> int:
@@ -56,7 +126,29 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=10)
     ap.add_argument("--recycles", type=int, default=0)
     ap.add_argument("--keep-cif", type=Path, default=None)
+    ap.add_argument("--sweep", action="store_true",
+                    help="check every fold on disk that ships a plDDT and a structure, fold "
+                         "nothing, and exit non-zero on any mismatch")
     args = ap.parse_args()
+
+    if args.sweep:
+        out = {"doc": __doc__, "sweep": sweep()}
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(out, indent=1))
+        for k, v in out["sweep"]["by_kind"].items():
+            print(f"  {k:16s} n={v['n']:3d} pass={v['pass']:3d} no_column={v['no_column']:3d} "
+                  f"worst_gap={v['worst_gap']} readings={v['readings']}")
+        bad, blind = out["sweep"]["mismatches"], out["sweep"]["blind"]
+        for x in out["sweep"]["sensitivity"]:
+            print(f"  negative control  {x['name']:22s} confidence_score rejected="
+                  f"{x['rejected']} gap={x['gap']:+.6f}")
+        print(f"\n  {out['sweep']['n']} folds checked, {len(bad)} mismatch(es) -> {args.out}")
+        for r in bad:
+            print(f"    MISMATCH {r['name']}: reported {r['reported']} vs {r['reading']} "
+                  f"{r[r['reading']]}, gap {r['gap']:+.6f}")
+        for x in blind:
+            print(f"    BLIND {x['name']}: the check accepted confidence_score")
+        return 1 if bad or blind else 0
 
     import torch
     torch.set_grad_enabled(False)
@@ -109,7 +201,7 @@ def main() -> int:
                 d.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(cifs[0], d / cifs[0].name)
             m = {k: v for k, v in metrics.items() if isinstance(v, (int, float))}
-            col = bfactor_means(cifs[0])
+            col = bfactor_plddt(cifs[0])
             # the complex-level plDDT this model reports, under whichever key it uses
             reported = next((m[k] for k in ("complex_plddt", "plddt", "mean_plddt") if k in m), None)
             r = {"model": model, "fixture": name, "fold_s": wall, "metrics": m,
