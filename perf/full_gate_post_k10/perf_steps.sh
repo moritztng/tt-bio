@@ -20,10 +20,10 @@ mkdir -p "$OUT/cif" "$OUT/cif_ladder"
 cd "$WT"
 export PYTHONPATH="$WT"
 export ESM_ROOT=/home/ttuser/esm
-export TT_BIO_LEASE_CARDS=1
+export TT_BIO_LEASE_CARDS=${GATE_CARD:-0}
 export TT_BIO_LEASE_HOLDER=worker:tt-bio-full-gate-post-k10
 export TT_BIO_LEASE_TIMEOUT=1800
-export TT_VISIBLE_DEVICES=1
+export TT_VISIBLE_DEVICES=${GATE_CARD:-0}
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
 
 echo "=== perf_regression start $(date -Is) ==="
