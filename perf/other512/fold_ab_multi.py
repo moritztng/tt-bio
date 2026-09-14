@@ -348,6 +348,24 @@ def main():
 
     T._qkv_mm_config = qkvmm
 
+    # `_qkv_mm_config` is only ONE of the table's readers. `triatt_qkv.py` reads `_mm_block_for`
+    # directly for the generic_op legs (the gated out-projection, gate_proj, the qkvg/qkvgb
+    # fusions), so a census that stops at `_qkv_mm_config` undercounts the lever's reach. Attribute
+    # by calling frame: the row keyed `tenstorrent.py` IS the `_qkv_mm_config` call above it and
+    # must be subtracted, every other row is a generic_op site the row-B4 lever also moves.
+    import sys as _sys
+    ORIG_MMBLK = T._mm_block_for
+
+    def mmblk(w):
+        blk = ORIG_MMBLK(w)
+        f = _sys._getframe(1)
+        where = f.f_code.co_filename.rsplit("/", 1)[-1] + ":" + str(f.f_lineno)
+        kt, nt = (int(w.shape[-2]) + 31) // 32, (int(w.shape[-1]) + 31) // 32
+        DEC["mm_block_for|kt=%d,nt=%d" % (kt, nt)][where + ("" if blk else " MISS")] += 1
+        return blk
+
+    T._mm_block_for = mmblk
+
     # Read the in-projection divisor group back off the live fold rather than inferring it:
     # an arm that ships the divisor search and still returns 4 at 640 aa is an inert lever.
     ORIG_GROUP = T._trimul_inproj_group
@@ -703,7 +721,8 @@ def main():
                   f"{rec['persistent_mask']['declined']} {rec['persistent_mask']['rejects']}  "
                   f"E6 {rec['gated_kernel']}", flush=True)
             for k, v in sorted(DEC.items()):
-                if k.startswith(("qkv_mm_config", "transpose", "tri_att_sdpa")):
+                if k.startswith(("qkv_mm_config", "qkv_mm_M", "mm_block_for",
+                                 "transpose", "tri_att_sdpa")):
                     print(f"      DEC {k:46s} {dict(v)}", flush=True)
 
     per = {}
