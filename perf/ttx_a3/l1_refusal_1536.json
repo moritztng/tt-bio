@@ -1,0 +1,69 @@
+{
+ "seq": 1536,
+ "heads": 4,
+ "head_dim": 32,
+ "batch": 64,
+ "ref_rows": 8,
+ "grid": [
+  11,
+  10
+ ],
+ "card": "0",
+ "commit": "6f2e91309d552cef29867a91d9b3708d8297ab19",
+ "ts": "2026-09-14T15:35:01Z",
+ "off_pick": {
+  "(1536, 1536)": [
+   512,
+   256,
+   "stock"
+  ]
+ },
+ "off_served": 0,
+ "off_declined": 5,
+ "off_rel_rms_vs_fp32": 0.402814,
+ "pairs_offered_with_the_model_lying": 90,
+ "lying_pick": {
+  "(1536, 1536)": [
+   256,
+   512,
+   "fused"
+  ]
+ },
+ "lying_served": 1,
+ "lying_declined": 37,
+ "lying_rel_rms_vs_fp32": 0.40255503,
+ "lying_again_pick": {
+  "(1536, 1536)": [
+   256,
+   512,
+   "fused"
+  ]
+ },
+ "lying_again_served": 1,
+ "lying_again_declined": 37,
+ "lying_again_rel_rms_vs_fp32": 0.40255503,
+ "throws_absorbed": 17,
+ "pm_l1_errors": {
+  "(1536, 1536, 256, 1536, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 256, 768, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 384, 1536, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception",
+  "(1536, 1536, 384, 256, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+ },
+ "lying_bit_identical_to_off": false,
+ "lying_max_abs_diff_vs_off": 0.002197265625,
+ "lying_second_call_matches_first": true,
+ "pairs_offered_honestly": 48,
+ "exhausted_pick": {
+  "(1536, 1536)": [
+   512,
+   256,
+   "stock"
+  ]
+ },
+ "exhausted_served": 0,
+ "exhausted_declined": 51,
+ "exhausted_rel_rms_vs_fp32": 0.402814,
+ "exhausted_bit_identical_to_off": true,
+ "exhausted_max_abs_diff_vs_off": 0.0,
+ "control": "PASS"
+}
