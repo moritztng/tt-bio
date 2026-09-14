@@ -244,7 +244,19 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
 #
 # An eligibility condition on the shared kernel, not a second kernel and not a per-model branch:
 # five models route through here and all five take it wherever the conditions below hold.
-TRIATT_GATE_EPILOGUE = True
+# OFF. MEASURED on qb2 card 2 (Blackhole p300c) at 512 aa, arms interleaved, A/A floor 0.110 %:
+# 0.99737x on the Pairformer block, 50.634 -> 50.768 ms. The byte prize is real and nearly
+# worthless here, because the multiply is not the bandwidth-bound op its byte count implies -- the
+# identical op with the activation removed moves the same 201.3 MB in 0.5785 ms (348.0 GB/s, 81.9 %
+# of the measured 424.7 GB/s Blackhole roof) and the accurate sigmoid adds 0.286 ms on top, 33.1 %
+# of the op, which a fusion can only relocate. Relocating it into this kernel's already-critical
+# reader and math thread cost 0.851 ms against the 0.906 ms it deleted.
+#
+# Kept and left wired because Wormhole's DRAM roof is 227.5 GB/s against Blackhole's 424.7, so the
+# deletable bytes are worth ~1.9x more there while the SFPU term is unchanged, and the sign may
+# differ. `TT_BIO_TRIATT_GATE_EPILOGUE=1` is that A/B. Bit-exact either way: `torch.equal`
+# at the op and over a whole PairformerLayer. See `state/roof-gate-epilogue-sdpa-build.md`.
+TRIATT_GATE_EPILOGUE = False
 _GATE_EPILOGUE = env_flag("TT_BIO_TRIATT_GATE_EPILOGUE", TRIATT_GATE_EPILOGUE)
 
 # (calls served gated, calls that asked for the gate and were declined)
