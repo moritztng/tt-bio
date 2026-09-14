@@ -56,6 +56,9 @@ def main() -> int:
             site = f"{Path(f.f_code.co_filename).name}:{f.f_lineno}"
             shapes = " ".join(str(tuple(t.shape)) for t in args
                               if hasattr(t, "shape"))
+            dts = ",".join(sorted({str(t.dtype).split(".")[-1] for t in args
+                                   if hasattr(t, "dtype")}))
+            shapes = f"[{dts}] {shapes}"
             counts[name][f"{site} {shapes}"] += 1
             return orig(*args, **kw)
         setattr(EF, name, w)

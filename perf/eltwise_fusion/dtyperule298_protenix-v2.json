@@ -1,0 +1,141 @@
+{
+ "arms": [
+  {
+   "arm": "off",
+   "fixture": "cdk2x2_298",
+   "gates_on": [],
+   "seed": 0,
+   "fold_s": 8.061,
+   "plddt": 0.480685,
+   "cif_sha256": "753f43c4f269e3033fb69ea8af182eb4adf62df3a4d5df8bdaf3126e0e27e755",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/protenix-v2_dtrule/cdk2x2_298_off/cdk2x2_298.cif",
+   "loadavg1": 1.99
+  },
+  {
+   "arm": "dflt",
+   "fixture": "cdk2x2_298",
+   "gates_on": [
+    "FUSE_MASK_ADD",
+    "FUSE_NORM_RESIDUAL",
+    "FUSE_SCALE_ADD"
+   ],
+   "seed": 0,
+   "fold_s": 6.912,
+   "plddt": 0.480685,
+   "cif_sha256": "753f43c4f269e3033fb69ea8af182eb4adf62df3a4d5df8bdaf3126e0e27e755",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/protenix-v2_dtrule/cdk2x2_298_dflt/cdk2x2_298.cif",
+   "loadavg1": 2.56
+  },
+  {
+   "arm": "off2",
+   "fixture": "cdk2x2_298",
+   "gates_on": [],
+   "seed": 0,
+   "fold_s": 6.909,
+   "plddt": 0.480685,
+   "cif_sha256": "753f43c4f269e3033fb69ea8af182eb4adf62df3a4d5df8bdaf3126e0e27e755",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/protenix-v2_dtrule/cdk2x2_298_off2/cdk2x2_298.cif",
+   "loadavg1": 2.43
+  },
+  {
+   "arm": "scale",
+   "fixture": "cdk2x2_298",
+   "gates_on": [
+    "FUSE_SCALE_ADD"
+   ],
+   "seed": 0,
+   "fold_s": 6.833,
+   "plddt": 0.480685,
+   "cif_sha256": "753f43c4f269e3033fb69ea8af182eb4adf62df3a4d5df8bdaf3126e0e27e755",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/protenix-v2_dtrule/cdk2x2_298_scale/cdk2x2_298.cif",
+   "loadavg1": 2.32
+  },
+  {
+   "arm": "mask",
+   "fixture": "cdk2x2_298",
+   "gates_on": [
+    "FUSE_MASK_ADD"
+   ],
+   "seed": 0,
+   "fold_s": 6.909,
+   "plddt": 0.480685,
+   "cif_sha256": "753f43c4f269e3033fb69ea8af182eb4adf62df3a4d5df8bdaf3126e0e27e755",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/protenix-v2_dtrule/cdk2x2_298_mask/cdk2x2_298.cif",
+   "loadavg1": 2.12
+  }
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "2",
+  "lease_cards": "2",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/tt_bio/__init__.py",
+  "model": "protenix-v2",
+  "torch": "2.8.0+cpu",
+  "loadavg": [
+   1.46630859375,
+   2.55615234375,
+   3.88037109375
+  ],
+  "started_utc": "2026-09-14T13:06:28Z",
+  "protocol": {
+   "recycles": 1,
+   "steps": 50,
+   "samples": 1,
+   "seed": 0,
+   "fixtures": [
+    "cdk2x2_298"
+   ]
+  },
+  "gate_defaults": {
+   "FUSE_SCALE_ADD": true,
+   "FUSE_MASK_ADD": true,
+   "FUSE_NORM_RESIDUAL": true
+  },
+  "ttnn": "0.68.0"
+ },
+ "model_load_s": 1.38,
+ "scores": {
+  "cdk2x2_298": {
+   "dflt": {
+    "all_atom_rmsd": 1.382415078533178e-14,
+    "n_atoms": 2398,
+    "n_off": 2398,
+    "n_arm": 2398,
+    "max_atom_dev": 0.0,
+    "ca_rmsd": 5.473912155206231e-15,
+    "n_ca": 298,
+    "bit_exact": true
+   },
+   "off2": {
+    "all_atom_rmsd": 1.382415078533178e-14,
+    "n_atoms": 2398,
+    "n_off": 2398,
+    "n_arm": 2398,
+    "max_atom_dev": 0.0,
+    "ca_rmsd": 5.473912155206231e-15,
+    "n_ca": 298,
+    "bit_exact": true
+   },
+   "scale": {
+    "all_atom_rmsd": 1.382415078533178e-14,
+    "n_atoms": 2398,
+    "n_off": 2398,
+    "n_arm": 2398,
+    "max_atom_dev": 0.0,
+    "ca_rmsd": 5.473912155206231e-15,
+    "n_ca": 298,
+    "bit_exact": true
+   },
+   "mask": {
+    "all_atom_rmsd": 1.382415078533178e-14,
+    "n_atoms": 2398,
+    "n_off": 2398,
+    "n_arm": 2398,
+    "max_atom_dev": 0.0,
+    "ca_rmsd": 5.473912155206231e-15,
+    "n_ca": 298,
+    "bit_exact": true
+   }
+  }
+ }
+}

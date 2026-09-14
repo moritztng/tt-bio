@@ -1,0 +1,24 @@
+{
+ "model": "protenix-v2",
+ "fixture": "cdk2x2_298",
+ "fold_s": 8.111,
+ "error": null,
+ "host": "tt-quietbox2",
+ "card": "2",
+ "protocol": {
+  "recycles": 1,
+  "steps": 50,
+  "samples": 1,
+  "seed": 0
+ },
+ "totals": {
+  "scale_add": 1503
+ },
+ "per_site": {
+  "scale_add": {
+   "tenstorrent.py:7850 [FLOAT32] (1, 16, 298, 298) (1, 16, 298, 298)": 1200,
+   "protenix.py:570 [FLOAT32] (75, 4, 32, 128) (75, 4, 32, 128)": 300,
+   "protenix.py:570 [BFLOAT16] (75, 4, 32, 128) (75, 4, 32, 128)": 3
+  }
+ }
+}

@@ -38,16 +38,9 @@ import ttnn
 from tt_bio.envflags import env_flag
 
 #: ``addalpha``: attention's scale-then-bias, 1503 calls per 298 aa fold in both
-#: openfold3 and protenix-v2 -- the highest count of the three. **Default OFF.** It is
-#: bit-exact wherever the site runs fp32 (protenix's DiT, which is 1200 of those calls),
-#: but at bf16 in openfold3 it moves the 298 aa structure 1.475 A all-atom against a
-#: 0.000 A A/A floor. That is 4.0x inside openfold3's own 5.86 A seed floor on the same
-#: fixture, and 4.2x OVER the 0.35 A absolute 298 aa bar -- and the bar is the criterion,
-#: so it stays off until an accuracy reading with teeth (CA-lDDT against an experimental
-#: structure, not RMSD against the seed floor) says otherwise. The deviation is one bf16
-#: ULP per call and it is in the MORE accurate direction; what moves the structure is
-#: that a diffusion trajectory amplifies any perturbation at all.
-FUSE_SCALE_ADD = env_flag("TT_BIO_FUSE_SCALE_ADD", False)
+#: openfold3 and protenix-v2 -- the highest count of the three, and fp32 for 1500 of
+#: them. Fused for fp32 operands only; see ``scale_add`` for why.
+FUSE_SCALE_ADD = env_flag("TT_BIO_FUSE_SCALE_ADD", True)
 #: ``addcmul``: the gated-residual write-back (multiply by a mask, add the residual).
 #: Bit-exact at fold level (openfold3 cdk2x2_298, 1504 calls, byte-identical digest), so
 #: it is on: it deletes 1504 dispatches and cannot move the structure.
@@ -64,8 +57,26 @@ def scale_add(x, scale: float, bias, **kwargs):
 
     Argument order follows the call sites (scale the scores, then add the bias), not
     ``addalpha``'s own (bias, x, alpha) order.
+
+    **Fused for fp32 operands only, and that restriction is the whole design.** At fp32
+    the chain's intermediate is already stored at full precision, so both arms round
+    identically: measured bit-identical (diff 0.000e+00) at every fp32 site shape --
+    ``(1,16,298,298)``, ``(1,16,320,320)``, ``(75,4,32,128)`` and the 5D broadcast form.
+    At bf16 the chain rounds the intermediate down and the fused op does not, so the two
+    disagree by one bf16 ULP (6.25e-2) in the fused op's favour.
+
+    That ULP is not academic. The 298 aa census counts 1503 calls per fold in each model,
+    of which exactly **3** are bf16, and fusing only those three moves openfold3's
+    structure **1.475 A** all-atom against a 0.000 A A/A floor -- a diffusion trajectory
+    amplifies any perturbation into a different basin. Declining them keeps both affected
+    models byte-identical while still fusing 1500 of the 1503 calls, which is where
+    essentially all of the win is (0.968% of a protenix-v2 fold, 0.680% of an openfold3
+    fold, from measured per-call savings x counted calls).
+
+    The rule is the tensor's dtype, not the model or the site, so there is one mechanism
+    here and nothing per-model to keep in sync.
     """
-    if FUSE_SCALE_ADD:
+    if FUSE_SCALE_ADD and x.dtype == ttnn.float32 and bias.dtype == ttnn.float32:
         return ttnn.addalpha(bias, x, scale, **kwargs)
     return ttnn.add(ttnn.multiply(x, scale), bias, **kwargs)
 
