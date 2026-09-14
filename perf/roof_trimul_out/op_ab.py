@@ -73,11 +73,11 @@ def bytes_of(fn):
     census's own counter, reused so this table cannot drift from the one it extends."""
     from real_traffic import counts
 
-    def call():
-        r = fn()
-        ttnn.synchronize_device(r.device())
-        ttnn.deallocate(r)
-    c = counts(call)
+    ttnn.graph.begin_graph_capture(ttnn.graph.RunMode.NORMAL)
+    r = fn()
+    ttnn.synchronize_device(r.device())
+    ttnn.deallocate(r)
+    c = counts({"nodes": ttnn.graph.end_graph_capture()})
     return {"real_MB": round(c["real_MB"], 3), "w_MB": round(c["real_w_MB"], 3),
             "r_MB": round(c["real_r_MB"], 3), "n_ops": c["n_ops"],
             "per_op": [[round(t / 1e6, 3), n] for t, n, _, _ in c["per_op"]]}
