@@ -247,7 +247,7 @@ byte totals for the same 512 aa fold, on three files, none of which mentions the
 | TB | instrument | floor at 424.7 GB/s |
 |---:|---|---:|
 | 2.9449 | `real_traffic.py`, the tip | 6.934 s |
-| 3.4050 | `baseline_attrib.py:Census.charge`, round 1 | 8.018 s |
+| 3.4050 | `baseline_attrib.py:Census.charge`, round 1 | 8.017 s |
 | 4.0106 | `ROOF_DEFICIT.md` re-run under the RANGE rule | 9.443 s |
 
 ### Two published prizes still on the superseded denominator
