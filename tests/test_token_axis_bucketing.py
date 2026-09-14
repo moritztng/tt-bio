@@ -12,6 +12,7 @@ UNCENSUSED and IMMUNE are all failures now (Moritz, 2026-08-22: "i want to have 
 implemented for every model"), with one allow-list entry for the row a live task owns.
 """
 import importlib
+import os
 import sys
 
 from tt_bio import token_axis as TA
@@ -107,10 +108,17 @@ def check_declared_multiples_match_the_live_constants():
         bad.append(f"MSA_PAD_MULTIPLE {TA.MSA_AXIS_MULTIPLE[2]} is not the top rung {rungs[-1]}")
     # The two axes must not drift into each other: the MSA ladder answers to TT_BIO_MSA_LADDER and
     # the token bucket to TT_BIO_TOKEN_BUCKET, and neither switch may move the other.
-    if TA.msa_pad_amount(35) != rungs[0] - 35:
-        bad.append(f"msa_pad_amount(35) = {TA.msa_pad_amount(35)}, not the {rungs[0]} rung")
-    if TA.msa_pad_amount(rungs[-1] + 1) != TA.pad_amount(rungs[-1] + 1, rungs[-1]):
+    # The ladder is OFF by default (it costs 1.322 A at 512 aa), so the arithmetic is checked on
+    # the ladder explicitly AND the default is checked to be the single top rung. Both, or the
+    # test cannot tell "the ladder is off" from "the ladder is broken".
+    if TA.msa_pad_amount(35, rungs) != rungs[0] - 35:
+        bad.append(f"msa_pad_amount(35, ladder) = {TA.msa_pad_amount(35, rungs)}, "
+                   f"not the {rungs[0]} rung")
+    if TA.msa_pad_amount(rungs[-1] + 1, rungs) != TA.pad_amount(rungs[-1] + 1, rungs[-1]):
         bad.append("above the top rung the MSA pad is not a multiple of it")
+    if "TT_BIO_MSA_LADDER" not in os.environ and TA.msa_ladder() != (rungs[-1],):
+        bad.append(f"the shipped default is {TA.msa_ladder()}, not the single top rung "
+                   f"({rungs[-1]},) -- turning the ladder on by default is a 1.322 A change")
     return _fail(not bad, "the live pad constants derive from the fleet value and divide "
                  + str(TA.TILE) + ("" if not bad else "; " + "; ".join(bad)))
 

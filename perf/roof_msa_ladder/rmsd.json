@@ -1,0 +1,283 @@
+{
+  "512": {
+    "atoms": 4116,
+    "pairs": {
+      "AA_same_arm_same_session": [
+        [
+          "s1/warm0/0 vs s1/warm1/0",
+          0.0
+        ],
+        [
+          "s1/warm0/0 vs s1/warm2/0",
+          0.0
+        ],
+        [
+          "s1/warm0/1 vs s1/warm1/1",
+          0.0
+        ],
+        [
+          "s1/warm0/1 vs s1/warm2/1",
+          0.0
+        ],
+        [
+          "s1/warm1/0 vs s1/warm2/0",
+          0.0
+        ],
+        [
+          "s1/warm1/1 vs s1/warm2/1",
+          0.0
+        ],
+        [
+          "s2/warm0/0 vs s2/warm1/0",
+          0.0
+        ],
+        [
+          "s2/warm0/1 vs s2/warm1/1",
+          0.0
+        ]
+      ],
+      "AB_paired_same_tag": [
+        [
+          "s1/warm0/0 vs s1/warm0/1",
+          1.32206
+        ],
+        [
+          "s1/warm1/0 vs s1/warm1/1",
+          1.32206
+        ],
+        [
+          "s1/warm2/0 vs s1/warm2/1",
+          1.32206
+        ],
+        [
+          "s2/warm0/0 vs s2/warm0/1",
+          1.32206
+        ],
+        [
+          "s2/warm1/0 vs s2/warm1/1",
+          1.32206
+        ]
+      ],
+      "AB_all_cross_arm": [
+        [
+          "s1/warm0/0 vs s1/warm0/1",
+          1.32206
+        ],
+        [
+          "s1/warm0/0 vs s1/warm1/1",
+          1.32206
+        ],
+        [
+          "s1/warm0/0 vs s1/warm2/1",
+          1.32206
+        ],
+        [
+          "s1/warm0/0 vs s2/warm0/1",
+          1.32206
+        ],
+        [
+          "s1/warm0/0 vs s2/warm1/1",
+          1.32206
+        ],
+        [
+          "s1/warm0/1 vs s1/warm1/0",
+          1.32206
+        ],
+        [
+          "s1/warm0/1 vs s1/warm2/0",
+          1.32206
+        ],
+        [
+          "s1/warm0/1 vs s2/warm0/0",
+          1.32206
+        ],
+        [
+          "s1/warm0/1 vs s2/warm1/0",
+          1.32206
+        ],
+        [
+          "s1/warm1/0 vs s1/warm1/1",
+          1.32206
+        ],
+        [
+          "s1/warm1/0 vs s1/warm2/1",
+          1.32206
+        ],
+        [
+          "s1/warm1/0 vs s2/warm0/1",
+          1.32206
+        ],
+        [
+          "s1/warm1/0 vs s2/warm1/1",
+          1.32206
+        ],
+        [
+          "s1/warm1/1 vs s1/warm2/0",
+          1.32206
+        ],
+        [
+          "s1/warm1/1 vs s2/warm0/0",
+          1.32206
+        ],
+        [
+          "s1/warm1/1 vs s2/warm1/0",
+          1.32206
+        ],
+        [
+          "s1/warm2/0 vs s1/warm2/1",
+          1.32206
+        ],
+        [
+          "s1/warm2/0 vs s2/warm0/1",
+          1.32206
+        ],
+        [
+          "s1/warm2/0 vs s2/warm1/1",
+          1.32206
+        ],
+        [
+          "s1/warm2/1 vs s2/warm0/0",
+          1.32206
+        ],
+        [
+          "s1/warm2/1 vs s2/warm1/0",
+          1.32206
+        ],
+        [
+          "s2/warm0/0 vs s2/warm0/1",
+          1.32206
+        ],
+        [
+          "s2/warm0/0 vs s2/warm1/1",
+          1.32206
+        ],
+        [
+          "s2/warm0/1 vs s2/warm1/0",
+          1.32206
+        ],
+        [
+          "s2/warm1/0 vs s2/warm1/1",
+          1.32206
+        ]
+      ],
+      "SS_same_arm_cross_session": [
+        [
+          "s1/warm0/0 vs s2/warm0/0",
+          0.0
+        ],
+        [
+          "s1/warm0/0 vs s2/warm1/0",
+          0.0
+        ],
+        [
+          "s1/warm0/1 vs s2/warm0/1",
+          0.0
+        ],
+        [
+          "s1/warm0/1 vs s2/warm1/1",
+          0.0
+        ],
+        [
+          "s1/warm1/0 vs s2/warm0/0",
+          0.0
+        ],
+        [
+          "s1/warm1/0 vs s2/warm1/0",
+          0.0
+        ],
+        [
+          "s1/warm1/1 vs s2/warm0/1",
+          0.0
+        ],
+        [
+          "s1/warm1/1 vs s2/warm1/1",
+          0.0
+        ],
+        [
+          "s1/warm2/0 vs s2/warm0/0",
+          0.0
+        ],
+        [
+          "s1/warm2/0 vs s2/warm1/0",
+          0.0
+        ],
+        [
+          "s1/warm2/1 vs s2/warm0/1",
+          0.0
+        ],
+        [
+          "s1/warm2/1 vs s2/warm1/1",
+          0.0
+        ]
+      ]
+    },
+    "median": {
+      "AA_same_arm_same_session": 0.0,
+      "AB_paired_same_tag": 1.32206,
+      "AB_all_cross_arm": 1.32206,
+      "SS_same_arm_cross_session": 0.0
+    },
+    "max": {
+      "AA_same_arm_same_session": 0.0,
+      "AB_paired_same_tag": 1.32206,
+      "AB_all_cross_arm": 1.32206,
+      "SS_same_arm_cross_session": 0.0
+    }
+  },
+  "298": {
+    "atoms": 2397,
+    "pairs": {
+      "AA_same_arm_same_session": [
+        [
+          "s2/warm0/0 vs s2/warm1/0",
+          0.0
+        ],
+        [
+          "s2/warm0/1 vs s2/warm1/1",
+          0.0
+        ]
+      ],
+      "AB_paired_same_tag": [
+        [
+          "s2/warm0/0 vs s2/warm0/1",
+          0.24539
+        ],
+        [
+          "s2/warm1/0 vs s2/warm1/1",
+          0.24539
+        ]
+      ],
+      "AB_all_cross_arm": [
+        [
+          "s2/warm0/0 vs s2/warm0/1",
+          0.24539
+        ],
+        [
+          "s2/warm0/0 vs s2/warm1/1",
+          0.24539
+        ],
+        [
+          "s2/warm0/1 vs s2/warm1/0",
+          0.24539
+        ],
+        [
+          "s2/warm1/0 vs s2/warm1/1",
+          0.24539
+        ]
+      ],
+      "SS_same_arm_cross_session": []
+    },
+    "median": {
+      "AA_same_arm_same_session": 0.0,
+      "AB_paired_same_tag": 0.24539,
+      "AB_all_cross_arm": 0.24539,
+      "SS_same_arm_cross_session": null
+    },
+    "max": {
+      "AA_same_arm_same_session": 0.0,
+      "AB_paired_same_tag": 0.24539,
+      "AB_all_cross_arm": 0.24539,
+      "SS_same_arm_cross_session": null
+    }
+  }
+}

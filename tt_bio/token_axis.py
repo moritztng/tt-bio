@@ -361,16 +361,24 @@ def bucketed_width(N: int, mult: int) -> int:
 
 
 def msa_ladder() -> tuple[int, ...]:
-    """The live MSA depth ladder. ``TT_BIO_MSA_LADDER=0`` collapses it to the top rung alone.
+    """The live MSA depth ladder. ``TT_BIO_MSA_LADDER=1`` turns it on, and it is OFF by default.
 
-    One variable turns the ladder into the single 1024 it replaced, which is what makes the A/B one
-    command instead of a code edit -- the same contract ``bucket_enabled`` gives the token axis.
-    A comma-separated list sets the rungs directly, for a rung sweep.
+    One variable switches between the ladder and the single 1024 it replaces, which is what makes
+    the A/B one command instead of a code edit -- the same contract ``bucket_enabled`` gives the
+    token axis. A comma-separated list sets the rungs directly, for a rung sweep.
+
+    OFF by default, and the reason is accuracy rather than correctness. The padded rows provably
+    cannot reach the answer (poison them and the MSA module's output is bit-identical:
+    perf/roof_msa_ladder/z_parity_512.json), so a shorter rung reassociates the same terms and
+    nothing more. But bf16 reassociation this early in the trunk carries a long way: measured
+    paired, same-seed, same-stack against the single 1024, the ladder moves the 512 aa structure
+    1.322 A against the campaign's 0.60 A bar, and 0.245 A at 298 aa. It is worth 0.795 fold-seconds
+    of a 17.1 s fold, so the switch stays and the default does not.
     """
     import os
     v = os.environ.get("TT_BIO_MSA_LADDER")
     if v is None or not v.strip():
-        return MSA_PAD_LADDER
+        return (MSA_PAD_LADDER[-1],)
     v = v.strip()
     if v in ("0", "off", "false"):
         return (MSA_PAD_LADDER[-1],)
