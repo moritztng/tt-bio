@@ -167,6 +167,27 @@ BOLTZGEN_REPO = "moritztng/boltzgen"
 OPENDDE_REPO = "aurekaresearch/OpenDDE"
 NESSO_REPO = "recursionpharma/nesso"
 NESSO_REVISION = "v1.0.0"      # not `main`: main carries only a config.json
+
+# ESMFold2 revision pins. Upstream re-publishes `main` in place and without notice: on
+# 2026-09-14 19:3x UTC biohub/ESMFold2-Fast got a config.json in a different schema
+# (HF-native `hidden_size`/`esmc_config`, sub-configs serialized as full PretrainedConfigs),
+# and every JapanFold fold started failing four seconds in with
+# `DiffusionStructureHeadConfig.__init__() got an unexpected keyword argument
+# 'architectures'`. Nothing on our side had changed; the hub had. So these are pinned to
+# the commits the port was verified against, exactly like NESSO_REVISION above, and a
+# schema change upstream becomes a deliberate re-verification instead of an outage.
+ESMFOLD2_REPO = "biohub/ESMFold2"
+ESMFOLD2_FAST_REPO = "biohub/ESMFold2-Fast"
+HF_REVISIONS = {
+    ESMFOLD2_REPO: "8fc3ff471022fdce52c77030685eb775de0c00a3",
+    ESMFOLD2_FAST_REPO: "c6c7958d63f5f2f1f0fed0bb9462316f8ccceea6",
+}
+
+
+def hf_revision(repo_id: str) -> str | None:
+    """The commit a repo is pinned to, or None when it tracks the hub default."""
+    return HF_REVISIONS.get(repo_id)
+
 IPD_BASE = "https://files.ipd.uw.edu/pub"
 PXDESIGN_BASE = "https://pxdesign.tos-cn-beijing.volces.com"
 PROTENIX_V1_REPO = "moritztng/protenix-v0.5.0"
@@ -240,9 +261,11 @@ _ROWS: tuple[Artifact, ...] = (
 
     # -- ESMFold2 / ESMC / SaProt: whole HF repos, read from the hub cache ------
     Artifact("esmfold2", ("esmfold2",), "hf-repo", "non-commercial (EvolutionaryScale)",
-             repo="biohub/ESMFold2", approx_bytes=1352914698),
+             repo=ESMFOLD2_REPO, revision=HF_REVISIONS[ESMFOLD2_REPO],
+             approx_bytes=1352914698),
     Artifact("esmfold2-fast", ("esmfold2-fast",), "hf-repo", "non-commercial (EvolutionaryScale)",
-             repo="biohub/ESMFold2-Fast", approx_bytes=751619276),
+             repo=ESMFOLD2_FAST_REPO, revision=HF_REVISIONS[ESMFOLD2_FAST_REPO],
+             approx_bytes=751619276),
     Artifact("esmc-300m", ("esmc-300m",), "hf-repo", "non-commercial (EvolutionaryScale)",
              repo="biohub/esmc-300m-2024-12", filename="data/weights/esmc_300m_2024_12_v0.pth",
              approx_bytes=1331439861),
