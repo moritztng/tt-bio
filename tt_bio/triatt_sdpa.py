@@ -25,6 +25,19 @@ and L1 refuses it). It does NOT hold flat, and a refusal is handled below rather
 
 The gate is narrow on purpose. It needs one head and one q chunk per core, a batch-broadcast mask,
 no padded mask, and bf16 interleaved DRAM throughout; anything else falls through to the stock op.
+
+RE-MEASURED on qb2 card 3 (Blackhole p300c, 11x10) at the same 512 aa shape, 40 interleaved blocks,
+own-session A/A 1.2 % (`perf/roof_triatt_levers/sdpa_bh_b40.json`):
+
+    stock op, batch-1 bias        3.6273 ms
+    stock op, no mask at all      1.3682 ms      the bias costs the stock op 2.65x
+    this kernel, mask on          1.3684 ms      at the no-mask arm, inside the A/A floor
+    this kernel, mask add ablated 1.2089 ms      1.132x, and that add is the model's own maths
+
+So the whole of the stock op's mask cost is already gone here, and what is left is the bias add
+itself. `roof-tri-close` sized that cost at 1.88x on Wormhole and named it as an unbuilt lever; it
+was already built. The Boltz-2 512 aa fold serves 560 of 560 triangle-attention calls through this
+path on this part (`perf/sizegate/baseline/census_boltz2_512_p300c.json`).
 """
 
 from __future__ import annotations

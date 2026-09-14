@@ -1,0 +1,223 @@
+{
+ "host": "tt-quietbox2",
+ "arch": "Arch.BLACKHOLE",
+ "grid": [
+  11,
+  10
+ ],
+ "seq": 512,
+ "chan": 128,
+ "heads": 4,
+ "head_dim": 32,
+ "blocks": 40,
+ "loadavg": [
+  "10.50",
+  "13.14",
+  "13.23"
+ ],
+ "notes": {
+  "prod_g11x10": {
+   "declared_cores": 110,
+   "engaged_cores": 64,
+   "per_core_M": 2,
+   "per_core_N": 2,
+   "in0_block_w": 8
+  },
+  "prod_g8x8": {
+   "declared_cores": 64,
+   "engaged_cores": 64,
+   "per_core_M": 2,
+   "per_core_N": 2,
+   "in0_block_w": 8
+  },
+  "prod_g8x5": {
+   "declared_cores": 40,
+   "engaged_cores": 32,
+   "per_core_M": 4,
+   "per_core_N": 2,
+   "in0_block_w": 8
+  },
+  "prod_g8x4": {
+   "declared_cores": 32,
+   "engaged_cores": 32,
+   "per_core_M": 4,
+   "per_core_N": 2,
+   "in0_block_w": 8
+  },
+  "prod_g4x8": {
+   "declared_cores": 32,
+   "engaged_cores": 32,
+   "per_core_M": 2,
+   "per_core_N": 4,
+   "in0_block_w": 8
+  },
+  "prod_g4x4": {
+   "declared_cores": 16,
+   "engaged_cores": 16,
+   "per_core_M": 4,
+   "per_core_N": 4,
+   "in0_block_w": 8
+  },
+  "prod_g2x4": {
+   "declared_cores": 8,
+   "engaged_cores": 8,
+   "per_core_M": 4,
+   "per_core_N": 8,
+   "in0_block_w": 8
+  },
+  "prod_g2x2": {
+   "declared_cores": 4,
+   "engaged_cores": 4,
+   "per_core_M": 8,
+   "per_core_N": 8,
+   "in0_block_w": 8
+  },
+  "prod_g1x1": {
+   "declared_cores": 1,
+   "engaged_cores": 1,
+   "per_core_M": 16,
+   "per_core_N": 16,
+   "in0_block_w": 8
+  },
+  "sdpa": {
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "fused_pairs": [
+    [
+     256,
+     512
+    ],
+    [
+     512,
+     256
+    ],
+    [
+     512,
+     128
+    ],
+    [
+     512,
+     64
+    ],
+    [
+     512,
+     32
+    ]
+   ]
+  }
+ },
+ "refused": {
+  "prod_g1x1": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception"
+ },
+ "bitexact": {
+  "prod_g11x10": {
+   "equal": true,
+   "max_abs": 0.0
+  },
+  "prod_g8x8": {
+   "equal": true,
+   "max_abs": 0.0
+  },
+  "prod_g8x5": {
+   "equal": true,
+   "max_abs": 0.0
+  },
+  "prod_g8x4": {
+   "equal": true,
+   "max_abs": 0.0
+  },
+  "prod_g4x8": {
+   "equal": true,
+   "max_abs": 0.0
+  },
+  "prod_g4x4": {
+   "equal": true,
+   "max_abs": 0.0
+  },
+  "prod_g2x4": {
+   "equal": true,
+   "max_abs": 0.0
+  },
+  "prod_g2x2": {
+   "equal": true,
+   "max_abs": 0.0
+  }
+ },
+ "rows": [
+  {
+   "arm": "prod_g11x10",
+   "ms": 0.8341930001733999,
+   "TFLOPs": 41.18919525919997
+  },
+  {
+   "arm": "prod_g11x10_AA",
+   "ms": 1.2744615000883641,
+   "TFLOPs": 26.96020112464573
+  },
+  {
+   "arm": "prod_g2x2",
+   "ms": 10.489457499716082,
+   "TFLOPs": 3.2756449386376763
+  },
+  {
+   "arm": "prod_g2x4",
+   "ms": 4.25029150028422,
+   "TFLOPs": 8.084089847885101
+  },
+  {
+   "arm": "prod_g4x4",
+   "ms": 2.219443000285537,
+   "TFLOPs": 15.4812438812709
+  },
+  {
+   "arm": "prod_g4x8",
+   "ms": 1.3271549996716203,
+   "TFLOPs": 25.889770506460568
+  },
+  {
+   "arm": "prod_g8x4",
+   "ms": 1.1871919996337965,
+   "TFLOPs": 28.942023176199527
+  },
+  {
+   "arm": "prod_g8x5",
+   "ms": 1.1949415002163732,
+   "TFLOPs": 28.75432676978608
+  },
+  {
+   "arm": "prod_g8x8",
+   "ms": 0.8304514999508683,
+   "TFLOPs": 41.37476826766261
+  },
+  {
+   "arm": "prod_ttnn_default",
+   "ms": 3.0784734999542707,
+   "TFLOPs": 11.16129093477998
+  },
+  {
+   "arm": "sdpa_production",
+   "ms": 2.166563499940821,
+   "TFLOPs": 31.718191845231882
+  },
+  {
+   "arm": "sdpa_production_AA",
+   "ms": 1.4374229999702948,
+   "TFLOPs": 47.80741419708752
+  },
+  {
+   "arm": "sdpa_stock_mask",
+   "ms": 4.17835100006414,
+   "TFLOPs": 16.44655433087003
+  },
+  {
+   "arm": "sdpa_stock_nomask",
+   "ms": 1.3660284998877614,
+   "TFLOPs": 50.306034421424066
+  }
+ ],
+ "triatt_stats": {
+  "served": 164,
+  "declined": 0,
+  "rejects": {}
+ }
+}
