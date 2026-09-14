@@ -1,5 +1,30 @@
-#!/usr/bin/env python3
-"""Turn roof-budget's flat 26-row table into the call tree it actually describes.
+"""SUPERSEDED for the diffusion sub-tree by `roof-residual-census`. Read that first.
+
+This file asserted the fold's call tree from call-count ratios and time containment, and its top
+level is right: the three top-level units tile the fold to 0.35 % against an independently
+bracketed session fold. Its diffusion sub-tree is NOT right, and the defect is named.
+
+`AdaLN` runs TWICE per DiT layer -- once inside `AttentionPairBias` and once inside
+`ConditionedTransitionBlock`, 9600 calls against the layer's 4800. This file makes CTB a LEAF while
+also hanging all 9600 AdaLN calls off the layer, so the 4800 that are inside CTB are counted twice:
+**0.2605 s above roof at the cell**, measured as `adaln_double_count_above_roof_at_cell_s` in
+`perf/roof_residual/residual_512_qb2c2.json`. The leaf total below, 7.835 s, is therefore
+**7.574 s**.
+
+The obvious fix -- making AdaLN a 0.5/0.5 child of both parents, the way `Transition|1x512x512x128`
+is split between its two -- was tried and REJECTED: it drops this file's closure from 1.0 % to
+15.9 %, because the residual model here (`parent - sum(children)`) does not handle a child shared by
+two parents inside the same capture. Rather than patch arithmetic that cannot express the structure,
+use the instrument that can.
+
+`roof-residual-census` partitions each of `roof-budget`'s 26 committed captures on their own
+`unit::<Class>` markers instead of inferring edges, reproduces every leaf's MB/call and GFLOP/call
+to the last digit with 0 mismatches, and **closes at 0.00 %** (17.278 s of own-work rows against
+17.278 s of top-level units). Its table is the one to rank on.
+
+--- original docstring follows ---
+
+Turn roof-budget's flat 26-row table into the call tree it actually describes.
 
 The table mixes top-level units, intermediate units and leaves in one list. Three rows
 (`DiffusionModule`, `Diffusion`, `DiffusionTransformer`) carry near-identical GFLOP/call,

@@ -1,3 +1,18 @@
+> **SUPERSEDED for the diffusion sub-tree, 2026-09-14.** `roof-residual-census` partitions
+> `roof-budget`'s 26 captures on their own `unit::<Class>` markers instead of inferring edges, and
+> **closes at 0.00 %** where this closes at 1.0 %. Two corrections it makes to this file:
+>
+> - **`ConditionedTransitionBlock` is a PARENT, not a leaf.** `AdaLN` runs twice per DiT layer, once
+>   inside `AttentionPairBias` and once inside CTB — 9600 calls against the layer's 4800 — and this
+>   file charges all 9600 to the layer while also ranking CTB as a leaf. **0.2605 s above roof at the
+>   cell is counted twice**, so the leaf total below is **7.574 s, not 7.835 s**.
+> - **The 2.671 s residual is not a prize.** 1.876 s of it is not device work at all, and the part
+>   that is runs at **86.3 % of the stream roof** — the highest-utilisation row in the fold. The
+>   trunk `PairformerLayer`'s 7 residual `add_` and 1 `layer_norm` move 679.0 MB at that rate and sit
+>   0.067 s above roof out of 0.489 s. There is no lever in it.
+>
+> The top level of this file stands: the three top-level units tile the fold to 0.35 %.
+
 # The fold's call tree, and the 2.671 s nobody owns
 
 `roof-budget`'s table is 26 flat rows that mix top-level units, intermediate units and leaves.
