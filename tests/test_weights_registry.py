@@ -600,3 +600,27 @@ def test_prune_never_deletes_a_pinned_revision(monkeypatch):
     dead, _ = weights.superseded_revisions()
     assert pin not in dead, "prune would delete the revision production runs on"
     assert "deadbeef" in dead, "an unpinned ref-less revision is still reclaimable"
+
+
+def test_no_hub_download_outside_the_registry_forgets_the_revision():
+    """`weights.py` pins for anything that goes through it. A module that calls the hub
+    client directly does not, and that is how a repo quietly goes back to `main`.
+
+    Requires a literal `revision=`: a `**kwargs` spread is exactly the call you cannot
+    read, so it fails here and the author names the revision. Vendored upstream code is
+    excluded, it is not ours to change."""
+    import ast
+    root = Path(weights.__file__).parent
+    bare = []
+    for path in sorted(root.rglob("*.py")):
+        if path.name == "weights.py" or "_vendor" in path.parts:
+            continue
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(node, ast.Call):
+                continue
+            fn = node.func
+            name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", None)
+            if name in ("hf_hub_download", "snapshot_download") and not any(
+                    k.arg == "revision" for k in node.keywords):
+                bare.append(f"{path.relative_to(root.parent)}:{node.lineno}")
+    assert not bare, f"hub download with no revision, so it reads the default branch: {bare}"
