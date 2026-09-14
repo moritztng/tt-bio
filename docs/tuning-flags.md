@@ -431,13 +431,16 @@ between 24 and 48 clashes on some size.
 11x10 Blackhole p300c (`perf/roof_transition_chunk_bh_ship/`). Digests `a8c6fd65f70f4418`,
 `45781db716ebf020`, `9e1a1fdd392e0b4c`, `9a049ee58a5a0f7e`.
 
-**Speed: 1.0332x on a 512-residue fold**, 24.266 s to 23.474 s, a paired delta of 0.779 s with a
-95% confidence interval of [0.675, 0.883] s, faster in all eight paired reps, against a same-session
-A/A floor of 0.006 s. At 768 residues the same measurement reads 31.212 s to 30.950 s, 1.0085x,
-which is 0.262 s against an A/A floor of 0.242 s over two reps: real but close enough to the floor
-that it is not separately resolved. That is the expected shape. The flag removes row blocks in
-proportion to `1536 / width`, so it is worth three times fewer blocks at 512 residues, twice fewer
-at 768, and half as many again at 1024.
+**Speed: 1.0230x on a 512-residue fold**, 15.217 s to 14.875 s, and 1.0134x at 1024 residues,
+56.573 s to 55.825 s. Four paired reps per size with the off arm run on both sides of the on arm, so
+the session's own A/A floor comes out of the same folds: 0.030 s at 512 and 0.078 s at 1024, which
+puts both savings about ten times clear of it. 768 residues is not resolved. Two reps in a quiet
+session read 0.262 s against a 0.242 s floor, and a four-rep re-run landed on a box that went from
+load 0.2 to load 12 partway through, so its floor blew out to 9.6% and the harness refused the
+number.
+
+The saving grows with the sequence even though the win per block shrinks: 512 residues goes from 32
+row blocks to 11, 1024 from 64 to 43, and there is more to remove at the larger size.
 
 Boltz-2, BoltzGen, Protenix-v2 and OpenFold3 all reach it, because they share the same transition
 block. AF2-IG's transition is a different one (ReLU, not SwiGLU) and OpenFold3's diffusion
