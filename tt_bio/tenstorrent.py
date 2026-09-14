@@ -1781,8 +1781,11 @@ _SDPA_QK_OVER_L1: set = set()
 #
 # NOT bit-exact above the cap: k_chunk sets the online-softmax reduction order. It has no digest to
 # break -- no length above 1024 served fused before -- and the fold-level Angstrom evidence is in
-# `perf/ttx_a3/`.
-_SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", False)
+# `perf/ttx_a3/`. Default ON since the release gate cleared it: 1.1856x on a 200-step 1536 aa fold
+# against a 1.21 % A/A floor in the same session, and 1.007 A of all-atom displacement at a size
+# where changing the seed moves the same structure 36.6 A. `TT_BIO_SDPA_FUSED_LARGE_S=0` restores
+# the stock ladder everywhere.
+_SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", True)
 
 
 def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):

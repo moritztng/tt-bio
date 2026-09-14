@@ -379,7 +379,7 @@ adds happen in the same order — only how many run per pass changes.
 **Speed: 1.0317x on the fused SDPA on Blackhole** (2.8299 to 2.7430 ms at 512x512) and **1.0267x on
 Wormhole**. `TT_BIO_SDPA_ADD_GRANULARITY=1` restores the per-tile loop.
 
-## `TT_BIO_SDPA_FUSED_LARGE_S` — off
+## `TT_BIO_SDPA_FUSED_LARGE_S` — on
 
 Triangle attention re-reads the same pair bias once per row of the pair tensor. The fused kernel
 reads it once per head instead and holds it, and it needs a narrow query chunk against a wide key
@@ -410,8 +410,11 @@ the same stock attention the flag-off arm takes, bit-identical, max absolute dif
 **Speed: 4.23x on the attention op at 1536 tokens** (136.143 to 32.184 ms on a Blackhole
 p300c), 2.678x at 1920 and 1.865x at 2208. The win survives changing operands: timed per call with
 a fresh bias every call it is still 2.71x, and rotating whole operand sets 4.06x. At the fold it
-saves **28.9 s of trunk time** at 1536 residues, which on a 20-step fold is 1.1973x (175.388 to
-146.489 s, adjacent arms, one process per fold).
+saves **27.3 s of trunk time** at 1536 residues, which at the shipped 200 sampling steps is
+**1.1856x** (174.178 to 146.915 s, off/on/off interleaved, one process per fold, against a 1.21 %
+same-session A/A floor). The saving is a fixed trunk saving, so it barely dilutes with step count:
+a 20-step fold of the same target read 1.1973x. `TT_BIO_SDPA_FUSED_LARGE_S=0` restores the stock
+ladder.
 
 **It is off by default because that 1.1973x is not a full-fold number.** Triangle attention is in
 the trunk, and a 20-step fold gives the trunk a much larger share than the default 200 steps does,
