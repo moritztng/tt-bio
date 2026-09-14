@@ -308,10 +308,21 @@ def main() -> int:
           "change which rows are device work: that comes from the captures, and they are the "
           "committed ones.",
           "",
-          f"Three rows rest on a child frame that ran to the end of its capture "
-          f"({', '.join('`' + u + '`' for u in sorted(r['unit'] for r in glue if 'to-end' in r['closed_by']))}), "
-          "so their op lists are a floor, not a count: a child that closes late takes the "
-          "parent's next ops with it, never the reverse."]
+          "Three rows rest on a child frame that ran to the end of its capture, so their op "
+          "lists are a floor: a child that closes late takes the parent's next ops with it, "
+          "never the reverse. Bounded, by comparing each such region against the same child's "
+          "own capture:",
+          "",
+          "- `MSALayer|1x512x512x128,1x1024x512x64` -- the open frame is `PairformerLayer`, 356 "
+          "ops, and that unit's own capture is 356 ops. Nothing was swallowed; its 3 `add_` is "
+          "exact.",
+          "- `DiffusionTransformer|1x140x32x128` -- three layer regions of 66 ops, 198 in total, "
+          "against 198 in the unit's own capture. Its zero own ops is exact.",
+          "- `Diffusion|1x4480x3,1` -- the atom encoder region is 211 ops, which is 79 + 66 + 66: "
+          "three layers, the first on the longer `AttentionPairBias` path that the standalone "
+          "layer capture also took. Nothing swallowed there. The decoder region is 202, four ops "
+          "past 198, and those four sit at the end of the capture. So this row's glue is 21 to 25 "
+          "ops and 40.7 to about 45 MB a call, 2.2 to 2.4 % of its roof either way."]
     a.out_md.write_text("\n".join(L) + "\n")
 
     print("%-52s %-6s %8s %5s %9s %9s %7s" % ("unit", "kind", "at cell", "ops", "MB/call",
