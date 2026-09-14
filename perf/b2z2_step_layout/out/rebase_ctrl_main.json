@@ -1,0 +1,34 @@
+{
+ "doc": "One fold per size with the checkout untouched, sha256 of the CIF.\n\nThe control the step-layout branch's claim rests on: with neither elision set, the branch folds\nthe same structure as a tree without it. Run it on the merged branch, swap `tt_bio/` to\n`origin/main`, run it again, compare the digests. It sets no flag and imports no branch-only\nsymbol, so the same file runs on both trees.\n\n    fold_default.py --out <json> --cifdir <dir> [--sizes 298,512] [--seed 0]\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "3",
+  "commit": "c905c4981cc293848943a1c673215a3c132ba040",
+  "tt_bio_diff_vs_main": "",
+  "started_utc": "2026-09-14T09:13:41Z",
+  "seed": 0
+ },
+ "runs": [
+  {
+   "size": "298",
+   "seed": 0,
+   "fold_s": 17.775,
+   "bytes": 211208,
+   "sha256": "b76f1310a5d0731790c375d99a9c34629ddf8c3a1cdf332c2af56d93ae59a499",
+   "plddt": 0.912434
+  },
+  {
+   "size": "512",
+   "seed": 0,
+   "fold_s": 26.191,
+   "bytes": 363879,
+   "sha256": "1f5b388246489fa1623240a700dfee3d47eef9df96a2e3ab47f2c0c13eb169a9",
+   "plddt": 0.818499
+  }
+ ]
+}

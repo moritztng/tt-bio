@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""The folds a per-pseudo-domain + CA-lDDT reading of the two step-layout elisions needs.
+"""The folds a per-pseudo-domain + CA-lDDT reading of the step-layout elisions needs.
+
+The `pad` arm this driver used to carry is gone. Main landed the same lever as
+`TT_BIO_APB_CONCAT_HEADS`, which is read at MODULE LOAD and not per call, so a module-attribute
+flip after the model is built would serve every arm the same code and score a null. Its readings
+are in `out/acc.json` and `out/score.json` from the pre-merge run and in `docs/tuning-flags.md`.
 
 Same protocol, the same fixtures and the same scorer as the conditioning and SiLU campaigns
 (`perf/b2z2_cond/fold_cond.py`, scored by `perf/b2z2_fusebias/score.py`) -- this is that driver
 with one thing changed, the arm mechanism, because these two levers are read at module scope and
 not per call, so an env var set after import would serve every arm the same code.
 
-    base   both elisions off: the shipped tail and ttnn.linear + nlp_create_qkv_heads
+    base   the elision off: ttnn.linear + nlp_create_qkv_heads
     qkv    TT_BIO_DIT_FUSED_QKV -- the projection writes the head split itself
-    pad    TT_BIO_HEAD_PAD_TAIL -- the tail carries the head padding instead of stripping it
     default   the checkout untouched, to prove the defaults are what this run says they are
-
-The two are NEVER run together: `b2z2-step-layout-elision` measured the pair at 0.713 A on the
-worst pseudo-domain, over the bar, so the pair is already answered and only the singles are open.
 
 The reading that has teeth is CA-lDDT against the experimental structure 1HCL, not per-domain RMSD
 against the seed floor: `b2z2-union-land` showed the seed-floor screen clears an arm that has lost
@@ -39,17 +40,17 @@ sys.path.insert(0, str(REPO / "perf" / "b2x-flag-levers"))
 
 import ab_flag_levers as AB  # noqa: E402  -- the fixtures, cfg and MSA seeding, unmodified
 
-FLAGS = ("TT_BIO_DIT_FUSED_QKV", "TT_BIO_HEAD_PAD_TAIL", "TT_BIO_UNFUSED_SILU")
+FLAGS = ("TT_BIO_DIT_FUSED_QKV", "TT_BIO_UNFUSED_SILU")
 
-# arm -> (fused qkv, padded tail), or None for "touch nothing". `default` tests the SHIPPED
+# arm -> (fused qkv, unfused silu), or None for "touch nothing". `default` tests the SHIPPED
 # DEFAULT rather than a value this driver sets: flipping a default and then measuring an arm
 # that overrides it proves nothing about the default.
 # `silu` is the CONTROL arm, and it is not a lever this row stages. TT_BIO_UNFUSED_SILU moves
 # only the rounding point of one Transition site -- a different part of the step, already measured
 # and already declined on its own merits -- so if it moves a seed as far as these two do, that
 # seed is bistable under any rounding change and the number is the sampler, not the lever.
-ARMS = {"base": (False, False, False), "qkv": (True, False, False),
-        "pad": (False, True, False), "silu": (False, False, True), "default": None}
+ARMS = {"base": (False, False), "qkv": (True, False),
+        "silu": (False, True), "default": None}
 
 
 def check_arms(arms, T, QKV):
@@ -60,12 +61,9 @@ def check_arms(arms, T, QKV):
     """
     for arm in arms:
         assert arm in ARMS, f"unknown arm {arm}"
-    assert hasattr(T, "_HEAD_PAD_TAIL") and hasattr(T, "HEAD_PAD_TAIL_STATS"), (
-        "this checkout has no tt_bio.tenstorrent._HEAD_PAD_TAIL; the pad arm would be a null")
     assert hasattr(QKV, "qkv_heads_wide") and hasattr(QKV, "_WIDE_ENABLED"), (
         "this checkout has no triatt_qkv.qkv_heads_wide; the qkv arm would be a null")
-    assert (T._HEAD_PAD_TAIL is False and QKV._WIDE_ENABLED is False
-            and T._UNFUSED_SILU is False), (
+    assert QKV._WIDE_ENABLED is False and T._UNFUSED_SILU is False, (
         "a lever is already on at import; the base arm would not be the shipped path")
 
 
@@ -149,8 +147,8 @@ def main() -> int:
 
     def fold(arm, seed, target, keep):
         if ARMS[arm] is not None:
-            QKV._WIDE_ENABLED, T._HEAD_PAD_TAIL, T._UNFUSED_SILU = ARMS[arm]
-        before = (QKV.WIDE_STATS[0], T.HEAD_PAD_TAIL_STATS[0])
+            QKV._WIDE_ENABLED, T._UNFUSED_SILU = ARMS[arm]
+        before = (QKV.WIDE_STATS[0],)
         cfg["seed"] = seed
         try:
             state.model.structure_module.score_model.reset_static_cache()
@@ -170,10 +168,8 @@ def main() -> int:
         body = (keep / cifs[0].name).read_bytes()
         return {"arm": arm, "seed": seed, "target": target.stem, "fold_s": round(wall, 3),
                 "sha256": hashlib.sha256(body).hexdigest()[:16],
-                "flags": [bool(QKV._WIDE_ENABLED), bool(T._HEAD_PAD_TAIL),
-                          bool(T._UNFUSED_SILU)],
-                "served": [QKV.WIDE_STATS[0] - before[0],
-                           T.HEAD_PAD_TAIL_STATS[0] - before[1]],
+                "flags": [bool(QKV._WIDE_ENABLED), bool(T._UNFUSED_SILU)],
+                "served": [QKV.WIDE_STATS[0] - before[0]],
                 "plddt": round(float(metrics.get("plddt", metrics.get("confidence_score", 0))), 6)}
 
     if args.timing_reps:

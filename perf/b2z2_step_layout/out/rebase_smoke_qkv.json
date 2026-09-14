@@ -1,0 +1,81 @@
+{
+ "doc": "The folds a per-pseudo-domain + CA-lDDT reading of the step-layout elisions needs.\n\nThe `pad` arm this driver used to carry is gone. Main landed the same lever as\n`TT_BIO_APB_CONCAT_HEADS`, which is read at MODULE LOAD and not per call, so a module-attribute\nflip after the model is built would serve every arm the same code and score a null. Its readings\nare in `out/acc.json` and `out/score.json` from the pre-merge run and in `docs/tuning-flags.md`.\n\nSame protocol, the same fixtures and the same scorer as the conditioning and SiLU campaigns\n(`perf/b2z2_cond/fold_cond.py`, scored by `perf/b2z2_fusebias/score.py`) -- this is that driver\nwith one thing changed, the arm mechanism, because these two levers are read at module scope and\nnot per call, so an env var set after import would serve every arm the same code.\n\n    base   the elision off: ttnn.linear + nlp_create_qkv_heads\n    qkv    TT_BIO_DIT_FUSED_QKV -- the projection writes the head split itself\n    default   the checkout untouched, to prove the defaults are what this run says they are\n\nThe reading that has teeth is CA-lDDT against the experimental structure 1HCL, not per-domain RMSD\nagainst the seed floor: `b2z2-union-land` showed the seed-floor screen clears an arm that has lost\n0.07 CA-lDDT, because a model can scatter widely on this fixture while landing at the same quality\nevery time.\n\n    fold_layout.py --out <json> --cifdir <dir> [--plan base:0,1,2,3;qkv:0,1,2,3]\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "tt_visible_devices": "3",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-step-layout-rebase-merge/tt_bio/__init__.py",
+  "commit": "c905c4981cc293848943a1c673215a3c132ba040",
+  "started_utc": "2026-09-14T09:14:41Z",
+  "loadavg": [
+   3.68896484375,
+   3.103515625,
+   2.9443359375
+  ],
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "base:0;qkv:0",
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 17.553,
+   "sha256": "b76f1310a5d07317",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.912434,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "qkv",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 16.121,
+   "sha256": "d4308948dcda0ccf",
+   "flags": [
+    true,
+    false
+   ],
+   "served": [
+    5064
+   ],
+   "plddt": 0.913788,
+   "tag": "qkv-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 16.024,
+   "sha256": "b76f1310a5d07317",
+   "flags": [
+    false,
+    false
+   ],
+   "served": [
+    0
+   ],
+   "plddt": 0.912434,
+   "tag": "base-s0_r1"
+  }
+ ],
+ "model_load_s": 2.874,
+ "aa_floor_identical": {
+  "298": true
+ }
+}
