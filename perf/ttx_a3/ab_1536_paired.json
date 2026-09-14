@@ -1,0 +1,33 @@
+{
+ "n_folds": 1,
+ "off_s": [
+  264.394
+ ],
+ "on_s": [],
+ "adjacent_pair_ratios": [],
+ "same_arm_floor_ratios": [],
+ "median_off_s": 264.394,
+ "median_on_s": null,
+ "digests": [
+  "8d59c0c9f1de18fe:off"
+ ],
+ "folds": [
+  {
+   "tag": "r1_off",
+   "arm": "off",
+   "s": 264.394,
+   "served": 0,
+   "declined": 1682,
+   "plddt": 0.786016,
+   "sha": "8d59c0c9f1de18fe",
+   "load": 11.61,
+   "picks": {
+    "(1536, 1536)": [
+     512,
+     256,
+     "stock"
+    ]
+   }
+  }
+ ]
+}
