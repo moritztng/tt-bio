@@ -51,9 +51,13 @@ disagreement between two instruments that share no counting code. The tolerance 
 run was 20 %.
 
 The disagreement is entirely in the REORDER column, and it is one-directional: the trace counts
-more. Four allocations in the token DiT and eight in the atom layer that `itemize` drops as view
-aliases are, in the trace, distinct device addresses each written once by one program and read once
-by another:
+more. `fusion_pairs_diff.py` drops a pair with a name from
+`{reshape, unsqueeze, squeeze, deallocate, Tensor.__getitem__, reallocate}` on either end. Two of
+those six allocate on this path. `Tensor.__getitem__` is `ttnn.slice`, which is not a view (memory
+`tt-bio-ttnn-slice-not-a-view-and-allocation-order-sensitivity`), and the `reshape` at 7654 merges
+the head and channel axes of a tiled tensor, which is a copy. The four pairs that rule removes from
+the token DiT are, in the trace, four distinct device addresses each written once by one program and
+read once by another:
 
     matmul @7647 -> slice @7652     2.1 MB    o = o[:, :, :, :self.head_dim]
     slice @7652  -> permute @7653   2.1 MB
@@ -61,10 +65,8 @@ by another:
     reshape @7654 -> permute @7655  1.6 MB
 
 The ledger already drops a view whose output buffer IS one of its inputs, so anything left has a
-fresh allocation and a real write. `ttnn.slice` is not a view (memory
-`tt-bio-ttnn-slice-not-a-view-and-allocation-order-sensitivity`), and neither is a `permute` that
-crosses tile boundaries. **Where the two instruments disagree, the trace is the one holding the
-device address.** The published REORDER figure is a floor, not the number.
+fresh allocation and a real write. **Where the two instruments disagree, the trace is the one
+holding the device address.** The published REORDER figure is a floor, not the number.
 
 The atom layer's larger gap has a second cause on top of that one: the capture ran with
 `_atom_shift_gather` OFF, so its gather is `matmul -> permute` (14.68 MB); the trace ran with it on,
