@@ -10,11 +10,14 @@ set once per block, 5-7 blocks, minimum over blocks. **A/A floor: the shipped pi
 under two names, 0.010-0.70 % on every row quoted below** (one row, 320 aa attn@v at 13x10, floated
 to 3.5 % and is quoted from the 7-block 11x10 and 8x9 runs instead).
 
-## Bit-exactness: 46 arms, 46 `torch.equal`
+## Bit-exactness: 224 arms, 224 `torch.equal`
 
 `per_core_M` partitions output rows and `in0_block_w` does not move with it, so this is a chunking
 change and the parity spend is **0.000 A**. Every arm at every grid is `torch.equal` against the
-shipped pick. No arm was excluded, and the check is in the JSON per arm.
+shipped pick: 136 `per_core_M` arms plus their A/A duplicates and the plain `ttnn.matmul`
+fallback, 224 in all. No arm was excluded, and the check is in the JSON per arm. The plain call
+matching too is worth one line, since it is `batched_matmul`'s own claim that every applied class is
+`torch.equal` against the call it replaces, checked here at 16 shapes rather than argued.
 
 ## The hypothesis the row was opened on, and its refutation
 
