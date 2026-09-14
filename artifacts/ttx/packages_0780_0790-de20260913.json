@@ -1,0 +1,242 @@
+{
+ "P1-matmul": {
+  "prefixes": [
+   "ttnn/cpp/ttnn/operations/matmul/",
+   "ttnn/cpp/ttnn/operations/experimental/minimal_matmul/",
+   "ttnn/cpp/ttnn/operations/experimental/matmul/",
+   "ttnn/cpp/ttnn/operations/experimental/matmul_decode/"
+  ],
+  "lines": 4647,
+  "files": 42,
+  "new_files": 4,
+  "commits": 12
+ },
+ "P2-sdpa-attention": {
+  "prefixes": [
+   "ttnn/cpp/ttnn/operations/transformer/",
+   "ttnn/cpp/ttnn/operations/experimental/transformer/"
+  ],
+  "lines": 3395,
+  "files": 33,
+  "new_files": 0,
+  "commits": 10
+ },
+ "P3-cb-dataflow": {
+  "prefixes": [
+   "tt_metal/hw/inc/",
+   "tt_metal/api/tt-metalium/circular_buffer",
+   "tt_metal/api/tt-metalium/global_circular_buffer",
+   "tt_metal/impl/buffers/",
+   "tt_metal/impl/dataflow_buffer/",
+   "ttnn/cpp/ttnn/kernel/",
+   "ttnn/cpp/ttnn/kernel_lib/",
+   "tt_metal/api/tt-metalium/experimental/metal2_host_api/"
+  ],
+  "lines": 18326,
+  "files": 171,
+  "new_files": 103,
+  "commits": 49
+ },
+ "P4-sharding-alloc": {
+  "prefixes": [
+   "ttnn/cpp/ttnn/operations/data_movement/sharded/",
+   "ttnn/cpp/ttnn/operations/data_movement/sharded_partial/",
+   "tt_metal/impl/allocator/",
+   "tt_metal/impl/per_core_allocation/",
+   "tt_metal/impl/range_lockstep_allocation/",
+   "tt_metal/impl/tensor/",
+   "ttnn/core/tensor/",
+   "ttnn/api/ttnn/tensor",
+   "tt_metal/api/tt-metalium/tensor",
+   "tt_metal/api/tt-metalium/shard_data_transfer.hpp"
+  ],
+  "lines": 1251,
+  "files": 28,
+  "new_files": 4,
+  "commits": 13
+ },
+ "P5-layout-reblock": {
+  "prefixes": [
+   "ttnn/cpp/ttnn/operations/data_movement/tilize",
+   "ttnn/cpp/ttnn/operations/data_movement/untilize",
+   "ttnn/cpp/ttnn/operations/data_movement/transpose/",
+   "ttnn/cpp/ttnn/operations/data_movement/permute/",
+   "ttnn/cpp/ttnn/operations/data_movement/reshape_view/",
+   "ttnn/cpp/ttnn/operations/data_movement/reshape_on_device/",
+   "ttnn/cpp/ttnn/operations/data_movement/concat/",
+   "ttnn/cpp/ttnn/operations/data_movement/slice/",
+   "ttnn/cpp/ttnn/operations/data_movement/pad/",
+   "ttnn/cpp/ttnn/operations/data_movement/fill_pad/",
+   "ttnn/cpp/ttnn/operations/data_movement/chunk/",
+   "ttnn/cpp/ttnn/operations/data_movement/split/",
+   "ttnn/cpp/ttnn/operations/data_movement/repeat/",
+   "ttnn/cpp/ttnn/operations/data_movement/clone/",
+   "ttnn/cpp/ttnn/operations/data_movement/copy/",
+   "ttnn/cpp/ttnn/operations/data_movement/view/",
+   "ttnn/cpp/ttnn/operations/data_movement/squeeze/",
+   "ttnn/cpp/ttnn/operations/data_movement/unsqueeze/",
+   "ttnn/cpp/ttnn/operations/data_movement/common/",
+   "ttnn/cpp/ttnn/operations/data_movement/gather/",
+   "ttnn/cpp/ttnn/operations/data_movement/scatter/",
+   "ttnn/cpp/ttnn/operations/experimental/padded_slice/",
+   "ttnn/cpp/ttnn/operations/experimental/slice_write/",
+   "ttnn/cpp/ttnn/operations/copy/",
+   "ttnn/cpp/ttnn/operations/embedding/",
+   "ttnn/cpp/ttnn/operations/creation/"
+  ],
+  "lines": 8552,
+  "files": 88,
+  "new_files": 18,
+  "commits": 20
+ },
+ "P6-dispatch-trace-cache": {
+  "prefixes": [
+   "tt_metal/impl/dispatch/",
+   "tt_metal/impl/program/",
+   "tt_metal/impl/kernels/",
+   "tt_metal/impl/jit_server/",
+   "tt_metal/jit_build/",
+   "tt_metal/tools/jit_compile_server/",
+   "tt_metal/distributed/",
+   "ttnn/cpp/ttnn/operations/trace",
+   "ttnn/cpp/ttnn/graph/",
+   "tt_metal/impl/graph/",
+   "ttnn/cpp/ttnn/operations/generic/",
+   "tt_metal/api/tt-metalium/experimental/program_descriptor_patching.hpp"
+  ],
+  "lines": 3780,
+  "files": 61,
+  "new_files": 5,
+  "commits": 32
+ },
+ "P7-llk-compute-api": {
+  "prefixes": [
+   "tt_metal/tt-llk/tt_llk_blackhole/",
+   "tt_metal/tt-llk/tt_llk_wormhole_b0/",
+   "tt_metal/tt-llk/common/",
+   "tt_metal/hw/ckernels/"
+  ],
+  "lines": 10614,
+  "files": 293,
+  "new_files": 15,
+  "commits": 37
+ },
+ "P8-blackhole": {
+  "prefixes": [
+   "tt_metal/hw/ckernels/blackhole/",
+   "tt_metal/tt-llk/tt_llk_blackhole/",
+   "tt_metal/llrt/hal/",
+   "tt_metal/hw/firmware/",
+   "tt_metal/hw/inc/blackhole/",
+   "tt_metal/soc_descriptors/"
+  ],
+  "lines": 5087,
+  "files": 180,
+  "new_files": 14,
+  "commits": 38
+ },
+ "P9-normalization": {
+  "prefixes": [
+   "ttnn/cpp/ttnn/operations/normalization/layernorm/",
+   "ttnn/cpp/ttnn/operations/normalization/rmsnorm/",
+   "ttnn/cpp/ttnn/operations/normalization/softmax/",
+   "ttnn/cpp/ttnn/operations/normalization/kernel_util/",
+   "ttnn/cpp/ttnn/operations/normalization/shard_spec_validation",
+   "ttnn/cpp/ttnn/operations/normalization/normalization_nanobind"
+  ],
+  "lines": 1195,
+  "files": 32,
+  "new_files": 0,
+  "commits": 2
+ },
+ "P10-eltwise": {
+  "prefixes": [
+   "ttnn/cpp/ttnn/operations/eltwise/binary/",
+   "ttnn/cpp/ttnn/operations/eltwise/binary_ng/",
+   "ttnn/cpp/ttnn/operations/eltwise/unary/",
+   "ttnn/cpp/ttnn/operations/eltwise/unary_ng/",
+   "ttnn/cpp/ttnn/operations/eltwise/ternary/",
+   "ttnn/cpp/ttnn/operations/reduction/generic/",
+   "ttnn/cpp/ttnn/operations/data_movement/bcast/"
+  ],
+  "lines": 6678,
+  "files": 80,
+  "new_files": 0,
+  "commits": 28
+ },
+ "P11-dtype-precision": {
+  "prefixes": [
+   "tt_metal/api/tt-metalium/mxfp",
+   "tt_metal/api/tt-metalium/mxint.hpp",
+   "tt_metal/api/tt-metalium/int8.hpp",
+   "tt_metal/api/tt-metalium/uint8.hpp",
+   "tt_metal/api/tt-metalium/bfloat",
+   "tt_metal/api/tt-metalium/tile.hpp",
+   "tt_metal/api/tt-metalium/face_geometry.hpp",
+   "tt_metal/impl/data_format/",
+   "tt_metal/common/"
+  ],
+  "lines": 2,
+  "files": 1,
+  "new_files": 0,
+  "commits": 1
+ },
+ "P12-new-ops": {
+  "prefixes": [
+   "ttnn/cpp/ttnn/operations/experimental/fusion/",
+   "ttnn/cpp/ttnn/operations/experimental/core_subset_write/",
+   "ttnn/cpp/ttnn/operations/experimental/tensor_prefetcher/",
+   "ttnn/cpp/ttnn/operations/experimental/indexer_score/",
+   "ttnn/cpp/ttnn/operations/experimental/reduction/",
+   "ttnn/cpp/ttnn/operations/experimental/plusone/",
+   "ttnn/cpp/ttnn/operations/prefetcher/"
+  ],
+  "lines": 2771,
+  "files": 24,
+  "new_files": 3,
+  "commits": 11
+ },
+ "P13-python-api": {
+  "prefixes": [
+   "ttnn/ttnn/",
+   "ttnn/cpp/ttnn-nanobind/",
+   "ttnn/api/ttnn/",
+   "ttnn/core/",
+   "ttnn/cpp/ttnn/decorators.hpp",
+   "ttnn/cpp/ttnn/device_operation.hpp",
+   "ttnn/cpp/ttnn/run_operation",
+   "ttnn/cpp/ttnn/operations/core/",
+   "ttnn/cpp/ttnn/types.hpp",
+   "ttnn/cpp/ttnn/tensor_"
+  ],
+  "lines": 4106,
+  "files": 40,
+  "new_files": 1,
+  "commits": 20
+ },
+ "P14-host-api-device": {
+  "prefixes": [
+   "tt_metal/api/tt-metalium/host_api.hpp",
+   "tt_metal/impl/host_api/",
+   "tt_metal/impl/metal2_host_api/",
+   "tt_metal/impl/device/",
+   "tt_metal/impl/context/",
+   "tt_metal/impl/memory_tracking/",
+   "tt_metal/impl/threading/",
+   "tt_metal/tt_metal.cpp",
+   "tt_metal/llrt/",
+   "tt_metal/api/tt-metalium/"
+  ],
+  "lines": 4043,
+  "files": 70,
+  "new_files": 4,
+  "commits": 34
+ },
+ "_totals": {
+  "all_lines": 372078,
+  "all_files": 3479,
+  "packaged_lines": 74447,
+  "excluded_lines": 255208,
+  "unclaimed_lines": 47476
+ }
+}
