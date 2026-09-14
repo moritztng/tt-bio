@@ -51,6 +51,8 @@ PRESETS = {
     # does not scale the same way), and whether any width is positive.
     "ctgsweep": {"off": (False, False, None), "aa": (False, False, None),
                  "ctg2": (True, False, 2), "ctg4": (True, False, 4)},
+    "all": {"off": (False, False, None), "aa": (False, False, None),
+            "b3": (False, True, None), "ctg2": (True, False, 2), "ctg4": (True, False, 4)},
 }
 ARMS = PRESETS["base"]
 
@@ -141,16 +143,29 @@ def main():
             cell["control_differs"] = not bool(torch.equal(ctl, ref))
             del outs, ctl
 
-            names = list(ARMS)
+            # `off` first on every rep so each arm's pair partner is one call away in time, and
+            # the rest reversed on alternate reps so no arm keeps a fixed distance from it.
+            names = [n for n in ARMS if n != "off"]
             for r in range(a.reps):
-                for name in (names if r % 2 == 0 else names[::-1]):
+                for name in ["off"] + (names if r % 2 == 0 else names[::-1]):
                     ci, pd, cm = ARMS[name]
                     RB.set_gated_bank_tuning(ct_inside=ci, pg_deep=pd, ctg_max=cm)
                     us[name].append(timed(dev, xw, p_off, g_off, C))
             cell["us"] = {k: round(st.median(v), 1) for k, v in us.items()}
+            cell["us_spread_pct"] = {k: round(100 * (max(v) - min(v)) / st.median(v), 1)
+                                     for k, v in us.items()}
+            # PAIRED per rep, then the median of the ratios. A co-tenant that slows the box for
+            # part of a session shifts both arms of a rep together and drops out of the ratio; a
+            # ratio of medians does not have that property, and on the first ctgsweep attempt it
+            # read an A/A floor of -22.5 % where the paired form reads the real one.
+            cell["ratio_paired"] = {k: round(st.median([o / v for o, v in zip(us["off"], vals)]), 4)
+                                    for k, vals in us.items()}
             base = cell["us"]["off"]
-            cell["ratio"] = {k: round(base / v, 4) for k, v in cell["us"].items()}
-            cell["aa_floor_pct"] = round(100 * (cell["ratio"]["aa"] - 1.0), 3)
+            cell["ratio_unpaired"] = {k: round(base / v, 4) for k, v in cell["us"].items()}
+            cell["ratio"] = cell["ratio_paired"]
+            cell["aa_floor_pct"] = round(100 * (cell["ratio_paired"]["aa"] - 1.0), 3)
+            cell["aa_floor_unpaired_pct"] = round(
+                100 * (cell["ratio_unpaired"]["aa"] - 1.0), 3)
             ttnn.deallocate(xw)
             ok = (all(cell["equal"].values()) and cell["control_differs"]
                   and cell["b3_program_distinct"]
