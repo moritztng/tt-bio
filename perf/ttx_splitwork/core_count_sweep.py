@@ -31,11 +31,53 @@ from tt_bio import core_split
 from tt_bio import reblock_permute as rp
 from tt_bio.tenstorrent import get_device
 
+# The three legs differ only in what one call looks like; the split and the arms are shared.
+GATED_SLICE_C = 128
+
+
+def _make(leg, N, C, device, dram):
+    """``(x, run_one, reference)`` for one leg: the input, a one-call closure, a bit-exact ref.
+
+    The forward and back legs check against `ttnn.permute`, which is their standing claim. The
+    gated leg has no one-op equivalent, so its reference is the control arm's own output: what is
+    under test here is that the assignment does not move a value, not the kernel's arithmetic,
+    which `perf/b2z_sdpa_floor/gategran_512.py` already owns.
+    """
+    import ttnn as _tt
+    if leg == "gated":
+        xw = _tt.from_torch(torch.randn([1, N, N, 4 * GATED_SLICE_C], dtype=torch.bfloat16),
+                            dtype=_tt.bfloat16, layout=_tt.TILE_LAYOUT, device=device,
+                            memory_config=dram)
+        return xw, (lambda z: rp.reblock_permute_gated(z, 0, GATED_SLICE_C, GATED_SLICE_C,
+                                                       memory_config=dram)), None
+    shape = [1, C, N, N] if leg == "back" else [1, N, N, C]
+    perm = (0, 2, 3, 1) if leg == "back" else (0, 3, 1, 2)
+    op = rp.reblock_permute_back if leg == "back" else rp.reblock_permute
+    x = _tt.from_torch(torch.randn(shape, dtype=torch.bfloat16), dtype=_tt.bfloat16,
+                       layout=_tt.TILE_LAYOUT, device=device, memory_config=dram)
+    return x, (lambda z: op(z, memory_config=dram)), _tt.to_torch(_tt.permute(x, perm,
+                                                                             memory_config=dram))
+
+
+def _units(leg, N, C):
+    nt, ct = N // 32, C // 32
+    if leg == "back":
+        return nt * nt * ct
+    if leg == "gated":
+        return nt * nt * (GATED_SLICE_C // 32)
+    return nt * nt
+
+
 SHAPES = [
     ("fwd",  640, 32),    # production, 400 units, a hole: the full grid WINS 1.15x over 10x10
     ("fwd",  960, 32),    # production, 900 units, a hole: the full grid LOSES 0.89x
     ("back", 960, 32),    # the same unit count, the other direction, which agreed with it
     ("fwd",  512, 32),    # 256 units, NOT a hole: is the knob a hole-band thing or general?
+    # The two shapes a 512 aa Boltz-2 fold ACTUALLY asks for, from
+    # `perf/ttx_splitwork/shape_census.py`: 1120 gated calls and 560 back calls, and not one
+    # forward call. Both are 1024 groups. Nothing else in the list above is on that path.
+    ("gated", 512, 512),
+    ("back",  512, 128),
 ]
 
 
@@ -74,9 +116,9 @@ def main():
     ap.add_argument("--reps", type=int, default=9)
     ap.add_argument("--iters", type=int, default=100)
     ap.add_argument("--caps", default="60,70,80,88,90,95,99,100,104,108,110")
-    ap.add_argument("--modes", default="blocked,strided",
-                    help="group->core assignments to measure; the control is always blocked "
-                         "at the full grid, which is what main shipped")
+    ap.add_argument("--modes", default="block,stride,rotate",
+                    help="group walks to measure; the control is always `block` at the full grid, "
+                         "which is what main shipped")
     ap.add_argument("--bracket-tol", type=float, default=0.03)
     ap.add_argument("--out", default="perf/ttx_splitwork/core_count_sweep.json")
     a = ap.parse_args()
@@ -90,39 +132,37 @@ def main():
         print(f"grid {g.x}x{g.y} = {full} cores, reps={a.reps} iters={a.iters}, "
               f"bracket tolerance {a.bracket_tol:.1%}")
         for leg, N, C in SHAPES:
-            nt, ct = N // 32, C // 32
-            units = nt * nt * ct if leg == "back" else nt * nt
-            shape = [1, C, N, N] if leg == "back" else [1, N, N, C]
-            perm = (0, 2, 3, 1) if leg == "back" else (0, 3, 1, 2)
-            op = rp.reblock_permute_back if leg == "back" else rp.reblock_permute
+            units = _units(leg, N, C)
             # Every cap above `units` is the same split, so keep exactly one of them.
-            modes = [m == "strided" for m in a.modes.split(",")]
+            modes = a.modes.split(",")
             caps = sorted({min(c, units, full) for c in [int(v) for v in a.caps.split(",")]}
                           | {min(units, full)})
             # An arm is (core cap, strided). The control is the whole grid in blocked order: that
             # is exactly what main ships, so every ratio below reads against today's default.
-            arms = [(c, st) for st in modes for c in caps]
-            ctl = (min(units, full), False)
-            x = ttnn.from_torch(torch.randn(shape, dtype=torch.bfloat16), dtype=ttnn.bfloat16,
-                                layout=ttnn.TILE_LAYOUT, device=device, memory_config=dram)
-            ref_t = ttnn.to_torch(ttnn.permute(x, perm, memory_config=dram))
+            arms = [(c, w) for w in modes for c in caps]
+            ctl = (min(units, full), "block")
+            x, call, ref_t = _make(leg, N, C, device, dram)
 
             caches = {arm: {} for arm in set(arms) | {ctl}}
 
             def use(arm):
-                cap, rp.STRIDED = arm
+                cap, rp.WALK = arm
                 rp._split_plan = lambda d, u, _c=cap: _plan_for(
                     d.compute_with_storage_grid_size(), u, _c)
-                rp._CACHE, rp._CACHE_BACK, rp._SPLIT_CACHE = caches[arm], caches[arm], {}
+                rp._CACHE = rp._CACHE_BACK = rp._CACHE_GATED = caches[arm]
+                rp._SPLIT_CACHE = {}
 
             def run():
-                return _timed(device, lambda z: op(z, memory_config=dram), x, a.iters)
+                return _timed(device, call, x, a.iters)
 
             exact = {}
             for cap in arms:
                 use(cap)
-                o = op(x, memory_config=dram)
-                exact[cap] = bool(torch.equal(ttnn.to_torch(o), ref_t))
+                o = call(x)
+                got = ttnn.to_torch(o)
+                if ref_t is None:      # the control arm defines the reference for the gated leg
+                    ref_t = got
+                exact[cap] = bool(torch.equal(got, ref_t))
                 ttnn.deallocate(o)
 
             ratios = {c: [] for c in arms}
@@ -145,7 +185,7 @@ def main():
             del ref_t
 
             hole = units > full and units % full and units % full % g.y == 0
-            print(f"\n{leg} N={N} C={C} units={units}   control = {ctl[0]} cores blocked, "
+            print(f"\n{leg} N={N} C={C} units={units}   control = {ctl[0]} cores block, "
                   f"{'a hole' if hole else 'not a hole'}")
             print(f"  {'assign':>8}{'cores':>6}{'depth':>7}{'ms':>10}{'vs control':>12}"
                   f"{'bracket':>9}  exact")
@@ -153,10 +193,10 @@ def main():
                 n, _n1, w1, _w2 = core_split.units_per_core(units, cap[0])
                 r, spread = _median(ratios[cap]), _median(spreads[cap])
                 flag = "  UNUSABLE (bracket drift)" if spread > a.bracket_tol else ""
-                print(f"  {'strided' if cap[1] else 'blocked':>8}{n:>6}{w1:>7}"
+                print(f"  {cap[1]:>8}{n:>6}{w1:>7}"
                       f"{_median(ms[cap]):>10.4f}{r:>12.4f}{spread:>9.1%}  {exact[cap]}{flag}")
                 out_rows.append({"leg": leg, "N": N, "C": C, "units": units, "cores": n,
-                                 "strided": cap[1],
+                                 "walk": cap[1],
                                  "depth": w1, "ms": _median(ms[cap]), "ratio_vs_control": r,
                                  "control_cores": ctl[0], "bracket_spread": spread,
                                  "usable": spread <= a.bracket_tol, "bit_exact": exact[cap],

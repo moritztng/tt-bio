@@ -79,16 +79,68 @@ REJECTS: dict = {}
 # bank p % 8 and a group's pages are congruent to its group index, so the cores running their i-th
 # group together land on banks {start_k + i*stride}. With a contiguous block per core start_k = k*w,
 # which covers 8/gcd(w, 8) banks: two of eight at w = 4. Hence the fastest core count was whichever
-# one made `w` odd, and that moves with the shape. `STRIDED` below removes the aliasing instead of
+# one made `w` odd, and that moves with the shape. `WALK` below removes the aliasing instead of
 # tuning around it, and with it the cost is a function of depth alone: at 400 groups the 80..99-core
 # band lands within 1.2 % of itself where it used to spread 1.30x, and the whole grid is the fastest
 # point at all four shapes. See `perf/ttx_splitwork/core_count_sweep.py` and the JSON beside it.
 REBLOCK_CORES = int(os.environ.get("TT_BIO_REBLOCK_CORES", "0"))
 
-# Strided group assignment: core i takes groups i, i+num_cores, i+2*num_cores, ... Default on. Set
-# `TT_BIO_REBLOCK_STRIDE=0` for the old contiguous block, which is a stride of 1 and the same
-# kernels. Bit-identical either way at all 88 sweep points, since the groups are independent.
-STRIDED = os.environ.get("TT_BIO_REBLOCK_STRIDE", "1") != "0"
+# How a core walks the groups it owns. Every mode gives every core the SAME groups and the same
+# count, so the output is bit-identical; what moves is which groups are in flight together, and
+# therefore which DRAM banks are live at once.
+#
+#   "rotate"  (default) the contiguous block, started at the core's own phase `i % per_core`.
+#             Spreads the banks and keeps the pages of one core's groups near each other.
+#   "block"   the plain contiguous walk, which is what main shipped and what aliases.
+#   "stride"  round-robin: core i takes groups i, i+num_cores, ... Spreads the banks perfectly and
+#             costs the page locality; it wins big where "block" aliases hard and loses a few
+#             percent where "block" was already clean.
+#
+# All three are the same kernel loop, `num_groups` steps of `group_stride` from `first_group` with
+# a fold back to `group_wrap_lo` at `group_wrap_hi`.
+WALK = os.environ.get("TT_BIO_REBLOCK_WALK", "auto")
+_NO_WRAP = 0xFFFFFFFF
+
+
+def _walk_mode(device, work1):
+    """Which walk this split gets. ``auto`` is the shipped default and is derived, not fitted.
+
+    Rotation offers exactly ``work1`` distinct phases, so it can spread the concurrent groups over
+    at most that many DRAM banks: it is the right walk only when the block is at least as deep as
+    the machine has banks. Below that it cannot cover them and striding, which makes the concurrent
+    groups consecutive, does. The bank count is read from the device, so this carries to a Wormhole
+    chip (12 banks) without a second rule.
+
+    Measured on qb2's 11x10 grid against the contiguous block on the whole grid, at the six shapes
+    in `perf/ttx_splitwork/core_count_sweep.py` (`walk_ab.json`). The rule picks the best arm at
+    four of them and lands within 0.6% of the best at the other two:
+
+        work1  shape                       rule     ratio   the arm the rule did not pick
+           10  gated N=512 C=512 (fold)    rotate   1.030x  stride 0.964x, a LOSS
+           10  back  N=512 C=128 (fold)    rotate   1.018x  stride 1.019x
+            9  back  N=960 C=32            rotate   1.144x  stride 1.116x
+            9  fwd   N=960 C=32            rotate   1.121x  stride 1.128x
+            4  fwd   N=640 C=32            stride   1.438x  rotate 1.417x
+            3  fwd   N=512 C=32            stride   1.101x  rotate 0.974x, a LOSS
+
+    The two losses are the point: neither single walk is safe everywhere, and the depth is what
+    tells them apart.
+    """
+    if WALK != "auto":
+        return WALK
+    return "rotate" if work1 >= int(device.dram_grid_size().x) else "stride"
+
+
+def _walk(mode, i, block, per_core, num_cores):
+    """``(first_group, group_stride, group_wrap_hi, group_wrap_lo)`` for linear core index ``i``.
+
+    ``block`` is where this core's contiguous run of ``per_core`` groups starts.
+    """
+    if mode == "stride":
+        return i, num_cores, _NO_WRAP, 0
+    if mode == "rotate" and per_core > 1:
+        return block + i % per_core, 1, block + per_core, block
+    return block, 1, _NO_WRAP, 0
 
 _SPLIT_CACHE: dict = {}
 
@@ -132,7 +184,7 @@ def _cache_key(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[3]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y, STRIDED,
+        g.x, g.y, WALK,
         tuple(reader_ct), tuple(writer_ct),
     )
 
@@ -165,22 +217,18 @@ def _build(x, out, device, reader_ct, writer_ct):
     cbs = [cb(IN_CB, 2), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    # Core i takes groups i, i+num_cores, i+2*num_cores, ... rather than a contiguous block of
-    # `per_core`. The counts are unchanged: core i owns ceil((num_groups - i) / num_cores) groups,
-    # which is `work1` for the first `num_groups % num_cores` cores and `work2` for the rest, exactly
-    # what `core_split.units_per_core` distributes. So is the output, since the groups are
-    # independent. What changes is which groups are in flight together, consecutive instead of
-    # strided by `per_core`, so every DRAM bank is live. The kernels take the stride as their last
-    # runtime arg; the reader carries the measurement that made this change.
+    # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
+    # counters are kept for every mode because `_walk` needs each of them; `placed` is the audit.
     first, placed, block = 0, 0, 0
-    stride = num_cores if STRIDED else 1
+    mode = _walk_mode(device, work1)
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [first if STRIDED else block, per_core, Nt, N, Ct, stride]
+                    g0, gs, ghi, glo = _walk(mode, first, block, per_core, num_cores)
+                    reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct]
-                    writer_rt[cx][cy] = [first if STRIDED else block, per_core, Nt, N, Ct, stride]
+                    writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
                     first += 1
                     block += per_core
                     placed += per_core
@@ -375,7 +423,7 @@ def _cache_key_back(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[2]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y, STRIDED,
+        g.x, g.y, WALK,
         tuple(reader_ct), tuple(writer_ct),
     )
 
@@ -411,22 +459,18 @@ def _build_back(x, out, device, reader_ct, writer_ct):
     cbs = [cb(IN_CB, 2), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, GROUP_TILES * 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    # Core i takes groups i, i+num_cores, i+2*num_cores, ... rather than a contiguous block of
-    # `per_core`. The counts are unchanged: core i owns ceil((num_groups - i) / num_cores) groups,
-    # which is `work1` for the first `num_groups % num_cores` cores and `work2` for the rest, exactly
-    # what `core_split.units_per_core` distributes. So is the output, since the groups are
-    # independent. What changes is which groups are in flight together, consecutive instead of
-    # strided by `per_core`, so every DRAM bank is live. The kernels take the stride as their last
-    # runtime arg; the reader carries the measurement that made this change.
+    # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
+    # counters are kept for every mode because `_walk` needs each of them; `placed` is the audit.
     first, placed, block = 0, 0, 0
-    stride = num_cores if STRIDED else 1
+    mode = _walk_mode(device, work1)
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [first if STRIDED else block, per_core, Nt, Ct, stride]
+                    g0, gs, ghi, glo = _walk(mode, first, block, per_core, num_cores)
+                    reader_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES]
-                    writer_rt[cx][cy] = [first if STRIDED else block, per_core, Nt, Ct, stride]
+                    writer_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
                     first += 1
                     block += per_core
                     placed += per_core
@@ -599,7 +643,7 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[3]), int(out.shape[1]), int(out.shape[2]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y, STRIDED,
+        g.x, g.y, WALK,
         tuple(reader_ct), tuple(writer_ct),
         # `_build_gated` bakes this into the compute kernel's compile-time args AND into four CB
         # depths, so it has to be in the key. Without it an A/B that flips the granularity gets the
@@ -649,22 +693,18 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
            cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    # Core i takes groups i, i+num_cores, i+2*num_cores, ... rather than a contiguous block of
-    # `per_core`. The counts are unchanged: core i owns ceil((num_groups - i) / num_cores) groups,
-    # which is `work1` for the first `num_groups % num_cores` cores and `work2` for the rest, exactly
-    # what `core_split.units_per_core` distributes. So is the output, since the groups are
-    # independent. What changes is which groups are in flight together, consecutive instead of
-    # strided by `per_core`, so every DRAM bank is live. The kernels take the stride as their last
-    # runtime arg; the reader carries the measurement that made this change.
+    # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
+    # counters are kept for every mode because `_walk` needs each of them; `placed` is the audit.
     first, placed, block = 0, 0, 0
-    stride = num_cores if STRIDED else 1
+    mode = _walk_mode(device, work1)
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [first if STRIDED else block, per_core, Nt, N, Ct, Ctw, stride]
+                    g0, gs, ghi, glo = _walk(mode, first, block, per_core, num_cores)
+                    reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, Ctw, gs, ghi, glo]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES]
-                    writer_rt[cx][cy] = [first if STRIDED else block, per_core, Nt, N, Ct, stride]
+                    writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
                     first += 1
                     block += per_core
                     placed += per_core
