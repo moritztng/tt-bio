@@ -36,6 +36,7 @@ from pathlib import Path
 import torch
 import ttnn
 
+from .core_split import even_split as _even_split
 from .envflags import env_flag
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "rfd3_bias"
@@ -71,19 +72,6 @@ def _fill_bits(value: float) -> int:
     """
     bf = torch.tensor([value], dtype=torch.bfloat16).to(torch.float32).item()
     return struct.unpack("<I", struct.pack("<f", bf))[0]
-
-
-def _even_split(n_units: int, cores: list[tuple[int, int]]) -> list[int]:
-    """``n_units`` split as evenly as possible over ``cores``, remainder to the front.
-
-    ``ttnn.split_work_to_cores`` is not used: it raises ``TT_FATAL`` when ``units % cores``
-    is a non-zero multiple of the grid height (``ttnn-split-work-to-cores-grid-height-holes``),
-    and ``H * It`` lands in a hole at the production shape -- 420 groups on qb1's 130 cores
-    leaves 30, a multiple of the grid height 10. Nothing here needs the utility's core-range
-    grouping, because every core gets its own runtime args anyway.
-    """
-    per, rem = divmod(n_units, len(cores))
-    return [per + 1 if i < rem else per for i in range(len(cores))]
 
 
 def _cache_key(bias, idx, out, device, ct_args):
