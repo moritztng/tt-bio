@@ -3769,6 +3769,30 @@ def _trimul_in0_block_w(seq_len_tiles: int) -> int:
                if seq_len_tiles % d == 0)
 
 
+# The grid is NOT a tuning knob here, and this records the measurement rather than the argument.
+# `per_core_M/N` are ceil(Mt/gy) and ceil(Nt/gx), and the factory then engages
+# ceil(Mt/per_core_M) x ceil(Nt/per_core_N) cores -- so the DECLARED grid is inert and only the
+# engaged count moves. At 512 aa (Mt = Nt = 16) on an 11x10 p300c that is 2 x 2 per core and 8x8 =
+# 64 of 110 cores, which is the MAXIMUM this factory reaches at this shape: per_core_M = 1 would
+# need 16 core rows against gy = 10.
+#
+# MEASURED on qb2 card 3, [1,128,512,512] x [1,128,512,512] bf16 with transpose_b, 40 interleaved
+# blocks, own-session A/A 0.3 % (perf/roof_triatt_levers/product_bh_b40_r2.json). Narrowing is
+# monotonically WORSE and widening is not available:
+#
+#     engaged cores   64        32        16         8         4
+#     ms            1.2714    1.9729    3.7179    7.1612   13.2519
+#
+# The output subblock is at its best value too: 1x1 1.2714 ms, 1x2 1.4584, 2x1 1.4579, 2x2 1.6423,
+# every rung `torch.equal` against production (it does not touch `in0_block_w`).
+#
+# `roof-tri-close` measured the opposite sign on Wormhole -- the triangle product 2.10x FASTER on 32
+# cores than on 72 -- and that reproduces here, in the family it was measured in and not in this
+# one. `ttnn.matmul(core_grid=...)` does not narrow this config, it selects a different factory that
+# derives `in0_block_w = 1`; in THAT family 64 cores beat 110 by 1.39x on Blackhole (2.2085 against
+# 3.0747 ms). Every rung of it is 1.74-2.78x slower than the config below, so the grid prize is real
+# and already banked by pinning this program config. KIND=placement, and no Wormhole ratio is
+# carried across: the number above is Blackhole's own.
 @lru_cache(maxsize=None)
 def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
     gx, gy = COMPUTE_GRID_MAIN

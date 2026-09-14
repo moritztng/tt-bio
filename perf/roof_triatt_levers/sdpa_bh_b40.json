@@ -1,0 +1,85 @@
+{
+ "host": "tt-quietbox2",
+ "arch": "Arch.BLACKHOLE",
+ "grid": [
+  11,
+  10
+ ],
+ "seq": 512,
+ "chan": 128,
+ "heads": 4,
+ "head_dim": 32,
+ "blocks": 40,
+ "loadavg": [
+  "13.88",
+  "13.48",
+  "13.34"
+ ],
+ "notes": {
+  "sdpa": {
+   "q_chunk": 256,
+   "k_chunk": 256,
+   "fused_pairs": [
+    [
+     256,
+     512
+    ],
+    [
+     512,
+     256
+    ],
+    [
+     512,
+     128
+    ],
+    [
+     512,
+     64
+    ],
+    [
+     512,
+     32
+    ]
+   ]
+  }
+ },
+ "refused": {},
+ "bitexact": {},
+ "rows": [
+  {
+   "arm": "sdpa_prod_nomaskadd",
+   "ms": 1.2088672499430686,
+   "TFLOPs": 56.84617292695813
+  },
+  {
+   "arm": "sdpa_prod_nomaskadd_AA",
+   "ms": 1.2135585000123683,
+   "TFLOPs": 56.62642281793554
+  },
+  {
+   "arm": "sdpa_production",
+   "ms": 1.3683502500043687,
+   "TFLOPs": 50.2206775902446
+  },
+  {
+   "arm": "sdpa_production_AA",
+   "ms": 1.3845257499269792,
+   "TFLOPs": 49.63394630950295
+  },
+  {
+   "arm": "sdpa_stock_mask",
+   "ms": 3.6272727500090696,
+   "TFLOPs": 18.945219031523937
+  },
+  {
+   "arm": "sdpa_stock_nomask",
+   "ms": 1.3681647499197425,
+   "TFLOPs": 50.227486667838164
+  }
+ ],
+ "triatt_stats": {
+  "served": 648,
+  "declined": 0,
+  "rejects": {}
+ }
+}
