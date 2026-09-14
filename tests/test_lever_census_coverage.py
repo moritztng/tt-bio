@@ -100,3 +100,99 @@ def test_censused_counters_all_exist():
     assert not dangling, (
         "scripts/lever_census.py references counters that do not exist; each would read "
         f"served=0 forever and look like a dark lever: {dangling}")
+
+#: counter -> why it can never write its `declined` element. A `[served, declined]` counter that
+#: only ever increments [0] reports `declined = 0` structurally, so a census reading of
+#: "N served / 0 declined" is not evidence the guard admitted anything -- it is evidence the guard
+#: has no decline path wired to the counter. Found 2026-09-14 after `roof-bh-envelopes-on-wh`
+#: measured `L1_FC1_STATS` reading 256 served where only 1 call was served: counting requests is
+#: not counting service, and the coverage test above cannot see the difference.
+ONE_SIDED = {
+    "ATOM_PAIR_BLOCK_STATS": "declared and never incremented at all; rfd3, outside the fold",
+    "FSTATS": "rfd3_bias fused path, no decline branch wired",
+    "SDPA_RAGGED_PAD_STATS": "no decline branch wired",
+    "STATS_BACK": "reblock_permute back-permute, no decline branch wired",
+    "STATS_GATED": "reblock_permute gated writer -- the TRIMUL_GP_BANK_SPLIT counter, "
+                   "and one of the two levers ROOF landed on main",
+}
+
+
+def _stats_writes() -> dict[str, set]:
+    """Which elements of each `[0, 0]` counter the package can actually write.
+
+    A literal `NAME[0] += 1` writes only 0; a computed `NAME[0 if fits else 1] += 1` can reach
+    both and is the correct discriminating idiom. Matching only the literal form reports the
+    computed one as dead, which is how the first cut of this scan produced a list that included
+    counters known to fire -- so the index is inspected, not assumed.
+    """
+    writes: dict[str, set] = {}
+    for path in sorted(PKG.rglob("*.py")):
+        try:
+            tree = ast.parse(path.read_text(errors="replace"))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Subscript)):
+                continue
+            base = node.target.value
+            if not (isinstance(base, ast.Name) and "STATS" in base.id):
+                continue
+            sl = node.target.slice
+            if isinstance(sl, ast.Constant):
+                writes.setdefault(base.id, set()).add(sl.value)
+            else:
+                writes.setdefault(base.id, set()).update({0, 1})
+    return writes
+
+
+def _pair_shaped() -> set[str]:
+    """Short names of counters declared as a `[0, 0]` LIST.
+
+    The dict-shaped counters (`FP32_SOFTMAX_STATS`, `TRIATT_FUSED_HIFI_STATS`,
+    `TRIMUL_TAIL_L1_STATS`) key on strings like 'l1'/'dram' and the served/declined index rule does
+    not apply to them. Forgetting that reported three healthy counters as broken -- the same
+    list-vs-dict slip that the first draft of this file made in the other direction.
+    """
+    out: set[str] = set()
+    for path in sorted(PKG.rglob("*.py")):
+        try:
+            tree = ast.parse(path.read_text(errors="replace"))
+        except SyntaxError:
+            continue
+        for node in tree.body:
+            if not isinstance(node, ast.Assign):
+                continue
+            for tgt in node.targets:
+                if not (isinstance(tgt, ast.Name) and "STATS" in tgt.id):
+                    continue
+                v = node.value
+                if (isinstance(v, ast.List) and len(v.elts) == 2
+                        and all(isinstance(e, ast.Constant) and e.value == 0 for e in v.elts)):
+                    out.add(tgt.id)
+    return out
+
+
+def test_censused_counters_can_discriminate():
+    """A counter that cannot write `declined` cannot prove a lever served."""
+    pair_counters = {
+        n.rsplit(".", 1)[1]: n for n in _censused_counters()
+        if n.rsplit(".", 1)[1] in _pair_shaped()
+    }
+    writes = _stats_writes()
+    broken = sorted(
+        short for short in pair_counters
+        if writes.get(short, set()) != {0, 1} and short not in ONE_SIDED
+    )
+    assert not broken, (
+        "these censused counters can never increment their `declined` element, so a census "
+        "reading of 'N served / 0 declined' proves nothing about them:\n  "
+        + "\n  ".join(f"{s} writes {sorted(writes.get(s, set())) or 'nothing'}" for s in broken)
+        + "\nWire the decline branch, or add an ONE_SIDED entry saying why there is none."
+    )
+
+
+def test_one_sided_entries_are_still_one_sided():
+    """A fixed counter should lose its exemption, not keep it."""
+    writes = _stats_writes()
+    fixed = sorted(n for n in ONE_SIDED if writes.get(n, set()) == {0, 1})
+    assert not fixed, f"ONE_SIDED names counters that now write both elements: {fixed}"
