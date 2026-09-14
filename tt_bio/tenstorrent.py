@@ -158,6 +158,18 @@ SEQ_LEN_MORE_CHUNKING = 1536
 # Row-block height for the trimul's row-local projections. One number so the input and output
 # projections cannot drift apart; a tile multiple, so a block boundary never splits a tile and the
 # blocks stay bit-exact against the whole-tensor result.
+#
+# It has NO envelope, and that is measured rather than assumed. Swept 32 to 512 at 512, 640 and
+# 768 tokens on the 8x9 Galaxy through `_pair_bias_from_z`, the one of its three use sites that
+# runs without model weights (perf/roof_bh_env/pair_row_block.py, two sessions): nothing refuses at
+# any height and every height is `torch.equal` against the whole-tensor result. The curve is
+# monotone and flat past the shipped value -- at 640 aa, 5.1476 ms at 32, 4.5366 at 128, 4.4155 at
+# 320 -- so 32 costs 1.1346x and 320 buys 1.0274x, under the bar, against a 0.65 % A/A floor. 128
+# sits just past the knee and "a tile multiple" is a sufficient justification here.
+#
+# The other two sites are the trimul's row-blocked projections, where the height bounds PEAK
+# ALLOCATION on sizes that otherwise refuse. That trade is a footprint question and this timing
+# sweep says nothing about it, so raising the constant would need the footprint measured first.
 PAIR_ROW_BLOCK = 128
 # Byte gate for row-blocking the trimul INPUT norm, which is a different question from the output
 # projections' SEQ_LEN_MORE_CHUNKING gate and must not share it.
@@ -2054,6 +2066,15 @@ _BATCHED_MATMUL_ON = env_flag("TT_BIO_BATCHED_MATMUL", True)
 # than one legal per_core_M is fastest at 32 blocks -- DiT attn@v 0.0337 / 0.0295 / 0.0429 ms at
 # 80 / 32 / 16 blocks, AttentionPairBias attn@v 0.0305 / 0.0269 / 0.0434, DiT q@k^T 0.0510 /
 # 0.0434 / 0.0580 (perf/bmm_reconcile/pcm_sweep_c0.json).
+#
+# Accidentally safe on the 8x9 Galaxy, by exhaustion rather than by luck
+# (perf/roof_bh_env/results/pcm_sweep_whglx_{A,B}.json, the same `perf/bmm_reconcile/pcm_sweep.py`
+# that fitted it, two sessions agreeing within 0.3 %). The legality predicate `blocks <= cores`
+# already deletes the 80-block rung on 72 cores, so 8 of the 11 classes have exactly one legal
+# per_core_M and the target is inert. In the three that have a choice the legal set is {32, 16}
+# blocks and 32 is faster in all three: DiT attn@v 0.0629 against 0.1064 ms (1.691x), DiT q@k^T
+# 0.1109 against 0.1389 (1.252x), OF3 AttentionPairBias attn@v 0.0486 against 0.0855 (1.759x),
+# every rung bit-exact. There is no legal rung above 32 blocks here to be wrong about.
 _BATCHED_MATMUL_SATURATION_BLOCKS = 32
 
 
