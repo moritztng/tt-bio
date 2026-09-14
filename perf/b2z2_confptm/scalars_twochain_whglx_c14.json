@@ -1,0 +1,92 @@
+{
+ "env": {
+  "started": "2026-09-12T21:59:26+0000",
+  "card": "14",
+  "host": "j10glx02",
+  "size": 298,
+  "flag": "TT_BIO_DEVICE_CONF_HEADS",
+  "target": "/home/tt-admin/wt/b2z2-conf-ptm-device/perf/b2z2_confptm/fixtures/twochain_298.yaml",
+  "commit": "604aad279",
+  "recycling_steps": 3,
+  "sampling_steps": 200
+ },
+ "folds": [
+  {
+   "tag": "base_0",
+   "TT_BIO_DEVICE_CONF_HEADS": "0",
+   "wall_s": 24.904,
+   "ptm": 0.96386,
+   "iptm": 0.913621,
+   "ligand_iptm": 0.913621,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.871204,
+   "complex_iplddt": 0.673159,
+   "complex_pde": 0.437025,
+   "complex_ipde": 0.972764
+  },
+  {
+   "tag": "base_1",
+   "TT_BIO_DEVICE_CONF_HEADS": "0",
+   "wall_s": 25.5518,
+   "ptm": 0.96386,
+   "iptm": 0.913621,
+   "ligand_iptm": 0.913621,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.871204,
+   "complex_iplddt": 0.673159,
+   "complex_pde": 0.437025,
+   "complex_ipde": 0.972764
+  },
+  {
+   "tag": "arm_0",
+   "TT_BIO_DEVICE_CONF_HEADS": "1",
+   "wall_s": 27.3369,
+   "ptm": 0.958353,
+   "iptm": 0.910629,
+   "ligand_iptm": 0.910629,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.871204,
+   "complex_iplddt": 0.673159,
+   "complex_pde": 0.433013,
+   "complex_ipde": 0.970053
+  }
+ ],
+ "aa": {
+  "d_ptm": 0.0,
+  "d_iptm": 0.0,
+  "d_ligand_iptm": 0.0,
+  "d_protein_iptm": 0.0,
+  "d_complex_plddt": 0.0,
+  "d_complex_iplddt": 0.0,
+  "d_complex_pde": 0.0,
+  "d_complex_ipde": 0.0,
+  "pae_max_abs": 0.0,
+  "pae_mean_abs": 0.0,
+  "pae_mean_ref": 4.158651,
+  "pde_max_abs": 0.0,
+  "pde_mean_abs": 0.0,
+  "pde_mean_ref": 0.6078,
+  "plddt_max_abs": 0.0,
+  "plddt_mean_abs": 0.0,
+  "plddt_mean_ref": 0.871204
+ },
+ "arm": {
+  "d_ptm": -0.005507,
+  "d_iptm": -0.002992,
+  "d_ligand_iptm": -0.002992,
+  "d_protein_iptm": 0.0,
+  "d_complex_plddt": 0.0,
+  "d_complex_iplddt": 0.0,
+  "d_complex_pde": -0.004012,
+  "d_complex_ipde": -0.002711,
+  "pae_max_abs": 1.159904,
+  "pae_mean_abs": 0.04354,
+  "pae_mean_ref": 4.158651,
+  "pde_max_abs": 0.106743,
+  "pde_mean_abs": 0.00488,
+  "pde_mean_ref": 0.6078,
+  "plddt_max_abs": 0.0,
+  "plddt_mean_abs": 0.0,
+  "plddt_mean_ref": 0.871204
+ }
+}

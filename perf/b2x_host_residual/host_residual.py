@@ -302,6 +302,11 @@ def install_regions(reg, state, T, boltz2):
     ok["randaug"] = reg.patch(boltz2, "compute_random_augmentation", "randaug")
     ok["digest"] = reg.patch(boltz2, "_write_sample_digest", "digest")
     ok["confidence"] = reg.patch(boltz2.ConfidenceModule, "forward", "confidence")
+    # The head under the module: `confidence` exclusive is dominated by the four
+    # [1,n,n,token_z] -> 64 projections and the softmaxes over them, and no earlier run
+    # separated that from the pair assembly around it.
+    ok["conf_heads"] = reg.patch(boltz2.ConfidenceHeads, "forward", "conf_heads")
+    ok["conf_ptms"] = reg.patch(boltz2, "compute_ptms", "conf_ptms")
     # --- the host stages between the trunk and the sampler ----------------------------------
     # `predict_step` exclusive turned out to be the biggest single block of the fold's host
     # path, and `DiffusionConditioning` is 60.7 % of it: 120 GFLOP of dense fp32 matmul with no
