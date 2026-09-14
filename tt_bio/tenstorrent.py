@@ -4058,6 +4058,16 @@ def _pair_proj_minimal_matmul(x, w, ckc, dtype, bias=None):
 # the chain once one half is already resident; obw = 8 costs 2.45 ms/call. MEASURED on qb2 card 2,
 # whole FFN at [1,512,512,256] rows=32: 17.918 -> 14.662 ms, `torch.equal`
 # (perf/esm3p4/screen_a_c2.json, screen_b_c2.json).
+#
+# Accidentally safe on the 8x9 Galaxy, and measured there rather than assumed
+# (perf/roof_bh_env/results/pair_ffn_bw_*.json, j10glx02 card 0, real `SwiGLUFFN.__call__` so every
+# fallback the module owns is in the arm). Of the 320-1024 aa window the row block rides inside,
+# 320 aa is the only size where the L1 destination is actually served -- 160 of 160 calls -- and
+# there every width from 8 to 64 lands within 0.17 % of the shipped 16 on a 0.14 % A/A floor, with
+# obw = 32, the p300c's documented clash, serving all 160. At 384 and 512 aa the class takes one
+# refusal ("L1 clash: grid=(8, 6) cores=48 buffer_addr=331776 cb_end=681248 shortfall=349472") and
+# retires, 1 served / 1 refused / 190 and 254 blocked, and at 768 aa the config gate declines all
+# 384. So on this part the constant is dark at three of four sizes and inert at the fourth.
 _PAIR_FFN_FC1_BW = 1
 _PAIR_FFN_FC1_BLOCK_W = 16
 
