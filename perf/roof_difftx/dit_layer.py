@@ -434,6 +434,66 @@ def build(dev, blocks_of):
             out = o[0]
         return out
 
+    # ---- one whole sampling step, integrated -----------------------------------------
+    # The conditioning concatenation restructures ACROSS the 24 layers, so the only honest
+    # A/B for it is a whole step: 24 layers fed forward, one arm with the shipped module and
+    # one with a single concatenated pair of matmuls up front and per-layer slices taken
+    # where the layer needs them. Never the per-arm numbers multiplied together.
+    def _trans_with2(x, terms, s_o2, presig):
+        x = _adaln_with(ad2, x, terms)
+        sw = lin(x, tr.swish_weight)
+        ga = lin(x, tr.gates_weight)
+        sw = ttnn.multiply_(ga, sw, input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
+        ab = lin(x, tr.a_to_b_weight)
+        ttnn.deallocate(x)
+        b = ttnn.multiply_(sw, ab)
+        ttnn.deallocate(ab)
+        ba = lin(b, tr.b_to_a_weight)
+        ttnn.deallocate(b)
+        act = None if presig else [ttnn.UnaryOpType.SIGMOID]
+        out = (ttnn.multiply(s_o2, ba) if presig else
+               ttnn.multiply(s_o2, ba, input_tensor_a_activations=act))
+        ttnn.deallocate(ba)
+        return out
+
+    def _body(x, t1, s_o, t2, s_o2, l1):
+        b = _adaln_with(ad1, x, t1)
+        b = _apb_fused(b) if l1 else layer.attn_pair_bias(b, z)
+        b = ttnn.multiply(s_o, b)
+        y = ttnn.add(x, b)
+        ttnn.deallocate(b)
+        at = _trans_with2(y, t2, s_o2, True)
+        out = ttnn.add(y, at)
+        ttnn.deallocate(y); ttnn.deallocate(at)
+        return out
+
+    def step_ship():
+        x = a
+        for _ in range(NLAYERS):
+            nx = layer(x, s, z)
+            if x is not a:
+                ttnn.deallocate(x)
+            x = nx
+        return x
+
+    def _step_ncat(l1):
+        sh = ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=kc)
+        o1 = ttnn.linear(sh, w_ad, compute_kernel_config=kc)
+        ttnn.deallocate(sh)
+        o2 = ttnn.linear(s, w_op, compute_kernel_config=kc, activation="sigmoid")
+        x = a
+        for i in range(NLAYERS):
+            cut = [o1[:, :, (4 * i + j) * DIM:(4 * i + j + 1) * DIM] for j in range(4)]
+            so = [o2[:, :, (2 * i + j) * DIM:(2 * i + j + 1) * DIM] for j in range(2)]
+            nx = _body(x, (cut[0], cut[1]), so[0], (cut[2], cut[3]), so[1], l1)
+            for c in cut + so:
+                ttnn.deallocate(c)
+            if x is not a:
+                ttnn.deallocate(x)
+            x = nx
+        ttnn.deallocate(o1); ttnn.deallocate(o2)
+        return x
+
     # ---- the shape-honest arithmetic roof for this unit -------------------------------
     def mm_only():
         outs = [lin(s, ad1.s_scale_weight), lin(s, ad1.s_bias_weight),
@@ -485,6 +545,9 @@ def build(dev, blocks_of):
         "att_out_k768": (att_out_k768, _mm(S, DIM, DIM), 40),
         "op_slice_1x": (op_slice_1x, 0, 60),
         "sterms_step": (sterms_step, NLAYERS * F_SONLY, 2),
+        "step_ship": (step_ship, NLAYERS * F_LAYER, 1),
+        "step_ncat": (lambda: _step_ncat(False), NLAYERS * F_LAYER, 1),
+        "step_ncat_L1": (lambda: _step_ncat(True), NLAYERS * F_LAYER, 1),
         "sterms_ncat": (lambda: _ncat(True), NLAYERS * F_SONLY, 2),
         "sterms_ncat_noslice": (lambda: _ncat(False), NLAYERS * F_SONLY, 2),
         "sterms_b1": (sterms_b1, F_SONLY, 20),
@@ -492,6 +555,7 @@ def build(dev, blocks_of):
         "sterms_b%d_slice" % blocks_of: (sterms_bN_slice, blocks_of * F_SONLY,
                                          20 // blocks_of or 1),
     }
+    A["step_ship_AA"] = A["step_ship"]
     A["layer_L1L2_AA"] = A["layer_L1L2"]
     A["layer_ship_AA"] = A["layer_ship"]
     A["cube4096_AA"] = A["cube4096"]

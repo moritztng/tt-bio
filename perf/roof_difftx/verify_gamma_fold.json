@@ -1,0 +1,79 @@
+{
+ "dim": 768,
+ "tokens": 512,
+ "trials": 8,
+ "reference": "float64",
+ "mean": {
+  "shipped_rel_rms": 0.002347568539200667,
+  "folded_rel_rms": 0.002349034406253166,
+  "folded_vs_shipped_rel_rms": 0.003323354981329349,
+  "shipped_pcc": 0.9999972444709486,
+  "folded_pcc": 0.9999972410724819
+ },
+ "rows": [
+  {
+   "trial": 0,
+   "shipped_rel_rms": 0.0023508259443900384,
+   "shipped_pcc": 0.9999972367927084,
+   "folded_rel_rms": 0.0023496114271231733,
+   "folded_pcc": 0.9999972397017405,
+   "folded_vs_shipped_rel_rms": 0.0033266945634371327
+  },
+  {
+   "trial": 1,
+   "shipped_rel_rms": 0.002342541655982745,
+   "shipped_pcc": 0.9999972562662278,
+   "folded_rel_rms": 0.0023469418952368854,
+   "folded_pcc": 0.9999972459294539,
+   "folded_vs_shipped_rel_rms": 0.0033120189592558916
+  },
+  {
+   "trial": 2,
+   "shipped_rel_rms": 0.002346818017102347,
+   "shipped_pcc": 0.9999972462222072,
+   "folded_rel_rms": 0.002352345300878415,
+   "folded_pcc": 0.9999972333986836,
+   "folded_vs_shipped_rel_rms": 0.003334542223810449
+  },
+  {
+   "trial": 3,
+   "shipped_rel_rms": 0.002348385015289174,
+   "shipped_pcc": 0.999997242544698,
+   "folded_rel_rms": 0.0023461988426116153,
+   "folded_pcc": 0.9999972476445048,
+   "folded_vs_shipped_rel_rms": 0.0033100547348769564
+  },
+  {
+   "trial": 4,
+   "shipped_rel_rms": 0.0023428142769552785,
+   "shipped_pcc": 0.9999972556168896,
+   "folded_rel_rms": 0.0023482716966642097,
+   "folded_pcc": 0.9999972428216239,
+   "folded_vs_shipped_rel_rms": 0.003312722944099526
+  },
+  {
+   "trial": 5,
+   "shipped_rel_rms": 0.0023523676377868877,
+   "shipped_pcc": 0.9999972331986076,
+   "folded_rel_rms": 0.0023501041258762803,
+   "folded_pcc": 0.9999972386939172,
+   "folded_vs_shipped_rel_rms": 0.003329971935763607
+  },
+  {
+   "trial": 6,
+   "shipped_rel_rms": 0.0023476262338142785,
+   "shipped_pcc": 0.9999972444209139,
+   "folded_rel_rms": 0.00235146607642461,
+   "folded_pcc": 0.9999972353709367,
+   "folded_vs_shipped_rel_rms": 0.0033299974014779346
+  },
+  {
+   "trial": 7,
+   "shipped_rel_rms": 0.002349169532284588,
+   "shipped_pcc": 0.9999972407053364,
+   "folded_rel_rms": 0.002347335885210137,
+   "folded_pcc": 0.9999972450189941,
+   "folded_vs_shipped_rel_rms": 0.003330837087913293
+  }
+ ]
+}
