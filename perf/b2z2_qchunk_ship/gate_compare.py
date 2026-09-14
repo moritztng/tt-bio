@@ -177,6 +177,54 @@ def partial(workdir: Path) -> int:
     return 0 if moved == 0 else 1
 
 
+
+def _walk(node, path=""):
+    """Every leaf in a raw leg report, keyed by its path, so a diff can name what moved."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield from _walk(v, f"{path}.{k}" if path else k)
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from _walk(v, f"{path}[{i}]")
+    else:
+        yield path, node
+
+
+def against(ship_dir: Path, ctl_dir: Path) -> int:
+    """Score two gate workdirs leg by leg on their RAW reports, at full precision.
+
+    The control() consensus above is a pair of reports from trees main has since moved past, so a
+    non-PASS leg's digits drift with main and a real match reads as DIGITS-MOVED. When a gate has
+    been run on a tree that brackets the branch, its raw reports are the better control: both
+    sides are full-precision JSON, so the comparison is exact equality rather than a detail string
+    matched at the precision it happened to be printed to.
+
+    GATE_CODE.json is the tree fingerprint and is EXPECTED to differ; report.json is the summary.
+    """
+    skip = {"GATE_CODE", "report"}
+    ship = {q.stem for q in ship_dir.glob("*.json")} - skip
+    ctl = {q.stem for q in ctl_dir.glob("*.json")} - skip
+    both = sorted(ship & ctl)
+    bad = 0
+    print(f"ship {len(ship)} legs, control {len(ctl)} legs, {len(both)} comparable\n")
+    for leg in both:
+        a = dict(_walk(json.loads((ship_dir / f"{leg}.json").read_text())))
+        b = dict(_walk(json.loads((ctl_dir / f"{leg}.json").read_text())))
+        keys = sorted(set(a) | set(b))
+        diffs = [(k, b.get(k, "<absent>"), a.get(k, "<absent>"))
+                 for k in keys if a.get(k) != b.get(k)]
+        if not diffs:
+            print(f"{'IDENTICAL':14s} {leg:28s} {len(keys)} leaves equal at full precision")
+        else:
+            bad += 1
+            print(f"{'DIFFERS':14s} {leg:28s} {len(diffs)}/{len(keys)} leaves moved")
+            for k, cv, sv in diffs[:6]:
+                print(f"               {k}: control={cv} ship={sv}")
+    print(f"\n{len(both)} legs compared, {bad} differing")
+    print("RAW: IDENTICAL TO CONTROL" if bad == 0 else "RAW: DIFFERS FROM CONTROL")
+    return 0 if bad == 0 else 1
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--ship", type=Path)
@@ -189,5 +237,11 @@ if __name__ == "__main__":
                     help="a single-leg gate summary that supersedes the same leg in "
                          "--ship. A leg the full run lost to host contention is re-run "
                          "alone on a quiet card; this is where its result comes from.")
+    ap.add_argument("--against", type=Path,
+                    help="a second gate WORKDIR to score --partial against on raw digits, "
+                         "instead of the control consensus. Use when a gate exists on a tree "
+                         "that brackets the branch: the comparison becomes exact equality.")
     a = ap.parse_args()
+    if a.against:
+        raise SystemExit(against(a.partial, a.against))
     raise SystemExit(compare(a.ship, a.workdir, a.rerun) if a.ship else partial(a.partial))
