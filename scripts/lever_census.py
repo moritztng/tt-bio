@@ -116,6 +116,12 @@ LEVERS = [
      "tt_bio.softmax_generic.PVSTATS", "stats"),
     ("RFD3_FC1_SPLIT_SILU", "tt_bio.rfd3.model", "_FC1_SPLIT_SILU",
      "tt_bio.rfd3.model.FC1STATS", "stats"),
+    # The Transition row chunk. Not a boolean flag: the resolved value is the row height the
+    # unconditional base sits at, and "served" means a call ran a TALLER block than that. It had
+    # no counter at all, so `TRANSITION_H_CHUNK_BIG_MAX_W = 384` refusing the wider chunk at
+    # W=512 was invisible in a fold: the only reading was that nothing threw.
+    ("TRANSITION_H_CHUNK", "tt_bio.tenstorrent", "TRANSITION_H_CHUNK_SIZE",
+     "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS", "stats"),
 ]
 
 HOW = {flag: how for flag, _m, _a, _c, how in LEVERS}
@@ -148,6 +154,7 @@ REJECTS_ATTR = {
     # the opposite at key 6080. Dropping the shape would make the two indistinguishable.
     "RFD3_SOFTMAX_PV_FUSED": "tt_bio.softmax_generic.PVDECLINES",
     "RFD3_FC1_SPLIT_SILU": "tt_bio.rfd3.model.FC1DECLINES",
+    "TRANSITION_H_CHUNK": "tt_bio.tenstorrent.TRANSITION_H_CHUNK_REJECTS",
 }
 
 
