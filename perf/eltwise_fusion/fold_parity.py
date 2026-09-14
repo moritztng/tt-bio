@@ -36,7 +36,22 @@ sys.path.insert(0, str(REPO / "perf" / "b2x-flag-levers"))
 
 FIX = REPO / "perf" / "size512" / "fixtures"
 GATES = ("FUSE_SCALE_ADD", "FUSE_MASK_ADD", "FUSE_NORM_RESIDUAL")
-ARMS = {"off": False, "on": True, "off2": False}
+
+#: arm -> (set of gates to turn ON, seed offset). A per-gate arm is what makes the verdict
+#: per-site: the three fusions are independent ops and a single blanket reading cannot say
+#: which one moved the structure. The `seedN` arms are all-gates-OFF at a different seed --
+#: that is the SEED FLOOR, the only thing a non-bit-exact deviation can be judged against
+#: (memory bit-exactness-not-required-accuracy-bar-is).
+ARMS = {
+    "off":    (frozenset(), 0),
+    "on":     (frozenset(GATES), 0),
+    "scale":  (frozenset({"FUSE_SCALE_ADD"}), 0),
+    "mask":   (frozenset({"FUSE_MASK_ADD"}), 0),
+    "norm":   (frozenset({"FUSE_NORM_RESIDUAL"}), 0),
+    "off2":   (frozenset(), 0),
+    "seed1":  (frozenset(), 1),
+    "seed2":  (frozenset(), 2),
+}
 OUT: dict = {"arms": []}
 OUT_PATH: Path | None = None
 
@@ -135,10 +150,11 @@ def main() -> int:
     dump()
 
     def fold(arm, fixture):
-        on = ARMS[arm]
+        want, seed_off = ARMS[arm]
         for g in GATES:
-            setattr(EF, g, on)
-        assert all(getattr(EF, g) is on for g in GATES)
+            setattr(EF, g, g in want)
+        assert {g for g in GATES if getattr(EF, g)} == set(want)
+        cfg["seed"] = a.seed + seed_off
         for p in struct_dir.glob("*"):
             p.unlink() if p.is_file() else shutil.rmtree(p)
         ttnn.synchronize_device(dev)
@@ -152,14 +168,15 @@ def main() -> int:
         keep.mkdir(parents=True, exist_ok=True)
         dst = keep / f"{fixture}.cif"
         shutil.copy2(cifs[0], dst)
-        row = dict(arm=arm, fixture=fixture, gates_on=on, fold_s=round(wall, 3),
+        row = dict(arm=arm, fixture=fixture, gates_on=sorted(want), seed=cfg["seed"],
+                   fold_s=round(wall, 3),
                    plddt=metrics.get("complex_plddt", metrics.get("plddt")),
                    cif_sha256=hashlib.sha256(dst.read_bytes()).hexdigest(),
                    cif=str(dst), loadavg1=round(os.getloadavg()[0], 2))
         OUT["arms"].append(row)
         dump()
-        print(f"  {a.model} {fixture} {arm:4s} {wall:7.2f}s plddt={row['plddt']} "
-              f"sha={row['cif_sha256'][:16]}", flush=True)
+        print(f"  {a.model} {fixture} {arm:6s} seed{cfg['seed']} {wall:7.2f}s "
+              f"plddt={row['plddt']} sha={row['cif_sha256'][:16]}", flush=True)
         return row
 
     for fixture in a.fixtures.split(","):
@@ -174,24 +191,33 @@ def main() -> int:
         rows = {r["arm"]: r for r in OUT["arms"] if r["fixture"] == fixture}
         if "off" not in rows:
             continue
-        base = read_atoms(Path(rows["off"]["cif"]))
+        # read_atoms returns (keys, coords[N,3]); match on the key so a different atom
+        # ORDER cannot read as a displacement.
+        bk, bx = read_atoms(Path(rows["off"]["cif"]))
         sc = {}
-        for arm in ("on", "off2"):
+        for arm in [x for x in a.arms.split(",") if x != "off"]:
             if arm not in rows:
                 continue
-            cur = read_atoms(Path(rows[arm]["cif"]))
-            names = sorted(set(base) & set(cur)) if isinstance(base, dict) else None
-            if names is not None:
-                P = np.array([base[k] for k in names]); Q = np.array([cur[k] for k in names])
-            else:
-                P, Q = np.asarray(base), np.asarray(cur)
-                assert P.shape == Q.shape, f"atom count differs: {P.shape} vs {Q.shape}"
-            sc[arm] = dict(all_atom_rmsd=float(kabsch_rmsd(P, Q)),
-                           n_atoms=int(len(P)),
-                           bit_exact=(rows[arm]["cif_sha256"] == rows["off"]["cif_sha256"]))
+            ck, cx = read_atoms(Path(rows[arm]["cif"]))
+            common = sorted(set(bk) & set(ck))
+            bi = {k: i for i, k in enumerate(bk)}
+            ci = {k: i for i, k in enumerate(ck)}
+            P = bx[[bi[k] for k in common]]
+            Q = cx[[ci[k] for k in common]]
+            ca = [k for k in common if k[-2] == "CA"] if common and len(common[0]) >= 2 else []
+            sc[arm] = dict(
+                all_atom_rmsd=float(kabsch_rmsd(P, Q)), n_atoms=len(common),
+                n_off=len(bk), n_arm=len(ck),
+                max_atom_dev=float(np.abs(P - Q).max()) if len(common) else None,
+                ca_rmsd=(float(kabsch_rmsd(bx[[bi[k] for k in ca]], cx[[ci[k] for k in ca]]))
+                         if ca else None),
+                n_ca=len(ca),
+                bit_exact=(rows[arm]["cif_sha256"] == rows["off"]["cif_sha256"]))
             print(f"  SCORE {a.model} {fixture} {arm} vs off: "
                   f"all-atom {sc[arm]['all_atom_rmsd']:.6f} A "
-                  f"(bit-exact={sc[arm]['bit_exact']}, n={sc[arm]['n_atoms']})", flush=True)
+                  f"CA {sc[arm]['ca_rmsd']} maxdev {sc[arm]['max_atom_dev']} "
+                  f"(bit-exact={sc[arm]['bit_exact']}, n={sc[arm]['n_atoms']}/{sc[arm]['n_ca']}CA)",
+                  flush=True)
         OUT["scores"][fixture] = sc
     dump()
     print("wrote " + str(a.out), flush=True)
