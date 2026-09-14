@@ -198,7 +198,12 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
     for kc in SG.chunk_divisors(seq):
         for qc in SG.chunk_divisors(seq):
             q_pf = q_parallel_factor(seq, heads, qc, cores)
-            p = SG.plan_for_shape(seq, heads, head_dim, qc, kc, split=(
+            # `plan` reads the grid only as a core count here, and its split assert is against
+            # that count -- so the grid has to carry the caller's `cores`, not the module default.
+            # On a 13x10 p150a (130 cores) the default (11, 10) made every candidate assert
+            # instead of answering, so `TT_BIO_SDPA_FUSED_LARGE_S=1` raised AssertionError out of
+            # the fold rather than falling through to the stock ladder.
+            p = SG.plan_for_shape(seq, heads, head_dim, qc, kc, grid=(cores, 1), split=(
                 max(cores // (heads * q_pf), 1), heads, q_pf), dtype=mask_dtype)
             if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"]:
                 continue
