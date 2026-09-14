@@ -5399,6 +5399,27 @@ TRIMUL_TAIL_F1 = True
 _TRIMUL_TAIL_F1 = os.environ.get(
     "TT_BIO_TRIMUL_TAIL_F1", "1" if TRIMUL_TAIL_F1 else "0") == "1"
 
+# Where F1's product lands. `fused_tail` shipped allocating it in DRAM, which is right only where
+# the tail it replaces was already DRAM-resident. At c_z = 128 it is not: `_trimul_out_proj` puts
+# `p_out` in L1 and `multiply_` folds the gate into that buffer in place, so a DRAM product turns
+# the one round trip F1 is supposed to delete into two it adds.
+#
+# The link this is aimed at is rank 5 of `perf/roof_orchestrator/FUSION_PAIRS.md`: 268.4 MB of one
+# Pairformer block, the tail's `g_out` projection writing a 67.11 MB pair tensor to DRAM for
+# `multiply_` to read straight back and nothing else to touch. The trace says why only `g_out`
+# round-trips -- `p_out` already holds the single L1 slot a 512 aa pair tensor fits in, so the
+# second projection's own `l1_out=True` is refused and falls to the DRAM leg. One kernel over both
+# projections is the only way to have neither of them in DRAM.
+TRIMUL_TAIL_F1_L1_OUT = True
+_TRIMUL_TAIL_F1_L1_OUT = env_flag("TT_BIO_TRIMUL_TAIL_F1_L1_OUT", TRIMUL_TAIL_F1_L1_OUT)
+
+
+def set_trimul_tail_f1_l1_out(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _TRIMUL_TAIL_F1_L1_OUT
+    prev, _TRIMUL_TAIL_F1_L1_OUT = _TRIMUL_TAIL_F1_L1_OUT, bool(on)
+    return prev
+
 # The trimul reads its own normed input TWICE: the fused four-way in-projection reads all 67.1 MB
 # of it at 512 aa, and so does the output gate `g_out` at the tail. One allocation, no write in
 # between -- 134.2 MB of the block's 8.05 GB, rank 2 of `perf/b2z2_byte_floor/CENSUS.md`.
@@ -6418,9 +6439,19 @@ class TriangleMultiplication(Module):
                 and self.g_out_bias is None):
             # `fused_tail` returns None for any call its descriptor does not cover (at 512 aa that
             # is the narrow-hidden trimuls, k_tiles=2), and the three ops below run unchanged.
+            # The product goes where `multiply_` would have left it: L1 when a pair tensor fits
+            # there, which is the same test `_trimul_out_proj` applies to `p_out`. Reserve the
+            # consumer's circular buffers underneath it, as the mask path does.
+            out_mc = None
+            if _TRIMUL_TAIL_F1_L1_OUT and _l1_fits(
+                    _padded_bytes([int(d) for d in x.shape][:-1]
+                                  + [int(self.out_p_weight.shape[-1])], 2),
+                    1.0, _PAIR_L1_CONSUMER_RESERVE):
+                out_mc = ttnn.L1_MEMORY_CONFIG
             fused = _trimul_tail.fused_tail(
                 x, x_norm_in, self.out_p_weight, self.g_out_weight,
-                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+                out_memory_config=out_mc)
             if fused is not None:
                 ttnn.deallocate(x)
                 ttnn.deallocate(x_norm_in)
