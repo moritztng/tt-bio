@@ -46,10 +46,25 @@ void kernel_main() {
     // src_addr is the only value that changes between calls at a fixed (N, C, buffer type, grid),
     // so it lives in the common runtime args and the host caches the whole ProgramDescriptor.
     const uint32_t src_addr = get_common_arg_val<uint32_t>(0);
-    const uint32_t start_group = get_arg_val<uint32_t>(0);
+    const uint32_t first_group = get_arg_val<uint32_t>(0);
     const uint32_t num_groups = get_arg_val<uint32_t>(1);
     const uint32_t Nt = get_arg_val<uint32_t>(2);
     const uint32_t Ct = get_arg_val<uint32_t>(3);
+    // The group walk is (first, stride, wrap), not (start, +1), and that is a bandwidth decision.
+    // Interleaved DRAM puts page p in bank p % 8 and every page of group g is congruent to g, so
+    // the cores running their i-th group together land on banks {first_k + i*stride}. A plain
+    // contiguous block makes first_k = k*w, which covers 8/gcd(w, 8) of them: two of eight at
+    // w = 4, measured 1.71x slower per wave than w = 5 at the same traffic. Two ways out, and the
+    // host picks between them per split (see `tt_bio/reblock_permute.py`):
+    //   stride = num_cores   concurrent groups become consecutive indices;
+    //   wrap                 the block is kept and its START is rotated by the core's own phase,
+    //                        which spreads the banks the same way without scattering the pages.
+    // A core walks `num_groups` steps of `group_stride` from `first_group`, folding back to
+    // `group_wrap_lo` whenever it reaches `group_wrap_hi`. Blocked order is stride 1 and a wrap
+    // that never fires, so all three modes are this one loop.
+    const uint32_t group_stride = get_arg_val<uint32_t>(4);
+    const uint32_t group_wrap_hi = get_arg_val<uint32_t>(5);
+    const uint32_t group_wrap_lo = get_arg_val<uint32_t>(6);
 
     constexpr uint32_t element_size = get_compile_time_arg_val(0);
     constexpr uint32_t scratch_cb_id = get_compile_time_arg_val(1);  // c_24
@@ -70,7 +85,6 @@ void kernel_main() {
 
     const uint32_t NtNt = Nt * Nt;
     const uint32_t NtCt = Nt * Ct;
-    const uint32_t end_group = start_group + num_groups;
 
     // The scratch window is this RISC's private staging area, not a producer/consumer queue: the
     // same kernel writes it and reads it, so it is reserved ONCE and addressed directly, the way the
@@ -98,7 +112,8 @@ void kernel_main() {
     //     forward writer gets to set it once because a writer issues no reads but its own gather.
     const uint64_t gather_state_addr = get_noc_addr(group_l1_base);
 
-    for (uint32_t group = start_group; group < end_group; ++group) {
+    uint32_t group = first_group;
+    for (uint32_t gi = 0; gi < num_groups; ++gi) {
         const uint32_t it = group / NtCt;
         const uint32_t rem = group - it * NtCt;
         const uint32_t jt = rem / Ct;
@@ -155,5 +170,10 @@ void kernel_main() {
             cb_push_back(in_cb_id, 1);
         }
 
+
+        group += group_stride;
+        if (group == group_wrap_hi) {
+            group = group_wrap_lo;
+        }
     }
 }

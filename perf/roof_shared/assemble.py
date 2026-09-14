@@ -35,8 +35,12 @@ REF_TAGS = ["gpurefshared-s0", "gpuref-s0", "gpuref-s1", "gpuref-s2", "gpuref-s3
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tt-runs", type=Path, required=True)
-    ap.add_argument("--tt-cif", type=Path, required=True)
+    # Comma-separated so several TT run records can be laid out side by side in one scoring
+    # directory: `k10-p2-accuracy-arithmetic-isolation` scores this task's device arm against its
+    # own CPU fp32/bf16 arms, and a second assembler would be a second instrument.
+    ap.add_argument("--tt-runs", required=True, help="comma-separated fold jsons")
+    ap.add_argument("--tt-cif", required=True, help="comma-separated cif dirs, paired with --tt-runs")
+    ap.add_argument("--sizes", default="", help="restrict to these sizes (comma separated)")
     ap.add_argument("--out-cifdir", type=Path, required=True)
     ap.add_argument("--out-runs", type=Path, required=True)
     a = ap.parse_args()
@@ -44,16 +48,25 @@ def main() -> int:
     shutil.rmtree(a.out_cifdir, ignore_errors=True)
     a.out_cifdir.mkdir(parents=True)
 
-    tt = json.loads(a.tt_runs.read_text())
-    runs, env = [], {"tt": tt["env"]}
+    run_paths = [Path(x) for x in a.tt_runs.split(",")]
+    cif_dirs = [Path(x) for x in a.tt_cif.split(",")]
+    assert len(run_paths) == len(cif_dirs), "--tt-runs and --tt-cif must pair up"
+    keep = {s for s in a.sizes.split(",") if s}
+    runs, env, sizes = [], {}, set()
 
-    for r in tt["runs"]:
-        size = r["target"].split("_")[-1]
-        cif = next((a.tt_cif / f"{size}_{r['tag']}").glob("*.cif"))
-        dst = a.out_cifdir / f"{size}_{r['tag']}"
-        dst.mkdir(exist_ok=True)
-        shutil.copy(cif, dst / cif.name)
-        runs.append(r)
+    for rp, cd in zip(run_paths, cif_dirs):
+        tt = json.loads(rp.read_text())
+        env[f"tt:{rp.parent.parent.name}"] = tt["env"]
+        for r in tt["runs"]:
+            size = r["target"].split("_")[-1]
+            if keep and size not in keep:
+                continue
+            sizes.add(size)
+            cif = next((cd / f"{size}_{r['tag']}").glob("*.cif"))
+            dst = a.out_cifdir / f"{size}_{r['tag']}"
+            dst.mkdir(exist_ok=True)
+            shutil.copy(cif, dst / cif.name)
+            runs.append(r)
 
     ref = {}
     for p in sorted(REFRUNS.glob("runs_*.json")):
@@ -62,7 +75,7 @@ def main() -> int:
         for r in g["runs"]:
             ref[(r["target"], r["tag"])] = r
 
-    for size in {r["target"].split("_")[-1] for r in tt["runs"]}:
+    for size in sorted(sizes):
         target = f"cdk2x2_{size}"
         for tag in REF_TAGS:
             src = REFCIF / f"{size}_{tag}"

@@ -1,0 +1,151 @@
+{
+ "inner": 32,
+ "reps": 9,
+ "rows": [
+  {
+   "block": [
+    8,
+    2,
+    1,
+    4,
+    1
+   ],
+   "grid": [
+    8,
+    8
+   ],
+   "linear_ms": 0.07552,
+   "native": {
+    "ms": 0.06932,
+    "vs_linear": 1.0895,
+    "spread_pct": 1.77
+   },
+   "generic_fresh": {
+    "ms": 0.08082,
+    "vs_linear": 0.9344,
+    "spread_pct": 16.91
+   },
+   "generic_fixed": {
+    "ms": 0.07057,
+    "vs_linear": 1.0702,
+    "spread_pct": 2.33
+   }
+  },
+  {
+   "block": [
+    8,
+    2,
+    2,
+    2,
+    2
+   ],
+   "grid": [
+    8,
+    8
+   ],
+   "linear_ms": 0.07558,
+   "native": {
+    "ms": 0.07353,
+    "vs_linear": 1.0278,
+    "spread_pct": 3.27
+   },
+   "generic_fresh": {
+    "ms": 0.08396,
+    "vs_linear": 0.9002,
+    "spread_pct": 60.04
+   },
+   "generic_fixed": {
+    "ms": 0.07427,
+    "vs_linear": 1.0176,
+    "spread_pct": 43.76
+   }
+  },
+  {
+   "block": [
+    4,
+    2,
+    2,
+    2,
+    2
+   ],
+   "grid": [
+    8,
+    9
+   ],
+   "linear_ms": 0.0757,
+   "native": {
+    "ms": 0.07628,
+    "vs_linear": 0.9925,
+    "spread_pct": 1.9
+   },
+   "generic_fresh": {
+    "ms": 0.10141,
+    "vs_linear": 0.7465,
+    "spread_pct": 52.49
+   },
+   "generic_fixed": {
+    "ms": 0.08397,
+    "vs_linear": 0.9015,
+    "spread_pct": 58.05
+   }
+  },
+  {
+   "block": [
+    8,
+    2,
+    2,
+    2,
+    2
+   ],
+   "grid": [
+    8,
+    9
+   ],
+   "linear_ms": 0.07562,
+   "native": {
+    "ms": 0.07383,
+    "vs_linear": 1.0243,
+    "spread_pct": 1.01
+   },
+   "generic_fresh": {
+    "ms": 0.09036,
+    "vs_linear": 0.8368,
+    "spread_pct": 6.36
+   },
+   "generic_fixed": {
+    "ms": 0.07603,
+    "vs_linear": 0.9946,
+    "spread_pct": 1.99
+   }
+  },
+  {
+   "block": [
+    4,
+    4,
+    1,
+    4,
+    1
+   ],
+   "grid": [
+    8,
+    9
+   ],
+   "linear_ms": 0.07575,
+   "native": {
+    "ms": 0.08065,
+    "vs_linear": 0.9393,
+    "spread_pct": 1.17
+   },
+   "generic_fresh": {
+    "ms": 0.09038,
+    "vs_linear": 0.8382,
+    "spread_pct": 1.92
+   },
+   "generic_fixed": {
+    "ms": 0.08177,
+    "vs_linear": 0.9264,
+    "spread_pct": 1.42
+   }
+  }
+ ]
+}

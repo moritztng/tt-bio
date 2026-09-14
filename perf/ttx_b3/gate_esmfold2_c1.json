@@ -1,0 +1,65 @@
+{
+  "legs": [
+    {
+      "leg": "esmfold2-trpcage",
+      "verdict": "PASS",
+      "detail": "4 proteins scored (4 within floor)",
+      "wall": 624.262236217,
+      "committed": "PASS",
+      "report": "esmfold2-trpcage.json"
+    },
+    {
+      "leg": "esmfold2-fast-trpcage",
+      "verdict": "PASS",
+      "detail": "4 proteins scored (4 within floor)",
+      "wall": 325.06086511,
+      "committed": "PASS",
+      "report": "esmfold2-fast-trpcage.json"
+    },
+    {
+      "leg": "esmfold2-cocrystal",
+      "verdict": "PASS",
+      "detail": "1 proteins scored (1 within floor)",
+      "wall": 227.16076479699996,
+      "committed": "PASS",
+      "report": "esmfold2-cocrystal.json"
+    }
+  ],
+  "tally": {
+    "PASS": 3
+  },
+  "scored": 3,
+  "total_wall_s": 1176.484355411,
+  "card_grant": [
+    1
+  ],
+  "skipped_for_card_grant": [],
+  "workers": [
+    "tt-quietbox2:1"
+  ],
+  "stack": {
+    "tt_kmd": "2.11.0",
+    "cards": {
+      "0": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "1": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "2": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      },
+      "3": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      }
+    }
+  }
+}

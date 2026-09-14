@@ -536,7 +536,7 @@ MSA results are cached in `<out_dir>/msa/` (default `./msa/`), keyed by sequence
 
 ### Confidence Scores
 
-Each target entry in `results.json` contains confidence metrics. The fields below are Boltz-2's; Protenix-v2 and OpenFold3 report the same `confidence_score` / `ptm` / `iptm` / `plddt` (and `all_runs` when `--diffusion_samples` > 1, ranked best-first), while an ESMFold2 entry instead carries `plddt` (mean, 0-1), `ptm` when available, and `n_residues` / `n_chains`.
+Each target entry in `results.json` contains confidence metrics. The fields below are Boltz-2's; Protenix-v2 and OpenFold3 report the same `confidence_score` / `ptm` / `iptm` / `plddt` (and `all_runs` when `--diffusion_samples` > 1, ranked best-first), while an ESMFold2 entry instead carries `plddt` (mean, 0-1), `ptm` when available, and `n_residues` / `n_chains`. Every model reports its complex mean pLDDT under `plddt`.
 
 ```json
 {
@@ -546,6 +546,7 @@ Each target entry in `results.json` contains confidence metrics. The fields belo
     "ptm": 0.84,
     "iptm": 0.82,
     "complex_plddt": 0.84,
+    "plddt": 0.84,
     "chains_ptm": {
         "0": 0.85,
         "1": 0.83
@@ -557,10 +558,10 @@ Each target entry in `results.json` contains confidence metrics. The fields belo
 }
 ```
 
-- `confidence_score`: Overall confidence (0-1, higher is better), calculated as 0.8 × `complex_plddt` + 0.2 × `iptm`. Models are ranked by this score. OpenFold3 uses its own upstream ranking score instead (0.8 × `iptm` + 0.2 × `ptm` + 0.5 × disorder − 100 × clash), so its values are not comparable to the other models'
+- `confidence_score`: Overall confidence (0-1, higher is better), calculated as 0.8 × `complex_plddt` + 0.2 × `iptm`, or 0.8 × `complex_plddt` + 0.2 × `ptm` for a single-chain target, where there is no interface and `iptm` is 0. Models are ranked by this score. It is not a pLDDT and can sit either side of one: on CDK2 it is 0.008 above `complex_plddt` at 298 aa and 0.050 below it at 512 aa. OpenFold3 uses its own upstream ranking score instead (0.8 × `iptm` + 0.2 × `ptm` + 0.5 × disorder − 100 × clash), so its values are not comparable to the other models'
 - `ptm`: Predicted TM-score for complex (0-1)
 - `iptm`: Interface TM-score (0-1)
-- `complex_plddt`: Average per-residue confidence (0-1)
+- `complex_plddt`, `plddt`: Mean confidence (0-1), the same value under both names. It is the mean of the B-factor column of the structure file the same fold wrote, so averaging that column reproduces it. Boltz-2 writes one pLDDT per residue, so average over one atom per residue (CA); Protenix-v2, OpenFold3, OpenBind-0 and OpenDDE write one per atom, so average over all of them
 - `chains_ptm`: Per-chain TM-scores (0-1)
 - `pair_chains_iptm`: Per-chain-pair interface TM-scores (0-1)
 
@@ -771,9 +772,12 @@ The engine ships its device optimizations on. Each one is an environment variabl
 | `TT_BIO_DEVICE_ZINIT` | on | Boltz-2 only: builds the trunk's `z_init` pair tensor on the card instead of in torch, so the 134 MB upload at 512 tokens never happens. Folds 512 residues **1.01955x faster on Blackhole**, ten of ten paired reps positive. **Not bit-exact** — device bf16 where the host path was fp32. Moves a 298 aa structure 0.264 Å all-atom inside its 0.35 Å bar, and native CA-lDDT against 1HCL is flat over eight seeds. |
 | `TT_BIO_FUSE_BIAS_STACKS` | on | Boltz-2 only: builds the diffusion conditioning's per-layer bias stack in one pass instead of one call per layer. **Not bit-exact** — moves a 298 aa structure 0.218 Å all-atom, inside its 0.35 Å bar. |
 | `TT_BIO_GATE_GRANULARITY` | 2 | Tiles per DST acquire in the reblock-permute gate kernel. Same structure, bit for bit at every value; 2 is the setting that wins on Blackhole without losing much on Wormhole. |
+| `TT_BIO_MSA_LADDER` | on | Boltz-2 and BoltzGen: pads the MSA depth axis to the smallest of 64, 128, 256, 512, 1024 that holds the alignment instead of always to 1024, so a shallow search stops carrying rows that are not there. **Not bit-exact** — a shorter rung reassociates the same terms. Scored against 1HCL it is as accurate or closer. |
+| `TT_BIO_PAIR_FFN_L1_FC1` | on | ESMFold2 only: keeps both halves of the pair transition's first matmul in L1, so the SiLU multiply that consumes them reads on chip instead of out of DRAM. Folds 512 residues **1.0879x faster on Blackhole**. Same structure, bit for bit; it pays up to 512 residues and is inert above, where the block leaves it no room. |
 | `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` | on | Computes every attention head's MSA row weights from one projection of the pair tensor instead of one projection per head. Same structure, bit for bit. |
 | `TT_BIO_RESIDUAL_L1` | on | Has the two Pairformer sub-layers whose residual update used to go to DRAM and come straight back write it to L1 instead. Same structure, bit for bit; the update stays in DRAM above 512 residues, where it no longer fits. |
 | `TT_BIO_SDPA_ADD_GRANULARITY` | auto | Batches the fused SDPA kernel's running-sum/max and mask adds instead of doing them one tile at a time. Same structure, bit for bit at every granularity. |
+| `TT_BIO_SDPA_FUSED_LARGE_S` | off | Runs triangle attention through the fused mask kernel above 1024 tokens, where the chunk ladder otherwise hands the call back to the stock attention. Worth **4.23x on the attention op** at 1536 tokens and **1.1973x on a trunk-dominated 1536-residue fold** (28.9 s saved). It ships off because that fold ran 20 sampling steps rather than the default 200, so the saving's share of a full fold is not measured yet. **Not bit-exact** above 1024 tokens, where nothing reached this kernel before, so no structure that folds today changes: it moves a 1536-residue structure 1.007 Å where a different seed moves it 36.6 Å, and pLDDT comes out 0.35 of 100 higher. At and below 1024 tokens the path is untouched. |
 | `TT_BIO_SDPA_GRID_Q_CHUNK` | on | Sizes each attention's query chunk to the card's compute grid instead of a fixed cap, so a small attention fills the cores it has. Same structure, bit for bit. |
 | `TT_BIO_TRIATT_FUSED_QKVG` | on | Projects a triangle attention's query, key, value and gate in one pass over the pair tensor instead of two. Same structure, bit for bit. |
 | `TT_BIO_TRIATT_FUSED_QKVGB` | on | Adds the pair-bias projection to that same pass, so the pair tensor is read once instead of three times. Same structure, bit for bit; chains of 32 residues or fewer keep the separate projection. |

@@ -1336,7 +1336,7 @@ class _WorkerState:
             # Abandoned, not failed: the caller has to be able to tell those apart, so this
             # returns metrics rather than raising, and writes no structure.
             return ({"early_stopped": True,
-                     "plddt": round(got["mean_plddt"] * 100, 4),
+                     "plddt": round(got["mean_plddt"], 6),
                      "early_stop_plddt": got["early_stop_plddt"],
                      "n_tokens": int(f["asym_id"].reshape(-1).shape[0]),
                      "n_atoms": int(atom_array.array_length()),
@@ -1373,9 +1373,11 @@ class _WorkerState:
 
         def scalars(r):
             sm = r["summary"]
-            # pLDDT is [0, 1] out of the head; report it on the 0-100 scale every other
-            # model in this repo reports, so one dataset harness reads them all.
-            return {"plddt": round(float(r["plddt"].mean()) * 100, 4),
+            # pLDDT is [0, 1] out of the head and is reported that way, which is what every
+            # other model in this repo reports and what --early_stop_plddt is compared against.
+            # The B-factor column is the same value times 100, the PDB convention, so mean
+            # B-factor / 100 reproduces this number (perf/plddt_column/FINDINGS.md).
+            return {"plddt": round(float(r["plddt"].mean()), 6),
                     "ptm": round(sm["ptm"], 4),
                     "iptm": round(sm["iptm"], 4) if sm["iptm"] is not None else None,
                     "ranking_score": sm["ranking_score"],

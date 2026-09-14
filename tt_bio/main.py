@@ -829,7 +829,16 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
                    "complex_plddt", "complex_iplddt", "complex_pde", "complex_ipde"]
 
     def _scalars(idx):
-        return {k: round(pred[k][idx].item(), 6) if k in pred else 0.0 for k in scalar_keys}
+        m = {k: round(pred[k][idx].item(), 6) if k in pred else 0.0 for k in scalar_keys}
+        # `plddt` is the key every other model reports the complex mean under: worker.py's `_row`
+        # emits it for Protenix-v2 / OpenFold3 / OpenBind-0 / OpenDDE, and ESMFold2 and RF3 have
+        # only it. Boltz-2 was the one model without it, so a reader asking for
+        # metrics["plddt"] fell through to whatever fallback it carried -- for
+        # perf/k10_p2/fold_cpu_ref.py that was confidence_score, which is 0.8*plDDT + 0.2*pTM and
+        # so sat 0.008 above the CIF's plDDT column at 298 aa and 0.050 below it at 512 aa.
+        # pred["plddt"] here is the per-residue vector, not a scalar, hence the mirror.
+        m["plddt"] = m["complex_plddt"]
+        return m
 
     def _pair_chains(idx):
         """Per-sample chain-pair ipTM / per-chain pTM. Same source as the winner-only block

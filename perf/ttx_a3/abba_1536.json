@@ -1,0 +1,51 @@
+{
+ "fixture": "cdk2x2_1536",
+ "reps": 3,
+ "steps": 200,
+ "recycles": 3,
+ "host": "tt-quietbox2",
+ "card": "2",
+ "grid": [
+  11,
+  10
+ ],
+ "commit": "9460ab75de75c51e9636ef1ec6e75975d04910cb",
+ "folds": [
+  {
+   "arm": "off",
+   "rep": -1,
+   "warmup": true,
+   "fold_s": 178.911,
+   "plddt": 0.786016,
+   "cif_sha256": "8d59c0c9f1de18fe1e7688f2b28f18cb851198f13985f9f743297339873808e0",
+   "served": 0,
+   "declined": 1682,
+   "picks": {
+    "(1536, 1536)": [
+     512,
+     256,
+     "stock"
+    ]
+   },
+   "loadavg": 3.32
+  },
+  {
+   "arm": "on",
+   "rep": -1,
+   "warmup": true,
+   "fold_s": 206.857,
+   "plddt": 0.789493,
+   "cif_sha256": "b958efce1ee4ff7d65f15826107261e2eff39eaf3d74ec82f4fffb3678c748b1",
+   "served": 560,
+   "declined": 0,
+   "picks": {
+    "(1536, 1536)": [
+     256,
+     512,
+     "fused"
+    ]
+   },
+   "loadavg": 3.08
+  }
+ ]
+}

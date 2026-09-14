@@ -1,0 +1,29 @@
+{
+ "model": "openfold3",
+ "fixture": "cdk2x2_298",
+ "fold_s": 11.423,
+ "error": null,
+ "host": "tt-quietbox2",
+ "card": "2",
+ "protocol": {
+  "recycles": 1,
+  "steps": 50,
+  "samples": 1,
+  "seed": 0
+ },
+ "totals": {
+  "scale_add": 1503,
+  "mask_add": 1504
+ },
+ "per_site": {
+  "scale_add": {
+   "openfold3_diffusion_transformer.py:202 (1, 16, 320, 320) (1, 16, 320, 320)": 1200,
+   "openfold3_atom_transformer.py:180 (1, 75, 4, 32, 128) (1, 75, 1, 32, 128)": 303
+  },
+  "mask_add": {
+   "openfold3_diffusion_transformer.py:241 (1, 320, 768) (1, 320, 768) (1, 320, 1)": 1200,
+   "openfold3_atom_transformer.py:213 (1, 2400, 128) (1, 2400, 128) (1, 2400, 1)": 303,
+   "openfold3_diffusion_module.py:343 (1, 75, 32, 128, 16) (1, 75, 32, 128, 16) (1, 75, 32, 128, 1)": 1
+  }
+ }
+}

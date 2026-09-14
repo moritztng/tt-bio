@@ -32,10 +32,10 @@ def ladder(S, heads, cores, q_split_max):
         tried = []
 
         def consider(qc, kc):
-            p = M.plan_for(S, heads, HEAD_DIM, qc, kc)
+            p = M.plan_for(S, heads, HEAD_DIM, qc, kc, grid=(cores, 1))
             pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
             q_pf = TS.q_parallel_factor(S, heads, qc, cores)
-            fp = M.plan_for(S, heads, HEAD_DIM, qc, kc,
+            fp = M.plan_for(S, heads, HEAD_DIM, qc, kc, grid=(cores, 1),
                             split=(max(cores // (heads * q_pf), 1), heads, q_pf))
             fused_ok = (fp["q_per_core"] == 1 and fp["nh_per_core"] == 1
                         and not fp["use_padded_mask"]
@@ -66,25 +66,25 @@ def ladder(S, heads, cores, q_split_max):
 
 
 def best_fused(S, heads, cores, q_split_max):
-    """The fused pair with the widest k that fits, over the 32-aligned divisors of S. Widest k
-    first because K5 measured widest-k winning at every size it screened, and one k chunk needs
-    no online-softmax rescale at all."""
-    divs = sorted({S // n for n in range(1, S // 32 + 1)
-                   if S % n == 0 and (S // n) % 32 == 0}, reverse=True)
+    """K6's own pick: the first entry of `triatt_sdpa.fused_pairs`, which is the widest k that
+    fits and the widest q under it. Asked of the shipped function rather than re-derived, so this
+    script cannot drift from what `_tri_att_sdpa_at` actually runs under
+    `TT_BIO_SDPA_FUSED_LARGE_S=1`."""
     prev, TS._Q_SPLIT_MAX_S = TS._Q_SPLIT_MAX_S, q_split_max
+    TS.fused_pairs.cache_clear()
     try:
-        for kc in divs:
-            for qc in divs:
-                q_pf = TS.q_parallel_factor(S, heads, qc, cores)
-                fp = M.plan_for(S, heads, HEAD_DIM, qc, kc,
-                                split=(max(cores // (heads * q_pf), 1), heads, q_pf))
-                pers = fp["k_num_chunks"] * fp["Sq_chunk_t"] * fp["Sk_chunk_t"]
-                if (fp["q_per_core"] == 1 and fp["nh_per_core"] == 1
-                        and not fp["use_padded_mask"] and M.fits(fp, mask_cb_tiles=pers)):
-                    return qc, kc, M.reported_bytes(fp, mask_cb_tiles=pers)
-        return None
+        pairs = TS.fused_pairs(S, heads, HEAD_DIM, cores)
+        if not pairs:
+            return None
+        qc, kc = pairs[0]
+        q_pf = TS.q_parallel_factor(S, heads, qc, cores)
+        fp = M.plan_for(S, heads, HEAD_DIM, qc, kc, grid=(cores, 1),
+                        split=(max(cores // (heads * q_pf), 1), heads, q_pf))
+        pers = fp["k_num_chunks"] * fp["Sq_chunk_t"] * fp["Sk_chunk_t"]
+        return qc, kc, M.reported_bytes(fp, mask_cb_tiles=pers)
     finally:
         TS._Q_SPLIT_MAX_S = prev
+        TS.fused_pairs.cache_clear()
 
 
 def main():
@@ -117,16 +117,20 @@ def main():
         print(f"{S:7d} {a[0]+' q'+str(a[1])+' k'+str(a[2]):>22} "
               f"{b[0]+' q'+str(b[1])+' k'+str(b[2]):>22} "
               f"{('-' if bf is None else 'q'+str(bf[0])+' k'+str(bf[1])):>22}")
+    n_fused_now = sum(r["shipped"][0] == "fused" for r in rows)
+    n_fused_raised = sum(r["raised"][0] == "fused" for r in rows)
+    n_k6 = sum(r["widest_fused"] is not None for r in rows)
     if args.out:
         with open(args.out, "w") as fh:
             json.dump({"grid": args.grid, "cores": cores, "heads": args.heads,
+                       "n_fused_shipped": n_fused_now, "n_fused_raised": n_fused_raised,
+                       "n_fused_k6": n_k6,
                        "shipped_q_split_max": shipped, "raised": args.raised,
                        "wide_k": T._sdpa_wide_k(),
                        "narrow_q": T._SDPA_NARROW_Q_FALLBACK, "rows": rows}, fh, indent=2)
-    n_fused_now = sum(r["shipped"][0] == "fused" for r in rows)
-    n_fused_raised = sum(r["raised"][0] == "fused" for r in rows)
     print(f"\nfused on the shipped ladder: {n_fused_now}/{len(rows)} lengths; "
-          f"with _Q_SPLIT_MAX_S={args.raised}: {n_fused_raised}/{len(rows)}")
+          f"with _Q_SPLIT_MAX_S={args.raised}: {n_fused_raised}/{len(rows)}; "
+          f"with TT_BIO_SDPA_FUSED_LARGE_S=1 on top: {n_k6}/{len(rows)}")
 
 
 main()

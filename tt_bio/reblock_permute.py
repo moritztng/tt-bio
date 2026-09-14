@@ -91,14 +91,71 @@ REJECTS: dict = {}
 # 15 deep. `scripts/verify_core_split.py` prints that census and checks the replacement against the
 # wheel on every unit count the wheel can serve.
 
-# How many cores a split may use, 0 meaning the whole grid. A knob, not a tuning: the whole grid is
-# what every shape the wheel could already split gets today, and the sweep that measured this leg
-# against core count found no rule that picks the best point. At 400 groups the whole grid is the
-# fastest of eleven counts and 100 cores the slowest (1.185x); at 900 groups it is the other way
-# round, 100 cores 1.129x ahead of the whole grid, and the forward and back legs agree within a
-# shape against a 0.3 % A/A floor. Every point is bit-identical against `ttnn.permute`, so this
-# moves scheduling and never a number. See `perf/ttx_splitwork/core_count_sweep.py`.
+# How many cores a split may use, 0 meaning the whole grid. The whole grid is right at every shape
+# measured and this exists only to reproduce a reduced grid for an A/B.
+#
+# It used to look like a real tuning knob: sweeping it moved this leg 1.10x-1.19x with optima at
+# 80/100/88 cores rather than 110, and the best count differed per shape. That was an artifact of
+# how groups are handed to cores, not a property of the core count -- see `WALK` below for the bank
+# arithmetic. Once the aliasing is removed the cost is a function of depth alone: the 400-group
+# 80..99-core band lands within 1.2% of itself where it spread 1.30x, and the whole grid is the
+# fastest point at all four shapes. So there was never a core count to fit.
+# `perf/ttx_splitwork/core_count_sweep.py` is the harness and the JSON sits beside it.
 REBLOCK_CORES = int(os.environ.get("TT_BIO_REBLOCK_CORES", "0"))
+
+# How a core walks the groups it owns. Every mode gives every core the SAME groups and the same
+# count, so the output is bit-identical; what moves is which groups are in flight together, and
+# therefore which DRAM banks are live at once.
+#
+#   "block"   (default, and what main ships) the contiguous run of `per_core` groups.
+#   "stride"  round-robin: core i takes groups i, i+num_cores, ... Concurrent groups become
+#             consecutive indices, so every bank is live, at the cost of page locality.
+#   "rotate"  the contiguous run kept, started at the core's own phase `i % per_core`. Spreads the
+#             banks without scattering the pages.
+#
+# All three are the same kernel loop: `num_groups` steps of `group_stride` from `first_group`, with
+# a fold back to `group_wrap_lo` at `group_wrap_hi`.
+#
+# The default stays "block" because NEITHER alternative is safe, which was measured and is the
+# whole finding. Aliasing is real and large: page p lives in bank p % banks, every page of group g
+# is congruent to g, and a contiguous block puts core k at k*w, so the machine sits on
+# banks/gcd(w, banks) of them -- two of eight at w = 4, which reads 1.71x slower per wave at
+# identical traffic. Fixing it is worth 1.10x-1.44x. But the shapes that pay it are not the shapes
+# a fold asks for. On the Boltz-2 ladder (`perf/ttx_splitwork/shape_census_ladder.json`) 298 aa
+# runs the forward leg at 100 groups over 110 cores, one group a core, where all three walks are
+# the same walk; every larger size runs only the gated and back legs, at 1024, 1600 and 4096
+# groups. Measured there, against "block" on the whole grid
+# (`prod_shapes_ab.json`, `prod_ladder_ab.json`):
+#
+#             512 aa   640 aa   1024 aa
+#   gated     stride    0.964x   1.082x   0.910x        rotate  1.030x  0.753x  1.004x
+#   back      stride    1.019x   1.023x   1.188x        rotate  1.018x  0.831x  1.077x
+#
+# Each column wants a different walk and each alternative regresses by up to 33% somewhere, so no
+# fixed walk ships. Neither does a rule: `work1 >= banks`, fitted on six Blackhole shapes, mispicks
+# twice on Wormhole's 12 banks (`walk_wh_j10glx02c0.json`) and picks the 0.753x at 640 aa. The bank
+# arithmetic alone cannot choose either -- `perf/ttx_splitwork/bank_model.py` computes the exact
+# per-wave bank histogram from the kernels' own index expressions and gets "block is never the
+# cheapest walk" right at 12 of 12 while picking the device's winner at only 6, because the forward
+# and back legs at N=960 have IDENTICAL bank costs and opposite winners. What separates them is the
+# per-kernel issue pattern, which an index model cannot see.
+#
+# So: the knob is understood, it is bit-exact, and it stays off. The flag is here so a future pass
+# can re-open it with wider coverage without rebuilding any of this.
+WALK = os.environ.get("TT_BIO_REBLOCK_WALK", "block")
+_NO_WRAP = 0xFFFFFFFF
+
+
+def _walk(mode, i, block, per_core, num_cores):
+    """``(first_group, group_stride, group_wrap_hi, group_wrap_lo)`` for linear core index ``i``.
+
+    ``block`` is where this core's contiguous run of ``per_core`` groups starts.
+    """
+    if mode == "stride":
+        return i, num_cores, _NO_WRAP, 0
+    if mode == "rotate" and per_core > 1:
+        return block + i % per_core, 1, block + per_core, block
+    return block, 1, _NO_WRAP, 0
 
 _SPLIT_CACHE: dict = {}
 
@@ -142,7 +199,7 @@ def _cache_key(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[3]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y,
+        g.x, g.y, WALK,
         tuple(reader_ct), tuple(writer_ct),
     )
 
@@ -159,7 +216,7 @@ def _build(x, out, device, reader_ct, writer_ct):
     # `eligible` has already refused any shape with no plan, so this cannot fire from the production
     # path. It stays as an assertion because a direct caller of `reblock_permute` bypasses the gate.
     assert plan is not None, f"no expressible work split for {num_groups} groups"
-    _, _, (_, core_grid, cg1, cg2, work1, work2) = plan
+    _, _, (num_cores, core_grid, cg1, cg2, work1, work2) = plan
 
     tile_bytes = TILE_H * TILE_W * _elem()
 
@@ -175,16 +232,21 @@ def _build(x, out, device, reader_ct, writer_ct):
     cbs = [cb(IN_CB, 2), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    start = 0
+    # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
+    # counters are kept for every mode because `_walk` needs each of them; `placed` is the audit.
+    first, placed, block = 0, 0, 0
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [start, per_core, Nt, N, Ct]
+                    g0, gs, ghi, glo = _walk(WALK, first, block, per_core, num_cores)
+                    reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES * Ct]
-                    writer_rt[cx][cy] = [start, per_core, Nt, N, Ct]
-                    start += per_core
-    assert start == num_groups, (start, num_groups)
+                    writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
+                    first += 1
+                    block += per_core
+                    placed += per_core
+    assert (first, placed) == (num_cores, num_groups), (first, placed, num_cores, num_groups)
 
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader_reblock_permute.cpp"),
@@ -375,7 +437,7 @@ def _cache_key_back(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[2]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y,
+        g.x, g.y, WALK,
         tuple(reader_ct), tuple(writer_ct),
     )
 
@@ -391,7 +453,7 @@ def _build_back(x, out, device, reader_ct, writer_ct):
 
     plan = _split_plan(device, num_groups)
     assert plan is not None, f"no expressible work split for {num_groups} groups"
-    _, _, (_, core_grid, cg1, cg2, work1, work2) = plan
+    _, _, (num_cores, core_grid, cg1, cg2, work1, work2) = plan
 
     tile_bytes = TILE_H * TILE_W * _elem()
 
@@ -411,16 +473,21 @@ def _build_back(x, out, device, reader_ct, writer_ct):
     cbs = [cb(IN_CB, 2), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, GROUP_TILES * 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    start = 0
+    # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
+    # counters are kept for every mode because `_walk` needs each of them; `placed` is the audit.
+    first, placed, block = 0, 0, 0
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [start, per_core, Nt, Ct]
+                    g0, gs, ghi, glo = _walk(WALK, first, block, per_core, num_cores)
+                    reader_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES]
-                    writer_rt[cx][cy] = [start, per_core, Nt, Ct]
-                    start += per_core
-    assert start == num_groups, (start, num_groups)
+                    writer_rt[cx][cy] = [g0, per_core, Nt, Ct, gs, ghi, glo]
+                    first += 1
+                    block += per_core
+                    placed += per_core
+    assert (first, placed) == (num_cores, num_groups), (first, placed, num_cores, num_groups)
 
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_BACK / "reader_reblock_permute_back.cpp"),
@@ -589,7 +656,7 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
         int(x.shape[1]), int(x.shape[3]), int(out.shape[1]), int(out.shape[2]),
         str(x.dtype), str(x.layout),
         str(x.memory_config()), str(out.memory_config()),
-        g.x, g.y,
+        g.x, g.y, WALK,
         tuple(reader_ct), tuple(writer_ct),
         # `_build_gated` bakes this into the compute kernel's compile-time args AND into four CB
         # depths, so it has to be in the key. Without it an A/B that flips the granularity gets the
@@ -617,7 +684,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
 
     plan = _split_plan(device, num_groups)
     assert plan is not None, f"no expressible work split for {num_groups} groups"
-    _, _, (_, core_grid, cg1, cg2, work1, work2) = plan
+    _, _, (num_cores, core_grid, cg1, cg2, work1, work2) = plan
 
     tile_bytes = TILE_H * TILE_W * _elem()
 
@@ -639,16 +706,21 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
            cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    start = 0
+    # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
+    # counters are kept for every mode because `_walk` needs each of them; `placed` is the audit.
+    first, placed, block = 0, 0, 0
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [start, per_core, Nt, N, Ct, Ctw]
+                    g0, gs, ghi, glo = _walk(WALK, first, block, per_core, num_cores)
+                    reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, Ctw, gs, ghi, glo]
                     compute_rt[cx][cy] = [per_core * GROUP_TILES]
-                    writer_rt[cx][cy] = [start, per_core, Nt, N, Ct]
-                    start += per_core
-    assert start == num_groups, (start, num_groups)
+                    writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
+                    first += 1
+                    block += per_core
+                    placed += per_core
+    assert (first, placed) == (num_cores, num_groups), (first, placed, num_cores, num_groups)
 
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_GATED / "reader_reblock_permute_gated.cpp"),

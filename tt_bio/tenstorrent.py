@@ -17,6 +17,7 @@ from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
 from .envflags import env_flag, env_int
 from .device_lease import device_init_lock
+from .eltwise_fusion import scale_add
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
@@ -519,6 +520,21 @@ _TRIMUL_TAIL_L1 = env_flag("TT_BIO_TRIMUL_TAIL_L1", False)
 # a real setting, not a fallback: with the product written straight to DRAM the tail still deletes
 # both operands' round trip, at two thirds of the L1 the full residency asks for.
 _TRIMUL_TAIL_L1_LIVE = 3
+# The PRODUCT alone, which is a different trade from the tail above and had never been tried:
+# `_TRIMUL_TAIL_L1_LIVE = 2` offers the operands without the product, this is the other half. The
+# product is written once and read once by the channel move that follows it, and at the production
+# chunk width it is 8-38 MB against 160.79 MB of usable L1, so it fits where the full tail does
+# not. Op level, production program config, qb2 p300c, 9 interleaved blocks: 1.033x at 384 aa,
+# 1.105x at 512, 1.182x at 640, 1.067x at 768, each above its own A/A floor
+# (perf/ttx_deadends/b1_prod_ab.json). Catalogue row B1 asked for a HEIGHT-SHARDED L1 result
+# instead, and that one is worth nothing: 0.984-1.005x inside one program config.
+_TRIMUL_OUT_L1 = env_flag("TT_BIO_TRIMUL_OUT_L1", False)
+
+
+def set_trimul_out_l1(on: bool) -> None:
+    """A/B switch for the product's L1 destination (perf/ttx_deadends/b1_fold_ab_512.py)."""
+    global _TRIMUL_OUT_L1
+    _TRIMUL_OUT_L1 = bool(on)
 # Share of each bank the tail may claim. The rest is the triangle matmul's circular buffers and
 # whatever the enclosing Pairformer block still holds.
 _TRIMUL_TAIL_L1_SHARE = float(os.environ.get("TT_BIO_TRIMUL_TAIL_L1_SHARE", "0.5"))
@@ -966,19 +982,24 @@ def _trimul_l1_max_seq() -> int:
     return TRIANGLE_MULT_L1_MAX_SEQ
 
 
-def _trimul_tail_memory_config(batch: int, chunk_c: int, H: int, elem_bytes: int,
-                               tensors: int = _TRIMUL_TAIL_L1_LIVE) -> ttnn.MemoryConfig | None:
-    """L1 for the chunk tail when `tensors` of them fit the grid's banks at once, else None.
+def _trimul_l1_fits(batch: int, chunk_c: int, H: int, elem_bytes: int, tensors: int) -> bool:
+    """Do `tensors` copies of one [batch, chunk_c, H, H] chunk fit the share of L1 the loop may take?
 
-    Priced on the tail's own bytes, per bank, the way `_FP32_SOFTMAX_L1_BYTES_PER_CORE` and
+    Priced on the chunk's own bytes, per bank, the way `_FP32_SOFTMAX_L1_BYTES_PER_CORE` and
     `_TRIMUL_INPROJ_FUSED_BYTES` are -- never on a sequence length.
     """
-    if not _TRIMUL_TAIL_L1:
-        return None
     ht = -(-int(H) // 32) * 32
     gx, gy = COMPUTE_GRID_MAIN
-    live = tensors * batch * chunk_c * ht * ht * elem_bytes
-    if live <= _TRIMUL_TAIL_L1_SHARE * _l1_bank_bytes() * gx * gy:
+    return (tensors * batch * chunk_c * ht * ht * elem_bytes
+            <= _TRIMUL_TAIL_L1_SHARE * _l1_bank_bytes() * gx * gy)
+
+
+def _trimul_tail_memory_config(batch: int, chunk_c: int, H: int, elem_bytes: int,
+                               tensors: int = _TRIMUL_TAIL_L1_LIVE) -> ttnn.MemoryConfig | None:
+    """L1 for the chunk tail when `tensors` of them fit the grid's banks at once, else None."""
+    if not _TRIMUL_TAIL_L1:
+        return None
+    if _trimul_l1_fits(batch, chunk_c, H, elem_bytes, tensors):
         TRIMUL_TAIL_L1_STATS["l1"] += 1
         return ttnn.L1_MEMORY_CONFIG
     TRIMUL_TAIL_L1_STATS["dram"] += 1
@@ -1743,30 +1764,36 @@ def _sdpa_pick(q_len, k_len, q_chunk, k_chunk, route: str):
 _SDPA_QK_OVER_L1: set = set()
 
 
-# K6: offer the fused K1/K2 kernel its OWN preference order, ahead of the stock ladder. OFF.
+# Above `triatt_sdpa._Q_SPLIT_MAX_S`, offer the fused kernel its OWN preference order ahead of the
+# stock ladder. ON.
 #
-# `_tri_att_sdpa_at` below is built around the stock op -- q_chunks widest first, and the first
-# entry that RUNS on either route wins. Above 1024 padded tokens that is always the stock op,
-# because the fused kernel wants one q chunk per core while a wide q_chunk blows its persistent
-# mask CB (`seq * q_chunk / 1024` tiles, with no k_chunk term at all). Its pair is therefore the
-# WIDEST K against a NARROW q, and the stock ladder never offers that: `perf/bgsdpa/fused_reach.py`
-# counts 0 of the 50 padded lengths from 1024 to 2592 served fused today -- boltzgen's 2208 and
-# every model's 1536 among them -- and turning on the wide-k and narrow-q ladders does not fix it,
-# because the ladder accepts a stock config at a wider k before it tries the fused one below.
+# The ladder below is built around the stock op -- q_chunks widest first, and the first entry that
+# RUNS on either route wins. Above the cap that is always the stock op, because the fused kernel
+# wants one q chunk per core while a wide q_chunk blows its persistent mask CB (`seq * q_chunk /
+# 1024` tiles, with no k_chunk term at all). Its pair is a NARROW q against a WIDE k and the stock
+# ladder never offers that, so `perf/bgsdpa/fused_reach.py` counted 0 of the 50 padded lengths from
+# 1024 to 2592 served fused. Raising the cap on its own moves 1 of the 50; this route moves 36 of
+# them on an 11x10 grid at 4 heads (`perf/ttx_a3/reach_h4_11x10.json`).
 #
-# Needs `TT_BIO_TRIATT_MASK_Q_SPLIT_MAX` raised past the shipped 1024 to do anything above it.
-# NOT bit-exact: k_chunk sets the online-softmax reduction order. Release-gated twice over, so
-# it ships off and the flag is how a fold A/B reaches it.
+# Strictly ABOVE the cap, which is why nothing that folds today changes: at and below it the ladder
+# already lands on a fused pair (560 of 560 calls at both 512 and 1024 aa) and those numbers are
+# bit-exact and shipped. `triatt_sdpa.sdpa` therefore takes `q_split_cap=0` here and nowhere else.
+#
+# NOT bit-exact above the cap: k_chunk sets the online-softmax reduction order. It has no digest to
+# break -- no length above 1024 served fused before -- and the fold-level Angstrom evidence is in
+# `perf/ttx_a3/`.
 _SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", False)
 
 
 def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
     q_len, k_len = q.shape[2], k.shape[2]
-    if _SDPA_FUSED_LARGE_S and q_len == k_len and q_len % SDPA_CHUNK_TILE == 0:
+    if (_SDPA_FUSED_LARGE_S and q_len == k_len and q_len % SDPA_CHUNK_TILE == 0
+            and q_len > _triatt_sdpa._Q_SPLIT_MAX_S):
         cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
         for q_chunk, k_chunk in _triatt_sdpa.fused_pairs(
                 int(q_len), int(q.shape[1]), int(q.shape[3]), cores, bias.dtype):
-            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc)
+            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc,
+                                  q_split_cap=0)
             if o is not None:
                 SDPA_K_CHUNK_STATS[0] += 1
                 _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
@@ -6323,7 +6350,10 @@ class TriangleMultiplication(Module):
                         _full = _trimul_tail_memory_config(batch, slice_c, H, _eb, 3)
                         tail_mc = _full or _trimul_tail_memory_config(batch, slice_c, H, _eb, 2) \
                             or memory_config
-                        out_mc = _full or memory_config
+                        out_mc = _full or (
+                            ttnn.L1_MEMORY_CONFIG
+                            if _TRIMUL_OUT_L1 and _trimul_l1_fits(batch, slice_c, H, _eb, 1)
+                            else memory_config)
                         # The fused path only replaces the (0,3,1,2) move, which is the leg `_transform_chunk`
                         # decomposes to on the DRAM path. A mask multiply or --fast's typecasts would have to
                         # ride inside the kernel too, so those keep the four-way split.
@@ -7846,8 +7876,7 @@ class AttentionPairBias(Module):
                 sc = batched_matmul(q, kt,
                                     compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(kt)
-                sc = ttnn.multiply(sc, self.head_dim ** -0.5)
-                sc = ttnn.add(sc, z)
+                sc = scale_add(sc, self.head_dim ** -0.5, z)
                 attn = ttnn.softmax(sc, dim=-1)
                 o = batched_matmul(attn, v,
                                    compute_kernel_config=self.compute_kernel_config)

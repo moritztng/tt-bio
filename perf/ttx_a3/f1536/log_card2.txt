@@ -1,0 +1,27 @@
+### 15:13:38 start cdk2x2_1536_off card=2
+2026-09-14 15:13:38.904 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+2026-09-14 15:13:46.248 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 6572544 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-09-14 15:13:46.256 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3424768 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+[tt-bio] tri_att_sdpa/q_chunk: device refused this L1 plan, retrying a narrower one (expected, not a crash)
+[tt-bio] L1 census: grid=(11, 10) cores=110 cb_need=3424768 l1_top=1572864 resident_per_core=0 shortfall=1851904
+2026-09-14 15:13:46.263 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1851904 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+[tt-bio] tri_att_sdpa/q_chunk: device refused this L1 plan, retrying a narrower one (expected, not a crash)
+[tt-bio] L1 census: grid=(11, 10) cores=110 cb_need=1851904 l1_top=1572864 resident_per_core=0 shortfall=279040
+{"arm": "off", "tag": "cdk2x2_1536_off", "fixture": "cdk2x2_1536", "seed": 0, "steps": 200, "recycles": 3, "fold_s": 200.077, "plddt": 0.786016, "cif_sha256": "8d59c0c9f1de18fe1e7688f2b28f18cb851198f13985f9f743297339873808e0", "fused_large_s": false, "q_split_max_s": 1024, "triatt_served": 0, "triatt_declined": 1682, "pm_over_l1": ["(1536, 1536, 1536, 256, 2)"], "pm_l1_errors": {"(1536, 1536, 1536, 256, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 6572544 B which is beyond max L1 si"}, "sdpa_picks": {"(1536, 1536)": [512, 256, "stock"]}, "grid": [11, 10], "grid_measured": true, "maxrss_mb": 11189.5, "host": "tt-quietbox2", "card": "2", "loadavg": [4.66064453125, 2.7392578125, 1.23583984375], "commit": "9460ab75de75c51e9636ef1ec6e75975d04910cb"}
+### 15:17:03 done cdk2x2_1536_off rc=0
+### 15:17:03 start cdk2x2_1536_on card=2
+2026-09-14 15:17:04.385 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+{"arm": "on", "tag": "cdk2x2_1536_on", "fixture": "cdk2x2_1536", "seed": 0, "steps": 200, "recycles": 3, "fold_s": 206.535, "plddt": 0.789493, "cif_sha256": "b958efce1ee4ff7d65f15826107261e2eff39eaf3d74ec82f4fffb3678c748b1", "fused_large_s": true, "q_split_max_s": 1024, "triatt_served": 560, "triatt_declined": 0, "pm_over_l1": [], "pm_l1_errors": {}, "sdpa_picks": {"(1536, 1536)": [256, 512, "fused"]}, "grid": [11, 10], "grid_measured": true, "maxrss_mb": 11147.9, "host": "tt-quietbox2", "card": "2", "loadavg": [2.48876953125, 2.478515625, 1.44091796875], "commit": "9460ab75de75c51e9636ef1ec6e75975d04910cb"}
+### 15:20:35 done cdk2x2_1536_on rc=0
+### 15:20:35 start cdk2x2_1536_off2 card=2
+2026-09-14 15:20:36.248 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+2026-09-14 15:20:42.914 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 6572544 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-09-14 15:20:42.920 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3424768 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+[tt-bio] tri_att_sdpa/q_chunk: device refused this L1 plan, retrying a narrower one (expected, not a crash)
+[tt-bio] L1 census: grid=(11, 10) cores=110 cb_need=3424768 l1_top=1572864 resident_per_core=0 shortfall=1851904
+2026-09-14 15:20:42.926 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1851904 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+[tt-bio] tri_att_sdpa/q_chunk: device refused this L1 plan, retrying a narrower one (expected, not a crash)
+[tt-bio] L1 census: grid=(11, 10) cores=110 cb_need=1851904 l1_top=1572864 resident_per_core=0 shortfall=279040
+{"arm": "off", "tag": "cdk2x2_1536_off2", "fixture": "cdk2x2_1536", "seed": 0, "steps": 200, "recycles": 3, "fold_s": 255.21, "plddt": 0.786016, "cif_sha256": "8d59c0c9f1de18fe1e7688f2b28f18cb851198f13985f9f743297339873808e0", "fused_large_s": false, "q_split_max_s": 1024, "triatt_served": 0, "triatt_declined": 1682, "pm_over_l1": ["(1536, 1536, 1536, 256, 2)"], "pm_l1_errors": {"(1536, 1536, 1536, 256, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 6572544 B which is beyond max L1 si"}, "sdpa_picks": {"(1536, 1536)": [512, 256, "stock"]}, "grid": [11, 10], "grid_measured": true, "maxrss_mb": 11143.5, "host": "tt-quietbox2", "card": "2", "loadavg": [2.205078125, 2.4296875, 1.70458984375], "commit": "9460ab75de75c51e9636ef1ec6e75975d04910cb"}
+### 15:24:56 done cdk2x2_1536_off2 rc=0
+### CHAIN DONE card=2

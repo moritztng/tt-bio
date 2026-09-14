@@ -1,0 +1,69 @@
+{
+ "doc": "upstream boltz 2.2.1 reference folds",
+ "env": {
+  "host": "00f6c9d768ef",
+  "gpu": "NVIDIA RTX 6000 Ada Generation",
+  "torch": "2.14.0+cu130",
+  "cuda": "13.0",
+  "driver": "595.58.03",
+  "tf32_matmul": false,
+  "tf32_cudnn": true,
+  "boltz": "2.2.1",
+  "no_kernels": true,
+  "precision": "32",
+  "recycling_steps": 3,
+  "sampling_steps": 200,
+  "diffusion_samples": 1,
+  "mode": "cuda"
+ },
+ "runs": [
+  {
+   "target": "cdk2x2_512",
+   "tag": "gpuref-s0",
+   "seed": 0,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 59.455,
+   "sha256": "18d70c83f203ec7be1cf3617ed9e6594a35fd36dc34eb936ab38bc770bd129ea",
+   "plddt": 88.1107,
+   "confidence_plddt": 0.8811072111129761,
+   "cif": "/root/results/cif/512_gpuref-s0/cdk2x2_512.cif"
+  },
+  {
+   "target": "cdk2x2_512",
+   "tag": "gpuref-s1",
+   "seed": 1,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 55.979,
+   "sha256": "f4878c14dae90f504675b9725b735c0051087fc7db14294daef3af40d4093c54",
+   "plddt": 88.077,
+   "confidence_plddt": 0.8807700276374817,
+   "cif": "/root/results/cif/512_gpuref-s1/cdk2x2_512.cif"
+  },
+  {
+   "target": "cdk2x2_512",
+   "tag": "gpuref-s2",
+   "seed": 2,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 56.535,
+   "sha256": "c6bc8da3a63e3ab95e5d2880152e19e27b1003e6abed68013f9a4f71877d3e07",
+   "plddt": 85.8483,
+   "confidence_plddt": 0.8584833145141602,
+   "cif": "/root/results/cif/512_gpuref-s2/cdk2x2_512.cif"
+  },
+  {
+   "target": "cdk2x2_512",
+   "tag": "gpuref-s3",
+   "seed": 3,
+   "arm": "gpuref",
+   "mode": "cuda",
+   "fold_s": 55.509,
+   "sha256": "5c0de3b3b7edab8fdc2de7148a67b3495b73eefcd62c575e9817717f10ebb0d0",
+   "plddt": 87.6713,
+   "confidence_plddt": 0.8767130970954895,
+   "cif": "/root/results/cif/512_gpuref-s3/cdk2x2_512.cif"
+  }
+ ]
+}

@@ -1,0 +1,201 @@
+{
+  "env": {
+    "started": "2026-09-14T09:18:55+0000",
+    "host": "tt-quietbox2",
+    "card": "1",
+    "ladder": [
+      64,
+      128,
+      256,
+      512,
+      1024
+    ],
+    "bracket": false,
+    "pairs": 3,
+    "aa": false,
+    "commit": "46180fa6b",
+    "ttnn": "?"
+  },
+  "sizes": {
+    "298": {
+      "n_msa": 35,
+      "hardware": "blackhole",
+      "grid": [
+        11,
+        10
+      ],
+      "card_type": "p300c",
+      "recycling_steps": 3,
+      "struct_dir": "/tmp/ttbase-boltz2-tipsrfye/out",
+      "folds": [
+        {
+          "arm": "0",
+          "tag": "cold",
+          "s": 13.116,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "b76f1310a5d07317"
+          },
+          "loadavg": [
+            "6.38",
+            "4.01",
+            "3.32"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "cold",
+          "s": 9.918,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "ce57b84848124e04"
+          },
+          "loadavg": [
+            "5.71",
+            "3.95",
+            "3.31"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm0",
+          "s": 10.355,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "b76f1310a5d07317"
+          },
+          "loadavg": [
+            "5.77",
+            "4.02",
+            "3.34"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm0",
+          "s": 9.827,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "ce57b84848124e04"
+          },
+          "loadavg": [
+            "5.75",
+            "4.07",
+            "3.36"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm1",
+          "s": 12.299,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "ce57b84848124e04"
+          },
+          "loadavg": [
+            "5.36",
+            "4.06",
+            "3.37"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm1",
+          "s": 11.034,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "b76f1310a5d07317"
+          },
+          "loadavg": [
+            "4.84",
+            "3.99",
+            "3.36"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm2",
+          "s": 22.737,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "b76f1310a5d07317"
+          },
+          "loadavg": [
+            "3.80",
+            "3.81",
+            "3.31"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm2",
+          "s": 10.581,
+          "plddt": null,
+          "padded_rows": [
+            64
+          ],
+          "cif_sha256": {
+            "cdk2x2_298.cif": "ce57b84848124e04"
+          },
+          "loadavg": [
+            "4.16",
+            "3.89",
+            "3.34"
+          ]
+        }
+      ],
+      "cold_s": {
+        "off": 13.116,
+        "on": 9.918
+      },
+      "warm_s": {
+        "0": [
+          10.355,
+          11.034,
+          22.737
+        ],
+        "1": [
+          9.827,
+          12.299,
+          10.581
+        ]
+      },
+      "warm_median_s": {
+        "0": 11.034,
+        "1": 10.581
+      },
+      "paired_delta_s": [
+        0.528,
+        -1.265,
+        12.156
+      ],
+      "paired_delta_median_s": 0.528,
+      "speedup": 1.0428,
+      "rung_compile_s": {
+        "0": 2.082,
+        "1": -0.663
+      }
+    }
+  }
+}

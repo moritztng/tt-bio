@@ -196,6 +196,116 @@ without losing much on the other. Worth 0.014 s on a 512 aa Blackhole fold, unde
 floor — it ships because it is free and bit-exact, not because the fold moves. Capped at 4: above
 that the kernel's multiply stage would need more DST slots than a 16-bit DST has to give it.
 
+## `TT_BIO_MSA_LADDER` — on, Boltz-2 and BoltzGen
+
+The MSA depth axis used to pad to a single 1024, so a 35-row alignment cost exactly what a 1000-row
+one did. This flag pads it instead to the smallest rung of (64, 128, 256, 512, 1024) that holds the
+depth, and to multiples of 1024 above that, so nothing deeper than 1024 rows changes shape. Three
+units read the depth axis and between them they move 68.4 % of the MSA block's bytes. The reference
+512 aa fixture carries 35 real rows, which is 29.3x padding.
+
+**Accuracy: not identical, and the difference is displacement rather than error.** Poison the padded
+rows with garbage instead of zeros and the MSA module's output is bit-identical
+(`perf/roof_msa_ladder/z_parity_512.json`), so the padded region provably cannot reach a real token
+and a shorter rung only reassociates the same terms. It reassociates them at the front of the trunk
+though, ahead of 3 recycles, 64 pairformer blocks and 200 sampling steps, so the structure moves:
+0.295 Å and 0.267 Å CA per pseudo-domain at 512 residues, 0.475 Å and 0.420 Å all-atom, against an
+A/A floor of 0.000 Å over twenty-two folds. The whole-molecule figure is 0.904 Å CA, and the extra
+comes from a 6.6° hinge between the two copies of this chimeric fixture rather than from either
+copy.
+
+Scored against the experimental structure 1HCL instead of against the other arm, the ladder is
+closer on both pseudo-domains: native CA-lDDT 0.91822 to 0.92249 and 0.89503 to 0.90295, per-residue
+paired means +0.00430 and +0.00743 with bootstrap CI95 [+0.00139, +0.00642] and [+0.00374,
++0.01063], both clear of zero. Native CA-RMSD moves the same way, 1.700 Å to 1.565 Å and 1.528 Å to
+1.413 Å. Displacing the same arm's own CA atoms incoherently by that same 0.904 Å costs 0.22 lDDT,
+dropping it to 0.776, so the metric can see a move this big and this move is not one.
+
+At 298 residues, where the fixture is a single copy and the arms sit 0.111 Å apart in CA, the ladder
+arm reads 0.00344 CA-lDDT lower on seed 0. The per-residue bootstrap excludes zero, but that
+bootstrap resamples residues inside one structure, not seeds: the figure is 5.5x smaller than the
+0.019-wide seed spread the same scorer measured across seeds, and smaller than the 0.00516 an
+incoherent displacement of that same 0.111 Å costs. It is a one-seed reading below the floor that
+would make it readable, not a resolved loss, and 298 residues is a size where the lever's own speed
+win is smallest.
+
+**Speed: 15.469 s against 16.361 s, a 512-residue fold.** 1.0577x, a paired median of 0.865 s over
+ten pairs, arms alternating inside a pair with the pair order flipped every block, one process and
+one card. All ten pairs favour the ladder and the two arms' ranges do not overlap: the slowest
+ladder fold, 15.932 s, beats the fastest 1024 fold, 16.076 s. The A/A null on the same harness and
+host reads 0.9981x. qb2, one Blackhole processor of a p300c, ttnn 0.68.0. A p150a reads 0.795 s on
+the same fixture. Rung 64 costs 0.131 s to compile, once
+(`perf/roof_msa_ladder/ab_512_qb2_rebased.json`).
+
+The win tracks how shallow the alignment is: 0.433 s with 300 rows, and exactly nothing above 512
+rows, where both settings pad to the same 1024. A real ColabFold search usually lands above that, so
+this flag is worth more on the reference fixture than on a deep-MSA target.
+
+`TT_BIO_MSA_LADDER=0` restores the single 1024 rung and the previous coordinates.
+
+Boltz-2's MSA module and trunk read the ladder, and BoltzGen reaches it through the trunk it shares.
+Protenix-v2, OpenFold3 and RF3 have their own MSA modules and do not read it.
+
+## `TT_BIO_PAIR_FFN_L1_FC1` — on, ESMFold2 only
+
+ESMFold2's trunk runs its pair transition in 32-row blocks. Inside a block the first matmul is
+split into two halves whose product the SiLU multiply consumes immediately, and both halves used
+to write their result to DRAM for that multiply to read straight back. This flag gives them an L1
+destination instead, so 2.15 GB per call never leaves the chip.
+
+The matmul had to be told how to drain. Its default schedule spends 1,212,416 B of a 1,461,760 B
+bank on the two input buffers, which leaves no room for an L1 output, so the allocator refused one
+at every row height and both halves fell back to DRAM without a word. Naming the output block
+width at 16 fits the destination into what is left. The contraction block stays at 1, because that
+is the accumulation order the DRAM path used: of 80 configs swept at this shape, all 20 with a
+contraction block of 1 are bit-exact against the shipped call and all 60 above it differ by one
+bf16 ULP.
+
+**Accuracy: identical, bit for bit.** Only a destination moves, so this is not a precision trade.
+Both arms in one process on one card, arms alternating, three rounds at 512 residues: the same
+CIF, byte for byte, and the same pLDDT to four places
+(`perf/ttx_b3/fold_ab_esm512_c0.json`). A second card says the same at 298, 512, 768 and 1024
+residues (`perf/esm3p4close/fold_ab_*_c1.json`).
+
+**Speed: 27.780 s against 30.222 s, a 512-residue fold.** 1.0879x, three folds per arm after a
+discarded cold fold, arms alternating, every fold in the fast arm ahead of every fold in the slow
+one on a 0.056 s A/A spread. qb2, one Blackhole processor of a p300c, ttnn 0.68.0, 11x10 grid, 10
+recycles and 100 sampling steps, one fold at a time under the bench lock.
+
+Where it pays depends on the size, so the four sizes were folded end to end rather than inferred:
+
+| residues | fold, flag off | fold, flag on | |
+|---|---|---|---|
+| 298 | 18.613 s | 18.188 s | 1.0234x |
+| 512 | 30.222 s | 27.780 s | 1.0879x |
+| 768 | 66.601 s | 66.615 s | 0.9998x, inside a 0.126 s floor |
+| 1024 | 147.230 s | 147.241 s | 0.9999x, inside a 0.108 s floor |
+
+298 and 1024 are card 1, 512 and 768 card 0, so read each row against itself and not across rows.
+At 512 residues the destination is not merely requested but served: the device's own latch census
+counts 17216 served, 0 refused, 0 blocked and 0 declined with the flag on, against nothing at all
+with it off (`perf/ttx_b3/fold_ab_esm512_latch_c1.json`). That is the number to read, because the
+per-call counter next to it counts requests and is incremented before the call that can still
+fall back.
+
+The token axis pads to a multiple of 32, which is why 298 residues gets the lever at all: it runs
+10 row blocks, 10/16 of what 512 runs, and the gated-call census is exactly 10/16 of it. Below
+that nothing is row-blocked. At 768 and 1024 the block's other L1 residents leave too little room,
+the device refuses the first call and the class retires to DRAM for the rest of the fold, so the
+flag neither costs nor saves anything there.
+
+No other model reaches it, by construction rather than by luck: the gated path needs a
+`SwiGLUFFN` built with `fuse_swiglu=True`, and ESMFold2's `PairUpdateBlock`
+(`tt_bio/esmfold2.py::PairUpdateBlock`) is the only place in the engine that builds one. Boltz-2, BoltzGen,
+Protenix-v2, OpenDDE, RF3 and OpenFold3's MSA stack use the shared `Transition`, whose two
+matmuls already write to L1, so the round trip this removes does not exist for them. OpenFold3's
+diffusion track and AF2-IG have their own transitions again. Measured rather than assumed for the
+three that were folded: Boltz-2, Protenix-v2 and OpenDDE at 512 residues all report zero gated
+calls in both arms (`perf/ttx_b3/fold_ab_b2_512_c1.json`, `fold_ab_px2_512_c0.json`,
+`perf/esm3p4close/fold_ab_odde512_c1.json`).
+
+`TT_BIO_PAIR_FFN_L1_FC1=0` restores the DRAM output and the same coordinates.
+
 ## `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` — on
 
 The MSA track weights each row of the alignment by a softmax over the token axis, one softmax per
@@ -268,6 +378,52 @@ adds happen in the same order — only how many run per pass changes.
 
 **Speed: 1.0317x on the fused SDPA on Blackhole** (2.8299 to 2.7430 ms at 512x512) and **1.0267x on
 Wormhole**. `TT_BIO_SDPA_ADD_GRANULARITY=1` restores the per-tile loop.
+
+## `TT_BIO_SDPA_FUSED_LARGE_S` — off
+
+Triangle attention re-reads the same pair bias once per row of the pair tensor. The fused kernel
+reads it once per head instead and holds it, and it needs a narrow query chunk against a wide key
+chunk to fit. The chunk ladder that picks those two numbers walks query chunks widest first and
+takes the first pair that runs at all, so above 1024 tokens it settled on a wide query the fused
+kernel cannot take and handed the call to the stock attention. Every length from 1024 to 2592
+tokens fell off the fast path this way. This flag lets the ladder try the fused pair first above
+1024, ordered by the work each pair puts on a core, and serves 36 of the 50 lengths in that range
+on an 11x10 grid at 4 heads. The other 14 have no 32-aligned divisor between 32 and themselves,
+which the kernel declines by construction; that is a property of the token count, not of L1.
+
+Nothing at or below 1024 tokens changes. There the ladder already lands on a fused pair, 560 of 560
+calls at both 512 and 1024 residues, and those digests are bit-exact and shipped.
+
+**Accuracy: not bit-exact above 1024 tokens, and there is no shipped digest to break** — no length
+above 1024 served this kernel before. The key chunk sets the online-softmax reduction order, so a
+wider key means fewer rescales of the accumulator. Against an fp32 evaluation of the same bf16
+operands at 1536 tokens the fused pair is marginally closer than the ladder it replaces, 0.402555
+against 0.402814. At the fold, a 1536-residue structure moves 1.007 Å all-atom and pLDDT goes from
+0.786016 to 0.789493. That is above the 0.60 Å bar, which was set at 512 residues where re-running
+with a different seed moves the structure 1.84 Å; at 1536 residues the same seed change moves it
+36.6 Å, so the flag sits 36x inside the variation this size already carries, and it moves pLDDT the
+favourable way. Two folds of the same arm in two processes are byte-identical.
+
+An L1 refusal costs speed and not correctness. With every fused pair refused the call falls back to
+the same stock attention the flag-off arm takes, bit-identical, max absolute difference 0.0.
+
+**Speed: 4.23x on the attention op at 1536 tokens** (136.143 to 32.184 ms on a Blackhole
+p300c), 2.678x at 1920 and 1.865x at 2208. The win survives changing operands: timed per call with
+a fresh bias every call it is still 2.71x, and rotating whole operand sets 4.06x. At the fold it
+saves **28.9 s of trunk time** at 1536 residues, which on a 20-step fold is 1.1973x (175.388 to
+146.489 s, adjacent arms, one process per fold).
+
+**It is off by default because that 1.1973x is not a full-fold number.** Triangle attention is in
+the trunk, and a 20-step fold gives the trunk a much larger share than the default 200 steps does,
+so the same 28.9 s buys a smaller ratio in the shipped configuration. Nothing measured came back
+negative; the full-fold pair is simply still missing. Turn it on to get the op gain.
+
+**Reach depends on the head count and the grid, not on the model.** The fused pair needs one query
+chunk per core, so a card with fewer cores, or a model with more heads on the same card, serves
+fewer lengths: 36 of 50 at 4 heads on 110 cores, 25 at 8 heads, 18 at 12. Boltz-2, BoltzGen and
+Nesso-1 run their trunk at 4 heads and get the full reach. Sites that run triangle attention in
+fp32 (`Fp32TriangleAttention`, and the `fp32_softmax` branch that reaches `_tri_att_sdpa_hifi`)
+never consult this flag.
 
 ## `TT_BIO_SDPA_GRID_Q_CHUNK` — on
 
@@ -490,6 +646,10 @@ tt-bio fills them in for the per-card workers it spawns when, and only when, eac
 two host threads. Set any of the three yourself and tt-bio leaves all three alone: they are one
 setting spelled three ways, and `GOMP_SPINCOUNT=0` beside your `OMP_WAIT_POLICY=ACTIVE` would undo
 it through the back door.
+
+This covers every path that spawns one worker per card: `predict` across queued targets, ESMC
+embeddings, and a BoltzGen design fanned out over a box of chips. They all take their worker
+environment from one place, so the rule and the thread cap arrive together or not at all.
 
 A fold's host work is small but constant, roughly 1.85 cores at 512 aa whether one fold is running
 or thirty-two. Those threads spend most of their time waiting on the device, and OpenMP waits by

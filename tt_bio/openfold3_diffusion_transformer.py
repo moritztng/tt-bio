@@ -65,6 +65,7 @@ import ttnn
 from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul
 from .openfold3_atom_transformer import remap_of3_adaln
 from .token_axis import TILE, bucketed_width
+from .eltwise_fusion import scale_add, mask_add
 
 C_A = 768
 C_S = 384
@@ -198,8 +199,7 @@ class _DiTBlock(Module):
         scale = HEAD_DIM ** -0.5
         sc = batched_matmul(q, ttnn.permute(k, (0, 1, 3, 2)),
                             compute_kernel_config=self.compute_kernel_config)
-        sc = ttnn.multiply(sc, scale)
-        sc = ttnn.add(sc, zb)
+        sc = scale_add(sc, scale, zb)
         ttnn.deallocate(q); ttnn.deallocate(k)
         if cache is None:
             ttnn.deallocate(zb)
@@ -238,8 +238,7 @@ class _DiTBlock(Module):
         lg = lin(s, self.w_lg, bias=self.b_lg)
         out = ttnn.multiply(out, lg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         ttnn.deallocate(lg)
-        out = ttnn.multiply(out, tok_mask_col)
-        a = ttnn.add(a, out)
+        a = mask_add(a, out, tok_mask_col)
         ttnn.deallocate(out)
         return a
 

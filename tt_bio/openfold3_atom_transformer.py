@@ -28,6 +28,7 @@ import ttnn
 
 from . import tenstorrent as _T
 from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul
+from .eltwise_fusion import scale_add, mask_add
 
 
 def remap_of3_adaln(sd: dict) -> dict:
@@ -176,8 +177,7 @@ class OF3AtomTransformer(Module):
             V = self._heads(self._lin(a_kn, apb + "mha.linear_v.weight"), nb, nk)
             sc = batched_matmul(Q, ttnn.permute(K, (0, 1, 2, 4, 3)),
                                 compute_kernel_config=self.compute_kernel_config)
-            sc = ttnn.multiply(sc, scale)
-            sc = ttnn.add(sc, mask_bias)
+            sc = scale_add(sc, scale, mask_bias)
             sc = ttnn.add(sc, z_bias[b])
             attn = ttnn.softmax(sc, dim=-1)
             o = batched_matmul(attn, V, compute_kernel_config=self.compute_kernel_config)
@@ -210,8 +210,7 @@ class OF3AtomTransformer(Module):
             out = self._lin(bb, ct + "linear_out.weight")
             ttnn.deallocate(bb)
             out = ttnn.multiply(out, cg_raw[b], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-            out = ttnn.multiply(out, atom_mask_col)
-            x = ttnn.add(x, out)
+            x = mask_add(x, out, atom_mask_col)
             ttnn.deallocate(out); ttnn.deallocate(a_qn); ttnn.deallocate(a_kn)
 
         if cache is None:

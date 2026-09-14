@@ -1,0 +1,84 @@
+{
+ "arms": [
+  {
+   "arm": "off",
+   "fixture": "cdk2x2_298",
+   "gates_on": false,
+   "fold_s": 60.386,
+   "plddt": 0.480685,
+   "cif_sha256": "753f43c4f269e3033fb69ea8af182eb4adf62df3a4d5df8bdaf3126e0e27e755",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/protenix-v2/cdk2x2_298_off/cdk2x2_298.cif",
+   "loadavg1": 6.68
+  },
+  {
+   "arm": "on",
+   "fixture": "cdk2x2_298",
+   "gates_on": true,
+   "fold_s": 7.479,
+   "plddt": 0.480685,
+   "cif_sha256": "753f43c4f269e3033fb69ea8af182eb4adf62df3a4d5df8bdaf3126e0e27e755",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/protenix-v2/cdk2x2_298_on/cdk2x2_298.cif",
+   "loadavg1": 8.34
+  },
+  {
+   "arm": "off2",
+   "fixture": "cdk2x2_298",
+   "gates_on": false,
+   "fold_s": 6.954,
+   "plddt": 0.480685,
+   "cif_sha256": "753f43c4f269e3033fb69ea8af182eb4adf62df3a4d5df8bdaf3126e0e27e755",
+   "cif": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/perf/eltwise_fusion/cif/protenix-v2/cdk2x2_298_off2/cdk2x2_298.cif",
+   "loadavg1": 8.08
+  }
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "2",
+  "lease_cards": "2",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/ttx-eltwise-fusion-sweep/tt_bio/__init__.py",
+  "model": "protenix-v2",
+  "torch": "2.8.0+cpu",
+  "loadavg": [
+   2.8466796875,
+   3.8916015625,
+   4.95068359375
+  ],
+  "started_utc": "2026-09-14T12:28:11Z",
+  "protocol": {
+   "recycles": 1,
+   "steps": 50,
+   "samples": 1,
+   "seed": 0,
+   "fixtures": [
+    "cdk2x2_298"
+   ]
+  },
+  "gate_defaults": {
+   "FUSE_SCALE_ADD": true,
+   "FUSE_MASK_ADD": true,
+   "FUSE_NORM_RESIDUAL": true
+  },
+  "ttnn": "0.68.0"
+ },
+ "model_load_s": 1.61,
+ "scores": {
+  "cdk2x2_298": {
+   "on": {
+    "all_atom_rmsd": 1.382415078533178e-14,
+    "n_atoms": 2398,
+    "max_atom_dev": 0.0,
+    "ca_rmsd": 5.473912155206231e-15,
+    "n_ca": 298,
+    "bit_exact": true
+   },
+   "off2": {
+    "all_atom_rmsd": 1.382415078533178e-14,
+    "n_atoms": 2398,
+    "max_atom_dev": 0.0,
+    "ca_rmsd": 5.473912155206231e-15,
+    "n_ca": 298,
+    "bit_exact": true
+   }
+  }
+ }
+}
