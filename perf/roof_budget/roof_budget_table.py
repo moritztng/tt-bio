@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import statistics as st
 import sys
 from pathlib import Path
 
@@ -46,6 +47,27 @@ TOP = ["PairformerLayer|1x512x384,1x512x512x128",
        "DiffusionModule|"]
 
 
+def unit_time(m, stat):
+    """(ms/call, calls, s/fold) for one unit, by one of two rules.
+
+    median   the published rule: the median call times the call count. Robust to the one call that
+             also paid for a ttnn.graph capture, at the price of discarding every real tail, and it
+             is why the table needed a scalar rescale onto the cell rather than a measurement.
+    percall  every call's own measured wall, summed. The one call that carried the capture is
+             replaced by the median of the others, because that call's wall is the instrument's,
+             not the unit's; every other call is used as measured.
+    """
+    calls = m["calls"]
+    ts = m.get("incl_ms_per_call")
+    if stat == "median" or not ts:
+        ms = m["median_ms"]
+        return ms, calls, calls * ms / 1e3
+    c = m.get("captured_call")
+    rest = [t for i, t in enumerate(ts) if i != c]
+    total = sum(rest) + (st.median(rest) if c is not None and rest else 0.0)
+    return total / calls, calls, total / 1e3
+
+
 def terminal_MB(nodes):
     """Bytes the counter charges as a read of a buffer nothing in the capture consumes."""
     _ops, rows = itemize({"nodes": nodes})
@@ -61,6 +83,8 @@ def main() -> int:
     ap.add_argument("--control", type=Path, default=HERE / "instrument_control.json")
     ap.add_argument("--stream", type=Path, default=HERE / "stream_roof2.json")
     ap.add_argument("--cell-s", type=float, default=17.340, help="the benchlocked fold of record")
+    ap.add_argument("--time-stat", choices=("median", "percall"), default="median",
+                    help="percall needs a capture taken with per-call times kept")
     ap.add_argument("--out-json", type=Path, default=HERE / "roof_budget_512_qb2c2.json")
     ap.add_argument("--out-md", type=Path, default=HERE / "ROOF_BUDGET.md")
     a = ap.parse_args()
@@ -91,8 +115,7 @@ def main() -> int:
         bc = byte_counts({"nodes": nodes})
         B = bc["real_MB"] * 1e6
         F = t["matmul_padded"] + t["eltwise_padded"]
-        ms, calls = m["median_ms"], m["calls"]
-        s_fold = calls * ms / 1e3
+        ms, calls, s_fold = unit_time(m, a.time_stat)
         ai = F / B if B else 0.0
         bound = "compute" if ai > balance else "bandwidth"
         s_roof = calls * (F / compute_roof if bound == "compute" else B / stream_roof)
@@ -137,7 +160,12 @@ def main() -> int:
     standalone = sr["summary"]["shapes_as_issued_floor_s_extrapolated"] if sr else None
 
     summary = {
-        "head": "f072ae02f", "host": "tt-quietbox2", "card": 2, "ttnn": "0.68.0",
+        "head": run["env"].get("git_head", "f072ae02f")[:9],
+        "host": run["env"].get("host", "tt-quietbox2"),
+        "card": run["env"].get("card", 2), "ttnn": run["env"].get("ttnn", "0.68.0"),
+        "time_stat": a.time_stat,
+        "attrib_fold_s": run["attrib"]["instrumented_fold_s"],
+        "attrib_loadavg": run["env"].get("loadavg_attrib"),
         "session_fold_s": fold_s, "session_loadavg": base["baseline"][0]["loadavg"],
         "cell_of_record_s": a.cell_s, "cell_scale": round(scale, 4),
         "compute_roof_TFLOPs": round(compute_roof / 1e12, 2),
@@ -165,7 +193,7 @@ def main() -> int:
          "",
          f"qb2 card 2 (p300c, 11x10 grid, AICLK 800 MHz), ttnn 0.68.0, one process, one session. "
          f"FLOPs and bytes come off the same 26 captures; times come off the same process's "
-         f"bracketed fold. Session fold {fold_s:.3f} s at loadavg "
+         f"bracketed fold, per unit by the `{a.time_stat}` rule. Session fold {fold_s:.3f} s at loadavg "
          f"{', '.join(base['baseline'][0]['loadavg'])}; the benchlocked cell of record is "
          f"{a.cell_s:.3f} s, so seconds are also given scaled by {scale:.4f}.",
          "",
