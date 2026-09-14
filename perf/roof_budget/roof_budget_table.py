@@ -111,7 +111,9 @@ def main() -> int:
             "pct_binding_roof": round(100 * s_roof / s_fold, 1) if s_fold else 0.0,
             "s_at_roof": round(s_roof, 3),
             "s_above_roof": round(s_fold - s_roof, 3),
-            "s_above_roof_at_cell": round((s_fold - s_roof) * scale, 3),
+            # the roof does NOT scale with host contention: only the measured time does. So the
+            # cell column scales s/fold and subtracts the unscaled roof, never the difference.
+            "s_above_roof_at_cell": round(s_fold * scale - s_roof, 3),
         })
     rows.sort(key=lambda r: -r["s_above_roof"])
     by = {r["sig"]: r for r in rows}
@@ -154,7 +156,8 @@ def main() -> int:
         "units_compute_bound": [r["sig"] for r in rows if r["binding_roof"] == "compute"],
         "top_level_s_per_fold": round(top_s, 3),
         "top_level_s_above_roof": round(top_above, 3),
-        "top_level_s_above_roof_at_cell": round(top_above * scale, 3),
+        "top_level_s_above_roof_at_cell": round(top_s * scale - (fold_B / stream_roof), 3),
+        "cell_s_above_roof": round(a.cell_s - fold_B / stream_roof, 3),
     }
     a.out_json.write_text(json.dumps({"summary": summary, "rows": rows}, indent=1))
 

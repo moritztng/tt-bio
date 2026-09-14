@@ -32,7 +32,8 @@
   ],
   "top_level_s_per_fold": 24.644,
   "top_level_s_above_roof": 17.709,
-  "top_level_s_above_roof_at_cell": 12.417
+  "top_level_s_above_roof_at_cell": 10.345,
+  "cell_s_above_roof": 10.406
  },
  "rows": [
   {
@@ -54,7 +55,7 @@
    "pct_binding_roof": 30.6,
    "s_at_roof": 4.201,
    "s_above_roof": 9.507,
-   "s_above_roof_at_cell": 6.666
+   "s_above_roof_at_cell": 5.41
   },
   {
    "sig": "DiffusionModule|",
@@ -75,7 +76,7 @@
    "pct_binding_roof": 23.1,
    "s_at_roof": 1.9,
    "s_above_roof": 6.325,
-   "s_above_roof_at_cell": 4.435
+   "s_above_roof_at_cell": 3.867
   },
   {
    "sig": "Diffusion|1x4480x3,1",
@@ -96,7 +97,7 @@
    "pct_binding_roof": 23.6,
    "s_at_roof": 1.9,
    "s_above_roof": 6.168,
-   "s_above_roof_at_cell": 4.324
+   "s_above_roof_at_cell": 3.757
   },
   {
    "sig": "DiffusionTransformer|1x512x768,1x512x768",
@@ -117,7 +118,7 @@
    "pct_binding_roof": 25.1,
    "s_at_roof": 1.363,
    "s_above_roof": 4.076,
-   "s_above_roof_at_cell": 2.858
+   "s_above_roof_at_cell": 2.451
   },
   {
    "sig": "Transition|1x512x512x128",
@@ -138,7 +139,7 @@
    "pct_binding_roof": 7.6,
    "s_at_roof": 0.275,
    "s_above_roof": 3.328,
-   "s_above_roof_at_cell": 2.333
+   "s_above_roof_at_cell": 2.251
   },
   {
    "sig": "TriangleMultiplication|1x512x512x128,1x512x512",
@@ -159,7 +160,7 @@
    "pct_binding_roof": 41.9,
    "s_at_roof": 2.17,
    "s_above_roof": 3.005,
-   "s_above_roof_at_cell": 2.107
+   "s_above_roof_at_cell": 1.458
   },
   {
    "sig": "DiffusionTransformerLayer|1x512x768,1x512x768",
@@ -180,7 +181,7 @@
    "pct_binding_roof": 34.1,
    "s_at_roof": 1.371,
    "s_above_roof": 2.649,
-   "s_above_roof_at_cell": 1.858
+   "s_above_roof_at_cell": 1.448
   },
   {
    "sig": "TriangleAttention|1x512x512x128,1x1x1x512",
@@ -201,7 +202,7 @@
    "pct_binding_roof": 37.4,
    "s_at_roof": 1.471,
    "s_above_roof": 2.458,
-   "s_above_roof_at_cell": 1.723
+   "s_above_roof_at_cell": 1.284
   },
   {
    "sig": "MSALayer|1x512x512x128,1x1024x512x64",
@@ -222,7 +223,7 @@
    "pct_binding_roof": 30.7,
    "s_at_roof": 0.833,
    "s_above_roof": 1.877,
-   "s_above_roof_at_cell": 1.316
+   "s_above_roof_at_cell": 1.067
   },
   {
    "sig": "ConditionedTransitionBlock|1x512x768,1x512x768",
@@ -243,7 +244,7 @@
    "pct_binding_roof": 40.8,
    "s_at_roof": 0.593,
    "s_above_roof": 0.861,
-   "s_above_roof_at_cell": 0.604
+   "s_above_roof_at_cell": 0.426
   },
   {
    "sig": "AttentionPairBias|1x512x768,1x16x512x512",
@@ -264,7 +265,7 @@
    "pct_binding_roof": 37.2,
    "s_at_roof": 0.497,
    "s_above_roof": 0.839,
-   "s_above_roof_at_cell": 0.588
+   "s_above_roof_at_cell": 0.44
   },
   {
    "sig": "DiffusionTransformer|1x140x32x128,1x140x32x128",
@@ -285,7 +286,7 @@
    "pct_binding_roof": 38.2,
    "s_at_roof": 0.503,
    "s_above_roof": 0.815,
-   "s_above_roof_at_cell": 0.571
+   "s_above_roof_at_cell": 0.421
   },
   {
    "sig": "AdaLN|1x512x768,1x512x768",
@@ -306,7 +307,7 @@
    "pct_binding_roof": 30.1,
    "s_at_roof": 0.34,
    "s_above_roof": 0.791,
-   "s_above_roof_at_cell": 0.555
+   "s_above_roof_at_cell": 0.453
   },
   {
    "sig": "DiffusionTransformerLayer|1x140x32x128,1x140x32x128",
@@ -327,7 +328,7 @@
    "pct_binding_roof": 41.2,
    "s_at_roof": 0.526,
    "s_above_roof": 0.75,
-   "s_above_roof_at_cell": 0.526
+   "s_above_roof_at_cell": 0.369
   },
   {
    "sig": "OuterProductMean|1x1024x512x64,1024x1x1",
@@ -348,7 +349,7 @@
    "pct_binding_roof": 30.9,
    "s_at_roof": 0.276,
    "s_above_roof": 0.616,
-   "s_above_roof_at_cell": 0.432
+   "s_above_roof_at_cell": 0.349
   },
   {
    "sig": "PairformerLayer|1x512x512x128",
@@ -369,7 +370,7 @@
    "pct_binding_roof": 29.5,
    "s_at_roof": 0.241,
    "s_above_roof": 0.576,
-   "s_above_roof_at_cell": 0.404
+   "s_above_roof_at_cell": 0.332
   },
   {
    "sig": "PairWeightedAveraging|1x1024x512x64,1x512x512x128",
@@ -390,7 +391,7 @@
    "pct_binding_roof": 36.8,
    "s_at_roof": 0.271,
    "s_above_roof": 0.464,
-   "s_above_roof_at_cell": 0.325
+   "s_above_roof_at_cell": 0.244
   },
   {
    "sig": "AttentionPairBias|1x512x384,1x512x512x128",
@@ -411,7 +412,7 @@
    "pct_binding_roof": 20.6,
    "s_at_roof": 0.094,
    "s_above_roof": 0.363,
-   "s_above_roof_at_cell": 0.255
+   "s_above_roof_at_cell": 0.227
   },
   {
    "sig": "AttentionPairBias|1x140x32x128,140x4x32x128",
@@ -432,7 +433,7 @@
    "pct_binding_roof": 50.0,
    "s_at_roof": 0.333,
    "s_above_roof": 0.332,
-   "s_above_roof_at_cell": 0.233
+   "s_above_roof_at_cell": 0.134
   },
   {
    "sig": "ConditionedTransitionBlock|1x140x32x128,1x140x32x128",
@@ -453,7 +454,7 @@
    "pct_binding_roof": 38.5,
    "s_at_roof": 0.137,
    "s_above_roof": 0.219,
-   "s_above_roof_at_cell": 0.154
+   "s_above_roof_at_cell": 0.113
   },
   {
    "sig": "Transition|1x1024x512x64",
@@ -474,7 +475,7 @@
    "pct_binding_roof": 9.7,
    "s_at_roof": 0.023,
    "s_above_roof": 0.214,
-   "s_above_roof_at_cell": 0.15
+   "s_above_roof_at_cell": 0.143
   },
   {
    "sig": "TriangleAttention|1x512x512x128",
@@ -495,7 +496,7 @@
    "pct_binding_roof": 32.8,
    "s_at_roof": 0.089,
    "s_above_roof": 0.182,
-   "s_above_roof_at_cell": 0.128
+   "s_above_roof_at_cell": 0.101
   },
   {
    "sig": "TriangleMultiplication|1x512x512x128",
@@ -516,7 +517,7 @@
    "pct_binding_roof": 40.4,
    "s_at_roof": 0.121,
    "s_above_roof": 0.179,
-   "s_above_roof_at_cell": 0.125
+   "s_above_roof_at_cell": 0.089
   },
   {
    "sig": "AdaLN|1x140x32x128,1x140x32x128",
@@ -537,7 +538,7 @@
    "pct_binding_roof": 34.3,
    "s_at_roof": 0.065,
    "s_above_roof": 0.125,
-   "s_above_roof_at_cell": 0.088
+   "s_above_roof_at_cell": 0.068
   },
   {
    "sig": "Transition|1x512x384",
@@ -558,7 +559,7 @@
    "pct_binding_roof": 8.8,
    "s_at_roof": 0.005,
    "s_above_roof": 0.047,
-   "s_above_roof_at_cell": 0.033
+   "s_above_roof_at_cell": 0.032
   },
   {
    "sig": "Transition|1x512x768",
@@ -579,7 +580,7 @@
    "pct_binding_roof": 26.0,
    "s_at_roof": 0.014,
    "s_above_roof": 0.039,
-   "s_above_roof_at_cell": 0.028
+   "s_above_roof_at_cell": 0.023
   }
  ]
 }
