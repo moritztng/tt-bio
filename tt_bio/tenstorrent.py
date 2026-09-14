@@ -231,6 +231,11 @@ TRANSITION_H_CHUNK_BIG_MAX_W = 384
 # ran the base or less. Keyed by (clause, HxWxc) like the six other reject dicts.
 TRANSITION_H_CHUNK_STATS = [0, 0]
 TRANSITION_H_CHUNK_REJECTS: dict = {}
+# {("HxWxc", hidden, height): calls}. The counter above says how often the raise served; this
+# says at which shape and how tall, which is the only way to name the call that threw when a
+# ladder rung dies partway through a fold -- "served=2 then a CB clash" does not identify the
+# shape, and the row height that ships has to be derived from the shape that binds.
+TRANSITION_H_CHUNK_SHAPES: dict = {}
 # Measured ceiling for one Transition row chunk on a small grid, in L1 bytes PER CORE.
 # The chunk's live L1 (x_norm + x_1 + x_2) is interleaved across the grid, so what binds is
 # aggregate L1 / cores, and the budget above never sees core count. On UF-EV-A13-GWH02
@@ -7991,6 +7996,8 @@ class Transition(Module):
         # hook, because a ladder rung that reads "served" off a constant and not off the call is
         # reading the wrong thing: the ratio, the small-grid L1 cap and the H clamp all still get
         # to shrink it below the value the guard nominally admits.
+        _shape_k = (f"{H}x{W}x{x.shape[-1]}", _hid, transition_h_chunk_size)
+        TRANSITION_H_CHUNK_SHAPES[_shape_k] = TRANSITION_H_CHUNK_SHAPES.get(_shape_k, 0) + 1
         if transition_h_chunk_size > TRANSITION_H_CHUNK_SIZE:
             TRANSITION_H_CHUNK_STATS[0] += 1
         else:

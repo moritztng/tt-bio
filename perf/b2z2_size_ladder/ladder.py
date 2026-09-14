@@ -188,6 +188,7 @@ def _transition_h_apply(arm, TQ, TT):
 def _transition_h_reset(TQ, TT):
     TT.TRANSITION_H_CHUNK_STATS[:] = [0, 0]
     TT.TRANSITION_H_CHUNK_REJECTS.clear()
+    TT.TRANSITION_H_CHUNK_SHAPES.clear()
 
 
 def _transition_h_census(TQ, TT):
@@ -197,6 +198,8 @@ def _transition_h_census(TQ, TT):
             "declined": TT.TRANSITION_H_CHUNK_STATS[1],
             "rejects": {f"{r}@{shape}": n
                         for (r, shape), n in TT.TRANSITION_H_CHUNK_REJECTS.items()},
+            "heights": {f"{shape}x{hid}@h{h}": n
+                        for (shape, hid, h), n in TT.TRANSITION_H_CHUNK_SHAPES.items()},
         },
     }
 
