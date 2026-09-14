@@ -1,0 +1,29 @@
+{
+  "model": "capacity",
+  "seconds": 1068.7247152910004,
+  "peak_gib": 8.834,
+  "cifs": 58,
+  "paes": 2,
+  "gate": true,
+  "error": null,
+  "legs": [
+    {
+      "model": "capacity:9j4c_abag",
+      "seconds": 737.5133465099998,
+      "peak_gib": 8.834,
+      "cifs": 50,
+      "paes": 1,
+      "gate": true,
+      "error": null
+    },
+    {
+      "model": "capacity:9ivj",
+      "seconds": 331.2113687810006,
+      "peak_gib": 7.864,
+      "cifs": 8,
+      "paes": 1,
+      "gate": true,
+      "error": null
+    }
+  ]
+}
