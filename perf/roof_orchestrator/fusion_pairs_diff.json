@@ -1,0 +1,167 @@
+{
+ "src": "/home/moritz/.coworker/wt/roof-orchestrator/perf/b2x_difflayer/graph_512_all.json.gz",
+ "layers": [
+  {
+   "sig": "difftx|1x512x768,1x512x768",
+   "label": "token DiT layer",
+   "calls_per_fold": 4800,
+   "dram_alloc_b": 80969728,
+   "n_single_use": 18,
+   "roundtrip_b": 48758784.0,
+   "available_b": 38797312.0,
+   "blocked_b": 9961472.0,
+   "unknown_b": 0,
+   "pairs": [
+    {
+     "producer": "ttnn.softmax",
+     "consumer": "ttnn.matmul",
+     "class": "PROLOGUE",
+     "n": 1,
+     "removable_b": 16777216.0
+    },
+    {
+     "producer": "ttnn.linear",
+     "consumer": "ttnn.multiply_",
+     "class": "EPILOGUE",
+     "n": 5,
+     "removable_b": 11010048.0
+    },
+    {
+     "producer": "ttnn.linear",
+     "consumer": "ttnn.multiply",
+     "class": "EPILOGUE",
+     "n": 3,
+     "removable_b": 4718592.0
+    },
+    {
+     "producer": "ttnn.experimental.nlp_create_qkv_heads",
+     "consumer": "ttnn.matmul",
+     "class": "REORDER",
+     "n": 2,
+     "removable_b": 4194304.0
+    },
+    {
+     "producer": "ttnn.linear",
+     "consumer": "ttnn.add_",
+     "class": "EPILOGUE",
+     "n": 2,
+     "removable_b": 3145728.0
+    },
+    {
+     "producer": "ttnn.experimental.nlp_create_qkv_heads",
+     "consumer": "ttnn.transpose",
+     "class": "REORDER",
+     "n": 1,
+     "removable_b": 2097152.0
+    },
+    {
+     "producer": "ttnn.transpose",
+     "consumer": "ttnn.matmul",
+     "class": "REORDER",
+     "n": 1,
+     "removable_b": 2097152.0
+    },
+    {
+     "producer": "ttnn.permute",
+     "consumer": "ttnn.multiply",
+     "class": "REORDER",
+     "n": 1,
+     "removable_b": 1572864.0
+    },
+    {
+     "producer": "ttnn.multiply",
+     "consumer": "ttnn.linear",
+     "class": "PROLOGUE",
+     "n": 1,
+     "removable_b": 1572864.0
+    },
+    {
+     "producer": "ttnn.multiply",
+     "consumer": "ttnn.add",
+     "class": "EPILOGUE",
+     "n": 1,
+     "removable_b": 1572864.0
+    }
+   ]
+  },
+  {
+   "sig": "difftx|1x224x32x128,1x224x32x128",
+   "label": "atom transformer layer",
+   "calls_per_fold": 1200,
+   "dram_alloc_b": 136922112,
+   "n_single_use": 15,
+   "roundtrip_b": 73400320.0,
+   "available_b": 36700160.0,
+   "blocked_b": 36700160.0,
+   "unknown_b": 0,
+   "pairs": [
+    {
+     "producer": "ttnn.linear",
+     "consumer": "ttnn.multiply_",
+     "class": "EPILOGUE",
+     "n": 3,
+     "removable_b": 18350080.0
+    },
+    {
+     "producer": "ttnn.matmul",
+     "consumer": "ttnn.permute",
+     "class": "REORDER",
+     "n": 1,
+     "removable_b": 14680064.0
+    },
+    {
+     "producer": "ttnn.linear",
+     "consumer": "ttnn.multiply",
+     "class": "EPILOGUE",
+     "n": 3,
+     "removable_b": 11010048.0
+    },
+    {
+     "producer": "ttnn.to_memory_config",
+     "consumer": "ttnn.multiply_",
+     "class": "REORDER",
+     "n": 2,
+     "removable_b": 7340032.0
+    },
+    {
+     "producer": "ttnn.to_memory_config",
+     "consumer": "ttnn.add_",
+     "class": "REORDER",
+     "n": 2,
+     "removable_b": 7340032.0
+    },
+    {
+     "producer": "ttnn.permute",
+     "consumer": "ttnn.matmul",
+     "class": "REORDER",
+     "n": 1,
+     "removable_b": 3670016.0
+    },
+    {
+     "producer": "ttnn.linear",
+     "consumer": "ttnn.pad",
+     "class": "REORDER",
+     "n": 1,
+     "removable_b": 3670016.0
+    },
+    {
+     "producer": "ttnn.multiply",
+     "consumer": "ttnn.linear",
+     "class": "PROLOGUE",
+     "n": 1,
+     "removable_b": 3670016.0
+    },
+    {
+     "producer": "ttnn.multiply",
+     "consumer": "ttnn.add",
+     "class": "EPILOGUE",
+     "n": 1,
+     "removable_b": 3670016.0
+    }
+   ]
+  }
+ ],
+ "fold_roundtrip_b": 322122547200.0,
+ "fold_available_b": 230267289600.0,
+ "fold_blocked_b": 91855257600.0
+}
