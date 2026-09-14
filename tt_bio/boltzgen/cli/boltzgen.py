@@ -765,12 +765,17 @@ def _run_distributed(args: argparse.Namespace, devices: list[int]) -> None:
 
     # Inverse folding's decode runs on the host CPU; each worker's torch would
     # grab every core, so N workers oversubscribe N× and thrash. Hand each an
-    # equal slice (respecting an explicit user setting).
+    # equal slice (respecting an explicit user setting) from the same builder
+    # `predict` uses, so this path also gets its idle-thread parking once the
+    # slice is too thin to leave a spare core for a pool thread to spin on.
+    # sched_getaffinity, not cpu_count: a cgroup- or taskset-confined run owns
+    # fewer cores than the box has, and the slice has to come out of what we own.
     try:
         n_cpu = len(os.sched_getaffinity(0))
     except AttributeError:
         n_cpu = os.cpu_count() or n
-    threads = str(max(1, n_cpu // n))
+    from tt_bio import runtime as _runtime
+    worker_env = _runtime.host_thread_cap_env(n, host_threads=n_cpu)
 
     # P300 chips are a custom topology; like the `predict` path, each single-chip
     # worker needs the 1x1 Blackhole mesh-graph descriptor or ttnn.open_device
@@ -793,8 +798,8 @@ def _run_distributed(args: argparse.Namespace, devices: list[int]) -> None:
         env = {**os.environ, "TT_VISIBLE_DEVICES": str(d)}
         if d in p300_devices and p300_mgd:
             env.setdefault("TT_MESH_GRAPH_DESC_PATH", p300_mgd)
-        for var in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
-            env.setdefault(var, threads)
+        for var, val in worker_env.items():
+            env.setdefault(var, val)
         cmd = [sys.executable, "-m", "tt_bio.boltzgen.cli.boltzgen", *argv]
         if debug:
             # Stream every worker's raw output to the terminal (interleaved).

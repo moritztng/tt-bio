@@ -541,6 +541,10 @@ two host threads. Set any of the three yourself and tt-bio leaves all three alon
 setting spelled three ways, and `GOMP_SPINCOUNT=0` beside your `OMP_WAIT_POLICY=ACTIVE` would undo
 it through the back door.
 
+This covers every path that spawns one worker per card: `predict` across queued targets, ESMC
+embeddings, and a BoltzGen design fanned out over a box of chips. They all take their worker
+environment from one place, so the rule and the thread cap arrive together or not at all.
+
 A fold's host work is small but constant, roughly 1.85 cores at 512 aa whether one fold is running
 or thirty-two. Those threads spend most of their time waiting on the device, and OpenMP waits by
 spinning. Spinning costs nothing while cores are spare and costs a core once they are not, so the
