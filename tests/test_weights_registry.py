@@ -543,6 +543,20 @@ def test_rows_on_one_repo_agree_on_the_revision():
     assert not split, f"rows disagree about the revision: {split}"
 
 
+def _fake_hub_module(monkeypatch, **attrs):
+    """Stand in for `huggingface_hub`, which weights.py imports inside each function.
+
+    Injected as a module rather than patched onto the real one so these tests run on a
+    host that has no hub client installed."""
+    import sys
+    import types
+    mod = types.ModuleType("huggingface_hub")
+    for k, v in attrs.items():
+        setattr(mod, k, v)
+    monkeypatch.setitem(sys.modules, "huggingface_hub", mod)
+    return mod
+
+
 def test_fetch_hf_repo_pins_a_bare_repo_id(monkeypatch):
     """A caller outside the registry (esmc.ESMCLanguageModel.from_pretrained passes a
     bare repo id) is pinned by fetch_hf_repo itself, not by remembering to pass one."""
@@ -552,11 +566,37 @@ def test_fetch_hf_repo_pins_a_bare_repo_id(monkeypatch):
         seen["repo"], seen["revision"] = repo_id, revision
         return "/tmp"
 
-    import huggingface_hub
-    monkeypatch.setattr(huggingface_hub, "snapshot_download", fake_snapshot_download)
+    _fake_hub_module(monkeypatch, snapshot_download=fake_snapshot_download)
     weights.fetch_hf_repo("biohub/ESMC-6B")
     assert seen["revision"] == weights.HF_REVISIONS["biohub/ESMC-6B"]
 
     # Negative control: an unpinned repo still tracks its default branch.
     weights.fetch_hf_repo("moritztng/boltz-2")
     assert seen["revision"] is None
+
+def test_prune_never_deletes_a_pinned_revision(monkeypatch):
+    """`--prune` calls "no ref" superseded, which for a pinned repo whose upstream has
+    moved is precisely the revision we run on. On the JapanFold Galaxy, the day ESMC-6B
+    was re-published, prune would have deleted 26.3 GB including both pins."""
+    import types
+    pin = weights.HF_REVISIONS["biohub/ESMC-6B"]
+
+    class Rev:
+        def __init__(self, h, refs): self.commit_hash, self.refs = h, refs
+
+    class Repo:
+        repo_id = "biohub/ESMC-6B"
+        revisions = [Rev("7d0f99a8", {"main"}), Rev(pin, set()), Rev("deadbeef", set())]
+
+    deleted = {}
+
+    class Info:
+        repos = [Repo()]
+        def delete_revisions(self, *hashes):
+            deleted["hashes"] = hashes
+            return types.SimpleNamespace(expected_freed_size=1)
+
+    _fake_hub_module(monkeypatch, scan_cache_dir=lambda: Info())
+    dead, _ = weights.superseded_revisions()
+    assert pin not in dead, "prune would delete the revision production runs on"
+    assert "deadbeef" in dead, "an unpinned ref-less revision is still reclaimable"
