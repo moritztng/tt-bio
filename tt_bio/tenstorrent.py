@@ -1744,30 +1744,36 @@ def _sdpa_pick(q_len, k_len, q_chunk, k_chunk, route: str):
 _SDPA_QK_OVER_L1: set = set()
 
 
-# K6: offer the fused K1/K2 kernel its OWN preference order, ahead of the stock ladder. OFF.
+# Above `triatt_sdpa._Q_SPLIT_MAX_S`, offer the fused kernel its OWN preference order ahead of the
+# stock ladder. ON.
 #
-# `_tri_att_sdpa_at` below is built around the stock op -- q_chunks widest first, and the first
-# entry that RUNS on either route wins. Above 1024 padded tokens that is always the stock op,
-# because the fused kernel wants one q chunk per core while a wide q_chunk blows its persistent
-# mask CB (`seq * q_chunk / 1024` tiles, with no k_chunk term at all). Its pair is therefore the
-# WIDEST K against a NARROW q, and the stock ladder never offers that: `perf/bgsdpa/fused_reach.py`
-# counts 0 of the 50 padded lengths from 1024 to 2592 served fused today -- boltzgen's 2208 and
-# every model's 1536 among them -- and turning on the wide-k and narrow-q ladders does not fix it,
-# because the ladder accepts a stock config at a wider k before it tries the fused one below.
+# The ladder below is built around the stock op -- q_chunks widest first, and the first entry that
+# RUNS on either route wins. Above the cap that is always the stock op, because the fused kernel
+# wants one q chunk per core while a wide q_chunk blows its persistent mask CB (`seq * q_chunk /
+# 1024` tiles, with no k_chunk term at all). Its pair is a NARROW q against a WIDE k and the stock
+# ladder never offers that, so `perf/bgsdpa/fused_reach.py` counted 0 of the 50 padded lengths from
+# 1024 to 2592 served fused. Raising the cap on its own moves 1 of the 50; this route moves 36 of
+# them on an 11x10 grid at 4 heads (`perf/ttx_a3/reach_h4_11x10.json`).
 #
-# Needs `TT_BIO_TRIATT_MASK_Q_SPLIT_MAX` raised past the shipped 1024 to do anything above it.
-# NOT bit-exact: k_chunk sets the online-softmax reduction order. Release-gated twice over, so
-# it ships off and the flag is how a fold A/B reaches it.
-_SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", False)
+# Strictly ABOVE the cap, which is why nothing that folds today changes: at and below it the ladder
+# already lands on a fused pair (560 of 560 calls at both 512 and 1024 aa) and those numbers are
+# bit-exact and shipped. `triatt_sdpa.sdpa` therefore takes `q_split_cap=0` here and nowhere else.
+#
+# NOT bit-exact above the cap: k_chunk sets the online-softmax reduction order. It has no digest to
+# break -- no length above 1024 served fused before -- and the fold-level Angstrom evidence is in
+# `perf/ttx_a3/`.
+_SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", True)
 
 
 def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
     q_len, k_len = q.shape[2], k.shape[2]
-    if _SDPA_FUSED_LARGE_S and q_len == k_len and q_len % SDPA_CHUNK_TILE == 0:
+    if (_SDPA_FUSED_LARGE_S and q_len == k_len and q_len % SDPA_CHUNK_TILE == 0
+            and q_len > _triatt_sdpa._Q_SPLIT_MAX_S):
         cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
         for q_chunk, k_chunk in _triatt_sdpa.fused_pairs(
                 int(q_len), int(q.shape[1]), int(q.shape[3]), cores, bias.dtype):
-            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc)
+            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc,
+                                  q_split_cap=0)
             if o is not None:
                 SDPA_K_CHUNK_STATS[0] += 1
                 _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
