@@ -115,14 +115,18 @@ class Probe:
         return self.peak["dram"]
 
 
-def apply_arm(arm, TQ, TT):
+# A lever set is the only lever-specific thing in this rig: which flags the arms flip, which
+# counters a fold resets, and what the engagement census reads. Everything below it -- the memory
+# probe, the OOM classification, the digest comparison -- is size machinery that does not care
+# which flag moved, so a second campaign picks a set with `--levers` instead of forking the file.
+def _b2z2_apply(arm, TQ, TT):
     on = arm == "on"
     TQ._QKVG_ENABLED = on
     TQ._QKVGB_ENABLED = on
     TT.set_trimul_fused_gout(on)
 
 
-def reset_counters(TQ, TT):
+def _b2z2_reset(TQ, TT):
     TQ.QKVG_STATS[:] = [0, 0]
     TQ.QKVGB_STATS[:] = [0, 0]
     TQ.QKVG_REJECTS.clear()
@@ -131,7 +135,7 @@ def reset_counters(TQ, TT):
     TT.TRIMUL_GOUT_REJECTS.clear()
 
 
-def census(TQ, TT):
+def _b2z2_census(TQ, TT):
     return {
         "qkvg": {"served": TQ.QKVG_STATS[0], "declined": TQ.QKVG_STATS[1],
                  "rejects": {f"{r}@{'x'.join(map(str, s))}": n
@@ -144,18 +148,88 @@ def census(TQ, TT):
     }
 
 
+def _binaryng_l1_apply(arm, TQ, TT):
+    on = arm == "on"
+    TT._TRIMUL_MASK_L1 = on
+    TT._RESIDUAL_L1 = on
+
+
+def _binaryng_l1_reset(TQ, TT):
+    TT.TRIMUL_MASK_L1_STATS[:] = [0, 0]
+    TT.RESIDUAL_L1_STATS[:] = [0, 0]
+
+
+def _binaryng_l1_census(TQ, TT):
+    # Both counters are [taken L1, left in DRAM]. There is no reject dictionary: the only reason
+    # either site declines is that the tensor does not fit, and the size that produced the
+    # decline is the row's own `size`.
+    return {
+        "trimul_mask_l1": {"served": TT.TRIMUL_MASK_L1_STATS[0],
+                           "declined": TT.TRIMUL_MASK_L1_STATS[1], "rejects": {}},
+        "residual_l1": {"served": TT.RESIDUAL_L1_STATS[0],
+                        "declined": TT.RESIDUAL_L1_STATS[1], "rejects": {}},
+    }
+
+
+def _transition_h_apply(arm, TQ, TT):
+    """`ship` leaves the derivation alone; `hNN` forces every 4-D Transition to NN rows.
+
+    The screen hook is read from the environment on every call by design (it has to reach the
+    non-monotonic heights the derivation will not produce), so the arm is set there and not on a
+    module global. Popped rather than set to 0 on the reference arm: `if _h` would take 0 as
+    unset anyway, and leaving a stale value visible is how a ladder measures one arm twice.
+    """
+    if arm == "ship":
+        os.environ.pop("TT_BIO_TRANSITION_H_CHUNK", None)
+    else:
+        os.environ["TT_BIO_TRANSITION_H_CHUNK"] = str(int(arm.lstrip("h")))
+
+
+def _transition_h_reset(TQ, TT):
+    TT.TRANSITION_H_CHUNK_STATS[:] = [0, 0]
+    TT.TRANSITION_H_CHUNK_REJECTS.clear()
+    TT.TRANSITION_H_CHUNK_SHAPES.clear()
+
+
+def _transition_h_census(TQ, TT):
+    return {
+        "transition_h_chunk": {
+            "served": TT.TRANSITION_H_CHUNK_STATS[0],
+            "declined": TT.TRANSITION_H_CHUNK_STATS[1],
+            "rejects": {f"{r}@{shape}": n
+                        for (r, shape), n in TT.TRANSITION_H_CHUNK_REJECTS.items()},
+            "heights": {f"{shape}x{hid}@h{h}": n
+                        for (shape, hid, h), n in TT.TRANSITION_H_CHUNK_SHAPES.items()},
+        },
+    }
+
+
+LEVER_SETS = {
+    "transition_h": {"pins": ("TT_BIO_TRANSITION_H_CHUNK",),
+                     "apply": _transition_h_apply, "reset": _transition_h_reset,
+                     "census": _transition_h_census},
+    "b2z2": {"pins": ("TT_BIO_TRIATT_FUSED_QKVG", "TT_BIO_TRIATT_FUSED_QKVGB",
+                      "TT_BIO_TRIMUL_FUSED_GOUT"),
+             "apply": _b2z2_apply, "reset": _b2z2_reset, "census": _b2z2_census},
+    "binaryng_l1": {"pins": ("TT_BIO_TRIMUL_MASK_L1", "TT_BIO_RESIDUAL_L1"),
+                    "apply": _binaryng_l1_apply, "reset": _binaryng_l1_reset,
+                    "census": _binaryng_l1_census},
+}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--cifdir", type=Path, required=True)
     ap.add_argument("--sizes", default="512,640,1024,1536")
     ap.add_argument("--arms", default="off,on")
+    ap.add_argument("--levers", default="b2z2", choices=sorted(LEVER_SETS))
     ap.add_argument("--steps", type=int, default=AB.SAMPLING_STEPS)
     ap.add_argument("--recycles", type=int, default=AB.RECYCLING_STEPS)
     args = ap.parse_args()
 
-    assert not (set(os.environ) & {"TT_BIO_TRIATT_FUSED_QKVG", "TT_BIO_TRIATT_FUSED_QKVGB",
-                                  "TT_BIO_TRIMUL_FUSED_GOUT"}), \
+    levers = LEVER_SETS[args.levers]
+    assert not (set(os.environ) & set(levers["pins"])), \
         "no lever may be pinned in the environment; the arms are set in-process"
 
     import torch
@@ -201,6 +275,7 @@ def main() -> int:
             "fast_mode": TT._FAST_MODE,
             "dram_total_b": int(mvd.total_bytes_per_bank) * int(mvd.num_banks),
             "l1_total_b": int(mvl.total_bytes_per_bank) * int(mvl.num_banks),
+            "levers": args.levers,
             "protocol": {"sampling_steps": args.steps, "recycling_steps": args.recycles,
                          "seed": AB.SEED, "diffusion_trace": False},
         },
@@ -231,8 +306,8 @@ def main() -> int:
 
     def fold(size, arm):
         target = AB.FIX / f"cdk2x2_{size}.yaml"
-        apply_arm(arm, TQ, TT)
-        reset_counters(TQ, TT)
+        levers["apply"](arm, TQ, TT)
+        levers["reset"](TQ, TT)
         probe.reset()
         try:
             state.model.structure_module.score_model.reset_static_cache()
@@ -282,7 +357,7 @@ def main() -> int:
         rec["free_block_census_at_dram_peak"] = probe.census
         rec["probe_samples"] = probe.samples
         rec["probe_overhead_s"] = round(probe.probe_s, 2)
-        rec["census"] = census(TQ, TT)
+        rec["census"] = levers["census"](TQ, TT)
         return rec
 
     for size in sizes:
@@ -290,41 +365,45 @@ def main() -> int:
             r = fold(size, arm)
             out["runs"].append(r)
             c = r["census"]
+            gates = " ".join(f"{k}={v['served']}/{v['declined']}" for k, v in c.items())
             print(f"  {size:>5} {arm:3s} {r['verdict']:5s} {r.get('wall_s'):8.2f}s "
                   f"dram={r['peak_dram_gib']:6.3f}GiB l1={r['peak_l1_mib']:8.1f}MiB "
-                  f"qkvg={c['qkvg']['served']}/{c['qkvg']['declined']} "
-                  f"qkvgb={c['qkvgb']['served']}/{c['qkvgb']['declined']} "
-                  f"gout={c['trimul_gout']['served']}/{c['trimul_gout']['declined']} "
-                  f"sha={r.get('digest')}", flush=True)
-            if c["trimul_gout"]["rejects"]:
-                print(f"        gout rejects: {c['trimul_gout']['rejects']}", flush=True)
-            if c["qkvg"]["rejects"] or c["qkvgb"]["rejects"]:
-                print(f"        qkv rejects: {c['qkvg']['rejects']} {c['qkvgb']['rejects']}",
-                      flush=True)
+                  f"{gates} sha={r.get('digest')}", flush=True)
+            for k, v in c.items():
+                if v["rejects"]:
+                    print(f"        {k} rejects: {v['rejects']}", flush=True)
             dump()
 
     # Verdicts, computed here rather than by eye.
     by = {(r["size"], r["arm"]): r for r in out["runs"]}
+    arms = [a.strip() for a in args.arms.split(",") if a.strip()]
+    ref_arm, test_arms = arms[0], arms[1:]
     checks = {}
     for size in sorted({r["size"] for r in out["runs"]}):
-        off, on = by.get((size, "off")), by.get((size, "on"))
-        e = {}
-        if off and on:
-            e["both_complete"] = off["verdict"] == "PASS" and on["verdict"] == "PASS"
-            e["bit_exact"] = off.get("digest") is not None and off.get("digest") == on.get("digest")
-            if off["peak_dram_b"]:
-                e["peak_dram_delta_pct"] = round(
-                    100.0 * (on["peak_dram_b"] - off["peak_dram_b"]) / off["peak_dram_b"], 4)
-            if off["peak_l1_b"]:
-                e["peak_l1_delta_pct"] = round(
-                    100.0 * (on["peak_l1_b"] - off["peak_l1_b"]) / off["peak_l1_b"], 4)
+        ref = by.get((size, ref_arm))
+        e = {"reference_arm": ref_arm}
+        for arm in test_arms:
+            on = by.get((size, arm))
+            if not (ref and on):
+                continue
+            a = {"both_complete": ref["verdict"] == "PASS" and on["verdict"] == "PASS",
+                 "bit_exact": ref.get("digest") is not None
+                 and ref.get("digest") == on.get("digest")}
+            if ref["peak_dram_b"]:
+                a["peak_dram_delta_pct"] = round(
+                    100.0 * (on["peak_dram_b"] - ref["peak_dram_b"]) / ref["peak_dram_b"], 4)
+            if ref["peak_l1_b"]:
+                a["peak_l1_delta_pct"] = round(
+                    100.0 * (on["peak_l1_b"] - ref["peak_l1_b"]) / ref["peak_l1_b"], 4)
             c = on["census"]
-            e["gates_engaged_on_arm"] = {k: c[k]["served"] > 0 and c[k]["declined"] == 0
-                                         for k in ("qkvg", "qkvgb", "trimul_gout")}
-            e["arm_off_is_silent"] = all(
-                off["census"][k]["served"] == 0 for k in ("qkvg", "qkvgb", "trimul_gout"))
-        if size == 512 and on:
-            e["digest_is_published_512"] = on.get("digest") == EXPECTED_512_DIGEST
+            a["gates_engaged_on_arm"] = {k: c[k]["served"] > 0 and c[k]["declined"] == 0
+                                         for k in c}
+            a["verdict"] = on["verdict"]
+            e[arm] = a
+        if ref:
+            e["arm_ref_is_silent"] = all(v["served"] == 0 for v in ref["census"].values())
+            if size == 512:
+                e["ref_digest_is_published_512"] = ref.get("digest") == EXPECTED_512_DIGEST
         checks[str(size)] = e
     out["checks"] = checks
     dump()

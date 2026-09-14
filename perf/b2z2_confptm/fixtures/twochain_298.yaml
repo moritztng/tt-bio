@@ -1,0 +1,14 @@
+version: 1
+# cdk2x2_298's protein plus one ligand chain. The single-chain fixtures the b2z2 campaign
+# folds cannot exercise a same-chain select: with one asym_id, `is_same_chain` is all ones and
+# the inter arm of the pae/pde heads is computed and never chosen. Two chains make both arms
+# live, and turn on the iPTM / ligand-iPTM / chain-pair terms that are identically zero at one
+# chain. No `properties: affinity` block -- the affinity model is a different head and this
+# fixture exists to test the confidence one.
+sequences:
+  - protein:
+      id: A
+      sequence: MENFQKVEKIGEGTYGVVYKARNKLTGEVVALKKIRLDTETEGVPSTAIREISLLKELNHPNIVKLLDVIHTENKLYLVFEFLHQDLKKFMDASALTGIPLPLIKSYLFQLLQGLAFCHSHRVLHRDLKPQNLLINTEGAIKLADFGLARAFGVPVRTYTHEVVTLWYRAPEILLGCKYYSTAVDIWSLGCIFAEMVTRRALFPGDSEIDQLFRIFRTLGTPDEVVWPGVTSMPDYKPSFPKWARQDFSKVVPPLDEDGRSLLSQMLHYDPNKRISAKAALAHPFFQDVTKPVPHLRL
+  - ligand:
+      id: B
+      ccd: MTX

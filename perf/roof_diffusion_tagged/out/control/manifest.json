@@ -1,0 +1,26 @@
+{
+ "flags": {
+  "BOLTZ2_TOKEN_DIT_SDPA": false,
+  "TT_BIO_ATOM_AXIS_BUCKET": false
+ },
+ "steps": 4,
+ "size": 512,
+ "arch": "blackhole",
+ "call_index": 3,
+ "recorded": {
+  "difftx|1x512x768,1x512x768": {
+   "path": "perf/roof_diffusion_tagged/out/control/difftx_1x512x768_1x512x768.json.gz",
+   "n_ops": 59,
+   "n_buffers": 55
+  },
+  "difftx|1x224x32x128,1x224x32x128": {
+   "path": "perf/roof_diffusion_tagged/out/control/difftx_1x224x32x128_1x224x32x128.json.gz",
+   "n_ops": 73,
+   "n_buffers": 73
+  }
+ },
+ "token_dit_sdpa_stats": [
+  0,
+  0
+ ]
+}

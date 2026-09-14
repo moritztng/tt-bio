@@ -1,0 +1,374 @@
+{
+ "doc": "The TT half of the arithmetic-only TT-vs-upstream comparison `k10-p1-accuracy-anchor` owes.\n\nThe anchor measured main against upstream `boltz==2.2.1` at fp32 and got 0.90077 A (298 aa) and\n1.42726 A (512 aa, worst per-pseudo-domain). Both stacks drew their own diffusion noise, so those\nnumbers carry the sampler's full seed floor: the reference compared to ITSELF with only the noise\nrealisation changed reads 0.92565 A and 1.82527 A. Shared draws remove exactly that term.\n\n`TT_BIO_SHARED_DRAW_SEED` reseeds the CPU RNG at the sampler's first draw (`tt_bio/boltz2.py`),\nand `perf/k10_anchor/gpu_ref_fold.py --mode shared` does the same thing on the reference stack:\nevery `torch.randn` on the CPU generator, reseeded at `AtomDiffusion.sample` entry. Two arms per\nsize, in one process on one card:\n\n  shared    TT_BIO_SHARED_DRAW_SEED=<seed>, paired against `gpurefshared-s<seed>`\n  plain     the variable unset, paired against `gpuref-s<seed>` -- the anchor's own comparison,\n            re-run on this card and this commit so the paired and unpaired numbers differ by the\n            draws and nothing else\n\nThe draw trace is recorded, not assumed. Both stacks reseed to the same integer and then draw\n`(1, n_atoms, 3)`; if the atom axis were padded differently on one side the streams would diverge\nat the first draw and the whole comparison would be void, so the shape and digest of the first\nthree sampler draws go into the run record next to the CIF digest.\n\n    fold_shared.py --out out/folds.json --cifdir cif --sizes 298,512 --seed 0\n",
+ "env": {
+  "host": "j10glx02",
+  "grid": [
+   8,
+   9
+  ],
+  "arch": "Arch.WORMHOLE_B0",
+  "torch": "2.14.0+cu130",
+  "tt_visible_devices": "5",
+  "tt_bio_file": "/home/agent/wt-roofshared/tt_bio/__init__.py",
+  "commit": "209fe9f2364e686221551d6d79bec439e2e74405",
+  "started_utc": "2026-09-14T01:27:53Z",
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0,
+   "arms": "shared,plain"
+  }
+ },
+ "runs": [
+  {
+   "arm": "ttshared",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 22.095,
+   "mode": "shared",
+   "sha256": "8b8182e7917e60f4",
+   "shared_draw_seed": "0",
+   "n_atoms_cif": 2397,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      2400,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "84c748a64d2a8963"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "0221d7a064b23ef4"
+    },
+    {
+     "shape": [
+      1,
+      1,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "d4598badfc09f9ba"
+    }
+   ],
+   "n_randn": 898,
+   "manual_seeds": [
+    0,
+    0
+   ],
+   "plddt": 0.915212,
+   "tag": "ttshared-s0"
+  },
+  {
+   "arm": "ttplain",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 19.628,
+   "mode": "plain",
+   "sha256": "9e8e0a0ff814702f",
+   "shared_draw_seed": null,
+   "n_atoms_cif": 2397,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "3d2a6e6ad1af9f7f"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "92a221240f20eeef"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "59816e19ec70ba84"
+    }
+   ],
+   "n_randn": 898,
+   "manual_seeds": [
+    0
+   ],
+   "plddt": 0.915316,
+   "tag": "ttplain-s0"
+  },
+  {
+   "arm": "ttshared",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 19.638,
+   "mode": "shared",
+   "sha256": "4e516481225938e5",
+   "shared_draw_seed": "1",
+   "n_atoms_cif": 2397,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      2400,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "11e5e3772151d51f"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "6ce2997c36ad338b"
+    },
+    {
+     "shape": [
+      1,
+      1,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "c96408fa41a055e2"
+    }
+   ],
+   "n_randn": 898,
+   "manual_seeds": [
+    1,
+    1
+   ],
+   "plddt": 0.912197,
+   "tag": "ttshared-s1"
+  },
+  {
+   "arm": "ttplain",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 19.719,
+   "mode": "plain",
+   "sha256": "9510024d27588153",
+   "shared_draw_seed": null,
+   "n_atoms_cif": 2397,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "eac563667bee9495"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "76f930548b468f68"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "bdd0a3b3bf0b9b9b"
+    }
+   ],
+   "n_randn": 898,
+   "manual_seeds": [
+    1
+   ],
+   "plddt": 0.917048,
+   "tag": "ttplain-s1"
+  },
+  {
+   "arm": "ttshared",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 37.643,
+   "mode": "shared",
+   "sha256": "2ad635147a490598",
+   "shared_draw_seed": "0",
+   "n_atoms_cif": 4116,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      4128,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "5936883ad8f94f53"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "96ffa2884fbdcc3d"
+    },
+    {
+     "shape": [
+      1,
+      1,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "a3469063c51c337b"
+    }
+   ],
+   "n_randn": 1112,
+   "manual_seeds": [
+    0,
+    0
+   ],
+   "plddt": 0.811365,
+   "tag": "ttshared-s0"
+  },
+  {
+   "arm": "ttplain",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 36.348,
+   "mode": "plain",
+   "sha256": "8cabfca3308ed3cd",
+   "shared_draw_seed": null,
+   "n_atoms_cif": 4116,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "3d2a6e6ad1af9f7f"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "92a221240f20eeef"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "59816e19ec70ba84"
+    }
+   ],
+   "n_randn": 1112,
+   "manual_seeds": [
+    0
+   ],
+   "plddt": 0.800356,
+   "tag": "ttplain-s0"
+  },
+  {
+   "arm": "ttshared",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 36.721,
+   "mode": "shared",
+   "sha256": "6b58906a238daeba",
+   "shared_draw_seed": "1",
+   "n_atoms_cif": 4116,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      4128,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "f26e27c2d4a55498"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "5beb335433a4634b"
+    },
+    {
+     "shape": [
+      1,
+      1,
+      3
+     ],
+     "dtype": "torch.float32",
+     "sha256": "bf75296308d46ed4"
+    }
+   ],
+   "n_randn": 1112,
+   "manual_seeds": [
+    1,
+    1
+   ],
+   "plddt": 0.835675,
+   "tag": "ttshared-s1"
+  },
+  {
+   "arm": "ttplain",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 36.127,
+   "mode": "plain",
+   "sha256": "880c38ec4a300aab",
+   "shared_draw_seed": null,
+   "n_atoms_cif": 4116,
+   "sampler_draws": [
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "eac563667bee9495"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "76f930548b468f68"
+    },
+    {
+     "shape": [
+      1,
+      4
+     ],
+     "dtype": "torch.float32",
+     "sha256": "bdd0a3b3bf0b9b9b"
+    }
+   ],
+   "n_randn": 1112,
+   "manual_seeds": [
+    1
+   ],
+   "plddt": 0.815252,
+   "tag": "ttplain-s1"
+  }
+ ],
+ "model_load_s": 4.361
+}

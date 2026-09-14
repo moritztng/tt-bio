@@ -1,0 +1,82 @@
+{
+ "env": {
+  "started": "2026-09-12T17:50:58+0000",
+  "card": "2",
+  "phase": "step",
+  "reps": 3,
+  "size": 512,
+  "commit": "0f3f9f67",
+  "profiler": "0",
+  "ttnn": "/home/mthuening/work/b2z2-profiler/tt-metal/ttnn/ttnn/__init__.py",
+  "loadavg": [
+   "4.02",
+   "4.53",
+   "3.96"
+  ],
+  "hardware": "wormhole_b0",
+  "grid": [
+   8,
+   9
+  ],
+  "card_type": "tt-galaxy-wh-l",
+  "stacks_truncated": 3,
+  "keep_blocks": 2
+ },
+ "precursor_s": 94.655,
+ "class_calls_in_precursor": {
+  "Diffusion": 2
+ },
+ "arg_shapes": [
+  [
+   1,
+   4480,
+   3
+  ],
+  [
+   1
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  "list",
+  "list",
+  "list",
+  [
+   280,
+   1120
+  ],
+  [
+   1,
+   4480,
+   512
+  ],
+  [
+   1,
+   4480,
+   512
+  ]
+ ],
+ "synced_wall_ms_per_call": 41.5326,
+ "fence": {
+  "op": "ttnn.exp",
+  "n": 3,
+  "dim": 32
+ }
+}

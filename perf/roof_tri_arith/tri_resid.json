@@ -1,0 +1,137 @@
+{
+ "host": "pc",
+ "arch": "Arch.BLACKHOLE",
+ "grid": [
+  13,
+  10
+ ],
+ "cores": 130,
+ "per_core_M": 8,
+ "mt_small": 1040,
+ "mt_big": 8192,
+ "KT": 4,
+ "NT": 20,
+ "blocks": 5,
+ "loadavg": [
+  "2.02",
+  "1.60",
+  "1.24"
+ ],
+ "refused": {
+  "dramin_l1out": "RuntimeError: TT_THROW @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1380: tt::exception",
+  "l1in_l1out": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:643: program_config.out_block_w == per_core_N || program_config.out_block",
+  "l1in_l1out_LoFi": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:643: program_config.out_block_w == per_core_N || program_config.out_block",
+  "cfg_l1_bw1_s2x1": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw1_s2x2": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw1_s4x1": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw1_s2x4": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw1_s4x2": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw1_s1x5": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1116: (program_config.out_subblock_w * program_config.out_subblock_h) <= ",
+  "cfg_l1_bw1_s1x8": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:432: program_config.out_block_w % program_config.out_subblock_w == 0",
+  "cfg_l1_bw1_s8x1": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw2_s2x1": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw2_s2x2": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw2_s4x1": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw2_s2x4": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw2_s4x2": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw2_s1x5": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1116: (program_config.out_subblock_w * program_config.out_subblock_h) <= ",
+  "cfg_l1_bw2_s1x8": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:432: program_config.out_block_w % program_config.out_subblock_w == 0",
+  "cfg_l1_bw2_s8x1": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw4_s2x1": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw4_s2x2": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw4_s4x1": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw4_s2x4": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw4_s4x2": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_bw4_s1x5": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1116: (program_config.out_subblock_w * program_config.out_subblock_h) <= ",
+  "cfg_l1_bw4_s1x8": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:432: program_config.out_block_w % program_config.out_subblock_w == 0",
+  "cfg_l1_bw4_s8x1": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_dram_bw1_s4x2": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1116: (program_config.out_subblock_w * program_config.out_subblock_h) <= ",
+  "cfg_dram_bw1_s1x5": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1116: (program_config.out_subblock_w * program_config.out_subblock_h) <= ",
+  "cfg_dram_bw2_s4x2": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1116: (program_config.out_subblock_w * program_config.out_subblock_h) <= ",
+  "cfg_dram_bw2_s1x5": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1116: (program_config.out_subblock_w * program_config.out_subblock_h) <= ",
+  "cfg_dram_bw4_s4x2": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1116: (program_config.out_subblock_w * program_config.out_subblock_h) <= ",
+  "cfg_dram_bw4_s1x5": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:1116: (program_config.out_subblock_w * program_config.out_subblock_h) <= ",
+  "cfg_l1_noacc_bw4_s4x2": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_noacc_bw4_s4x4": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_noacc_bw4_s8x2": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:640: program_config.out_subblock_w == per_core_N || program_config.out_su",
+  "cfg_l1_noacc_bw4_s2x8": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:432: program_config.out_block_w % program_config.out_subblock_w == 0",
+  "l1in_l1out_AA": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:643: program_config.out_block_w == per_core_N || program_config.out_block",
+  "cfg_l1_bw1_s1x1": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "cfg_l1_bw1_s1x2": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "cfg_l1_bw1_s1x4": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "cfg_l1_bw2_s1x1": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "cfg_l1_bw2_s1x2": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "cfg_l1_bw2_s1x4": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "cfg_l1_bw4_s1x1": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "cfg_l1_bw4_s1x2": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "cfg_l1_bw4_s1x4": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+ },
+ "rows": [
+  {
+   "arm": "dram_auto_big",
+   "ms": 2.2262260026764125,
+   "TFLOPs": 19.292593343337586,
+   "ns_per_tile_mac": 3.396951298029194
+  },
+  {
+   "arm": "dram_auto",
+   "ms": 0.28696240042336285,
+   "TFLOPs": 19.0010788589573,
+   "ns_per_tile_mac": 3.4490673127808034
+  },
+  {
+   "arm": "dram_auto_LoFi",
+   "ms": 0.2843516005668789,
+   "TFLOPs": 19.175538977553817,
+   "ns_per_tile_mac": 3.4176875068134485
+  },
+  {
+   "arm": "l1in_dramout",
+   "ms": 0.2749420003965497,
+   "TFLOPs": 19.831801587737434,
+   "ns_per_tile_mac": 3.3045913509200684
+  },
+  {
+   "arm": "cfg_dram_bw1_s1x1",
+   "ms": 0.3319918003398925,
+   "TFLOPs": 16.423885151433392,
+   "ns_per_tile_mac": 3.990286061777554
+  },
+  {
+   "arm": "cfg_dram_bw1_s2x2",
+   "ms": 0.3074781969189644,
+   "TFLOPs": 17.733274276475047,
+   "ns_per_tile_mac": 3.6956514052760143
+  },
+  {
+   "arm": "cfg_dram_bw2_s1x1",
+   "ms": 0.3102213959209621,
+   "TFLOPs": 17.57646400826978,
+   "ns_per_tile_mac": 3.7286225471269483
+  },
+  {
+   "arm": "cfg_dram_bw2_s2x2",
+   "ms": 0.28249999741092324,
+   "TFLOPs": 19.301222123795913,
+   "ns_per_tile_mac": 3.3954326611889813
+  },
+  {
+   "arm": "cfg_dram_bw4_s1x1",
+   "ms": 0.30102640157565475,
+   "TFLOPs": 18.113345445647365,
+   "ns_per_tile_mac": 3.6181057881689274
+  },
+  {
+   "arm": "cfg_dram_bw4_s2x2",
+   "ms": 0.27331479941494763,
+   "TFLOPs": 19.94987176571382,
+   "ns_per_tile_mac": 3.2850336468142745
+  },
+  {
+   "arm": "dram_auto_AA",
+   "ms": 0.2833253995049745,
+   "TFLOPs": 19.244992540473824,
+   "ns_per_tile_mac": 3.4053533594347893
+  }
+ ]
+}

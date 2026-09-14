@@ -1,0 +1,154 @@
+{
+ "host": "pc",
+ "arch": "Arch.BLACKHOLE",
+ "grid": [
+  13,
+  10
+ ],
+ "core_grid_used": [
+  11,
+  10
+ ],
+ "ttnn": "?",
+ "reps": 3,
+ "blocks": 4,
+ "loadavg": [
+  "2.03",
+  "1.25",
+  "0.95"
+ ],
+ "cube4096_TFLOPs": 124.87582204844233,
+ "refused": {
+  "full_h64": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "full_h128": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception",
+  "full_h64_noconcat": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception"
+ },
+ "rows": [
+  {
+   "arm": "cube4096",
+   "ms": 1.1006049947657932,
+   "TFLOPs": 124.87582204844233,
+   "pct_of_cube": 100.0
+  },
+  {
+   "arm": "cube2048",
+   "ms": 0.2200746578940501,
+   "TFLOPs": 78.06382319708457,
+   "pct_of_cube": 62.513160607504744
+  },
+  {
+   "arm": "fc1_dram_dram",
+   "ms": 0.1031179951193432,
+   "TFLOPs": 10.41274922730324,
+   "pct_of_cube": 8.33848302777449
+  },
+  {
+   "arm": "fc1_l1_l1",
+   "ms": 0.06426899926736951,
+   "TFLOPs": 16.706994604553575,
+   "pct_of_cube": 13.378886585485324
+  },
+  {
+   "arm": "fc1_l1_l1_silu",
+   "ms": 0.14428767220427594,
+   "TFLOPs": 7.441674036294972,
+   "pct_of_cube": 5.9592592979353265
+  },
+  {
+   "arm": "fc3_l1_dram",
+   "ms": 0.06694766731622319,
+   "TFLOPs": 16.038524821607997,
+   "pct_of_cube": 12.8435789719056
+  },
+  {
+   "arm": "fc3_l1_l1",
+   "ms": 0.04556433608134588,
+   "TFLOPs": 23.565400406209182,
+   "pct_of_cube": 18.87106728880439
+  },
+  {
+   "arm": "mm3_block",
+   "ms": 0.10257700341753662,
+   "TFLOPs": 31.40299837857515,
+   "pct_of_cube": 25.147380704643666
+  },
+  {
+   "arm": "layer_norm_block",
+   "ms": 0.039383002634470664,
+   "TFLOPs": null,
+   "pct_of_cube": null
+  },
+  {
+   "arm": "multiply_block",
+   "ms": 0.044395671769355737,
+   "TFLOPs": null,
+   "pct_of_cube": null
+  },
+  {
+   "arm": "silu_block",
+   "ms": 0.05062399820114175,
+   "TFLOPs": null,
+   "pct_of_cube": null
+  },
+  {
+   "arm": "block_ship",
+   "ms": 0.2331723323247085,
+   "TFLOPs": 13.814784283729779,
+   "pct_of_cube": 11.062817491099832
+  },
+  {
+   "arm": "block_l1in",
+   "ms": 0.22842032679667076,
+   "TFLOPs": 14.102183974490966,
+   "pct_of_cube": 11.292965878551245
+  },
+  {
+   "arm": "block_unfused_silu",
+   "ms": 0.17787000009169182,
+   "TFLOPs": 18.109998708829266,
+   "pct_of_cube": 14.502405999620938
+  },
+  {
+   "arm": "chunk_only_h16",
+   "ms": 0.6086656649131328,
+   "TFLOPs": null,
+   "pct_of_cube": null
+  },
+  {
+   "arm": "full_h16_ship",
+   "ms": 7.926458337654671,
+   "TFLOPs": 13.004447978275719,
+   "pct_of_cube": 10.413903800553946
+  },
+  {
+   "arm": "full_h32",
+   "ms": 6.477015995187685,
+   "TFLOPs": 15.914614875212003,
+   "pct_of_cube": 12.744352440809832
+  },
+  {
+   "arm": "full_h8",
+   "ms": 9.622588336545354,
+   "TFLOPs": 10.712212920147314,
+   "pct_of_cube": 8.57829221415799
+  },
+  {
+   "arm": "full_h4",
+   "ms": 12.156432669144124,
+   "TFLOPs": 8.479396703741816,
+   "pct_of_cube": 6.790262970563233
+  },
+  {
+   "arm": "full_h16_noconcat",
+   "ms": 7.6430123299360275,
+   "TFLOPs": 13.486726261092238,
+   "pct_of_cube": 10.800110093257615
+  },
+  {
+   "arm": "full_flat_dram",
+   "ms": 12.21905866987072,
+   "TFLOPs": 8.435937488226383,
+   "pct_of_cube": 6.75546102507648
+  }
+ ]
+}

@@ -1,0 +1,150 @@
+{
+ "host": "pc",
+ "arch": "Arch.BLACKHOLE",
+ "cube_TFLOPs": 128.69816068762304,
+ "covered_TFLOP": 212.65993695231992,
+ "census_TFLOP": 219.05789943808,
+ "coverage_pct": 97.07932811271726,
+ "effective_TFLOPs": 24.178304493161775,
+ "mean_fraction_pct": 18.786829869190985,
+ "arithmetic_mean_pct": 22.967565280163473,
+ "rows": [
+  {
+   "class": "TriangleAttention fused SDPA  (QK^T and AV)",
+   "arm": "triatt_sdpa_q256_k256",
+   "TFLOPs": 19.220078106133105,
+   "pct_of_cube": 14.934229054589363,
+   "TFLOP_per_fold": 38.48290697216,
+   "pct_of_fold": 17.56745913791517,
+   "s_per_fold": 2.00222427607514
+  },
+  {
+   "class": "TriangleMultiplication in-proj  [g_a|g_b|p_a|p_b|g_out]",
+   "arm": "trimul_in_flat",
+   "TFLOPs": 19.318131245648214,
+   "pct_of_cube": 15.01041750902509,
+   "TFLOP_per_fold": 24.0518168576,
+   "pct_of_fold": 10.979661961196978,
+   "s_per_fold": 1.245038484921679
+  },
+  {
+   "class": "DiffusionTransformer token linear 768x768",
+   "arm": "dit_768x768",
+   "TFLOPs": 25.673108545049402,
+   "pct_of_cube": 19.948310378237128,
+   "TFLOP_per_fold": 23.3136193536,
+   "pct_of_fold": 10.642674568414707,
+   "s_per_fold": 0.908094916230766
+  },
+  {
+   "class": "TriangleAttention in-proj  [q|k|v|g|bias]",
+   "arm": "triatt_in_flat",
+   "TFLOPs": 19.062315436755917,
+   "pct_of_cube": 14.811645586003428,
+   "TFLOP_per_fold": 20.44404432896,
+   "pct_of_fold": 9.332712667017432,
+   "s_per_fold": 1.072484840406105
+  },
+  {
+   "class": "TriangleMultiplication triangle product",
+   "arm": "trimul_einsum",
+   "TFLOPs": 17.810500402691414,
+   "pct_of_cube": 13.838970430914836,
+   "TFLOP_per_fold": 19.24145348608,
+   "pct_of_fold": 8.783729568957584,
+   "s_per_fold": 1.0803432273678482
+  },
+  {
+   "class": "pair Transition fc1 / fc2",
+   "arm": "trans_fc12",
+   "TFLOPs": 38.52005882189193,
+   "pct_of_cube": 29.930543386232262,
+   "TFLOP_per_fold": 19.24145348608,
+   "pct_of_fold": 8.783729568957584,
+   "s_per_fold": 0.4995177596962701
+  },
+  {
+   "class": "DiffusionTransformer token linear 768x1536",
+   "arm": "dit_768x1536",
+   "TFLOPs": 42.43967262748206,
+   "pct_of_cube": 32.97612988463129,
+   "TFLOP_per_fold": 18.3609851904,
+   "pct_of_fold": 8.381795515020908,
+   "s_per_fold": 0.43263729556929326
+  },
+  {
+   "class": "DiffusionTransformer token linear 768x3072",
+   "arm": "dit_768x3072",
+   "TFLOPs": 53.10440014277992,
+   "pct_of_cube": 41.26274987851244,
+   "TFLOP_per_fold": 11.5964116992,
+   "pct_of_fold": 5.293765588434257,
+   "s_per_fold": 0.21837007231079042
+  },
+  {
+   "class": "pair Transition fc3",
+   "arm": "trans_fc3",
+   "TFLOPs": 30.068142308440954,
+   "pct_of_cube": 23.363303832618506,
+   "TFLOP_per_fold": 9.62072674304,
+   "pct_of_fold": 4.391864784478792,
+   "s_per_fold": 0.31996412163910765
+  },
+  {
+   "class": "OuterProductMean depth contraction",
+   "arm": "opm",
+   "TFLOPs": 98.26643806759553,
+   "pct_of_cube": 76.35418994534695,
+   "TFLOP_per_fold": 8.796093022208,
+   "pct_of_fold": 4.015419231523467,
+   "s_per_fold": 0.08951268810778856
+  },
+  {
+   "class": "DiffusionTransformer token linear 1536x768",
+   "arm": "dit_1536x768",
+   "TFLOPs": 29.01107937303402,
+   "pct_of_cube": 22.541953372161927,
+   "TFLOP_per_fold": 6.2813896704,
+   "pct_of_fold": 2.8674563604018894,
+   "s_per_fold": 0.2165169240906835
+  },
+  {
+   "class": "TriangleMultiplication out-proj",
+   "arm": "pair_out128_flat",
+   "TFLOPs": 16.671747568124818,
+   "pct_of_cube": 12.95414594820091,
+   "TFLOP_per_fold": 4.81036337152,
+   "pct_of_fold": 2.195932392239396,
+   "s_per_fold": 0.2885338415702184
+  },
+  {
+   "class": "TriangleAttention out-proj",
+   "arm": "pair_out128_flat",
+   "TFLOPs": 16.671747568124818,
+   "pct_of_cube": 12.95414594820091,
+   "TFLOP_per_fold": 4.81036337152,
+   "pct_of_fold": 2.195932392239396,
+   "s_per_fold": 0.2885338415702184
+  },
+  {
+   "class": "PairWeightedAveraging",
+   "arm": "pwa_flat",
+   "TFLOPs": 42.80868939347706,
+   "pct_of_cube": 33.26286029633521,
+   "TFLOP_per_fold": 2.199023255552,
+   "pct_of_fold": 1.0038548078808667,
+   "s_per_fold": 0.05136861900488536
+  },
+  {
+   "class": "atom transformer linear",
+   "arm": "atom_flat",
+   "TFLOPs": 17.11440642762374,
+   "pct_of_cube": 13.298097141546515,
+   "TFLOP_per_fold": 1.409286144,
+   "pct_of_fold": 0.6433395680388854,
+   "s_per_fold": 0.08234502025879918
+  }
+ ],
+ "qb2_arithmetic_floor_s": 11.13426524818263,
+ "qb2_cube_TFLOPs": 104.93
+}

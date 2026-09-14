@@ -1,0 +1,662 @@
+{
+ "doc": "Peak memory and gate engagement for the three trunk byte levers, 512 -> 1536 aa.\n\nThe levers are bit-exact on both architectures across 87 folds, so this row is not a parity row\nand not a perf row. It is the one question the two rows that measured them both left open: does a\nlever that allocates a concatenated qkv+gate+bias weight per triangle attention, and holds the\ntrimul gate live across the channel loop, still fit at a large target?\n\nPass/fail, so contention cannot corrupt it. No ratio is computed here and none may be quoted from\nit -- the probes below are cheap but they are not free, and the arms do not share a wall clock.\n\nPer (size, arm):\n\n  verdict        PASS (a CIF with the right residue count) or OOM (an allocator refusal, classified\n                 by the ENGINE's own pattern) or FAIL.\n  peak           device DRAM and L1 high-water, sampled at the `dram_peak` tag sites the model\n                 already carries -- which sit inside trimul, tri_att, the transition and every\n                 pairformer block, i.e. exactly where these levers act. `ttnn.get_memory_view`\n                 measured at <0.05 ms on this wheel, so every tag is sampled and nothing is\n                 decimated.\n  fragmentation  the smallest `largest_contiguous_bytes_free_per_bank` seen, and the allocator's\n                 own free-block count at the DRAM high-water. A literal live-allocation count is\n                 NOT available: `MemoryView.block_table` does not convert through this wheel's\n                 pybind layer (it returns list[unordered_map<string,string>] and raises). The\n                 free-block census is the observable that `of3-1024aa-oom-allocation-count-not-size`\n                 is actually about -- many co-live allocations show up as a collapsing largest free\n                 block against a still-large total free.\n  engagement     `QKVG_STATS`, `QKVGB_STATS`, `TRIMUL_GOUT_STATS` and every named reject reason,\n                 reset per fold. A lever that silently falls back reads as \"it worked\"; this row\n                 asserts on the counter, per size, in both arms.\n  digest         sha256[:16] of the CIF. The two arms at one size must be byte-identical, and at\n                 512 aa both must be `a91aa44441f0d9c5`.\n\nArms are applied in-process. That is legal here for a reason the flag-lever harnesses had to\nargue and this one does not: the fused path is a DIFFERENT op on a DIFFERENT weight, so it cannot\nbe handed the other arm's compiled program out of the cache.\n\n    ladder.py --out <json> --cifdir <dir> --sizes 512,640,1024,1536\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "0",
+  "commit": "1e632faafa81322a0b346c95482b55143f7d6321",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/roof-transition-chunk-bh/tt_bio/__init__.py",
+  "started_utc": "2026-09-14T02:52:38Z",
+  "loadavg": [
+   23.3056640625,
+   23.8291015625,
+   28.12646484375
+  ],
+  "seq_len_more_chunking": 1536,
+  "fast_mode": false,
+  "dram_total_b": 34225520128,
+  "l1_total_b": 160793600,
+  "levers": "transition_h",
+  "protocol": {
+   "sampling_steps": 200,
+   "recycling_steps": 3,
+   "seed": 0,
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "size": 512,
+   "arm": "ship",
+   "started_utc": "2026-09-14T02:52:42Z",
+   "loadavg": [
+    24.2421875,
+    24.0146484375,
+    28.16357421875
+   ],
+   "wall_s": 21.4,
+   "verdict": "PASS",
+   "digest": "2bc758a1fb24ef30",
+   "residues_in_cif": 1362,
+   "plddt": 0.818912,
+   "peak_dram_b": 2208577536,
+   "peak_l1_b": 67809280,
+   "peak_dram_gib": 2.057,
+   "peak_l1_mib": 64.668,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=512x512x128]",
+    "l1": "trimul(start) p_out done [z=1x512x512x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3992174528,
+    "l1": 845312
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 10
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 6.18,
+   "census": {
+    "transition_h_chunk": {
+     "served": 0,
+     "declined": 296,
+     "rejects": {
+      "base-unraised@1024x512x64": 16,
+      "base-unraised@512x512x128": 280
+     },
+     "heights": {
+      "1024x512x64x256@h16": 16,
+      "512x512x128x512@h16": 280
+     }
+    }
+   }
+  },
+  {
+   "size": 512,
+   "arm": "h24",
+   "started_utc": "2026-09-14T02:53:04Z",
+   "loadavg": [
+    24.0458984375,
+    24.0458984375,
+    28.0673828125
+   ],
+   "wall_s": 20.88,
+   "verdict": "PASS",
+   "digest": "fbeb58cac3d56d6f",
+   "residues_in_cif": 1368,
+   "plddt": 0.801974,
+   "peak_dram_b": 2208249856,
+   "peak_l1_b": 67809280,
+   "peak_dram_gib": 2.057,
+   "peak_l1_mib": 64.668,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=512x512x128]",
+    "l1": "trimul(start) p_out done [z=1x512x512x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3985862592,
+    "l1": 845312
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 13
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 5.87,
+   "census": {
+    "transition_h_chunk": {
+     "served": 296,
+     "declined": 0,
+     "rejects": {},
+     "heights": {
+      "1024x512x64x256@h24": 16,
+      "512x512x128x512@h24": 280
+     }
+    }
+   }
+  },
+  {
+   "size": 512,
+   "arm": "h28",
+   "started_utc": "2026-09-14T02:53:25Z",
+   "loadavg": [
+    22.67138671875,
+    23.708984375,
+    27.869140625
+   ],
+   "wall_s": 24.76,
+   "verdict": "PASS",
+   "digest": "2bc758a1fb24ef30",
+   "residues_in_cif": 1362,
+   "plddt": 0.818912,
+   "peak_dram_b": 2208102400,
+   "peak_l1_b": 67809280,
+   "peak_dram_gib": 2.056,
+   "peak_l1_mib": 64.668,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=512x512x128]",
+    "l1": "trimul(start) p_out done [z=1x512x512x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3985881024,
+    "l1": 845312
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 13
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 6.23,
+   "census": {
+    "transition_h_chunk": {
+     "served": 296,
+     "declined": 0,
+     "rejects": {},
+     "heights": {
+      "1024x512x64x256@h28": 16,
+      "512x512x128x512@h28": 280
+     }
+    }
+   }
+  },
+  {
+   "size": 512,
+   "arm": "h40",
+   "started_utc": "2026-09-14T02:53:49Z",
+   "loadavg": [
+    24.75244140625,
+    24.14306640625,
+    27.90380859375
+   ],
+   "wall_s": 24.42,
+   "verdict": "PASS",
+   "digest": "2bc758a1fb24ef30",
+   "residues_in_cif": 1362,
+   "plddt": 0.818912,
+   "peak_dram_b": 2207873024,
+   "peak_l1_b": 67809280,
+   "peak_dram_gib": 2.056,
+   "peak_l1_mib": 64.668,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=512x512x128]",
+    "l1": "trimul(start) p_out done [z=1x512x512x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3985909696,
+    "l1": 845312
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 13
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 6.29,
+   "census": {
+    "transition_h_chunk": {
+     "served": 296,
+     "declined": 0,
+     "rejects": {},
+     "heights": {
+      "1024x512x64x256@h40": 16,
+      "512x512x128x512@h40": 280
+     }
+    }
+   }
+  },
+  {
+   "size": 768,
+   "arm": "ship",
+   "started_utc": "2026-09-14T02:54:14Z",
+   "loadavg": [
+    27.8505859375,
+    24.89404296875,
+    28.05126953125
+   ],
+   "wall_s": 38.8,
+   "verdict": "PASS",
+   "digest": "8491d8d888be428a",
+   "residues_in_cif": 2052,
+   "plddt": 0.774493,
+   "peak_dram_b": 3374475264,
+   "peak_l1_b": 1351680,
+   "peak_dram_gib": 3.143,
+   "peak_l1_mib": 1.289,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=768x768x128]",
+    "l1": "trimul(start) channel loop done [z=1x768x768x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3823265728,
+    "l1": 1449472
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 20
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 6.34,
+   "census": {
+    "transition_h_chunk": {
+     "served": 0,
+     "declined": 296,
+     "rejects": {
+      "base-unraised@1024x768x64": 16,
+      "base-unraised@768x768x128": 280
+     },
+     "heights": {
+      "1024x768x64x256@h16": 16,
+      "768x768x128x512@h16": 280
+     }
+    }
+   }
+  },
+  {
+   "size": 768,
+   "arm": "h24",
+   "started_utc": "2026-09-14T02:54:53Z",
+   "loadavg": [
+    25.59326171875,
+    24.6904296875,
+    27.86767578125
+   ],
+   "wall_s": 42.03,
+   "verdict": "PASS",
+   "digest": "8491d8d888be428a",
+   "residues_in_cif": 2052,
+   "plddt": 0.774493,
+   "peak_dram_b": 3373967360,
+   "peak_l1_b": 1351680,
+   "peak_dram_gib": 3.142,
+   "peak_l1_mib": 1.289,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=768x768x128]",
+    "l1": "trimul(start) channel loop done [z=1x768x768x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3823329216,
+    "l1": 1449472
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 20
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 6.4,
+   "census": {
+    "transition_h_chunk": {
+     "served": 296,
+     "declined": 0,
+     "rejects": {},
+     "heights": {
+      "1024x768x64x256@h24": 16,
+      "768x768x128x512@h24": 280
+     }
+    }
+   }
+  },
+  {
+   "size": 768,
+   "arm": "h28",
+   "started_utc": "2026-09-14T02:55:35Z",
+   "loadavg": [
+    27.22265625,
+    25.21142578125,
+    27.8916015625
+   ],
+   "wall_s": 42.34,
+   "verdict": "PASS",
+   "digest": "8491d8d888be428a",
+   "residues_in_cif": 2052,
+   "plddt": 0.774493,
+   "peak_dram_b": 3373934592,
+   "peak_l1_b": 1351680,
+   "peak_dram_gib": 3.142,
+   "peak_l1_mib": 1.289,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=768x768x128]",
+    "l1": "trimul(start) channel loop done [z=1x768x768x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3823333312,
+    "l1": 1449472
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 20
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 6.16,
+   "census": {
+    "transition_h_chunk": {
+     "served": 296,
+     "declined": 0,
+     "rejects": {},
+     "heights": {
+      "1024x768x64x256@h28": 16,
+      "768x768x128x512@h28": 280
+     }
+    }
+   }
+  },
+  {
+   "size": 768,
+   "arm": "h40",
+   "started_utc": "2026-09-14T02:56:17Z",
+   "loadavg": [
+    23.9375,
+    24.59228515625,
+    27.56884765625
+   ],
+   "wall_s": 5.9,
+   "verdict": "FAIL",
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 4309 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 940032 and static circular buffer region ends at 1098240\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7b4f18ad3f55]\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)\n --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSI_12MeshWorkloadEb+0x332) [0x7b4f1a5c9d92]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfcbea9) [0x7b4f1a5cbea9]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail30create_and_cache_mesh_workloadITkNS0_22DeviceOperationConceptENS0_26MeshDevice",
+   "traceback": "nv/bin/python3() [0x54cbb4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x115) [0x54b1d5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x54907e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x54cbb4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x115) [0x54b1d5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x54cbb4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x115) [0x54b1d5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x54907e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d55eb]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x608852]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b50d3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4e3a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4c6f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bccd5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc7bd]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7b4f5f22a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7b4f5f22a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657a05]\n\n",
+   "peak_dram_b": 2601517056,
+   "peak_l1_b": 0,
+   "peak_dram_gib": 2.423,
+   "peak_l1_mib": 0.0,
+   "peak_tag": {
+    "dram": "tri_att(end) bias built [z=768x768x128]",
+    "l1": null
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3915059136,
+    "l1": 1461760
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 13
+   },
+   "probe_samples": 15,
+   "probe_overhead_s": 0.08,
+   "census": {
+    "transition_h_chunk": {
+     "served": 2,
+     "declined": 0,
+     "rejects": {},
+     "heights": {
+      "1024x768x64x256@h40": 1,
+      "768x768x128x512@h40": 1
+     }
+    }
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "ship",
+   "started_utc": "2026-09-14T02:56:23Z",
+   "loadavg": [
+    23.5419921875,
+    24.4990234375,
+    27.5224609375
+   ],
+   "wall_s": 69.79,
+   "verdict": "PASS",
+   "digest": "e82f34a2b73713c7",
+   "residues_in_cif": 2729,
+   "plddt": 0.761297,
+   "peak_dram_b": 4990199808,
+   "peak_l1_b": 2252800,
+   "peak_dram_gib": 4.647,
+   "peak_l1_mib": 2.148,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=1024x1024x128]",
+    "l1": "trimul(start) channel loop done [z=1x1024x1024x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3587299264,
+    "l1": 1441280
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 21
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 6.43,
+   "census": {
+    "transition_h_chunk": {
+     "served": 0,
+     "declined": 296,
+     "rejects": {
+      "base-unraised@1024x1024x64": 16,
+      "base-unraised@1024x1024x128": 280
+     },
+     "heights": {
+      "1024x1024x64x256@h16": 16,
+      "1024x1024x128x512@h16": 280
+     }
+    }
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "h24",
+   "started_utc": "2026-09-14T02:57:33Z",
+   "loadavg": [
+    22.16162109375,
+    23.931640625,
+    27.107421875
+   ],
+   "wall_s": 68.35,
+   "verdict": "PASS",
+   "digest": "e82f34a2b73713c7",
+   "residues_in_cif": 2729,
+   "plddt": 0.761297,
+   "peak_dram_b": 4989691904,
+   "peak_l1_b": 2252800,
+   "peak_dram_gib": 4.647,
+   "peak_l1_mib": 2.148,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=1024x1024x128]",
+    "l1": "trimul(start) channel loop done [z=1x1024x1024x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3587362752,
+    "l1": 1441280
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 21
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 6.43,
+   "census": {
+    "transition_h_chunk": {
+     "served": 296,
+     "declined": 0,
+     "rejects": {},
+     "heights": {
+      "1024x1024x64x256@h24": 16,
+      "1024x1024x128x512@h24": 280
+     }
+    }
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "h28",
+   "started_utc": "2026-09-14T02:58:41Z",
+   "loadavg": [
+    23.78759765625,
+    23.92626953125,
+    26.86865234375
+   ],
+   "wall_s": 6.87,
+   "verdict": "FAIL",
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 5913 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 968704 and static circular buffer region ends at 1098240\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7b4f18ad3f55]\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)\n --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSI_12MeshWorkloadEb+0x332) [0x7b4f1a5c9d92]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfcbea9) [0x7b4f1a5cbea9]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail30create_and_cache_mesh_workloadITkNS0_22DeviceOperationConceptENS0_26MeshDevice",
+   "traceback": "nv/bin/python3() [0x54cbb4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x115) [0x54b1d5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x54907e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x54cbb4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x115) [0x54b1d5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x54cbb4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x115) [0x54b1d5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x54907e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d55eb]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x608852]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b50d3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4e3a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4c6f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bccd5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc7bd]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7b4f5f22a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7b4f5f22a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657a05]\n\n",
+   "peak_dram_b": 3613491200,
+   "peak_l1_b": 0,
+   "peak_dram_gib": 3.365,
+   "peak_l1_mib": 0.0,
+   "peak_tag": {
+    "dram": "tri_att(end) bias built [z=1024x1024x128]",
+    "l1": null
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3759851456,
+    "l1": 1461760
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 14
+   },
+   "probe_samples": 15,
+   "probe_overhead_s": 0.07,
+   "census": {
+    "transition_h_chunk": {
+     "served": 2,
+     "declined": 0,
+     "rejects": {},
+     "heights": {
+      "1024x1024x64x256@h28": 1,
+      "1024x1024x128x512@h28": 1
+     }
+    }
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "h40",
+   "started_utc": "2026-09-14T02:58:48Z",
+   "loadavg": [
+    24.205078125,
+    24.0107421875,
+    26.88037109375
+   ],
+   "wall_s": 8.23,
+   "verdict": "FAIL",
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 6175 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 1093632 and static circular buffer region ends at 1405440\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7b4f18ad3f55]\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)\n --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim21MatmulDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSI_12MeshWorkloadEb+0x332) [0x7b4f1a5c9d92]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xfcbea9) [0x7b4f1a5cbea9]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail30create_and_cache_mesh_workloadITkNS0_22DeviceOperationConceptENS0_26MeshDevic",
+   "traceback": "nv/bin/python3() [0x54cbb4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x115) [0x54b1d5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x54907e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x54cbb4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x115) [0x54b1d5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x54cbb4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x115) [0x54b1d5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x54907e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d55eb]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x608852]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b50d3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4e3a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4c6f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bccd5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc7bd]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7b4f5f22a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7b4f5f22a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657a05]\n\n",
+   "peak_dram_b": 3613343744,
+   "peak_l1_b": 0,
+   "peak_dram_gib": 3.365,
+   "peak_l1_mib": 0.0,
+   "peak_tag": {
+    "dram": "tri_att(end) bias built [z=1024x1024x128]",
+    "l1": null
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3759869888,
+    "l1": 1461760
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 14
+   },
+   "probe_samples": 15,
+   "probe_overhead_s": 0.08,
+   "census": {
+    "transition_h_chunk": {
+     "served": 2,
+     "declined": 0,
+     "rejects": {},
+     "heights": {
+      "1024x1024x64x256@h40": 1,
+      "1024x1024x128x512@h40": 1
+     }
+    }
+   }
+  }
+ ],
+ "model_load_s": 4.585,
+ "dram_after_load_b": 1134182400,
+ "checks": {
+  "512": {
+   "reference_arm": "ship",
+   "h24": {
+    "both_complete": true,
+    "bit_exact": false,
+    "peak_dram_delta_pct": -0.0148,
+    "peak_l1_delta_pct": 0.0,
+    "gates_engaged_on_arm": {
+     "transition_h_chunk": true
+    },
+    "verdict": "PASS"
+   },
+   "h28": {
+    "both_complete": true,
+    "bit_exact": true,
+    "peak_dram_delta_pct": -0.0215,
+    "peak_l1_delta_pct": 0.0,
+    "gates_engaged_on_arm": {
+     "transition_h_chunk": true
+    },
+    "verdict": "PASS"
+   },
+   "h40": {
+    "both_complete": true,
+    "bit_exact": true,
+    "peak_dram_delta_pct": -0.0319,
+    "peak_l1_delta_pct": 0.0,
+    "gates_engaged_on_arm": {
+     "transition_h_chunk": true
+    },
+    "verdict": "PASS"
+   },
+   "arm_ref_is_silent": true,
+   "ref_digest_is_published_512": true
+  },
+  "768": {
+   "reference_arm": "ship",
+   "h24": {
+    "both_complete": true,
+    "bit_exact": true,
+    "peak_dram_delta_pct": -0.0151,
+    "peak_l1_delta_pct": 0.0,
+    "gates_engaged_on_arm": {
+     "transition_h_chunk": true
+    },
+    "verdict": "PASS"
+   },
+   "h28": {
+    "both_complete": true,
+    "bit_exact": true,
+    "peak_dram_delta_pct": -0.016,
+    "peak_l1_delta_pct": 0.0,
+    "gates_engaged_on_arm": {
+     "transition_h_chunk": true
+    },
+    "verdict": "PASS"
+   },
+   "h40": {
+    "both_complete": false,
+    "bit_exact": false,
+    "peak_dram_delta_pct": -22.906,
+    "peak_l1_delta_pct": -100.0,
+    "gates_engaged_on_arm": {
+     "transition_h_chunk": true
+    },
+    "verdict": "FAIL"
+   },
+   "arm_ref_is_silent": true
+  },
+  "1024": {
+   "reference_arm": "ship",
+   "h24": {
+    "both_complete": true,
+    "bit_exact": true,
+    "peak_dram_delta_pct": -0.0102,
+    "peak_l1_delta_pct": 0.0,
+    "gates_engaged_on_arm": {
+     "transition_h_chunk": true
+    },
+    "verdict": "PASS"
+   },
+   "h28": {
+    "both_complete": false,
+    "bit_exact": false,
+    "peak_dram_delta_pct": -27.5882,
+    "peak_l1_delta_pct": -100.0,
+    "gates_engaged_on_arm": {
+     "transition_h_chunk": true
+    },
+    "verdict": "FAIL"
+   },
+   "h40": {
+    "both_complete": false,
+    "bit_exact": false,
+    "peak_dram_delta_pct": -27.5912,
+    "peak_l1_delta_pct": -100.0,
+    "gates_engaged_on_arm": {
+     "transition_h_chunk": true
+    },
+    "verdict": "FAIL"
+   },
+   "arm_ref_is_silent": true
+  }
+ }
+}

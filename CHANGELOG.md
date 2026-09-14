@@ -20,6 +20,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **Boltz-2 folds 1.0474x faster at 512 residues on Blackhole, with every atom unmoved.** The
+  confidence head's pair input was assembled on the host and uploaded — 134 MB of fp32 at 512
+  residues — and its pae/pde bin logits were downloaded whole. Both now happen on the card, where
+  the trunk already left the pair tensor (`TT_BIO_DEVICE_CONFIDENCE` and
+  `TT_BIO_DEVICE_CONF_HEADS`, both on by default), and the readback drops from 67.1 MB to 2.097 MB.
+  The head runs after the sampler and its outputs are scores, so the parity claim is an equality
+  rather than an Ångström bar: coordinates are bit-identical at 298 and 512 residues, max
+  0.000000 Å. The confidence itself moves, in bf16 where the host used fp32 — per-atom pLDDT by at
+  most 0.362 of 100 at 512 residues, 0.185 at 298. 16.537 s against 17.285 s, 8 paired folds an arm
+  interleaved ABBA on one card under benchlock, all 8 pairs positive against a 1.00104x A/A floor.
+
+
 - **Boltz-2 folds 1.0229x faster at 512 residues on Blackhole, byte for byte the same structure.**
   A triangle multiplication projects its gates and values in one matmul, and the channel move that
   consumes it reads a value slice and its gate slice back to back. Ordered by role those two reads
@@ -30,6 +42,23 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   is equality: `torch.equal` at 8 shapes from 298 to 640 residues against a negative control, and
   one CIF digest across all sixteen folds of both arms at 512 residues and all sixteen at 298.
   Wormhole has 12 DRAM banks and never had the collision; the reorder is free there.
+
+- **Boltz-2's Pairformer trunk runs 1.01492x faster at 512 residues, byte for byte the same
+  structure.** Three tensors that were crossing DRAM for no reason now stay in L1. A triangle
+  multiplication's pair mask is a broadcast operand, so the channel-blocked multiply re-reads it
+  once per channel block rather than once, and at 0.52 MB it buys back a whole pair tensor's worth
+  of DRAM reads (`TT_BIO_TRIMUL_MASK_L1`, on by default). The starting triangle attention's output
+  projection and the pair transition's assembled result were both written to DRAM and read
+  straight back by the residual add that follows them, so both producers now write to L1
+  (`TT_BIO_RESIDUAL_L1`, on by default). Measured as one arm rather than summed: eight folds a
+  side at 512 aa interleaved ABBA in one process, Pairformer block wall 9.5479 s to 9.4087 s, all
+  eight paired ratios positive against a same-arm floor of 1.0042x. On the whole fold that is
+  17.736 s to 17.6325 s, 1.00748x, which is inside the fold wall's own 1.01483x floor at this
+  size — the trunk is where these act and where the number is worth reading. All sixteen timed
+  folds wrote one CIF digest and one plDDT in both arms, and 298, 768 and 1024 aa each wrote a
+  single digest across both arms with peak DRAM moving at most 0.003 %. Both are gates: each site
+  asks whether the tensor fits at the live grid and leaves it in DRAM when it does not, so the
+  residual placement simply stops engaging above 512 residues instead of failing there.
 
 - **Boltz-2 folds 1.0178x faster at 512 residues, byte for byte the same structure.** Three layout
   changes inside the triangle multiplication, measured as one arm rather than summed. It no longer

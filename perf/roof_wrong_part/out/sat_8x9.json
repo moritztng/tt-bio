@@ -1,0 +1,1334 @@
+{
+ "grid": [
+  8,
+  9
+ ],
+ "cores": 72,
+ "arch": "Arch.BLACKHOLE",
+ "shipped_sat": 32,
+ "l1_bank_bytes": 1461760,
+ "cases": [
+  {
+   "label": "trunk APB q@kT 320aa",
+   "live": true,
+   "s": 320,
+   "a": [
+    1,
+    16,
+    320,
+    32
+   ],
+   "b": [
+    1,
+    16,
+    32,
+    320
+   ],
+   "batch": 16,
+   "Mt": 10,
+   "Kt": 1,
+   "Nt": 10,
+   "in0_block_w": 1,
+   "legal": {
+    "5": {
+     "blocks": 32,
+     "selected_by_sat": [
+      24,
+      32,
+      48,
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "10": {
+     "blocks": 16,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16
+     ]
+    }
+   },
+   "arms": {
+    "pM=5": {
+     "bit_exact": true,
+     "ms": 0.019066,
+     "median_ms": 0.019182,
+     "iters": 230,
+     "blocks": 32
+    },
+    "pM=10": {
+     "bit_exact": true,
+     "ms": 0.0257,
+     "median_ms": 0.025738,
+     "iters": 230,
+     "blocks": 16
+    },
+    "pM=5_AA": {
+     "bit_exact": true,
+     "ms": 0.019168,
+     "median_ms": 0.019303,
+     "iters": 230
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.023574,
+     "median_ms": 0.023699,
+     "iters": 230
+    }
+   },
+   "shipped_per_core_M": 5,
+   "shipped_blocks": 32,
+   "best_arm": "pM=5",
+   "best_blocks": 32,
+   "x_vs_shipped": 1.0,
+   "aa_floor": 0.00535
+  },
+  {
+   "label": "trunk APB attn@v 320aa",
+   "live": true,
+   "s": 320,
+   "a": [
+    1,
+    16,
+    320,
+    320
+   ],
+   "b": [
+    1,
+    16,
+    320,
+    32
+   ],
+   "batch": 16,
+   "Mt": 10,
+   "Kt": 10,
+   "Nt": 1,
+   "in0_block_w": 2,
+   "legal": {
+    "5": {
+     "blocks": 32,
+     "selected_by_sat": [
+      24,
+      32,
+      48,
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "10": {
+     "blocks": 16,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16
+     ]
+    }
+   },
+   "arms": {
+    "pM=5": {
+     "bit_exact": true,
+     "ms": 0.013991,
+     "median_ms": 0.014735,
+     "iters": 307,
+     "blocks": 32
+    },
+    "pM=10": {
+     "bit_exact": true,
+     "ms": 0.019444,
+     "median_ms": 0.019495,
+     "iters": 307,
+     "blocks": 16
+    },
+    "pM=5_AA": {
+     "bit_exact": true,
+     "ms": 0.01416,
+     "median_ms": 0.014604,
+     "iters": 307
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.067982,
+     "median_ms": 0.068042,
+     "iters": 307
+    }
+   },
+   "shipped_per_core_M": 5,
+   "shipped_blocks": 32,
+   "best_arm": "pM=5",
+   "best_blocks": 32,
+   "x_vs_shipped": 1.0,
+   "aa_floor": 0.01208
+  },
+  {
+   "label": "token DiT q@kT 320aa",
+   "live": false,
+   "s": 320,
+   "a": [
+    1,
+    16,
+    320,
+    64
+   ],
+   "b": [
+    1,
+    16,
+    64,
+    320
+   ],
+   "batch": 16,
+   "Mt": 10,
+   "Kt": 2,
+   "Nt": 10,
+   "in0_block_w": 1,
+   "legal": {
+    "5": {
+     "blocks": 32,
+     "selected_by_sat": [
+      24,
+      32,
+      48,
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "10": {
+     "blocks": 16,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16
+     ]
+    }
+   },
+   "arms": {
+    "pM=5": {
+     "bit_exact": true,
+     "ms": 0.022089,
+     "median_ms": 0.022303,
+     "iters": 208,
+     "blocks": 32
+    },
+    "pM=10": {
+     "bit_exact": true,
+     "ms": 0.031358,
+     "median_ms": 0.03146,
+     "iters": 208,
+     "blocks": 16
+    },
+    "pM=5_AA": {
+     "bit_exact": true,
+     "ms": 0.022162,
+     "median_ms": 0.0223,
+     "iters": 208
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.035066,
+     "median_ms": 0.035236,
+     "iters": 208
+    }
+   },
+   "shipped_per_core_M": 5,
+   "shipped_blocks": 32,
+   "best_arm": "pM=5",
+   "best_blocks": 32,
+   "x_vs_shipped": 1.0,
+   "aa_floor": 0.0033
+  },
+  {
+   "label": "token DiT attn@v 320aa",
+   "live": false,
+   "s": 320,
+   "a": [
+    1,
+    16,
+    320,
+    320
+   ],
+   "b": [
+    1,
+    16,
+    320,
+    64
+   ],
+   "batch": 16,
+   "Mt": 10,
+   "Kt": 10,
+   "Nt": 2,
+   "in0_block_w": 2,
+   "legal": {
+    "5": {
+     "blocks": 32,
+     "selected_by_sat": [
+      24,
+      32,
+      48,
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "10": {
+     "blocks": 16,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16
+     ]
+    }
+   },
+   "arms": {
+    "pM=5": {
+     "bit_exact": true,
+     "ms": 0.014753,
+     "median_ms": 0.014929,
+     "iters": 344,
+     "blocks": 32
+    },
+    "pM=10": {
+     "bit_exact": true,
+     "ms": 0.021298,
+     "median_ms": 0.021336,
+     "iters": 344,
+     "blocks": 16
+    },
+    "pM=5_AA": {
+     "bit_exact": true,
+     "ms": 0.014793,
+     "median_ms": 0.0148,
+     "iters": 344
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.088858,
+     "median_ms": 0.088879,
+     "iters": 344
+    }
+   },
+   "shipped_per_core_M": 5,
+   "shipped_blocks": 32,
+   "best_arm": "pM=5",
+   "best_blocks": 32,
+   "x_vs_shipped": 1.0,
+   "aa_floor": 0.00271
+  },
+  {
+   "label": "trunk APB q@kT 512aa",
+   "live": true,
+   "s": 512,
+   "a": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "b": [
+    1,
+    16,
+    32,
+    512
+   ],
+   "batch": 16,
+   "Mt": 16,
+   "Kt": 1,
+   "Nt": 16,
+   "in0_block_w": 1,
+   "legal": {
+    "4": {
+     "blocks": 64,
+     "selected_by_sat": [
+      48,
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "8": {
+     "blocks": 32,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      24,
+      32
+     ]
+    }
+   },
+   "arms": {
+    "pM=4": {
+     "bit_exact": true,
+     "ms": 0.044005,
+     "median_ms": 0.044134,
+     "iters": 147,
+     "blocks": 64
+    },
+    "pM=8": {
+     "bit_exact": true,
+     "ms": 0.045073,
+     "median_ms": 0.045171,
+     "iters": 147,
+     "blocks": 32
+    },
+    "pM=8_AA": {
+     "bit_exact": true,
+     "ms": 0.044981,
+     "median_ms": 0.045168,
+     "iters": 147
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.053957,
+     "median_ms": 0.054367,
+     "iters": 147
+    }
+   },
+   "shipped_per_core_M": 8,
+   "shipped_blocks": 32,
+   "best_arm": "pM=4",
+   "best_blocks": 64,
+   "x_vs_shipped": 1.0243,
+   "aa_floor": 0.00204
+  },
+  {
+   "label": "trunk APB attn@v 512aa",
+   "live": true,
+   "s": 512,
+   "a": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "b": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "batch": 16,
+   "Mt": 16,
+   "Kt": 16,
+   "Nt": 1,
+   "in0_block_w": 2,
+   "legal": {
+    "4": {
+     "blocks": 64,
+     "selected_by_sat": [
+      48,
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "8": {
+     "blocks": 32,
+     "selected_by_sat": [
+      24,
+      32
+     ]
+    },
+    "16": {
+     "blocks": 16,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16
+     ]
+    }
+   },
+   "arms": {
+    "pM=4": {
+     "bit_exact": true,
+     "ms": 0.034486,
+     "median_ms": 0.034772,
+     "iters": 212,
+     "blocks": 64
+    },
+    "pM=8": {
+     "bit_exact": true,
+     "ms": 0.036841,
+     "median_ms": 0.036941,
+     "iters": 212,
+     "blocks": 32
+    },
+    "pM=16": {
+     "bit_exact": true,
+     "ms": 0.051229,
+     "median_ms": 0.051365,
+     "iters": 212,
+     "blocks": 16
+    },
+    "pM=8_AA": {
+     "bit_exact": true,
+     "ms": 0.036895,
+     "median_ms": 0.036954,
+     "iters": 212
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.109046,
+     "median_ms": 0.109096,
+     "iters": 212
+    }
+   },
+   "shipped_per_core_M": 8,
+   "shipped_blocks": 32,
+   "best_arm": "pM=4",
+   "best_blocks": 64,
+   "x_vs_shipped": 1.0683,
+   "aa_floor": 0.00147
+  },
+  {
+   "label": "token DiT q@kT 512aa",
+   "live": false,
+   "s": 512,
+   "a": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "b": [
+    1,
+    16,
+    64,
+    512
+   ],
+   "batch": 16,
+   "Mt": 16,
+   "Kt": 2,
+   "Nt": 16,
+   "in0_block_w": 1,
+   "legal": {
+    "4": {
+     "blocks": 64,
+     "selected_by_sat": [
+      48,
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "8": {
+     "blocks": 32,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      24,
+      32
+     ]
+    }
+   },
+   "arms": {
+    "pM=4": {
+     "bit_exact": true,
+     "ms": 0.052007,
+     "median_ms": 0.05221,
+     "iters": 144,
+     "blocks": 64
+    },
+    "pM=8": {
+     "bit_exact": true,
+     "ms": 0.051943,
+     "median_ms": 0.052074,
+     "iters": 144,
+     "blocks": 32
+    },
+    "pM=8_AA": {
+     "bit_exact": true,
+     "ms": 0.051837,
+     "median_ms": 0.051927,
+     "iters": 144
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.067473,
+     "median_ms": 0.067594,
+     "iters": 144
+    }
+   },
+   "shipped_per_core_M": 8,
+   "shipped_blocks": 32,
+   "best_arm": "pM=8",
+   "best_blocks": 32,
+   "x_vs_shipped": 1.0,
+   "aa_floor": 0.00204
+  },
+  {
+   "label": "token DiT attn@v 512aa",
+   "live": false,
+   "s": 512,
+   "a": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "b": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "batch": 16,
+   "Mt": 16,
+   "Kt": 16,
+   "Nt": 2,
+   "in0_block_w": 2,
+   "legal": {
+    "4": {
+     "blocks": 64,
+     "selected_by_sat": [
+      48,
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "8": {
+     "blocks": 32,
+     "selected_by_sat": [
+      24,
+      32
+     ]
+    },
+    "16": {
+     "blocks": 16,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16
+     ]
+    }
+   },
+   "arms": {
+    "pM=4": {
+     "bit_exact": true,
+     "ms": 0.040325,
+     "median_ms": 0.040795,
+     "iters": 193,
+     "blocks": 64
+    },
+    "pM=8": {
+     "bit_exact": true,
+     "ms": 0.040177,
+     "median_ms": 0.040291,
+     "iters": 193,
+     "blocks": 32
+    },
+    "pM=16": {
+     "bit_exact": true,
+     "ms": 0.055686,
+     "median_ms": 0.055775,
+     "iters": 193,
+     "blocks": 16
+    },
+    "pM=8_AA": {
+     "bit_exact": true,
+     "ms": 0.039968,
+     "median_ms": 0.040322,
+     "iters": 193
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.13917,
+     "median_ms": 0.139221,
+     "iters": 193
+    }
+   },
+   "shipped_per_core_M": 8,
+   "shipped_blocks": 32,
+   "best_arm": "pM=8",
+   "best_blocks": 32,
+   "x_vs_shipped": 1.0,
+   "aa_floor": 0.0052
+  },
+  {
+   "label": "trunk APB q@kT 768aa",
+   "live": true,
+   "s": 768,
+   "a": [
+    1,
+    16,
+    768,
+    32
+   ],
+   "b": [
+    1,
+    16,
+    32,
+    768
+   ],
+   "batch": 16,
+   "Mt": 24,
+   "Kt": 1,
+   "Nt": 24,
+   "in0_block_w": 1,
+   "legal": {
+    "6": {
+     "blocks": 64,
+     "selected_by_sat": [
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "8": {
+     "blocks": 48,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      24,
+      32,
+      48
+     ]
+    }
+   },
+   "arms": {
+    "pM=6": {
+     "bit_exact": true,
+     "ms": 0.088273,
+     "median_ms": 0.088587,
+     "iters": 98,
+     "blocks": 64
+    },
+    "pM=8": {
+     "bit_exact": true,
+     "ms": 0.090022,
+     "median_ms": 0.09027,
+     "iters": 98,
+     "blocks": 48
+    },
+    "pM=8_AA": {
+     "bit_exact": true,
+     "ms": 0.090069,
+     "median_ms": 0.090209,
+     "iters": 98
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.101511,
+     "median_ms": 0.101916,
+     "iters": 98
+    }
+   },
+   "shipped_per_core_M": 8,
+   "shipped_blocks": 48,
+   "best_arm": "pM=6",
+   "best_blocks": 64,
+   "x_vs_shipped": 1.0198,
+   "aa_floor": 0.00052
+  },
+  {
+   "label": "trunk APB attn@v 768aa",
+   "live": true,
+   "s": 768,
+   "a": [
+    1,
+    16,
+    768,
+    768
+   ],
+   "b": [
+    1,
+    16,
+    768,
+    32
+   ],
+   "batch": 16,
+   "Mt": 24,
+   "Kt": 24,
+   "Nt": 1,
+   "in0_block_w": 2,
+   "legal": {
+    "6": {
+     "blocks": 64,
+     "selected_by_sat": [
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "8": {
+     "blocks": 48,
+     "selected_by_sat": [
+      48
+     ]
+    },
+    "12": {
+     "blocks": 32,
+     "selected_by_sat": [
+      24,
+      32
+     ]
+    },
+    "24": {
+     "blocks": 16,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16
+     ]
+    }
+   },
+   "arms": {
+    "pM=6": {
+     "bit_exact": true,
+     "ms": 0.067481,
+     "median_ms": 0.068025,
+     "iters": 102,
+     "blocks": 64
+    },
+    "pM=8": {
+     "bit_exact": true,
+     "ms": 0.069595,
+     "median_ms": 0.069784,
+     "iters": 102,
+     "blocks": 48
+    },
+    "pM=12": {
+     "bit_exact": true,
+     "ms": 0.076444,
+     "median_ms": 0.076805,
+     "iters": 102,
+     "blocks": 32
+    },
+    "pM=24": {
+     "bit_exact": true,
+     "ms": 0.111533,
+     "median_ms": 0.111903,
+     "iters": 102,
+     "blocks": 16
+    },
+    "pM=12_AA": {
+     "bit_exact": true,
+     "ms": 0.076548,
+     "median_ms": 0.076788,
+     "iters": 102
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.180693,
+     "median_ms": 0.18082,
+     "iters": 102
+    }
+   },
+   "shipped_per_core_M": 12,
+   "shipped_blocks": 32,
+   "best_arm": "pM=6",
+   "best_blocks": 64,
+   "x_vs_shipped": 1.1328,
+   "aa_floor": 0.00136
+  },
+  {
+   "label": "token DiT q@kT 768aa",
+   "live": false,
+   "s": 768,
+   "a": [
+    1,
+    16,
+    768,
+    64
+   ],
+   "b": [
+    1,
+    16,
+    64,
+    768
+   ],
+   "batch": 16,
+   "Mt": 24,
+   "Kt": 2,
+   "Nt": 24,
+   "in0_block_w": 1,
+   "legal": {
+    "6": {
+     "blocks": 64,
+     "selected_by_sat": [
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "8": {
+     "blocks": 48,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      24,
+      32,
+      48
+     ]
+    }
+   },
+   "arms": {
+    "pM=6": {
+     "bit_exact": true,
+     "ms": 0.101005,
+     "median_ms": 0.101316,
+     "iters": 89,
+     "blocks": 64
+    },
+    "pM=8": {
+     "bit_exact": true,
+     "ms": 0.10138,
+     "median_ms": 0.101934,
+     "iters": 89,
+     "blocks": 48
+    },
+    "pM=8_AA": {
+     "bit_exact": true,
+     "ms": 0.101687,
+     "median_ms": 0.101877,
+     "iters": 89
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.115034,
+     "median_ms": 0.116647,
+     "iters": 89
+    }
+   },
+   "shipped_per_core_M": 8,
+   "shipped_blocks": 48,
+   "best_arm": "pM=6",
+   "best_blocks": 64,
+   "x_vs_shipped": 1.0037,
+   "aa_floor": 0.00303
+  },
+  {
+   "label": "token DiT attn@v 768aa",
+   "live": false,
+   "s": 768,
+   "a": [
+    1,
+    16,
+    768,
+    768
+   ],
+   "b": [
+    1,
+    16,
+    768,
+    64
+   ],
+   "batch": 16,
+   "Mt": 24,
+   "Kt": 24,
+   "Nt": 2,
+   "in0_block_w": 2,
+   "legal": {
+    "6": {
+     "blocks": 64,
+     "selected_by_sat": [
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "8": {
+     "blocks": 48,
+     "selected_by_sat": [
+      48
+     ]
+    },
+    "12": {
+     "blocks": 32,
+     "selected_by_sat": [
+      24,
+      32
+     ]
+    },
+    "24": {
+     "blocks": 16,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16
+     ]
+    }
+   },
+   "arms": {
+    "pM=6": {
+     "bit_exact": true,
+     "ms": 0.07213,
+     "median_ms": 0.072489,
+     "iters": 114,
+     "blocks": 64
+    },
+    "pM=8": {
+     "bit_exact": true,
+     "ms": 0.075315,
+     "median_ms": 0.075689,
+     "iters": 114,
+     "blocks": 48
+    },
+    "pM=12": {
+     "bit_exact": true,
+     "ms": 0.083286,
+     "median_ms": 0.08378,
+     "iters": 114,
+     "blocks": 32
+    },
+    "pM=24": {
+     "bit_exact": true,
+     "ms": 0.123377,
+     "median_ms": 0.123618,
+     "iters": 114,
+     "blocks": 16
+    },
+    "pM=12_AA": {
+     "bit_exact": true,
+     "ms": 0.083452,
+     "median_ms": 0.083709,
+     "iters": 114
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.194616,
+     "median_ms": 0.194878,
+     "iters": 114
+    }
+   },
+   "shipped_per_core_M": 12,
+   "shipped_blocks": 32,
+   "best_arm": "pM=6",
+   "best_blocks": 64,
+   "x_vs_shipped": 1.1547,
+   "aa_floor": 0.00199
+  },
+  {
+   "label": "trunk APB q@kT 1024aa",
+   "live": true,
+   "s": 1024,
+   "a": [
+    1,
+    16,
+    1024,
+    32
+   ],
+   "b": [
+    1,
+    16,
+    32,
+    1024
+   ],
+   "batch": 16,
+   "Mt": 32,
+   "Kt": 1,
+   "Nt": 32,
+   "in0_block_w": 1,
+   "legal": {},
+   "arms": {},
+   "note": "chooser declines at every SAT; the plain ttnn call is what ships"
+  },
+  {
+   "label": "trunk APB attn@v 1024aa",
+   "live": true,
+   "s": 1024,
+   "a": [
+    1,
+    16,
+    1024,
+    1024
+   ],
+   "b": [
+    1,
+    16,
+    1024,
+    32
+   ],
+   "batch": 16,
+   "Mt": 32,
+   "Kt": 32,
+   "Nt": 1,
+   "in0_block_w": 2,
+   "legal": {
+    "8": {
+     "blocks": 64,
+     "selected_by_sat": [
+      48,
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "16": {
+     "blocks": 32,
+     "selected_by_sat": [
+      24,
+      32
+     ]
+    },
+    "32": {
+     "blocks": 16,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16
+     ]
+    }
+   },
+   "arms": {
+    "pM=8": {
+     "bit_exact": true,
+     "ms": 0.115854,
+     "median_ms": 0.116991,
+     "iters": 76,
+     "blocks": 64
+    },
+    "pM=16": {
+     "bit_exact": true,
+     "ms": 0.135489,
+     "median_ms": 0.136081,
+     "iters": 76,
+     "blocks": 32
+    },
+    "pM=32": {
+     "bit_exact": true,
+     "ms": 0.198187,
+     "median_ms": 0.199341,
+     "iters": 76,
+     "blocks": 16
+    },
+    "pM=16_AA": {
+     "bit_exact": true,
+     "ms": 0.135854,
+     "median_ms": 0.136277,
+     "iters": 76
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.261152,
+     "median_ms": 0.261729,
+     "iters": 76
+    }
+   },
+   "shipped_per_core_M": 16,
+   "shipped_blocks": 32,
+   "best_arm": "pM=8",
+   "best_blocks": 64,
+   "x_vs_shipped": 1.1695,
+   "aa_floor": 0.00269
+  },
+  {
+   "label": "token DiT q@kT 1024aa",
+   "live": false,
+   "s": 1024,
+   "a": [
+    1,
+    16,
+    1024,
+    64
+   ],
+   "b": [
+    1,
+    16,
+    64,
+    1024
+   ],
+   "batch": 16,
+   "Mt": 32,
+   "Kt": 2,
+   "Nt": 32,
+   "in0_block_w": 1,
+   "legal": {},
+   "arms": {},
+   "note": "chooser declines at every SAT; the plain ttnn call is what ships"
+  },
+  {
+   "label": "token DiT attn@v 1024aa",
+   "live": false,
+   "s": 1024,
+   "a": [
+    1,
+    16,
+    1024,
+    1024
+   ],
+   "b": [
+    1,
+    16,
+    1024,
+    64
+   ],
+   "batch": 16,
+   "Mt": 32,
+   "Kt": 32,
+   "Nt": 2,
+   "in0_block_w": 2,
+   "legal": {
+    "8": {
+     "blocks": 64,
+     "selected_by_sat": [
+      48,
+      64,
+      96,
+      128,
+      192,
+      256,
+      384,
+      512,
+      1024
+     ]
+    },
+    "16": {
+     "blocks": 32,
+     "selected_by_sat": [
+      24,
+      32
+     ]
+    },
+    "32": {
+     "blocks": 16,
+     "selected_by_sat": [
+      1,
+      2,
+      4,
+      8,
+      16
+     ]
+    }
+   },
+   "arms": {
+    "pM=8": {
+     "bit_exact": true,
+     "ms": 0.122805,
+     "median_ms": 0.123654,
+     "iters": 72,
+     "blocks": 64
+    },
+    "pM=16": {
+     "bit_exact": true,
+     "ms": 0.145825,
+     "median_ms": 0.146216,
+     "iters": 72,
+     "blocks": 32
+    },
+    "pM=32": {
+     "bit_exact": true,
+     "ms": 0.217255,
+     "median_ms": 0.217941,
+     "iters": 72,
+     "blocks": 16
+    },
+    "pM=16_AA": {
+     "bit_exact": true,
+     "ms": 0.146399,
+     "median_ms": 0.147095,
+     "iters": 72
+    },
+    "ttnn_plain": {
+     "bit_exact": true,
+     "ms": 0.2784,
+     "median_ms": 0.278674,
+     "iters": 72
+    }
+   },
+   "shipped_per_core_M": 16,
+   "shipped_blocks": 32,
+   "best_arm": "pM=8",
+   "best_blocks": 64,
+   "x_vs_shipped": 1.1875,
+   "aa_floor": 0.00394
+  }
+ ]
+}

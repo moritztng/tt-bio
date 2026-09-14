@@ -1,0 +1,33 @@
+298_base_1           coords IDENTICAL  max 0.000000 A  rmsd 0.000000 A  | plddt max 0.000 mean 0.0000  | sha de5d77b220e32a7a -> de5d77b220e32a7a
+298_conf_0           coords IDENTICAL  max 0.000000 A  rmsd 0.000000 A  | plddt max 0.185 mean 0.0216  | sha de5d77b220e32a7a -> b76f1310a5d07317
+{
+ "ref": "298_base_0",
+ "arms": {
+  "298_base_1": {
+   "file": "cdk2x2_298.cif",
+   "atoms": 2397,
+   "coord_max_abs_delta_A": 0.0,
+   "coord_rmsd_A": 0.0,
+   "coords_identical": true,
+   "plddt_max_abs_delta": 0.0,
+   "plddt_mean_abs_delta": 0.0,
+   "plddt_mean_ref": 90.991,
+   "plddt_mean_arm": 90.991,
+   "sha_ref": "de5d77b220e32a7a",
+   "sha_arm": "de5d77b220e32a7a"
+  },
+  "298_conf_0": {
+   "file": "cdk2x2_298.cif",
+   "atoms": 2397,
+   "coord_max_abs_delta_A": 0.0,
+   "coord_rmsd_A": 0.0,
+   "coords_identical": true,
+   "plddt_max_abs_delta": 0.185,
+   "plddt_mean_abs_delta": 0.021581,
+   "plddt_mean_ref": 90.991,
+   "plddt_mean_arm": 90.9868,
+   "sha_ref": "de5d77b220e32a7a",
+   "sha_arm": "b76f1310a5d07317"
+  }
+ }
+}

@@ -1,0 +1,160 @@
+{
+ "host": "j10glx02",
+ "arch": "Arch.WORMHOLE_B0",
+ "grid": [
+  8,
+  9
+ ],
+ "shipped_block_w": 16,
+ "bw": 1,
+ "split_swiglu": true,
+ "is_small_grid": true,
+ "l1_fc1_on": true,
+ "row_block": 32,
+ "shape": {
+  "L": 512,
+  "cz": 256,
+  "dff": 1024
+ },
+ "rows": [
+  {
+   "arm": "obw16_0",
+   "obw": 16,
+   "ms": 48.774034999951255,
+   "l1_fc1": {
+    "served": 256,
+    "declined": 0
+   },
+   "latch": {
+    "served": 1,
+    "refused": 1,
+    "blocked": 254,
+    "declined": 0
+   },
+   "why": [
+    "L1 clash: grid=(8, 6) cores=48 buffer_addr=331776 cb_end=681248 shortfall=349472"
+   ],
+   "equal_to_shipped": true
+  },
+  {
+   "arm": "obw16_1",
+   "obw": 16,
+   "ms": 48.814601002959535,
+   "l1_fc1": {
+    "served": 256,
+    "declined": 0
+   },
+   "latch": {
+    "served": 1,
+    "refused": 1,
+    "blocked": 254,
+    "declined": 0
+   },
+   "why": [
+    "L1 clash: grid=(8, 6) cores=48 buffer_addr=331776 cb_end=681248 shortfall=349472"
+   ],
+   "equal_to_shipped": true,
+   "max_abs": 0.0
+  },
+  {
+   "arm": "obw8_2",
+   "obw": 8,
+   "ms": 48.727870496804826,
+   "l1_fc1": {
+    "served": 256,
+    "declined": 0
+   },
+   "latch": {
+    "served": 1,
+    "refused": 1,
+    "blocked": 254,
+    "declined": 0
+   },
+   "why": [
+    "L1 clash: grid=(8, 6) cores=48 buffer_addr=331776 cb_end=681248 shortfall=349472"
+   ],
+   "equal_to_shipped": true,
+   "max_abs": 0.0
+  },
+  {
+   "arm": "obw24_3",
+   "obw": 24,
+   "ms": 48.76179649727419,
+   "l1_fc1": {
+    "served": 256,
+    "declined": 0
+   },
+   "latch": {
+    "served": 1,
+    "refused": 1,
+    "blocked": 254,
+    "declined": 0
+   },
+   "why": [
+    "L1 clash: grid=(8, 6) cores=48 buffer_addr=331776 cb_end=681248 shortfall=349472"
+   ],
+   "equal_to_shipped": true,
+   "max_abs": 0.0
+  },
+  {
+   "arm": "obw32_4",
+   "obw": 32,
+   "ms": 48.73525699804304,
+   "l1_fc1": {
+    "served": 256,
+    "declined": 0
+   },
+   "latch": {
+    "served": 1,
+    "refused": 1,
+    "blocked": 254,
+    "declined": 0
+   },
+   "why": [
+    "L1 clash: grid=(8, 6) cores=48 buffer_addr=331776 cb_end=681248 shortfall=349472"
+   ],
+   "equal_to_shipped": true,
+   "max_abs": 0.0
+  },
+  {
+   "arm": "obw48_5",
+   "obw": 48,
+   "ms": 48.73145100282272,
+   "l1_fc1": {
+    "served": 256,
+    "declined": 0
+   },
+   "latch": {
+    "served": 1,
+    "refused": 1,
+    "blocked": 254,
+    "declined": 0
+   },
+   "why": [
+    "L1 clash: grid=(8, 6) cores=48 buffer_addr=331776 cb_end=681248 shortfall=349472"
+   ],
+   "equal_to_shipped": true,
+   "max_abs": 0.0
+  },
+  {
+   "arm": "obw64_6",
+   "obw": 64,
+   "ms": 48.76477599464124,
+   "l1_fc1": {
+    "served": 256,
+    "declined": 0
+   },
+   "latch": {
+    "served": 1,
+    "refused": 1,
+    "blocked": 254,
+    "declined": 0
+   },
+   "why": [
+    "L1 clash: grid=(8, 6) cores=48 buffer_addr=331776 cb_end=681248 shortfall=349472"
+   ],
+   "equal_to_shipped": true,
+   "max_abs": 0.0
+  }
+ ]
+}

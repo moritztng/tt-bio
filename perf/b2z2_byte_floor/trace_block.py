@@ -19,19 +19,48 @@ whenever an address appears as an op's OUTPUT without also being one of its inpu
 fresh allocation written from scratch. An in-place op (`ttnn.add_`) keeps the generation, which is
 what we want: the residual chain is one buffer read and written many times, not many buffers.
 
-Usage:  TT_VISIBLE_DEVICES=<n> TT_BIO_LEASE_CARDS=<n> python3 trace_block.py [tokens] [out.json]
-Opens one device, builds one PairformerLayer with the Boltz-2 trunk geometry, runs it twice
-(the first call compiles) and records the second.
+Three layer shapes, one tracer. `--layer pairformer` builds a standalone PairformerLayer with the
+Boltz-2 trunk geometry, runs it twice (the first call compiles) and records the second.
+`--layer difftx` cannot do that: the diffusion layers take a pair bias sliced per layer, an atom
+window index and an AdaLN memo that only exist inside a real rollout, so that mode folds the 512 aa
+fixture with a short rollout and arms the recorder on one call of each DiffusionTransformerLayer
+shape, which is the same call `perf/b2x_difflayer/capture_difftx.py` hands to `ttnn.graph`. Same
+recorder, same ledger, same output schema; only the driver differs.
+
+Usage:  TT_VISIBLE_DEVICES=<n> TT_BIO_LEASE_CARDS=<n> python3 trace_block.py [--layer pairformer]
+                                                                             [--tokens 512] [--out P]
+        TT_VISIBLE_DEVICES=<n> TT_BIO_LEASE_CARDS=<n> python3 trace_block.py --layer difftx
+                                                                             [--steps 4] [--call 3]
+                                                                             --out-dir D
+A path ending in `.gz` is written gzipped, which is what `fusion_pairs.py` reads.
 """
+import argparse
+import gzip
 import json
 import os
 import sys
 import traceback
+from collections import defaultdict
 
 import torch
 
-TOKENS = int(sys.argv[1]) if len(sys.argv) > 1 else 512
-OUT = sys.argv[2] if len(sys.argv) > 2 else f"/tmp/b2z2_bytefloor_trace_{TOKENS}.json"
+
+def _args():
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--layer", choices=("pairformer", "difftx"), default="pairformer")
+    p.add_argument("--tokens", type=int, default=512, help="pairformer mode: sequence length")
+    p.add_argument("--out", default=None, help="pairformer mode: output path")
+    p.add_argument("--size", type=int, default=512, help="difftx mode: fixture length")
+    p.add_argument("--steps", type=int, default=4, help="difftx mode: sampling steps")
+    p.add_argument("--call", type=int, default=3,
+                   help="difftx mode: which call of each layer shape to record, 0-based")
+    p.add_argument("--out-dir", default=None, help="difftx mode: directory for one file per shape")
+    return p.parse_args()
+
+
+ARGS = _args()
+TOKENS = ARGS.tokens
+OUT = ARGS.out or f"/tmp/b2z2_bytefloor_trace_{TOKENS}.json"
 
 import ttnn  # noqa: E402
 from ttnn.decorators import FastOperation, Operation  # noqa: E402
@@ -128,20 +157,21 @@ def _wrap(name, fn):
 
 
 def install():
-    n = 0
-    mods = [("ttnn", ttnn)]
-    for sub in ("experimental", "operations"):
-        m = getattr(ttnn, sub, None)
-        if m is not None:
-            mods.append((f"ttnn.{sub}", m))
-            for a in dir(m):
-                s = getattr(m, a, None)
-                if type(s).__name__ == "module" and not a.startswith("_"):
-                    mods.append((f"ttnn.{sub}.{a}", s))
-    seen = set()
-    for pfx, m in mods:
-        if id(m) in seen:
-            continue
+    """Wrap every `ttnn` Operation, wherever it lives, and return how many.
+
+    The module list used to be hand-written (`ttnn`, `ttnn.experimental`, and one level under
+    `ttnn.operations`). That missed `ttnn.transformer`, which is where
+    `scaled_dot_product_attention` lives -- so a trace of any stack that reaches the fused SDPA
+    recorded its q/k/v as written-and-never-read and dropped the op's own mask read entirely.
+    Walking the tree instead of naming it is the fix, and it is the same reason a hardcoded list of
+    anything in this repo eventually goes stale.
+    """
+    n, seen = 0, set()
+
+    def walk(prefix, m, depth):
+        nonlocal n
+        if id(m) in seen or depth > 3:
+            return
         seen.add(id(m))
         for a in dir(m):
             if a.startswith("_"):
@@ -152,10 +182,14 @@ def install():
                 continue
             if isinstance(o, (FastOperation, Operation)):
                 try:
-                    setattr(m, a, _wrap(f"{pfx}.{a}", o))
+                    setattr(m, a, _wrap(f"{prefix}.{a}", o))
                     n += 1
                 except Exception:
                     pass
+            elif type(o).__name__ == "module" and getattr(o, "__name__", "").startswith("ttnn"):
+                walk(f"{prefix}.{a}", o, depth + 1)
+
+    walk("ttnn", ttnn, 0)
     return n
 
 
@@ -197,11 +231,26 @@ def ledger(rec):
     return out_rows, {f"{a}#{g}": v for (a, g), v in buf.items()}
 
 
-def main():
+def dump(path, arch, tokens, rec, extra=None):
+    """Ledger `rec` and write it where `fusion_pairs.py` / `census.py` can read it."""
+    rows, bufs = ledger(rec)
+    blob = {"arch": arch, "tokens": tokens, "n_ops": len(rows), "rows": rows, "buffers": bufs}
+    blob.update(extra or {})
+    op = gzip.open(path, "wt") if path.endswith(".gz") else open(path, "w")
+    with op as fh:
+        json.dump(blob, fh)
+    print(f"{len(rows)} ops, {len(bufs)} buffers -> {path}", flush=True)
+    return {"path": path, "n_ops": len(rows), "n_buffers": len(bufs)}
+
+
+def _arch():
+    return str(ttnn.get_arch_name()) if hasattr(ttnn, "get_arch_name") else "?"
+
+
+def main_pairformer():
     from tt_bio import tenstorrent as tt
     from tt_bio import reference as ref
     dev = tt.get_device()
-    arch = str(ttnn.get_arch_name()) if hasattr(ttnn, "get_arch_name") else "?"
     KC = ttnn.WormholeComputeKernelConfig(
         math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
         fp32_dest_acc_en=True, packer_l1_acc=True)
@@ -231,15 +280,92 @@ def main():
     ACTIVE[0] = False
     ttnn.synchronize_device(dev)
 
-    rows, bufs = ledger(REC)
     elig = {}
     for k in ("qkv_heads", "gate_proj", "out_proj"):
         st = getattr(__import__("tt_bio.triatt_qkv", fromlist=["x"]), "STATS", None)
         if isinstance(st, dict):
             elig = dict(st)
-    json.dump({"arch": arch, "tokens": S, "n_ops": len(rows), "rows": rows, "buffers": bufs,
-               "triatt_qkv_stats": elig}, open(OUT, "w"))
-    print(f"{len(rows)} ops, {len(bufs)} buffers -> {OUT}", flush=True)
+    dump(OUT, _arch(), TOKENS, REC, {"triatt_qkv_stats": elig})
 
 
-main()
+# ---------------------------------------------------------------------------------------------
+# difftx: the two diffusion layer shapes, recorded inside a real rollout.
+
+def _sig(args):
+    """`difftx|<shape of a>,<shape of s>` -- the key `capture_difftx.py` already dumps under, so a
+    tagged trace and a graph capture of the same layer call carry the same name."""
+    sh = [x for x in args if getattr(x, "shape", None) is not None]
+    return "difftx|" + ",".join("x".join(str(int(d)) for d in x.shape) for x in sh[:2])
+
+
+def main_difftx():
+    out_dir = ARGS.out_dir or "/tmp"
+    os.makedirs(out_dir, exist_ok=True)
+    root = os.path.dirname(os.path.dirname(_HERE))
+    for extra in (root, os.path.join(root, "scripts", "gpu_vs_tt"),
+                  os.path.join(root, "perf", "other512")):
+        sys.path.insert(0, extra)
+
+    import tt_bio.tenstorrent as T
+    import tt_baseline as B
+    import fold_ab_multi as FAM
+    from tt_bio.main import _resolve_recycling_steps
+
+    B.SAMPLING_STEPS = ARGS.steps
+    B.RECYCLING_STEPS = _resolve_recycling_steps(None, "boltz2")
+    FAM.patch_boltz2_cfg()
+
+    fix = os.path.join(root, "perf", "size512", "fixtures")
+    from pathlib import Path
+    one_fold, meta, state = B.build_fold(
+        "boltz2", Path(root) / f".msa_bytes_{ARGS.size}",
+        Path(fix) / f"cdk2x2_{ARGS.size}.yaml", Path(fix) / f"cdk2x2_{ARGS.size}.a3m")
+    dev = T.get_device()
+    arch = _arch()
+
+    n = install()
+    print(f"wrapped {n} ttnn operations", flush=True)
+
+    seen, done = defaultdict(int), {}
+    orig = T.DiffusionTransformerLayer.__call__
+    # The flags that decide which attention the token DiT runs and how the atom axis is bucketed.
+    # Recorded beside the bytes because the published graph capture was taken with both OFF and a
+    # trace that does not say which arm it is cannot be compared with it.
+    flags = {"BOLTZ2_TOKEN_DIT_SDPA": bool(T._B2_TOKEN_DIT_SDPA),
+             "TT_BIO_ATOM_AXIS_BUCKET": bool(T._ATOM_AXIS_BUCKET)}
+
+    def call(self, *a, **kw):
+        sig = _sig(a)
+        i = seen[sig]
+        seen[sig] = i + 1
+        if i != ARGS.call or sig in done or ACTIVE[0]:
+            return orig(self, *a, **kw)
+        REC.clear()
+        ACTIVE[0] = True
+        try:
+            r = orig(self, *a, **kw)
+        finally:
+            ACTIVE[0] = False
+        ttnn.synchronize_device(dev)
+        name = sig.split("|", 1)[1].replace(",", "_")
+        done[sig] = dump(os.path.join(out_dir, f"difftx_{name}.json.gz"), arch, ARGS.size, REC,
+                         {"sig": sig, "call_index": i, "atom_level": bool(self.atom_level),
+                          "steps": ARGS.steps, "flags": flags})
+        return r
+
+    T.DiffusionTransformerLayer.__call__ = call
+    fold_s, m = one_fold()
+    T.DiffusionTransformerLayer.__call__ = orig
+    # fold_s is NOT a performance number: every ttnn call in this process is wrapped and two layer
+    # calls walk the Python stack per op. It is printed only so a run that folded nothing is obvious.
+    print(f"folded (instrumented, not a timing) {fold_s:.1f} s, plddt {m.get('plddt')}", flush=True)
+    print("shapes recorded: " + ", ".join(sorted(done)), flush=True)
+    print("flags: " + json.dumps(flags), flush=True)
+    json.dump({"flags": flags, "steps": ARGS.steps, "size": ARGS.size, "arch": arch,
+               "call_index": ARGS.call, "recorded": done,
+               "token_dit_sdpa_stats": list(T.B2_TOKEN_DIT_SDPA_STATS)},
+              open(os.path.join(out_dir, "manifest.json"), "w"), indent=1)
+    T.cleanup()
+
+
+(main_difftx if ARGS.layer == "difftx" else main_pairformer)()

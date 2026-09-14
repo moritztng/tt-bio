@@ -153,8 +153,6 @@ _TAIL_OVER_L1 = os.environ.get(
     "TT_BIO_TRIATT_TAIL_OVER_L1", "1" if TRIATT_TAIL_OVER_L1 else "0") == "1"
 
 
-
-
 # --- the same writer, for a head that is more than one tile wide ----------------------------------
 #
 # `qkv_heads` above is gated on a 32-channel head because that is the only width the tri-attention
@@ -173,7 +171,8 @@ _TAIL_OVER_L1 = os.environ.get(
 #     fused form costs 4.91 us against 18.39 for the separate add it replaces.
 #
 # It is NOT bit-exact against `ttnn.linear` -- no block config is at this shape, `_MM_DEFAULT`
-# included -- so it is off by default and needs a fold-level score, exactly like the padded tail.
+# included -- so it is off by default and needs a fold-level score, exactly like the padded tail
+# (`TT_BIO_APB_CONCAT_HEADS`).
 DIT_QKV_BLOCK = (4, 8, 4, 4, 2)
 
 _WIDE_ENABLED = os.environ.get("TT_BIO_DIT_FUSED_QKV", "0") == "1"
@@ -379,15 +378,20 @@ def qkvg_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config):
     return tuple(outs[:3]), outs[3]
 
 
-def out_proj(gated, w, ckc, dtype):
-    """The `out` projection reading a head-major activation: `[B, H, S, 32] -> [B, S, H*32]`."""
+def out_proj(gated, w, ckc, dtype, memory_config=None):
+    """The `out` projection reading a head-major activation: `[B, H, S, 32] -> [B, S, H*32]`.
+
+    `memory_config` names where the result lands. The kernel builds its output address generator
+    from the tensor it is handed, so an L1 destination changes which banks a tile is written to
+    and nothing else: same blocking, same accumulation order, same bytes.
+    """
     from .tenstorrent import _mm_block_for, COMPUTE_GRID_MAIN
     B, H, S, D = (int(d) for d in gated.shape)
     pad = [int(d) for d in gated.padded_shape]
     dev = gated.device()
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape([B, S, int(w.shape[-1])]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
-        ttnn.DRAM_MEMORY_CONFIG)
+        memory_config if memory_config is not None else ttnn.DRAM_MEMORY_CONFIG)
     G.generic_minimal_matmul(
         dev, gated, w, out, (_mm_block_for(w), tuple(COMPUTE_GRID_MAIN)),
         G.ckc_args(ckc), {"HEAD_MAJOR_IN0_MT": pad[-2] // TILE}, KERNEL_DIR,

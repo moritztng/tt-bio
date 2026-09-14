@@ -1,0 +1,100 @@
+{
+ "doc": "Fold the null-lever width ladder into the number that sets how many agents this box can host.\n\nThroughput is the wrong statistic for this question. Folds per hour says how much work a box does;\nit does not say whether a 1.005x lever measured on one of its chips is real. The statistic that does\nis the NULL RATIO: both arms of the null lever are the shipped default, so its true value is 1.0 and\nwhatever a chip reads instead is the noise a paired A/B carries at that width.\n\nReported per width: the worst null ratio any chip read, the median, and the smallest lever margin\nthat clears the worst chip. A width whose worst null read is 1.02 cannot screen a 1.01 lever on\nevery chip, however many folds per hour it turns out.\n",
+ "widths": [
+  {
+   "width": 1,
+   "n_chips_reporting": 1,
+   "null_ratio_worst": 1.0,
+   "null_ratio_median": 1.0,
+   "aa_floor_worst": 1.00684,
+   "median_fold_s": 37.394,
+   "min_fold_s": 37.266,
+   "max_fold_s": 37.521,
+   "fold_spread_x": 1.0068,
+   "cv_pct": 0.298,
+   "smallest_resolvable_margin_pp": 0.0,
+   "omp_num_threads": [
+    null
+   ],
+   "digests": [
+    "8cabfca3308ed3cd"
+   ]
+  },
+  {
+   "width": 4,
+   "n_chips_reporting": 4,
+   "null_ratio_worst": 1.00841,
+   "null_ratio_median": 1.00306,
+   "aa_floor_worst": 1.00711,
+   "median_fold_s": 37.546,
+   "min_fold_s": 37.271,
+   "max_fold_s": 37.755,
+   "fold_spread_x": 1.013,
+   "cv_pct": 0.356,
+   "smallest_resolvable_margin_pp": 0.841,
+   "omp_num_threads": [
+    "16"
+   ],
+   "digests": [
+    "481866335437bcf9"
+   ]
+  },
+  {
+   "width": 8,
+   "n_chips_reporting": 8,
+   "null_ratio_worst": 1.00573,
+   "null_ratio_median": 1.00305,
+   "aa_floor_worst": 1.00906,
+   "median_fold_s": 37.961,
+   "min_fold_s": 37.489,
+   "max_fold_s": 38.234,
+   "fold_spread_x": 1.0199,
+   "cv_pct": 0.46,
+   "smallest_resolvable_margin_pp": 0.573,
+   "omp_num_threads": [
+    "8"
+   ],
+   "digests": [
+    "481866335437bcf9"
+   ]
+  },
+  {
+   "width": 16,
+   "n_chips_reporting": 16,
+   "null_ratio_worst": 1.00917,
+   "null_ratio_median": 1.0023,
+   "aa_floor_worst": 1.01571,
+   "median_fold_s": 39.017,
+   "min_fold_s": 38.313,
+   "max_fold_s": 39.388,
+   "fold_spread_x": 1.0281,
+   "cv_pct": 0.518,
+   "smallest_resolvable_margin_pp": 0.917,
+   "omp_num_threads": [
+    "4"
+   ],
+   "digests": [
+    "2573305a66cf6e75"
+   ]
+  },
+  {
+   "width": 32,
+   "n_chips_reporting": 32,
+   "null_ratio_worst": 1.02085,
+   "null_ratio_median": 1.00558,
+   "aa_floor_worst": 1.04564,
+   "median_fold_s": 41.279,
+   "min_fold_s": 40.122,
+   "max_fold_s": 42.265,
+   "fold_spread_x": 1.0534,
+   "cv_pct": 1.094,
+   "smallest_resolvable_margin_pp": 2.085,
+   "omp_num_threads": [
+    "2"
+   ],
+   "digests": [
+    "2573305a66cf6e75"
+   ]
+  }
+ ]
+}

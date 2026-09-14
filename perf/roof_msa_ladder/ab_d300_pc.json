@@ -1,0 +1,163 @@
+{
+  "env": {
+    "started": "2026-09-14T03:27:49+0200",
+    "host": "pc",
+    "card": "0",
+    "ladder": [
+      64,
+      128,
+      256,
+      512,
+      1024
+    ],
+    "bracket": false,
+    "pairs": 2,
+    "commit": "b7288021c",
+    "ttnn": "?"
+  },
+  "sizes": {
+    "cdk2x2_512_d300": {
+      "n_msa": 300,
+      "hardware": "blackhole",
+      "grid": [
+        13,
+        10
+      ],
+      "card_type": "p150a",
+      "recycling_steps": 3,
+      "struct_dir": "/tmp/ttbase-boltz2-e6ii_x4n/out",
+      "folds": [
+        {
+          "arm": "0",
+          "tag": "cold",
+          "s": 18.921,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512_d300.cif": "46db71e5cd265af6"
+          },
+          "loadavg": [
+            "2.97",
+            "2.27",
+            "1.91"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "cold",
+          "s": 21.449,
+          "plddt": null,
+          "padded_rows": [
+            512
+          ],
+          "cif_sha256": {
+            "cdk2x2_512_d300.cif": "513dc3743f0cb7b6"
+          },
+          "loadavg": [
+            "3.05",
+            "2.33",
+            "1.94"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm0",
+          "s": 17.349,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512_d300.cif": "513dc3743f0cb7b6"
+          },
+          "loadavg": [
+            "2.99",
+            "2.35",
+            "1.95"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm0",
+          "s": 16.738,
+          "plddt": null,
+          "padded_rows": [
+            512
+          ],
+          "cif_sha256": {
+            "cdk2x2_512_d300.cif": "513dc3743f0cb7b6"
+          },
+          "loadavg": [
+            "3.24",
+            "2.44",
+            "1.99"
+          ]
+        },
+        {
+          "arm": "1",
+          "tag": "warm1",
+          "s": 16.956,
+          "plddt": null,
+          "padded_rows": [
+            512
+          ],
+          "cif_sha256": {
+            "cdk2x2_512_d300.cif": "513dc3743f0cb7b6"
+          },
+          "loadavg": [
+            "2.91",
+            "2.40",
+            "1.98"
+          ]
+        },
+        {
+          "arm": "0",
+          "tag": "warm1",
+          "s": 17.212,
+          "plddt": null,
+          "padded_rows": [
+            1024
+          ],
+          "cif_sha256": {
+            "cdk2x2_512_d300.cif": "513dc3743f0cb7b6"
+          },
+          "loadavg": [
+            "2.77",
+            "2.40",
+            "1.99"
+          ]
+        }
+      ],
+      "cold_s": {
+        "off": 18.921,
+        "on": 21.449
+      },
+      "warm_s": {
+        "0": [
+          17.349,
+          17.212
+        ],
+        "1": [
+          16.738,
+          16.956
+        ]
+      },
+      "warm_median_s": {
+        "0": 17.28,
+        "1": 16.847
+      },
+      "paired_delta_s": [
+        0.61,
+        0.256
+      ],
+      "paired_delta_median_s": 0.433,
+      "speedup": 1.0257,
+      "rung_compile_s": {
+        "0": 1.641,
+        "1": 4.602
+      }
+    }
+  }
+}

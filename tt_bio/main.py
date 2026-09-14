@@ -3392,15 +3392,19 @@ def warmup(max_seq, max_msa, n_samples, cache):
         PAIRFORMER_PAD_MULTIPLE as SEQ_PAD, MSA_PAD_MULTIPLE as MSA_PAD,
         MAX_ATOMS_PER_TOKEN,
     )
+    from tt_bio.token_axis import msa_ladder
     from tt_bio.boltz2 import get_indexing_matrix
 
     torch.set_grad_enabled(False)
 
     seq_bk = list(range(SEQ_PAD, max_seq + 1, SEQ_PAD))
-    msa_bk = list(range(MSA_PAD, max_msa + 1, MSA_PAD))
+    # The depth axis pads to a ladder below MSA_PAD and to multiples of it above, so warm both:
+    # a rung this loop skips is a rung the first real fold pays the compile for.
+    ladder = msa_ladder()
+    msa_bk = [d for d in ladder if d <= max_msa] + list(range(2 * MSA_PAD, max_msa + 1, MSA_PAD))
 
     click.echo(f"seq  buckets ({SEQ_PAD}): {seq_bk}")
-    click.echo(f"msa  buckets ({MSA_PAD}): {msa_bk}")
+    click.echo(f"msa  buckets (ladder {list(ladder)}, then multiples of {MSA_PAD}): {msa_bk}")
     click.echo("Loading checkpoint …")
 
     state = torch.load(

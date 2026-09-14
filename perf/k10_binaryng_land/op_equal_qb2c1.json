@@ -1,0 +1,142 @@
+{
+ "all_equal_and_controls_fire": true,
+ "n_tested": 15,
+ "n_gate_declined": 3,
+ "rows": [
+  {
+   "case": "trimul mask operand",
+   "S": 128,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "triatt out_proj dest",
+   "S": 128,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "transition concat dest",
+   "S": 128,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "trimul mask operand",
+   "S": 298,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "triatt out_proj dest",
+   "S": 298,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "transition concat dest",
+   "S": 298,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "trimul mask operand",
+   "S": 512,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "triatt out_proj dest",
+   "S": 512,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "transition concat dest",
+   "S": 512,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "trimul mask operand",
+   "S": 640,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "triatt out_proj dest",
+   "S": 640,
+   "gate_declined": true
+  },
+  {
+   "case": "transition concat dest",
+   "S": 640,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "trimul mask operand",
+   "S": 768,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "triatt out_proj dest",
+   "S": 768,
+   "gate_declined": true
+  },
+  {
+   "case": "transition concat dest",
+   "S": 768,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "trimul mask operand",
+   "S": 1024,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  },
+  {
+   "case": "triatt out_proj dest",
+   "S": 1024,
+   "gate_declined": true
+  },
+  {
+   "case": "transition concat dest",
+   "S": 1024,
+   "gate_declined": false,
+   "equal": true,
+   "max_abs_diff": 0.0,
+   "control_differs": true
+  }
+ ]
+}
