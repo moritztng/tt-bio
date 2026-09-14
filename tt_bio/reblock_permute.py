@@ -27,6 +27,7 @@ from pathlib import Path
 
 import ttnn
 
+from . import core_split
 from .envflags import env_flag
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "reblock_permute"
@@ -53,66 +54,38 @@ STATS_BACK = [0, 0]
 REJECTS: dict = {}
 
 
-# --- the wheel's own work split has holes, and they move with the part shape -----------------------
+# --- the wheel's own work split has a hole, and `core_split` fills it ------------------------------
 #
-# `ttnn.split_work_to_cores` raises `TT_FATAL @ work_split.cpp:305: remaining == 0` for some unit
-# counts. Measured on qb1 at ttnn 0.67.4 over 4000 unit counts on ten grids (13x10, 11x10, 9x13,
-# 13x13, 13x9, 12x10, 12x7, 8x10, 7x10, 6x6, 5x11), zero mismatches against this rule: it throws
-# exactly when `units > cores` and `units % cores` is a NON-ZERO MULTIPLE OF THE GRID HEIGHT. The
-# split's two core groups then have sizes that are both multiples of the height, and the utility
-# cannot express the second one as core ranges from where the first one ends.
+# `ttnn.split_work_to_cores` raises `TT_FATAL @ work_split.cpp:305: remaining == 0` whenever
+# `units > cores` and `units % cores` is a non-zero multiple of the grid height, because it anchors
+# core group 2 at the bottom of the next column instead of the top. `tt_bio.core_split` performs the
+# same split in Python and without that bug -- its docstring carries the upstream one-word fix we are
+# pinned below -- so every shape gets the whole grid.
 #
-# On a 13x10 grid that is Nt = 20, 30, 40, 50, 60, i.e. N in [609,640], [929,960], [1249,1280],
-# [1569,1600], [1889,1920]. On a 7x10 part it also catches Nt = 10, which is the Protenix trunk's
-# own tile count. So a hardcoded Nt exclusion list is right on this card and wrong on the next one,
-# silently.
-#
-# The rule is therefore used only to ORDER the search. The utility is always the authority: every
-# candidate rectangle is handed to it, and a shape it cannot split at all is refused by `eligible`
-# and reaches `ttnn.permute` instead of a TT_FATAL.
+# What this replaced was a memoised search for the largest rectangular sub-grid the wheel would
+# accept, plus a `work_split` refusal in each of the three gates for the shapes where even that
+# failed. The search always found something on an 11x10 grid, so no shape was actually losing the
+# leg here, but it cost the busiest core an extra group on the affected bands: the back leg at
+# N=640, C=128 ran its 1600 groups 16 deep on a 10x10 sub-grid where the full 11x10 grid runs them
+# 15 deep. `scripts/verify_core_split.py` prints that census and checks the replacement against the
+# wheel on every unit count the wheel can serve.
 
 _SPLIT_CACHE: dict = {}
 
 
-def _split_hole(cores, height, units):
-    """The measured rule above. A search heuristic, never the final word."""
-    r = units % cores
-    return units > cores and r != 0 and r % height == 0
-
-
 def _split_plan(device, units):
-    """The work split for ``units`` groups, or ``None`` if no rectangle of cores can carry it.
+    """The work split for ``units`` groups over the whole compute grid.
 
-    The full grid is tried first, so every shape that works today is split exactly as it is today
-    and production at N=298 is untouched. Only when the wheel throws does this look for the largest
-    rectangular sub-grid it will accept -- 117 of 130 cores at Nt=20 on qb1's 13x10, 90.0 % -- which
-    keeps the kernel on those bands instead of handing them back to an op it beats by 1.9x on DRAM.
-
-    Cached per ``(device, grid, units)``. The cost matters: a split that works costs 0.61 us on qb1,
-    a throwing one costs 357 us, and ``_channel_move`` runs 4352 times in a 298 aa fold. Probing per
-    call would replace a crash with a slowdown.
+    ``(grid_x, grid_y, <the six-tuple ttnn.split_work_to_cores returns>)``, or ``None`` when there
+    is no work to split at all. Cached per ``(device, grid, units)`` because `_channel_move` runs
+    4352 times in a 298 aa fold.
     """
     g = device.compute_with_storage_grid_size()
     key = (device.id(), g.x, g.y, units)
-    if key in _SPLIT_CACHE:
-        return _SPLIT_CACHE[key]
-    candidates = [(g.x, g.y)] + sorted(
-        ((sx, sy) for sy in range(1, g.y + 1) for sx in range(1, g.x + 1)
-         if (sx, sy) != (g.x, g.y) and not _split_hole(sx * sy, sy, units)),
-        key=lambda s: -s[0] * s[1],
-    )
-    plan = None
-    for sx, sy in candidates:
-        cores = ttnn.CoreRangeSet(
-            [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(sx - 1, sy - 1))]
-        )
-        try:
-            plan = (sx, sy, ttnn.split_work_to_cores(cores, units))
-        except Exception:                                              # noqa: BLE001 -- wheel TT_FATAL
-            continue
-        break
-    _SPLIT_CACHE[key] = plan
-    return plan
+    if key not in _SPLIT_CACHE:
+        plan = (g.x, g.y, core_split.split_work_to_cores(g, units)) if units > 0 else None
+        _SPLIT_CACHE[key] = plan
+    return _SPLIT_CACHE[key]
 
 
 def _reject(reason, shape):
@@ -318,12 +291,6 @@ def eligible(x, memory_config) -> bool:
     if not ((bt == ttnn.BufferType.DRAM and N >= 256)
             or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
         return _reject(f"window_{bt}", shape)
-    # Last, because it is the only clause that touches the device, and cached, so a fold pays it once
-    # per shape. `_build` requests a work split for Nt*Nt groups and the wheel's utility throws on
-    # some of them (see `_split_plan`); a shape it cannot split has to reach `ttnn.permute`, not a
-    # TT_FATAL.
-    if _split_plan(x.device(), ((N + TILE_H - 1) // TILE_H) ** 2) is None:
-        return _reject("work_split", shape)
     return True
 
 
@@ -536,8 +503,6 @@ def eligible_back(x, memory_config) -> bool:
         return _reject("back_sharded_in", shape)
     if memory_config.buffer_type != ttnn.BufferType.DRAM or N < 256:
         return _reject(f"back_window_{memory_config.buffer_type}", shape)
-    if _split_plan(x.device(), (N // TILE_H) ** 2 * (C // TILE_W)) is None:
-        return _reject("back_work_split", shape)
     return True
 
 
@@ -807,12 +772,4 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     if not ((bt == ttnn.BufferType.DRAM and N >= 256)
             or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
         return _reject(f"gated_window_{bt}", shape)
-    # Screen the group count the DESCRIPTOR actually builds -- Nrt * Nt * Ct, exactly as
-    # `_build_gated` computes it and asserts on. The old `Nt ** 2` is a different number, and a
-    # gate that screens a different number from the one the build uses can pass a shape the build
-    # then refuses (`pcc-gate-can-pass-without-the-op-it-names`).
-    nt = (N + TILE_H - 1) // TILE_H
-    nrt = (shape[1] + TILE_H - 1) // TILE_H
-    if _split_plan(xw.device(), nrt * nt * (slice_c // TILE_W)) is None:
-        return _reject("gated_work_split", shape)
     return True
