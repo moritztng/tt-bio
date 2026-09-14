@@ -62,6 +62,7 @@ def main() -> int:
     state.bind_run("ttx-a3-abba", cfg)
 
     res = {"fixture": a.fixture, "reps": a.reps, "steps": a.steps, "recycles": a.recycles,
+           "cfg_steps": cfg["sampling_steps"], "cfg_recycles": cfg["recycling_steps"],
            "host": socket.gethostname(), "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "grid": list(TT.COMPUTE_GRID_MAIN),
            "commit": os.popen(f"git -C {REPO} rev-parse HEAD").read().strip(), "folds": []}

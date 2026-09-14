@@ -1,0 +1,35 @@
+{
+ "fixture": "cdk2x2_1536",
+ "reps": 2,
+ "steps": 200,
+ "recycles": 3,
+ "cfg_steps": 200,
+ "cfg_recycles": 3,
+ "host": "tt-quietbox2",
+ "card": "2",
+ "grid": [
+  11,
+  10
+ ],
+ "commit": "b4081e6c7ba82db037159059a5774c8012599882",
+ "folds": [
+  {
+   "arm": "off",
+   "rep": -1,
+   "warmup": true,
+   "fold_s": 258.122,
+   "plddt": 0.786016,
+   "cif_sha256": "8d59c0c9f1de18fe1e7688f2b28f18cb851198f13985f9f743297339873808e0",
+   "served": 0,
+   "declined": 1682,
+   "picks": {
+    "(1536, 1536)": [
+     512,
+     256,
+     "stock"
+    ]
+   },
+   "loadavg": 8.87
+  }
+ ]
+}
