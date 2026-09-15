@@ -1,0 +1,111 @@
+======================================================================
+esmfold2 old: 2026-09-10 8e3a3e9e -> new: 2026-09-15 be49be61e
+runtime old: {'256': 16.1, '512': 39.2, '640': 65.1, '768': 94.8, '896': 129.3, '1024': 157.1}
+runtime new: {'1024': 148.9, '512': 39.3, '768': 88.1, '640': 68.0, '896': 121.3, '256': 18.5}
+exponents old: {'256->512': 1.284, '512->768': 2.178}
+exponents new: {'256->512': 1.087, '512->768': 1.991}
+sigma old: 0.0023 new: 0.0301 reps old: 1 new: 1 grid: 11x10 11x10
+ rung 256: 6 finding(s) old->new
+   RED: esmfold2/256 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+   RED: esmfold2/256 FP32_SOFTMAX_L1_GRID: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/256 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/256 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/256 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/256 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+ rung 512: 7 finding(s) old->new
+   RED: esmfold2/512 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+   RED: esmfold2/512 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+   RED: esmfold2/512 FP32_SOFTMAX_L1_GRID: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/512 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/512 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/512 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/512 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+ rung 640: 7 finding(s) old->new
+   RED: esmfold2/640 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+   RED: esmfold2/640 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+   RED: esmfold2/640 FP32_SOFTMAX_L1_GRID: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/640 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/640 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/640 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/640 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+ rung 768: 7 finding(s) old->new
+   RED: esmfold2/768 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+   RED: esmfold2/768 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+   RED: esmfold2/768 FP32_SOFTMAX_L1_GRID: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/768 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/768 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/768 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/768 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+ rung 896: 7 finding(s) old->new
+   RED: esmfold2/896 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+   RED: esmfold2/896 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+   RED: esmfold2/896 FP32_SOFTMAX_L1_GRID: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/896 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/896 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/896 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/896 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+ rung 1024: 7 finding(s) old->new
+   RED: esmfold2/1024 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+   RED: esmfold2/1024 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+   RED: esmfold2/1024 FP32_SOFTMAX_L1_GRID: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/1024 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/1024 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/1024 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+   RED: esmfold2/1024 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+ flags implicated: ['APB_CONCAT_HEADS', 'ATOM_AXIS_BUCKET', 'B2_TOKEN_DIT_SDPA', 'FP32_SOFTMAX_L1_GRID', 'REBLOCK_PERMUTE', 'TRANSITION_H_CHUNK', 'TRIMUL_MASK_AFTER_MOVE']
+ NOT in the nine: ['FP32_SOFTMAX_L1_GRID']
+ --- new state of the nine, per rung ---
+  256 REBLOCK_PERMUTE: resolved=True served=0 declined=8672 frac=0.0 rejects=['window_BufferType.L1']
+  256 REBLOCK_PERMUTE_GATED: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  256 B2_TOKEN_DIT_SDPA: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  256 TRIMUL_MASK_AFTER_MOVE: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  256 APB_CONCAT_HEADS: resolved=False served=0 declined=0 frac=0.0 rejects=[]
+  256 ATOM_AXIS_BUCKET: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  256 TRANSITION_H_CHUNK: resolved=16 served=0 declined=0 frac=0.0 rejects=[]
+  256 PAIR_PROJ_MINIMAL_MATMUL: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  256 TRIMUL_TAIL_F1: resolved=True served=1084 declined=0 frac=1.0 rejects=[]
+  512 REBLOCK_PERMUTE: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  512 REBLOCK_PERMUTE_GATED: resolved=True served=2168 declined=0 frac=1.0 rejects=[]
+  512 B2_TOKEN_DIT_SDPA: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  512 TRIMUL_MASK_AFTER_MOVE: resolved=True served=2168 declined=0 frac=1.0 rejects=[]
+  512 APB_CONCAT_HEADS: resolved=False served=0 declined=0 frac=0.0 rejects=[]
+  512 ATOM_AXIS_BUCKET: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  512 TRANSITION_H_CHUNK: resolved=16 served=0 declined=0 frac=0.0 rejects=[]
+  512 PAIR_PROJ_MINIMAL_MATMUL: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  512 TRIMUL_TAIL_F1: resolved=True served=1084 declined=0 frac=1.0 rejects=[]
+  640 REBLOCK_PERMUTE: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  640 REBLOCK_PERMUTE_GATED: resolved=True served=2168 declined=0 frac=1.0 rejects=[]
+  640 B2_TOKEN_DIT_SDPA: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  640 TRIMUL_MASK_AFTER_MOVE: resolved=True served=2168 declined=0 frac=1.0 rejects=[]
+  640 APB_CONCAT_HEADS: resolved=False served=0 declined=0 frac=0.0 rejects=[]
+  640 ATOM_AXIS_BUCKET: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  640 TRANSITION_H_CHUNK: resolved=16 served=0 declined=0 frac=0.0 rejects=[]
+  640 PAIR_PROJ_MINIMAL_MATMUL: resolved=True served=0 declined=21519 frac=0.0 rejects=['no_mm_block:(8,32)']
+  640 TRIMUL_TAIL_F1: resolved=True served=1084 declined=0 frac=1.0 rejects=[]
+  768 REBLOCK_PERMUTE: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  768 REBLOCK_PERMUTE_GATED: resolved=True served=4336 declined=0 frac=1.0 rejects=[]
+  768 B2_TOKEN_DIT_SDPA: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  768 TRIMUL_MASK_AFTER_MOVE: resolved=True served=4336 declined=0 frac=1.0 rejects=[]
+  768 APB_CONCAT_HEADS: resolved=False served=0 declined=0 frac=0.0 rejects=[]
+  768 ATOM_AXIS_BUCKET: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  768 TRANSITION_H_CHUNK: resolved=16 served=0 declined=0 frac=0.0 rejects=[]
+  768 PAIR_PROJ_MINIMAL_MATMUL: resolved=True served=0 declined=25823 frac=0.0 rejects=['no_mm_block:(8,32)']
+  768 TRIMUL_TAIL_F1: resolved=True served=1084 declined=0 frac=1.0 rejects=[]
+  896 REBLOCK_PERMUTE: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  896 REBLOCK_PERMUTE_GATED: resolved=True served=4336 declined=0 frac=1.0 rejects=[]
+  896 B2_TOKEN_DIT_SDPA: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  896 TRIMUL_MASK_AFTER_MOVE: resolved=True served=4336 declined=0 frac=1.0 rejects=[]
+  896 APB_CONCAT_HEADS: resolved=False served=0 declined=0 frac=0.0 rejects=[]
+  896 ATOM_AXIS_BUCKET: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  896 TRANSITION_H_CHUNK: resolved=16 served=0 declined=0 frac=0.0 rejects=[]
+  896 PAIR_PROJ_MINIMAL_MATMUL: resolved=True served=0 declined=30127 frac=0.0 rejects=['no_mm_block:(8,32)']
+  896 TRIMUL_TAIL_F1: resolved=True served=1084 declined=0 frac=1.0 rejects=[]
+  1024 REBLOCK_PERMUTE: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  1024 REBLOCK_PERMUTE_GATED: resolved=True served=4336 declined=0 frac=1.0 rejects=[]
+  1024 B2_TOKEN_DIT_SDPA: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  1024 TRIMUL_MASK_AFTER_MOVE: resolved=True served=4336 declined=0 frac=1.0 rejects=[]
+  1024 APB_CONCAT_HEADS: resolved=False served=0 declined=0 frac=0.0 rejects=[]
+  1024 ATOM_AXIS_BUCKET: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  1024 TRANSITION_H_CHUNK: resolved=16 served=0 declined=0 frac=0.0 rejects=[]
+  1024 PAIR_PROJ_MINIMAL_MATMUL: resolved=True served=0 declined=2 frac=0.0 rejects=['no_mm_block:(8,32)']
+  1024 TRIMUL_TAIL_F1: resolved=True served=1084 declined=0 frac=1.0 rejects=[]
