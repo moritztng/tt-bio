@@ -19,3 +19,5 @@
 2026-09-15T05:06:27Z capacity-openfold3 START loadavg=6.81
 2026-09-15T05:20:21Z capacity-openfold3 rc=0 loadavg=11.17
 2026-09-15T05:20:21Z capacity-openbind START loadavg=11.17
+2026-09-15T05:35:49Z resume_after_boot relaunching (uptime 150s)
+2026-09-15T05:35:49Z capacity-openbind START loadavg=6.63

@@ -14,6 +14,22 @@ WT=/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge
 [ -d "$WT" ] || exit 0
 cd "$WT" || exit 0
 PROG=perf/ttx_a3/gate2/progress
+# While PAUSE exists the main gate stands down and the openbind attribution control owns the card
+# instead. That control is the one measurement that can turn this into a NO-GO, so it gets the box
+# first, and it needs the same boot survival as the gate: qb2 reset 28 minutes into the boot the
+# stall was found on. Remove PAUSE to hand the card back to the gate.
+if [ -f perf/ttx_a3/gate2/PAUSE ]; then
+  grep -q ATTR_DONE perf/ttx_a3/gate2/attr_openbind_progress 2>/dev/null && exit 0
+  pgrep -f "^bash perf/ttx_a3/attr_openbind\.sh$" > /dev/null && exit 0
+  up=$(cut -d. -f1 /proc/uptime)
+  [ "$up" -lt 150 ] && sleep $((150 - up))
+  printf '%s resume_after_boot relaunching ATTR (uptime %ss)\n' \
+         "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(cut -d. -f1 /proc/uptime)" \
+         >> perf/ttx_a3/gate2/attr_openbind_progress
+  setsid nohup bash perf/ttx_a3/attr_openbind.sh \
+    >> perf/ttx_a3/gate2/attr_openbind_driver.log 2>&1 < /dev/null &
+  exit 0
+fi
 grep -q GATE_DRIVER_DONE "$PROG" 2>/dev/null && exit 0
 # ANCHORED argv match. An unanchored `pgrep -f "bash perf/ttx_a3/gate_drive.sh"` also matches any
 # shell whose command line merely CONTAINS that text, which includes the `bash -c` wrapper an ssh
