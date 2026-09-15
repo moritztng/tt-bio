@@ -1,0 +1,15 @@
+benchlock: worker:ttx-a3-sdpa-ship-remerge waiting; currently held by: worker:ttx-a3-sdpa-ship-remerge pid=9719 since=2026-09-15T10:16:17+00:00
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 0s, loadavg 1.37 4.91 3.33
+[boltz2-affinity] 0.010992 affinities/s  (90979 ms/call, median wall 91s, reps ['87', '91', '192']s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — boltz2-affinity  | threshold ±15%  | median of 3 end-to-end runs
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+boltz2-affinity affinities/s        0.02413    0.01099    -54.4%      FAIL
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: affinity_fkg.yaml (FKBP12+SB3, L107, single-seq, affinity mode)
+##############################################################################
+GATE FAIL — regressed beyond ±15%: boltz2-affinity
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=1, loadavg 6.22 8.39 5.69
