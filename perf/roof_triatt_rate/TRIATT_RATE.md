@@ -1,5 +1,18 @@
 # The floor was 15.031 s because it priced TriangleAttention by a kernel the fold does not run
 
+
+> **A third term, `perf/roof_launch/LAUNCH_FLOOR.md`.** The floor below takes
+> `max(traffic, arithmetic)` per op and charges nothing for launching it. Measured per (class,
+> shape, K) on the part of record under trace replay, the per-op launch floor adds **0.594 s**:
+> the floor is **13.300 s** and the prize **3.970 s**, the fold at **77.0 %** of roof. The
+> registered prediction of 15.5-17.0 s and 90-100 % is **refuted**, and the campaign's
+> "353,384 small calls bind" premise with it: 150,160 of the 465,664 calls are host metadata or
+> wrappers whose device child is already counted, and only 103,672 have launch as their binding
+> term. Bytes, FLOPs and rates are unchanged. The more useful number from that row is the
+> over-reading beside the floor: priced at what each op costs run **alone** on a quiet card the
+> total is 17.103 s against a 17.270 s fold, **99.0 %**, so the remaining 3.970 s is in the
+> kernels and not in dispatch slack.
+
 `roof-quiet-attrib-refold` re-took the 512 aa attribution fold on a quiet card and found the trunk
 pairformer's floor 16.2 % ABOVE its measured time. A floor above measured time is a defect, and it
 put the blame on `TriangleAttention`'s catalogue rate: 15.45 TFLOP/s, against 24.85 TFLOP/s for the

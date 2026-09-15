@@ -82,6 +82,12 @@ def main() -> int:
     ap.add_argument("--roofs", default=None,
                     help="filename under perf/roof_shape for true_floor.py's --roofs; default "
                          "leaves true_floor.py on its own default")
+    ap.add_argument("--launch-shapes", type=Path, default=None,
+                    help="passed to true_floor.py --launch-shapes: the per-(class, shape) launch "
+                         "floor table. Absent, the join is the committed two-term one.")
+    ap.add_argument("--launch", type=Path, default=None,
+                    help="passed to true_floor.py --launch: the per-class launch floor table, "
+                         "the fallback for shapes --launch-shapes does not cover.")
     ap.add_argument("--tag", default="quiet")
     ap.add_argument("--out", type=Path, default=None)
     a = ap.parse_args()
@@ -114,6 +120,10 @@ def main() -> int:
           "--out", out / "true_floor.json"]
     if a.roofs:
         tf += ["--roofs", a.roofs]
+    if a.launch_shapes:
+        tf += ["--launch-shapes", a.launch_shapes.resolve()]
+    if a.launch:
+        tf += ["--launch", a.launch.resolve()]
     run(tf, out / "true_floor.log")
 
     shutil.copyfile(perf / "roof_budget" / BUDGET_JSON, out / BUDGET_JSON)
