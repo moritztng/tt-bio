@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
-# qb2 reboots every 20-80 minutes under fleet load (nine times on 2026-09-14/15), and the parity
-# gate needs about two hours. The gate resumes per leg, so the only thing lost to a reboot is the
-# window between the boot and the next time a human relaunches it. This runs from @reboot and
-# closes that window. It disables itself once the gate has written its final report.
+# qb2 reboots every 20-80 minutes under fleet load (ten times on 2026-09-14/15) and the parity gate
+# needs about two hours. The gate resumes per leg, so the only thing a reboot costs is the window
+# between the boot and the next time a human relaunches it. This runs from @reboot and closes that
+# window. It disables itself once the gate has written its final report.
 #
-# Cards: 0 for the gate, 2 for the size ladder (this worker grant). Skips a card another
-# process already holds, so it can never steal a sibling worker chip.
+# Cards: 0 for the gate, 2 for this row's own chain (its grant). Skips a card another process
+# already holds, so it can never steal a sibling worker's chip.
+#
+# Card 2 runs phase2.sh, not a job directly. Until 02:06 it launched the 1024 aa `on` ladder rung
+# straight from here, and that was wrong twice over: the rung needs ~40 minutes at load 18 against
+# a box MTBF of ~50 minutes, so it restarted from zero on every boot and never finished, and its
+# host CPU share slowed the gate that the landing decision actually depends on. phase2.sh is a
+# no-op until the gate has finished, then runs the remaining legs serially on a quieter box.
 set -u
 WT=/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
@@ -37,18 +43,8 @@ else
   echo "gate pid $!"
 fi
 
-if "$PY" -c "import json,sys; sys.exit(0 if json.load(open('$WT/$O/ladder_remerge_1024on_c2.json'))['runs'] else 1)" 2>/dev/null; then
-  echo "1024 on rung already recorded"
-elif running "ladder.py .*ladder_remerge_1024on_c2"; then
-  echo "ladder already running"
-elif card_busy 2; then
-  echo "card2 busy, ladder not started"
-else
-  setsid nohup env PYTHONPATH="$WT" TT_VISIBLE_DEVICES=2 TT_BIO_LEASE_CARDS=2 \
-    TT_BIO_LEASE_HOLDER=worker:roof-transition-chunk-remerge-verify \
-    "$PY" perf/b2z2_size_ladder/ladder.py --levers transition_l1 --arms on --sizes 1024 \
-    --out "$WT/$O/ladder_remerge_1024on_c2.json" \
-    --cifdir "$WT/$O/cif_ladder_remerge_1024on_c2" \
-    >> "$WT/$O/ladder_remerge_1024on_c2.log" 2>&1 < /dev/null &
-  echo "ladder pid $!"
-fi
+# phase2 takes its own flock and returns immediately while the gate is still running, so firing it
+# unconditionally here is safe. A */10 crontab entry fires it too, so the chain starts within ten
+# minutes of the gate finishing rather than waiting for the next reboot.
+setsid nohup bash "$WT/perf/roof_transition_chunk_bh_ship/phase2.sh" >/dev/null 2>&1 < /dev/null &
+echo "phase2 poked pid $!"
