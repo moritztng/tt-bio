@@ -66,6 +66,6 @@ run_arm size-ladder   1 $P scripts/release_gate.py --model size-ladder
 run_arm capacity      0 $P scripts/capacity_gate.py
 run_arm ux            0 $P scripts/ux_regression.py
 run_arm parity        0 $P scripts/full_parity_gate.py --workers tt-quietbox2:$CARD \
-          --workdir "$OUT/gate-8d40acab6" --out "$OUT/parity.json"
+          --workdir "$OUT/gate-b2f12e6c0" --out "$OUT/parity.json"
 run_arm perf          1 $P scripts/perf_regression.py
 log "GATE_DRIVER_DONE"
