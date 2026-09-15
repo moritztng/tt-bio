@@ -54,50 +54,56 @@ was already parameterized, and `resume_after_boot.sh` held gate3/card0/qb2 as co
 have had cron resume a different run on a different card than the driver this pass started, against
 a progress file the done-guard never reads.
 
-## The defect this pass found: the card pin did not take
+## The defect: not the pin, the reaper
 
-The driver was launched with `GATE_CARD=3`, which sets both `TT_VISIBLE_DEVICES=3` and
-`TT_BIO_LEASE_CARDS=3`. The fold that came up under it was holding `/dev/tenstorrent/0`:
+The first version of this report said the card pin had failed, because the driver was launched with
+`GATE_CARD=3` and the fold that came up under it held `/dev/tenstorrent/0`. That conclusion was
+wrong, and the way it was wrong is the finding.
 
-    lsof -t /dev/tenstorrent/0  ->  15281
-    /proc/15281/environ         ->  TT_VISIBLE_DEVICES=3
-                                    TT_BIO_LEASE_CARDS=3
-                                    TT_BIO_LEASE_HOLDER=worker:ttx-a3-sdpa-ship-remerge
+`TT_VISIBLE_DEVICES` takes a **UMD logical id**, and UMD numbers chips by sorting the PCI devices on
+BDF. The kernel driver numbers `/dev/tenstorrent/N` in probe order. On qb1 the two disagree, and the
+disagreement is a rotation:
 
-and the first arm's own traceback names node 0 too, not node 3:
+    UMD 0 = 0000:01 = node 1        UMD 2 = 0000:42 = node 3
+    UMD 1 = 0000:41 = node 2        UMD 3 = 0000:c1 = node 0
 
-    Failed to allocate TLB window. Look at /sys/kernel/debug/tenstorrent/0/mappings
+Measured, not inferred: each `TT_VISIBLE_DEVICES=K` in turn was given a bare `ttnn.open_device`, and
+`lsof` read back which node it took. All four opened exactly one node, in that rotation. So the pin
+held perfectly — a grant of UMD card 3 opened UMD card 3 — and `TT_BIO_LEASE_CARDS=3` was right not
+to refuse it. Both of the things the first write-up called broken were working.
 
-Two separate things are wrong here and they should not be conflated:
+What is broken is the driver's own bookkeeping. `reap_card()` and `parity_card_holders()` both index
+the node path with the UMD id:
 
-1. **A grant of card 3 opened node 0.** `TT_VISIBLE_DEVICES` is a UMD logical id and not a device
-   node, which is already known; what is new is that on this box the two do not agree, so a gate
-   that believes it is on card 3 is in fact on the card `fleet.sh`'s `pick_card()` hands out first.
-   That is a collision waiting to happen, not a cosmetic mismatch.
-2. **The lease did not refuse it.** `TT_BIO_LEASE_CARDS=3` is supposed to make any open of another
-   card fail at the device open. The process opened node 0 and ran. Whatever the lease compared, it
-   was not the node that got opened, so on this host the lease is not the backstop it is documented
-   to be. This wants its own look before any gate is trusted to stay inside its grant here.
+    lsof -t "/dev/tenstorrent/$CARD"
 
-`neut768-off1` failed separately, `rc=1` in 14 s, on `tt_tlb_alloc failed with error code -12` for a
-2 MB TLB window: ENOMEM against a card whose TLBs another process held. `lsof` did show a holder on
-node 3 in the second before launch, so the box was not as idle as the earlier sweep said. The
-following arm opened fine, which makes this transient contention rather than a broken card, but it
-is the second reason not to relaunch until the pin is trusted.
+On qb2 the two numberings happened to coincide, so this read correctly for three passes. On qb1 it
+reads a card that belongs to someone else, and `reap_card` does not merely read: it sends SIGTERM and
+then SIGKILL to every pid it finds. A gate granted UMD 3 would have reaped node 3, which is UMD 2 —
+killing a co-tenant's job after every single arm, and logging it as its own leaked holder. The gate
+never got far enough to do it, because `neut768-off1` failed first.
 
-Nothing was migrated off qb2: gate3 is left running there exactly as it was, and `state/qb2-ready`
-is untouched. Everything this pass started on qb1 is reaped. All four card nodes read free by explicit-pid `lsof`, no
-driver is running, `perf/ttx_a3/gate4/PAUSE` is in place so the cron relaunch stands down, and the
-owner file is removed.
+`gate_drive.sh` now resolves the UMD id to a node by sorting the sysfs `PCI_SLOT_NAME` entries the
+same way UMD does, logs the resolution as its first progress line, and refuses to start if it cannot
+resolve. The helper reproduces the measured mapping on qb1 exactly.
+
+**The general shape, which is what makes it worth recording: a card grant and a device node are
+different namespaces, and every safety check that crosses between them has to convert.** Comparing
+the two integers is not a check, it is a coincidence that held on one box. Anything that reaps,
+kills, or asserts "this card is free" by `lsof`-ing a node path indexed with a grant number is
+wrong wherever the numberings differ, and nothing warns you.
+
+`neut768-off1`'s own failure was separate and transient: `rc=1` in 14 s on `tt_tlb_alloc failed with
+error code -12` for a 2 MB TLB window, ENOMEM against a card whose TLBs were momentarily held. The
+next arm opened the same card cleanly 14 seconds later.
 
 ## What the next pass does, in order
 
-1. Establish the real logical-id -> `/dev/tenstorrent/N` mapping on qb1 and fix `run_arm` to pin by
-   whatever the open actually honours, then prove it: launch one arm, `lsof` the node, and refuse to
-   continue unless the node is the granted one.
-2. Work out why `TT_BIO_LEASE_CARDS` did not refuse the mismatched open. Until then a gate here is
-   one bad pin away from taking a card the fleet has promised to someone else.
-3. Only then relaunch the driver, remove `PAUSE`, and install the `@reboot` + `*/10` cron.
+1. Done: the mapping is established and `card_node()` converts, so the reaper can no longer reach
+   another card.
+2. Relaunch the driver on qb1, clear `PAUSE`, install the `@reboot` + `*/10` cron.
+3. Leave gate3 running on qb2 exactly as it is. It advances across reboots on its own and costs
+   nothing to let continue.
 
 ## Reused, not rebuilt
 

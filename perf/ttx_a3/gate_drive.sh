@@ -21,11 +21,11 @@ cd "$WT" || exit 1
 OUT="$WT/${GATE_OUT:-perf/ttx_a3/gate}"
 PROG="$OUT/progress"
 CARD="${GATE_CARD:-1}"
-# The worker host is an input too. This gate was written for qb2 and qb2 is not always there:
-# on 2026-09-15 it was unreachable (no ping, no ssh) with QBROOT's root cause closed on a
-# per-card PCIe link failure that needs hands, so the gate moved to qb1's p150a cards. A
-# hardcoded "tt-quietbox2" here silently points capacity_gate and full_parity_gate at a dead
-# box while every other path in this script is already host-agnostic.
+# The worker host is an input too. This gate was written for qb2, and on 2026-09-15 qb2 was
+# reachable and unreachable inside the same ten-minute span -- the watchdog cadence, not a dead
+# box -- so the long arms moved to qb1's p150a cards. A hardcoded "tt-quietbox2" here silently
+# points capacity_gate and full_parity_gate at the wrong host while every other path in this
+# script is already host-agnostic.
 WORKER="${GATE_WORKER:-tt-quietbox2}"
 HOLDER="${GATE_HOLDER:-worker:ttx-a3-fused-sdpa-default-ship}"
 P=/home/ttuser/tt-bio-dev/env/bin/python3
@@ -39,6 +39,32 @@ export TT_BIO_LEASE_CARDS=$CARD
 export TT_BIO_LEASE_HOLDER=$HOLDER
 
 log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$PROG"; }
+
+# CARD is a UMD logical id -- it is what TT_VISIBLE_DEVICES, TT_BIO_LEASE_CARDS and fleet.sh all
+# speak -- and it is NOT the /dev/tenstorrent/N node number. UMD numbers its chips by sorting the
+# PCI devices by BDF; the kernel driver numbers its nodes in probe order, and the two only agree
+# by luck. On qb2 they happened to agree, which is why every `lsof` on a node path in this script
+# looked correct for three passes. On qb1 they are a rotation:
+#
+#   UMD 0 = 0000:01 = node 1     UMD 2 = 0000:42 = node 3
+#   UMD 1 = 0000:41 = node 2     UMD 3 = 0000:c1 = node 0
+#
+# verified by opening each TT_VISIBLE_DEVICES=K in turn and reading lsof. Indexing a node path
+# with a UMD id there does not merely look at the wrong card, it makes reap_card send SIGKILL to
+# whatever co-tenant holds it: a gate granted UMD 3 would have reaped node 3, which is UMD 2.
+card_node() {  # UMD logical id -> /dev/tenstorrent/N, by sorting nodes on BDF exactly as UMD does
+  local want="$1" i=0 n
+  for n in $(for d in /sys/class/tenstorrent/tenstorrent!*; do
+               [ -e "$d/device/uevent" ] || continue
+               printf '%s %s\n' "$(sed -n 's/^PCI_SLOT_NAME=//p' "$d/device/uevent")" "${d##*!}"
+             done | sort | cut -d' ' -f2); do
+    [ "$i" = "$want" ] && { printf '%s' "$n"; return 0; }
+    i=$((i + 1))
+  done
+  return 1
+}
+NODE="$(card_node "$CARD")" || { echo "cannot resolve UMD card $CARD to a device node" >&2; exit 1; }
+log "CARD=$CARD (UMD) resolves to /dev/tenstorrent/$NODE"
 
 QL=perf/ttx_a3/nochange/quiet/driver.log
 
@@ -86,12 +112,12 @@ run_arm() {  # $1 = name, $2 = needs a quiet box (0/1), rest = argv
 # sibling campaign's fold on another card.
 reap_card() {
   local pids p
-  pids=$(lsof -t "/dev/tenstorrent/$CARD" 2>/dev/null | tr '\n' ' ')
+  pids=$(lsof -t "/dev/tenstorrent/$NODE" 2>/dev/null | tr '\n' ' ')
   [ -z "$pids" ] && return 0
   log "REAP after $1: card $CARD still held by$(for p in $pids; do printf ' %s(%s)' "$p" "$(ps -o comm= -p "$p" 2>/dev/null)"; done)"
   for p in $pids; do kill -TERM "$p" 2>/dev/null; done
   sleep 10
-  for p in $(lsof -t "/dev/tenstorrent/$CARD" 2>/dev/null); do kill -KILL "$p" 2>/dev/null; done
+  for p in $(lsof -t "/dev/tenstorrent/$NODE" 2>/dev/null); do kill -KILL "$p" 2>/dev/null; done
 }
 
 # Untimed arms first, and the hours-long accuracy arm last. qb2 watchdog-reset three times in
@@ -189,7 +215,7 @@ done
 # full_parity_gate.py's leg reaping, which is shared code and may not change while this resumes.
 parity_card_holders() {
   local pids
-  pids=$(lsof -t "/dev/tenstorrent/$CARD" 2>/dev/null | tr '\n' ' ')
+  pids=$(lsof -t "/dev/tenstorrent/$NODE" 2>/dev/null | tr '\n' ' ')
   printf '%s' "$pids"
 }
 if ! grep -q " parity rc=" "$PROG" 2>/dev/null; then
