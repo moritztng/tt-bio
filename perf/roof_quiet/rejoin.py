@@ -78,7 +78,7 @@ def main() -> int:
                     help="json carrying baseline_summary; defaults to --attrib")
     ap.add_argument("--cell-s", type=float, default=None,
                     help="fold of record; default: this session's own plain median, i.e. no rescale")
-    ap.add_argument("--time-stat", choices=("median", "percall"), default="percall")
+    ap.add_argument("--time-stat", choices=("median", "percall", "trimmed"), default="trimmed")
     ap.add_argument("--tag", default="quiet")
     ap.add_argument("--out", type=Path, default=None)
     a = ap.parse_args()
