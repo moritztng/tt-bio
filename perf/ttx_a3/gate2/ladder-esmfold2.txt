@@ -1,0 +1,55 @@
+[release-gate] granted card(s) [0]
+
+======================================================================
+[size-ladder] checking for card p300c: esmfold2 at rungs 256,512,640,768,896,1024
+[size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence
+======================================================================
+
+##############################################################################
+RELEASE GATE — size-ladder (rungs 256,512,640,768,896,1024, 6 steps / 1 sample, seed 0, single-sequence, card p300c)
+##############################################################################
+model              256aa    512aa    640aa    768aa    896aa   1024aa  k256->512  k512->768     wall  result
+esmfold2           15.9s    38.4s    60.4s    87.5s   119.9s   145.1s       1.27       2.03    1251s  FAIL (esmfold2/256 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); esmfold2/256 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/256 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/256 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/256 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/256 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/512 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark); esmfold2/512 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); esmfold2/512 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/512 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/512 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/512 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/512 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/640 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark); esmfold2/640 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); esmfold2/640 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/640 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/640 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/640 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/640 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/768 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark); esmfold2/768 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); esmfold2/768 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/768 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/768 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/768 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/768 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/896 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark); esmfold2/896 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); esmfold2/896 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/896 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/896 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/896 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/896 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/1024 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark); esmfold2/1024 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); esmfold2/1024 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/1024 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/1024 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/1024 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/1024 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record))
+    FAIL esmfold2/256 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL esmfold2/256 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/256 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/256 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/256 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/256 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/512 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+    FAIL esmfold2/512 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL esmfold2/512 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/512 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/512 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/512 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/512 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/640 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+    FAIL esmfold2/640 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL esmfold2/640 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/640 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/640 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/640 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/640 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/768 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+    FAIL esmfold2/768 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL esmfold2/768 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/768 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/768 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/768 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/768 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/896 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+    FAIL esmfold2/896 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL esmfold2/896 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/896 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/896 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/896 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/896 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/1024 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+    FAIL esmfold2/1024 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL esmfold2/1024 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/1024 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/1024 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/1024 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/1024 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+##############################################################################
+GATE FAIL — size-ladder drift vs the recorded baseline (see above); if this change is intentional, re-record with --size-ladder-record
