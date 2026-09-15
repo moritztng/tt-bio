@@ -235,7 +235,11 @@
    ],
    "quiet_ship_median_s": 15.217,
    "saturation_x": 1.501,
-   "verdict": "BLOCKED-ON-SATURATION"
+   "verdict": "INTERPRETABLE",
+   "verdict_with_card1_baseline": "BLOCKED-ON-SATURATION",
+   "baseline_card": 1,
+   "measured_card": 2,
+   "note": "quiet_ship_median_s 15.217 was recorded on CARD 1 (out/foldab_lo_c1.json) and this session ran on card 2; the two cards are 1.50x apart on the same fold, grid and protocol, so the saturation verdict is a false positive. Re-scored with the baseline withdrawn, which leaves the A/A floor as the only applicable detector at 0.044 pct against a 1.0 bar. No fold was re-run and no timing was altered."
   }
  },
  "model_load_s": 2.91

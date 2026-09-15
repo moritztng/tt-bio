@@ -69,24 +69,26 @@ if [ ! -f "$O/ux_remerge.ok" ]; then
 fi
 
 # 2. The fold A/B that carries the number README states. The harness
-#    self-polices on two axes now: the A/A floor catches jitter, and --quiet-ship-median catches a
+#    self-polices on two axes: the A/A floor catches jitter, and --quiet-ship-median catches a
 #    box that is uniformly slow, which the floor is blind to because steady saturation slows both
 #    shipped slots equally. The baselines are this fold's own quiet-box medians from
 #    out/foldab_lo_c1.json. A bad window costs a retry and never a wrong number.
 # The guard is CONTENT, not existence. foldab dumps after every fold, so the file appears within a
-# minute and an existence test would accept a session that a reboot killed halfway. It also has to
-# reject an artifact written before the saturation check existed: `quiet_ship_median_s` is the proof
-# that the check ran, and the first session on this tree had no such field and no such check.
+# minute and an existence test would accept a session a reboot killed halfway.
+#
+# No --quiet-ship-median here. The check is in foldab and it works, but the only baselines this
+# directory holds were recorded on CARD 1 and these legs run on card 2, and the two cards are 1.50x
+# apart on the same fold, same grid, same protocol. Feeding it a card-1 number declared a session
+# with an A/A floor of 0.044 % saturated. A quiet-box wall belongs to the card, so the baseline has
+# to be keyed SIZE:CARD:SECONDS before it can be turned back on, and nobody has recorded card 2.
 if ! $PY -c "
 import json,sys
 try: L=json.load(open('$O/foldab_remerge_512.json'))['legs']
 except Exception: sys.exit(1)
-sys.exit(0 if all(L.get(k,{}).get('verdict')=='INTERPRETABLE' and 'quiet_ship_median_s' in L.get(k,{})
-                  for k in ('512:on',)) else 1)" 2>/dev/null; then
+sys.exit(0 if L.get('512:on',{}).get('verdict')=='INTERPRETABLE' else 1)" 2>/dev/null; then
   echo "-- foldab 512 A/B (ref=off)"
   $BENCHLOCK $PY perf/roof_transition_chunk_bh/foldab.py \
     --out "$O/foldab_remerge_512.json" --ref off --legs 512:on --reps 4 \
-    --quiet-ship-median 512:15.217 \
     >> "$O/foldab_remerge_512.log" 2>&1 || echo "   foldab 512 rc=$?"
 fi
 
@@ -106,12 +108,10 @@ if ! $PY -c "
 import json,sys
 try: L=json.load(open('$O/foldab_remerge_1024.json'))['legs']
 except Exception: sys.exit(1)
-sys.exit(0 if L.get('1024:on',{}).get('verdict')=='INTERPRETABLE'
-              and 'quiet_ship_median_s' in L.get('1024:on',{}) else 1)" 2>/dev/null; then
+sys.exit(0 if L.get('1024:on',{}).get('verdict')=='INTERPRETABLE' else 1)" 2>/dev/null; then
   echo "-- foldab 1024 A/B (ref=off)"
   $BENCHLOCK $PY perf/roof_transition_chunk_bh/foldab.py \
     --out "$O/foldab_remerge_1024.json" --ref off --legs 1024:on --reps 4 \
-    --quiet-ship-median 1024:56.573 \
     >> "$O/foldab_remerge_1024.log" 2>&1 || echo "   foldab 1024 rc=$?"
 fi
 
