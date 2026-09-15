@@ -1,0 +1,14 @@
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 249s, loadavg 1.81 3.03 2.42
+[rfd3] 0.268843 designs/s  (3720 ms/design, median wall 4s, reps ['4', '4', '4']s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — rfd3  | threshold ±15%  | median of 3 end-to-end runs
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+rfd3            designs/s            0.2842     0.2688     -5.4%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: iai_inputs.yaml (IAI motif-scaffold, I40/L419, from_pdb, 4 steps)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 1.92 3.01 2.42

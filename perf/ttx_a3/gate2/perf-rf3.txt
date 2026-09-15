@@ -1,0 +1,131 @@
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 36s, loadavg 1.74 2.48 1.91
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Using element type for atom names of atomized tokens.
+/usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=28577) is multi-threaded, use of fork() may lead to deadlocks in the child.
+  self.pid = os.fork()
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:387: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+  is_protein[atom_array.token_id.astype(np.int32)]
+Using element type for atom names of atomized tokens.
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+Using element type for atom names of atomized tokens.
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+Using element type for atom names of atomized tokens.
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+Using element type for atom names of atomized tokens.
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+Using element type for atom names of atomized tokens.
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+Using element type for atom names of atomized tokens.
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+[rf3] 0.229423 structures/s  (4359 ms/call, load 3s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — rf3  | threshold ±15%  | warm (2 warmup + 5 timed)
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+rf3             structures/s         0.1976     0.2294    +16.1%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: trpcage (20 aa, single-seq)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 4.42 3.06 2.13

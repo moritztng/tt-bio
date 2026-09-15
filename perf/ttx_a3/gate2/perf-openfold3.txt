@@ -1,0 +1,21 @@
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 2s, loadavg 1.86 2.79 1.91
+[openfold3] 2.325071 structures/s  (430 ms/call, load 1s)
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — openfold3  | threshold ±15%  | warm (2 warmup + 5 timed)
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+openfold3       structures/s          2.259      2.325     +2.9%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: trpcage (20 aa, single-seq)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 2.12 2.80 1.93

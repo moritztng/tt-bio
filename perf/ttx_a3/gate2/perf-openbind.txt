@@ -1,0 +1,22 @@
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 34s, loadavg 1.78 2.65 1.91
+[openbind] 2.2986 structures/s  (435 ms/call, load 2s)
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — openbind  | threshold ±15%  | warm (2 warmup + 5 timed)
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+openbind        structures/s          2.234      2.299     +2.9%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: trpcage (20 aa, single-seq)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 1.83 2.62 1.91

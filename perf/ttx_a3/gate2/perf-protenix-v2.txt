@@ -1,0 +1,17 @@
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 372s, loadavg 1.83 2.82 1.91
+[protenix-v2] 2.984475 structures/s  (335 ms/call, load 2s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — protenix-v2  | threshold ±15%  | warm (2 warmup + 5 timed)
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+protenix-v2     structures/s          3.091      2.984     -3.4%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: trpcage (20 aa, single-seq)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 1.86 2.79 1.91

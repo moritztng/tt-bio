@@ -1,0 +1,15 @@
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 3s, loadavg 1.79 2.57 1.90
+Fetching 21 files:   0%|          | 0/21 [00:00<?, ?it/s]Fetching 21 files: 100%|██████████| 21/21 [00:00<00:00, 5806.22it/s]
+[opendde-abag] 2.875113 structures/s  (348 ms/call, load 2s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — opendde-abag  | threshold ±15%  | warm (2 warmup + 5 timed)
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+opendde-abag    structures/s          2.903      2.875     -1.0%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: trpcage (20 aa, single-seq)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 2.34 2.66 1.94
