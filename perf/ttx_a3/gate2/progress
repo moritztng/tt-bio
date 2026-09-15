@@ -2,3 +2,8 @@
 2026-09-15T04:01:10Z pytest rc=1 loadavg=10.43
 2026-09-15T04:01:10Z capacity START loadavg=10.43
 2026-09-15T04:06:45Z capacity ABORTED-BY-RESTRUCTURE (monolithic roster ~2h cannot fit a 52min boot; replaced by capacity-<model>)
+2026-09-15T04:06:52Z ux START loadavg=1.78
+2026-09-15T04:20:26Z resume_after_boot relaunching (uptime 432s)
+2026-09-15T04:20:26Z ux START loadavg=5.37
+2026-09-15T04:29:10Z ux rc=0 loadavg=10.78
+2026-09-15T04:29:10Z capacity-boltz2 START loadavg=10.78
