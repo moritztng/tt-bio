@@ -52,7 +52,7 @@ export PYTHONPATH="$WT" TT_VISIBLE_DEVICES=2 TT_BIO_LEASE_CARDS=2 \
 export BENCHLOCK_FOREIGN_RE='fold_ab512|tt_baseline|protenix|boltz|opendde|esmfold|openfold|fold_parity|foldab|ladder\.py|size_ladder'
 BENCHLOCK="bash $HOME/.coworker/scripts/benchlock.sh roof-transition-chunk-remerge-verify --"
 
-# 1. The fold A/B that carries the number README states, plus the 1024 aa digest. The harness
+# 1. The fold A/B that carries the number README states. The harness
 #    self-polices on two axes now: the A/A floor catches jitter, and --quiet-ship-median catches a
 #    box that is uniformly slow, which the floor is blind to because steady saturation slows both
 #    shipped slots equally. The baselines are this fold's own quiet-box medians from
@@ -63,15 +63,15 @@ BENCHLOCK="bash $HOME/.coworker/scripts/benchlock.sh roof-transition-chunk-remer
 # that the check ran, and the first session on this tree had no such field and no such check.
 if ! $PY -c "
 import json,sys
-try: L=json.load(open('$O/foldab_remerge.json'))['legs']
+try: L=json.load(open('$O/foldab_remerge_512.json'))['legs']
 except Exception: sys.exit(1)
 sys.exit(0 if all(L.get(k,{}).get('verdict')=='INTERPRETABLE' and 'quiet_ship_median_s' in L.get(k,{})
-                  for k in ('512:on','1024:on')) else 1)" 2>/dev/null; then
-  echo "-- foldab 512+1024 A/B (ref=off)"
+                  for k in ('512:on',)) else 1)" 2>/dev/null; then
+  echo "-- foldab 512 A/B (ref=off)"
   $BENCHLOCK $PY perf/roof_transition_chunk_bh/foldab.py \
-    --out "$O/foldab_remerge.json" --ref off --legs 512:on,1024:on --reps 4 \
-    --quiet-ship-median 512:15.217,1024:56.573 \
-    >> "$O/foldab_remerge.log" 2>&1 || echo "   foldab rc=$?"
+    --out "$O/foldab_remerge_512.json" --ref off --legs 512:on --reps 4 \
+    --quiet-ship-median 512:15.217 \
+    >> "$O/foldab_remerge_512.log" 2>&1 || echo "   foldab 512 rc=$?"
 fi
 
 # 2. perf_regression: a RELEASING.md leg. 15 % bands on short folds, so benchlocked too.
@@ -90,6 +90,24 @@ if [ ! -f "$O/ux_remerge.ok" ]; then
   else
     echo "   ux rc=$? (see ux_remerge.log)"
   fi
+fi
+
+# 4. The 1024 aa rung, last. Same A/B, same guards, its own artifact. It is the longest leg by far
+#    (a contended 1024 aa fold runs minutes, and there are twelve of them) and the least
+#    load-bearing: 512 aa is where this lever was measured and where README quotes it. Ahead of the
+#    RELEASING.md legs it blocks them behind a chain that a reboot restarts from zero, which is what
+#    happened on all four attempts before 03:08.
+if ! $PY -c "
+import json,sys
+try: L=json.load(open('$O/foldab_remerge_1024.json'))['legs']
+except Exception: sys.exit(1)
+sys.exit(0 if L.get('1024:on',{}).get('verdict')=='INTERPRETABLE'
+              and 'quiet_ship_median_s' in L.get('1024:on',{}) else 1)" 2>/dev/null; then
+  echo "-- foldab 1024 A/B (ref=off)"
+  $BENCHLOCK $PY perf/roof_transition_chunk_bh/foldab.py \
+    --out "$O/foldab_remerge_1024.json" --ref off --legs 1024:on --reps 4 \
+    --quiet-ship-median 1024:56.573 \
+    >> "$O/foldab_remerge_1024.log" 2>&1 || echo "   foldab 1024 rc=$?"
 fi
 
 echo "=== phase2 end $(date -u +%FT%TZ)"
