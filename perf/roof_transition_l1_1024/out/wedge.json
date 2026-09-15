@@ -1,0 +1,34 @@
+{
+ "doc": "What the Transition row chunk is worth in FOLD SECONDS, and what its own session's floor is.\n\nThe op ratio is not the deliverable any more. `roof-true-floor` put the whole remaining prize at\n2.309 s against a 17.340 s cell, so a lever is worth what it moves on the fold and nothing else.\n\nOne process, one device open, model loaded once. Arms alternate INSIDE the process with the\nshipped arm run twice per rep, so the session's own A/A floor falls out of the same data instead\nof being a separate run that a load change can sit between. Arm order is fixed and the whole set\nruns once per rep, so a clock ramp or a JIT warm-up cannot bias one arm against another.\n\nThere are TWO contention detectors, because one of them is blind on its own.\n\nThe A/A floor is the variance detector: two shipped slots per rep, either side of the test arm, so\nbox drift lands in the floor and not in the ratio. `roof-pair-transition` got 0.157 % on a quiet\nbox; above ~1 % the session is BLOCKED, not scaled.\n\nThe floor cannot see SATURATION. On 2026-09-15 this harness ran at 512 aa with a sibling worker's\n200-step fold on the box at 253 % CPU. The fold went host-bound, both arms clamped to the same\nhost-limited wall at 23.5 s against a 15.2 s quiet-box median, the 0.34 s of device time the lever\nsaves vanished into the stall -- and the A/A floor stayed tight, because steady saturation slows\nboth shipped slots equally. The session would have published ratio ~1.000 as INTERPRETABLE and\nrefuted a real win. A tight floor means \"no jitter\", not \"not saturated\".\n\nSo pass `--quiet-ship-median SIZE:SECONDS` with the reference arm's known quiet-box median. Any leg\nwhose shipped median exceeds it by more than `--saturation-tol` is BLOCKED-ON-SATURATION and its\nratio is suppressed. Digests are never suppressed: contention costs you the clock, never the bytes.\n\nEvery arm is bit-exact (proved fold-level at 298/512/768 aa by the ladder in this directory), so\nthe digest is carried here only as the cheap regression signal it is.\n\n    foldab.py --out <json> --legs 512:h48,768:h32 --reps 4\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "3",
+  "commit": "d6be21d62a4ca6ea55638c9a0352f2a35e94bd61",
+  "started_utc": "2026-09-15T10:39:34Z",
+  "loadavg_start": [
+   4.15185546875,
+   5.13623046875,
+   2.9189453125
+  ],
+  "unfused_silu": false,
+  "protocol": {
+   "sampling_steps": 2,
+   "recycling_steps": 3,
+   "seed": 0,
+   "reps": 1
+  },
+  "loadavg_now": [
+   4.15185546875,
+   5.13623046875,
+   2.9189453125
+  ]
+ },
+ "folds": [],
+ "legs": {},
+ "model_load_s": 2.528
+}

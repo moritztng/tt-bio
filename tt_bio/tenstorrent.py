@@ -8355,6 +8355,16 @@ class Transition(Module):
         # hook, because a ladder rung that reads "served" off a constant and not off the call is
         # reading the wrong thing: the ratio, the small-grid L1 cap and the H clamp all still get
         # to shrink it below the value the guard nominally admits.
+        if os.environ.get("TT_BIO_TRANSITION_TRACE"):
+            # One line per 4-D Transition call: everything the height derivation read and what
+            # it decided, so an L1 clash can be attributed to a shape without a rebuild.
+            _pc = 2 * transition_h_chunk_size * _tile(w_eff) * (_tile(_c) + 2 * _tile(_hid))
+            print(f"[transition-h] t={time.time():.3f} z={H}x{W}x{_c} hid={_hid} w_eff={w_eff} "
+                  f"chunked={int(w_chunked)} h={transition_h_chunk_size} base={_base_h} "
+                  f"l1_rows={_l1_rows_at(w_eff):.2f} "
+                  f"elem_rows={_BH_TRANSITION_CHUNK_ELEMS / (w_eff * _c):.2f} "
+                  f"live={_pc} per_core={_pc / (_gx * _gy):.0f}",
+                  file=sys.stderr, flush=True)
         _shape_k = (f"{H}x{W}x{x.shape[-1]}", _hid, transition_h_chunk_size)
         TRANSITION_H_CHUNK_SHAPES[_shape_k] = TRANSITION_H_CHUNK_SHAPES.get(_shape_k, 0) + 1
         if transition_h_chunk_size > TRANSITION_H_CHUNK_SIZE:

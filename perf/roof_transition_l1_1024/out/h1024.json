@@ -1,0 +1,123 @@
+{
+ "doc": "Why the 1024 aa pair Transition grinds with the row-height raise ON.\n\npy-spy pinned the 1024 aa ON-arm fold to `ttnn.chunk` in `Transition.__call__`'s EAGER branch\n(H=1024 is below SEQ_LEN_MORE_CHUNKING=1536, so the lazy row-slice loop is not taken). This\nscreen removes the fold, the host load and the rest of the model, and times the real module at\nthe pair shape for the two heights the lever picks: 16 with it off, 24 with it on.\n\nArms are interleaved and the height each arm lands on is ASSERTED, so an arm cannot silently read\nas the other. swiglu is row-local, so a row-block boundary cannot move an output byte: every arm\nis torch.equal-checked against the first, and an arm that is not bit-exact is a bug in the probe.\n\n  TT_VISIBLE_DEVICES=3 python3 h1024.py --out out/h1024.json\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "3",
+  "commit": "d6be21d62a4ca6ea55638c9a0352f2a35e94bd61",
+  "seq_len_more_chunking": 1536,
+  "l1_bytes_per_core": 514756,
+  "max_c": 128,
+  "loadavg_start": [
+   0.23681640625,
+   0.09423828125,
+   0.03125
+  ],
+  "started_utc": "2026-09-15T10:31:20Z",
+  "loadavg_end": [
+   0.23681640625,
+   0.09423828125,
+   0.03125
+  ]
+ },
+ "shapes": {
+  "1024x1024x128": {
+   "H": 1024,
+   "W": 1024,
+   "c": 128,
+   "hidden": 512,
+   "eager_path": true,
+   "arms": {
+    "off": {
+     "h": 16,
+     "heights": {
+      "1024x1024x128@h16": 1
+     },
+     "bit_exact_vs_first": true,
+     "ms": [
+      44.413,
+      44.392,
+      44.392,
+      44.382,
+      44.376,
+      44.369
+     ],
+     "median_ms": 44.387
+    },
+    "on": {
+     "h": 24,
+     "heights": {
+      "1024x1024x128@h24": 1
+     },
+     "bit_exact_vs_first": true,
+     "ms": [
+      39.531,
+      39.522,
+      39.544,
+      39.561,
+      39.53,
+      39.51
+     ],
+     "median_ms": 39.531
+    }
+   },
+   "on_over_off": 0.8906,
+   "loadavg": [
+    0.23681640625,
+    0.09423828125,
+    0.03125
+   ]
+  },
+  "512x512x128": {
+   "H": 512,
+   "W": 512,
+   "c": 128,
+   "hidden": 512,
+   "eager_path": true,
+   "arms": {
+    "off": {
+     "h": 16,
+     "heights": {
+      "512x512x128@h16": 1
+     },
+     "bit_exact_vs_first": true,
+     "ms": [
+      12.981,
+      12.966,
+      12.956,
+      12.976,
+      12.95,
+      12.953
+     ],
+     "median_ms": 12.961
+    },
+    "on": {
+     "h": 48,
+     "heights": {
+      "512x512x128@h48": 1
+     },
+     "bit_exact_vs_first": true,
+     "ms": [
+      10.356,
+      10.288,
+      10.264,
+      10.3,
+      10.267,
+      10.28
+     ],
+     "median_ms": 10.284
+    }
+   },
+   "on_over_off": 0.7935,
+   "loadavg": [
+    0.23681640625,
+    0.09423828125,
+    0.03125
+   ]
+  }
+ }
+}
