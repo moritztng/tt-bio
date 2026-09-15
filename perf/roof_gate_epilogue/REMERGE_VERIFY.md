@@ -53,14 +53,38 @@ and the test reads silence as a pass.
 `scripts/packaging_smoke.py`: GATE PASS, 52 data files, 44 deps, 49 imports. The epilogue adds no
 new kernel file -- it edits two that already ship -- so the packaging glob is not in play here.
 
-## What is NOT verified
+## 11 of the 44 parity legs did run, on main's own engine code
 
-The 44-leg `scripts/full_parity_gate.py`, `ux_regression.py`, `perf_regression.py` and
-`release_gate.py --model size-ladder` have not been run against this merge. No card in the fleet can
-currently host them: qb1 is hard down, qb2's four cards are held by three sibling workers' own
-gates, and pc's single card is the one `state/pc-card0-down` excludes from parity work because it
-miscomputes matmuls nondeterministically. A verdict from pc would be worthless in both directions,
-which is worse than no verdict.
+qb2 rebooted at 02:49Z and freed all four cards. The gate ran on cards 0 and 1 in a bounded 23-minute
+window (two cards, not four -- a sibling took card 2 partway through and that is correct). The tree
+gated is `d09ba1711`, whose `tt_bio/` is byte-identical to main's tip `912678a3b`, so these verdicts
+are main's engine code. Workdir `gate-912678a`, code fingerprint `1bd1584ff974...` over
+`['tt_bio', 'scripts']`. Leg JSONs are committed beside this file.
+
+    esmc-300m          dev-vs-ref PCC min 0.99918  mean 0.99947   dev-vs-dev 1.0
+    esmc-600m          dev-vs-ref PCC min 0.99943  mean 0.99955
+    saprot-35m         R/D emb+logits exactly 1.0, X vs ref 0.99914 / 0.99977
+    saprot-650m        R/D emb+logits exactly 1.0, X vs ref 0.99964 / 0.99993
+    boltz2-trpcage-nomsa   PASS        boltz2-hsa-nomsa   PASS
+    boltz2-prot-nomsa      GAP         boltz2-9ncy-nomsa  GAP
+    protenix-prot-msa  kabsch 2.6252 vs floor 2.7631  0.950x  within
+    protenix-ubq-msa   kabsch 1.8218 vs floor 1.9234  0.947x  within
+    protenix-hsa-msa   kabsch 0.6716 vs floor 0.6951  0.966x  within
+
+Zero regressions. The two boltz-2 GAPs are the pre-existing ones the committed baseline already
+records as "reproduces committed", not new. Every Protenix metric reads `within_noise_floor: True`,
+and `protenix-ubq-msa` reproduces the earlier pass's 1.822 / 1.923 to four decimals -- the same
+numbers off a different card and 27 commits of main later. `protenix-hsa-msa`, which ERRORed on
+device contention in an earlier pass, is clean here.
+
+## What is still NOT verified
+
+The remaining 33 legs -- ESMFold2 x3 (in flight when the window closed), OpenFold3, OpenBind,
+OpenDDE, RF3 and the rest -- plus `ux_regression.py`, `perf_regression.py` and
+`release_gate.py --model size-ladder`, have not been run against this merge. qb1 is hard down and pc's single card is the one
+`state/pc-card0-down` excludes from parity work because it miscomputes matmuls nondeterministically,
+so a verdict from pc would be worthless in both directions -- worse than no verdict. qb2 is the only
+host that can run them, and its cards are contended.
 
 The flag is off on every card and the default path is identical above, so those legs would score
 code that cannot behave differently. The legs that WOULD say something new are the flag-ON
