@@ -131,8 +131,39 @@ the instruction to re-run any of them by deleting its row.
 | capacity @1536 | **13 PASS, 2 FAIL of 15** — both fails the models' own ceiling | **yes** |
 | rf3/1088 A/B | **1.1556x, fully separated, 0 hangs in 8** | **yes** |
 | size-ladder | RED, and red on main: 9 of 10 drift levers are main's | rf3/1088 only |
-| perf_regression | pending | no |
+| perf_regression | boltz2 **PASS +3.1%**; boltz2-affinity FAIL **attributed, not the flip**; 18 models pending | no |
 | full_parity_gate | pending | no — all 44 legs under the cap |
+
+## The perf arm's one red, closed
+
+    arm                   baseline   current   delta    reps (s)        load0 -> load1
+    off1 (flag forced 0)  0.02413    0.01099   -54.4%   87 / 91 / 192   1.37 -> 6.22
+    on1                   0.02413    0.01152   -52.3%   83 / 87 / 88    1.16 -> 11.40
+    on  (gate arm)        0.02413    0.01063   -55.9%   82 / 94 / 102   1.82 -> 10.58
+
+boltz2 in structure mode reads 1.76 -> 1.813 structures/s, +3.1%, PASS. boltz2-affinity reads -55.9%
+and fails the +-15% threshold. The off arm regresses by the same amount, so the flip is not the
+cause — which is the expected answer for a reason the census can state exactly: affinity_fkg.yaml
+is FKBP12+SB3 at L107 and the route is gated strictly above 1024 tokens.
+
+The residual is not a regression either. `scripts/perf_regression.py:122-137` already records this
+cell: "qb2 card 0 cannot satisfy the p300c cell (-28 to -33%) whatever the code does, and card 2
+clears it comfortably ... Treat a FAIL here as unproven until a same-card same-session A/B against
+the merge base reproduces it." The baseline keys on card TYPE while this single-shot leg carries a
+per-card-INDEX offset, and this gate's grant is card 0. The prescribed A/B is what the three rows
+above are, and it reads neutral.
+
+The warm-median legs are stable to under 0.5%, so boltz2's +3.1% stands. The three single-shot legs
+on the roster — boltzgen, rfd3, boltz2-affinity — each need the same-card A/B before a card-0 FAIL
+counts as anything.
+
+## Host ceiling
+
+qb2 reset at 08:55:45, 09:26:08, 09:38:28, 09:52:33, 10:07:30, 10:29:55, 10:47:53 and 10:54:59 UTC:
+a mean interval of about 17 minutes, worst 7, while `tt-bio-sizeladder-p300c-refresh` runs a 60-fold
+record on cards 1 and 2. Arms that are one fold per model (perf) or resume per leg (parity) still
+make progress inside a window; the 14-fold rf3 ladder arm needs about 50 minutes and cannot, so it
+is parked with its reasons recorded rather than restarting from rung 256 forever.
 
 ## Attribution method
 
