@@ -130,3 +130,9 @@
 2026-09-15T13:42:31Z NOTE parity-arm: its 12:43 exit code 1 was a PREFLIGHT refusal, not a result. Four staged-MSA legs lacked externalized reference files; scripts/fetch_parity_fixtures.sh restored 21 of 22 structure fixtures (checksum OK, asset parity-fixtures-latest, fetched 13:38:48Z). Preflight now passes and legs complete. Arm rerunning. Avoiding the literal skip token in this line on purpose.
 2026-09-15T13:42:31Z resume_after_boot relaunching (uptime 1493s)
 2026-09-15T13:42:31Z parity START loadavg=3.50
+2026-09-15T13:54:09Z resume_after_boot relaunching (uptime 150s)
+2026-09-15T13:54:09Z parity START loadavg=2.64
+2026-09-15T14:10:24Z resume_after_boot relaunching (uptime 150s)
+2026-09-15T14:10:24Z parity START loadavg=0.92
+2026-09-15T17:01:31Z parity rc=1 loadavg=2.22
+2026-09-15T17:01:31Z GATE_DRIVER_DONE
