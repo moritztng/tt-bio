@@ -14,7 +14,9 @@ CARD=${CARD:-3}
 # task as active. TT_VISIBLE_DEVICES pins the open to the sibling.
 LEASE=${LEASE:-$CARD}
 STEPS=${STEPS:-200}
-for size in 298 512 768 1024; do
+# 1024 first when resuming: it is the cap boundary, the most valuable below-cap rung, and the one
+# rung with no reading at all. SIZES="1024 768" skips the two rungs that are already clean.
+for size in ${SIZES:-298 512 768 1024}; do
   for tag_arm in off1:off on:on off2:off; do
     tag="s${size}_${tag_arm%%:*}"; arm="${tag_arm##*:}"
     [ -f "$OUT/$tag.json" ] && { echo "skip $tag"; continue; }
