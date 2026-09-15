@@ -12,11 +12,16 @@
 # on the same 16-core host, and these two arms are compared against a recorded baseline.
 # Every arm appends one line to progress and is skipped if that line is already there.
 set -u
-WT=/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship
+# Worktree, card and output dir are inputs, not constants: this gate has now run from two
+# worktrees on two card grants, and a hardcoded path silently writes another worker's tree.
+# GATE_OUT names the run, so a re-gate on a re-merged tree starts on a fresh progress file
+# instead of skipping every arm the previous tree already recorded.
+WT="${GATE_WT:-/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship}"
 cd "$WT" || exit 1
-OUT="$WT/perf/ttx_a3/gate"
+OUT="$WT/${GATE_OUT:-perf/ttx_a3/gate}"
 PROG="$OUT/progress"
-CARD=1
+CARD="${GATE_CARD:-1}"
+HOLDER="${GATE_HOLDER:-worker:ttx-a3-fused-sdpa-default-ship}"
 P=/home/ttuser/tt-bio-dev/env/bin/python3
 mkdir -p "$OUT"; touch "$PROG"
 
@@ -25,7 +30,7 @@ export OPENDDE_DOCKQ_PYTHON=/home/ttuser/dockqenv/bin/python3
 export OF3_CKPT=/home/ttuser/.boltz/of3-p2-155k.pt
 export ESM_ROOT=/home/ttuser/esm
 export TT_BIO_LEASE_CARDS=$CARD
-export TT_BIO_LEASE_HOLDER=worker:ttx-a3-fused-sdpa-default-ship
+export TT_BIO_LEASE_HOLDER=$HOLDER
 
 log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$PROG"; }
 
@@ -74,7 +79,14 @@ run_arm pytest        0 $P -m pytest -q --tb=line -rf
 run_arm capacity      0 $P scripts/capacity_gate.py
 run_arm ux            0 $P scripts/ux_regression.py
 run_arm size-ladder   1 $P scripts/release_gate.py --model size-ladder
-run_arm perf          1 $P scripts/perf_regression.py
+# perf_regression compares wall clock against docs/perf_baselines.json, so it is the one arm
+# where a co-tenant turns a slow measurement into a wrong one. It takes benchlock rather than
+# wait_quiet: benchlock also excludes a foreign fold, and it interlocks with the sibling perf
+# campaigns on this box instead of merely sampling loadavg. The size ladder stays on wait_quiet
+# -- its exponent tolerance is +-0.50, far above co-tenant noise, and an exclusive hold across
+# 9 models x 4 rungs would park every other perf task on qb2 for hours.
+BENCH=/home/ttuser/.coworker/scripts/benchlock.sh
+run_arm perf          0 bash $BENCH "$HOLDER" -- $P scripts/perf_regression.py
 run_arm parity        0 $P scripts/full_parity_gate.py --workers tt-quietbox2:$CARD \
-          --workdir "$OUT/gate-b2f12e6c0" --out "$OUT/parity.json"
+          --workdir "$OUT/parity-workdir" --out "$OUT/parity.json"
 log "GATE_DRIVER_DONE"
