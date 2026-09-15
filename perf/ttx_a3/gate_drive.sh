@@ -128,6 +128,28 @@ for m in $PERF_MODELS; do
   run_arm "perf-$m" 0 bash $BENCH "$HOLDER" -- $P scripts/perf_regression.py --model "$m"
 done
 
+# gate2's parity arm reported 28 of 44 legs ERROR and it was not an accuracy result: one leg
+# leaked a live process still holding card 0's flock, so every leg after it waited the lease's
+# 120 s and died with DeviceInUseError. The message even said "the same holder identity in a
+# DIFFERENT process, so this is a real co-tenant, not a stale lease" -- correct, and the reason
+# 28 tracebacks had to be read before the arm's rc=1 meant anything. Name the holders BEFORE the
+# arm starts so a pre-existing leak is a one-line refusal instead of an hour of timeouts. This
+# only catches a leak that predates the arm; one that happens mid-arm belongs to
+# full_parity_gate.py's leg reaping, which is shared code and may not change while this resumes.
+parity_card_holders() {
+  local pids
+  pids=$(lsof -t "/dev/tenstorrent/$CARD" 2>/dev/null | tr '\n' ' ')
+  printf '%s' "$pids"
+}
+if ! grep -q " parity rc=" "$PROG" 2>/dev/null; then
+  h=$(parity_card_holders)
+  if [ -n "$h" ]; then
+    log "parity PRECHECK card $CARD already held by pids: $h -- $(ps -o pid=,cmd= -p ${h% } 2>/dev/null | tr '\n' ';')"
+  else
+    log "parity PRECHECK card $CARD free, 0 holders"
+  fi
+fi
+
 # Last, and the only arm that resumes on its own: full_parity_gate caches per-leg verdicts in the
 # workdir and fingerprints tt_bio/ + scripts/, so nothing under tt_bio/ or scripts/ may change
 # once this starts. All 44 legs are below the 1024-token cap, so this is the neutrality control
