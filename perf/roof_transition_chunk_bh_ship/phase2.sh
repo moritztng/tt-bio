@@ -100,11 +100,17 @@ fi
 #    the gate run on card 2 failed 17 of 20 models by 20-64 % with nothing wrong: esmc-300m read
 #    109.2 seq/s and FAIL on card 2 and 150.4 seq/s and PASS on card 1, same tree, same minute.
 #    Until the baseline is keyed per card, the perf leg has to run on the card the numbers came from.
-if [ ! -f "$O/perf_remerge_card1.json" ]; then
+#    Guarded by a MARKER, not by an --out file. perf_regression.py only honours --out together
+#    with --measure (scripts/perf_regression.py:1738), so the gate run writes no JSON at all and a
+#    guard on one can never be satisfied: the */10 cron relaunches a 20-minute gate forever. The
+#    verdict lives in the log, so the marker records that the run happened and carries its rc.
+if [ ! -f "$O/perf_remerge_card1.done" ]; then
   echo "-- perf_regression (card 1)"
   TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=2,1 \
-  $BENCHLOCK $PY scripts/perf_regression.py --out "$O/perf_remerge_card1.json" \
-    >> "$O/perf_remerge_card1.log" 2>&1 || echo "   perf_regression rc=$?"
+  $BENCHLOCK $PY scripts/perf_regression.py \
+    >> "$O/perf_remerge_card1.log" 2>&1
+  echo "$(date -u +%FT%TZ) rc=$?" > "$O/perf_remerge_card1.done"
+  echo "   perf_regression $(cat "$O/perf_remerge_card1.done")"
 fi
 
 # 4. The 1024 aa rung, last. Same A/B, same guards, its own artifact. It is the longest leg by far
