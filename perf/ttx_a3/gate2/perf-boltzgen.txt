@@ -1,0 +1,2 @@
+benchlock: worker:ttx-a3-sdpa-ship-remerge waiting; currently held by: worker:ttx-a3-sdpa-ship-remerge pid=5189 since=2026-09-15T11:43:49+00:00
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 3s, loadavg 1.08 0.56 0.22

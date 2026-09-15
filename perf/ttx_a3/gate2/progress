@@ -101,3 +101,15 @@
 2026-09-15T11:28:39Z perf-pxdesign START loadavg=1.92
 2026-09-15T11:29:16Z perf-pxdesign rc=0 loadavg=2.59
 2026-09-15T11:29:16Z perf-boltzgen START loadavg=2.59
+2026-09-15T11:43:49Z resume_after_boot relaunching (uptime 150s)
+2026-09-15T11:43:49Z perf-boltzgen START loadavg=1.83
+2026-09-15T11:55:14Z resume_after_boot relaunching (uptime 150s)
+2026-09-15T11:55:14Z perf-boltzgen START loadavg=1.08
+2026-09-15T11:58:06Z perf-boltzgen rc=PARKED-TOO-LONG-FOR-A-BOOT 3 single-shot reps at ~255s each is ~13min and qb2 is giving ~9. Four consecutive attempts were cut off by resets. Parked so the five embedding legs and nesso1 can land; retry by deleting this row when the box holds a 20min window.
+2026-09-15T11:58:06Z resume_after_boot relaunching (uptime 322s)
+2026-09-15T11:58:06Z perf-nesso1 START loadavg=6.30
+2026-09-15T12:05:18Z resume_after_boot relaunching (uptime 150s)
+2026-09-15T12:05:18Z perf-nesso1 START loadavg=1.12
+2026-09-15T12:06:13Z perf-nesso1 rc=0 loadavg=2.43
+2026-09-15T12:06:13Z perf-esmc-300m START loadavg=2.43
+2026-09-15T12:06:56Z perf-esmc-300m rc=1 loadavg=3.00

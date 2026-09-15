@@ -1,0 +1,15 @@
+benchlock: worker:ttx-a3-sdpa-ship-remerge waiting; currently held by: worker:ttx-a3-sdpa-ship-remerge pid=7895 since=2026-09-15T11:58:06+00:00
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 2s, loadavg 1.12 0.57 0.22
+[nesso1] 0.060816 affinities/s  (16443 ms/call, median wall 16s, reps ['16', '16', '17']s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — nesso1  | threshold ±15%  | median of 3 end-to-end runs
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+nesso1          affinities/s        0.06949    0.06082    -12.5%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: affinity_fkg.yaml (FKBP12+SB3, L107, bf16 trunk, CLI defaults)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 2.43 1.01 0.39
