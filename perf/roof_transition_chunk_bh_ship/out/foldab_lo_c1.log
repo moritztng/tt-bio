@@ -1,0 +1,80 @@
+2026-09-14 15:29:18.392 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+    512 rep0  shipA  off     17.586s load=  1.8 served=0/296 sha=45781db716ebf020
+    512 rep0  test   on      14.979s load=  3.8 served=296/0 sha=45781db716ebf020
+    512 rep0  shipB  off     15.152s load=  3.4 served=0/296 sha=45781db716ebf020
+    512 rep1  shipA  off     15.269s load=  3.1 served=0/296 sha=45781db716ebf020
+    512 rep1  test   on      14.771s load=  3.4 served=296/0 sha=45781db716ebf020
+    512 rep1  shipB  off     15.246s load=  3.6 served=0/296 sha=45781db716ebf020
+    512 rep2  shipA  off     15.188s load=  3.2 served=0/296 sha=45781db716ebf020
+    512 rep2  test   on      14.655s load=  3.0 served=296/0 sha=45781db716ebf020
+    512 rep2  shipB  off     15.109s load=  2.8 served=0/296 sha=45781db716ebf020
+    512 rep3  shipA  off     15.111s load=  3.2 served=0/296 sha=45781db716ebf020
+    512 rep3  test   on      15.055s load=  3.5 served=296/0 sha=45781db716ebf020
+    512 rep3  shipB  off     15.403s load=  4.1 served=0/296 sha=45781db716ebf020
+[leg 512:on] {"ship_median_s": 15.217, "arm_median_s": 14.875, "shipA_median_s": 15.229, "shipB_median_s": 15.199, "fold_seconds_saved": 0.342, "ratio": 1.023, "aa_floor_pct": 0.194, "aa_floor_s": 0.03, "n": {"shipA": 4, "shipB": 4, "test": 4}, "bit_exact_across_arms": true, "digest": ["45781db716ebf020"], "loadavg_span": [1.83, 4.1], "verdict": "INTERPRETABLE"}
+2026-09-14 15:32:27.400 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-09-14 15:32:27.406 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+   1024 rep0  shipA  off     56.962s load=  4.6 served=0/296 sha=9a049ee58a5a0f7e
+   1024 rep0  test   on      55.893s load=  3.1 served=296/0 sha=9a049ee58a5a0f7e
+   1024 rep0  shipB  off     56.416s load=  2.6 served=0/296 sha=9a049ee58a5a0f7e
+   1024 rep1  shipA  off     56.592s load=  3.0 served=0/296 sha=9a049ee58a5a0f7e
+   1024 rep1  test   on      55.757s load=  2.4 served=296/0 sha=9a049ee58a5a0f7e
+   1024 rep1  shipB  off     56.554s load=  2.1 served=0/296 sha=9a049ee58a5a0f7e
+   1024 rep2  shipA  off     56.503s load=  2.0 served=0/296 sha=9a049ee58a5a0f7e
+   1024 rep2  test   on      55.599s load=  2.1 served=296/0 sha=9a049ee58a5a0f7e
+   1024 rep2  shipB  off     56.548s load=  2.0 served=0/296 sha=9a049ee58a5a0f7e
+   1024 rep3  shipA  off     56.666s load=  2.0 served=0/296 sha=9a049ee58a5a0f7e
+   1024 rep3  test   on      55.907s load=  2.2 served=296/0 sha=9a049ee58a5a0f7e
+   1024 rep3  shipB  off     56.768s load=  2.6 served=0/296 sha=9a049ee58a5a0f7e
+[leg 1024:on] {"ship_median_s": 56.573, "arm_median_s": 55.825, "shipA_median_s": 56.629, "shipB_median_s": 56.551, "fold_seconds_saved": 0.748, "ratio": 1.0134, "aa_floor_pct": 0.138, "aa_floor_s": 0.078, "n": {"shipA": 4, "shipB": 4, "test": 4}, "bit_exact_across_arms": true, "digest": ["9a049ee58a5a0f7e"], "loadavg_span": [2.01, 4.57], "verdict": "INTERPRETABLE"}
+{
+ "512:on": {
+  "ship_median_s": 15.217,
+  "arm_median_s": 14.875,
+  "shipA_median_s": 15.229,
+  "shipB_median_s": 15.199,
+  "fold_seconds_saved": 0.342,
+  "ratio": 1.023,
+  "aa_floor_pct": 0.194,
+  "aa_floor_s": 0.03,
+  "n": {
+   "shipA": 4,
+   "shipB": 4,
+   "test": 4
+  },
+  "bit_exact_across_arms": true,
+  "digest": [
+   "45781db716ebf020"
+  ],
+  "loadavg_span": [
+   1.83,
+   4.1
+  ],
+  "verdict": "INTERPRETABLE"
+ },
+ "1024:on": {
+  "ship_median_s": 56.573,
+  "arm_median_s": 55.825,
+  "shipA_median_s": 56.629,
+  "shipB_median_s": 56.551,
+  "fold_seconds_saved": 0.748,
+  "ratio": 1.0134,
+  "aa_floor_pct": 0.138,
+  "aa_floor_s": 0.078,
+  "n": {
+   "shipA": 4,
+   "shipB": 4,
+   "test": 4
+  },
+  "bit_exact_across_arms": true,
+  "digest": [
+   "9a049ee58a5a0f7e"
+  ],
+  "loadavg_span": [
+   2.01,
+   4.57
+  ],
+  "verdict": "INTERPRETABLE"
+ }
+}

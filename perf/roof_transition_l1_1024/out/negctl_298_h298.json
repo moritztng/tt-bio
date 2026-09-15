@@ -1,0 +1,37 @@
+{
+ "doc": "ONE fold at one forced Transition row height, in its own process, with a digest.\n\nfoldab.py is the A/B harness and it runs the reference arm on both sides of every test arm, so a\nthree-fold leg costs minutes and the reference slot itself wedges whenever the shipped default is\nthe arm under test. To find the height at which the 1024 aa fold stops finishing, what is needed is\nthe cheapest possible \"does this height finish, and with which bytes\" -- one fold, one process, one\nline of output. A process that wedges is killed by the caller and costs nothing else.\n\n    hfold.py --size 1024 --arm h20 --steps 2 --out out/h20.json\n",
+ "size": 298,
+ "arm": "h298",
+ "host": "tt-quietbox2",
+ "grid": [
+  11,
+  10
+ ],
+ "arch": "Arch.BLACKHOLE",
+ "card": "3",
+ "commit": "93e4f2556b1e0e5d7d9e00b2bf3828fa045853f3",
+ "steps": 200,
+ "recycles": 3,
+ "started_utc": "2026-09-15T13:52:38Z",
+ "loadavg_start": [
+  0.296875,
+  0.07666015625,
+  0.02392578125
+ ],
+ "model_load_s": 2.528,
+ "wall_s": 1.583,
+ "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 207 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=8)]. L1 buffer allocated at 497664 and static circular buffer region ends at 942592\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x76413f6d3f55]\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevice*)\n --- tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/s",
+ "traceback": "me/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x115) [0x54b1d5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x54907e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d55eb]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x608852]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b50d3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4e3a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4c6f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bccd5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc7bd]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x764185e2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x764185e2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657a05]\n\n",
+ "verdict": "ERROR",
+ "served": 2,
+ "declined": 0,
+ "heights": {
+  "64x320x64x256@h64": 1,
+  "320x320x128x512@h298": 1
+ },
+ "loadavg_end": [
+  0.994140625,
+  0.22509765625,
+  0.072265625
+ ]
+}

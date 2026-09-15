@@ -257,7 +257,42 @@ TRANSITION_H_CHUNK_SHAPES: dict = {}
 # (perf/wh-protenix/wh_transition_h.py). Rescaled to a part's own L1 in _apply_grid_thresholds.
 _TRANSITION_L1_CHUNK_BYTES_BASE = 393216
 _WH_MEASURED_L1_PER_CORE = 1466080  # the L1 the base above was measured at
-TRANSITION_L1_CHUNK_BYTES_PER_CORE = _TRANSITION_L1_CHUNK_BYTES_BASE
+# Blackhole measured the same ceiling on its own part and it is higher: 514,755 B per core,
+# 32.7% of the p300c's unreserved L1. That number reproduces exactly the three heights that ran
+# bit-exact on an 11x10 p300c and refuses the four products that threw -- h=48 at W=512, h=32 at
+# 768, h=24 at 1024, all at c=128/hidden=512, against a static-CB clash at program.cpp:1052 on
+# the third 4-D Transition for every larger product (perf/roof_transition_chunk_bh).
+# _apply_grid_thresholds returns early on a Blackhole grid, so this is the value in force there;
+# a small grid overwrites it with the rescaled Wormhole base a few hundred lines down.
+# = ceil(56,623,104 B / 110 cores). The aggregate is the measured quantity -- one h=48 block at
+# W=512, c=128, hidden=512 in bf16 is 2 * 48 * 512 * (128 + 2*512) = 56,623,104 B live -- and the
+# floor of that per core, 514,755, truncates the derivation one row short of every height it was
+# fitted to (47/31/23 instead of 48/32/24), which costs two extra row blocks at 768 aa and two at
+# 1024 aa for nothing.
+_BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE = 514756
+# ...and never step past a height hardware confirmed. The byte budget scales with the core count,
+# so on a 13x10 p150a it would allow 56 rows at W=512 where 48 is the tallest block anyone has
+# run. `h * W * c <= 3,145,728` is the same statement as the byte budget whenever hidden = 4x
+# channel (both reduce to 3145728/(W*c)), and on a wider grid it pins the height to the extent
+# that was measured instead of extrapolating off it. Applied as a min with the byte budget, which
+# is the physical expression and is the one that binds when hidden exceeds 4x the channel.
+_BH_TRANSITION_CHUNK_ELEMS = 3145728
+# The channel this budget is allowed to speak for. It was fitted at c=128 with hidden=512 and
+# verified at c=64; above that it over-predicts and the fold dies. MEASURED, not argued: with the
+# raise unbounded, OpenDDE (c_z=384) throws program.cpp:1052 on every seed of opendde-prot-prod and
+# opendde-abag -- "circular buffers in program 378 clash with L1 buffers on core range
+# [(x=0,y=0) - (x=9,y=9)], L1 buffer at 1286144, static CB region ends at 1417728" -- and the
+# release gate's capacity leg dies with them, while all three PASS with TT_BIO_TRANSITION_L1_ROWS=0.
+# The mechanism is in the numbers: the clash lands on a 10x10 core range while `_l1_rows_at`
+# divides by COMPUTE_GRID_MAIN = 11x10, a 10% underestimate of the per-core bytes against a 9.3%
+# overshoot, and a wider channel makes every per-core count larger so it bites there first.
+# Raising this bound needs a per-core budget measured AT that channel and a core count the matmul
+# actually uses, not an extrapolation of this one.
+_BH_TRANSITION_L1_ROWS_MAX_C = 128
+TRANSITION_L1_CHUNK_BYTES_PER_CORE = _BH_TRANSITION_L1_CHUNK_BYTES_PER_CORE
+# Screen hook for the Blackhole raise, same pattern as every other lever here: the shipped
+# default has to stay A/B-able on one build without editing a derivation. On by default.
+_TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 
 # A fused activation="silu" on Transition fc1 costs 174.0 us/call at the 298 aa pair shape, while the
 # same silu as a standalone SFPU pass costs 83.7 -- measured on qb1 card 0, ttnn 0.67.4. The penalty
@@ -2397,6 +2432,18 @@ def _dram_interleaved(t: ttnn.Tensor) -> bool:
 # firing on RF3 at 768 or 1024 aa (0 refusals in 166278 and 442226 served calls), so the ladder is
 # insurance against a class that clashes beside a live block, not a measured win.
 _BMM_CFG_RUNG: dict = {}
+# Config classes already reported by TT_BIO_BMM_TRACE this process.
+_BMM_TRACED: set = set()
+
+
+def _bmm_cfg_fields(cfg) -> str:
+    """The block dims of a matmul program config as one short string, or why there is none."""
+    if cfg is None:
+        return "none"
+    return " ".join(f"{f}={getattr(cfg, f)}" for f in
+                    ("compute_with_storage_grid_size", "in0_block_w", "out_subblock_h",
+                     "out_subblock_w", "per_core_M", "per_core_N")
+                    if hasattr(cfg, f))
 # Classes with no tuned config left, i.e. whose ladder ran out.
 _BMM_CFG_REFUSED: set = set()
 
@@ -2527,6 +2574,31 @@ def format_l1_census(census: Mapping) -> str:
     return "L1 census: " + " ".join(f"{k}={v}" for k, v in census.items())
 
 
+def report_l1_refusal(where: str, exc: BaseException) -> bool:
+    """Say on stderr that a device L1 refusal under `where` was absorbed. False if it was not one.
+
+    Split out of `absorb_l1_refusal` because the two kinds of call site want the same reporting and
+    opposite control flow. A ladder that retries a narrower plan wants anything that is NOT an L1
+    refusal re-raised, which is `absorb_l1_refusal`. A site whose fallback is correct for any
+    refusal -- the whole-tensor projection, the stock program config -- must keep absorbing, and
+    only owes the reader the line that says the `critical` text above it was expected. Without that
+    line the census is silent too, which is how `throws=2 absorbed=0` in a 1024 aa log left both of
+    those throws unattributable to any site in this file.
+    """
+    if "circular buffers" not in str(exc):
+        return False
+    census = note_l1_clash(where, exc)
+    line = (f"[tt-bio] {where}: device refused this L1 plan, retrying a narrower one "
+            "(expected, not a crash)")
+    if census:
+        line += "\n[tt-bio] " + format_l1_census(census)
+    try:
+        os.write(2, (line + "\n").encode("utf-8", "replace"))
+    except OSError:
+        pass
+    return True
+
+
 def absorb_l1_refusal(where: str, exc: BaseException) -> None:
     """Absorb a device refusal of an L1 plan under `where`, or re-raise what is not one.
 
@@ -2538,17 +2610,8 @@ def absorb_l1_refusal(where: str, exc: BaseException) -> None:
     was absorbed. The census goes with it -- the ladder used to record the refused chunk in a
     private set and never tell `L1_CLASH_CENSUS`, which is why this class stayed unattributable.
     """
-    if "circular buffers" not in str(exc):
+    if not report_l1_refusal(where, exc):
         raise exc
-    census = note_l1_clash(where, exc)
-    line = (f"[tt-bio] {where}: device refused this L1 plan, retrying a narrower one "
-            "(expected, not a crash)")
-    if census:
-        line += "\n[tt-bio] " + format_l1_census(census)
-    try:
-        os.write(2, (line + "\n").encode("utf-8", "replace"))
-    except OSError:
-        pass
 
 
 def note_l1_clash(where: str, msg: object) -> dict | None:
@@ -2592,6 +2655,13 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
         cfg = _batched_matmul_config(
             batch, -(-sa[-2] // 32), -(-sa[-1] // 32), -(-sb[-1] // 32),
             4 if a.dtype == ttnn.float32 else 2, rung)
+    if os.environ.get("TT_BIO_BMM_TRACE") and key is not None and key not in _BMM_TRACED:
+        # One line the first time a config class is seen, so the class sets of two arms can be
+        # diffed without a device. A wedge only one arm reaches is a class only that arm builds,
+        # and the class is what a guard would have to name. Debug only.
+        _BMM_TRACED.add(key)
+        print(f"[bmm] key={key} rung={rung} cfg={_bmm_cfg_fields(cfg)}",
+              file=sys.stderr, flush=True)
     kw = {} if dtype is None else {"dtype": dtype}
     if cfg is None and rung:
         _BMM_CFG_REFUSED.add(key)
@@ -2603,6 +2673,13 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
             _latch("bmm_cfg", "served")
             return out
         except Exception as e:                                                  # noqa: BLE001
+            # A tuned config the device declines is the one case this ladder exists for: say so,
+            # retire the class one rung and hand the call to ttnn's own planner. Anything else --
+            # a bad shape, a compile error, a factory that built an illegal config -- used to be
+            # absorbed here too, which is how a broken config reads as "ttnn was slower today"
+            # and nothing in the log says otherwise. Those re-raise.
+            if not (report_l1_refusal(f"batched_matmul/cfg rung{rung}", e) or _dram_oom(e)):
+                raise
             _BMM_CFG_RUNG[key] = rung + 1
             _latch("bmm_cfg", "refused", e)
             cfg = None
@@ -6181,9 +6258,12 @@ class TriangleMultiplication(Module):
                                                gp_off("g_b", slice_c), slice_c,
                                                out=b, row_off=s_off)
                 ttnn.deallocate(blk)
-        except RuntimeError:
+        except RuntimeError as exc:
             # An L1 refusal here is a budget miss, not a wrong answer: drop what was allocated and
-            # let the caller run the whole-tensor projection.
+            # let the caller run the whole-tensor projection. Report it first, so the `critical`
+            # text tt-metal already wrote to fd 2 is attributed to this site instead of reading
+            # like the cause of death of a fold that went on to finish.
+            report_l1_refusal("reblock_gated_inproj", exc)
             for t in (a, b):
                 if t is not None:
                     ttnn.deallocate(t)
@@ -8298,6 +8378,24 @@ class Transition(Module):
             # undo that measured raise.
             transition_h_chunk_size = min(transition_h_chunk_size,
                                           max(1, int(_l1_rows_at(w_eff))))
+        elif _TRANSITION_L1_ROWS and _c <= _BH_TRANSITION_L1_ROWS_MAX_C:
+            # Blackhole: the same per-core budget, read the other way round. On a small grid the
+            # measured L1 ceiling always sits BELOW the tuned base, so it only ever shrinks; on
+            # Blackhole it sits well above it (48 rows against a shipped 16 at 512 aa), and the
+            # base is not a Blackhole measurement -- it is the Wormhole reference height that
+            # nothing on this part ever revisited. So raise to the budget, per shape, and keep
+            # the base as a floor so no shape can come out shorter than it ships today.
+            #
+            # Per shape, not per size: the height is a function of (w_eff, channel, hidden) that
+            # every part and every model evaluates with the same two constants. At c=128 it
+            # reduces to h * W = 24576, which IS the law the ladder measured -- h=48/32/24 at
+            # W=512/768/1024, and worth nothing at and above 1536 tokens where the base already
+            # sits at the cap. A forced constant cannot do this: 768 aa refuses h=48 and 1024 aa
+            # refuses h=28, so every flat value in {24,28,32,40,48} dies on some rung.
+            transition_h_chunk_size = max(
+                transition_h_chunk_size,
+                max(1, int(min(_l1_rows_at(w_eff),
+                               _BH_TRANSITION_CHUNK_ELEMS / (w_eff * _c)))))
         # Screen hook, same pattern and the same reason as TT_BIO_SEQ_LEN_MORE_CHUNKING and
         # TT_BIO_TRANSITION_W_CHUNKING_THRESHOLD above: the wall is documented NON-monotonic in
         # this height (h=7/8/9 all fit at W=512 and are all slower than h=6), and the derivation
@@ -8313,6 +8411,25 @@ class Transition(Module):
         # hook, because a ladder rung that reads "served" off a constant and not off the call is
         # reading the wrong thing: the ratio, the small-grid L1 cap and the H clamp all still get
         # to shrink it below the value the guard nominally admits.
+        _trace = os.environ.get("TT_BIO_TRANSITION_TRACE")
+        if _trace:
+            # One line per 4-D Transition call: everything the height derivation read and what
+            # it decided, so an L1 clash can be attributed to a shape without a rebuild.
+            #
+            # `=sync` drains the queue BEFORE the line is written. Dispatch is asynchronous, so
+            # without it the host runs ahead and the last line in the log is where the HOST
+            # blocked, not the call the device is stuck on -- which is how a wedge inside the MSA
+            # Transition reads as a wedge in the pair Transition three calls later. Debug only:
+            # a barrier per call costs the pipelining the whole file is built on.
+            if _trace == "sync":
+                ttnn.synchronize_device(x.device())
+            _pc = 2 * transition_h_chunk_size * _tile(w_eff) * (_tile(_c) + 2 * _tile(_hid))
+            print(f"[transition-h] t={time.time():.3f} z={H}x{W}x{_c} hid={_hid} w_eff={w_eff} "
+                  f"chunked={int(w_chunked)} h={transition_h_chunk_size} base={_base_h} "
+                  f"l1_rows={_l1_rows_at(w_eff):.2f} "
+                  f"elem_rows={_BH_TRANSITION_CHUNK_ELEMS / (w_eff * _c):.2f} "
+                  f"live={_pc} per_core={_pc / (_gx * _gy):.0f}",
+                  file=sys.stderr, flush=True)
         _shape_k = (f"{H}x{W}x{x.shape[-1]}", _hid, transition_h_chunk_size)
         TRANSITION_H_CHUNK_SHAPES[_shape_k] = TRANSITION_H_CHUNK_SHAPES.get(_shape_k, 0) + 1
         if transition_h_chunk_size > TRANSITION_H_CHUNK_SIZE:

@@ -1,0 +1,21 @@
+
+##############################################################################
+# FULL PARITY GATE — 2 legs, workers ['tt-quietbox2:0', 'tt-quietbox2:1'], granted the whole box (unpinned)
+##############################################################################
+leg                               kind       ref           verdict               wall  detail
+--------------------------------------------------------------------------------------------------------------
+opendde-prot-prod                 structure  cached        PASS                  112s  prot_no_msa: X=5.141 R=1.499 D=5.117 within=True [improves committed GAP-evidenced — not a drift]
+
+======================================================================
+[capacity] 9j4c_abag.yaml on protenix-v2, 50 samples / 5 per batch, budget 10.5 GiB
+======================================================================
+
+======================================================================
+[capacity] 9ivj.yaml on opendde-abag, 8 samples / 2 per batch, budget 12.0 GiB
+======================================================================
+capacity                          capacity   in-process    PASS                  991s  peak 8.83 GiB, 58 CIFs / 2 PAEs (capacity:9j4c_abag 8.83 GiB
+
+##############################################################################
+# Tally: {'PASS': 2}    total wall 18.4 min
+# GATE PASS — every fast-path leg reproduces within its floor
+##############################################################################

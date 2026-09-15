@@ -1,0 +1,698 @@
+{
+ "total_calls": 465664.0,
+ "total_floor_s": 12.706201633707975,
+ "by_op": {
+  "ttnn.deallocate": {
+   "calls": 122112.0,
+   "B": 0.0,
+   "s_traffic": 0.0,
+   "s_arith": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0.0,
+   "in_tiles": 0.0
+  },
+  "ttnn.linear": {
+   "calls": 108608.0,
+   "B": 405715697664.0,
+   "s_traffic": 0.9552995000329679,
+   "s_arith": 3.6652600217884923,
+   "s_floor": 3.8053766613955355,
+   "out_tiles": 167600096.0,
+   "in_tiles": 198023176.0
+  },
+  "ttnn.multiply_": {
+   "calls": 42720.0,
+   "B": 326832750592.0,
+   "s_traffic": 0.7695614565387372,
+   "s_arith": 0.0,
+   "s_floor": 0.7695614565387372,
+   "out_tiles": 0.0,
+   "in_tiles": 214412800.0
+  },
+  "ttnn.layer_norm": {
+   "calls": 35304.0,
+   "B": 282338263040.0,
+   "s_traffic": 0.6647945915705202,
+   "s_arith": 0.0,
+   "s_floor": 0.6647945915705202,
+   "out_tiles": 84212160.0,
+   "in_tiles": 84590016.0
+  },
+  "ttnn.reshape": {
+   "calls": 19112.0,
+   "B": 12468617216.0,
+   "s_traffic": 0.02935864661172592,
+   "s_arith": 0.0,
+   "s_floor": 0.02935864661172592,
+   "out_tiles": 6088192.0,
+   "in_tiles": 75256064.0
+  },
+  "ttnn.to_memory_config": {
+   "calls": 16128.0,
+   "B": 5781848064.0,
+   "s_traffic": 0.013613958238756775,
+   "s_arith": 0.0,
+   "s_floor": 0.013613958238756775,
+   "out_tiles": 2823168.0,
+   "in_tiles": 2823168.0
+  },
+  "ttnn.add_": {
+   "calls": 14616.0,
+   "B": 271835463680.0,
+   "s_traffic": 0.6400646660701682,
+   "s_arith": 0.0,
+   "s_floor": 0.6400646660701682,
+   "out_tiles": 0.0,
+   "in_tiles": 115747968.0
+  },
+  "ttnn.add": {
+   "calls": 13728.0,
+   "B": 36254908416.0,
+   "s_traffic": 0.08536592516129035,
+   "s_arith": 0.0,
+   "s_floor": 0.08536592516129035,
+   "out_tiles": 6102272.0,
+   "in_tiles": 11600320.0
+  },
+  "ttnn.Tensor.__getitem__": {
+   "calls": 12776.0,
+   "B": 0.0,
+   "s_traffic": 0.0,
+   "s_arith": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0.0,
+   "in_tiles": 0.0
+  },
+  "ttnn.slice": {
+   "calls": 12776.0,
+   "B": 30617763840.0,
+   "s_traffic": 0.07209268622557094,
+   "s_arith": 0.0,
+   "s_floor": 0.07209268622557094,
+   "out_tiles": 6326720.0,
+   "in_tiles": 15244992.0
+  },
+  "ttnn.multiply": {
+   "calls": 12464.0,
+   "B": 31224758272.0,
+   "s_traffic": 0.07352191728749702,
+   "s_arith": 0.0,
+   "s_floor": 0.07352191728749702,
+   "out_tiles": 5082688.0,
+   "in_tiles": 10163776.0
+  },
+  "ttnn.permute": {
+   "calls": 12432.0,
+   "B": 108755681280.0,
+   "s_traffic": 0.2560764805274315,
+   "s_arith": 0.0,
+   "s_floor": 0.2560764805274315,
+   "out_tiles": 33571200.0,
+   "in_tiles": 97645696.0
+  },
+  "ttnn.allocate_tensor_on_device": {
+   "calls": 6720.0,
+   "B": 0.0,
+   "s_traffic": 0.0,
+   "s_arith": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 261488640.0,
+   "in_tiles": 0.0
+  },
+  "ttnn.unsqueeze": {
+   "calls": 6552.0,
+   "B": 0.0,
+   "s_traffic": 0.0,
+   "s_arith": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0.0,
+   "in_tiles": 12303240.0
+  },
+  "ttnn.experimental.nlp_create_qkv_heads": {
+   "calls": 6264.0,
+   "B": 64059604992.0,
+   "s_traffic": 0.15083495406639977,
+   "s_arith": 0.0,
+   "s_floor": 0.15083495406639977,
+   "out_tiles": 5213184.0,
+   "in_tiles": 15639552.0
+  },
+  "ttnn.transformer.scaled_dot_product_attention": {
+   "calls": 6000.0,
+   "B": 79665561600.0,
+   "s_traffic": 0.18758079020485044,
+   "s_arith": 0.0,
+   "s_floor": 0.18758079020485044,
+   "out_tiles": 3129600.0,
+   "in_tiles": 35769600.0
+  },
+  "ttnn.generic_op": {
+   "calls": 3920.0,
+   "B": 912691691520.0,
+   "s_traffic": 2.149026822510006,
+   "s_arith": 3.376183238784186,
+   "s_floor": 4.0840893153558815,
+   "out_tiles": 0.0,
+   "in_tiles": 537405120.0
+  },
+  "ttnn.pad": {
+   "calls": 3600.0,
+   "B": 20142489600.0,
+   "s_traffic": 0.047427571462208606,
+   "s_arith": 0.0,
+   "s_floor": 0.047427571462208606,
+   "out_tiles": 6067200.0,
+   "in_tiles": 9144000.0
+  },
+  "ttnn.to_layout": {
+   "calls": 2464.0,
+   "B": 50464555008.0,
+   "s_traffic": 0.11882400519896402,
+   "s_arith": 0.0,
+   "s_floor": 0.11882400519896402,
+   "out_tiles": 10223296.0,
+   "in_tiles": 10223296.0
+  },
+  "ttnn.matmul": {
+   "calls": 1632.0,
+   "B": 139603476480.0,
+   "s_traffic": 0.32871079934071135,
+   "s_arith": 1.5010844225120483,
+   "s_floor": 1.51811554065799,
+   "out_tiles": 25979264.0,
+   "in_tiles": 42219264.0
+  },
+  "ttnn.concat": {
+   "calls": 1496.0,
+   "B": 33230422016.0,
+   "s_traffic": 0.07824445965622794,
+   "s_arith": 0.0,
+   "s_floor": 0.07824445965622794,
+   "out_tiles": 12176128.0,
+   "in_tiles": 12700416.0
+  },
+  "ttnn.experimental.nlp_concat_heads": {
+   "calls": 1200.0,
+   "B": 2752512000.0,
+   "s_traffic": 0.006481073699081704,
+   "s_arith": 0.0,
+   "s_floor": 0.006481073699081704,
+   "out_tiles": 672000.0,
+   "in_tiles": 672000.0
+  },
+  "ttnn.squeeze": {
+   "calls": 1200.0,
+   "B": 0.0,
+   "s_traffic": 0.0,
+   "s_arith": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0.0,
+   "in_tiles": 672000.0
+  },
+  "ttnn.from_torch": {
+   "calls": 400.0,
+   "B": 57753600.0,
+   "s_traffic": 0.00013598681422180364,
+   "s_arith": 0.0,
+   "s_floor": 0.00013598681422180364,
+   "out_tiles": 0.0,
+   "in_tiles": 28200.0
+  },
+  "ttnn.chunk": {
+   "calls": 296.0,
+   "B": 39728447488.0,
+   "s_traffic": 0.09354473154697432,
+   "s_arith": 0.0,
+   "s_floor": 0.09354473154697432,
+   "out_tiles": 294912.0,
+   "in_tiles": 19398656.0
+  },
+  "ttnn.softmax": {
+   "calls": 280.0,
+   "B": 4429185024.0,
+   "s_traffic": 0.01042897344949376,
+   "s_arith": 0.0,
+   "s_floor": 0.01042897344949376,
+   "out_tiles": 1114112.0,
+   "in_tiles": 2260992.0
+  },
+  "ttnn.transpose": {
+   "calls": 264.0,
+   "B": 276824064.0,
+   "s_traffic": 0.00065181084059336,
+   "s_arith": 0.0,
+   "s_floor": 0.00065181084059336,
+   "out_tiles": 67584.0,
+   "in_tiles": 67584.0
+  },
+  "ttnn.cos": {
+   "calls": 200.0,
+   "B": 6553600.0,
+   "s_traffic": 1.5431127854956438e-05,
+   "s_arith": 0.0,
+   "s_floor": 1.5431127854956438e-05,
+   "out_tiles": 1600.0,
+   "in_tiles": 1600.0
+  },
+  "ttnn.to_torch": {
+   "calls": 200.0,
+   "B": 0.0,
+   "s_traffic": 0.0,
+   "s_arith": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0.0,
+   "in_tiles": 0.0
+  },
+  "ttnn.from_device": {
+   "calls": 200.0,
+   "B": 0.0,
+   "s_traffic": 0.0,
+   "s_arith": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0.0,
+   "in_tiles": 28000.0
+  }
+ },
+ "top_shapes": {
+  "ttnn.deallocate|out=|in=": {
+   "calls": 122112.0,
+   "B": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0,
+   "in_tiles": 0
+  },
+  "ttnn.multiply_|out=|in=1x512x768,1x512x768": {
+   "calls": 14400.0,
+   "B": 45298483200.0,
+   "s_floor": 0.10665995573345889,
+   "out_tiles": 0,
+   "in_tiles": 768
+  },
+  "ttnn.Tensor.__getitem__|out=|in=": {
+   "calls": 12776.0,
+   "B": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0,
+   "in_tiles": 0
+  },
+  "ttnn.linear|out=1x512x1536|in=1x512x768,768x1536": {
+   "calls": 11200.0,
+   "B": 50960793600.0,
+   "s_floor": 0.3909948680498267,
+   "out_tiles": 768,
+   "in_tiles": 1536
+  },
+  "ttnn.to_memory_config|out=|in=": {
+   "calls": 10800.0,
+   "B": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0,
+   "in_tiles": 0
+  },
+  "ttnn.multiply_|out=|in=1x512x1536,1x512x1536": {
+   "calls": 10264.0,
+   "B": 60397977600.0,
+   "s_floor": 0.14221327431127853,
+   "out_tiles": 0,
+   "in_tiles": 1536
+  },
+  "ttnn.add|out=1x512x768|in=1x512x768,1x512x768": {
+   "calls": 10200.0,
+   "B": 24064819200.0,
+   "s_floor": 0.056663101483400036,
+   "out_tiles": 384,
+   "in_tiles": 768
+  },
+  "ttnn.linear|out=1x512x768|in=1x512x768,768x768": {
+   "calls": 10200.0,
+   "B": 28075622400.0,
+   "s_floor": 0.29431796958558226,
+   "out_tiles": 384,
+   "in_tiles": 960
+  },
+  "ttnn.layer_norm|out=1x512x768|in=1x512x768": {
+   "calls": 9600.0,
+   "B": 15099494400.0,
+   "s_floor": 0.03555331857781963,
+   "out_tiles": 384,
+   "in_tiles": 384
+  },
+  "ttnn.layer_norm|out=1x512x768|in=1x512x768,768": {
+   "calls": 9600.0,
+   "B": 15571353600.0,
+   "s_floor": 0.03666435978337648,
+   "out_tiles": 384,
+   "in_tiles": 408
+  },
+  "ttnn.add_|out=|in=1x512x768,1x512x768": {
+   "calls": 9600.0,
+   "B": 30198988800.0,
+   "s_floor": 0.07110663715563927,
+   "out_tiles": 0,
+   "in_tiles": 768
+  },
+  "ttnn.multiply|out=1x512x768|in=1x512x768,1x512x768": {
+   "calls": 9600.0,
+   "B": 22649241600.0,
+   "s_floor": 0.053329977866729446,
+   "out_tiles": 384,
+   "in_tiles": 768
+  },
+  "ttnn.linear|out=1x16x512x512|in=128x512,1x16x512x128": {
+   "calls": 9472.0,
+   "B": 1241513984.0,
+   "s_floor": 0.32383760948623425,
+   "out_tiles": 4096,
+   "in_tiles": 1088
+  },
+  "ttnn.linear|out=1x512x768|in=768x768,1x512x768": {
+   "calls": 9200.0,
+   "B": 25323110400.0,
+   "s_floor": 0.26546326668503495,
+   "out_tiles": 384,
+   "in_tiles": 960
+  },
+  "ttnn.multiply_|out=|in=1x16x512x512,1x16x512x512": {
+   "calls": 8960.0,
+   "B": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0,
+   "in_tiles": 8192
+  },
+  "ttnn.linear|out=1x16x512x512|in=1x16x512x128,128x512": {
+   "calls": 8448.0,
+   "B": 1107296256.0,
+   "s_floor": 0.288828138190426,
+   "out_tiles": 4096,
+   "in_tiles": 1088
+  },
+  "ttnn.linear|out=1x16x512x128|in=1x16x512x512,512x128": {
+   "calls": 8448.0,
+   "B": 18824036352.0,
+   "s_floor": 0.3700154388782924,
+   "out_tiles": 1024,
+   "in_tiles": 4160
+  },
+  "ttnn.linear|out=1x512x768|in=1x512x768,768,768x768": {
+   "calls": 6600.0,
+   "B": 18490982400.0,
+   "s_floor": 0.19044103914361193,
+   "out_tiles": 384,
+   "in_tiles": 984
+  },
+  "ttnn.layer_norm|out=1x16x512x128|in=128,128,1x16x512x128": {
+   "calls": 4832.0,
+   "B": 10212605952.0,
+   "s_floor": 0.024046635158935733,
+   "out_tiles": 1024,
+   "in_tiles": 1032
+  },
+  "ttnn.to_memory_config|out=1x140x32x128|in=1x140x32x128": {
+   "calls": 4800.0,
+   "B": 5505024000.0,
+   "s_floor": 0.012962147398163414,
+   "out_tiles": 560,
+   "in_tiles": 560
+  },
+  "ttnn.linear|out=1x512x768|in=1x512x1536,1536x768": {
+   "calls": 4800.0,
+   "B": 22334668800.0,
+   "s_floor": 0.2451333553200683,
+   "out_tiles": 384,
+   "in_tiles": 1920
+  },
+  "ttnn.unsqueeze|out=|in=1x512x3072": {
+   "calls": 4800.0,
+   "B": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0,
+   "in_tiles": 1536
+  },
+  "ttnn.experimental.nlp_create_qkv_heads|out=1x16x512x64|in=1x1x512x3072": {
+   "calls": 4800.0,
+   "B": 30198988800.0,
+   "s_floor": 0.07110663715563927,
+   "out_tiles": 512,
+   "in_tiles": 1536
+  },
+  "ttnn.slice|out=1x16x512x64|in=1x16x512x64,1x16x512x64": {
+   "calls": 4800.0,
+   "B": 10066329600.0,
+   "s_floor": 0.023702212385213087,
+   "out_tiles": 512,
+   "in_tiles": 1024
+  },
+  "ttnn.permute|out=1x16x48x512|in=1x16x512x48": {
+   "calls": 4800.0,
+   "B": 15099494400.0,
+   "s_floor": 0.03555331857781963,
+   "out_tiles": 512,
+   "in_tiles": 512
+  },
+  "ttnn.permute|out=1x1x512x768|in=1x1x768x512,1x1x512x768,1x768x512": {
+   "calls": 4800.0,
+   "B": 7549747200.0,
+   "s_floor": 0.017776659288909816,
+   "out_tiles": 384,
+   "in_tiles": 1152
+  },
+  "ttnn.linear|out=1x512x768|in=768,768x768,1x512x768": {
+   "calls": 4200.0,
+   "B": 11766988800.0,
+   "s_floor": 0.12118975218229842,
+   "out_tiles": 384,
+   "in_tiles": 984
+  },
+  "ttnn.linear|out=1x512x1536|in=768x1536,1x512x768": {
+   "calls": 4000.0,
+   "B": 18874368000.0,
+   "s_floor": 0.13964102430350953,
+   "out_tiles": 768,
+   "in_tiles": 1536
+  },
+  "ttnn.linear|out=1x512x768|in=1x512x768,768x768,768": {
+   "calls": 3800.0,
+   "B": 10646323200.0,
+   "s_floor": 0.10964787102207953,
+   "out_tiles": 384,
+   "in_tiles": 984
+  },
+  "ttnn.multiply_|out=|in=1x140x32x128,1x140x32x128": {
+   "calls": 3600.0,
+   "B": 11010048000.0,
+   "s_floor": 0.02592429479632682,
+   "out_tiles": 0,
+   "in_tiles": 1120
+  },
+  "ttnn.reshape|out=|in=140x4x128x32": {
+   "calls": 3600.0,
+   "B": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0,
+   "in_tiles": 2240
+  },
+  "ttnn.linear|out=1x512x3072|in=1x512x768,768x3072,3072": {
+   "calls": 3000.0,
+   "B": 26542080000.0,
+   "s_floor": 0.1673962799939363,
+   "out_tiles": 1536,
+   "in_tiles": 2784
+  },
+  "ttnn.transformer.scaled_dot_product_attention|out=1x16x512x64|in=1x16x512x512,1x16x512x64,1x16x512x64,1x16x512x64": {
+   "calls": 3000.0,
+   "B": 37748736000.0,
+   "s_floor": 0.08888329644454908,
+   "out_tiles": 512,
+   "in_tiles": 5632
+  },
+  "ttnn.layer_norm|out=1x16x512x128|in=128,1x16x512x128,128": {
+   "calls": 2880.0,
+   "B": 6086983680.0,
+   "s_floor": 0.014332431551683546,
+   "out_tiles": 1024,
+   "in_tiles": 1032
+  },
+  "ttnn.allocate_tensor_on_device|out=512x4x512x32|in=": {
+   "calls": 2800.0,
+   "B": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 32768,
+   "in_tiles": 0
+  },
+  "ttnn.slice|out=1x129x32x128|in=1x129x32x128,1x144x32x128": {
+   "calls": 2800.0,
+   "B": 6261964800.0,
+   "s_floor": 0.014744442665410881,
+   "out_tiles": 516,
+   "in_tiles": 1092
+  },
+  "ttnn.layer_norm|out=1x140x32x128|in=1x140x32x128": {
+   "calls": 2400.0,
+   "B": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 560,
+   "in_tiles": 560
+  },
+  "ttnn.add_|out=|in=1x140x32x128,1x140x32x128": {
+   "calls": 2400.0,
+   "B": 5505024000.0,
+   "s_floor": 0.012962147398163407,
+   "out_tiles": 0,
+   "in_tiles": 1120
+  },
+  "ttnn.multiply|out=1x140x32x128|in=1x140x32x128,1x140x32x128": {
+   "calls": 2400.0,
+   "B": 8257536000.0,
+   "s_floor": 0.01944322109724511,
+   "out_tiles": 560,
+   "in_tiles": 1120
+  },
+  "ttnn.add|out=1x140x32x128|in=1x140x32x128,1x140x32x128": {
+   "calls": 2400.0,
+   "B": 8257536000.0,
+   "s_floor": 0.01944322109724511,
+   "out_tiles": 560,
+   "in_tiles": 1120
+  },
+  "ttnn.linear|out=1x140x32x256|in=128x256,1x140x32x128": {
+   "calls": 2400.0,
+   "B": 8414822400.0,
+   "s_floor": 0.01981356816576407,
+   "out_tiles": 1120,
+   "in_tiles": 592
+  },
+  "ttnn.multiply_|out=|in=1x140x32x256,1x140x32x256": {
+   "calls": 2400.0,
+   "B": 22020096000.0,
+   "s_floor": 0.05184858959265363,
+   "out_tiles": 0,
+   "in_tiles": 2240
+  },
+  "ttnn.reshape|out=1x768x512|in=1x16x48x512,16x48x512": {
+   "calls": 2400.0,
+   "B": 1887436800.0,
+   "s_floor": 0.004444164822227454,
+   "out_tiles": 384,
+   "in_tiles": 1024
+  },
+  "ttnn.reshape|out=1x768x512|in=16x48x512,1x16x48x512": {
+   "calls": 2400.0,
+   "B": 1887436800.0,
+   "s_floor": 0.004444164822227454,
+   "out_tiles": 384,
+   "in_tiles": 1024
+  },
+  "ttnn.linear|out=1x16x512x256|in=64x256,1x16x512x64": {
+   "calls": 2048.0,
+   "B": 67108864.0,
+   "s_floor": 0.006861787809538057,
+   "out_tiles": 2048,
+   "in_tiles": 528
+  },
+  "ttnn.slice|out=1x129x32x128|in=1x144x32x128,1x129x32x128": {
+   "calls": 2000.0,
+   "B": 4472832000.0,
+   "s_floor": 0.010531744761007772,
+   "out_tiles": 516,
+   "in_tiles": 1092
+  },
+  "ttnn.linear|out=1x512x768|in=768x768,768,1x512x768": {
+   "calls": 1800.0,
+   "B": 5042995200.0,
+   "s_floor": 0.05193846522098504,
+   "out_tiles": 384,
+   "in_tiles": 984
+  },
+  "ttnn.linear|out=1x512x3072|in=1x512x768,3072,768x3072": {
+   "calls": 1800.0,
+   "B": 15925248000.0,
+   "s_floor": 0.10043776799636175,
+   "out_tiles": 1536,
+   "in_tiles": 2784
+  },
+  "ttnn.reshape|out=|in=1x140x32x128": {
+   "calls": 1600.0,
+   "B": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0,
+   "in_tiles": 560
+  },
+  "ttnn.linear|out=1x140x32x128|in=128x128,1x140x32x128": {
+   "calls": 1600.0,
+   "B": 3722444800.0,
+   "s_floor": 0.00876488062161526,
+   "out_tiles": 560,
+   "in_tiles": 576
+  },
+  "ttnn.linear|out=1x512x768|in=768,1x512x768,768x768": {
+   "calls": 1600.0,
+   "B": 4482662400.0,
+   "s_floor": 0.04616752464087559,
+   "out_tiles": 384,
+   "in_tiles": 984
+  },
+  "ttnn.add_|out=|in=1x512x512x128,1x512x512x128": {
+   "calls": 1416.0,
+   "B": 192199786496.0,
+   "s_floor": 0.4525542418083352,
+   "out_tiles": 0,
+   "in_tiles": 65536
+  },
+  "ttnn.layer_norm|out=1x16x512x128|in=1x16x512x128,128,128": {
+   "calls": 1248.0,
+   "B": 2637692928.0,
+   "s_floor": 0.006210720339062871,
+   "out_tiles": 1024,
+   "in_tiles": 1032
+  },
+  "ttnn.slice|out=1x1x4128x128|in=1x1x4128x128,1x1x4480x128": {
+   "calls": 1200.0,
+   "B": 2644377600.0,
+   "s_floor": 0.006226460089474922,
+   "out_tiles": 516,
+   "in_tiles": 1076
+  },
+  "ttnn.to_layout|out=1x1x4128x128|in=1x1x4128x128": {
+   "calls": 1200.0,
+   "B": 2536243200.0,
+   "s_floor": 0.005971846479868143,
+   "out_tiles": 516,
+   "in_tiles": 516
+  },
+  "ttnn.pad|out=1x1x4608x128|in=1x1x4128x128": {
+   "calls": 1200.0,
+   "B": 2683699200.0,
+   "s_floor": 0.006319046856604662,
+   "out_tiles": 576,
+   "in_tiles": 516
+  },
+  "ttnn.to_layout|out=1x1x4608x128|in=1x1x4608x128": {
+   "calls": 1200.0,
+   "B": 2831155200.0,
+   "s_floor": 0.006666247233341182,
+   "out_tiles": 576,
+   "in_tiles": 576
+  },
+  "ttnn.reshape|out=|in=1x1x4608x128": {
+   "calls": 1200.0,
+   "B": 0.0,
+   "s_floor": 0.0,
+   "out_tiles": 0,
+   "in_tiles": 576
+  },
+  "ttnn.concat|out=1x129x128x128|in=1x129x32x128,1x129x32x128,1x129x32x128,1x129x32x128": {
+   "calls": 1200.0,
+   "B": 10144972800.0,
+   "s_floor": 0.02388738591947257,
+   "out_tiles": 2064,
+   "in_tiles": 2064
+  },
+  "ttnn.pad|out=1x140x128x128|in=1x140x128x128,1x129x128x128": {
+   "calls": 1200.0,
+   "B": 10577510400.0,
+   "s_floor": 0.024905840357899688,
+   "out_tiles": 2240,
+   "in_tiles": 4304
+  }
+ }
+}

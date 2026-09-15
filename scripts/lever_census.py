@@ -37,6 +37,11 @@ from pathlib import Path
 
 # flag, module, resolved attribute, counter spec, how
 #   counter spec: "MODULE.NAME" for a [served, declined] list, or None
+#   A `stats-dict` row writes "MODULE.NAME:served_key,declined_key" instead, naming WHICH keys
+#   of a shared counter dict are its own. The keys used to be hardcoded to `calls,blocked`,
+#   which is only correct for FP32_SOFTMAX_BIAS_HOIST: `FP32_SOFTMAX_STATS` holds several
+#   levers' counters in one dict, so any other row built on it would have read the bias
+#   hoist's numbers and reported itself healthy whether or not it ran.
 LEVERS = [
     ("SPLIT_SWIGLU", "tt_bio.esmc", "_SPLIT_SWIGLU", "tt_bio.esmc.SPLIT_STATS", "stats"),
     ("SPLIT_SWIGLU_SMALL_GRID", "tt_bio.esmc", "_SPLIT_SWIGLU_SMALL_GRID",
@@ -53,7 +58,17 @@ LEVERS = [
      "tt_bio.mm_dualnoc.STATS", "stats"),
     ("ADALN_S_HOIST", "tt_bio.tenstorrent", "ADALN_S_HOIST", None, "wrap"),
     ("FP32_SOFTMAX_BIAS_HOIST", "tt_bio.tenstorrent", "FP32_SOFTMAX_BIAS_HOIST",
-     "tt_bio.tenstorrent.FP32_SOFTMAX_STATS", "stats-dict"),
+     "tt_bio.tenstorrent.FP32_SOFTMAX_STATS:calls,blocked", "stats-dict"),
+    # The tuned rectangle the L1-resident score block is height-sharded onto.
+    # `_apply_grid_thresholds` takes it from the live grid on a part smaller than 11x10 and
+    # leaves the fitted 8x8 alone on Blackhole, so the resolved value is the rectangle itself
+    # and not a bool: (9, 8) on an 8x9 Galaxy against (8, 8) pinned. served is the blocks that
+    # actually got a shard, declined is the sharded softmax refusing its circular buffers
+    # around one. `l1_cores` in GAUGES_ATTR says which rectangle the plan LANDED on, which the
+    # resolved value cannot answer on its own -- the floating-core search may replace the
+    # tuned answer at any size.
+    ("FP32_SOFTMAX_L1_GRID", "tt_bio.tenstorrent", "_FP32_SOFTMAX_L1_GRID",
+     "tt_bio.tenstorrent.FP32_SOFTMAX_STATS:l1_blocks,l1_refused", "stats-dict"),
     ("PAIR_TRANSPOSE_VIA_ROW_MAJOR", "tt_bio.tenstorrent", "_PT_ROW_MAJOR", None, "wrap"),
     ("PAIR_PROJ_MINIMAL_MATMUL", "tt_bio.tenstorrent", "_PAIR_PROJ_MM", None, "wrap"),
     ("TRIMUL_TAIL_F1", "tt_bio.tenstorrent", "_TRIMUL_TAIL_F1",
@@ -163,6 +178,32 @@ REJECTS_ATTR = {
     "RFD3_FC1_SPLIT_SILU": "tt_bio.rfd3.model.FC1DECLINES",
     "TRANSITION_H_CHUNK": "tt_bio.tenstorrent.TRANSITION_H_CHUNK_REJECTS",
 }
+
+
+# Counter-dict keys that are ASSIGNED rather than incremented, per lever. Summing one across
+# the fold's processes is meaningless, so they are unioned like `resolved` is and reported as
+# the set of distinct readings. 0 means the lever never set it in that process (the launcher
+# imports the module and never folds), so it is dropped rather than unioned in as a value.
+# `l1_cores` is the one that matters today: it is the core count the L1 plan actually used, so
+# it separates "the rectangle resolved to the live grid" from "a block ran on the live grid".
+GAUGES_ATTR = {
+    "FP32_SOFTMAX_L1_GRID": ("tt_bio.tenstorrent.FP32_SOFTMAX_STATS", ("l1_cores",)),
+}
+
+
+def _gauges(flag):
+    """{key: value} of this lever's last-value counters, or None."""
+    spec = GAUGES_ATTR.get(flag)
+    if not spec:
+        return None
+    attr, keys = spec
+    mod, _, name = attr.rpartition(".")
+    m = sys.modules.get(mod)
+    d = getattr(m, name, None) if m is not None else None
+    if not isinstance(d, dict):
+        return None
+    out = {k: d[k] for k in keys if d.get(k)}
+    return out or None
 
 
 def _reject_reasons(flag):
@@ -381,11 +422,16 @@ def _snapshot_process():
             c = getattr(cm, cname, None) if cm is not None else None
             served, declined = (0, len(c)) if c is not None else (None, None)
         elif counter:
-            cmod, _, cname = counter.rpartition(".")
+            cpath, _, keys = counter.partition(":")
+            cmod, _, cname = cpath.rpartition(".")
             cm = sys.modules.get(cmod)
             c = getattr(cm, cname, None) if cm is not None else None
             if isinstance(c, dict):
-                served, declined = c.get("calls"), c.get("blocked")
+                # No `calls,blocked` fallback: a stats-dict row that forgets its keys is the
+                # defect this syntax exists to stop, and it must fail loudly rather than
+                # silently report another lever's counters as its own.
+                skey, _, dkey = keys.partition(",")
+                served, declined = c.get(skey), c.get(dkey)
             elif isinstance(c, (list, tuple)) and len(c) >= 2:
                 served, declined = c[0], c[1]
         # A module that keeps a `_reject()` records its reasons in a module-level REJECTS
@@ -401,7 +447,7 @@ def _snapshot_process():
             rej[reason] = rej.get(reason, 0) + n
         rows[flag] = {"resolved": str(getattr(m, attr, "MISSING")),
                       "served": served, "declined": declined,
-                      "rejects": rej or None}
+                      "rejects": rej or None, "gauges": _gauges(flag)}
     return rows
 
 
@@ -468,17 +514,32 @@ def collect(dumpdir: Path, label: str, cli: list, rc: int) -> dict:
     agg = {}
     grids = set()
     dumps = sorted(dumpdir.glob("pid*.json"))
+    loaded = []
     for p in dumps:
         try:
-            d = json.loads(p.read_text())
+            loaded.append(json.loads(p.read_text()))
         except Exception:                                                # noqa: BLE001
             continue
+    # A resolved default is only worth reading from a process that opened a chip. Several of
+    # them are retuned at device open by `_apply_grid_thresholds` -- the fp32-softmax
+    # rectangle and TRANSITION_H_CHUNK_SIZE among them -- so the launcher, which imports the
+    # module and never folds, still holds the pre-device value. Unioned in, that reads
+    # "(8, 8)/(9, 8)" for a lever that resolved to exactly one rectangle everywhere it ran,
+    # which is the `11x10/13x10` grid-stamp false alarm again (see `_compute_grid`). The grid
+    # stamp IS the measured flag, so no new field is needed. Counters are still summed from
+    # every process: those are real, and an unmeasured one contributes zeroes anyway.
+    measured = any(d.get("grid") for d in loaded)
+    for d in loaded:
         if d.get("grid"):
             grids.add(d["grid"])
+        say_resolved = d.get("grid") or not measured
         for flag, r in d.get("rows", {}).items():
             a = agg.setdefault(flag, {"resolved": set(), "served": None, "declined": None,
-                                      "rejects": {}})
-            a["resolved"].add(r["resolved"])
+                                      "rejects": {}, "gauges": {}})
+            if say_resolved:
+                a["resolved"].add(r["resolved"])
+            for k, v in (r.get("gauges") or {}).items():
+                a["gauges"].setdefault(k, set()).add(str(v))
             for k in ("served", "declined"):
                 if r.get(k) is not None:
                     a[k] = (a[k] or 0) + r[k]
@@ -488,10 +549,13 @@ def collect(dumpdir: Path, label: str, cli: list, rc: int) -> dict:
     for flag, _m, _a, counter, how in LEVERS:
         a = agg.get(flag)
         rows.append({"flag": flag, "how": how, "counter": counter,
-                     "resolved": "/".join(sorted(a["resolved"])) if a else "not-imported",
+                     "resolved": ("/".join(sorted(a["resolved"])) or "not-opened") if a
+                                 else "not-imported",
                      "served": a["served"] if a else None,
                      "declined": a["declined"] if a else None,
-                     "rejects": (a["rejects"] or None) if a else None})
+                     "rejects": (a["rejects"] or None) if a else None,
+                     "gauges": ({k: "/".join(sorted(v)) for k, v in a["gauges"].items()}
+                                or None) if a else None})
     return {"label": label, "cli": cli, "rc": rc, "processes": len(dumps), "rows": rows,
             "grid": "/".join(sorted(grids)) or None}
 
@@ -561,8 +625,9 @@ def main():
         json.dump(snap, open(args.out, "w"), indent=2)
     print(f"--- {args.label}: {snap['processes']} processes, cli rc={rc}")
     for r in snap["rows"]:
+        gauge = " ".join(f"{k}={v}" for k, v in sorted((r.get("gauges") or {}).items()))
         print(f"{r['flag']:32s} {r['resolved']:14s} served={r['served']} "
-              f"declined={r['declined']}")
+              f"declined={r['declined']}" + (" " + gauge if gauge else ""))
         for why, n in sorted((r.get("rejects") or {}).items(), key=lambda kv: -kv[1])[:6]:
             print(f"{'':34s}  why {why} x{n}")
     sys.exit(rc)

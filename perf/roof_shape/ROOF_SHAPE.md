@@ -1,5 +1,24 @@
 # The shape-honest arithmetic roof, and which roof binds the 512 aa fold
 
+> **Re-measured on the fold's own kernels and its own part,
+> `perf/roof_triatt_rate/TRIATT_RATE.md`.** Both halves of the note above are superseded. The gap
+> is not an isolated-arm effect: it is that these arms are `ttnn.linear` and
+> `ttnn.transformer.scaled_dot_product_attention` while the fold issues three `ttnn.generic_op`
+> kernels, and that the fractions here were taken on a pc p150a and carried onto a qb2 p300c. The
+> 1.61x is 1.190x cross-host transfer x 1.941x wrong kernel / 1.208x an in-fold penalty. Measured
+> alone on qb2 card 3, the shipped kernels run at 46.85 / 29.22 / 18.05 TFLOP/s against these
+> 19.06 / 17.67 / 16.33. `weigh.py`'s three TriangleAttention classes now carry the shipped arms
+> beside the stock ones; `shape_roofs_qb2c3_shipped.json` is the roofs file that has them.
+
+> **`TriangleAttention`'s rates are not upper bounds.** Measured against the same work inside a quiet
+> 512 aa fold (`perf/roof_quiet/QUIET_REFOLD.md`), the class delivers 24.85 TFLOP/s, 23.7 % of the
+> dense cube, where these standalone arms give 15.45 TFLOP/s, 14.7 %. Underpriced 1.61x, dominated by
+> `TriangleAttention fused SDPA (QK^T and AV)` at 15.67 TFLOP/s against 38.483 TFLOP a fold. A rate
+> taken on an isolated op is a lower bound on what the fold delivers, so it cannot be used to build a
+> floor. Only `TriangleAttention` is proven wrong so far, because only it crosses its own measured
+> time on the arithmetic sum alone; the question is open for every other class here.
+
+
 `perf/roof_budget/ROOF_BUDGET.md` put the floor at **6.934 s, set by bandwidth** (2.9449 TB at a
 measured 424.7 GB/s) and priced the arithmetic term at 2.092 s by dividing 219.49 TFLOP by the
 dense-cube rate. No matmul in this fold is a dense cube. This file measures the rate each matmul

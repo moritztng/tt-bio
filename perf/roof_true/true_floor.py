@@ -77,6 +77,158 @@ def load_modules(perf: Path):
 TOKEN_SDPA = "ttnn.transformer.scaled_dot_product_attention"
 
 
+def LAUNCH_ON(R):
+    """Is the third term on? With it off every output of this script is the committed one."""
+    return R.get("LAUNCH") is not None or R.get("LAUNCH_SHAPES") is not None
+
+# --- the third term: the per-op device launch floor --------------------------------------------
+# `perf/roof_launch/launch_sweep.py` measures it per op class on the part of record, under trace
+# replay so the number is device time and not host dispatch. Off unless --launch names its json,
+# and with it off every line below is a no-op, so the committed chain reproduces byte for byte.
+
+LAUNCH_ARM = {
+    "ttnn.linear": "linear", "ttnn.matmul": "matmul",
+    "ttnn.multiply_": "multiply_", "ttnn.add_": "add_",
+    "ttnn.multiply": "multiply", "ttnn.add": "add",
+    "ttnn.reshape": "reshape", "ttnn.to_memory_config": "to_memory_config_l1",
+    "ttnn.slice": "slice", "ttnn.permute": "permute", "ttnn.transpose": "transpose",
+    "ttnn.to_layout": "to_layout", "ttnn.concat": "concat", "ttnn.pad": "pad",
+    "ttnn.softmax": "softmax", "ttnn.chunk": "chunk", "ttnn.cos": "cos",
+    "ttnn.experimental.nlp_create_qkv_heads": "nlp_create_qkv_heads",
+    "ttnn.experimental.nlp_concat_heads": "nlp_concat_heads",
+    TOKEN_SDPA: "sdpa",
+}
+
+# in-place ops run a real device program and the capture records no output tensor for them, so
+# they take their largest input's tile count as x rather than being skipped.
+LAUNCH_INPLACE = {"ttnn.multiply_", "ttnn.add_"}
+
+# host-side metadata, or a python wrapper whose device child is counted separately. Charging these
+# would be double counting, not conservatism: `Tensor.__getitem__` appears 12776 times beside
+# exactly 12776 `ttnn.slice` calls, because it IS those calls.
+LAUNCH_SKIP = {"ttnn.Tensor.__getitem__", "ttnn.deallocate", "ttnn.unsqueeze", "ttnn.squeeze",
+               "ttnn.allocate_tensor_on_device", "ttnn.from_torch", "ttnn.to_torch",
+               "ttnn.from_device", "ttnn.to_device", "ttnn.reallocate"}
+
+
+def _tiles(shape):
+    from math import ceil
+    if not shape:
+        return 0
+    n = 1
+    for d in shape[:-2]:
+        n *= d
+    if len(shape) == 1:
+        return ceil(shape[0] / 32)
+    return n * ceil(shape[-2] / 32) * ceil(shape[-1] / 32)
+
+
+def launch_x(name, ins, outs):
+    """The op's output tile count; an in-place op has no output, so its largest input's.
+
+    The same rule the sweep fits against, so the sweep's x and the fold op's x are one definition.
+    """
+    if outs:
+        return max(_tiles(o) for o in outs)
+    if name in LAUNCH_INPLACE:
+        return max((_tiles(sh) for _n, sh in ins), default=0)
+    return 0
+
+
+def launch_arm(name, ins):
+    """The sweep arm that prices this op's class, or None if no arm was measured for it."""
+    if name in LAUNCH_SKIP:
+        return None
+    if name == "ttnn.layer_norm":
+        return "layer_norm_w" if len(ins) >= 2 else "layer_norm"
+    return LAUNCH_ARM.get(name)
+
+
+def launch_shape(name, ins, outs):
+    """The shape the launch ladder is keyed on: the op's output, or for an in-place op, which has
+    no output tensor in the capture, its largest input. Same rule as `launch_x`."""
+    if outs:
+        return tuple(outs[0])
+    if name in LAUNCH_INPLACE:
+        return max((tuple(sh) for _n, sh in ins), key=_tiles, default=None)
+    return None
+
+
+def launch_key(arm, name, ins, outs, rows):
+    """`arm|shape|K` -- the key a per-shape launch ladder is measured on.
+
+    The shape is the op's own output shape and K the matmul reduction length off the census row
+    the arithmetic term already built, so the key is the committed shape convention and not a
+    second one. It has to be this fine: `shape_control.py` measured the floor moving with the row
+    WIDTH at a fixed tile count -- a 560-tile `layer_norm` is 12.07 us as [1,140,32,128] and
+    27.22 us as [1,512,1536] -- so one number per class cannot carry both, and `layer_norm` alone
+    is 58 % of the term.
+    """
+    sh = launch_shape(name, ins, outs) if arm else None
+    if sh is None:
+        return None
+    K = rows[0][2] if rows else None
+    return "%s|%s|K%s" % (arm, "x".join(str(d) for d in sh), K)
+
+
+def _interp(pts, x):
+    """The ladder's measured us at x, linear between its points and off its top slope beyond."""
+    pts = sorted(pts)
+    if x <= pts[0][0]:
+        return pts[0][1]
+    if x >= pts[-1][0]:
+        (x0, y0), (x1, y1) = pts[-2], pts[-1]
+        return y1 + (y1 - y0) / (x1 - x0) * (x - x1)
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        if x0 <= x <= x1:
+            return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+    return pts[-1][1]
+
+
+def launch_terms(L, LS, name, ins, outs, rows):
+    """(fixed, fixed-strict, measured-curve, source) seconds of launch floor for one op call.
+
+    `fixed` is the floor: the y-intercept of the ladder for this op where the ladder is monotone
+    and the fit is clean, the cheapest measured member of it where it is not. Extrapolated to zero
+    rows it carries no work, so it is additive-independent of the traffic and arithmetic terms and
+    max() of the three is still a floor.
+
+    `measured-curve` is the ladder read at this op's own tile count: what the op costs run alone
+    on a quiet card. That is an over-reading and not a floor, because an isolated arm carries its
+    own dispatch and its own cache state, so it is published only as the upper end of a bracket.
+
+    `fixed-strict` keeps only the ladders that gave a clean positive y-intercept and charges zero
+    for the rest, so it is a lower bound on the launch term itself. The difference matters: where
+    a ladder is non-monotone the floor falls back to its cheapest measured point, and that point
+    carries the work of a real (smaller) op rather than launch alone -- `linear|1x512x3072` reads
+    38.4 us at an eighth of the rows against 39.0 us at full size, so calling 38.4 us "launch" is
+    an over-reading even though it is still a valid lower bound on the op's device time. The two
+    readings bracket the term and both are published.
+
+    Per-shape ladder first (`--launch-shapes`), class ladder as the fallback, and `source` says
+    which, because the two disagree by up to 2.3x on the same op.
+    """
+    if name in LAUNCH_SKIP:
+        return 0.0, 0.0, 0.0, "skip"    # host metadata, or a wrapper whose device child is counted
+    arm = launch_arm(name, ins)
+    if arm is None:
+        return 0.0, 0.0, 0.0, "noarm"   # `ttnn.generic_op` above all: no stock op to sweep
+    x = launch_x(name, ins, outs)
+    if x == 0:
+        return 0.0, 0.0, 0.0, "zero_x"  # no output tensor and not in-place: nothing was allocated
+    key = launch_key(arm, name, ins, outs, rows)
+    if LS and key in LS["fits"]:
+        f, rows_, src = LS["fits"][key], LS["rows"][key], "shape"
+    elif L is not None and arm in L["fits"]:
+        f, rows_, src = L["fits"][arm], L["rows"][arm], "class"
+    else:
+        return 0.0, 0.0, 0.0, "noarm"
+    fixed = f["launch_floor_us"] * 1e-6
+    strict = fixed if f["floor_from"] == "fit intercept" else 0.0
+    pts = [(q["x_tiles"], q["us"]) for q in rows_]
+    return fixed, strict, max(fixed, _interp(pts, x) * 1e-6), src
+
+
 def token_sdpa_flops(EF, ins, outs):
     """QK^T + AV for `ttnn.transformer.scaled_dot_product_attention`.
 
@@ -174,7 +326,8 @@ class Join:
 
 def op_terms(R, J, i):
     """(bytes, matmul FLOPs, other FLOPs, t_traffic, t_arith_point, t_arith_lo, t_arith_hi,
-        uncovered FLOPs, class label or None) for op i of capture J."""
+        uncovered FLOPs, class label or None, token-sdpa FLOPs, t_launch, t_launch_strict,
+        t_launch_curve, which launch table set it)."""
     EF = R["EF"]
     name = J.ops[i]["name"]
     B = float(J.bytes[i])
@@ -184,7 +337,8 @@ def op_terms(R, J, i):
     t_ar = t_lo = t_hi = 0.0
     F_mm = unc = 0.0
     label = None
-    for (b, M, K, N, f) in op_shape_rows(EF, name, J.ins[i], J.outs[i]):
+    mmrows = op_shape_rows(EF, name, J.ins[i], J.outs[i])
+    for (b, M, K, N, f) in mmrows:
         F_mm += f
         hit = R["RATES"].get((b, M, K, N))
         if hit:
@@ -202,15 +356,19 @@ def op_terms(R, J, i):
         t_ar += tsdpa / R["token_sdpa_rate"]
         t_lo += tsdpa / R["hi_rate"]
         t_hi += tsdpa / R["lo_rate"]
-    return B, F_mm, F_el, t_tr, t_ar, t_lo, t_hi, unc, label, tsdpa
+    t_la, t_ls, t_lc, src = (launch_terms(R["LAUNCH"], R["LAUNCH_SHAPES"], name,
+                                          J.ins[i], J.outs[i], mmrows)
+                             if LAUNCH_ON(R) else (0.0, 0.0, 0.0, "off"))
+    return (B, F_mm, F_el, t_tr, t_ar, t_lo, t_hi, unc, label, tsdpa, t_la, t_ls, t_lc, src)
 
 
 def accumulate(R, sig, calls, agg, per_class, bucket, by_owner, unc_shapes=None,
                nonmm=None):
     J = Join(R, sig)
     for i in range(len(J.ops)):
-        B, F_mm, F_el, t_tr, t_ar, t_lo, t_hi, unc, label, tsdpa = op_terms(R, J, i)
-        t = max(t_tr, t_ar)
+        (B, F_mm, F_el, t_tr, t_ar, t_lo, t_hi, unc, label, tsdpa,
+         t_la, t_ls, t_lc, src) = op_terms(R, J, i)
+        t = max(t_tr, t_ar, t_la)
         agg["F_token_sdpa"] += calls * tsdpa
         t_el = F_el / R["eltwise_rate"] if R["eltwise_rate"] else 0.0
         agg["B"] += calls * B
@@ -224,6 +382,22 @@ def accumulate(R, sig, calls, agg, per_class, bucket, by_owner, unc_shapes=None,
         agg["floor_hi"] += calls * max(t_tr, t_hi)
         agg["floor_el"] += calls * max(t_tr, t_ar, t_el)
         agg["n_ops"] += calls
+        if LAUNCH_ON(R):
+            agg.setdefault("_by_src", defaultdict(float))[src] += calls
+            agg.setdefault("_s_by_src", defaultdict(float))[src] += calls * max(t_tr, t_ar, t_la)
+            agg["s_launch"] += calls * t_la
+            agg["floor_curve"] += calls * max(t_tr, t_ar, t_lc)
+            agg["floor_strict"] += calls * max(t_tr, t_ar, t_ls)
+            agg["floor_no_launch"] += calls * max(t_tr, t_ar)
+            if t_la > t_tr and t_la > t_ar:
+                agg["s_by_launch"] += calls * t_la
+                agg["n_launch"] += calls
+                agg["s_launch_gain"] += calls * (t_la - max(t_tr, t_ar))
+                e = agg.setdefault("_by_name", defaultdict(new_agg))[
+                    J.ops[i]["name"].replace("ttnn.", "")]
+                e["n"] += calls
+                e["gain_s"] += calls * (t_la - max(t_tr, t_ar))
+                e["s"] += calls * t_la
         if t_ar > t_tr:
             agg["s_by_arith"] += calls * t
             agg["n_arith"] += calls
@@ -271,7 +445,10 @@ def accumulate(R, sig, calls, agg, per_class, bucket, by_owner, unc_shapes=None,
     u = J.unattributed
     agg["B"] += calls * u
     agg["s_traffic"] += calls * u / R["stream"]
-    for k in ("floor", "floor_lo", "floor_hi", "floor_el", "s_by_traffic"):
+    keys = ["floor", "floor_lo", "floor_hi", "floor_el", "s_by_traffic"]
+    if LAUNCH_ON(R):
+        keys += ["floor_curve", "floor_strict", "floor_no_launch"]
+    for k in keys:
         agg[k] += calls * u / R["stream"]
     bucket["layout/free"]["B"] += calls * u
     bucket["layout/free"]["s_tr"] += calls * u / R["stream"]
@@ -306,7 +483,11 @@ def setup(perf, args):
             "lo_rate": (args.uncovered_lo * 1e12) if args.uncovered_lo else min(rates),
             "hi_rate": (args.uncovered_hi * 1e12) if args.uncovered_hi else max(rates),
             "eltwise_rate": args.eltwise_rate * 1e12 if args.eltwise_rate else 0.0,
-            "token_sdpa_rate": 0.0}
+            "token_sdpa_rate": 0.0,
+            "LAUNCH": (json.loads(args.launch.read_text())
+                       if getattr(args, "launch", None) else None),
+            "LAUNCH_SHAPES": (json.loads(args.launch_shapes.read_text())
+                              if getattr(args, "launch_shapes", None) else None)}
 
 
 def run(R, sigs, extra=False):
@@ -369,6 +550,14 @@ def main() -> int:
                          "correction is reported beside it either way.")
     ap.add_argument("--uncovered-lo", type=float, default=None)
     ap.add_argument("--uncovered-hi", type=float, default=None)
+    ap.add_argument("--launch-shapes", type=Path, default=None,
+                    help="perf/roof_launch/shape_ladder_k_*.json: the launch floor measured per "
+                         "(op class, the shape the fold launches it on). Takes precedence over "
+                         "--launch, which stays as the fallback for shapes it does not cover.")
+    ap.add_argument("--launch", type=Path, default=None,
+                    help="perf/roof_launch/*.json: adds the measured per-op device launch floor "
+                         "as a THIRD term, max(traffic, arithmetic, launch). Off by default, and "
+                         "with it off every output of this script is unchanged.")
     ap.add_argument("--out", type=Path, default=HERE / "true_floor_512_qb2c2.json")
     a = ap.parse_args()
 
@@ -390,9 +579,10 @@ def main() -> int:
         for i in range(len(J.ops)):
             if J.owner[i] != "":
                 continue
-            B, F_mm, F_el, t_tr, t_ar, t_lo, t_hi, unc, _l, _t = op_terms(R, J, i)
+            (B, F_mm, F_el, t_tr, t_ar, t_lo, t_hi, unc,
+             _l, _t, t_la, _ls, _c, _s) = op_terms(R, J, i)
             Uo["B"] += calls * B
-            Uo["floor"] += calls * max(t_tr, t_ar)
+            Uo["floor"] += calls * max(t_tr, t_ar, t_la)
             Uo["s_traffic"] += calls * t_tr
             Uo["s_arith"] += calls * t_ar
         Uo["B"] += calls * J.unattributed
@@ -465,9 +655,54 @@ def main() -> int:
         "vs_measured": measured_compare(R, perf, out_by_owner, per_top),
         "by_unit_class": out_by_owner,
     }
+    if LAUNCH_ON(R):
+        L = R["LAUNCH"]
+        out["launch"] = {
+            "table": L.get("launch_sweep") or str(a.launch),
+            "host": L.get("host"), "arch": L.get("arch"),
+            "reading": L.get("reading"),
+            "shape_table": str(a.launch_shapes) if a.launch_shapes else None,
+            "floor_s": A["floor"], "floor_without_launch_s": A["floor_no_launch"],
+            "floor_strict_s": A["floor_strict"],
+            "floor_measured_curve_s": A["floor_curve"],
+            "added_s_strict": A["floor_strict"] - A["floor_no_launch"],
+            "calls_by_table": {k: v for k, v in sorted(A.get("_by_src", {}).items())},
+            "floor_s_by_table": {k: v for k, v in sorted(A.get("_s_by_src", {}).items())},
+            "added_s": A["floor"] - A["floor_no_launch"],
+            "added_s_measured_curve": A["floor_curve"] - A["floor_no_launch"],
+            "launch_only_s": A["s_launch"],
+            "ops_set_by_launch": A["n_launch"], "s_set_by_launch": A["s_by_launch"],
+            "per_op_class": {k: dict(v) for k, v in
+                             sorted(A.get("_by_name", {}).items(),
+                                    key=lambda kv: -kv[1]["gain_s"])},
+            "class_floors_us": {k: v["launch_floor_us"] for k, v in L["fits"].items()},
+        }
+        out["prize_s"] = cell - A["floor"]
+        A.pop("_by_name", None)
+        A.pop("_by_src", None)
+        A.pop("_s_by_src", None)
     a.out.write_text(json.dumps(out, indent=1, default=float))
 
     p = print
+    if LAUNCH_ON(R):
+        L = out["launch"]
+        p("")
+        p("THIRD TERM: per-op device launch floor, %s, %s reading" % (L["host"], L["reading"]))
+        p("  floor without it        %8.3f s" % L["floor_without_launch_s"])
+        p("  strict: clean intercepts only %5.3f s   (+%.3f s)"
+          % (L["floor_strict_s"], L["added_s_strict"]))
+        p("  floor with it           %8.3f s   (+%.3f s)" % (L["floor_s"], L["added_s"]))
+        p("  upper end, measured curve %6.3f s   (+%.3f s)"
+          % (L["floor_measured_curve_s"], L["added_s_measured_curve"]))
+        p("  %d of %d op calls are set by launch, %.3f s of the floor"
+          % (L["ops_set_by_launch"], A["n_ops"], L["s_set_by_launch"]))
+        p("  calls by table  " + "  ".join(
+            "%s %d (%.3f s)" % (k, v, L["floor_s_by_table"].get(k, 0.0))
+            for k, v in L["calls_by_table"].items()))
+        p("  %-28s %9s %10s %10s" % ("op class", "calls", "s at floor", "s added"))
+        for k, v in list(L["per_op_class"].items())[:14]:
+            p("  %-28s %9d %10.4f %10.4f" % (k, v["n"], v["s"], v["gain_s"]))
+        p("")
     p("granularity: %s" % out["granularity"])
     p("roofs: stream %.1f GB/s, dense cube %.2f TFLOP/s (qb2 p300c). Shape-honest fractions from "
       "%s, cube %.2f TFLOP/s." % (S["stream_roof_GBps"], S["compute_roof_TFLOPs"],

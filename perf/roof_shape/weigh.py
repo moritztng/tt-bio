@@ -26,13 +26,19 @@ CLASSES = [
      ["trimul_in_whole", "trimul_in_h64", "trimul_in_h64_cg", "trimul_in_flat"]),
     ("DiffusionTransformer token linear 768x768", [(1, 512, 768, 768)],
      ["dit_768x768", "dit_768x768_l1"]),
+    # `triatt_in_shipped` is `triatt_qkv.qkvgb_heads`, the generic_op the fold actually issues for
+    # this shape; the three stock `ttnn.linear` arms below it are what the class was priced by
+    # until `perf/roof_triatt_rate/` measured the two side by side and the shipped kernel came out
+    # 1.65x ahead. Same for the SDPA and out-projection rows. A roofs file without the shipped
+    # arms is unaffected: `class_rates` takes the max over the arms it finds.
     ("TriangleAttention in-proj  [q|k|v|g|bias]", [(1, 262144, 128, 544)],
-     ["triatt_in_whole", "triatt_in_h64", "triatt_in_flat"]),
+     ["triatt_in_whole", "triatt_in_h64", "triatt_in_flat", "triatt_in_shipped"]),
     ("TriangleMultiplication triangle product", [(128, 512, 512, 512)], ["trimul_einsum"]),
     ("TriangleAttention fused SDPA  (QK^T and AV)",
      [(2048, 512, 32, 512), (2048, 512, 512, 32)],
      ["triatt_sdpa_q32", "triatt_sdpa_q64", "triatt_sdpa_q128", "triatt_sdpa_q256",
-      "triatt_sdpa_q512", "triatt_sdpa_q128_k128", "triatt_sdpa_q256_k256"]),
+      "triatt_sdpa_q512", "triatt_sdpa_q128_k128", "triatt_sdpa_q256_k256",
+      "triatt_sdpa_shipped"]),
     ("pair Transition fc1 / fc2", [(16, 512, 128, 512)], ["trans_fc12"]),
     ("DiffusionTransformer token linear 768x1536", [(1, 512, 768, 1536)],
      ["dit_768x1536", "dit_768x1536_l1"]),
@@ -45,7 +51,8 @@ CLASSES = [
     ("TriangleMultiplication out-proj", [(512, 512, 128, 128)],
      ["pair_out128_whole", "pair_out128_h64", "pair_out128_flat", "pair_out128_flat_cg"]),
     ("TriangleAttention out-proj", [(1, 262144, 128, 128)],
-     ["pair_out128_whole", "pair_out128_h64", "pair_out128_flat", "pair_out128_flat_cg"]),
+     ["pair_out128_whole", "pair_out128_h64", "pair_out128_flat", "pair_out128_flat_cg",
+      "triatt_out_shipped"]),
     ("PairWeightedAveraging", [(1024, 32, 512, 512)], ["pwa", "pwa_2d", "pwa_flat"]),
     ("atom transformer linear", [(140, 128, 128, 256)], ["atom", "atom_l1", "atom_flat"]),
 ]

@@ -1,0 +1,20 @@
+{
+  "mode": "pxdesign_featurizer",
+  "input_arm": {
+    "ref_pos_excluded": "ref_pos is an unseeded per-residue random rotation and translation upstream (Featurizer ref_pos_augment defaults True, protenix/utils/geometry.py:random_transform), so it does not reproduce upstream either; tt-bio emits the conformer table unaugmented, which is strictly more reproducible",
+    "yaml": "tests/fixtures/pxdesign/PDL1.yaml",
+    "n_conditioned_tokens_at_origin": 0
+  },
+  "verdict": "PASS",
+  "capture": "pdl1_protenix05_noH",
+  "fixture": "examples/PDL1_noH.yaml",
+  "n_token": 196,
+  "n_atom": 1250,
+  "n_binder_placeholder_tokens": 80,
+  "n_conditioned_tokens": 116,
+  "n_conditioned_tokens_at_origin": 0,
+  "upstream_keys_captured": 50,
+  "checks_total": 25,
+  "checks_passed": 25,
+  "mismatches": []
+}

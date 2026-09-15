@@ -1,0 +1,141 @@
+{
+ "doc": "Peak memory and gate engagement for the three trunk byte levers, 512 -> 1536 aa.\n\nThe levers are bit-exact on both architectures across 87 folds, so this row is not a parity row\nand not a perf row. It is the one question the two rows that measured them both left open: does a\nlever that allocates a concatenated qkv+gate+bias weight per triangle attention, and holds the\ntrimul gate live across the channel loop, still fit at a large target?\n\nPass/fail, so contention cannot corrupt it. No ratio is computed here and none may be quoted from\nit -- the probes below are cheap but they are not free, and the arms do not share a wall clock.\n\nPer (size, arm):\n\n  verdict        PASS (a CIF with the right residue count) or OOM (an allocator refusal, classified\n                 by the ENGINE's own pattern) or FAIL.\n  peak           device DRAM and L1 high-water, sampled at the `dram_peak` tag sites the model\n                 already carries -- which sit inside trimul, tri_att, the transition and every\n                 pairformer block, i.e. exactly where these levers act. `ttnn.get_memory_view`\n                 measured at <0.05 ms on this wheel, so every tag is sampled and nothing is\n                 decimated.\n  fragmentation  the smallest `largest_contiguous_bytes_free_per_bank` seen, and the allocator's\n                 own free-block count at the DRAM high-water. A literal live-allocation count is\n                 NOT available: `MemoryView.block_table` does not convert through this wheel's\n                 pybind layer (it returns list[unordered_map<string,string>] and raises). The\n                 free-block census is the observable that `of3-1024aa-oom-allocation-count-not-size`\n                 is actually about -- many co-live allocations show up as a collapsing largest free\n                 block against a still-large total free.\n  engagement     `QKVG_STATS`, `QKVGB_STATS`, `TRIMUL_GOUT_STATS` and every named reject reason,\n                 reset per fold. A lever that silently falls back reads as \"it worked\"; this row\n                 asserts on the counter, per size, in both arms.\n  digest         sha256[:16] of the CIF. The two arms at one size must be byte-identical, and at\n                 512 aa both must be `a91aa44441f0d9c5`.\n\nArms are applied in-process. That is legal here for a reason the flag-lever harnesses had to\nargue and this one does not: the fused path is a DIFFERENT op on a DIFFERENT weight, so it cannot\nbe handed the other arm's compiled program out of the cache.\n\n    ladder.py --out <json> --cifdir <dir> --sizes 512,640,1024,1536\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "0",
+  "commit": "1d48fa301b03ae7eb0b9cc86a5acf758e4d92bc7",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/roof-transition-chunk-bh-ship/tt_bio/__init__.py",
+  "started_utc": "2026-09-14T15:21:02Z",
+  "loadavg": [
+   2.294921875,
+   2.431640625,
+   1.46044921875
+  ],
+  "seq_len_more_chunking": 1536,
+  "fast_mode": false,
+  "dram_total_b": 34225520128,
+  "l1_total_b": 160793600,
+  "levers": "transition_l1",
+  "protocol": {
+   "sampling_steps": 200,
+   "recycling_steps": 3,
+   "seed": 0,
+   "diffusion_trace": false
+  }
+ },
+ "runs": [
+  {
+   "size": 512,
+   "arm": "off",
+   "started_utc": "2026-09-14T15:21:05Z",
+   "loadavg": [
+    2.294921875,
+    2.431640625,
+    1.46044921875
+   ],
+   "wall_s": 17.06,
+   "verdict": "PASS",
+   "digest": "9aaff566b4888d96",
+   "residues_in_cif": 1366,
+   "plddt": 0.799179,
+   "peak_dram_b": 2277198336,
+   "peak_l1_b": 67809280,
+   "peak_dram_gib": 2.121,
+   "peak_l1_mib": 64.668,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=512x512x128]",
+    "l1": "trimul(start) p_out done [z=1x512x512x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3981357760,
+    "l1": 845312
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 9
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 4.68,
+   "census": {
+    "transition_h_chunk": {
+     "served": 0,
+     "declined": 296,
+     "rejects": {
+      "base-unraised@1024x512x64": 16,
+      "base-unraised@512x512x128": 280
+     },
+     "heights": {
+      "1024x512x64x256@h16": 16,
+      "512x512x128x512@h16": 280
+     }
+    }
+   }
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "started_utc": "2026-09-14T15:21:22Z",
+   "loadavg": [
+    3.05615234375,
+    2.58544921875,
+    1.53125
+   ],
+   "wall_s": 17.27,
+   "verdict": "PASS",
+   "digest": "9aaff566b4888d96",
+   "residues_in_cif": 1366,
+   "plddt": 0.799179,
+   "peak_dram_b": 2276231680,
+   "peak_l1_b": 67809280,
+   "peak_dram_gib": 2.12,
+   "peak_l1_mib": 64.668,
+   "peak_tag": {
+    "dram": "tri_att(start) bias built [z=512x512x128]",
+    "l1": "trimul(start) p_out done [z=1x512x512x128]"
+   },
+   "min_largest_free_per_bank_b": {
+    "dram": 3979500224,
+    "l1": 845312
+   },
+   "free_block_census_at_dram_peak": {
+    "dram_free_blocks": 21
+   },
+   "probe_samples": 2893,
+   "probe_overhead_s": 4.77,
+   "census": {
+    "transition_h_chunk": {
+     "served": 296,
+     "declined": 0,
+     "rejects": {},
+     "heights": {
+      "1024x512x64x256@h96": 16,
+      "512x512x128x512@h48": 280
+     }
+    }
+   }
+  }
+ ],
+ "model_load_s": 2.622,
+ "dram_after_load_b": 1134182400,
+ "checks": {
+  "512": {
+   "reference_arm": "off",
+   "on": {
+    "both_complete": true,
+    "bit_exact": true,
+    "peak_dram_delta_pct": -0.0424,
+    "peak_l1_delta_pct": 0.0,
+    "gates_engaged_on_arm": {
+     "transition_h_chunk": true
+    },
+    "verdict": "PASS"
+   },
+   "arm_ref_is_silent": true,
+   "ref_digest_is_published_512": false
+  }
+ }
+}
