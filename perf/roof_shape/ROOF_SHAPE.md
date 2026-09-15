@@ -1,5 +1,14 @@
 # The shape-honest arithmetic roof, and which roof binds the 512 aa fold
 
+> **`TriangleAttention`'s rates are not upper bounds.** Measured against the same work inside a quiet
+> 512 aa fold (`perf/roof_quiet/QUIET_REFOLD.md`), the class delivers 24.85 TFLOP/s, 23.7 % of the
+> dense cube, where these standalone arms give 15.45 TFLOP/s, 14.7 %. Underpriced 1.61x, dominated by
+> `TriangleAttention fused SDPA (QK^T and AV)` at 15.67 TFLOP/s against 38.483 TFLOP a fold. A rate
+> taken on an isolated op is a lower bound on what the fold delivers, so it cannot be used to build a
+> floor. Only `TriangleAttention` is proven wrong so far, because only it crosses its own measured
+> time on the arithmetic sum alone; the question is open for every other class here.
+
+
 `perf/roof_budget/ROOF_BUDGET.md` put the floor at **6.934 s, set by bandwidth** (2.9449 TB at a
 measured 424.7 GB/s) and priced the arithmetic term at 2.092 s by dividing 219.49 TFLOP by the
 dense-cube rate. No matmul in this fold is a dense cube. This file measures the rate each matmul

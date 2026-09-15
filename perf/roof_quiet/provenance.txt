@@ -1,0 +1,23 @@
+THE PROVENANCE OF THE 0.7011 SCALE
+  numerator    cell of record               17.340 s
+  denominator  baseline PLAIN fold median   24.731 s  at loadavg 28.11, 28.60, 27.72
+  scale                                     0.7011
+
+THE FOLD THE TIMES ACTUALLY CAME FROM: a different fold, in a different phase
+  attrib instrumented fold wall             74.159 s
+  top-3 rebuilt, median x calls             24.643 s   0.3323 of the wall
+  top-3 rebuilt, sum of every call          66.707 s   0.8995 of the wall
+
+  scale as published    17.340/24.731 = 0.7011
+  scale self-consistent 17.340/24.643 = 0.7036  (denominator = what it is applied to)
+  scale vs attrib wall  17.340/74.159 = 0.2338
+
+THE TWO ESTIMATORS PER TOP UNIT, which is the gap roof-residual-census could not close
+unit                                            calls    med x n        sum   ratio
+PairformerLayer|1x512x384,1x512x512x128           264     13.708     23.238   1.70x
+MSALayer|1x512x512x128,1x1024x512x64               16      2.710     18.769   6.93x
+DiffusionModule|                                  200      8.226     24.701   3.00x
+TOTAL                                                     24.643     66.707   2.71x
+
+AND THE DENOMINATOR'S OWN ERROR BAR: plain folds [27.415, 22.047] s in that session, spread 21.7 % of the median.
+A 5.3 % crossing cannot be decided against a denominator with a 21.7 % spread.
