@@ -29,6 +29,15 @@ the same session window as the merged tree (`fold_mainref_qb2_c2.json`):
 All six committed files under `cif/` still hash to those two digests, so the record reproduces off
 the checkout with no card at all.
 
+**And main's own tip was folded after the merge.** qb2 rebooted at 02:49Z and left all four cards
+free, so `912678a3b` itself — the merge commit, tree verified equal to the branch tree on both hosts
+— was folded on card 0 at 512 aa with the flag at its default:
+
+    main tip 912678a3b, boltz2 512 aa, 200 steps / 3 recycles   45781db716ebf020   plddt 0.845919
+
+That is the reference digest, on a good card, from what main actually contains now. It is the one
+check the merge could not have before it landed.
+
 ## The card-free suite matches main leg for leg
 
 `pytest -q` with no device: **7 failed, 3574 passed, 183 skipped**. The same suite on pristine
