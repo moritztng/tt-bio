@@ -2446,22 +2446,22 @@
       }
     },
     "p300c": {
-      "recorded": "2026-09-10",
+      "recorded": "2026-09-15",
       "host": "tt-quietbox2",
-      "commit": "1a2ba4f6",
+      "commit": "d35f9db1f",
       "models": {
         "boltz2": {
           "grid": "11x10",
-          "recorded": "2026-09-10",
+          "recorded": "2026-09-15",
           "host": "tt-quietbox2",
-          "commit": "8e3a3e9e",
+          "commit": "d35f9db1f",
           "runtime_s": {
-            "256": 5.2,
-            "512": 17.9,
-            "640": 27.8,
-            "768": 39.4,
-            "896": 55.8,
-            "1024": 72.7
+            "256": 7.4,
+            "512": 15.5,
+            "640": 23.5,
+            "768": 30.4,
+            "896": 42.7,
+            "1024": 54.2
           },
           "levers": {
             "256": {
@@ -2517,13 +2517,13 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1120,
+                "declined": 2226,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "memory": 1120
+                  "memory": 2226
                 },
-                "reason": "declines every call on memory: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
+                "reason": "declines all 2226 calls on memory x2226: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -2538,7 +2538,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached, 0 offered and 0 declined at every rung: boltz-2 does not take the hoisted-bias softmax path at all"
+                "reason": "declines all 0 calls: boltz-2 does not take the hoisted-bias softmax path at all"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the counter is L1-resident fp32 score blocks and boltz-2 plans none at any size, so the resolved (8, 8) is the rectangle the constant holds rather than a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -2549,18 +2557,15 @@
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 560
                 },
-                "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
+                "reason": "declines all 560 calls on l1_dest_is_faster:256x256x128 x560: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,1)": 560
-                },
-                "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
+                "reason": "declines all 0 calls: the separate triangle-attention gate projection that fell through to this wrapper is gone. TRIATT_FUSED_QKVG/QKVGB (07f3d58d0, 887c6d945, default on since 1d1897022) read the normed pair tensor once for q, k, v, the gate and the bias, so there is no second projection call to wrap. Where it is still reached, 768 and up, it refuses on k_tiles=4"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2571,11 +2576,11 @@
                 "rejects": {
                   "k_tiles=4": 560
                 },
-                "reason": "declines every call on k_tiles=4: F1_BLOCK_KEYS allow-lists only (8, 8) and boltz-2's trimul tail weight resolves 4 K tiles from c_hidden, not from N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 560 calls on k_tiles=4 x560: F1_BLOCK_KEYS allow-lists (8, 8) and boltz-2's trimul tail weight resolves 4 K tiles from c_hidden, not from N, so F1 is inert on this model at every size rather than dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 560,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2590,13 +2595,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1120,
+                "declined": 4450,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 1120
+                  "window_BufferType.L1": 4450
                 },
-                "reason": "declines every call on window_BufferType.L1: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
+                "reason": "declines all 4450 calls on window_BufferType.L1 x4450: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -2604,7 +2609,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached, 0 offered and 0 declined: the move back only runs when the forward move fired, and it did not"
+                "reason": "declines all 0 calls: the move back only runs when the forward move fired, and it did not"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
@@ -2612,7 +2617,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached, 0 offered and 0 declined: the gated channel move is not offered on the boltz-2 pair track"
+                "reason": "declines all 0 calls: the gated channel move is not offered on the boltz-2 pair track"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident, so nothing is offered here; it serves 1120 at every rung from 512 up. Default on since 7bfa4ad19"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2678,11 +2691,25 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 408,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 6,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -2710,6 +2737,13 @@
                 "served": null,
                 "declined": null,
                 "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 296,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               }
             },
@@ -2783,7 +2817,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached, 0 offered and 0 declined at every rung: boltz-2 does not take the hoisted-bias softmax path at all"
+                "reason": "declines all 0 calls: boltz-2 does not take the hoisted-bias softmax path at all"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the counter is L1-resident fp32 score blocks and boltz-2 plans none at any size, so the resolved (8, 8) is the rectangle the constant holds rather than a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -2794,33 +2836,27 @@
                 "rejects": {
                   "l1_dest_is_faster:512x512x128": 560
                 },
-                "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
+                "reason": "declines all 560 calls on l1_dest_is_faster:512x512x128 x560: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,1)": 560
-                },
-                "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
+                "reason": "declines all 0 calls: the separate triangle-attention gate projection that fell through to this wrapper is gone. TRIATT_FUSED_QKVG/QKVGB (07f3d58d0, 887c6d945, default on since 1d1897022) read the normed pair tensor once for q, k, v, the gate and the bias, so there is no second projection call to wrap. Where it is still reached, 768 and up, it refuses on k_tiles=4"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 560
-                },
-                "reason": "declines every call on k_tiles=4: F1_BLOCK_KEYS allow-lists only (8, 8) and boltz-2's trimul tail weight resolves 4 K tiles from c_hidden, not from N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: the tail's F1 gate only runs when the output gate was NOT fused into the in-projection, and TRIMUL_FUSED_GOUT (4963a2c41, default on since 1d1897022) fuses it on the chunked DRAM path -- every rung from 512 up. At 256 the trimul is L1-resident, the gate is not fused, and F1 refuses all 560 calls on k_tiles=4"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 560,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2834,10 +2870,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED now serves the 1120 calls this counter served when the baseline was recorded. The ungated wrapper is not offered, not refused"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -2848,11 +2885,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1120,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached, 0 offered and 0 declined: the gated channel move is not offered on the boltz-2 pair track"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2918,11 +2961,25 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 408,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 6,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -2951,6 +3008,17 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 296,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 296
+                },
+                "reason": "declines all 296 calls on base-unraised x296: served means a row block TALLER than the unconditional 16, and the raise to 32 is gated to pair W <= TRANSITION_H_CHUNK_BIG_MAX_W (384). boltz-2's pair W is the token count, so every rung above 256 ships the base height -- the verified envelope, since 32 clashes in-block L1 at W=512. The row is new because 7fb08268f gave the lever its first counter"
               }
             },
             "640": {
@@ -3023,7 +3091,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached, 0 offered and 0 declined at every rung: boltz-2 does not take the hoisted-bias softmax path at all"
+                "reason": "declines all 0 calls: boltz-2 does not take the hoisted-bias softmax path at all"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the counter is L1-resident fp32 score blocks and boltz-2 plans none at any size, so the resolved (8, 8) is the rectangle the constant holds rather than a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -3034,34 +3110,27 @@
                 "rejects": {
                   "l1_dest_is_faster:640x640x128": 560
                 },
-                "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
+                "reason": "declines all 560 calls on l1_dest_is_faster:640x640x128 x560: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1674,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 1114,
-                  "k_tiles=4:(4,1)": 560
-                },
-                "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
+                "reason": "declines all 0 calls: the separate triangle-attention gate projection that fell through to this wrapper is gone. TRIATT_FUSED_QKVG/QKVGB (07f3d58d0, 887c6d945, default on since 1d1897022) read the normed pair tensor once for q, k, v, the gate and the bias, so there is no second projection call to wrap. Where it is still reached, 768 and up, it refuses on k_tiles=4"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 560
-                },
-                "reason": "declines every call on k_tiles=4: F1_BLOCK_KEYS allow-lists only (8, 8) and boltz-2's trimul tail weight resolves 4 K tiles from c_hidden, not from N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: the tail's F1 gate only runs when the output gate was NOT fused into the in-projection, and TRIMUL_FUSED_GOUT (4963a2c41, default on since 1d1897022) fuses it on the chunked DRAM path -- every rung from 512 up. At 256 the trimul is L1-resident, the gate is not fused, and F1 refuses all 560 calls on k_tiles=4"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 560,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3075,10 +3144,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED now serves the 1120 calls this counter served when the baseline was recorded. The ungated wrapper is not offered, not refused"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -3089,11 +3159,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1120,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached, 0 offered and 0 declined: the gated channel move is not offered on the boltz-2 pair track"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -3159,11 +3235,25 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 408,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 6,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -3192,6 +3282,17 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 296,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 296
+                },
+                "reason": "declines all 296 calls on base-unraised x296: served means a row block TALLER than the unconditional 16, and the raise to 32 is gated to pair W <= TRANSITION_H_CHUNK_BIG_MAX_W (384). boltz-2's pair W is the token count, so every rung above 256 ships the base height -- the verified envelope, since 32 clashes in-block L1 at W=512. The row is new because 7fb08268f gave the lever its first counter"
               }
             },
             "768": {
@@ -3264,7 +3365,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached, 0 offered and 0 declined at every rung: boltz-2 does not take the hoisted-bias softmax path at all"
+                "reason": "declines all 0 calls: boltz-2 does not take the hoisted-bias softmax path at all"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the counter is L1-resident fp32 score blocks and boltz-2 plans none at any size, so the resolved (8, 8) is the rectangle the constant holds rather than a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -3276,29 +3385,25 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1680,
+                "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,4)": 1120,
-                  "k_tiles=4:(4,1)": 560
+                  "k_tiles=4:(4,4)": 560
                 },
-                "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
+                "reason": "declines all 560 calls on k_tiles=4:(4,4) x560: structurally out of scope for this model: the lever needs an 8-tile weight K dim and boltz-2's c_z=128 gives 4, so the key reads k_tiles=4 at every call it does see. Size-independent, so it biases no exponent"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 560
-                },
-                "reason": "declines every call on k_tiles=4: F1_BLOCK_KEYS allow-lists only (8, 8) and boltz-2's trimul tail weight resolves 4 K tiles from c_hidden, not from N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: the tail's F1 gate only runs when the output gate was NOT fused into the in-projection, and TRIMUL_FUSED_GOUT (4963a2c41, default on since 1d1897022) fuses it on the chunked DRAM path -- every rung from 512 up. At 256 the trimul is L1-resident, the gate is not fused, and F1 refuses all 560 calls on k_tiles=4"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 560,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3312,10 +3417,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED now serves the 1120 calls this counter served when the baseline was recorded. The ungated wrapper is not offered, not refused"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -3326,11 +3432,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1120,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached, 0 offered and 0 declined: the gated channel move is not offered on the boltz-2 pair track"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -3400,11 +3512,25 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 408,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 6,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -3434,6 +3560,17 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 296,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 296
+                },
+                "reason": "declines all 296 calls on base-unraised x296: served means a row block TALLER than the unconditional 16, and the raise to 32 is gated to pair W <= TRANSITION_H_CHUNK_BIG_MAX_W (384). boltz-2's pair W is the token count, so every rung above 256 ships the base height -- the verified envelope, since 32 clashes in-block L1 at W=512. The row is new because 7fb08268f gave the lever its first counter"
               }
             },
             "896": {
@@ -3506,7 +3643,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. boltz-2's SDPA bias is bf16, so the fp32 hoist is never reached at any size. [carried from tt-galaxy-wh l]"
+                "reason": "declines all 0 calls: 0 served AND 0 declined at every rung. boltz-2's SDPA bias is bf16, so the fp32 hoist is never reached at any size. [carried from tt-galaxy-wh l]"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the counter is L1-resident fp32 score blocks and boltz-2 plans none at any size, so the resolved (8, 8) is the rectangle the constant holds rather than a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -3518,29 +3663,25 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1680,
+                "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,4)": 1120,
-                  "k_tiles=4:(4,1)": 560
+                  "k_tiles=4:(4,4)": 560
                 },
-                "reason": "structurally out of scope for this model at every size: `_pair_proj_minimal_matmul` is scoped to a single K block (k_tiles == 8, c_z 256), and boltz-2's c_z is 128, so k_tiles is 4. Reason reads `k_tiles=4` identically at all six rungs. Size-independent, so it biases no exponent. [carried from tt-galaxy-wh l]"
+                "reason": "declines all 560 calls on k_tiles=4:(4,4) x560: structurally out of scope for this model: the lever needs an 8-tile weight K dim and boltz-2's c_z=128 gives 4, so the key reads k_tiles=4 at every call it does see. Size-independent, so it biases no exponent"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 560
-                },
-                "reason": "same structural k_tiles=4 refusal as PAIR_PROJ_MINIMAL_MATMUL: boltz-2's c_z=128 gives 4 K tiles where the lever needs 8. Identical at all six rungs, so size-independent. [carried from tt-galaxy-wh l]"
+                "reason": "declines all 0 calls: the tail's F1 gate only runs when the output gate was NOT fused into the in-projection, and TRIMUL_FUSED_GOUT (4963a2c41, default on since 1d1897022) fuses it on the chunked DRAM path -- every rung from 512 up. At 256 the trimul is L1-resident, the gate is not fused, and F1 refuses all 560 calls on k_tiles=4"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 560,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3554,10 +3695,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED now serves the 1120 calls this counter served when the baseline was recorded. The ungated wrapper is not offered, not refused"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -3568,11 +3710,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1120,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on boltz-2's path. [carried from tt-galaxy-wh l]"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -3642,11 +3790,25 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 408,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 6,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -3654,7 +3816,7 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "L1 capacity, not tuning. The lever routes the Pairformer output transpose to L1 when the tensor plus 1.25x headroom fits. boltz-2's pair tensor is N^2*128*2 bytes: 67.1 MB at 512, 104.9 MB at 640. The 8x9 Wormhole grid has 72 cores x 1.5 MB = ~108 MB of L1, so 104.9*1.25 = 131 MB cannot fit while 67.1*1.25 = 83.9 MB can. `_pair_transpose` falls back to DRAM, which is the designed refusal path. Dark at 640 and above on every card whose L1 is this size. [carried from tt-galaxy-wh l]"
+                "reason": "declines all 560 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -3676,6 +3838,17 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 296,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 296
+                },
+                "reason": "declines all 296 calls on base-unraised x296: served means a row block TALLER than the unconditional 16, and the raise to 32 is gated to pair W <= TRANSITION_H_CHUNK_BIG_MAX_W (384). boltz-2's pair W is the token count, so every rung above 256 ships the base height -- the verified envelope, since 32 clashes in-block L1 at W=512. The row is new because 7fb08268f gave the lever its first counter"
               }
             },
             "1024": {
@@ -3748,7 +3921,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. boltz-2's SDPA bias is bf16, so the fp32 hoist is never reached at any size. [carried from tt-galaxy-wh l]"
+                "reason": "declines all 0 calls: 0 served AND 0 declined at every rung. boltz-2's SDPA bias is bf16, so the fp32 hoist is never reached at any size. [carried from tt-galaxy-wh l]"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the counter is L1-resident fp32 score blocks and boltz-2 plans none at any size, so the resolved (8, 8) is the rectangle the constant holds rather than a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -3760,29 +3941,25 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1680,
+                "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,4)": 1120,
-                  "k_tiles=4:(4,1)": 560
+                  "k_tiles=4:(4,4)": 560
                 },
-                "reason": "structurally out of scope for this model at every size: `_pair_proj_minimal_matmul` is scoped to a single K block (k_tiles == 8, c_z 256), and boltz-2's c_z is 128, so k_tiles is 4. Reason reads `k_tiles=4` identically at all six rungs. Size-independent, so it biases no exponent. [carried from tt-galaxy-wh l]"
+                "reason": "declines all 560 calls on k_tiles=4:(4,4) x560: structurally out of scope for this model: the lever needs an 8-tile weight K dim and boltz-2's c_z=128 gives 4, so the key reads k_tiles=4 at every call it does see. Size-independent, so it biases no exponent"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 560
-                },
-                "reason": "same structural k_tiles=4 refusal as PAIR_PROJ_MINIMAL_MATMUL: boltz-2's c_z=128 gives 4 K tiles where the lever needs 8. Identical at all six rungs, so size-independent. [carried from tt-galaxy-wh l]"
+                "reason": "declines all 0 calls: the tail's F1 gate only runs when the output gate was NOT fused into the in-projection, and TRIMUL_FUSED_GOUT (4963a2c41, default on since 1d1897022) fuses it on the chunked DRAM path -- every rung from 512 up. At 256 the trimul is L1-resident, the gate is not fused, and F1 refuses all 560 calls on k_tiles=4"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 560,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3796,10 +3973,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED now serves the 1120 calls this counter served when the baseline was recorded. The ungated wrapper is not offered, not refused"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -3810,11 +3988,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1120,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on boltz-2's path. [carried from tt-galaxy-wh l]"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -3884,11 +4068,25 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 408,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 6,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -3896,7 +4094,7 @@
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "L1 capacity, not tuning. The lever routes the Pairformer output transpose to L1 when the tensor plus 1.25x headroom fits. boltz-2's pair tensor is N^2*128*2 bytes: 67.1 MB at 512, 104.9 MB at 640. The 8x9 Wormhole grid has 72 cores x 1.5 MB = ~108 MB of L1, so 104.9*1.25 = 131 MB cannot fit while 67.1*1.25 = 83.9 MB can. `_pair_transpose` falls back to DRAM, which is the designed refusal path. Dark at 640 and above on every card whose L1 is this size. [carried from tt-galaxy-wh l]"
+                "reason": "declines all 560 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -3918,27 +4116,38 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 296,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 296
+                },
+                "reason": "declines all 296 calls on base-unraised x296: served means a row block TALLER than the unconditional 16, and the raise to 32 is gated to pair W <= TRANSITION_H_CHUNK_BIG_MAX_W (384). boltz-2's pair W is the token count, so every rung above 256 ships the base height -- the verified envelope, since 32 clashes in-block L1 at W=512. The row is new because 7fb08268f gave the lever its first counter"
               }
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0084,
+          "sigma_runtime_512": 0.0254,
           "exponents": {
             "256->512": {
-              "k": 1.783,
+              "k": 1.067,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.946,
+              "k": 1.661,
               "tol": 0.5
             }
           },
           "exponents_measured": {
-            "256->512": 1.783,
-            "512->640": 1.973,
-            "640->768": 1.913,
-            "768->896": 2.258,
-            "896->1024": 1.981
+            "256->512": 1.067,
+            "512->640": 1.865,
+            "640->768": 1.412,
+            "768->896": 2.204,
+            "896->1024": 1.786
           }
         }
       }
