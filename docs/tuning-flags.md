@@ -421,8 +421,10 @@ risk.** The earlier 1.1973x came off a 20-step fold, which gives the trunk a lar
 default 200 steps does, so it could not carry the default on its own. At 200 steps the ratio is
 1.1856x, 15.3x the same-session A/A floor, and the 27.3 s is trunk time rather than per-step time.
 Below the cap the route is unreachable by construction, and that is measured and not just argued:
-off/on/off in one process per fold at 298 and 512 residues gives one CIF digest per size across
-all three arms.
+off/on/off in one process per fold gives one CIF digest per size across all three arms at 298, 512
+and 1024 residues -- including 1024, the cap boundary itself, which is the last length where the
+flip has to change nothing. The chunk pick is also unchanged in every arm at every one of those
+sizes, so the stock ladder still serves the call.
 
 **Reach depends on the head count and the grid, not on the model.** The fused pair needs one query
 chunk per core, so a card with fewer cores, or a model with more heads on the same card, serves
