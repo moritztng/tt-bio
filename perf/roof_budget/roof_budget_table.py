@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import statistics as st
 import sys
 from pathlib import Path
 
@@ -41,9 +42,46 @@ from real_traffic import counts as byte_counts                                # 
 # The three disjoint units that tile the fold: trunk pairformer blocks (64 x 4 trunk passes + 8
 # confidence), MSA blocks (4 x 4), and the denoiser (200 steps). Every other captured unit is a
 # child of one of these.
+# A call slower than this many times its unit's median ran while a ttnn.graph capture was open.
+# The gap is three orders wide (median 6.357 ms against outliers at 1130 ms), so nothing depends
+# on the exact value.
+TRIM_X = 3.0
+
 TOP = ["PairformerLayer|1x512x384,1x512x512x128",
        "MSALayer|1x512x512x128,1x1024x512x64",
        "DiffusionModule|"]
+
+
+def unit_time(m, stat):
+    """(ms/call, calls, s/fold) for one unit, by one of three rules.
+
+    median   the published rule: the median call times the call count. Robust to the calls that
+             also paid for a ttnn.graph capture, at the price of discarding every real tail.
+    percall  every call's own measured wall, summed, with the one call that carried the capture
+             replaced by the median of the others. Kept for the record and NOT recommended: a
+             capture slows every call nested under it while it is open, not just the call it is
+             named for, so one substitution leaves the rest. On the quiet 512 aa re-capture this
+             rule sums to 46.172 s of a 17.270 s fold, reconstructing the instrumented fold
+             (48.565 s) instead of the fold of record.
+    trimmed  every call's own measured wall, summed, with any call above TRIM_X times the unit's
+             median replaced by that median. The per-call bodies are tight (TriangleMultiplication
+             spans 6.263 to 6.451 ms across 528 calls) and the contamination is far out: 534 of
+             33683 calls, 1.6 %, carry 29.691 s of the 46.172 s raw sum. Trimming them lands at
+             16.481 s, 95.4 % of the 17.270 s fold, and agrees with `median` to 1.6 %.
+    """
+    calls = m["calls"]
+    ts = m.get("incl_ms_per_call")
+    if stat == "median" or not ts:
+        ms = m["median_ms"]
+        return ms, calls, calls * ms / 1e3
+    if stat == "trimmed":
+        med = st.median(ts)
+        total = sum(t if t <= TRIM_X * med else med for t in ts)
+        return total / calls, calls, total / 1e3
+    c = m.get("captured_call")
+    rest = [t for i, t in enumerate(ts) if i != c]
+    total = sum(rest) + (st.median(rest) if c is not None and rest else 0.0)
+    return total / calls, calls, total / 1e3
 
 
 def terminal_MB(nodes):
@@ -61,6 +99,8 @@ def main() -> int:
     ap.add_argument("--control", type=Path, default=HERE / "instrument_control.json")
     ap.add_argument("--stream", type=Path, default=HERE / "stream_roof2.json")
     ap.add_argument("--cell-s", type=float, default=17.340, help="the benchlocked fold of record")
+    ap.add_argument("--time-stat", choices=("median", "percall", "trimmed"), default="median",
+                    help="percall and trimmed need a capture taken with per-call times kept")
     ap.add_argument("--out-json", type=Path, default=HERE / "roof_budget_512_qb2c2.json")
     ap.add_argument("--out-md", type=Path, default=HERE / "ROOF_BUDGET.md")
     a = ap.parse_args()
@@ -91,8 +131,7 @@ def main() -> int:
         bc = byte_counts({"nodes": nodes})
         B = bc["real_MB"] * 1e6
         F = t["matmul_padded"] + t["eltwise_padded"]
-        ms, calls = m["median_ms"], m["calls"]
-        s_fold = calls * ms / 1e3
+        ms, calls, s_fold = unit_time(m, a.time_stat)
         ai = F / B if B else 0.0
         bound = "compute" if ai > balance else "bandwidth"
         s_roof = calls * (F / compute_roof if bound == "compute" else B / stream_roof)
@@ -137,7 +176,12 @@ def main() -> int:
     standalone = sr["summary"]["shapes_as_issued_floor_s_extrapolated"] if sr else None
 
     summary = {
-        "head": "f072ae02f", "host": "tt-quietbox2", "card": 2, "ttnn": "0.68.0",
+        "head": run["env"].get("git_head", "f072ae02f")[:9],
+        "host": run["env"].get("host", "tt-quietbox2"),
+        "card": run["env"].get("card", 2), "ttnn": run["env"].get("ttnn", "0.68.0"),
+        "time_stat": a.time_stat,
+        "attrib_fold_s": run["attrib"]["instrumented_fold_s"],
+        "attrib_loadavg": run["env"].get("loadavg_attrib"),
         "session_fold_s": fold_s, "session_loadavg": base["baseline"][0]["loadavg"],
         "cell_of_record_s": a.cell_s, "cell_scale": round(scale, 4),
         "compute_roof_TFLOPs": round(compute_roof / 1e12, 2),
@@ -165,7 +209,7 @@ def main() -> int:
          "",
          f"qb2 card 2 (p300c, 11x10 grid, AICLK 800 MHz), ttnn 0.68.0, one process, one session. "
          f"FLOPs and bytes come off the same 26 captures; times come off the same process's "
-         f"bracketed fold. Session fold {fold_s:.3f} s at loadavg "
+         f"bracketed fold, per unit by the `{a.time_stat}` rule. Session fold {fold_s:.3f} s at loadavg "
          f"{', '.join(base['baseline'][0]['loadavg'])}; the benchlocked cell of record is "
          f"{a.cell_s:.3f} s, so seconds are also given scaled by {scale:.4f}.",
          "",
