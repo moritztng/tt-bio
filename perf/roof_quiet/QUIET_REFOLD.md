@@ -1,5 +1,14 @@
 # The quiet re-capture: the trunk pairformer really is above its floor
 
+> **The mechanism named below is wrong, `perf/roof_triatt_rate/TRIATT_RATE.md`.** The 1.61x is
+> real and this page's floor correction stands, but it is not "a rate measured on an isolated op
+> is a lower bound on what the fold delivers". The shipped TriangleAttention unit measured ALONE
+> is 3.787 ms against the fold's 4.574 ms -- the isolated arm is 1.21x FASTER. What the catalogue
+> measured is a different implementation: `ttnn.linear` and stock SDPA against the fold's three
+> `ttnn.generic_op` kernels. Re-priced on the shipped kernels the floor is **12.706 s** and the
+> prize **4.564 s**, against the 12.090 s / 5.180 s this page put as bounds, and the trunk
+> pairformer is back under its floor at 91.1 %.
+
 `roof-true-floor` and `roof-residual-census` both stopped at the same missing measurement. The
 per-unit times in the roof budget were taken at loadavg 27-28 against a 24.731 s contended session
 and mapped onto the quiet 17.340 s cell of record by one scalar, 0.7011. On that table the trunk

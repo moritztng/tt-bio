@@ -1,5 +1,16 @@
 # The max, taken per op: the 512 aa fold's one true floor is 15.031 s
 
+> **Re-priced on the kernels the fold runs, `perf/roof_triatt_rate/TRIATT_RATE.md`.** The
+> `TriangleAttention` rate above is a stock-op rate: the arms are `ttnn.linear` and
+> `ttnn.transformer.scaled_dot_product_attention`, and the fold issues three `ttnn.generic_op`
+> kernels instead, each faster than the stock op it was priced by (2.46x, 1.65x, 1.11x, measured
+> alone in one session). Not an isolated-arm effect -- the shipped unit run ALONE is 1.21x faster
+> than the fold, the opposite sign. With those rates the floor is **12.706 s** and the prize
+> **4.564 s**, and the crossing this page's correction note is about is closed: the trunk
+> pairformer sits at **91.1 %** of its floor, `TriangleAttention` at 88.8 % of its measured time.
+> Bytes and FLOPs are unchanged. `TriangleMultiplication`, still 123.9 %, is the same defect one
+> class over and is the next tranche.
+
 > **Corrected by the quiet re-capture, `perf/roof_quiet/QUIET_REFOLD.md`.** 15.031 s is not a floor.
 > The per-unit times it is judged against were rescaled off a loadavg-27 session by one scalar,
 > 0.7011. Re-taken quiet, with the fold's own wall as the cell and no rescale, the trunk pairformer
