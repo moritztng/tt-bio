@@ -1741,6 +1741,10 @@ def _tri_att_k_chunks(q_len: int, k_len: int) -> tuple:
 # A silently-declined config is indistinguishable from an absent one, so an A/B on this path can
 # only be believed if the fold itself says which pair it ran.
 SDPA_K_CHUNK_STATS = [0, 0]
+#: Above-cap fused route only, so `scripts/lever_census.py` can tell a lever that is on from one
+#: that fires. It cannot share `SDPA_K_CHUNK_STATS`: that counts every fused serve including the
+#: ones the stock ladder makes below the cap, where this route is unreachable by construction.
+SDPA_FUSED_LARGE_S_STATS = [0, 0]
 # (q_len, k_len) -> [q_chunk, k_chunk, "fused"|"stock"], the pair actually served at that shape.
 SDPA_CHUNK_PICKS: dict = {}
 # Calls served per route. `SDPA_CHUNK_PICKS` records the route per shape and a fold repeats one
@@ -1799,8 +1803,12 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
                                   q_split_cap=0)
             if o is not None:
                 SDPA_K_CHUNK_STATS[0] += 1
+                SDPA_FUSED_LARGE_S_STATS[0] += 1
                 _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
                 return o
+        # Above the cap and eligible, and no pair ran: an L1 refusal, or a token count with no
+        # 32-aligned divisor. Counted so the census reads a reach, not just a default.
+        SDPA_FUSED_LARGE_S_STATS[1] += 1
     k_chunks = _tri_att_k_chunks(q_len, k_len)
     if len(k_chunks) > 1:
         # Only q_chunks that DIVIDE the padded sequence are offered against a wide k. The q ladder's

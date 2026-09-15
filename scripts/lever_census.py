@@ -80,6 +80,11 @@ LEVERS = [
      "tt_bio.triatt_sdpa.STATS", "stats"),
     ("SDPA_WIDE_K", "tt_bio.tenstorrent", "SDPA_WIDE_K",
      "tt_bio.tenstorrent.SDPA_K_CHUNK_STATS", "stats"),
+    # Strictly above `triatt_sdpa._Q_SPLIT_MAX_S`, so it reads served=0 at every size-ladder rung
+    # (the ladder tops out at 1024, and rf3's own 1088 rung is the only one past it). That zero is
+    # the point: it is what says the flip changed nothing below the cap.
+    ("SDPA_FUSED_LARGE_S", "tt_bio.tenstorrent", "_SDPA_FUSED_LARGE_S",
+     "tt_bio.tenstorrent.SDPA_FUSED_LARGE_S_STATS", "stats"),
     ("RFD3_SPARSE_BIAS", "tt_bio.rfd3_bias", "_ENABLED", "tt_bio.rfd3_bias.STATS", "stats"),
     ("RFD3_FUSED_SCORES", "tt_bio.rfd3_bias", "_FUSED_ENABLED",
      "tt_bio.rfd3_bias.FSTATS", "stats"),
