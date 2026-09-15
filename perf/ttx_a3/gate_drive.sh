@@ -73,6 +73,24 @@ run_arm() {  # $1 = name, $2 = needs a quiet box (0/1), rest = argv
 # coin flip. Ordering by "can this arm still finish" beats ordering by "can this arm see the
 # lever": a timed arm parked in wait_quiet blocks every untimed arm behind it for up to 3h.
 #
+# FIRST, because they are the only cheap arms that discriminate, and because the re-merge owes
+# them. 768 aa is the one size below the cap whose on-arm never completed: gate2 got one off-arm
+# fold at 47.2 s and then three timeouts, which main has since root-caused to this box's watchdog
+# rather than to L1 or to this lever. 1024 aa is the cap boundary AND the shape main's newly
+# default-on TT_BIO_TRANSITION_L1_ROWS moves, so the merged tree has to be read as a stack: two
+# levers that each claim "bit-identical below the cap" have never been measured together.
+#
+# off/on/off, one arm PER PROCESS. Flipping the flag inside one live device context is the harness
+# trap this campaign already fell into once, and the hang it manufactured was mis-attributed to
+# the arm switch for a full pass before single-arm processes reproduced it.
+for sz in 768 1024; do
+  for arm in off1:off on1:on off2:off; do
+    tag="${arm%%:*}"; a="${arm##*:}"
+    run_arm "neut$sz-$tag" 0 $P perf/ttx_a3/fold_parity_a3.py \
+        --dir "$OUT/f$sz" --arm "$a" --tag "cdk2x2_${sz}_$tag" --fixture "cdk2x2_$sz"
+  done
+done
+
 # The suite opens a device, so it is pinned rather than run card-free. `-rf` because the run that
 # died at 89 % had nine F marks and no summary line, which names nothing.
 run_arm pytest        0 $P -m pytest -q --tb=line -rf
