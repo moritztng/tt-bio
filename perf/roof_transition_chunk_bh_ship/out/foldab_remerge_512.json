@@ -1,0 +1,242 @@
+{
+ "doc": "What the Transition row chunk is worth in FOLD SECONDS, and what its own session's floor is.\n\nThe op ratio is not the deliverable any more. `roof-true-floor` put the whole remaining prize at\n2.309 s against a 17.340 s cell, so a lever is worth what it moves on the fold and nothing else.\n\nOne process, one device open, model loaded once. Arms alternate INSIDE the process with the\nshipped arm run twice per rep, so the session's own A/A floor falls out of the same data instead\nof being a separate run that a load change can sit between. Arm order is fixed and the whole set\nruns once per rep, so a clock ramp or a JIT warm-up cannot bias one arm against another.\n\nThere are TWO contention detectors, because one of them is blind on its own.\n\nThe A/A floor is the variance detector: two shipped slots per rep, either side of the test arm, so\nbox drift lands in the floor and not in the ratio. `roof-pair-transition` got 0.157 % on a quiet\nbox; above ~1 % the session is BLOCKED, not scaled.\n\nThe floor cannot see SATURATION. On 2026-09-15 this harness ran at 512 aa with a sibling worker's\n200-step fold on the box at 253 % CPU. The fold went host-bound, both arms clamped to the same\nhost-limited wall at 23.5 s against a 15.2 s quiet-box median, the 0.34 s of device time the lever\nsaves vanished into the stall -- and the A/A floor stayed tight, because steady saturation slows\nboth shipped slots equally. The session would have published ratio ~1.000 as INTERPRETABLE and\nrefuted a real win. A tight floor means \"no jitter\", not \"not saturated\".\n\nSo pass `--quiet-ship-median SIZE:SECONDS` with the reference arm's known quiet-box median. Any leg\nwhose shipped median exceeds it by more than `--saturation-tol` is BLOCKED-ON-SATURATION and its\nratio is suppressed. Digests are never suppressed: contention costs you the clock, never the bytes.\n\nEvery arm is bit-exact (proved fold-level at 298/512/768 aa by the ladder in this directory), so\nthe digest is carried here only as the cheap regression signal it is.\n\n    foldab.py --out <json> --legs 512:h48,768:h32 --reps 4\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "2",
+  "commit": "f1a4cfa1f0ed9ec79a7ec0024a8e3d4403a8d50a",
+  "started_utc": "2026-09-15T03:19:39Z",
+  "loadavg_start": [
+   0.169921875,
+   0.056640625,
+   0.017578125
+  ],
+  "unfused_silu": false,
+  "protocol": {
+   "sampling_steps": 200,
+   "recycling_steps": 3,
+   "seed": 0,
+   "reps": 4
+  },
+  "loadavg_now": [
+   1.03857421875,
+   0.68212890625,
+   0.3056640625
+  ]
+ },
+ "folds": [
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 0,
+   "loadavg": 0.32,
+   "wall_s": 23.492,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "slot": "test",
+   "rep": 0,
+   "loadavg": 0.82,
+   "wall_s": 22.054,
+   "digest": "45781db716ebf020",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x512x64x256@h96": 16,
+    "512x512x128x512@h48": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 0,
+   "loadavg": 0.88,
+   "wall_s": 22.785,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 1,
+   "loadavg": 0.92,
+   "wall_s": 22.781,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "slot": "test",
+   "rep": 1,
+   "loadavg": 0.94,
+   "wall_s": 22.037,
+   "digest": "45781db716ebf020",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x512x64x256@h96": 16,
+    "512x512x128x512@h48": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 1,
+   "loadavg": 0.96,
+   "wall_s": 22.841,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 2,
+   "loadavg": 0.97,
+   "wall_s": 22.875,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "slot": "test",
+   "rep": 2,
+   "loadavg": 0.98,
+   "wall_s": 22.06,
+   "digest": "45781db716ebf020",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x512x64x256@h96": 16,
+    "512x512x128x512@h48": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 2,
+   "loadavg": 0.99,
+   "wall_s": 22.835,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 3,
+   "loadavg": 0.99,
+   "wall_s": 22.78,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "slot": "test",
+   "rep": 3,
+   "loadavg": 1.0,
+   "wall_s": 22.234,
+   "digest": "45781db716ebf020",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x512x64x256@h96": 16,
+    "512x512x128x512@h48": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 3,
+   "loadavg": 1.05,
+   "wall_s": 22.882,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  }
+ ],
+ "legs": {
+  "512:on": {
+   "ship_median_s": 22.838,
+   "arm_median_s": 22.057,
+   "shipA_median_s": 22.828,
+   "shipB_median_s": 22.838,
+   "fold_seconds_saved": 0.781,
+   "ratio": 1.0354,
+   "aa_floor_pct": 0.044,
+   "aa_floor_s": 0.01,
+   "n": {
+    "shipA": 4,
+    "shipB": 4,
+    "test": 4
+   },
+   "bit_exact_across_arms": true,
+   "digest": [
+    "45781db716ebf020"
+   ],
+   "loadavg_span": [
+    0.32,
+    1.05
+   ],
+   "quiet_ship_median_s": 15.217,
+   "saturation_x": 1.501,
+   "verdict": "BLOCKED-ON-SATURATION"
+  }
+ },
+ "model_load_s": 2.91
+}
