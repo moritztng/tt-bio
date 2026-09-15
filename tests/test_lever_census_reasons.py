@@ -163,5 +163,99 @@ def test_a_device_already_on_the_guessed_grid_still_counts_as_measured():
         "COMPUTE_GRID_MEASURED is set past an early return in _configure_active_compute_grid"
 
 
+def test_a_stats_dict_row_reads_its_own_keys(monkeypatch):
+    """`FP32_SOFTMAX_STATS` carries several levers' counters in one dict, and the stats-dict
+    reader hardcoded `calls`/`blocked` -- the bias hoist's pair. Any other row built on that dict
+    would have reported the bias hoist's numbers as its own and read healthy whether or not it
+    ever ran, which is the whole question the census exists to answer.
+    """
+    lc = _lever_census()
+    stub = types.ModuleType("tt_bio.tenstorrent")
+    stub.FP32_SOFTMAX_BIAS_HOIST = True
+    stub._FP32_SOFTMAX_L1_GRID = (9, 8)
+    # every value distinct, so a row reading the wrong key cannot pass by coincidence
+    stub.FP32_SOFTMAX_STATS = {"calls": 1320, "blocked": 440, "l1_blocks": 77,
+                               "l1_refused": 3, "l1_cores": 72}
+    monkeypatch.setitem(sys.modules, "tt_bio.tenstorrent", stub)
+
+    rows = lc._snapshot_process()
+    hoist, l1 = rows["FP32_SOFTMAX_BIAS_HOIST"], rows["FP32_SOFTMAX_L1_GRID"]
+    assert (hoist["served"], hoist["declined"]) == (1320, 440)
+    assert (l1["served"], l1["declined"]) == (77, 3)
+    assert l1["resolved"] == "(9, 8)"
+    assert l1["gauges"] == {"l1_cores": 72}
+
+    # Negative control: the L1 path dark, the bias hoist's counters untouched. Under the old
+    # reader both rows read 1320/440 here and the dark one was indistinguishable from the live
+    # one. `l1_cores` drops out entirely rather than reporting 0, which is not a core count.
+    stub._FP32_SOFTMAX_L1_GRID = (8, 8)
+    stub.FP32_SOFTMAX_STATS.update(l1_blocks=0, l1_refused=0, l1_cores=0)
+    rows = lc._snapshot_process()
+    assert rows["FP32_SOFTMAX_BIAS_HOIST"]["served"] == 1320
+    assert rows["FP32_SOFTMAX_L1_GRID"]["served"] == 0
+    assert rows["FP32_SOFTMAX_L1_GRID"]["gauges"] is None
+
+
+def test_every_stats_dict_row_names_its_counter_keys():
+    """The syntax only helps if no row can forget it: a `stats-dict` row without keys falls
+    back to nothing and reports None, which is the loud failure this replaced the silent one
+    with -- but the table is where it should be caught."""
+    lc = _lever_census()
+    for flag, _mod, _attr, counter, how in lc.LEVERS:
+        if how != "stats-dict":
+            continue
+        assert counter and ":" in counter, flag + ": stats-dict row names no counter keys"
+        served, _, declined = counter.split(":", 1)[1].partition(",")
+        assert served and declined, flag + ": stats-dict row needs served,declined keys"
+
+
+def test_a_gauge_is_never_summed_across_processes():
+    """`l1_cores` is assigned, not incremented, so the served/declined sum is the wrong merge
+    for it: two workers each on 72 cores would report 144, a grid that does not exist. The
+    gauges are unioned like `resolved` is, and a disagreement between processes stays visible
+    instead of averaging into a plausible wrong number.
+    """
+    lc = _lever_census()
+    d = pathlib.Path(tempfile.mkdtemp())
+    for i, cores in enumerate((72, 72, 64)):
+        (d / f"pid{i}.json").write_text(json.dumps({"pid": i, "argv": [], "rows": {
+            "FP32_SOFTMAX_L1_GRID": {"resolved": "(9, 8)", "served": 10, "declined": 1,
+                                     "rejects": None, "gauges": {"l1_cores": cores}}}}))
+    row = [r for r in lc.collect(d, "t", [], 0)["rows"]
+           if r["flag"] == "FP32_SOFTMAX_L1_GRID"][0]
+    assert row["served"] == 30 and row["declined"] == 3
+    assert row["gauges"] == {"l1_cores": "64/72"}
+
+
+def test_resolved_ignores_a_process_that_never_opened_a_chip():
+    """`_apply_grid_thresholds` retunes several resolved defaults at device open, so the
+    launcher -- which imports the module and never folds -- still holds the pre-device value.
+    Unioned in, the fp32-softmax rectangle reads "(8, 8)/(9, 8)" for a lever that resolved to
+    one rectangle everywhere it actually ran: the `11x10/13x10` grid-stamp false alarm again.
+    Measured on card 3 with TT_BIO_FORCE_GRID=8,9, where the fold's two processes disagree
+    exactly like this.
+    """
+    lc = _lever_census()
+    d = pathlib.Path(tempfile.mkdtemp())
+    for i, (grid, res) in enumerate(((None, "(8, 8)"), ("8x9", "(9, 8)"))):
+        (d / f"pid{i}.json").write_text(json.dumps({"pid": i, "argv": [], "grid": grid, "rows": {
+            "FP32_SOFTMAX_L1_GRID": {"resolved": res, "served": 12, "declined": 0,
+                                     "rejects": None, "gauges": None}}}))
+    row = [r for r in lc.collect(d, "t", [], 0)["rows"]
+           if r["flag"] == "FP32_SOFTMAX_L1_GRID"][0]
+    assert row["resolved"] == "(9, 8)"
+    # the counters still come from every process, measured or not
+    assert row["served"] == 24
+
+    # No process opened a chip: there is nothing to prefer, so say what was read rather than
+    # dropping the row to a blank.
+    (d / "pid1.json").write_text(json.dumps({"pid": 1, "argv": [], "grid": None, "rows": {
+        "FP32_SOFTMAX_L1_GRID": {"resolved": "(8, 8)", "served": 0, "declined": 0,
+                                 "rejects": None, "gauges": None}}}))
+    row = [r for r in lc.collect(d, "t", [], 0)["rows"]
+           if r["flag"] == "FP32_SOFTMAX_L1_GRID"][0]
+    assert row["resolved"] == "(8, 8)"
+
+
 if __name__ == "__main__":
     sys.exit(0 if run_checks() else 1)
