@@ -5,6 +5,10 @@
 Pairformer block, 3.62 % of the block's 7416.9 MB, and calls it the cheapest structural item on the
 list because the producer is already a custom fused `generic_op` with its own writer.
 
+That denominator is superseded. `perf/roof_redteam2/FINDINGS.md` corrected the block census to
+8046.8 MB, so the 268.4 MB is **3.34 %** of the block, not 3.62 %. The share, not the prize:
+268.4 MB is measured here and unchanged. No verdict on this row moves either way.
+
 It is not available, and the reason has nothing to do with the kernel.
 
 ## Why the producer cannot host the epilogue

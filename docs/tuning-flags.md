@@ -558,7 +558,7 @@ with the flags on against 3157 MiB without them.
 
 Triangle attention ends with `o * sigmoid(g)`, and that multiply is its own op: it re-reads the
 attention output and the gate from DRAM and writes the product back, 268.4 MB a Pairformer block,
-3.62 % of the block's 7416.9 MB. Both operands first exist together inside the fused SDPA kernel, so
+3.34 % of the block's 8046.8 MB. Both operands first exist together inside the fused SDPA kernel, so
 this flag folds the sigmoid and the multiply into that kernel's pack stage and deletes the op. The
 gate's own producer cannot host it: `TT_BIO_TRIATT_FUSED_QKVG` writes q, k, v and the gate out of one
 matmul, so an epilogue there would multiply by a tensor its own output is an input to.
