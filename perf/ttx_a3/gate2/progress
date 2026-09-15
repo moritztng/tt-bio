@@ -45,3 +45,13 @@
 2026-09-15T07:28:04Z ladder-esmfold2 START loadavg=1.14
 2026-09-15T07:48:57Z ladder-esmfold2 rc=1 loadavg=1.03
 2026-09-15T07:48:57Z ladder-protenix-v1 START loadavg=1.03
+2026-09-15T07:54:50Z ladder-protenix-v1 rc=1 loadavg=2.85
+2026-09-15T07:54:50Z ladder-protenix-v2 START loadavg=2.85
+2026-09-15T07:56:41Z ladder SKIP-RATIONALE: SIZE_LADDER_EXTRA_RUNGS={"rf3":(1088,)}, so rf3 is the ONLY ladder model with a rung above the 1024 cap. The route needs q_len > 1024, so on every other model the lever is unreachable at every rung and can only read "new lever not in the baseline" -- already measured on boltz2, esmfold2 and protenix-v1, all red by main stale-baseline levers. Five cells that cannot see the lever are skipped to spend the card on rf3/1088, perf and parity instead. Re-run any of them by deleting its row below.
+2026-09-15T07:56:41Z ladder-protenix-v2 rc=SKIPPED-CANNOT-SEE-LEVER top-rung-1024-equals-the-cap
+2026-09-15T07:56:41Z ladder-openfold3 rc=SKIPPED-CANNOT-SEE-LEVER top-rung-1024-equals-the-cap
+2026-09-15T07:56:41Z ladder-opendde rc=SKIPPED-CANNOT-SEE-LEVER top-rung-1024-equals-the-cap
+2026-09-15T07:56:41Z ladder-nesso1 rc=SKIPPED-CANNOT-SEE-LEVER top-rung-1024-equals-the-cap
+2026-09-15T07:56:41Z ladder-openbind rc=SKIPPED-CANNOT-SEE-LEVER top-rung-1024-equals-the-cap
+2026-09-15T07:56:45Z resume_after_boot relaunching (uptime 6944s)
+2026-09-15T07:56:45Z ladder-rf3 START loadavg=1.16

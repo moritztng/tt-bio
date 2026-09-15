@@ -1,0 +1,6 @@
+[release-gate] granted card(s) [0]
+
+======================================================================
+[size-ladder] checking for card p300c: protenix-v2 at rungs 256,512,640,768,896,1024
+[size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence
+======================================================================

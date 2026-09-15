@@ -1,0 +1,61 @@
+[release-gate] granted card(s) [0]
+
+======================================================================
+[size-ladder] checking for card p300c: protenix-v1 at rungs 256,512,640,768,896,1024
+[size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence
+======================================================================
+
+##############################################################################
+RELEASE GATE — size-ladder (rungs 256,512,640,768,896,1024, 6 steps / 1 sample, seed 0, single-sequence, card p300c)
+##############################################################################
+model              256aa    512aa    640aa    768aa    896aa   1024aa  k256->512  k512->768     wall  result
+protenix-v1         4.3s    10.8s    16.1s    23.9s    33.5s    43.6s       1.33       1.96     351s  FAIL (protenix-v1/256 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)'] -> []; protenix-v1/256 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/256 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/256 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/256 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/256 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/256 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/512 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)'] -> []; protenix-v1/512 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []; protenix-v1/512 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/512 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/512 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/512 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/512 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/512 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/640 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> []; protenix-v1/640 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []; protenix-v1/640 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/640 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/640 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/640 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/640 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/640 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/768 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> ['k_tiles=4:(4,4)']; protenix-v1/768 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []; protenix-v1/768 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/768 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/768 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/768 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/768 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/768 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/896 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> ['k_tiles=4:(4,4)']; protenix-v1/896 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []; protenix-v1/896 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/896 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/896 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/896 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/896 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/896 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/1024 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> ['k_tiles=4:(4,4)']; protenix-v1/1024 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []; protenix-v1/1024 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/1024 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/1024 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/1024 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/1024 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/1024 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record))
+    FAIL protenix-v1/256 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)'] -> []
+    FAIL protenix-v1/256 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/256 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/256 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/256 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/256 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/256 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/512 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)'] -> []
+    FAIL protenix-v1/512 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []
+    FAIL protenix-v1/512 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/512 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/512 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/512 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/512 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/512 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/640 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> []
+    FAIL protenix-v1/640 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []
+    FAIL protenix-v1/640 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/640 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/640 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/640 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/640 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/640 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/768 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> ['k_tiles=4:(4,4)']
+    FAIL protenix-v1/768 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []
+    FAIL protenix-v1/768 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/768 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/768 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/768 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/768 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/768 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/896 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> ['k_tiles=4:(4,4)']
+    FAIL protenix-v1/896 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []
+    FAIL protenix-v1/896 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/896 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/896 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/896 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/896 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/896 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/1024 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> ['k_tiles=4:(4,4)']
+    FAIL protenix-v1/1024 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []
+    FAIL protenix-v1/1024 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/1024 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/1024 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/1024 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/1024 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/1024 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+##############################################################################
+GATE FAIL — size-ladder drift vs the recorded baseline (see above); if this change is intentional, re-record with --size-ladder-record
