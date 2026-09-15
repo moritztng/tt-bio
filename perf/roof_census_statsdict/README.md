@@ -42,9 +42,30 @@ read `(8, 8)/(9, 8)` for a lever that resolved to one rectangle everywhere it ra
 `11x10/13x10` grid-stamp false alarm `_compute_grid` already documents, and the grid stamp is the
 measured flag, so no new field was needed.
 
+## What 1024 aa showed, and why it is a partial reading
+
+A second probe at `cdk2x2_1024.yaml`, same forced grid, lever on. The fold did not finish: the
+worker stopped dumping at 05:20 UTC and qb2 rebooted at 05:34, which took the run's log and its
+output directory with it. The per-process dump it had already written is
+`results/dump_1024_worker.json`, and the counters in it are real for the work that ran.
+
+    resolved (9, 8)   served 68341   declined 1   l1_cores 64
+
+Two things in one row that the 512 pair could not show.
+
+`declined` moves. `l1_refused` is the sharded softmax refusing its circular buffers around a
+block, and at 512 aa it is 0 on both arms, so that half of the row was only covered by the unit
+test. Here it fired on device.
+
+`l1_cores` is 64 while the rectangle resolved to (9, 8) = 72. The floating-core search replaced
+the tuned answer at this size, so the lever's default is not what ran. That is the whole reason
+the gauge exists and is not folded into `resolved`: reading the default would have said the live
+grid served this fold, and it did not.
+
 ## Files
 
-- `results/census_off.json`, `results/census_on.json` — the two arms.
+- `results/census_off.json`, `results/census_on.json` — the two 512 aa arms.
+- `results/dump_1024_worker.json` — the 1024 aa worker dump, from a fold that did not finish.
 - `tests/test_lever_census_reasons.py` — card-free checks: each row reads its own keys, the
   negative control where the L1 path is dark and the bias hoist's counters are untouched, every
   `stats-dict` row names its keys, a gauge is unioned and not summed, and `resolved` prefers a
