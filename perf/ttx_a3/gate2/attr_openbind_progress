@@ -4,3 +4,5 @@
 2026-09-15T06:19:27Z on1 START arm=on loadavg=1.72
 2026-09-15T06:30:37Z on1 rc=0 loadavg=2.46
 2026-09-15T06:30:37Z off2 START arm=off loadavg=2.46
+2026-09-15T06:41:49Z off2 rc=0 loadavg=0.78
+2026-09-15T06:41:49Z ATTR_DONE
