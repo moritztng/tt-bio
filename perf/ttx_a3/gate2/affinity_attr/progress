@@ -2,3 +2,10 @@
 2026-09-15T10:20:01Z aff_off1 START arm=off load0=1.37
 2026-09-15T10:26:13Z aff_off1 rc=1 arm=off load0=1.37 load1=6.22 | boltz2-affinity affinities/s        0.02413    0.01099    -54.4%
 2026-09-15T10:26:13Z aff_on1 START arm=on load0=6.22
+2026-09-15T10:32:19Z resume_after_boot relaunching ATTR (uptime 150s)
+2026-09-15T10:32:19Z aff_on1 START arm=on load0=1.16
+2026-09-15T10:36:40Z aff_on1 rc=1 arm=on load0=1.16 load1=11.40 | boltz2-affinity affinities/s        0.02413    0.01152    -52.3%
+2026-09-15T10:36:40Z aff_off2 START arm=off load0=11.40
+2026-09-15T10:50:17Z resume_after_boot relaunching ATTR (uptime 150s)
+2026-09-15T10:50:17Z aff_off2 START arm=off load0=3.80
+2026-09-15T10:52:15Z AFFINITY_ATTR_DONE off -54.4% vs on -52.3% neutral; cell unsatisfiable on qb2 card 0 per perf_regression.py:122-137
