@@ -15,7 +15,21 @@ perf/ttx_deadends/b1_prod_ab.json). An op ratio is not a fold second and this sc
 decides whether it survives to one.
 
 Harness, stage splitter and per-fold CIF hash are unchanged from
-perf/b2x_trimul/fold_ab_trimul_512.py.
+perf/b2x_trimul/fold_ab_trimul_512.py. Two things are not:
+
+  --sizes   several sequence lengths in ONE device open and ONE model load, so a size
+            sweep costs one process instead of four
+  a cold fold PER ARM, not just for A. Arm B moves a memory config, so it asks for
+            trimul programs arm A never compiles. Warming A alone puts that JIT inside
+            arm B's first *timed* fold: at 384 aa / 4 steps that read A 7.336 s vs
+            B 9.425 s, a 0.778x "regression" that was 100 % compile. Any arm added here
+            needs its own warmup fold.
+
+Invocation (one card, pinned, nothing else on the box):
+
+  TT_VISIBLE_DEVICES=<c> TT_BIO_LEASE_CARDS=<c> TT_BIO_LEASE_HOLDER=worker:<slug> \
+    python3 perf/ttx_deadends/b1_fold_ab_512.py --sizes 384,512,640,768 --reps 3 \
+      --out perf/ttx_deadends/b1_fold_ab_<host>.json
 """
 from __future__ import annotations
 
@@ -67,6 +81,8 @@ def main() -> int:
     global SAMPLING_STEPS, RECYCLING_STEPS, OUT_PATH
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--sizes", default="512",
+                    help="comma-separated residue counts, all in one device open")
     ap.add_argument("--reps", type=int, default=2, help="warm folds per arm")
     ap.add_argument("--arms", default="A,B,A2")
     ap.add_argument("--steps", type=int, default=SAMPLING_STEPS,
@@ -75,6 +91,9 @@ def main() -> int:
     args = ap.parse_args()
     SAMPLING_STEPS = args.steps
     RECYCLING_STEPS = args.recycles
+    SIZES = [int(x) for x in args.sizes.split(",")]
+    for n in SIZES:
+        assert (FIX / f"cdk2x2_{n}.yaml").exists(), f"no fixture for {n} aa"
 
     OUT_PATH = args.out
 
@@ -101,10 +120,11 @@ def main() -> int:
         "arch": str(getattr(dev, "arch", lambda: "?")()),
         "torch": torch.__version__,
         "trace_region_bytes": int(os.environ["TT_BIO_TRACE_REGION_SIZE"]),
-        "protocol": {"n_residues": 512, "recycling_steps": RECYCLING_STEPS,
+        "loadavg_start": open("/proc/loadavg").read().split()[:3],
+        "protocol": {"n_residues": SIZES, "recycling_steps": RECYCLING_STEPS,
                      "sampling_steps": SAMPLING_STEPS,
                      "diffusion_samples": DIFFUSION_SAMPLES, "seed": SEED,
-                     "fixture": "perf/size512/fixtures/cdk2x2_512.yaml + 35-row a3m"},
+                     "fixture": "perf/size512/fixtures/cdk2x2_<n>.yaml + its a3m"},
     }
     try:
         import importlib.metadata as _md
@@ -116,8 +136,9 @@ def main() -> int:
     work = Path(tempfile.mkdtemp(prefix="bioir-dispatch-"))
     struct_dir = work / "out"; struct_dir.mkdir(parents=True)
     msa_dir = work / "msa"; msa_dir.mkdir(parents=True)
-    target = FIX / "cdk2x2_512.yaml"
-    _seed_msa(target, (FIX / "cdk2x2_512.a3m").read_text(), msa_dir)
+    targets = {n: FIX / f"cdk2x2_{n}.yaml" for n in SIZES}
+    for n, t in targets.items():
+        _seed_msa(t, (FIX / f"cdk2x2_{n}.a3m").read_text(), msa_dir)
 
     cfg = dict(
         model="boltz2", fast=False, output_format="cif",
@@ -221,7 +242,7 @@ def main() -> int:
 
     _TRACE_DEFAULT = state.model.structure_module._diffusion_trace
 
-    def fold(armname, hook=None):
+    def fold(armname, target, hook=None):
         state.model.structure_module._diffusion_trace = _TRACE_DEFAULT
         sp = Splitter(hook)
         state.pfn = sp
@@ -263,11 +284,28 @@ def main() -> int:
     assert os.environ.get("TT_BIO_TRIMUL_OUT_L1") is None, \
         "TT_BIO_TRIMUL_OUT_L1 is pinned in the environment; the arms would not differ"
     DEF_OUT_L1 = _T._TRIMUL_OUT_L1
+    # Per size, and not once: the chunk width, the path selector and the L1 budget are all
+    # functions of the sequence length. `arms_differ` is the thing to read -- if it is False the
+    # two arms serve identical code and the ratio is an A/A wearing a B label (the eligibility
+    # trap: a firing condition is not a code fact).
+    #
+    # It takes BOTH terms, and `l1_fits` alone is not enough. Below `_trimul_l1_max_seq` the path
+    # selector already returns L1, so `out_mc = memory_config` IS L1 and arm B's assignment is a
+    # no-op while `l1_fits` still reads True. Measured: at 128 and 256 aa the flip reads 1.0245x
+    # and 1.0124x against A/A floors of 1.96 % and 0.97 % -- the "effect" and the floor are the
+    # same number, because they are the same thing.
+    def _size_defaults(n):
+        chunk = _T._trimul_chunk_size(n, 128, 1)
+        dram = _T._triangle_mul_memory_config(n).buffer_type == ttnn.BufferType.DRAM
+        fits = bool(_T._trimul_l1_fits(1, chunk, n, 2, 1))
+        return {"chunk": chunk,
+                "result_mc": str(_T._triangle_mul_memory_config(n).buffer_type),
+                "l1_fits": fits,
+                "arms_differ": bool(dram and fits)}
     OUT["defaults"] = {"trimul_out_l1": DEF_OUT_L1,
                        "trimul_tail_l1": _T._TRIMUL_TAIL_L1,
                        "trimul_l1_max_seq": _T._trimul_l1_max_seq(),
-                       "chunk_512": _T._trimul_chunk_size(512, 128, 1),
-                       "result_mc_512": str(_T._triangle_mul_memory_config(512).buffer_type)}
+                       "per_size": {str(n): _size_defaults(n) for n in SIZES}}
     dump()
 
     ARMS = args.arms.split(",")
@@ -278,36 +316,48 @@ def main() -> int:
             return
         _T.set_trimul_out_l1(name == "B")
 
-    runs = []
-    print("[phase1] cold fold (discarded)", flush=True)
-    set_arm("A")
-    r = fold("A"); r["cold"] = True; runs.append(r)
-    print("  cold", r["fold_s"], "s", flush=True)
-    OUT["runs"] = runs; dump()
-    for i in range(args.reps):
+    OUT["sizes"] = {}
+    for n in SIZES:
+        target = targets[n]
+        runs = []
+        # One discarded cold fold PER ARM. Arm B compiles trimul programs arm A never asks
+        # for, so warming A alone leaves that JIT inside B's first timed fold and inverts
+        # the sign (0.778x read on a 0.988x effect at 384 aa / 4 steps).
+        print("[%d aa] cold folds, one per arm (discarded)" % n, flush=True)
         for nm in ARMS:
             set_arm(nm)
-            r = fold(nm); r["cold"] = False; r["rep"] = i
-            runs.append(r)
-            print("  rep %d %-2s %8.3f s  plddt %s  cif %s"
-                  % (i, nm, r["fold_s"], r["plddt"], list(r["cif"].values())), flush=True)
-            OUT["runs"] = runs; dump()
-    set_arm("DEF")
+            r = fold(nm, target); r["cold"] = True; runs.append(r)
+            print("  cold %-2s %8.3f s" % (nm, r["fold_s"]), flush=True)
+            OUT["sizes"][str(n)] = {"runs": runs}; dump()
+        for i in range(args.reps):
+            for nm in ARMS:
+                set_arm(nm)
+                r = fold(nm, target); r["cold"] = False; r["rep"] = i
+                runs.append(r)
+                print("  rep %d %-2s %8.3f s  plddt %s  cif %s"
+                      % (i, nm, r["fold_s"], r["plddt"], list(r["cif"].values())), flush=True)
+                OUT["sizes"][str(n)] = {"runs": runs}; dump()
 
-    warm = [r for r in runs if not r["cold"]]
-    med = {nm: round(st.median([r["fold_s"] for r in warm if r["arm"] == nm]), 4) for nm in ARMS}
-    cifs = {nm: sorted({tuple(sorted(r["cif"].items())) for r in warm if r["arm"] == nm})
-            for nm in ARMS}
-    OUT["median_fold_s"] = med
-    OUT["AA_floor_pct"] = round(100 * (med["A2"] - med["A"]) / med["A"], 3)
-    OUT["x_vs_A"] = {nm: round(med["A"] / v, 4) for nm, v in med.items()}
-    OUT["cif_identical_to_A"] = {nm: cifs[nm] == cifs["A"] for nm in ARMS}
-    OUT["plddt"] = {nm: [r["plddt"] for r in warm if r["arm"] == nm] for nm in ARMS}
-    dump()
-    print(json.dumps(med), flush=True)
-    print("A/A floor %%: %s" % OUT["AA_floor_pct"], flush=True)
-    print(json.dumps(OUT["x_vs_A"]), flush=True)
-    print("CIF identical to A:", json.dumps(OUT["cif_identical_to_A"]), flush=True)
+        warm = [r for r in runs if not r["cold"]]
+        med = {nm: round(st.median([r["fold_s"] for r in warm if r["arm"] == nm]), 4)
+               for nm in ARMS}
+        cifs = {nm: sorted({tuple(sorted(r["cif"].items())) for r in warm if r["arm"] == nm})
+                for nm in ARMS}
+        OUT["sizes"][str(n)] = {
+            "runs": runs,
+            "median_fold_s": med,
+            "AA_floor_pct": round(100 * (med["A2"] - med["A"]) / med["A"], 3),
+            "x_vs_A": {nm: round(med["A"] / v, 4) for nm, v in med.items()},
+            "cif_identical_to_A": {nm: cifs[nm] == cifs["A"] for nm in ARMS},
+            "plddt": {nm: [r["plddt"] for r in warm if r["arm"] == nm] for nm in ARMS},
+            "loadavg_end": open("/proc/loadavg").read().split()[:3],
+        }
+        dump()
+        res = OUT["sizes"][str(n)]
+        print("%d aa: %s  B/A %s  A/A floor %s %%  CIF==A %s"
+              % (n, json.dumps(med), res["x_vs_A"].get("B"), res["AA_floor_pct"],
+                 json.dumps(res["cif_identical_to_A"])), flush=True)
+    set_arm("DEF")
     return 0
 
 
