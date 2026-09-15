@@ -1,0 +1,18 @@
+benchlock: worker:ttx-a3-sdpa-ship-remerge waiting; currently held by: worker:ttx-a3-sdpa-ship-remerge pid=20282 since=2026-09-15T11:02:09+00:00
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 2s, loadavg 0.95 0.44 0.17
+Loading weights:   0%|          | 0/1594 [00:00<?, ?it/s]Loading weights: 100%|██████████| 1594/1594 [00:00<00:00, 39185.55it/s]
+Fetching 14 files:   0%|          | 0/14 [00:00<?, ?it/s]Fetching 14 files: 100%|██████████| 14/14 [00:00<00:00, 5422.50it/s]
+[esmfold2] 3.216913 structures/s  (311 ms/call, load 12s)
+Loading CCD dictionary from /home/ttuser/.cache/huggingface/hub/models--biohub--ESMFold2/snapshots/b1324ddff3a32630bd5d36dd47213b2723b4ef50/ccd.pkl
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — esmfold2  | threshold ±15%  | warm (2 warmup + 5 timed)
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+esmfold2        structures/s          3.299      3.217     -2.5%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: trpcage (20 aa, single-seq)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 1.25 0.54 0.21

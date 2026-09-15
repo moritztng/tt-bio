@@ -77,3 +77,11 @@
 2026-09-15T10:16:17Z perf-boltz2-affinity rc=1 loadavg=10.58
 2026-09-15T10:20:05Z perf-boltz2-affinity rc=1 is a candidate NO-GO (-55.9%); pausing the roster to attribute it. benchlock acquired at loadavg 1.82 and released at 10.58, and the input is L107, far under the 1024 cap.
 2026-09-15T10:55:20Z perf-boltz2-affinity ATTRIBUTED: off -54.4% vs on -52.3% neutral, same tree same card same session. The p300c cell is unsatisfiable on qb2 card 0 by -28 to -33% whatever the code does (scripts/perf_regression.py:122-137). Not the flip, not a regression. Roster resumes.
+2026-09-15T11:08:54Z resume_after_boot relaunching (uptime 150s)
+2026-09-15T11:08:54Z perf-esmfold2 START loadavg=0.95
+2026-09-15T11:09:19Z perf-esmfold2 rc=0 loadavg=1.25
+2026-09-15T11:09:19Z perf-esmfold2-fast START loadavg=1.25
+2026-09-15T11:09:47Z perf-esmfold2-fast rc=0 loadavg=2.74
+2026-09-15T11:09:47Z perf-protenix-v1 START loadavg=2.74
+2026-09-15T11:15:09Z perf-protenix-v1 rc=0 loadavg=2.12
+2026-09-15T11:15:09Z perf-protenix-v2 START loadavg=2.12

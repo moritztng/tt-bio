@@ -1,0 +1,14 @@
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 311s, loadavg 1.70 2.28 1.17
+[protenix-v1] 3.247231 structures/s  (308 ms/call, load 1s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — protenix-v1  | threshold ±15%  | warm (2 warmup + 5 timed)
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+protenix-v1     structures/s          3.328      3.247     -2.4%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: trpcage (20 aa, single-seq)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 2.12 2.36 1.21
