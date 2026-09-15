@@ -26,23 +26,12 @@ WT=/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge
 [ -d "$WT" ] || exit 0
 cd "$WT" || exit 0
 PROG=perf/ttx_a3/gate2/progress
-# While PAUSE exists the main gate stands down and the boltz2-affinity attribution control owns the card
-# instead. That control is the one measurement that can turn this into a NO-GO, so it gets the box
-# first, and it needs the same boot survival as the gate: qb2 reset 28 minutes into the boot the
-# stall was found on. Remove PAUSE to hand the card back to the gate.
-if [ -f perf/ttx_a3/gate2/PAUSE ]; then
-  grep -q AFFINITY_ATTR_DONE perf/ttx_a3/gate2/affinity_attr/progress 2>/dev/null && exit 0
-  pgrep -f "^bash perf/ttx_a3/attr_affinity\.sh$" > /dev/null && exit 0
-  up=$(cut -d. -f1 /proc/uptime)
-  [ "$up" -lt 150 ] && sleep $((150 - up))
-  mkdir -p perf/ttx_a3/gate2/affinity_attr
-  printf '%s resume_after_boot relaunching ATTR (uptime %ss)\n' \
-         "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(cut -d. -f1 /proc/uptime)" \
-         >> perf/ttx_a3/gate2/affinity_attr/progress
-  setsid nohup bash perf/ttx_a3/attr_affinity.sh \
-    >> perf/ttx_a3/gate2/affinity_attr/driver.log 2>&1 < /dev/null &
-  exit 0
-fi
+# PAUSE means stand down completely. It used to relaunch whichever attribution control owned the
+# card, naming that control by path -- which broke the moment those one-off scripts were unified
+# into attr_perf_model.sh and deleted, leaving this branch pointing at a file that no longer exists.
+# Attribution runs are launched by hand and are short; the gate is the only thing worth restarting
+# unattended.
+[ -f perf/ttx_a3/gate2/PAUSE ] && exit 0
 grep -q GATE_DRIVER_DONE "$PROG" 2>/dev/null && exit 0
 # ANCHORED argv match. A cheap early-out only; the flock above is what makes this safe. An unanchored `pgrep -f "bash perf/ttx_a3/gate_drive.sh"` also matches any
 # shell whose command line merely CONTAINS that text, which includes the `bash -c` wrapper an ssh

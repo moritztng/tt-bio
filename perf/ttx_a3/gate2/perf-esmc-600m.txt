@@ -1,0 +1,15 @@
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 2s, loadavg 1.82 3.97 2.83
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]Fetching 4 files: 100%|██████████| 4/4 [00:00<00:00, 2656.30it/s]
+[esmc-600m] 108.853792 seq/s  (73 ms/call, load 3s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — esmc-600m  | threshold ±15%  | warm (2 warmup + 5 timed)
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+esmc-600m       seq/s                 110.5      108.9     -1.5%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: 8x ubiquitin (76 aa), batch 8
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 1.83 3.94 2.83

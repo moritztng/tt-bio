@@ -1,0 +1,16 @@
+benchlock: worker:ttx-a3-sdpa-ship-remerge waiting; currently held by: worker:ttx-a3-sdpa-ship-remerge pid=4913 since=2026-09-15T12:42:20+00:00
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 2s, loadavg 1.38 0.66 0.26
+Fetching 8 files:   0%|          | 0/8 [00:00<?, ?it/s]Fetching 8 files: 100%|██████████| 8/8 [00:00<00:00, 4105.52it/s]
+[saprot-650m] 284.139776 seq/s  (28 ms/call, load 2s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — saprot-650m  | threshold ±15%  | warm (2 warmup + 5 timed)
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+saprot-650m     seq/s                 282.3      284.1     +0.6%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: 8x ubiquitin (76 aa), batch 8
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 1.43 0.68 0.27

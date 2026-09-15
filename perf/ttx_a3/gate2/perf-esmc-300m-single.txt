@@ -1,0 +1,16 @@
+benchlock: 1 foreign fold process(es) outside the lock, waiting
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 257s, loadavg 1.88 4.06 2.85
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]Fetching 4 files: 100%|██████████| 4/4 [00:00<00:00, 2572.40it/s]
+[esmc-300m-single] 59.350375 seq/s  (135 ms/call, load 1s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — esmc-300m-single  | threshold ±15%  | warm (2 warmup + 5 timed)
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+esmc-300m-singleseq/s                 58.97      59.35     +0.6%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: 8x ubiquitin (76 aa), batch 1
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 1.89 4.02 2.84
