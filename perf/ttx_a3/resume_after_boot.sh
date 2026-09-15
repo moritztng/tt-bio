@@ -77,7 +77,15 @@ up=$(cut -d. -f1 /proc/uptime)
 
 printf '%s resume_after_boot relaunching (uptime %ss)\n' \
        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(cut -d. -f1 /proc/uptime)" >> "$PROG"
+# 9>&- CLOSES THE LOCK FD IN THE CHILD, and it is not a tidiness detail -- without it this whole
+# guard inverts. fd 9 carries the flock, the driver inherits every open fd, and the driver outlives
+# this script by hours, so the lock stays held for the driver's entire life. Every */10 tick then
+# dies at `flock -n 9 || exit 0` and the watchdog can never intervene AT THE ONE TIME IT IS NEEDED:
+# a driver that exists but is stopped. That is not hypothetical -- gate5's driver sat in state T for
+# seven minutes with its finished arm's `timeout` child a zombie beside it, the arm's rc never
+# recorded, and `lsof` showed pid 3947 holding this very lock. The flock must cover this script's
+# own check-and-launch and nothing beyond it.
 setsid nohup env GATE_WT="$WT" GATE_OUT="$RUN" GATE_CARD="$CARD" GATE_WORKER="$WORKER" \
-  GATE_HOLDER=worker:ttx-a3-sdpa-ship-remerge \
-  bash perf/ttx_a3/gate_drive.sh >> "$RUN/driver.log" 2>&1 < /dev/null &
+  GATE_SKIP_NEUT="${GATE_SKIP_NEUT:-0}" GATE_HOLDER=worker:ttx-a3-sdpa-ship-remerge \
+  bash perf/ttx_a3/gate_drive.sh >> "$RUN/driver.log" 2>&1 < /dev/null 9>&- &
 exit 0
