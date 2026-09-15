@@ -7,3 +7,7 @@
 2026-09-15T04:20:26Z ux START loadavg=5.37
 2026-09-15T04:29:10Z ux rc=0 loadavg=10.78
 2026-09-15T04:29:10Z capacity-boltz2 START loadavg=10.78
+2026-09-15T04:33:17Z capacity-boltz2 rc=0 loadavg=9.42
+2026-09-15T04:33:17Z capacity-esmfold2 START loadavg=9.42
+2026-09-15T04:42:33Z capacity-esmfold2 rc=0 loadavg=6.14
+2026-09-15T04:42:33Z capacity-esmfold2-fast START loadavg=6.14

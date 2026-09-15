@@ -1,0 +1,229 @@
+{
+ "bar_tokens": 1536,
+ "started": "2026-09-15T04:29:13Z",
+ "tree": "a1af9b1de1acd4854181eeed760a0f34e5ac7492",
+ "dirty": true,
+ "workers": [
+  "tt-quietbox2:0"
+ ],
+ "geometry": {
+  "arch": "blackhole",
+  "grid": "(x=11,y=10)",
+  "dram": {
+   "banks": 8,
+   "bytes_per_bank": 4278190016,
+   "largest_contiguous_free_per_bank": 4278190016,
+   "total_bytes": 34225520128
+  },
+  "l1": {
+   "banks": 110,
+   "bytes_per_bank": 1461760,
+   "largest_contiguous_free_per_bank": 1461760,
+   "total_bytes": 160793600
+  },
+  "board_type": "p300c",
+  "host": "tt-quietbox2",
+  "card": 0
+ },
+ "coverage_gaps": [],
+ "reductions": [
+  "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
+  "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
+  "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
+  "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
+ ],
+ "results": [
+  {
+   "model": "boltz2",
+   "verb": "predict",
+   "worker": "tt-quietbox2:0",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 1,
+     "wall_s": 21.4,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.4,
+     "progress_events": 1259,
+     "block_calls": 0,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 223014,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.boltz2.DiffusionTransformerLayer.forward",
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.tenstorrent.MSALayer.__call__",
+       "tt_bio.tenstorrent.DiffusionTransformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 24828,
+      "samples": 0,
+      "truncated": [
+       [
+        "tt_bio.boltz2.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        2
+       ],
+       [
+        "tt_bio.tenstorrent.MSA",
+        "blocks",
+        4
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        64
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        24
+       ],
+       [
+        "tt_bio.tenstorrent.DiffusionTransformer",
+        "layers",
+        3
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        8
+       ]
+      ]
+     },
+     "first_error": null,
+     "tail": "04:29:20  [tt-quietbox2:tt0] loading model\u2026\n04:29:29  [tt-quietbox2:tt0] cap_1536\n04:29:31  [tt-quietbox2:tt0]   prep\n04:29:34  [tt-quietbox2:tt0]   trunk 0/2\n04:29:35  [tt-quietbox2:tt0] \u2717 cap_1536 \u2014 5.7s\n\n1 failed:\n  \u2717 cap_1536: The size of tensor a (4) must match the size of tensor b (12) at non-singleton dimension 1\n      [tt_bio origin: boltz2.py:381 in forward]\n\nDone: 0 ok, 1 failed \u2014 /home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/perf/ttx_a3/gate2/cap-boltz2/out_screen_boltz2_1536/boltz2_results_cap_1536/results.json",
+     "stacks_truncated": 8,
+     "truncated": [
+      [
+       "tt_bio.boltz2.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       2
+      ],
+      [
+       "tt_bio.tenstorrent.MSA",
+       "blocks",
+       4
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       64
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       24
+      ],
+      [
+       "tt_bio.tenstorrent.DiffusionTransformer",
+       "layers",
+       3
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       8
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "FAIL",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 219.8,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 4.8,
+     "progress_events": 6690,
+     "block_calls": 6299,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 215886,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 3080188608,
+      "dram_peak_bytes": 7897348096,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.boltz2.DiffusionTransformerLayer.forward",
+       "tt_bio.tenstorrent.PairformerLayer.__call__",
+       "tt_bio.tenstorrent.MSALayer.__call__",
+       "tt_bio.tenstorrent.DiffusionTransformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 25163,
+      "samples": 6299,
+      "truncated": []
+     },
+     "first_error": null,
+     "tail": "04:32:21  [tt-quietbox2:tt0]   diffusion 0/200\n04:32:35  [tt-quietbox2:tt0]   diffusion 10/200\n04:32:36  [tt-quietbox2:tt0]   diffusion 20/200\n04:32:40  [tt-quietbox2:tt0]   diffusion 30/200\n04:32:42  [tt-quietbox2:tt0]   diffusion 40/200\n04:32:50  [tt-quietbox2:tt0]   diffusion 50/200\n04:32:53  [tt-quietbox2:tt0]   diffusion 60/200\n04:32:54  [tt-quietbox2:tt0]   diffusion 70/200\n04:32:58  [tt-quietbox2:tt0]   diffusion 80/200\n04:32:59  [tt-quietbox2:tt0]   diffusion 90/200\n04:33:05  [tt-quietbox2:tt0]   diffusion 100/200\n04:33:06  [tt-quietbox2:tt0]   diffusion 110/200\n04:33:06  [tt-quietbox2:tt0]   diffusion 120/200\n04:33:07  [tt-quietbox2:tt0]   diffusion 130/200\n04:33:07  [tt-quietbox2:tt0]   diffusion 140/200\n04:33:08  [tt-quietbox2:tt0]   diffusion 150/200\n04:33:08  [tt-quietbox2:tt0]   diffusion 160/200\n04:33:09  [tt-quietbox2:tt0]   diffusion 170/200\n04:33:09  [tt-quietbox2:tt0]   diffusion 180/200\n04:33:10  [tt-quietbox2:tt0]   diffusion 190/200\n04:33:11  [tt-quietbox2:tt0]   confidence\n04:33:15  [tt-quietbox2:tt0]   saving\n04:33:15  [tt-quietbox2:tt0] \u2713 cap_1536 \u2014 211.3s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/perf/ttx_a3/gate2/cap-boltz2/out_resid_boltz2_1536/boltz2_results_cap_1536/results.json",
+     "dram_peak_bytes": 7897348096,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 3080188608,
+     "blocks_instrumented": 4,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "screen_unsafe": true,
+   "note": "the screen's depth cut is a candidate cause of its own FAIL (8 stacks cut, no capacity mechanism in the error), so it was not scored; this verdict comes from the un-truncated run. Tier 1 has no fast path for this model.",
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 219.8,
+   "dram_peak_bytes": 7897348096,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 3080188608,
+   "blocks_instrumented": 4,
+   "host_ram_floor_mb": 215886
+  }
+ ],
+ "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
+ "counts": {
+  "PASS": 1,
+  "fail_like": 0,
+  "CONTENDED": 0,
+  "SKIPPED": 0,
+  "NO_WEIGHTS": 0,
+  "INCONCLUSIVE": 0,
+  "GATE_BUG": 0,
+  "BAD_FIXTURE": 0
+ }
+}
