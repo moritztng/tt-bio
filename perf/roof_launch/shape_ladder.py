@@ -15,6 +15,12 @@ moves with sequence length, so the intercept is "this op, this shape family, no 
 program launch and nothing else.
 
 Same trace-replay reading as `launch_sweep.py`: device time, host removed.
+
+The first session measured the 19 highest-call keys and died on `ttnn.reshape([1,768,512])`, which
+wedges a Blackhole card (two independent runs, both killed by pid). `--resume` picks the table back
+up; `reshape` is refused outright rather than retried, and `--max-tiles` refuses a ladder point
+whose tensors are too big to be worth the host time. A refused key costs nothing: it falls back to
+the class ladder, which is where it already was.
 """
 from __future__ import annotations
 
@@ -22,6 +28,7 @@ import argparse
 import json
 import platform
 import sys
+import time
 from math import ceil
 from pathlib import Path
 
@@ -65,6 +72,14 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=HERE / "shape_ladder.json")
     ap.add_argument("--reps", type=int, default=20)
     ap.add_argument("--blocks", type=int, default=8)
+    ap.add_argument("--max-tiles", type=int, default=131072,
+                    help="refuse a ladder point above this output tile count (131072 tiles is "
+                         "268 MB in bf16). The keys it refuses are the 16-call giants at the "
+                         "bottom of the table; their smaller ladder points still measure.")
+    ap.add_argument("--budget-s", type=float, default=None,
+                    help="stop starting new keys after this many seconds and close the table "
+                         "properly, with the after-roofs and the after-loadavg. The first session "
+                         "was killed instead and published no closing A/A.")
     ap.add_argument("--resume", action="store_true",
                     help="keep the fits already in --out and re-measure only what is missing. "
                          "This box hangs roughly hourly and a ladder row is independent of every "
@@ -127,6 +142,58 @@ def main() -> int:
             b, _o, s, hd = sh
             x = t((b, 4, s, hd // 4))
             return (lambda: ttnn.experimental.nlp_concat_heads(x)), False
+        if arm == "softmax":
+            x = t(sh)
+            return (lambda: ttnn.softmax(x, dim=-1, compute_kernel_config=kc)), False
+        if arm == "cos":
+            x = t(sh)
+            return (lambda: ttnn.cos(x)), False
+        if arm == "to_memory_config_l1":
+            x = t(sh)
+            return (lambda: ttnn.to_memory_config(x, ttnn.L1_MEMORY_CONFIG)), False
+        if arm == "transpose":
+            x = t(tuple(sh[:-2]) + (sh[-1], sh[-2]))
+            return (lambda: ttnn.transpose(x, -2, -1)), False
+        if arm == "slice":
+            # one tile more on the row axis, sliced straight back off. The cut is tile aligned on
+            # purpose: a sub-tile LAST-axis slice of a large DRAM tensor is the known Blackhole
+            # wedge, and this ladder is not the place to re-find it.
+            big = list(sh)
+            big[-2] = sh[-2] + 32
+            x = t(tuple(big))
+            return (lambda: ttnn.slice(x, tuple(0 for _ in sh), tuple(sh))), False
+        if arm == "pad":
+            small = list(sh)
+            small[-2] = sh[-2] - 32
+            if small[-2] < 32:
+                raise ValueError("pad: row dim %d leaves no room to pad" % sh[-2])
+            x = t(tuple(small))
+            pads = tuple((0, 0) for _ in sh[:-2]) + ((0, 32), (0, 0))
+            return (lambda: ttnn.pad(x, pads, 0.0)), False
+        if arm == "concat":
+            # two tile-aligned halves. Last axis where it splits into whole tiles, else the row
+            # axis, so the two operands are never a sub-tile shape.
+            if sh[-1] % 64 == 0:
+                d, half = len(sh) - 1, sh[-1] // 2
+            elif sh[-2] % 64 == 0:
+                d, half = len(sh) - 2, sh[-2] // 2
+            else:
+                raise ValueError("concat: %s halves into sub-tile operands" % (sh,))
+            s2 = list(sh)
+            s2[d] = half
+            x, y = t(tuple(s2)), t(tuple(s2))
+            return (lambda: ttnn.concat([x, y], dim=d)), False
+        if arm == "chunk":
+            big = list(sh)
+            big[-1] = 2 * sh[-1]
+            x = t(tuple(big))
+            return (lambda: ttnn.chunk(x, 2, dim=-1)), False
+        if arm == "sdpa":
+            if len(sh) != 4:
+                raise ValueError("sdpa: %s is not (b, h, s, d)" % (sh,))
+            q, k, v = t(sh), t(sh), t(sh)
+            return (lambda: ttnn.transformer.scaled_dot_product_attention(
+                q, k, v, is_causal=False)), False
         raise ValueError("no builder for " + arm)
 
     out = {"host": platform.node(), "arch": str(dev.arch()), "reps": a.reps, "blocks": a.blocks,
@@ -145,13 +212,31 @@ def main() -> int:
     print("%-22s %-24s %8s %8s %7s  %s" % ("arm", "shape", "FLOOR", "slope", "r2", "ladder"),
           flush=True)
 
+    t_start = time.time()
     for e in want:
         arm, sh, K = e["arm"], tuple(e["shape"]), e.get("K")
         key = "%s|%s|K%s" % (arm, "x".join(map(str, sh)), K)
         if key in out["fits"]:
             continue
+        if a.budget_s and time.time() - t_start > a.budget_s:
+            out["stopped_on_budget_after_s"] = time.time() - t_start
+            print("budget reached, closing the table", flush=True)
+            break
+        if arm == "reshape":
+            # `ttnn.reshape([1,768,512])` hung a card twice and killed two sweeps. The two reshape
+            # keys left in the table hold 280 of 84,224 unmeasured calls, so the class fallback is
+            # cheaper than one more wedge. Route around, do not reproduce.
+            out["refused"][key] = "skipped: ttnn.reshape wedges this card (2 sightings)"
+            print("%-22s %-24s  SKIPPED (reshape wedge)" % (arm, "x".join(map(str, sh))),
+                  flush=True)
+            a.out.write_text(json.dumps(out, indent=1))
+            continue
         pts = []
         for s2 in ladder(sh):
+            if tiles(s2) > a.max_tiles:
+                out["refused"]["%s@%s" % (key, "x".join(map(str, s2)))] = (
+                    "skipped: %d tiles over --max-tiles %d" % (tiles(s2), a.max_tiles))
+                continue
             try:
                 fn, ip = make(arm, s2, K)
                 pts.append({"shape": list(s2), "x_tiles": tiles(s2),
