@@ -206,6 +206,23 @@ PERF_MODELS="boltz2 boltz2-affinity esmfold2 esmfold2-fast protenix-v1 protenix-
              openbind opendde opendde-abag rf3 rfd3 pxdesign boltzgen nesso1 esmc-300m \
              esmc-300m-single esmc-600m esmc-6b saprot-650m"
 
+# THE CONTROL, and it runs here rather than at the end because it is the only arm that can turn a
+# red into an attributed red. Same tree, same card, same chunks, one env var different. A suite
+# failure means nothing on its own -- this tree carries 66 commits of other people's work -- so the
+# question is never "did anything fail" but "did anything fail that does NOT fail with the flag off".
+#
+# The control self-validates, which is the part that is easy to leave out and fatal to leave out: a
+# no-op control produces a reassuring empty only-in-ON set and means nothing at all.
+# tests/test_sdpa_fused_pairs.py asserts the flag reads True, so it MUST fail in the control and
+# only in the control. If pytestoff's failure list does not contain
+# test_the_above_cap_route_is_strictly_above_the_cap, the control did not actually take effect and
+# its verdict is void.
+for k in $(seq 0 $((PYTEST_CHUNKS - 1))); do
+  files=$(ls tests/test_*.py | sort | awk -v k="$k" -v n="$PYTEST_CHUNKS" 'NR % n == k')
+  [ -z "$files" ] && continue
+  run_arm "pytestoff-$k" 0 env TT_BIO_SDPA_FUSED_LARGE_S=0 $P -m pytest -q --tb=line -rf $files
+done
+
 # ux is 10 minutes and it holds the last three of the eight reds the weights outage caused, so it
 # runs before the long arms.
 run_arm ux 0 $P scripts/ux_regression.py
