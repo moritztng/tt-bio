@@ -79,6 +79,9 @@ def main() -> int:
     ap.add_argument("--cell-s", type=float, default=None,
                     help="fold of record; default: this session's own plain median, i.e. no rescale")
     ap.add_argument("--time-stat", choices=("median", "percall", "trimmed"), default="trimmed")
+    ap.add_argument("--roofs", default=None,
+                    help="filename under perf/roof_shape for true_floor.py's --roofs; default "
+                         "leaves true_floor.py on its own default")
     ap.add_argument("--tag", default="quiet")
     ap.add_argument("--out", type=Path, default=None)
     a = ap.parse_args()
@@ -107,8 +110,11 @@ def main() -> int:
          "--out-json", perf / "roof_residual" / RESIDUAL_JSON,
          "--out-md", out / "ROOF_RESIDUAL.md"], out / "residual_census.log")
 
-    run([py, PERF / "roof_true" / "true_floor.py", "--perf", perf,
-         "--out", out / "true_floor.json"], out / "true_floor.log")
+    tf = [py, PERF / "roof_true" / "true_floor.py", "--perf", perf,
+          "--out", out / "true_floor.json"]
+    if a.roofs:
+        tf += ["--roofs", a.roofs]
+    run(tf, out / "true_floor.log")
 
     shutil.copyfile(perf / "roof_budget" / BUDGET_JSON, out / BUDGET_JSON)
     shutil.copyfile(perf / "roof_residual" / RESIDUAL_JSON, out / RESIDUAL_JSON)
