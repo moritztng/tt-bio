@@ -55,3 +55,5 @@
 2026-09-15T07:56:41Z ladder-openbind rc=SKIPPED-CANNOT-SEE-LEVER top-rung-1024-equals-the-cap
 2026-09-15T07:56:45Z resume_after_boot relaunching (uptime 6944s)
 2026-09-15T07:56:45Z ladder-rf3 START loadavg=1.16
+2026-09-15T08:47:57Z ladder-rf3 rc=1 loadavg=9.96
+2026-09-15T08:47:57Z perf-boltz2 START loadavg=9.96
