@@ -59,12 +59,19 @@ run_arm() {  # $1 = name, $2 = needs a quiet box (0/1), rest = argv
   log "$name rc=$? loadavg=$(cut -d' ' -f1 /proc/loadavg)"
 }
 
-# The suite opens a device, so it is pinned rather than run card-free.
-run_arm pytest        0 $P -m pytest -q --tb=short
-run_arm size-ladder   1 $P scripts/release_gate.py --model size-ladder
+# Untimed arms first, and the hours-long accuracy arm last. qb2 watchdog-reset three times in
+# the 90 minutes this gate has been trying to run, always at loadavg 15+ while four campaigns
+# share 16 cores, so an arm that needs more than about half an hour of uninterrupted box is a
+# coin flip. Ordering by "can this arm still finish" beats ordering by "can this arm see the
+# lever": a timed arm parked in wait_quiet blocks every untimed arm behind it for up to 3h.
+#
+# The suite opens a device, so it is pinned rather than run card-free. `-rf` because the run that
+# died at 89 % had nine F marks and no summary line, which names nothing.
+run_arm pytest        0 $P -m pytest -q --tb=line -rf
 run_arm capacity      0 $P scripts/capacity_gate.py
 run_arm ux            0 $P scripts/ux_regression.py
+run_arm size-ladder   1 $P scripts/release_gate.py --model size-ladder
+run_arm perf          1 $P scripts/perf_regression.py
 run_arm parity        0 $P scripts/full_parity_gate.py --workers tt-quietbox2:$CARD \
           --workdir "$OUT/gate-b2f12e6c0" --out "$OUT/parity.json"
-run_arm perf          1 $P scripts/perf_regression.py
 log "GATE_DRIVER_DONE"
