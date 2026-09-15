@@ -31,8 +31,12 @@ log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$PROG"; }
 # own end marker plus a live fold, not on a pgrep of the driver name: the launching `bash -c`
 # carries the script name in its argv and outlives it, so a name match alone never clears.
 QL=perf/ttx_a3/nochange/quiet/driver.log
+# No short cap here on purpose. The cap is the hazard: if it expires while the ladder is still
+# folding, two drivers own card 3 and that is the wedge this whole campaign keeps paying for.
+# Under load a 1024 aa rung can run an hour, so the wait outlasts the ladder rather than the
+# other way round, and it also refuses to start while any fold is alive even after the marker.
 waited=0
-while [ "$waited" -lt 5400 ]; do
+while [ "$waited" -lt 43200 ]; do
   grep -q 'QUIET DONE' "$QL" && ! pgrep -f fold_parity_a3.py > /dev/null && break
   sleep 30; waited=$((waited + 30))
 done
