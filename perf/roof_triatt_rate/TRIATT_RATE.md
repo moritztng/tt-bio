@@ -84,13 +84,30 @@ not a lever here.
 
 The corrected prize is 4.564 s and two classes still price above their own measured time.
 
-`TriangleMultiplication`, 123.9 %, is the same defect one class over and is the largest single
-item left. Its in-fold capture holds four `ttnn.generic_op` calls beside one `ttnn.matmul` and one
-`ttnn.linear`, and its catalogue arms are `trimul_in_flat` (an `ttnn.linear`) and `trimul_einsum`
-(an `ttnn.matmul`). The einsum arm is a fair match for the `ttnn.matmul` the fold issues; the
-in-projection arm, carrying 1.527 s of the corrected floor's arithmetic, is not. Measuring
-`trimul`'s shipped generic ops the way this file measured TriangleAttention's is the next tranche,
-and the method is already written -- `rate_ab.py` plus `merge_roofs.py` plus `rejoin.py --roofs`.
+`TriangleMultiplication`, 123.9 %, looked like the same defect one class over: its in-fold capture
+holds four `ttnn.generic_op` calls beside one `ttnn.matmul` and one `ttnn.linear`, and two of its
+three catalogue arms are stock ops. **Measured, it is not.**
+`perf/roof_triatt_rate/trimul_rate_ab.py` runs the shipped unit against its three catalogue arms
+the same way, and the shipped unit comes out at or above the arms rather than far below:
+
+| | catalogue arm sum | shipped unit | ratio |
+|---|---|---|---|
+| TriangleAttention | 6.197 ms/call | 3.787 ms | **0.61** |
+| TriangleMultiplication, run 1 | 6.684 ms/call | 7.548 ms | 1.13 |
+| TriangleMultiplication, run 2 | 6.828 ms/call | 7.001 ms | 1.03 |
+
+Both trimul runs were taken on a busier box than the TriangleAttention session -- A/A floor 9.2 %
+and 7.0 %, and the session cube came in at 1.495 and 2.033 ms against 1.266 -- so the absolute
+milliseconds are not publishable. The ratio is, because both terms are normalised by the same
+session: it is 1.0 within noise, where TriangleAttention's is 0.61. Its arms already price its
+shipped kernels. So its 123.9 % is the `sum(max(...))` construction `QUIET_REFOLD.md` identified
+and not a rate error, and re-rating it does not close any of the prize.
+
+That leaves the corrected 4.564 s prize with no second mis-rated class behind it. What is left is
+what the budget table already says: the fold is bandwidth-shaped almost everywhere, the trunk
+pairformer is at 91.1 % of a floor that is now honest, and the remaining distance is real work
+rather than a modelling error. The next lever has to come from moving bytes or deleting ops, not
+from re-pricing.
 
 `ConditionedTransitionBlock`, 105.0 %, is not a rate error. Its arithmetic sum and its traffic sum
 each sit below measured and only the per-op `sum(max(...))` construction rises above, which is the
