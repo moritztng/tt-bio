@@ -50,7 +50,25 @@ grep -q GATE_DRIVER_DONE "$PROG" 2>/dev/null && exit 0
 # invocation of this very script runs under: the guard then reports a live driver, this exits, and
 # nothing relaunches. The driver's own command line is exactly `bash perf/ttx_a3/gate_drive.sh`,
 # and a wrapper's is `bash -c ...`, so anchoring separates them.
-pgrep -f "^bash perf/ttx_a3/gate_drive\.sh$" > /dev/null && exit 0
+# A LIVE driver means running, not merely existing. On 2026-09-15 qb2's driver and its `timeout`
+# child were both found in state T, SIGSTOPped: the arm's 500 s timer could not fire, so no rc was
+# ever recorded, and this guard saw a process and stood down every ten minutes. The gate sat dead
+# for 11 minutes while looking perfectly healthy to every check that asked "is a driver running?".
+# A stopped driver is the one case where the answer to that question is yes and the right action is
+# still to intervene -- and the intervention is SIGCONT, not a relaunch, because the arm's own
+# process is still there and killing it throws the arm away. One CONT restored it and the arm
+# recorded rc=124 within seconds.
+dpid=$(pgrep -f "^bash perf/ttx_a3/gate_drive\.sh$" | head -1)
+if [ -n "$dpid" ]; then
+  case "$(ps -o stat= -p "$dpid" 2>/dev/null)" in
+    T*) printf '%s resume_after_boot: driver %s was STOPPED, sending CONT\n' \
+               "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$dpid" >> "$PROG"
+        # The child holds the arm's timer, so it has to come back too, or the arm still never ends.
+        for c in $(pgrep -P "$dpid"); do kill -CONT "$c" 2>/dev/null; done
+        kill -CONT "$dpid" 2>/dev/null ;;
+  esac
+  exit 0
+fi
 
 # Let the box finish coming up before opening a card: the driver's first act is a device open and
 # the ARC is not ready the instant systemd starts running cron jobs.
