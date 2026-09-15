@@ -93,10 +93,18 @@ sys.exit(0 if L.get('512:on',{}).get('verdict')=='INTERPRETABLE' else 1)" 2>/dev
 fi
 
 # 3. perf_regression: a RELEASING.md leg. 15 % bands on short folds, so benchlocked too.
-if [ ! -f "$O/perf_remerge.json" ]; then
-  echo "-- perf_regression"
-  $BENCHLOCK $PY scripts/perf_regression.py --out "$O/perf_remerge.json" \
-    >> "$O/perf_remerge.log" 2>&1 || echo "   perf_regression rc=$?"
+#
+#    Runs on CARD 1, not this row's card 2, and that is not a convenience. docs/perf_baselines.json
+#    keys a baseline by card TYPE and by MACHINE, and its own note says the p300c block was seeded
+#    "on qb2 P300c card 1". qb2's two p300c cards are 1.49x apart, which the key cannot express, so
+#    the gate run on card 2 failed 17 of 20 models by 20-64 % with nothing wrong: esmc-300m read
+#    109.2 seq/s and FAIL on card 2 and 150.4 seq/s and PASS on card 1, same tree, same minute.
+#    Until the baseline is keyed per card, the perf leg has to run on the card the numbers came from.
+if [ ! -f "$O/perf_remerge_card1.json" ]; then
+  echo "-- perf_regression (card 1)"
+  TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=2,1 \
+  $BENCHLOCK $PY scripts/perf_regression.py --out "$O/perf_remerge_card1.json" \
+    >> "$O/perf_remerge_card1.log" 2>&1 || echo "   perf_regression rc=$?"
 fi
 
 # 4. The 1024 aa rung, last. Same A/B, same guards, its own artifact. It is the longest leg by far
