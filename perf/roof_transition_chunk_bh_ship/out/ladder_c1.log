@@ -1,0 +1,75 @@
+2026-09-14 14:48:01.622 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+    298 off PASS     14.96s dram= 1.469GiB l1=    25.4MiB transition_h_chunk=296/0 sha=a8c6fd65f70f4418
+    298 on  PASS     12.07s dram= 1.469GiB l1=    25.4MiB transition_h_chunk=296/0 sha=a8c6fd65f70f4418
+    512 off PASS     20.08s dram= 2.078GiB l1=    64.7MiB transition_h_chunk=0/296 sha=45781db716ebf020
+        transition_h_chunk rejects: {'base-unraised@64x512x64': 16, 'base-unraised@512x512x128': 280}
+    512 on  PASS     15.43s dram= 2.078GiB l1=    64.7MiB transition_h_chunk=296/0 sha=45781db716ebf020
+2026-09-14 14:49:17.512 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2198016 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+    768 off PASS     41.69s dram= 3.213GiB l1=     1.3MiB transition_h_chunk=0/296 sha=9e1a1fdd392e0b4c
+        transition_h_chunk rejects: {'base-unraised@64x768x64': 16, 'base-unraised@768x768x128': 280}
+    768 on  PASS     32.62s dram= 3.212GiB l1=     1.3MiB transition_h_chunk=296/0 sha=9e1a1fdd392e0b4c
+2026-09-14 14:50:28.790 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-09-14 14:50:29.598 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+   1024 off PASS     62.35s dram= 4.798GiB l1=     2.1MiB transition_h_chunk=0/296 sha=9a049ee58a5a0f7e
+        transition_h_chunk rejects: {'base-unraised@64x1024x64': 16, 'base-unraised@1024x1024x128': 280}
+   1024 on  PASS     57.60s dram= 4.797GiB l1=     2.1MiB transition_h_chunk=296/0 sha=9a049ee58a5a0f7e
+{
+ "298": {
+  "reference_arm": "off",
+  "on": {
+   "both_complete": true,
+   "bit_exact": true,
+   "peak_dram_delta_pct": -0.0073,
+   "peak_l1_delta_pct": 0.0,
+   "gates_engaged_on_arm": {
+    "transition_h_chunk": true
+   },
+   "verdict": "PASS"
+  },
+  "arm_ref_is_silent": false
+ },
+ "512": {
+  "reference_arm": "off",
+  "on": {
+   "both_complete": true,
+   "bit_exact": true,
+   "peak_dram_delta_pct": -0.0117,
+   "peak_l1_delta_pct": 0.0,
+   "gates_engaged_on_arm": {
+    "transition_h_chunk": true
+   },
+   "verdict": "PASS"
+  },
+  "arm_ref_is_silent": true,
+  "ref_digest_is_published_512": false
+ },
+ "768": {
+  "reference_arm": "off",
+  "on": {
+   "both_complete": true,
+   "bit_exact": true,
+   "peak_dram_delta_pct": -0.0081,
+   "peak_l1_delta_pct": 0.0,
+   "gates_engaged_on_arm": {
+    "transition_h_chunk": true
+   },
+   "verdict": "PASS"
+  },
+  "arm_ref_is_silent": true
+ },
+ "1024": {
+  "reference_arm": "off",
+  "on": {
+   "both_complete": true,
+   "bit_exact": true,
+   "peak_dram_delta_pct": -0.0048,
+   "peak_l1_delta_pct": 0.0,
+   "gates_engaged_on_arm": {
+    "transition_h_chunk": true
+   },
+   "verdict": "PASS"
+  },
+  "arm_ref_is_silent": true
+ }
+}

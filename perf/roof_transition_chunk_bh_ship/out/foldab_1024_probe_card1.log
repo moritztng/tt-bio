@@ -1,0 +1,73 @@
+2026-09-15 05:34:50.379 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/tt_bio/device_lease.py", line 362, in acquire
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+BlockingIOError: [Errno 11] Resource temporarily unavailable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/perf/roof_transition_chunk_bh/foldab.py", line 235, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/perf/roof_transition_chunk_bh/foldab.py", line 107, in main
+    dev = get_device()
+          ^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/tt_bio/tenstorrent.py", line 4992, in get_device
+    _device_lease = CardSetLease().acquire()
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/tt_bio/device_lease.py", line 468, in acquire
+    timeout=max(0.0, deadline - time.time())).acquire())
+                                              ^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/tt_bio/device_lease.py", line 381, in acquire
+    raise DeviceInUseError(
+tt_bio.device_lease.DeviceInUseError: physical card 1 on tt-quietbox2 is in use by worker:roof-launch-floor-perop (pid 3194); waited 120s. Refusing to open it concurrently (would collide at the fd level).
+nanobind: leaked 582 instances!
+ - leaked instance 0x74fba645e0a8 of type "ttnn._ttnn.operations.binary_backward.fmod_bw_t"
+ - leaked instance 0x74fba645d9a0 of type "ttnn._ttnn.operations.binary.maximum_t"
+ - leaked instance 0x74fba645e378 of type "ttnn._ttnn.operations.binary_backward.concat_bw_t"
+ - leaked instance 0x74fba645dd00 of type "ttnn._ttnn.operations.binary.ldexp__t"
+ - leaked instance 0x74fba645cb48 of type "ttnn._ttnn.operations.ternary.addcmul_t"
+ - leaked instance 0x74fba64565d8 of type "ttnn._ttnn.operations.full.moreh_full_t"
+ - leaked instance 0x74fba645cd40 of type "ttnn._ttnn.operations.binary.add_t"
+ - leaked instance 0x74fba645d298 of type "ttnn._ttnn.operations.binary.xlogy_t"
+ - leaked instance 0x74fba645cd88 of type "ttnn._ttnn.operations.binary.add__t"
+ - leaked instance 0x74fba6456d30 of type "ttnn._ttnn.operations.experimental.split_query_key_value_and_split_heads_t"
+ - leaked instance 0x74fba6458ec0 of type "ttnn._ttnn.operations.experimental.minimal_matmul_split_t"
+ - leaked instance 0x74fba64583d0 of type "ttnn._ttnn.operations.experimental.fast_reduce_nc_t"
+ - leaked instance 0x74fba2995768 of type "ttnn._ttnn.operations.normalization.SoftmaxDefaultProgramConfig"
+ - leaked instance 0x74fba645cc20 of type "ttnn._ttnn.operations.ternary.lerp_t"
+ - leaked instance 0x74fba645bd78 of type "ttnn._ttnn.operations.unary_backward.relu6_bw_t"
+ - leaked instance 0x74fba6451710 of type "ttnn._ttnn.operations.experimental.ccl_experimental.all_gather_async_reversed_t"
+ - leaked instance 0x74fba645ebf0 of type "ttnn._ttnn.operations.data_movement.tilize_t"
+ - leaked instance 0x74fba645b088 of type "ttnn._ttnn.operations.unary.softshrink_t"
+ - leaked instance 0x74fba6452e28 of type "ttnn._ttnn.operations.rand.rand_t"
+ - leaked instance 0x74fba6455528 of type "ttnn._ttnn.operations.moreh.moreh_mean_t"
+ - ... skipped remainder
+nanobind: leaked 637 types!
+ - leaked type "ttnn._ttnn.operations.binary.lt__t"
+ - leaked type "ttnn._ttnn.operations.binary_backward.xlogy_bw_t"
+ - leaked type "ttnn._ttnn.operations.reduction.var_t"
+ - leaked type "DispatchCoreAxis"
+ - leaked type "ttnn._ttnn.operations.experimental.ccl_experimental.strided_all_gather_async_t"
+ - leaked type "ttnn._ttnn.operations.unary.fill_t"
+ - leaked type "ttnn._ttnn.operations.data_movement.gather_t"
+ - leaked type "ttnn._ttnn.operations.point_to_point.point_to_point_t"
+ - leaked type "ttnn._ttnn.operations.experimental.rotary_embedding_t"
+ - leaked type "ttnn._ttnn.operations.ternary.where_t"
+ - ... skipped remainder
+nanobind: leaked 2736 functions!
+ - leaked function "__call__"
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - ... skipped remainder
+nanobind: this is likely caused by a reference counting issue in the binding code.
+See https://nanobind.readthedocs.io/en/latest/refleaks.html

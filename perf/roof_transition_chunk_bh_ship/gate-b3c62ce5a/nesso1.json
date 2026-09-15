@@ -1,0 +1,14 @@
+{
+  "model": "nesso1",
+  "seconds": 16.654021203999946,
+  "x_over_r": 3.4860680843221727,
+  "spread": 0.0,
+  "n_tokens": 61,
+  "gate": true,
+  "error": null,
+  "floors": {
+    "max_x_over_r": 5.0,
+    "max_device_spread": 1e-06
+  },
+  "worst_key": "affinity_pred_value1"
+}

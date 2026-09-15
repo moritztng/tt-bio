@@ -1,0 +1,13 @@
+[transition-h] t=1789465164.207 z=64x1024x64 hid=256 w_eff=1024 chunked=0 h=16 base=16 l1_rows=48.00 elem_rows=48.00 live=18874368 per_core=171585
+2026-09-15 09:39:24.340 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-09-15 09:39:24.349 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+[transition-h] t=1789465164.378 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=16 base=16 l1_rows=24.00 elem_rows=24.00 live=37748736 per_core=343170
+[transition-h] t=1789465164.419 z=64x1024x64 hid=256 w_eff=1024 chunked=0 h=16 base=16 l1_rows=48.00 elem_rows=48.00 live=18874368 per_core=171585
+[transition-h] t=1789465164.424 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=16 base=16 l1_rows=24.00 elem_rows=24.00 live=37748736 per_core=343170
+[transition-h] t=1789465164.428 z=64x1024x64 hid=256 w_eff=1024 chunked=0 h=16 base=16 l1_rows=48.00 elem_rows=48.00 live=18874368 per_core=171585
+[transition-h] t=1789465164.432 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=16 base=16 l1_rows=24.00 elem_rows=24.00 live=37748736 per_core=343170
+[transition-h] t=1789465164.561 z=64x1024x64 hid=256 w_eff=1024 chunked=0 h=16 base=16 l1_rows=48.00 elem_rows=48.00 live=18874368 per_core=171585
+[transition-h] t=1789465164.571 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=16 base=16 l1_rows=24.00 elem_rows=24.00 live=37748736 per_core=343170
+[transition-h] t=1789465164.913 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=16 base=16 l1_rows=24.00 elem_rows=24.00 live=37748736 per_core=343170
+[transition-h] t=1789465165.125 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=16 base=16 l1_rows=24.00 elem_rows=24.00 live=37748736 per_core=343170
+[transition-h] t=1789465165.310 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=16 base=16 l1_rows=24.00 elem_rows=24.00 live=37748736 per_core=343170

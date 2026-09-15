@@ -1,0 +1,32 @@
+    298 rep0  shipA  off     18.345s load=  2.0 served=296/0 sha=a8c6fd65f70f4418
+    298 rep0  test   on      15.365s load=  2.0 served=296/0 sha=a8c6fd65f70f4418
+    298 rep0  shipB  off     16.849s load=  3.7 served=296/0 sha=a8c6fd65f70f4418
+[leg 298:on] {"ship_median_s": 17.597, "arm_median_s": 15.365, "shipA_median_s": 18.345, "shipB_median_s": 16.849, "fold_seconds_saved": 2.232, "ratio": 1.1453, "aa_floor_pct": 8.501, "aa_floor_s": 1.496, "n": {"shipA": 1, "shipB": 1, "test": 1}, "bit_exact_across_arms": true, "digest": ["a8c6fd65f70f4418"], "loadavg_span": [2.03, 3.74], "quiet_ship_median_s": null, "saturation_x": null, "verdict": "BLOCKED-ON-CONTENTION"}
+{
+ "298:on": {
+  "ship_median_s": 17.597,
+  "arm_median_s": 15.365,
+  "shipA_median_s": 18.345,
+  "shipB_median_s": 16.849,
+  "fold_seconds_saved": 2.232,
+  "ratio": 1.1453,
+  "aa_floor_pct": 8.501,
+  "aa_floor_s": 1.496,
+  "n": {
+   "shipA": 1,
+   "shipB": 1,
+   "test": 1
+  },
+  "bit_exact_across_arms": true,
+  "digest": [
+   "a8c6fd65f70f4418"
+  ],
+  "loadavg_span": [
+   2.03,
+   3.74
+  ],
+  "quiet_ship_median_s": null,
+  "saturation_x": null,
+  "verdict": "BLOCKED-ON-CONTENTION"
+ }
+}

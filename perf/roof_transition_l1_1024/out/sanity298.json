@@ -1,0 +1,107 @@
+{
+ "doc": "What the Transition row chunk is worth in FOLD SECONDS, and what its own session's floor is.\n\nThe op ratio is not the deliverable any more. `roof-true-floor` put the whole remaining prize at\n2.309 s against a 17.340 s cell, so a lever is worth what it moves on the fold and nothing else.\n\nOne process, one device open, model loaded once. Arms alternate INSIDE the process with the\nshipped arm run twice per rep, so the session's own A/A floor falls out of the same data instead\nof being a separate run that a load change can sit between. Arm order is fixed and the whole set\nruns once per rep, so a clock ramp or a JIT warm-up cannot bias one arm against another.\n\nThere are TWO contention detectors, because one of them is blind on its own.\n\nThe A/A floor is the variance detector: two shipped slots per rep, either side of the test arm, so\nbox drift lands in the floor and not in the ratio. `roof-pair-transition` got 0.157 % on a quiet\nbox; above ~1 % the session is BLOCKED, not scaled.\n\nThe floor cannot see SATURATION. On 2026-09-15 this harness ran at 512 aa with a sibling worker's\n200-step fold on the box at 253 % CPU. The fold went host-bound, both arms clamped to the same\nhost-limited wall at 23.5 s against a 15.2 s quiet-box median, the 0.34 s of device time the lever\nsaves vanished into the stall -- and the A/A floor stayed tight, because steady saturation slows\nboth shipped slots equally. The session would have published ratio ~1.000 as INTERPRETABLE and\nrefuted a real win. A tight floor means \"no jitter\", not \"not saturated\".\n\nSo pass `--quiet-ship-median SIZE:SECONDS` with the reference arm's known quiet-box median. Any leg\nwhose shipped median exceeds it by more than `--saturation-tol` is BLOCKED-ON-SATURATION and its\nratio is suppressed. Digests are never suppressed: contention costs you the clock, never the bytes.\n\nEvery arm is bit-exact (proved fold-level at 298/512/768 aa by the ladder in this directory), so\nthe digest is carried here only as the cheap regression signal it is.\n\n    foldab.py --out <json> --legs 512:h48,768:h32 --reps 4\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "3",
+  "commit": "d6be21d62a4ca6ea55638c9a0352f2a35e94bd61",
+  "started_utc": "2026-09-15T09:54:15Z",
+  "loadavg_start": [
+   1.4375,
+   0.39501953125,
+   0.13232421875
+  ],
+  "unfused_silu": false,
+  "protocol": {
+   "sampling_steps": 200,
+   "recycling_steps": 3,
+   "seed": 0,
+   "reps": 1
+  },
+  "loadavg_now": [
+   8.31396484375,
+   2.2802734375,
+   0.78125
+  ]
+ },
+ "folds": [
+  {
+   "size": 298,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 0,
+   "loadavg": 2.04,
+   "wall_s": 18.345,
+   "digest": "a8c6fd65f70f4418",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x320x64x256@h32": 16,
+    "320x320x128x512@h32": 280
+   }
+  },
+  {
+   "size": 298,
+   "arm": "on",
+   "slot": "test",
+   "rep": 0,
+   "loadavg": 2.03,
+   "wall_s": 15.365,
+   "digest": "a8c6fd65f70f4418",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x320x64x256@h153": 16,
+    "320x320x128x512@h76": 280
+   }
+  },
+  {
+   "size": 298,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 0,
+   "loadavg": 3.74,
+   "wall_s": 16.849,
+   "digest": "a8c6fd65f70f4418",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x320x64x256@h32": 16,
+    "320x320x128x512@h32": 280
+   }
+  }
+ ],
+ "legs": {
+  "298:on": {
+   "ship_median_s": 17.597,
+   "arm_median_s": 15.365,
+   "shipA_median_s": 18.345,
+   "shipB_median_s": 16.849,
+   "fold_seconds_saved": 2.232,
+   "ratio": 1.1453,
+   "aa_floor_pct": 8.501,
+   "aa_floor_s": 1.496,
+   "n": {
+    "shipA": 1,
+    "shipB": 1,
+    "test": 1
+   },
+   "bit_exact_across_arms": true,
+   "digest": [
+    "a8c6fd65f70f4418"
+   ],
+   "loadavg_span": [
+    2.03,
+    3.74
+   ],
+   "quiet_ship_median_s": null,
+   "saturation_x": null,
+   "verdict": "BLOCKED-ON-CONTENTION"
+  }
+ },
+ "model_load_s": 2.776
+}
