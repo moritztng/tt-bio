@@ -99,3 +99,5 @@
 2026-09-15T11:24:16Z perf-rfd3 START loadavg=4.42
 2026-09-15T11:28:39Z perf-rfd3 rc=0 loadavg=1.92
 2026-09-15T11:28:39Z perf-pxdesign START loadavg=1.92
+2026-09-15T11:29:16Z perf-pxdesign rc=0 loadavg=2.59
+2026-09-15T11:29:16Z perf-boltzgen START loadavg=2.59

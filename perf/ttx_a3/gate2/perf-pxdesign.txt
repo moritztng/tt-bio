@@ -1,0 +1,14 @@
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 0s, loadavg 1.92 3.01 2.42
+[pxdesign] 0.083492 designs/s  (11977 ms/design, median wall 12s, reps ['12', '12', '12']s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — pxdesign  | threshold ±15%  | median of 3 end-to-end runs
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+pxdesign        designs/s           0.07702    0.08349     +8.4%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: PDL1.yaml (PD-L1 5O45 chain A, 196 tokens, 80-res binder, 400 steps)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 2.59 3.12 2.48
