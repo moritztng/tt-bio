@@ -50,12 +50,23 @@ of the files any of the seven failures reads.
 
 Measured this pass, not remembered.
 
-- **qb1** went dark at 21:56Z and its **BMC went with it** (`~/.claude-power/qb_netmon`: `qb1-bmc`,
-  `qb1-ts`, `qb1-ts22`, `qb1-tsp` all `1->0` in the same second). The BMC NIC is independent of the
-  host OS, so BMC-down is the power signature, not the host-hang signature — and it is isolated,
-  with qb2 reachable on the same LAN throughout, which rules out the switch-flap reading. Redfish
-  at `192.168.178.25` does not answer ping or TLS. **The documented remote power path is exhausted;
-  this one needs hands.** qb1 was the host running gate4, and it is the only 4-card Blackhole box.
+- **qb1 is power-cycling at the chassis level**, and the netmon record is unambiguous about which
+  kind of fault that is. `qb1-lan4`, `qb1-bmc`, `qb1-ts`, `qb1-ts22` and `qb1-tsp` all go `1->0`
+  together, all come back together, and repeat: dark 20:24Z-21:46Z (82 min), **up 21:46Z-21:56Z
+  (10 min), dark again from 21:56Z through the end of this pass** (1 h 43 m and counting). The BMC
+  NIC is independent of the host OS, so a BMC that dies *with* the host is a power fault and not a
+  host hang, and qb2 answered on the same LAN throughout, which rules out a switch flap. Redfish at
+  `192.168.178.25` answers neither ping nor TLS while it is dark, so the documented remote power
+  path is gone exactly when it would be needed.
+
+  The 10-minute up window is the diagnostic, not a hopeful sign: qb1's BMC power-restore policy was
+  set to `always-on` at 17:31Z, so the box boots itself the moment mains returns. **It recovering on
+  its own is the policy working, and it dying again ten minutes later is the fault not clearing.**
+  A "turn it back on" would not have helped — it already turned itself on. This is a supply or PSU
+  fault that wants a human at the box, and it is already the subject of open ask 8537 from
+  `qbgpt6-rootcause`, so this pass added evidence to that ask rather than a second one. Either way
+  a box with a 10-minute duty cycle cannot carry a 44-leg parity arm. qb1 was the host running
+  gate4, and it is the only 4-card Blackhole box.
 - **qb2** is under an authorized exclusive reservation by `qbgpt6-rootcause`, which at 23:13Z
   stopped this gate's driver (PID 12054) mid-`pytestoff-3` and parked both of its crontab entries.
   That is correct behaviour on their side and not something to contest: Moritz put the QuietBox
@@ -89,8 +100,8 @@ task never measured. That refusal is the gate working, not the gate broken.
 
 ## What the next launch does
 
-1. Check qb1 answers ping. If it does not, it still needs a physical power cycle and no amount of
-   Redfish helps — do not spend a pass on the BMC.
+1. Check qb1 has been up for more than an hour, not merely that it answers: it self-boots on mains
+   return and has died again ten minutes later. Do not spend a pass on its BMC either way.
 2. Check `qbgpt6-rootcause` has released qb2 (`crontab -l` on qb2: this gate's two entries
    un-commented).
 3. Check `tt-bio-sizeladder-p300c-refresh` has written its verdict line.
