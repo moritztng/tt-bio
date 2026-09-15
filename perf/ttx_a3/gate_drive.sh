@@ -63,8 +63,29 @@ run_arm() {  # $1 = name, $2 = needs a quiet box (0/1), rest = argv
     else log "$name SKIPPED-LOADED loadavg=$(cut -d' ' -f1 /proc/loadavg) after 3h wait"; return 0; fi
   fi
   log "$name START loadavg=$(cut -d' ' -f1 /proc/loadavg)"
-  TT_VISIBLE_DEVICES=$CARD timeout 43200 "$@" > "$OUT/$name.log" 2>&1
+  # ARM_TIMEOUT, because 43200 is right for a 15-model capacity roster and catastrophic for a
+  # single fold. The 768 aa rung wedges rather than failing -- gate3's first attempt sat 10
+  # minutes after a caught L1 throw with no further output -- and at the default it would have
+  # held the whole re-gate for 12 hours on one known-wedging rung.
+  TT_VISIBLE_DEVICES=$CARD timeout -k 30 "${ARM_TIMEOUT:-43200}" "$@" > "$OUT/$name.log" 2>&1
   log "$name rc=$? loadavg=$(cut -d' ' -f1 /proc/loadavg)"
+  reap_card "$name"
+}
+
+# `timeout` signals only its direct child, so a fold that forked a worker leaves the worker alive
+# and holding the card. That is not a hypothetical: it is precisely what turned gate2's parity arm
+# into 28 consecutive DeviceInUseError legs, each burning the lease's 120 s wait behind one leaked
+# process. After an arm has exited, anything still holding this card is leaked by definition, so
+# reap it by EXPLICIT pid from lsof -- never a pkill pattern, which on this box would also match a
+# sibling campaign's fold on another card.
+reap_card() {
+  local pids p
+  pids=$(lsof -t "/dev/tenstorrent/$CARD" 2>/dev/null | tr '\n' ' ')
+  [ -z "$pids" ] && return 0
+  log "REAP after $1: card $CARD still held by$(for p in $pids; do printf ' %s(%s)' "$p" "$(ps -o comm= -p "$p" 2>/dev/null)"; done)"
+  for p in $pids; do kill -TERM "$p" 2>/dev/null; done
+  sleep 10
+  for p in $(lsof -t "/dev/tenstorrent/$CARD" 2>/dev/null); do kill -KILL "$p" 2>/dev/null; done
 }
 
 # Untimed arms first, and the hours-long accuracy arm last. qb2 watchdog-reset three times in
@@ -83,6 +104,10 @@ run_arm() {  # $1 = name, $2 = needs a quiet box (0/1), rest = argv
 # off/on/off, one arm PER PROCESS. Flipping the flag inside one live device context is the harness
 # trap this campaign already fell into once, and the hang it manufactured was mis-attributed to
 # the arm switch for a full pass before single-arm processes reproduced it.
+# 500 s each: 768 aa completed in 47.196 s and 1024 aa in 57.775-59.067 s when they completed,
+# so this is 8x the longest good fold and still lets all six arms fit inside one of this box's
+# boots. An arm that hits it records rc=124 and the next arm runs.
+ARM_TIMEOUT=500
 for sz in 768 1024; do
   for arm in off1:off on1:on off2:off; do
     tag="${arm%%:*}"; a="${arm##*:}"
@@ -90,6 +115,8 @@ for sz in 768 1024; do
         --dir "$OUT/f$sz" --arm "$a" --tag "cdk2x2_${sz}_$tag" --fixture "cdk2x2_$sz"
   done
 done
+
+unset ARM_TIMEOUT
 
 # The suite opens a device, so it is pinned rather than run card-free. `-rf` because the run that
 # died at 89 % had nine F marks and no summary line, which names nothing.
