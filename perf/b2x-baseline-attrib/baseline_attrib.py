@@ -509,7 +509,8 @@ def main() -> int:
             fn = capdir / ("cap_" + sig.replace("/", "_").replace("|", "__") + ".json.gz")
             with gzip.open(fn, "wt") as fh:
                 json.dump(g, fh)
-            caps[sig] = {"file": str(fn.relative_to(ROOT)), "nodes": len(g)}
+            rel = fn.relative_to(ROOT) if fn.is_relative_to(ROOT) else fn
+            caps[sig] = {"file": str(rel), "nodes": len(g)}
         OUT["attrib"] = {
             "instrumented_fold_s": round(wall, 3),
             "plddt": m.get("plddt", m.get("complex_plddt")),
