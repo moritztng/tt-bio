@@ -285,14 +285,23 @@ def main() -> int:
         "TT_BIO_TRIMUL_OUT_L1 is pinned in the environment; the arms would not differ"
     DEF_OUT_L1 = _T._TRIMUL_OUT_L1
     # Per size, and not once: the chunk width, the path selector and the L1 budget are all
-    # functions of the sequence length, and `l1_fits` is the condition arm B is gated on. If
-    # it reads False the two arms serve identical code and the ratio is an A/A by accident
-    # (the eligibility trap -- a firing condition is not a code fact).
+    # functions of the sequence length. `arms_differ` is the thing to read -- if it is False the
+    # two arms serve identical code and the ratio is an A/A wearing a B label (the eligibility
+    # trap: a firing condition is not a code fact).
+    #
+    # It takes BOTH terms, and `l1_fits` alone is not enough. Below `_trimul_l1_max_seq` the path
+    # selector already returns L1, so `out_mc = memory_config` IS L1 and arm B's assignment is a
+    # no-op while `l1_fits` still reads True. Measured: at 128 and 256 aa the flip reads 1.0245x
+    # and 1.0124x against A/A floors of 1.96 % and 0.97 % -- the "effect" and the floor are the
+    # same number, because they are the same thing.
     def _size_defaults(n):
         chunk = _T._trimul_chunk_size(n, 128, 1)
+        dram = _T._triangle_mul_memory_config(n).buffer_type == ttnn.BufferType.DRAM
+        fits = bool(_T._trimul_l1_fits(1, chunk, n, 2, 1))
         return {"chunk": chunk,
                 "result_mc": str(_T._triangle_mul_memory_config(n).buffer_type),
-                "l1_fits": bool(_T._trimul_l1_fits(1, chunk, n, 2, 1))}
+                "l1_fits": fits,
+                "arms_differ": bool(dram and fits)}
     OUT["defaults"] = {"trimul_out_l1": DEF_OUT_L1,
                        "trimul_tail_l1": _T._TRIMUL_TAIL_L1,
                        "trimul_l1_max_seq": _T._trimul_l1_max_seq(),
