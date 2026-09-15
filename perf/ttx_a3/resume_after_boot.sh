@@ -20,22 +20,30 @@ set -u
 #   FAIL rung 256 warm-up: census fold exited 1: FileNotFoundError ... /dumps/pid10375.json
 # which reads exactly like a gate failure and was not one. A check-then-act guard cannot fix a race
 # it sits inside; the lock can, because it is held across the sleep and the launch.
-exec 9>/tmp/ttx-a3-sdpa-ship-remerge.resume.lock || exit 0
+exec 9>"/tmp/ttx-a3-sdpa-ship-remerge.resume.${GATE_OUT##*/}.lock" || exit 0
 flock -n 9 || exit 0
+# Run dir, card and worker host are inputs, set by the crontab line that installs this. They were
+# constants naming gate3/card0/qb2, and when the re-gate moved to qb1 card 3 the relaunch would
+# have quietly resumed a DIFFERENT run on a DIFFERENT card than the one this pass started -- the
+# progress file it guards on and the progress file the driver writes would not have been the same
+# file, so the DONE check never fires and the gate restarts forever.
 WT=/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge
+RUN="${GATE_OUT:-perf/ttx_a3/gate3}"
+CARD="${GATE_CARD:-0}"
+WORKER="${GATE_WORKER:-tt-quietbox2}"
 [ -d "$WT" ] || exit 0
 cd "$WT" || exit 0
-PROG=perf/ttx_a3/gate3/progress
+PROG=$RUN/progress
 # The two redirects below (PROG and driver.log) both fail if the run dir is absent, and a failed
 # redirect means the relaunch never happens -- silently, because cron discards the error. The
 # driver mkdir -p's its own OUT, but it cannot do so before the line that launches it.
-mkdir -p perf/ttx_a3/gate3 || exit 0
+mkdir -p "$RUN" || exit 0
 # PAUSE means stand down completely. It used to relaunch whichever attribution control owned the
 # card, naming that control by path -- which broke the moment those one-off scripts were unified
 # into attr_perf_model.sh and deleted, leaving this branch pointing at a file that no longer exists.
 # Attribution runs are launched by hand and are short; the gate is the only thing worth restarting
 # unattended.
-[ -f perf/ttx_a3/gate3/PAUSE ] && exit 0
+[ -f "$RUN/PAUSE" ] && exit 0
 grep -q GATE_DRIVER_DONE "$PROG" 2>/dev/null && exit 0
 # ANCHORED argv match. A cheap early-out only; the flock above is what makes this safe. An unanchored `pgrep -f "bash perf/ttx_a3/gate_drive.sh"` also matches any
 # shell whose command line merely CONTAINS that text, which includes the `bash -c` wrapper an ssh
@@ -51,7 +59,7 @@ up=$(cut -d. -f1 /proc/uptime)
 
 printf '%s resume_after_boot relaunching (uptime %ss)\n' \
        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(cut -d. -f1 /proc/uptime)" >> "$PROG"
-setsid nohup env GATE_WT="$WT" GATE_OUT=perf/ttx_a3/gate3 GATE_CARD=0 \
+setsid nohup env GATE_WT="$WT" GATE_OUT="$RUN" GATE_CARD="$CARD" GATE_WORKER="$WORKER" \
   GATE_HOLDER=worker:ttx-a3-sdpa-ship-remerge \
-  bash perf/ttx_a3/gate_drive.sh >> perf/ttx_a3/gate3/driver.log 2>&1 < /dev/null &
+  bash perf/ttx_a3/gate_drive.sh >> "$RUN/driver.log" 2>&1 < /dev/null &
 exit 0
