@@ -3032,20 +3032,20 @@
     "p300c": {
       "recorded": "2026-09-15",
       "host": "tt-quietbox2",
-      "commit": "be49be61e",
+      "commit": "4552f543d",
       "models": {
         "esmfold2": {
           "grid": "11x10",
           "recorded": "2026-09-15",
           "host": "tt-quietbox2",
-          "commit": "be49be61e",
+          "commit": "4552f543d",
           "runtime_s": {
-            "1024": 148.9,
-            "512": 39.3,
-            "768": 88.1,
-            "640": 68.0,
-            "896": 121.3,
-            "256": 18.5
+            "1024": 173.4,
+            "640": 67.4,
+            "768": 114.9,
+            "256": 21.1,
+            "896": 170.1,
+            "512": 49.8
           },
           "levers": {
             "1024": {
@@ -3332,7 +3332,7 @@
                 "reason": "never reached at this size: the counter is the row-block height chosen in Transition.__call__, and ESMFold2's pair transition is an ESMC SwiGLUFFN (esmfold2.py:161), not that Transition, so the lever has no call site on this model at any rung. The row is new because 7fb08268f gave the lever its first counter"
               }
             },
-            "512": {
+            "640": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 538,
@@ -3349,14 +3349,14 @@
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 17216,
+                "served": 21520,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 8608,
+                "served": 10760,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3424,10 +3424,13 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 21519,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "rejects": {
+                  "no_mm_block:(8,32)": 21519
+                },
+                "reason": "declines all 21519 calls on no_mm_block:(8,32) x21519: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -3439,10 +3442,13 @@
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 21519,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "rejects": {
+                  "no_mm_block:(8,32)": 21519
+                },
+                "reason": "declines all 21519 calls on no_mm_block:(8,32) x21519: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -3894,7 +3900,7 @@
                 "reason": "never reached at this size: the counter is the row-block height chosen in Transition.__call__, and ESMFold2's pair transition is an ESMC SwiGLUFFN (esmfold2.py:161), not that Transition, so the lever has no call site on this model at any rung. The row is new because 7fb08268f gave the lever its first counter"
               }
             },
-            "640": {
+            "256": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 538,
@@ -3911,45 +3917,54 @@
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 21520,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 10760,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 538,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 538,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "served": 0,
+                "declined": 538,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 538 calls: it serves at 512 and above, so this rung's shape is outside what the fused residual covers; the module keeps no reject dict, so the clause is not recorded"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 538,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1084,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "served": 0,
+                "declined": 4336,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "memory": 4336
+                },
+                "reason": "declines all 4336 calls on memory x4336: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -3986,13 +4001,10 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 21519,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(8,32)": 21519
-                },
-                "reason": "declines all 21519 calls on no_mm_block:(8,32) x21519: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "reason": "never reached at this size: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -4004,13 +4016,10 @@
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 21519,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(8,32)": 21519
-                },
-                "reason": "declines all 21519 calls on no_mm_block:(8,32) x21519: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "reason": "never reached at this size: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -4022,31 +4031,37 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 8672,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused"
+                "rejects": {
+                  "window_BufferType.L1": 8672
+                },
+                "reason": "declines all 8672 calls on window_BufferType.L1 x8672: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1084,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size: the move back only runs when the forward move fired, and it did not"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "never reached at this size: the gated channel move is not offered on this model's pair track"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "never reached at this size: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4462,7 +4477,7 @@
                 "reason": "never reached at this size: the counter is the row-block height chosen in Transition.__call__, and ESMFold2's pair transition is an ESMC SwiGLUFFN (esmfold2.py:161), not that Transition, so the lever has no call site on this model at any rung. The row is new because 7fb08268f gave the lever its first counter"
               }
             },
-            "256": {
+            "512": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 538,
@@ -4479,54 +4494,45 @@
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 0,
+                "served": 17216,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached at this size: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
+                "frac": 1.0,
+                "how": "stats"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 0,
+                "served": 8608,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached at this size: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
+                "frac": 1.0,
+                "how": "stats"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 538,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached at this size: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
+                "frac": 1.0,
+                "how": "stats"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 538,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 538 calls: it serves at 512 and above, so this rung's shape is outside what the fused residual covers; the module keeps no reject dict, so the clause is not recorded"
+                "served": 538,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 0,
+                "served": 538,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached at this size: the pair-FFN L1 path is only entered at larger sizes; it serves at 512 and above"
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 4336,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "memory": 4336
-                },
-                "reason": "declines all 4336 calls on memory x4336: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
+                "served": 1084,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -4593,37 +4599,31 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 8672,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "window_BufferType.L1": 8672
-                },
-                "reason": "declines all 8672 calls on window_BufferType.L1 x8672: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused"
+                "reason": "never reached at this size: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1084,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached at this size: the move back only runs when the forward move fired, and it did not"
+                "frac": 1.0,
+                "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 2168,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached at this size: the gated channel move is not offered on this model's pair track"
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 2168,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "never reached at this size: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19"
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4764,23 +4764,23 @@
             "896"
           ],
           "reps": 1,
-          "sigma_runtime_512": 0.0301,
+          "sigma_runtime_512": 0.0282,
           "exponents": {
             "256->512": {
-              "k": 1.087,
+              "k": 1.239,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.991,
+              "k": 2.062,
               "tol": 0.5
             }
           },
           "exponents_measured": {
-            "256->512": 1.087,
-            "512->640": 2.457,
-            "640->768": 1.42,
-            "768->896": 2.075,
-            "896->1024": 1.535
+            "256->512": 1.239,
+            "512->640": 1.356,
+            "640->768": 2.926,
+            "768->896": 2.545,
+            "896->1024": 0.144
           }
         }
       }
