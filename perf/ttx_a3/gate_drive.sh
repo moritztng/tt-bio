@@ -21,6 +21,12 @@ cd "$WT" || exit 1
 OUT="$WT/${GATE_OUT:-perf/ttx_a3/gate}"
 PROG="$OUT/progress"
 CARD="${GATE_CARD:-1}"
+# The worker host is an input too. This gate was written for qb2 and qb2 is not always there:
+# on 2026-09-15 it was unreachable (no ping, no ssh) with QBROOT's root cause closed on a
+# per-card PCIe link failure that needs hands, so the gate moved to qb1's p150a cards. A
+# hardcoded "tt-quietbox2" here silently points capacity_gate and full_parity_gate at a dead
+# box while every other path in this script is already host-agnostic.
+WORKER="${GATE_WORKER:-tt-quietbox2}"
 HOLDER="${GATE_HOLDER:-worker:ttx-a3-fused-sdpa-default-ship}"
 P=/home/ttuser/tt-bio-dev/env/bin/python3
 mkdir -p "$OUT"; touch "$PROG"
@@ -154,7 +160,7 @@ run_arm ux 0 $P scripts/ux_regression.py
 # and boltz2 is the model the 1.1856x was measured on.
 for m in $CAP_MODELS; do
   run_arm "capacity-$m" 0 $P scripts/capacity_gate.py --models "$m" \
-      --workers "tt-quietbox2:$CARD" --no-card-reset \
+      --workers "$WORKER:$CARD" --no-card-reset \
       --work-dir "$OUT/cap-$m" --report "$OUT/capacity_$m.json"
 done
 
@@ -199,6 +205,6 @@ fi
 # workdir and fingerprints tt_bio/ + scripts/, so nothing under tt_bio/ or scripts/ may change
 # once this starts. All 44 legs are below the 1024-token cap, so this is the neutrality control
 # for the fallthrough, not evidence about the route.
-run_arm parity        0 $P scripts/full_parity_gate.py --workers tt-quietbox2:$CARD \
+run_arm parity        0 $P scripts/full_parity_gate.py --workers "$WORKER:$CARD" \
           --workdir "$OUT/parity-workdir" --out "$OUT/parity.json"
 log "GATE_DRIVER_DONE"
