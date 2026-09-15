@@ -38,7 +38,10 @@ QL=perf/ttx_a3/nochange/quiet/driver.log
 wait_quiet() {  # $1 = max seconds to wait, $2 = loadavg ceiling
   local waited=0
   while [ "$waited" -lt "$1" ]; do
-    if grep -q 'QUIET DONE' "$QL" 2>/dev/null && ! pgrep -f fold_parity_a3.py > /dev/null; then
+    # Gate on a LIVE fold, not on the ladder's end marker. The marker only prints once all four
+    # rungs are done and the ladder has never got that far, so requiring it parked both timed arms
+    # for the full 3h and then skipped them -- the opposite of waiting for a quiet box.
+    if ! pgrep -f fold_parity_a3.py > /dev/null; then
       awk -v c="$2" '{exit !($1 < c)}' /proc/loadavg && return 0
     fi
     sleep 60; waited=$((waited + 60))

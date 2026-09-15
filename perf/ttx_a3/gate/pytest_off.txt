@@ -1,0 +1,439 @@
+........................................................................ [  1%]
+........................................................................ [  3%]
+............................s........................................... [  5%]
+s............................................F................F......... [  7%]
+............F........................................................... [  9%]
+....s.......s...ss.sssssssss.ssssssss..s.s...ssss..s.................... [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 24%]
+........................................................................ [ 26%]
+........................s..........s................................s... [ 28%]
+.......................................................................s [ 30%]
+sss..................................................................... [ 32%]
+........................................................................ [ 34%]
+.............................sss.ss....sss...........ss.....s........... [ 36%]
+..s......sssssssssssssssssssss.......................................... [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 43%]
+.........................................................F...F.......... [ 45%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+.....................................................sssssssssssssssssss [ 51%]
+sssssssss............sssssssssss...ssssss.........ssssss................ [ 53%]
+..........................................s..sssss..ssss................ [ 55%]
+........................................................................ [ 57%]
+........................................................................ [ 59%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 68%]
+........................................................................ [ 70%]
+...F...................s................................................ [ 72%]
+........................................................................ [ 74%]
+........................................................................ [ 76%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+..............................F......................................... [ 84%]
+............................................................F........... [ 85%]
+........................................................................ [ 87%]
+............................................................FFF......... [ 89%]
+.FF..................................................................... [ 91%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+........................................................................ [ 97%]
+.......F................................................................ [ 99%]
+..........................                                               [100%]
+=================================== FAILURES ===================================
+E   AssertionError: tt_bio/size_limits.CEILINGS has changed since these cells were measured, so the sizes tt-bio now advertises have not been capacity-tested: ['p150a/boltz2', 'p150a/esmc-300m', 'p150a/esmc-600m', 'p150a/esmc-6b', 'p150a/esmfold2', 'p150a/esmfold2-fast', 'p150a/openbind', 'p150a/opendde', 'p150a/opendde-abag', 'p150a/openfold3', 'p150a/protenix-v1', 'p150a/protenix-v2', 'p150a/rf3', 'p150a/saprot-35m', 'p150a/saprot-650m']. Re-run
+        TT_VISIBLE_DEVICES=0 PYTHONPATH=$PWD python3 scripts/capacity_gate.py --models <them> --record
+      This is the check that was missing when the ceilings went to 1024 on 2026-09-03 and three models broke in traffic.
+    assert not ['p150a/boltz2', 'p150a/esmc-300m', 'p150a/esmc-600m', 'p150a/esmc-6b', 'p150a/esmfold2', 'p150a/esmfold2-fast', ...]
+     +  where ['p150a/boltz2', 'p150a/esmc-300m', 'p150a/esmc-600m', 'p150a/esmc-6b', 'p150a/esmfold2', 'p150a/esmfold2-fast', ...] = <function baseline_stale at 0x78fa72971300>()
+     +    where <function baseline_stale at 0x78fa72971300> = cg.baseline_stale
+/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_capacity_gate.py:161: AssertionError: tt_bio/size_limits.CEILINGS has changed since these cells were measured, so the sizes tt-bio now advertises have not been capacity-tested: ['p150a/boltz2', 'p150a/esmc-300m', 'p150a/esmc-600m', 'p150a/esmc-6b', 'p150a/esmfold2', 'p150a/esmfold2-fast', 'p150a/openbind', 'p150a/opendde', 'p150a/opendde-abag', 'p150a/openfold3', 'p150a/protenix-v1', 'p150a/protenix-v2', 'p150a/rf3', 'p150a/saprot-35m', 'p150a/saprot-650m']. Re-run
+E   AssertionError: the inner session is red, but not from the pollution this guard is about -- every failure is in test_capacity_gate.py itself:
+      ...........F................s.....................F..................... [ 58%]
+      .....................................s..............                     [100%]
+      =========================== short test summary info ============================
+      FAILED tests/test_capacity_gate.py::test_a_moved_ceiling_re_runs_the_capacity_gate
+      FAILED tests/test_capacity_gate.py::test_every_runnable_model_has_a_recorded_cell
+      2 failed, 120 passed, 2 skipped in 11.68s
+      nanobind: leaked 582 instances!
+       - leaked instance 0x74415f859618 of type "ttnn._ttnn.operations.ternary_backward.lerp_bw_t"
+       - leaked instance 0x74415f84fdd8 of type "ttnn._ttnn.operations.experimental.ccl_experimental.llama_rs_create_heads_t"
+       - leaked instance 0x74415f856c10 of type "ttnn._ttnn.operations.experimental.rotary_embedding_t"
+       - leaked instance 0x74415fb50948 of type "ttnn._ttnn.tensor.MemoryConfig"
+       - leaked instance 0x74415f84f480 of type "ttnn._ttnn.operations.point_to_point.point_to_point_t"
+       - leaked instance 0x74415f85af68 of type "ttnn._ttnn.operations.unary.triu_t"
+       - leaked instance 0x74415f851d00 of type "ttnn._ttnn.operations.ccl.mesh_partition_t"
+       - leaked instance 0x74415f85ae48 of type "ttnn._ttnn.operations.unary.selu_t"
+       - leaked instance 0x74415f85b9d0 of type "ttnn._ttnn.operations.unary_backward.log_sigmoid_bw_t"
+       - leaked instance 0x74415f857688 of type "ttnn._ttnn.operations.experimental.concatenate_heads_t"
+       - leaked instance 0x74415f85f740 of type "ttnn._ttnn.operations.data_movement.repeat_t"
+       - leaked instance 0x74415f85a230 of type "ttnn._ttnn.operations.unary.alt_complex_rotate90_t"
+       - leaked instance 0x74415f853ae0 of type "ttnn._ttnn.operations.reduction.max_t"
+       - leaked instance 0x74415f85ccb0 of type "ttnn._ttnn.operations.data_movement.view_t"
+       - leaked instance 0x74415f85d5b0 of type "ttnn._ttnn.operations.binary.minimum_t"
+       - leaked instance 0x74415f85e2a0 of type "ttnn._ttnn.operations.binary_backward.logaddexp_bw_t"
+       - leaked instance 0x74415f852d98 of type "ttnn._ttnn.operations.transformer.split_query_key_value_and_split_heads_t"
+       - leaked instance 0x74415f857200 of type "ttnn._ttnn.operations.experimental.nlp_create_qkv_heads_vit_t"
+       - leaked instance 0x74415f85dfd0 of type "ttnn._ttnn.operations.binary_backward.sub_bw_t"
+       - leaked instance 0x74415f859ae0 of type "ttnn._ttnn.operations.unary.gez_t"
+       - ... skipped remainder
+      nanobind: leaked 637 types!
+       - leaked type "ttnn._ttnn.operations.binary.lt__t"
+       - leaked type "ttnn._ttnn.operations.binary_backward.xlogy_bw_t"
+       - leaked type "ttnn._ttnn.operations.reduction.var_t"
+       - leaked type "DispatchCoreAxis"
+       - leaked type "ttnn._ttnn.operations.experimental.ccl_experimental.strided_all_gather_async_t"
+       - leaked type "ttnn._ttnn.operations.unary.fill_t"
+       - leaked type "ttnn._ttnn.operations.data_movement.gather_t"
+       - leaked type "ttnn._ttnn.operations.point_to_point.point_to_point_t"
+       - leaked type "ttnn._ttnn.operations.experimental.rotary_embedding_t"
+       - leaked type "ttnn._ttnn.operations.ternary.where_t"
+       - ... skipped remainder
+      nanobind: leaked 2736 functions!
+       - leaked function ""
+       - leaked function "__call__"
+       - leaked function ""
+       - leaked function ""
+       - leaked function "__call__"
+       - leaked function ""
+       - leaked function ""
+       - leaked function ""
+       - leaked function "__call__"
+       - leaked function "get_system_mesh_id"
+       - ... skipped remainder
+      nanobind: this is likely caused by a reference counting issue in the binding code.
+      See https://nanobind.readthedocs.io/en/latest/refleaks.html
+    assert 1 == 0
+     +  where 1 = CompletedProcess(args=['/home/ttuser/tt-bio-dev/env/bin/python3', '-m', 'pytest', '-q', '-p', 'no:randomly', '--tb=no'...aused by a reference counting issue in the binding code.\nSee https://nanobind.readthedocs.io/en/latest/refleaks.html').returncode
+/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_capacity_gate.py:659: AssertionError: the inner session is red, but not from the pollution this guard is about -- every failure is in test_capacity_gate.py itself:
+E   AssertionError: these models are runnable by the gate but have no cell in docs/capacity_gate_baseline.json, so their verdict is prose and not evidence: ['p300c/opendde', 'p300c/opendde-abag']. Run the gate for them and --record (or --record-from a finished report). A model that genuinely cannot be measured anywhere needs a written EXEMPT reason instead, the way saprot-1.3b has one.
+    assert not ['p300c/opendde', 'p300c/opendde-abag']
+/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_capacity_gate.py:1042: AssertionError: these models are runnable by the gate but have no cell in docs/capacity_gate_baseline.json, so their verdict is prose and not evidence: ['p300c/opendde', 'p300c/opendde-abag']. Run the gate for them and --record (or --record-from a finished report). A model that genuinely cannot be measured anywhere needs a written EXEMPT reason instead, the way saprot-1.3b has one.
+E   AssertionError: tt_bio/tenstorrent.py cites perf/b2z2_adaln_sdpa/chunks_wh_c12.json, which is not in the repo. Either commit the artifact or state the measurement without naming a path.
+    assert False
+     +  where False = _resolves('perf/b2z2_adaln_sdpa/chunks_wh_c12.json')
+/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_perf_citations.py:111: AssertionError: tt_bio/tenstorrent.py cites perf/b2z2_adaln_sdpa/chunks_wh_c12.json, which is not in the repo. Either commit the artifact or state the measurement without naming a path.
+E   AssertionError: tt_bio/tenstorrent.py cites perf/b2z2_layout/PER-SITE-TABLE.md, which is not in the repo. Either commit the artifact or state the measurement without naming a path.
+    assert False
+     +  where False = _resolves('perf/b2z2_layout/PER-SITE-TABLE.md')
+/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_perf_citations.py:111: AssertionError: tt_bio/tenstorrent.py cites perf/b2z2_layout/PER-SITE-TABLE.md, which is not in the repo. Either commit the artifact or state the measurement without naming a path.
+E   AssertionError: Unexpected directories tracked in the repo root: artifacts, patches
+      Measurement artifacts go under perf/, tooling under scripts/. If one genuinely belongs at the root, add it to ALLOWED_DIRS in this test with a reason.
+    assert not ['artifacts', 'patches']
+/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_repo_root_clean.py:77: AssertionError: Unexpected directories tracked in the repo root: artifacts, patches
+E   AssertionError: the above-cap route ships on
+    assert False is True
+     +  where False = <module 'tt_bio.tenstorrent' from '/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tt_bio/tenstorrent.py'>._SDPA_FUSED_LARGE_S
+/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_sdpa_fused_pairs.py:46: AssertionError: the above-cap route ships on
+E   AssertionError: the size ladder walks rungs these recorded cells have never been measured at, so `release_gate.py --model size-ladder` will report 'rung not recorded in the baseline' for each of them after hours on a card:
+        p150a/boltz2: no cell at 896, 1024
+        p150a/nesso1: no cell at 896, 1024
+        p150a/openbind: no cell at 896, 1024
+        p150a/opendde: no cell at 896, 1024
+        p150a/openfold3: no cell at 896, 1024
+      
+      Re-record on a card of that type: python3 scripts/release_gate.py --model size-ladder --size-ladder-record
+    assert not ['p150a/boltz2: no cell at 896, 1024', 'p150a/nesso1: no cell at 896, 1024', 'p150a/openbind: no cell at 896, 1024', 'p150a/opendde: no cell at 896, 1024', 'p150a/openfold3: no cell at 896, 1024']
+/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_size_ladder_gate.py:1057: AssertionError: the size ladder walks rungs these recorded cells have never been measured at, so `release_gate.py --model size-ladder` will report 'rung not recorded in the baseline' for each of them after hours on a card:
+E   AssertionError: esmc-6b job failed:
+      Loading esmc-6b …
+      
+      Traceback (most recent call last):
+        File "<frozen runpy>", line 198, in _run_module_as_main
+        File "<frozen runpy>", line 88, in _run_code
+        File "/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tt_bio/main.py", line 4286, in <module>
+          cli()
+        File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/click/core.py", line 1631, in __call__
+          return self.main(*args, **kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/click/core.py", line 1552, in main
+          rv = self.invoke(ctx)
+               ^^^^^^^^^^^^^^^^
+        File "/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tt_bio/main.py", line 1693, in invoke
+          return super().invoke(ctx)
+                 ^^^^^^^^^^^^^^^^^^^
+        File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/click/core.py", line 2032, in invoke
+          return _process_result(sub_ctx.command.invoke(sub_ctx))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/click/core.py", line 1415, in invoke
+          return ctx.invoke(self.callback, **ctx.params)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/click/core.py", line 910, in invoke
+          return callback(*args, **kwargs)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tt_bio/main.py", line 3680, in embed_cmd
+          m = esmc.load_esmc(model, fast=fast, trace=esmc.trace_pays(seqs))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tt_bio/esmc.py", line 1607, in load_esmc
+          return ESMCLanguageModel.from_pretrained(name=name)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tt_bio/esmc.py", line 1350, in from_pretrained
+          model.load_state_dict(load_esmc6b_state_dict(snap), strict=False)
+        File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/torch/nn/modules/module.py", line 2604, in load_state_dict
+          load(self, state_dict)
+        File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/torch/nn/modules/module.py", line 2575, in load
+          module._load_from_state_dict(
+        File "/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tt_bio/tenstorrent.py", line 10711, in _load_from_state_dict
+          self.module = self._create_module(WeightScope.wrap(state_dict).child(prefix[:-1]))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tt_bio/esmc.py", line 1354, in _create_module
+          return ESMCHiddenStatesModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tt_bio/esmc.py", line 1287, in __init__
+          self.embed = Embedding(self.scope("embed"), compute_kernel_config)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tt_bio/esmc.py", line 179, in __init__
+          self.weight = self.torch_to_tt("weight", transform=lambda x: x)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        File "/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tt_bio/tenstorrent.py", line 5471, in torch_to_tt
+          transform(self.weights[key]),
+                    ~~~~~~~~~~~~^^^^^
+        File "/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tt_bio/tenstorrent.py", line 5398, in __getitem__
+          return self._data[key]
+                 ~~~~~~~~~~^^^^^
+      KeyError: 'weight'
+      
+    assert 1 == 0
+     +  where 1 = CompletedProcess(args=['/home/ttuser/tt-bio-dev/env/bin/python3', '-m', 'tt_bio.main', 'embed', '/tmp/tmp08qca_z8/q.fa...orrent.py", line 5398, in __getitem__\n    return self._data[key]\n           ~~~~~~~~~~^^^^^\nKeyError: \'weight\'\n').returncode
+/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_token_axis_bucketing_hw.py:183: AssertionError: esmc-6b job failed:
+E   AssertionError: esmfold2 job failed:
+      
+      1 failed:
+        ✗ q: 'weight'
+            [tt_bio origin: tenstorrent.py:5398 in __getitem__]
+      
+      Done: 0 ok, 1 failed — /tmp/tmprdfa7kpo/out/esmfold2_results_q/results.json
+      
+      01:21:28  [tt-quietbox2:tt3] loading model…
+      01:21:43  [tt-quietbox2:tt3] ✗ q — 0.0s
+      
+    assert 1 == 0
+     +  where 1 = CompletedProcess(args=['/home/ttuser/tt-bio-dev/env/bin/python3', '-m', 'tt_bio.main', 'predict', '/tmp/tmprdfa7kpo/q....lts_q/results.json\n", stderr='01:21:28  [tt-quietbox2:tt3] loading model…\n01:21:43  [tt-quietbox2:tt3] ✗ q — 0.0s\n').returncode
+/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_token_axis_bucketing_hw.py:183: AssertionError: esmfold2 job failed:
+E   AssertionError: esmfold2-fast job failed:
+      
+      1 failed:
+        ✗ q: 'weight'
+            [tt_bio origin: tenstorrent.py:5398 in __getitem__]
+      
+      Done: 0 ok, 1 failed — /tmp/tmpkaozb2ra/out/esmfold2_results_q/results.json
+      
+      01:21:51  [tt-quietbox2:tt3] loading model…
+      01:22:05  [tt-quietbox2:tt3] ✗ q — 0.0s
+      
+    assert 1 == 0
+     +  where 1 = CompletedProcess(args=['/home/ttuser/tt-bio-dev/env/bin/python3', '-m', 'tt_bio.main', 'predict', '/tmp/tmpkaozb2ra/q....lts_q/results.json\n", stderr='01:21:51  [tt-quietbox2:tt3] loading model…\n01:22:05  [tt-quietbox2:tt3] ✗ q — 0.0s\n').returncode
+/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_token_axis_bucketing_hw.py:183: AssertionError: esmfold2-fast job failed:
+E   AssertionError: esmfold2 job failed:
+      
+      1 failed:
+        ✗ q: 'weight'
+            [tt_bio origin: tenstorrent.py:5398 in __getitem__]
+      
+      Done: 0 ok, 1 failed — /tmp/tmp7drg_v6q/out/esmfold2_results_q/results.json
+      
+      01:29:00  [tt-quietbox2:tt3] loading model…
+      01:29:12  [tt-quietbox2:tt3] ✗ q — 0.0s
+      
+    assert 1 == 0
+     +  where 1 = CompletedProcess(args=['/home/ttuser/tt-bio-dev/env/bin/python3', '-m', 'tt_bio.main', 'predict', '/tmp/tmp7drg_v6q/q....lts_q/results.json\n", stderr='01:29:00  [tt-quietbox2:tt3] loading model…\n01:29:12  [tt-quietbox2:tt3] ✗ q — 0.0s\n').returncode
+/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_token_axis_bucketing_hw.py:183: AssertionError: esmfold2 job failed:
+E   AssertionError: esmfold2-fast job failed:
+      
+      1 failed:
+        ✗ q: 'weight'
+            [tt_bio origin: tenstorrent.py:5398 in __getitem__]
+      
+      Done: 0 ok, 1 failed — /tmp/tmp5ep697_2/out/esmfold2_results_q/results.json
+      
+      01:29:19  [tt-quietbox2:tt3] loading model…
+      01:29:31  [tt-quietbox2:tt3] ✗ q — 0.0s
+      
+    assert 1 == 0
+     +  where 1 = CompletedProcess(args=['/home/ttuser/tt-bio-dev/env/bin/python3', '-m', 'tt_bio.main', 'predict', '/tmp/tmp5ep697_2/q....lts_q/results.json\n", stderr='01:29:19  [tt-quietbox2:tt3] loading model…\n01:29:31  [tt-quietbox2:tt3] ✗ q — 0.0s\n').returncode
+/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_token_axis_bucketing_hw.py:183: AssertionError: esmfold2-fast job failed:
+E   _queue.Empty
+/usr/lib/python3.12/multiprocessing/queues.py:114: _queue.Empty
+=============================== warnings summary ===============================
+tests/test_nesso1_input.py: 2 warnings
+tests/test_rf3_featurizer.py: 1 warning
+tests/test_weights_download_lock.py: 6 warnings
+tests/test_worker_liveness.py: 1 warning
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=4025) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:629: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    record = np.char.array(np.where(array.hetero, "HETATM", "ATOM"))
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:636: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    b_factor = np.char.array([f"{b:>6.2f}" for b in array.b_factor])
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:640: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    occupancy = np.char.array([f"{o:>6.2f}" for o in array.occupancy])
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:653: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    charge = np.char.array(np.full(natoms, "  ", dtype="U2"))
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:661: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    pdb_atom_id = np.char.array(
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:668: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    pdb_res_id = np.char.array(
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:676: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    names = np.char.array(
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:682: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    res_names = np.char.array(array.res_name)
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:683: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    chain_ids = np.char.array(array.chain_id)
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:684: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    ins_codes = np.char.array(array.ins_code)
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:685: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    spaces = np.char.array(np.full(natoms, " ", dtype="U1"))
+
+tests/test_pdb_bfactor.py::test_pdb_output_carries_the_plddt_b_factors
+tests/test_pdb_chain_ids.py::test_bare_fasta_header_chain_ids_are_relabelled_and_remarked
+tests/test_pdb_chain_ids.py::test_the_remark_block_comes_before_the_coordinates
+tests/test_pdb_chain_ids.py::test_single_character_chain_ids_are_left_exactly_as_they_were
+tests/test_pdb_chain_ids.py::test_plddt_still_reaches_the_b_factor_column_through_the_relabelling
+tests/test_pdb_chain_ids.py::test_thirty_chains_get_thirty_distinct_one_character_ids
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:686: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    elements = np.char.array(array.element)
+
+tests/test_pdb_chain_ids.py::test_a_five_character_ccd_code_is_truncated_and_remarked
+tests/test_pdb_chain_ids.py::test_write_atom_array_does_not_mutate_the_caller_s_array
+  /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/biotite/structure/io/pdb/file.py:642: DeprecationWarning: The chararray class is deprecated and will be removed in a future release. Use an ndarray with a string or bytes dtype instead.
+    occupancy = np.char.array(np.full(natoms, "  1.00", dtype="U6"))
+
+tests/test_rf3_featurizer.py::test_rf3_featurizer_parity
+  /home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:387: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_protein[atom_array.token_id.astype(np.int32)]
+
+tests/test_weights_registry.py::test_tar_extraction_promotes_the_single_top_level_dir
+  /usr/lib/python3.12/tarfile.py:2301: DeprecationWarning: Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata. Use the filter argument to control this behavior.
+    warnings.warn(
+
+tests/test_worker_liveness.py::test_silence_subprocess_output_preserves_real_stderr
+  /home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship/tests/test_worker_liveness.py:109: DeprecationWarning: This process (pid=4025) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_capacity_gate.py::test_a_moved_ceiling_re_runs_the_capacity_gate
+FAILED tests/test_capacity_gate.py::test_this_file_does_not_break_the_files_that_run_after_it
+FAILED tests/test_capacity_gate.py::test_every_runnable_model_has_a_recorded_cell
+FAILED tests/test_perf_citations.py::test_cited_perf_artifact_exists[tt_bio/tenstorrent.py-perf/b2z2_adaln_sdpa/chunks_wh_c12.json]
+FAILED tests/test_perf_citations.py::test_cited_perf_artifact_exists[tt_bio/tenstorrent.py-perf/b2z2_layout/PER-SITE-TABLE.md]
+FAILED tests/test_repo_root_clean.py::test_repo_root_has_no_stray_directories
+FAILED tests/test_sdpa_fused_pairs.py::test_the_above_cap_route_is_strictly_above_the_cap
+FAILED tests/test_size_ladder_gate.py::test_every_recorded_card_covers_every_rung_the_ladder_walks
+FAILED tests/test_token_axis_bucketing_hw.py::test_no_bucketed_model_reaches_a_ragged_fused_sdpa[esmc-6b]
+FAILED tests/test_token_axis_bucketing_hw.py::test_no_bucketed_model_reaches_a_ragged_fused_sdpa[esmfold2]
+FAILED tests/test_token_axis_bucketing_hw.py::test_no_bucketed_model_reaches_a_ragged_fused_sdpa[esmfold2-fast]
+FAILED tests/test_token_axis_bucketing_hw.py::test_a_ligand_token_axis_is_not_ragged_either[esmfold2]
+FAILED tests/test_token_axis_bucketing_hw.py::test_a_ligand_token_axis_is_not_ragged_either[esmfold2-fast]
+FAILED tests/test_weights_download_lock.py::test_lock_is_released_when_the_holder_dies
+14 failed, 3624 passed, 133 skipped, 109 warnings in 1616.63s (0:26:56)

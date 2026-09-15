@@ -1,0 +1,189 @@
+
+##############################################################################
+UX GATE — leg 3: CLI behaves (predict / embed / saprot / affinity / design / deprecated gen alias)
+##############################################################################
+  ✓ predict / embed / saprot / affinity / design --help, deprecated gen run --help (warns), tt-bio --help: all exit 0, list their core flags, and list all 20 shipped --model choices
+##############################################################################
+
+======================================================================
+[boltz2] predict trpcage.yaml (recyc=2, steps=4, samples=1)
+======================================================================
+
+======================================================================
+[esmfold2] predict trpcage.yaml (recyc=2, steps=4, samples=1)
+======================================================================
+
+======================================================================
+[esmfold2-fast] predict trpcage.yaml (recyc=2, steps=4, samples=1)
+======================================================================
+
+======================================================================
+[protenix-v1] predict trpcage.yaml (recyc=2, steps=4, samples=1)
+======================================================================
+
+======================================================================
+[protenix-v2] predict trpcage.yaml (recyc=2, steps=4, samples=1)
+======================================================================
+
+======================================================================
+[openfold3] predict trpcage.yaml (recyc=2, steps=4, samples=1)
+======================================================================
+
+======================================================================
+[openbind] predict trpcage.yaml (recyc=2, steps=4, samples=1)
+======================================================================
+
+======================================================================
+[opendde] predict trpcage.yaml (recyc=2, steps=4, samples=1)
+======================================================================
+
+======================================================================
+[opendde-abag] predict 1ahw_abag.yaml (recyc=2, steps=4, samples=1)
+======================================================================
+
+======================================================================
+[rf3] predict trpcage.yaml (recyc=2, steps=4, samples=1)
+======================================================================
+
+======================================================================
+[esmc-300m] embed tiny (L=20)
+======================================================================
+
+======================================================================
+[esmc-600m] embed tiny (L=20)
+======================================================================
+
+======================================================================
+[esmc-6b] embed tiny (L=20)
+======================================================================
+
+======================================================================
+[saprot-35m] embed tiny (L=20)
+======================================================================
+
+======================================================================
+[saprot-650m] embed tiny (L=20)
+======================================================================
+
+======================================================================
+[saprot-1.3b] embed tiny (L=20)
+======================================================================
+
+======================================================================
+[boltzgen] design --model boltzgen binder.yaml (protein-anything, 1 design)
+======================================================================
+
+======================================================================
+[boltz2-affinity] predict affinity_fkg.yaml (affinity mode, recyc=2, steps=4, samples=1)
+======================================================================
+
+======================================================================
+[nesso1] affinity affinity_fkg.yaml (CLI defaults)
+======================================================================
+
+======================================================================
+[rfd3] design iai_inputs.yaml (1 design, --from_pdb --num_timesteps 4)
+======================================================================
+
+======================================================================
+[pxdesign] design PDL1.yaml (1 design, --n_step 8)
+======================================================================
+
+##############################################################################
+UX GATE — summary (fold fixtures: trpcage.yaml / 1ahw_abag.yaml (opendde-abag), recyc=2, steps=4, samples=1, seed=0)
+##############################################################################
+boltz2                29s  PASS
+  progress=True parse=True results=True
+  progress: OK
+  parse: OK
+  results.json: OK
+esmfold2              14s  FAIL (predict exited 1: See https://nanobind.readthedocs.io/en/latest/refleaks.html)
+  progress=False parse=False results=False
+esmfold2-fast         17s  FAIL (predict exited 1: See https://nanobind.readthedocs.io/en/latest/refleaks.html)
+  progress=False parse=False results=False
+protenix-v1           16s  PASS
+  progress=True parse=True results=True
+  progress: OK
+  parse: OK
+  results.json: OK
+protenix-v2           28s  PASS
+  progress=True parse=True results=True
+  progress: OK
+  parse: OK
+  results.json: OK
+openfold3             26s  PASS
+  progress=True parse=True results=True
+  progress: OK
+  parse: OK
+  results.json: OK
+openbind              29s  PASS
+  progress=True parse=True results=True
+  progress: OK
+  parse: OK
+  results.json: OK
+opendde               43s  PASS
+  progress=True parse=True results=True
+  progress: OK
+  parse: OK
+  results.json: OK
+opendde-abag          81s  PASS
+  progress=True parse=True results=True
+  progress: OK
+  parse: OK
+  results.json: OK
+rf3                   24s  PASS
+  progress=True parse=True results=True
+  progress: OK
+  parse: OK
+  results.json: OK
+esmc-300m              4s  PASS
+  progress=True parse=True manifest=True
+  progress(stdout): OK
+  parse(npz): OK
+  manifest: OK
+esmc-600m             10s  PASS
+  progress=True parse=True manifest=True
+  progress(stdout): OK
+  parse(npz): OK
+  manifest: OK
+esmc-6b                5s  FAIL (embed exited 1: KeyError: 'weight')
+  progress=False parse=False manifest=False
+saprot-35m             7s  PASS
+  progress=True parse=True manifest=True
+  progress(stdout): OK
+  parse(npz): OK
+  manifest: OK
+saprot-650m           11s  PASS
+  progress=True parse=True manifest=True
+  progress(stdout): OK
+  parse(npz): OK
+  manifest: OK
+saprot-1.3b           10s  PASS
+  progress=True parse=True manifest=True
+  progress(stdout): OK
+  parse(npz): OK
+  manifest: OK
+boltzgen              66s  PASS
+  progress=True parse=True metrics=True
+  progress: OK
+  parse: OK
+  metrics: OK
+boltz2-affinity      124s  PASS
+  progress=True parse=True results=True
+  progress: OK
+  parse: OK
+  results.json: OK
+nesso1                16s  PASS
+  progress=True results=True
+  progress(stdout): OK
+  affinity.csv + json: OK
+rfd3                   4s  PASS
+  progress=True parse=True
+  progress: OK
+  parse: OK
+pxdesign               4s  PASS
+  progress=True parse=True
+  progress: OK
+  parse: OK
+##############################################################################
+GATE FAIL — a surface missed a UX leg (see above). A UX regression blocks a tag, same standing as an accuracy regression.
