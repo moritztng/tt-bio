@@ -139,7 +139,16 @@ reap_card() {
 # 500 s each: 768 aa completed in 47.196 s and 1024 aa in 57.775-59.067 s when they completed,
 # so this is 8x the longest good fold and still lets all six arms fit inside one of this box's
 # boots. An arm that hits it records rc=124 and the next arm runs.
+# GATE_SKIP_NEUT names, honestly, that these two sizes are already recorded somewhere else rather
+# than pretending they ran here. gate4 on qb1 folded both off/on/off with one arm per process and
+# got byte-identical CIFs (768 aa 38aabd4058facb3f, 1024 aa 649aad7b46727c7e), so re-running them
+# on a box that has never once completed the 768 aa on-arm spends windows to re-learn a banked
+# result. Do NOT write fake rc= lines to get the same effect: the skip has to be visible in the
+# progress file as a skip, or a later reader cannot tell measured from assumed.
 ARM_TIMEOUT=500
+if [ "${GATE_SKIP_NEUT:-0}" = 1 ]; then
+  log "neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1"
+else
 for sz in 768 1024; do
   for arm in off1:off on1:on off2:off; do
     tag="${arm%%:*}"; a="${arm##*:}"
@@ -147,12 +156,31 @@ for sz in 768 1024; do
         --dir "$OUT/f$sz" --arm "$a" --tag "cdk2x2_${sz}_$tag" --fixture "cdk2x2_$sz"
   done
 done
+fi
 
 unset ARM_TIMEOUT
 
 # The suite opens a device, so it is pinned rather than run card-free. `-rf` because the run that
 # died at 89 % had nine F marks and no summary line, which names nothing.
-run_arm pytest        0 $P -m pytest -q --tb=line -rf
+# The suite is CHUNKED, for the same reason the model rosters are: an arm that cannot finish inside
+# one boot never records an rc, so it restarts from scratch forever and the gate livelocks while
+# looking busy. qb2's last seven boot intervals were 18.5, 15.9, 15.6, 14.7, 9.3, 30.0 and 18.8
+# minutes, a 17.5 min mean, and the whole suite is about 20 minutes. That is not "slow", it is
+# arithmetically unable to complete: every relaunch got about as far as 52 % and died.
+#
+# Round-robin over the SORTED file list, not a hand-written list of files. A static list silently
+# stops covering whatever test file is added next, which is a recurring defect class here; this way
+# a new tests/test_*.py joins a chunk the first time the gate runs after it lands. Six chunks puts
+# each at roughly three minutes, comfortably inside even a bad window.
+#
+# Chunking is not a weaker check: every file lands in exactly one chunk, so the same tests run. The
+# cost is re-paying pytest startup and the ttnn import per chunk.
+PYTEST_CHUNKS=6
+for k in $(seq 0 $((PYTEST_CHUNKS - 1))); do
+  files=$(ls tests/test_*.py | sort | awk -v k="$k" -v n="$PYTEST_CHUNKS" 'NR % n == k')
+  [ -z "$files" ] && continue
+  run_arm "pytest-$k" 0 $P -m pytest -q --tb=line -rf $files
+done
 
 # qb2's mean uptime is 52 min over its last 14 boots (731 min, 2026-09-14T15:07Z ->
 # 2026-09-15T03:18Z). An arm that needs longer than one boot never records an rc and so reruns
