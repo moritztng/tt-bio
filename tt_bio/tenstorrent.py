@@ -2421,6 +2421,18 @@ def _dram_interleaved(t: ttnn.Tensor) -> bool:
 # firing on RF3 at 768 or 1024 aa (0 refusals in 166278 and 442226 served calls), so the ladder is
 # insurance against a class that clashes beside a live block, not a measured win.
 _BMM_CFG_RUNG: dict = {}
+# Config classes already reported by TT_BIO_BMM_TRACE this process.
+_BMM_TRACED: set = set()
+
+
+def _bmm_cfg_fields(cfg) -> str:
+    """The block dims of a matmul program config as one short string, or why there is none."""
+    if cfg is None:
+        return "none"
+    return " ".join(f"{f}={getattr(cfg, f)}" for f in
+                    ("compute_with_storage_grid_size", "in0_block_w", "out_subblock_h",
+                     "out_subblock_w", "per_core_M", "per_core_N")
+                    if hasattr(cfg, f))
 # Classes with no tuned config left, i.e. whose ladder ran out.
 _BMM_CFG_REFUSED: set = set()
 
@@ -2551,6 +2563,31 @@ def format_l1_census(census: Mapping) -> str:
     return "L1 census: " + " ".join(f"{k}={v}" for k, v in census.items())
 
 
+def report_l1_refusal(where: str, exc: BaseException) -> bool:
+    """Say on stderr that a device L1 refusal under `where` was absorbed. False if it was not one.
+
+    Split out of `absorb_l1_refusal` because the two kinds of call site want the same reporting and
+    opposite control flow. A ladder that retries a narrower plan wants anything that is NOT an L1
+    refusal re-raised, which is `absorb_l1_refusal`. A site whose fallback is correct for any
+    refusal -- the whole-tensor projection, the stock program config -- must keep absorbing, and
+    only owes the reader the line that says the `critical` text above it was expected. Without that
+    line the census is silent too, which is how `throws=2 absorbed=0` in a 1024 aa log left both of
+    those throws unattributable to any site in this file.
+    """
+    if "circular buffers" not in str(exc):
+        return False
+    census = note_l1_clash(where, exc)
+    line = (f"[tt-bio] {where}: device refused this L1 plan, retrying a narrower one "
+            "(expected, not a crash)")
+    if census:
+        line += "\n[tt-bio] " + format_l1_census(census)
+    try:
+        os.write(2, (line + "\n").encode("utf-8", "replace"))
+    except OSError:
+        pass
+    return True
+
+
 def absorb_l1_refusal(where: str, exc: BaseException) -> None:
     """Absorb a device refusal of an L1 plan under `where`, or re-raise what is not one.
 
@@ -2562,17 +2599,8 @@ def absorb_l1_refusal(where: str, exc: BaseException) -> None:
     was absorbed. The census goes with it -- the ladder used to record the refused chunk in a
     private set and never tell `L1_CLASH_CENSUS`, which is why this class stayed unattributable.
     """
-    if "circular buffers" not in str(exc):
+    if not report_l1_refusal(where, exc):
         raise exc
-    census = note_l1_clash(where, exc)
-    line = (f"[tt-bio] {where}: device refused this L1 plan, retrying a narrower one "
-            "(expected, not a crash)")
-    if census:
-        line += "\n[tt-bio] " + format_l1_census(census)
-    try:
-        os.write(2, (line + "\n").encode("utf-8", "replace"))
-    except OSError:
-        pass
 
 
 def note_l1_clash(where: str, msg: object) -> dict | None:
@@ -2616,6 +2644,13 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
         cfg = _batched_matmul_config(
             batch, -(-sa[-2] // 32), -(-sa[-1] // 32), -(-sb[-1] // 32),
             4 if a.dtype == ttnn.float32 else 2, rung)
+    if os.environ.get("TT_BIO_BMM_TRACE") and key is not None and key not in _BMM_TRACED:
+        # One line the first time a config class is seen, so the class sets of two arms can be
+        # diffed without a device. A wedge only one arm reaches is a class only that arm builds,
+        # and the class is what a guard would have to name. Debug only.
+        _BMM_TRACED.add(key)
+        print(f"[bmm] key={key} rung={rung} cfg={_bmm_cfg_fields(cfg)}",
+              file=sys.stderr, flush=True)
     kw = {} if dtype is None else {"dtype": dtype}
     if cfg is None and rung:
         _BMM_CFG_REFUSED.add(key)
@@ -2627,6 +2662,13 @@ def batched_matmul(a: ttnn.Tensor, b: ttnn.Tensor, compute_kernel_config=None,
             _latch("bmm_cfg", "served")
             return out
         except Exception as e:                                                  # noqa: BLE001
+            # A tuned config the device declines is the one case this ladder exists for: say so,
+            # retire the class one rung and hand the call to ttnn's own planner. Anything else --
+            # a bad shape, a compile error, a factory that built an illegal config -- used to be
+            # absorbed here too, which is how a broken config reads as "ttnn was slower today"
+            # and nothing in the log says otherwise. Those re-raise.
+            if not (report_l1_refusal(f"batched_matmul/cfg rung{rung}", e) or _dram_oom(e)):
+                raise
             _BMM_CFG_RUNG[key] = rung + 1
             _latch("bmm_cfg", "refused", e)
             cfg = None
@@ -6205,9 +6247,12 @@ class TriangleMultiplication(Module):
                                                gp_off("g_b", slice_c), slice_c,
                                                out=b, row_off=s_off)
                 ttnn.deallocate(blk)
-        except RuntimeError:
+        except RuntimeError as exc:
             # An L1 refusal here is a budget miss, not a wrong answer: drop what was allocated and
-            # let the caller run the whole-tensor projection.
+            # let the caller run the whole-tensor projection. Report it first, so the `critical`
+            # text tt-metal already wrote to fd 2 is attributed to this site instead of reading
+            # like the cause of death of a fold that went on to finish.
+            report_l1_refusal("reblock_gated_inproj", exc)
             for t in (a, b):
                 if t is not None:
                     ttnn.deallocate(t)
