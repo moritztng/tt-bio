@@ -1,0 +1,15 @@
+benchlock: worker:ttx-a3-sdpa-ship-remerge waiting; currently held by: worker:ttx-a3-sdpa-ship-remerge pid=13896 since=2026-09-15T09:59:59+00:00
+benchlock: worker:ttx-a3-sdpa-ship-remerge acquired after 19s, loadavg 1.82 0.97 0.38
+[boltz2] 1.813307 structures/s  (551 ms/call, load 3s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — boltz2  | threshold ±15%  | warm (2 warmup + 5 timed)
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+boltz2          structures/s           1.76      1.813     +3.1%      PASS
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: trpcage (20 aa, single-seq)
+##############################################################################
+GATE PASS — no model regressed beyond ±15%
+benchlock: worker:ttx-a3-sdpa-ship-remerge released, rc=0, loadavg 3.66 1.40 0.53

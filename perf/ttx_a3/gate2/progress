@@ -70,3 +70,9 @@
 2026-09-15T09:59:59Z ladder-rf3 rc=PARKED-BEHIND-SHORT-ARMS needs ~50min of box; qb2 reset at 08:55:45, 09:26:08, 09:38:28, 09:52:33 (30/12/14 min) while tt-bio-sizeladder-p300c-refresh runs a 60-fold record on cards 1-2. Its rungs 256-1024 already read CLEAN in the 08:47 run (20.6/37.8/52.5/69.3/107.6/122.6s, no drift row) and its 1088 rung is measured far better by the 8-rep A/B in perf/ttx_a3/gate2/rf3_1088 than by one ladder fold. Retry after the sibling lands: delete this row.
 2026-09-15T09:59:59Z resume_after_boot relaunching (uptime 453s)
 2026-09-15T09:59:59Z perf-boltz2 START loadavg=4.69
+2026-09-15T10:09:54Z resume_after_boot relaunching (uptime 150s)
+2026-09-15T10:09:54Z perf-boltz2 START loadavg=2.06
+2026-09-15T10:10:27Z perf-boltz2 rc=0 loadavg=3.66
+2026-09-15T10:10:27Z perf-boltz2-affinity START loadavg=3.66
+2026-09-15T10:16:17Z perf-boltz2-affinity rc=1 loadavg=10.58
+2026-09-15T10:20:05Z perf-boltz2-affinity rc=1 is a candidate NO-GO (-55.9%); pausing the roster to attribute it. benchlock acquired at loadavg 1.82 and released at 10.58, and the input is L107, far under the 1024 cap.

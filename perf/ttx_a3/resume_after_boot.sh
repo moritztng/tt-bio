@@ -26,21 +26,21 @@ WT=/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge
 [ -d "$WT" ] || exit 0
 cd "$WT" || exit 0
 PROG=perf/ttx_a3/gate2/progress
-# While PAUSE exists the main gate stands down and the rf3/1088 attribution control owns the card
+# While PAUSE exists the main gate stands down and the boltz2-affinity attribution control owns the card
 # instead. That control is the one measurement that can turn this into a NO-GO, so it gets the box
 # first, and it needs the same boot survival as the gate: qb2 reset 28 minutes into the boot the
 # stall was found on. Remove PAUSE to hand the card back to the gate.
 if [ -f perf/ttx_a3/gate2/PAUSE ]; then
-  grep -q RF3_1088_DONE perf/ttx_a3/gate2/rf3_1088/progress 2>/dev/null && exit 0
-  pgrep -f "^bash perf/ttx_a3/attr_rf3_1088\.sh$" > /dev/null && exit 0
+  grep -q AFFINITY_ATTR_DONE perf/ttx_a3/gate2/affinity_attr/progress 2>/dev/null && exit 0
+  pgrep -f "^bash perf/ttx_a3/attr_affinity\.sh$" > /dev/null && exit 0
   up=$(cut -d. -f1 /proc/uptime)
   [ "$up" -lt 150 ] && sleep $((150 - up))
-  mkdir -p perf/ttx_a3/gate2/rf3_1088
+  mkdir -p perf/ttx_a3/gate2/affinity_attr
   printf '%s resume_after_boot relaunching ATTR (uptime %ss)\n' \
          "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(cut -d. -f1 /proc/uptime)" \
-         >> perf/ttx_a3/gate2/rf3_1088/progress
-  setsid nohup bash perf/ttx_a3/attr_rf3_1088.sh \
-    >> perf/ttx_a3/gate2/rf3_1088/driver.log 2>&1 < /dev/null &
+         >> perf/ttx_a3/gate2/affinity_attr/progress
+  setsid nohup bash perf/ttx_a3/attr_affinity.sh \
+    >> perf/ttx_a3/gate2/affinity_attr/driver.log 2>&1 < /dev/null &
   exit 0
 fi
 grep -q GATE_DRIVER_DONE "$PROG" 2>/dev/null && exit 0
