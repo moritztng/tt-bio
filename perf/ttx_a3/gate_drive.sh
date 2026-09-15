@@ -76,17 +76,62 @@ run_arm() {  # $1 = name, $2 = needs a quiet box (0/1), rest = argv
 # The suite opens a device, so it is pinned rather than run card-free. `-rf` because the run that
 # died at 89 % had nine F marks and no summary line, which names nothing.
 run_arm pytest        0 $P -m pytest -q --tb=line -rf
-run_arm capacity      0 $P scripts/capacity_gate.py
-run_arm ux            0 $P scripts/ux_regression.py
-run_arm size-ladder   1 $P scripts/release_gate.py --model size-ladder
-# perf_regression compares wall clock against docs/perf_baselines.json, so it is the one arm
-# where a co-tenant turns a slow measurement into a wrong one. It takes benchlock rather than
-# wait_quiet: benchlock also excludes a foreign fold, and it interlocks with the sibling perf
-# campaigns on this box instead of merely sampling loadavg. The size ladder stays on wait_quiet
-# -- its exponent tolerance is +-0.50, far above co-tenant noise, and an exclusive hold across
-# 9 models x 4 rungs would park every other perf task on qb2 for hours.
+
+# qb2's mean uptime is 52 min over its last 14 boots (731 min, 2026-09-14T15:07Z ->
+# 2026-09-15T03:18Z). An arm that needs longer than one boot never records an rc and so reruns
+# from scratch forever: the monolithic capacity roster is ~2 h, the size ladder is 9 models x 4
+# rungs and the perf arm is 20 models. All three take a model list, so all three are chunked one
+# model per arm and each chunk fits inside a boot.
+#
+# Chunking is not a weaker check. A capacity cell is per (model, card type) and independent of
+# every other cell. release_gate.py's own --size-ladder-models exists for this exact reason ("a
+# 6-model record is ~2 h of device time, so it has to be resumable a model at a time"); the only
+# thing a per-model ladder run skips is _size_ladder_coverage_gap, which
+# tests/test_size_ladder_gate.py checks in the pytest arm already. perf_regression.py --model is
+# repeatable and scores per model against docs/perf_baselines.json either way.
+#
+# --no-card-reset is not optional on this box: a tt-smi reset takes the whole board PAIR down and
+# sibling campaigns hold the other cards.
 BENCH=/home/ttuser/.coworker/scripts/benchlock.sh
-run_arm perf          0 bash $BENCH "$HOLDER" -- $P scripts/perf_regression.py
+
+CAP_MODELS="boltz2 esmfold2 esmfold2-fast protenix-v1 protenix-v2 openfold3 openbind opendde \
+            opendde-abag rf3 esmc-300m esmc-600m esmc-6b saprot-35m saprot-650m"
+LADDER_MODELS="boltz2 esmfold2 protenix-v1 protenix-v2 openfold3 opendde rf3 nesso1 openbind"
+PERF_MODELS="boltz2 boltz2-affinity esmfold2 esmfold2-fast protenix-v1 protenix-v2 openfold3 \
+             openbind opendde opendde-abag rf3 rfd3 pxdesign boltzgen nesso1 esmc-300m \
+             esmc-300m-single esmc-600m esmc-6b saprot-650m"
+
+# ux is 10 minutes and it holds the last three of the eight reds the weights outage caused, so it
+# runs before the long arms.
+run_arm ux 0 $P scripts/ux_regression.py
+
+# boltz2 leads the roster: 1536 tokens is the only gate arm that folds in this lever's own regime,
+# and boltz2 is the model the 1.1856x was measured on.
+for m in $CAP_MODELS; do
+  run_arm "capacity-$m" 0 $P scripts/capacity_gate.py --models "$m" \
+      --workers "tt-quietbox2:$CARD" --no-card-reset \
+      --work-dir "$OUT/cap-$m" --report "$OUT/capacity_$m.json"
+done
+
+# Untimed. The ladder's verdict is the fired/dark lever census plus a runtime exponent whose
+# tolerance floors at +-0.50; co-tenant noise on this box is 1-10 % and a load factor common to
+# two rungs cancels out of their ratio. Holding benchlock across 9 models x 4 rungs would park
+# every other perf task on qb2 for hours to tighten a band that is already 5x the signal.
+for m in $LADDER_MODELS; do
+  run_arm "ladder-$m" 0 $P scripts/release_gate.py --model size-ladder --size-ladder-models "$m"
+done
+
+# perf_regression compares wall clock against docs/perf_baselines.json, so it is the one arm where
+# a co-tenant makes the number wrong rather than slow. It takes benchlock, which also excludes a
+# foreign fold instead of merely sampling loadavg.
+for m in $PERF_MODELS; do
+  run_arm "perf-$m" 0 bash $BENCH "$HOLDER" -- $P scripts/perf_regression.py --model "$m"
+done
+
+# Last, and the only arm that resumes on its own: full_parity_gate caches per-leg verdicts in the
+# workdir and fingerprints tt_bio/ + scripts/, so nothing under tt_bio/ or scripts/ may change
+# once this starts. All 44 legs are below the 1024-token cap, so this is the neutrality control
+# for the fallthrough, not evidence about the route.
 run_arm parity        0 $P scripts/full_parity_gate.py --workers tt-quietbox2:$CARD \
           --workdir "$OUT/parity-workdir" --out "$OUT/parity.json"
 log "GATE_DRIVER_DONE"

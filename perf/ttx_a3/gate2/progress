@@ -1,3 +1,4 @@
 2026-09-15T03:41:47Z pytest START loadavg=2.01
 2026-09-15T04:01:10Z pytest rc=1 loadavg=10.43
 2026-09-15T04:01:10Z capacity START loadavg=10.43
+2026-09-15T04:06:45Z capacity ABORTED-BY-RESTRUCTURE (monolithic roster ~2h cannot fit a 52min boot; replaced by capacity-<model>)
