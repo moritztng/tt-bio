@@ -1,0 +1,44 @@
+{
+ "arm": "on",
+ "tag": "cdk2x2_1024_on1",
+ "fixture": "cdk2x2_1024",
+ "seed": 0,
+ "steps": 200,
+ "recycles": 3,
+ "fold_s": 61.381,
+ "plddt": 0.821445,
+ "cif_sha256": "649aad7b46727c7ea53b16a787ff504ab46f9ed062a9d41b65799fbbcfdcaa1a",
+ "fused_large_s": true,
+ "q_split_max_s": 1024,
+ "triatt_served": 560,
+ "triatt_declined": 1120,
+ "pm_over_l1": [
+  "(1024, 1024, 1024, 256, 2)",
+  "(1024, 1024, 512, 256, 2)"
+ ],
+ "pm_l1_errors": {
+  "(1024, 1024, 1024, 256, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3394048 B which is beyond max L1 si",
+  "(1024, 1024, 512, 256, 2)": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 si"
+ },
+ "sdpa_picks": {
+  "(1024, 1024)": [
+   256,
+   256,
+   "fused"
+  ]
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "grid_measured": true,
+ "maxrss_mb": 7235.8,
+ "host": "tt-quietbox",
+ "card": "3",
+ "loadavg": [
+  4.51953125,
+  3.12646484375,
+  1.7138671875
+ ],
+ "commit": "7ef179d052997aaa6d4f9bec04ae51d01f9463ef"
+}

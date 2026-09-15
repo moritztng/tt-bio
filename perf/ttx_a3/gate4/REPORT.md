@@ -1,8 +1,25 @@
 # Re-gate attempt 4: qb2 flaps on a minutes cycle, and a qb1 move exposed a bad card pin
 
-Status: **HOLD, unchanged.** The default stays OFF and the branch stays unmerged. This pass did not
-produce a gate verdict. It established where the gate can run at all, and it found one defect in
-the move that has to be fixed before the next launch.
+Status: **gate running on qb1, neutrality arms GREEN.** The default stays OFF and the branch stays
+unmerged until the remaining arms record.
+
+The re-merge's own open question is now closed. `TT_BIO_TRANSITION_L1_ROWS` became a shipped default
+in the 66 commits this branch merged, it claims bit-identical output below the cap, and this lever
+claims the same; the two had never been measured together, and perturbations stack sub-additively
+so the pair has to be approved as a pair. Off/on/off, one arm per process:
+
+    768 aa   38aabd4058facb3f  38aabd4058facb3f  38aabd4058facb3f   plddt 0.823946 all three
+    1024 aa  649aad7b46727c7e  649aad7b46727c7e  649aad7b46727c7e   plddt 0.821445 all three
+
+Byte-identical CIFs at both sizes with both levers on, so the stack is neutral below the cap and
+nothing about the 66 commits changes this lever's below-cap claim. 768 aa is the size that mattered
+most: its on-arm had never once completed on qb2 across three passes (one off-arm fold at 47.196 s
+and then three 500 s timeouts). Here all six arms recorded `rc=0` inside seven minutes.
+
+Read the fold times as off/on/off and not as a pair: 768 aa went 55.335 / 35.576 / 35.507 s and
+1024 aa went 99.160 / 61.381 / 61.510 s. The first arm of each size pays the compile, so an off-vs-on
+comparison that used only the first two arms would have reported the flag as a 36 % speedup at 768 aa
+and a 38 % one at 1024 aa. Both are the warm-up, which is what the third arm is for.
 
 The lever itself is not in question and was not re-measured: GO on the evidence in `../gate/REPORT.md`
 and `../gate2/REPORT.md`, and the branch is already merged up to `origin/main` with the flag default

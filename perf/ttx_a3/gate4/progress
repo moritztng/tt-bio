@@ -1,0 +1,14 @@
+2026-09-15T19:59:00Z CARD=3 (UMD) resolves to /dev/tenstorrent/0
+2026-09-15T19:59:00Z neut768-off1 START loadavg=0.13
+2026-09-15T20:00:06Z neut768-off1 rc=0 loadavg=2.89
+2026-09-15T20:00:06Z neut768-on1 START loadavg=2.89
+2026-09-15T20:00:52Z neut768-on1 rc=0 loadavg=3.36
+2026-09-15T20:00:52Z neut768-off2 START loadavg=3.36
+2026-09-15T20:01:37Z neut768-off2 rc=0 loadavg=3.62
+2026-09-15T20:01:37Z neut1024-off1 START loadavg=3.62
+2026-09-15T20:03:27Z neut1024-off1 rc=0 loadavg=4.78
+2026-09-15T20:03:27Z neut1024-on1 START loadavg=4.78
+2026-09-15T20:04:38Z neut1024-on1 rc=0 loadavg=4.52
+2026-09-15T20:04:38Z neut1024-off2 START loadavg=4.16
+2026-09-15T20:05:50Z neut1024-off2 rc=0 loadavg=3.53
+2026-09-15T20:05:50Z pytest START loadavg=3.53
