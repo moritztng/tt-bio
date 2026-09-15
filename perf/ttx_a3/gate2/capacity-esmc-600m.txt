@@ -1,0 +1,39 @@
+CAPACITY GATE -- 1536 tokens -- p300c / blackhole on tt-quietbox2:0
+  DRAM 8 banks x 4278190016 B = 31.875 GiB   L1 110 banks x 1461760 B   grid (x=11,y=10)
+  CAPACITY ONLY: allocates and completes. It does not and cannot check correctness -- that is scripts/full_parity_gate.py.
+
+  model          verdict      tok   pad   rows    peak DRAM     wall  by/mech
+  ---------------------------------------------------------------------------
+
+  Coverage reductions applied by this run:
+    - diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.
+    - The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.
+    - Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.
+    - The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only.
+
+  0 pass, 0 fail, 0 inconclusive, 0 skipped, 0 no-weights, 0 unmeasured of 0 cells
+  -> esmc-600m      PASS       5.3s  
+
+CAPACITY GATE -- 1536 tokens -- p300c / blackhole on tt-quietbox2:0
+  DRAM 8 banks x 4278190016 B = 31.875 GiB   L1 110 banks x 1461760 B   grid (x=11,y=10)
+  CAPACITY ONLY: allocates and completes. It does not and cannot check correctness -- that is scripts/full_parity_gate.py.
+
+  model          verdict      tok   pad   rows    peak DRAM     wall  by/mech
+  ---------------------------------------------------------------------------
+  esmc-600m      PASS        1536  1536      0     1.10G/3%      5.3  residency/-
+
+  Coverage reductions applied by this run:
+    - diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.
+    - The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.
+    - Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.
+    - The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only.
+
+  1 pass, 0 fail, 0 inconclusive, 0 skipped, 0 no-weights, 0 unmeasured of 1 cells
+
+report: /home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/perf/ttx_a3/gate2/capacity_esmc-600m.json
+
+BASELINE GAP: runnable models with no recorded cell: ['p300c/opendde', 'p300c/opendde-abag']
+  Run the gate for them and --record, or --record-from a finished report.
+
+BASELINE STALE: cells measured against another ceiling table: ['p150a/boltz2', 'p150a/esmc-300m', 'p150a/esmc-600m', 'p150a/esmc-6b', 'p150a/esmfold2', 'p150a/esmfold2-fast', 'p150a/openbind', 'p150a/opendde', 'p150a/opendde-abag', 'p150a/openfold3', 'p150a/protenix-v1', 'p150a/protenix-v2', 'p150a/rf3', 'p150a/saprot-35m', 'p150a/saprot-650m']
+  The sweep runs in stages, so this is the remaining work, named.

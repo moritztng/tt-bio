@@ -1,0 +1,151 @@
+{
+ "bar_tokens": 1536,
+ "started": "2026-09-15T07:20:03Z",
+ "tree": "9cd31f35773ae8d126c190d868e50823bdc06647",
+ "dirty": true,
+ "workers": [
+  "tt-quietbox2:0"
+ ],
+ "geometry": {
+  "arch": "blackhole",
+  "grid": "(x=11,y=10)",
+  "dram": {
+   "banks": 8,
+   "bytes_per_bank": 4278190016,
+   "largest_contiguous_free_per_bank": 4278190016,
+   "total_bytes": 34225520128
+  },
+  "l1": {
+   "banks": 110,
+   "bytes_per_bank": 1461760,
+   "largest_contiguous_free_per_bank": 1461760,
+   "total_bytes": 160793600
+  },
+  "board_type": "p300c",
+  "host": "tt-quietbox2",
+  "card": 0
+ },
+ "coverage_gaps": [],
+ "reductions": [
+  "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
+  "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
+  "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
+  "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
+ ],
+ "results": [
+  {
+   "model": "esmc-6b",
+   "verb": "embed",
+   "worker": "tt-quietbox2:0",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 18.0,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 13.0,
+     "progress_events": 0,
+     "block_calls": 1,
+     "cpu_s_while_quiet": 12.2,
+     "host_ram_floor_mb": 220551,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "screen",
+      "pid": 84118,
+      "samples": 1,
+      "truncated": [
+       [
+        "tt_bio.esmc.ESMCHiddenStatesModel",
+        "blocks",
+        80
+       ]
+      ]
+     },
+     "first_error": null,
+     "tail": "Loading esmc-6b \u2026\nEmbedding 1 sequence(s) \u2192 /home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/perf/ttx_a3/gate2/cap-esmc-6b/out_screen_esmc-6b_1536\nDone \u2014 1 sequence(s), d_model=2560 \u2192 /home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/perf/ttx_a3/gate2/cap-esmc-6b/out_screen_esmc-6b_1536 (see manifest.json)",
+     "stacks_truncated": 1,
+     "truncated": [
+      [
+       "tt_bio.esmc.ESMCHiddenStatesModel",
+       "blocks",
+       80
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 14.6,
+     "stalled": false,
+     "warmed": false,
+     "quiet_s": 9.6,
+     "progress_events": 0,
+     "block_calls": 80,
+     "cpu_s_while_quiet": 5.0,
+     "host_ram_floor_mb": 221208,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 2676512576,
+      "dram_peak_bytes": 12789007360,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.esmc.Block.__call__"
+      ],
+      "mode": "residency",
+      "pid": 84254,
+      "samples": 80,
+      "truncated": []
+     },
+     "first_error": null,
+     "tail": "Loading esmc-6b \u2026\nEmbedding 1 sequence(s) \u2192 /home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/perf/ttx_a3/gate2/cap-esmc-6b/out_resid_esmc-6b_1536\nDone \u2014 1 sequence(s), d_model=2560 \u2192 /home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/perf/ttx_a3/gate2/cap-esmc-6b/out_resid_esmc-6b_1536 (see manifest.json)",
+     "dram_peak_bytes": 12789007360,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 2676512576,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 0,
+   "msa_rows_effective": 0,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 14.6,
+   "dram_peak_bytes": 12789007360,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 2676512576,
+   "blocks_instrumented": 1,
+   "host_ram_floor_mb": 221208
+  }
+ ],
+ "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
+ "counts": {
+  "PASS": 1,
+  "fail_like": 0,
+  "CONTENDED": 0,
+  "SKIPPED": 0,
+  "NO_WEIGHTS": 0,
+  "INCONCLUSIVE": 0,
+  "GATE_BUG": 0,
+  "BAD_FIXTURE": 0
+ }
+}
