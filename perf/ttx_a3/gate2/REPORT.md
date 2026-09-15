@@ -131,10 +131,50 @@ the instruction to re-run any of them by deleting its row.
 | capacity @1536 | **13 PASS, 2 FAIL of 15** — both fails the models' own ceiling | **yes** |
 | rf3/1088 A/B | **1.1556x, fully separated, 0 hangs in 8** | **yes** |
 | size-ladder | RED, and red on main: 9 of 10 drift levers are main's | rf3/1088 only |
-| perf_regression | boltz2 **PASS +3.1%**; boltz2-affinity FAIL **attributed, not the flip**; 18 models pending | no |
-| full_parity_gate | pending | no — all 44 legs under the cap |
+| perf_regression | **16 of 16 measurable models PASS**; 3 reds all attributed, boltzgen parked | no |
+| full_parity_gate | running, resumes per leg; 10 of 44 legs cached | no — every leg under the cap |
 
-## The perf arm's one red, closed
+## perf arm: complete, 16 of 16 measurable models PASS
+
+    boltz2           +3.1%   esmfold2        -2.5%   esmfold2-fast   -6.9%   protenix-v1  -2.4%
+    protenix-v2      -3.4%   openfold3       +2.9%   openbind        +2.9%   opendde      -1.6%
+    opendde-abag     -1.0%   rf3            +16.1%   rfd3            -5.4%   pxdesign     +8.4%
+    nesso1          -12.5%   esmc-300m-single +0.6%  esmc-600m       -1.5%   saprot-650m  +0.6%
+
+Threshold +-15%. rf3's +16.1% is past it in the favourable direction and is not this lever: its
+perf target is trpcage at 20 aa, three orders under the cap, and the baseline was taken at v0.7.2
+against a 0.8.0 tree.
+
+Three reds, none of which survives attribution, and a fourth cell parked:
+
+| cell | attribution |
+|---|---|
+| boltz2-affinity | off -54.4% vs on -52.3%. `perf_regression.py:122-137` records that qb2 card 0 cannot satisfy this p300c cell by -28 to -33% whatever the code does, and prescribes exactly the same-card A/B run here |
+| esmc-300m | off -21.1% and -4.6% straddle on -22.5% and -5.6% |
+| esmc-6b | bimodal; both arms hit both modes, refuted by reversing the arm order |
+| boltzgen | parked: 3 single-shot reps at ~255 s is ~13 min against a ~9 min boot |
+
+No cell on this roster can reach the route: the largest input is 107 residues.
+
+### esmc-6b, and why strict alternation was not enough
+
+    off-first:  off1 -1.1%   on1  -38.7%   off2 -1.1%   on2  -36.7%
+    on-first:   on1  -1.2%   off1 -33.4%   on2  -1.3%   off2 -1.3%
+
+The off-first run looks like a clean 1.58x arm effect, reproducible, on a quiet box. It is not.
+Strict alternation puts every off arm in an odd position and every on arm in an even one, so the arm
+is confounded with the position; reversing the order separates them and the slow mode then lands on
+an *off* arm. Pooled, both arms span both modes: off reads -1.1/-1.1/-1.3/-33.4% and on reads
+-1.2/-1.3/-36.6/-36.7/-38.7%. The cell is bimodal at ~1.5x and the flag is irrelevant to which mode
+it picks.
+
+Two independent facts agree. The leg's spec is 8x ubiquitin at 76 aa. And a census on a run that
+genuinely computed (rc=0, "Done -- 1 sequence(s), d_model=2560", with `SPLIT_SWIGLU` recording 80
+decisions as the live-instrument control) reads `SDPA_FUSED_LARGE_S served 0 declined 0` with the
+flag ON. An earlier census attempt returned `served 0` from a run that had died on an input-format
+error before computing anything; that zero was worthless and was discarded rather than used.
+
+## The perf arm's first red, closed
 
     arm                   baseline   current   delta    reps (s)        load0 -> load1
     off1 (flag forced 0)  0.02413    0.01099   -54.4%   87 / 91 / 192   1.37 -> 6.22
