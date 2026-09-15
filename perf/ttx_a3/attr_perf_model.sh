@@ -2,7 +2,7 @@
 # Attribute ONE perf_regression red to the lever or to the box: off/on/off/on, alternating,
 # separate processes, same tree, the off arms with TT_BIO_SDPA_FUSED_LARGE_S=0.
 #
-#   attr_perf_model.sh <model> [reps]
+#   attr_perf_model.sh <model> [reps] [first-arm: off|on]
 #
 # This replaces attr_affinity.sh and attr_esmc.sh, which were two near-copies differing only in a
 # model name. Three perf cells needed this treatment in one gate run, so the model is DATA.
@@ -16,9 +16,20 @@
 #
 # Read the result as an interval, not a point. If the two off arms straddle the on arms, the cell is
 # not decidable on one draw on this host and the flag is not implicated either way.
+#
+# REVERSE THE ORDER before believing an arm-correlated result. Strict alternation starting with off
+# puts every off arm in an odd position and every on arm in an even one, so any per-position effect
+# -- a run that leaves the card slower for whatever comes next, a page cache that is cold on every
+# other invocation -- is indistinguishable from a real arm difference. Running the same reps with
+# `on` first separates them: a slowdown that follows the POSITION is an artefact, one that follows
+# the ARM is real. esmc-6b needed exactly this: off/on/off/on read -1.1/-38.7/-1.1/-36.7 %, which
+# is equally consistent with "the on arm is 1.58x slower" and with "every second run is 1.58x
+# slower".
 set -u
-M="${1:?usage: attr_perf_model.sh <model> [reps]}"
+M="${1:?usage: attr_perf_model.sh <model> [reps] [first-arm]}"
 REPS="${2:-2}"
+FIRST="${3:-off}"
+[ "$FIRST" = off ] && SECOND=on || SECOND=off
 WT=/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge
 cd "$WT" || exit 1
 OUT="$WT/perf/ttx_a3/gate2/attr_$M"
@@ -41,6 +52,9 @@ rep() {
   l1=$(cut -d' ' -f1 /proc/loadavg)
   log "$name rc=$rc arm=$arm load0=$l0 load1=$l1 | $(grep -oE "^$M *[a-z/]+ +[0-9.]+ +[0-9.]+ +[-+][0-9.]+%" "$OUT/$name.log" | tail -1)"
 }
-for i in $(seq 1 "$REPS"); do rep "off$i" off; rep "on$i" on; done
-log "ATTR_${M}_DONE"
+for i in $(seq 1 "$REPS"); do
+  rep "${FIRST}${i}_first" "$FIRST"
+  rep "${SECOND}${i}_second" "$SECOND"
+done
+log "ATTR_${M}_${FIRST}FIRST_DONE"
 cat "$PROG"

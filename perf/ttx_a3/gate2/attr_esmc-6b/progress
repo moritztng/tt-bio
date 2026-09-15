@@ -2,3 +2,8 @@
 2026-09-15T12:43:36Z on1 rc=1 arm=on load0=1.38 load1=4.46 | esmc-6b         seq/s                 10.48      6.428    -38.7%
 2026-09-15T12:54:27Z off2 rc=0 arm=off load0=1.31 load1=3.24 | esmc-6b         seq/s                 10.48      10.36     -1.1%
 2026-09-15T13:07:56Z on2 rc=1 arm=on load0=2.41 load1=2.81 | esmc-6b         seq/s                 10.48      6.635    -36.7%
+2026-09-15T13:20:43Z on1_first rc=0 arm=on load0=1.07 load1=1.33 | esmc-6b         seq/s                 10.48      10.36     -1.2%
+2026-09-15T13:21:07Z off1_second rc=1 arm=off load0=1.33 load1=1.52 | esmc-6b         seq/s                 10.48      6.985    -33.4%
+2026-09-15T13:22:54Z on2_first rc=0 arm=on load0=1.52 load1=2.84 | esmc-6b         seq/s                 10.48      10.35     -1.3%
+2026-09-15T13:24:07Z off2_second rc=0 arm=off load0=2.84 load1=1.86 | esmc-6b         seq/s                 10.48      10.34     -1.3%
+2026-09-15T13:24:07Z ATTR_esmc-6b_onFIRST_DONE
