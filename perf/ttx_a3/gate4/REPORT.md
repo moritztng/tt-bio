@@ -1,4 +1,4 @@
-# Re-gate attempt 4: the gate moved off qb2, and the card pin did not hold
+# Re-gate attempt 4: qb2 flaps on a minutes cycle, and a qb1 move exposed a bad card pin
 
 Status: **HOLD, unchanged.** The default stays OFF and the branch stays unmerged. This pass did not
 produce a gate verdict. It established where the gate can run at all, and it found one defect in
@@ -14,15 +14,28 @@ reading `True` (`tt_bio/tenstorrent.py:1827`, verified by import on qb1's checko
 in the tree. Whether esmfold2 and esmc-6b actually load is a question only the capacity and perf arms
 answer, and no arm got that far. Carry it forward as unverified rather than fixed.
 
-## Blocker 2 (qb2): worse than "still resetting" — qb2 is gone
+## Blocker 2 (qb2): flapping on a minutes cycle, and I misread it once
 
-qb2 is not reachable at all. `ping -c2 100.105.31.41` is 100 % loss and `ssh` connect-times-out;
-it is not answering on the tailscale address the ssh config pins it to. This is the silent host
-hang, not the watchdog reset the last three passes worked around, and it matches QBROOT's closed
-verdict that the root cause is a per-card PCIe link failure whose next lever needs hands on the
-box. No amount of gate-side resumability gets past a box that is not there.
+Corrected mid-pass, because the first reading was wrong and the wrong reading is the interesting
+part. qb2 answered neither ping nor ssh at 19:46Z and 19:48Z, and I wrote that up as the box being
+gone for good. It answered at 19:53Z with an uptime of 6 minutes, so those two probes landed inside
+a reboot window, not on a dead box. One minute later, at 19:55Z, ssh timed out again.
 
-So the gate has to move, and this pass moved it.
+So qb2 is not gone and it is not stable either: reachable and unreachable inside a ten-minute span,
+which is the reset cadence getting worse rather than a new failure. **Two unreachable probes a
+couple of minutes apart cannot tell a dead box from a rebooting one — only an uptime reading after
+it answers can**, and on this box that distinction decides whether you take it out of fleet
+dispatch. I had `state/qb2-ready` staged for removal, which would have stopped every card dispatch
+to qb2 fleet-wide, and the ping guard in front of that rename is the only reason it did not happen.
+
+The gate is genuinely making progress there on its own, which the "gone" reading would have thrown
+away: `gate3/progress` has the neutrality arms advancing across reboots, with
+`resume_after_boot relaunching (uptime 150s)` doing exactly its job at 19:35Z. `neut1024-on1`
+recorded `rc=124`, the 500 s arm timeout, and `neut1024-off2` started at 19:43Z.
+
+The practical verdict for this gate is unchanged, though the reasoning is not: a box that reboots
+inside a ten-minute window cannot finish a capacity roster or a 44-leg parity arm, and only the
+arms short enough to fit one boot will ever record an rc.
 
 ## Where the gate can run
 
@@ -30,7 +43,7 @@ So the gate has to move, and this pass moved it.
   `pc-card0-512aa-fold-nondeterminism`: it miscomputes some matmuls at a low, location-keyed rate at
   every size, so a bit-exact or hash-equality result measured there means nothing. It also runs a
   custom 130-core firmware, so its timings are not the p150a the baselines were recorded on.
-- **qb1** is the answer. Four Blackhole p150a cards, idle (no worker processes, no card holders),
+- **qb1** is the better host for the long arms. Four Blackhole p150a cards, idle (no worker processes, no card holders),
   `tt-bio-dev/env` imports ttnn and torch 2.11.0, 204 GB free. `docs/size_ladder_baseline.d/` carries
   p150a cells for 8 of the 9 ladder models, the exception being `protenix-v1`, which is p300c-only and
   will read as a coverage gap on qb1 for reasons that predate this lever.
@@ -72,7 +85,8 @@ node 3 in the second before launch, so the box was not as idle as the earlier sw
 following arm opened fine, which makes this transient contention rather than a broken card, but it
 is the second reason not to relaunch until the pin is trusted.
 
-Everything this pass started is reaped. All four card nodes read free by explicit-pid `lsof`, no
+Nothing was migrated off qb2: gate3 is left running there exactly as it was, and `state/qb2-ready`
+is untouched. Everything this pass started on qb1 is reaped. All four card nodes read free by explicit-pid `lsof`, no
 driver is running, `perf/ttx_a3/gate4/PAUSE` is in place so the cron relaunch stands down, and the
 owner file is removed.
 
