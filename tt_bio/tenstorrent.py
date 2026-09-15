@@ -8355,9 +8355,18 @@ class Transition(Module):
         # hook, because a ladder rung that reads "served" off a constant and not off the call is
         # reading the wrong thing: the ratio, the small-grid L1 cap and the H clamp all still get
         # to shrink it below the value the guard nominally admits.
-        if os.environ.get("TT_BIO_TRANSITION_TRACE"):
+        _trace = os.environ.get("TT_BIO_TRANSITION_TRACE")
+        if _trace:
             # One line per 4-D Transition call: everything the height derivation read and what
             # it decided, so an L1 clash can be attributed to a shape without a rebuild.
+            #
+            # `=sync` drains the queue BEFORE the line is written. Dispatch is asynchronous, so
+            # without it the host runs ahead and the last line in the log is where the HOST
+            # blocked, not the call the device is stuck on -- which is how a wedge inside the MSA
+            # Transition reads as a wedge in the pair Transition three calls later. Debug only:
+            # a barrier per call costs the pipelining the whole file is built on.
+            if _trace == "sync":
+                ttnn.synchronize_device(x.device())
             _pc = 2 * transition_h_chunk_size * _tile(w_eff) * (_tile(_c) + 2 * _tile(_hid))
             print(f"[transition-h] t={time.time():.3f} z={H}x{W}x{_c} hid={_hid} w_eff={w_eff} "
                   f"chunked={int(w_chunked)} h={transition_h_chunk_size} base={_base_h} "

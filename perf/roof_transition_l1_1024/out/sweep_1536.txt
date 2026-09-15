@@ -1,0 +1,2 @@
+HFOLD 1536 on DONE 196.854s sha=d91473e4ad3cf26b served=296/0
+SWEEP 1536 on end t=210s throws=3 absorbed=2
