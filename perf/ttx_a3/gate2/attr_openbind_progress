@@ -1,0 +1,6 @@
+2026-09-15T06:06:45Z resume_after_boot relaunching ATTR (uptime 345s)
+2026-09-15T06:06:45Z off1 START arm=off loadavg=0.99
+2026-09-15T06:19:27Z off1 rc=0 loadavg=1.72
+2026-09-15T06:19:27Z on1 START arm=on loadavg=1.72
+2026-09-15T06:30:37Z on1 rc=0 loadavg=2.46
+2026-09-15T06:30:37Z off2 START arm=off loadavg=2.46
