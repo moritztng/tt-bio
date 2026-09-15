@@ -613,6 +613,44 @@ declined every call by then. The 1024 and 1536 sizes were re-run after the singl
 part, and the smallest largest-contiguous free block per bank at the high-water mark is 3013 MiB
 with the flags on against 3157 MiB without them.
 
+## `TT_BIO_TRIATT_GATE_EPILOGUE` — off
+
+Triangle attention ends with `o * sigmoid(g)`, and that multiply is its own op: it re-reads the
+attention output and the gate from DRAM and writes the product back, 268.4 MB a Pairformer block,
+3.34 % of the block's 8046.8 MB. Both operands first exist together inside the fused SDPA kernel, so
+this flag folds the sigmoid and the multiply into that kernel's pack stage and deletes the op. The
+gate's own producer cannot host it: `TT_BIO_TRIATT_FUSED_QKVG` writes q, k, v and the gate out of one
+matmul, so an epilogue there would multiply by a tensor its own output is an input to.
+
+**Accuracy: bit-exact either way.** `torch.equal` at max absolute difference 0.0 at the op, and over
+a whole Pairformer block with its zero-initialised output projections refilled
+(`perf/roof_gate_epilogue/block_ab_gated_512_qb2_c2.json`). At the fold, Boltz-2 at 298 and 512
+residues writes byte-identical mmCIF with the flag on and off, 560 of 560 triangle-attention calls
+served gated at each size with zero declines, and all-atom Kabsch reads 0.000000 Å against the 0.60 Å
+bar. A configuration the gated kernel's CB set does not fit is declined and falls back to the
+separate multiply, which is the same arithmetic in the same order.
+
+**Speed: 0.99737x on the Pairformer block on Blackhole, which is why it is off.** One Blackhole
+processor of a p300c, 512 residues, 11x10 grid, arms interleaved, 7 reps: 50.634 ms base against
+50.768 ms gated, on a same-arm floor of 0.110 %. The op-level pair reads the other way and does not
+carry: SDPA plus the separate multiply is 3.0202 ms against 3.0130 ms fused, a 0.24 % gain on a
+0.089 % floor (`op_ab_gated_512_qb2_c2.json`). The block is the number that decides, and it is a
+small loss.
+
+**The bytes were not the cost.** The multiply this deletes already runs at 348.0 GB/s, 82 % of the
+424.7 GB/s measured Blackhole DRAM roof, so there is little bandwidth left to recover. The sigmoid is
+not free wherever it goes: bolted onto the multiply it costs 0.286 ms, and moved into the SDPA
+kernel's reader it costs 0.851 ms against the 0.906 ms the deleted multiply was worth
+(`sig_cost_512_qb2_c2.json`). A byte-count prediction scaled from the Wormhole ablation said 1.0132x
+on Blackhole; the measurement came back below 1.0.
+
+**Wormhole is not measured, and the arithmetic points the other way there.** Eliding the same two
+multiplies on a Wormhole Galaxy card is worth 1.03200x a block, 1.0211x once the host kernel is
+charged the 67.1 MB read it gains (`block_ablate_512_whglx_c2.json`). Wormhole's measured DRAM roof
+is 227.5 GB/s against Blackhole's 424.7, so the deleted bytes are worth roughly 1.9x more there. The
+block A/B has not been run on Wormhole with the kernel built, so the flag ships off on every card.
+`perf/roof_gate_epilogue/FINDINGS.md` has the full record.
+
 ## `TT_BIO_TRIMUL_MASK_L1` — on
 
 The triangle multiplication masks its pair input before the contraction. The mask is `[1, 1, L, L]`

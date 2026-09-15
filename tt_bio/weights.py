@@ -107,6 +107,16 @@ class Artifact:
     legacy_env: tuple[str, ...] = ()     # pre-registry overrides, still honoured
     note: str = ""
 
+    def __post_init__(self):
+        """Fill ``revision`` from ``HF_REVISIONS`` when the row did not name one.
+
+        The pin belongs to the repo, not to the row: `aurekaresearch/OpenDDE` has two
+        rows and `recursionpharma/nesso` has two more, and two rows on one repo that
+        disagree about the commit would fetch two snapshots of it. Defaulting here also
+        means a row added later cannot quietly ship unpinned."""
+        if self.repo and self.revision is None and (rev := HF_REVISIONS.get(self.repo)):
+            object.__setattr__(self, "revision", rev)
+
     @property
     def sources(self) -> tuple[str, ...]:
         """Every place this file can be fetched from, best first.
@@ -167,6 +177,54 @@ BOLTZGEN_REPO = "moritztng/boltzgen"
 OPENDDE_REPO = "aurekaresearch/OpenDDE"
 NESSO_REPO = "recursionpharma/nesso"
 NESSO_REVISION = "v1.0.0"      # not `main`: main carries only a config.json
+
+# Third-party hub pins. Upstream re-publishes `main` in place and without notice: on
+# 2026-09-14 19:17 UTC `biohub/ESMFold2`, `biohub/ESMFold2-Fast` and `biohub/ESMC-6B`
+# were all re-uploaded in a different schema. The configs went HF-native
+# (`hidden_size`/`esmc_config`, sub-configs serialized as full PretrainedConfigs) and
+# ESMC's state dict was renamed from `transformer.blocks.N.attn.layernorm_qkv` to
+# `layers.N.input_layernorm`. Every JapanFold fold then failed four seconds in: first on
+# `DiffusionStructureHeadConfig.__init__() got an unexpected keyword argument
+# 'architectures'`, and once the config was pinned, on a `KeyError: 'weight'` out of a
+# state dict that had silently loaded nothing. Nothing on our side had changed; the hub
+# had, and it took production down for six hours.
+#
+# So every repo we do not own is pinned to the commit the port was verified against,
+# exactly like NESSO_REVISION. These are frozen checkpoints, so pinning one to what it
+# already serves is a no-op today -- that is the point: the line costs nothing until
+# upstream pushes, and then it is the difference between a re-verification we schedule
+# and an outage we find out about from users. `moritztng/*` is ours and stays on `main`.
+# `tests/test_weights_registry.py::test_third_party_repos_are_revision_pinned` fails if a
+# row loses its pin or a new unpinned third-party repo is added.
+ESMFOLD2_REPO = "biohub/ESMFold2"
+ESMFOLD2_FAST_REPO = "biohub/ESMFold2-Fast"
+HF_REVISIONS = {
+    ESMFOLD2_REPO: "8fc3ff471022fdce52c77030685eb775de0c00a3",
+    ESMFOLD2_FAST_REPO: "c6c7958d63f5f2f1f0fed0bb9462316f8ccceea6",
+    "biohub/ESMC-6B": "45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a",
+    "biohub/esmc-300m-2024-12": "7f10b20ae75017b2dbc884070e03434515709a8d",
+    "biohub/esmc-600m-2024-12": "e4d83bc7e10fd55c92e598e545f4a76bf04a6e5c",
+    "TMF001/protenix-v2-weights": "0b3bf48266effd548f3d399e8e76a87def9e9ec4",
+    "aurekaresearch/OpenDDE": "02c183584847af2a8c7e39ff591f95f47126b1f7",
+    "westlake-repl/SaProt_35M_AF2": "316cd4017d29f4657b959365f24b57f1ee278912",
+    "westlake-repl/SaProt_650M_AF2": "d9b9ad00ef61c0990e611b2b43f2231c7de24b38",
+    "westlake-repl/SaProt_1.3B_AF2": "314b94aee8eece41e5d52e0413f7df1cd00d3325",
+    NESSO_REPO: NESSO_REVISION,
+}
+
+# Repo owners whose pushes we control, so their rows track the default branch.
+OWN_HF_ORGS = ("moritztng",)
+
+
+def is_third_party(repo_id: str) -> bool:
+    """True for a hub repo nobody here can stop from moving under us."""
+    return not repo_id.startswith(tuple(f"{o}/" for o in OWN_HF_ORGS))
+
+
+def hf_revision(repo_id: str) -> str | None:
+    """The commit a repo is pinned to, or None when it tracks the hub default."""
+    return HF_REVISIONS.get(repo_id)
+
 IPD_BASE = "https://files.ipd.uw.edu/pub"
 PXDESIGN_BASE = "https://pxdesign.tos-cn-beijing.volces.com"
 PROTENIX_V1_REPO = "moritztng/protenix-v0.5.0"
@@ -197,7 +255,7 @@ def source_url(source: str) -> str:
     The hub client takes a repo and a filename, but someone told to fetch a checkpoint
     by hand needs a URL, so an error message shows them this instead of ``hf://``."""
     if (hf := split_hf(source)) is not None:
-        return f"https://huggingface.co/{hf[0]}/resolve/main/{hf[1]}"
+        return f"https://huggingface.co/{hf[0]}/resolve/{hf_revision(hf[0]) or 'main'}/{hf[1]}"
     return source
 
 # Sizes come from the source of record (the HF repo's file metadata, or a populated
@@ -240,9 +298,9 @@ _ROWS: tuple[Artifact, ...] = (
 
     # -- ESMFold2 / ESMC / SaProt: whole HF repos, read from the hub cache ------
     Artifact("esmfold2", ("esmfold2",), "hf-repo", "non-commercial (EvolutionaryScale)",
-             repo="biohub/ESMFold2", approx_bytes=1352914698),
+             repo=ESMFOLD2_REPO, approx_bytes=1352914698),
     Artifact("esmfold2-fast", ("esmfold2-fast",), "hf-repo", "non-commercial (EvolutionaryScale)",
-             repo="biohub/ESMFold2-Fast", approx_bytes=751619276),
+             repo=ESMFOLD2_FAST_REPO, approx_bytes=751619276),
     Artifact("esmc-300m", ("esmc-300m",), "hf-repo", "non-commercial (EvolutionaryScale)",
              repo="biohub/esmc-300m-2024-12", filename="data/weights/esmc_300m_2024_12_v0.pth",
              approx_bytes=1331439861),
@@ -281,12 +339,11 @@ _ROWS: tuple[Artifact, ...] = (
     # ESM-2 650M deliberately gets no row: tt_bio/nesso1_input.py::run_esm reaches it through the
     # vendored `setup_esm_model`, i.e. through `transformers`, not through this fetch path.
     Artifact("nesso1", ("nesso1",), "hf-repo", "Apache-2.0 (Recursion)",
-             repo=NESSO_REPO, revision=NESSO_REVISION,
-             filename=f"{NESSO_REVISION}/model.safetensors", approx_bytes=165426752,
+             repo=NESSO_REPO, filename=f"{NESSO_REVISION}/model.safetensors",
+             approx_bytes=165426752,
              note="affinity head; hparams.json sits beside it under the same revision tag"),
     Artifact("nesso1-ccd", ("nesso1",), "hf-repo", "Apache-2.0 (Recursion)",
-             repo=NESSO_REPO, revision=NESSO_REVISION, filename="ccd.pkl",
-             approx_bytes=412923533,
+             repo=NESSO_REPO, filename="ccd.pkl", approx_bytes=412923533,
              note="CCD molecule dict, read by the host featurizer; $NESSO_CACHE also finds it"),
 
     # -- BoltzGen: six flat files under <cache>/boltzgen -----------------------
@@ -761,6 +818,7 @@ def _hf_download_to(repo: str, filename: str, dest: Path, *, quiet: bool,
     try:
         from huggingface_hub import hf_hub_download
         tmp = Path(hf_hub_download(repo_id=repo, filename=filename,
+                                   revision=hf_revision(repo),
                                    local_dir=str(staging), force_download=True))
         os.replace(tmp, dest)
         log.append((f"{_HF_SCHEME}{repo}/{filename}", "hf", "finished",
@@ -903,8 +961,10 @@ def fetch_hf_repo(repo_id: str, *, filename: str | None = None, revision: str | 
                   force: bool = False, quiet: bool = False) -> Path:
     """Snapshot a whole HF repo into the hub cache and return the snapshot dir.
 
-    ``revision`` pins a tag or commit. It is not cosmetic for a repo whose default
-    branch is not the released tree: ``recursionpharma/nesso`` keeps ``main`` and
+    ``revision`` pins a tag or commit, and defaults to the repo's ``HF_REVISIONS``
+    entry so a caller outside the registry (``esmc.ESMCLanguageModel.from_pretrained``
+    reaches here with a bare repo id) is pinned too. It is not cosmetic for a repo whose
+    default branch is not the released tree: ``recursionpharma/nesso`` keeps ``main`` and
     ``v1.0.0`` on different commits, and ``main`` holds only a ``config.json``.
 
     The hub cache is already written blob-at-a-time through ``.incomplete`` staging, so
@@ -914,6 +974,7 @@ def fetch_hf_repo(repo_id: str, *, filename: str | None = None, revision: str | 
     it and re-snapshot with ``force_download`` if it fails."""
     from huggingface_hub import snapshot_download
 
+    revision = revision or hf_revision(repo_id)
     snap = Path(snapshot_download(repo_id, revision=revision, force_download=force))
     if filename:
         target = snap / filename
@@ -1058,18 +1119,28 @@ def resolve(key: str, root: str | Path | None = None) -> Path | None:
         if art.filename:
             hit = try_to_load_from_cache(art.repo, art.filename, revision=art.revision)
             return Path(hit) if isinstance(hit, str) else None
-        return _snapshot_dir(art.repo)
+        return _snapshot_dir(art.repo, art.revision)
     if art.source == "manual":
         return cache_root(root) / art.filename
     return art.dest(root)
 
 
-def _snapshot_dir(repo_id: str) -> Path | None:
-    """Cached snapshot directory for a repo, or None. Avoids a network call."""
+def _snapshot_dir(repo_id: str, revision: str | None = None) -> Path | None:
+    """Cached snapshot directory for a repo, or None. Avoids a network call.
+
+    ``revision`` wins outright when the cache holds it. Without that, a pinned repo whose
+    ``main`` has since moved reports the snapshot carrying the ref rather than the one a
+    fold actually loads, which is how the status table called ESMC-6B present while every
+    fold on the box was dying inside it."""
     try:
         from huggingface_hub import scan_cache_dir
         for repo in scan_cache_dir().repos:
             if repo.repo_id == repo_id:
+                if revision:
+                    pinned = [r for r in repo.revisions if r.commit_hash == revision]
+                    if pinned:
+                        return Path(pinned[0].snapshot_path)
+                    return None
                 revs = [r for r in repo.revisions if r.refs] or list(repo.revisions)
                 if revs:
                     return Path(revs[0].snapshot_path)
@@ -1313,17 +1384,26 @@ def superseded_revisions() -> tuple[list[str], int]:
     revisions share blobs, so summing per-revision sizes double counts.
 
     Repos with zero refs are left alone entirely: with nothing live there is no
-    "superseded", only a cache we do not understand."""
+    "superseded", only a cache we do not understand.
+
+    A pinned revision is never superseded, whatever the refs say. "No ref" means "not the
+    default branch", and for a pinned repo whose upstream has moved that describes exactly
+    the revision we run on. Measured on the JapanFold Galaxy the day ESMC-6B was
+    re-published: `--prune` would have deleted 26.3 GB including both
+    `45b0fa5d` (ESMC-6B) and `8fc3ff47` (ESMFold2), the two snapshots production was
+    serving from, and refetched the broken upstream schema in their place."""
     try:
         from huggingface_hub import scan_cache_dir
         info = scan_cache_dir()
     except Exception:
         return [], 0
+    pinned = set(HF_REVISIONS.values())
     dead: list[str] = []
     for repo in info.repos:
         if not any(r.refs for r in repo.revisions):
             continue
-        dead += [r.commit_hash for r in repo.revisions if not r.refs]
+        dead += [r.commit_hash for r in repo.revisions
+                 if not r.refs and r.commit_hash not in pinned]
     if not dead:
         return [], 0
     return dead, info.delete_revisions(*dead).expected_freed_size

@@ -23,6 +23,9 @@
 #include "api/compute/matmul.h"
 #include "api/compute/reduce.h"
 #include "api/compute/reduce_custom.h"
+#ifdef GATE_EPILOGUE
+#include "api/compute/eltwise_binary_sfpu.h"
+#endif
 
 ALWI void sdpa_reduce_copy_tile_to_dst_init_short(uint32_t cbid, uint32_t transpose = 0) {
     UNPACK((llk_unpack_A_init<BroadcastType::NONE, false, EltwiseBinaryReuseDestType::NONE, UnpackToDestEn>(
@@ -473,6 +476,62 @@ void mul_block_bcast_cols(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb) {
         }
     }
 }
+
+#ifdef GATE_EPILOGUE
+/**
+ * out_cb = (in0_cb * in1_cb broadcast over columns) * sigmoid(gate_cb)
+ *
+ * The gate multiply triangle attention used to run as its own program, folded into this kernel's
+ * pack stage. The gate is head-major [B, H, S, head_dim] and head_dim 32 is one tile, so gate tile
+ * i is output tile i: nothing is reordered and the epilogue is elementwise per tile.
+ *
+ * Both factors stay in DST. The normalisation lands in slots [0, G), the gate is copied into
+ * [G, 2G), sigmoid runs on it in place and one SFPU multiply folds it in before the pack, so the
+ * fold adds no L1 round trip of its own. G is GATE_GRANULARITY, the host's dst_size / 2, because a
+ * binary SFPU op takes half of DST per operand.
+ */
+template <uint32_t rows, uint32_t cols, uint32_t G>
+void mul_block_bcast_cols_gated(uint32_t in0_cb, uint32_t in1_cb, uint32_t gate_cb, uint32_t out_cb) {
+    static_assert(cols == 1, "the gate epilogue needs one tile column per q row (head_dim == 32)");
+    static_assert(rows % G == 0, "GATE_GRANULARITY must divide Sq_chunk_t");
+    constexpr uint32_t num_tiles = rows * cols;
+
+    cb_wait_front(in0_cb, num_tiles);
+    cb_wait_front(in1_cb, rows);
+    cb_wait_front(gate_cb, num_tiles);
+    cb_reserve_back(out_cb, num_tiles);
+
+    for (uint32_t i = 0; i < rows; i += G) {
+        tile_regs_acquire();
+        mul_bcast_cols_init_short(in0_cb, in1_cb);
+        for (uint32_t j = 0; j < G; ++j) {
+            mul_tiles_bcast_cols(in0_cb, in1_cb, i + j, i + j, j);
+        }
+        copy_tile_to_dst_init_short(gate_cb);
+        for (uint32_t j = 0; j < G; ++j) {
+            copy_tile(gate_cb, i + j, G + j);
+        }
+        sigmoid_tile_init();
+        for (uint32_t j = 0; j < G; ++j) {
+            sigmoid_tile(G + j);
+        }
+        mul_binary_tile_init();
+        for (uint32_t j = 0; j < G; ++j) {
+            mul_binary_tile(j, G + j, j);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t j = 0; j < G; ++j) {
+            pack_tile(j, out_cb);
+        }
+        tile_regs_release();
+    }
+    cb_pop_front(in1_cb, rows);
+    cb_pop_front(in0_cb, num_tiles);
+    cb_pop_front(gate_cb, num_tiles);
+    cb_push_back(out_cb, num_tiles);
+}
+#endif
 
 /**
  * in0_cb *= in1_cb
@@ -2135,7 +2194,14 @@ void sdpa_inner_loop(
 
             /* cb_out_accumulate_im *= cb_cur_sum */
             pack_reconfig_data_format(cb_out);
+#ifdef GATE_EPILOGUE
+            // ...and *= sigmoid(gate) in the same DST acquire. c_12 is the gate CB the reader
+            // fills once per q chunk; the index is the host's contract, same as cb_x_in / cb_w_in.
+            mul_block_bcast_cols_gated<Sq_chunk_t, vDHt, GATE_GRANULARITY>(
+                alias_mm2_prev_out, alias_prev_sum, tt::CBIndex::c_12, cb_out);
+#else
             mul_block_bcast_cols<Sq_chunk_t, vDHt, false, false>(alias_mm2_prev_out, alias_prev_sum, cb_out);
+#endif
 
             // free up cb_prev_max after K chunks
             cb_pop_front(alias_prev_max, Sq_chunk_t);

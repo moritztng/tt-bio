@@ -13,10 +13,18 @@ head and confidence head — executes on the TT device.
 Usage:
     from tt_bio._vendor.esmfold2_hf.modeling_esmfold2 import ESMFold2Model
     from tt_bio.esmfold2_runtime import patch_esmfold2
+    from tt_bio.weights import hf_revision
 
-    model = ESMFold2Model.from_pretrained("biohub/ESMFold2", load_esmc=False)
+    repo = "biohub/ESMFold2"
+    model = ESMFold2Model.from_pretrained(
+        repo, load_esmc=False, revision=hf_revision(repo))
     patch_esmfold2(model)                      # replace nn modules with ttnn
     # then drive it through the normal input builder / .forward
+
+Always pass the pinned revision. On 2026-09-14 upstream re-published this repo's
+`main` with a config schema the vendored loader cannot parse, and every fold on
+the public service failed for three hours. `load_ttnn_esmfold2` below does it for
+you; see `weights.HF_REVISIONS`.
 
 `load_esmc=False` skips the 24 GB CPU ESMC checkpoint — the ttnn ESMC-6B is
 loaded from its own sharded safetensors instead.
@@ -516,7 +524,13 @@ def load_ttnn_esmfold2(esmfold2_repo: str = "biohub/ESMFold2",
     tenstorrent.set_fast_mode(fast)
     from tt_bio._vendor.esmfold2_hf.modeling_esmfold2 import ESMFold2Model
 
-    model = ESMFold2Model.from_pretrained(esmfold2_repo, load_esmc=False).eval()
+    # Pinned commit, not `main` — see weights.HF_REVISIONS for why an unpinned repo
+    # took production down. A repo with no pin still tracks the hub default.
+    from tt_bio.weights import hf_revision
+
+    rev = hf_revision(esmfold2_repo)
+    kwargs = {"revision": rev} if rev else {}
+    model = ESMFold2Model.from_pretrained(esmfold2_repo, load_esmc=False, **kwargs).eval()
     return patch_esmfold2(model, esmc_repo=esmc_repo, persistent_lm=persistent_lm)
 
 

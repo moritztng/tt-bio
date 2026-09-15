@@ -1820,7 +1820,14 @@ _SDPA_QK_OVER_L1: set = set()
 _SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", False)
 
 
-def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
+def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
+    """The q_chunk / k_chunk ladder. With `gate` set, only the FUSED rungs are offered.
+
+    The gate epilogue lives in `tt_bio/kernels/triatt_sdpa/`, so a stock-op rung cannot host it.
+    Rather than duplicate this ladder in the gated entry point -- which would drift the moment a
+    rung moves -- the stock rungs are skipped and the caller gets None, which is its signal that it
+    still owes `o * sigmoid(gate)`.
+    """
     q_len, k_len = q.shape[2], k.shape[2]
     if (_SDPA_FUSED_LARGE_S and q_len == k_len and q_len % SDPA_CHUNK_TILE == 0
             and q_len > _triatt_sdpa._Q_SPLIT_MAX_S):
@@ -1828,7 +1835,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
         for q_chunk, k_chunk in _triatt_sdpa.fused_pairs(
                 int(q_len), int(q.shape[1]), int(q.shape[3]), cores, bias.dtype):
             o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc,
-                                  q_split_cap=0)
+                                  q_split_cap=0, gate=gate)
             if o is not None:
                 SDPA_K_CHUNK_STATS[0] += 1
                 _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
@@ -1852,11 +1859,13 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
                 if cfg in _SDPA_QK_OVER_L1:
                     continue
                 o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
-                                      ckc_default=ckc)
+                                      ckc_default=ckc, gate=gate)
                 if o is not None:
                     SDPA_K_CHUNK_STATS[0] += 1
                     _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
                     return o
+                if gate is not None:
+                    continue
                 try:
                     o = ttnn.transformer.scaled_dot_product_attention(
                         q, k, v, attn_mask=bias, is_causal=False, scale=scale,
@@ -1877,10 +1886,14 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
     # the wide q_chunk is worth 1.08-1.81x on its own, so K2 must not silently take the narrow one.
     for q_chunk in fits:
         o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
-                                      ckc_default=ckc)
+                                      ckc_default=ckc, gate=gate)
         if o is not None:
             _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
             return o
+    if gate is not None:
+        # Every fused rung declined. The stock op below cannot apply the gate, so hand the caller
+        # back its multiply rather than a silently ungated output.
+        return None
     for q_chunk in fits[:-1]:
         try:
             o = ttnn.transformer.scaled_dot_product_attention(
@@ -1921,6 +1934,44 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None):
     _sdpa_pick(q_len, k_len, 0, k_chunk, "stock")
     return o
 
+
+
+def _tri_att_gated_sdpa(att, q, k, v, bias, scale: float, gate, ckc=None):
+    """Triangle attention with `o * sigmoid(gate)` folded into the fused SDPA's pack stage.
+
+    Returns the GATED output, or None to leave the call to `_tri_att_sdpa_at` -- never an ungated
+    output, so a caller that reads None knows it still owes the multiply.
+
+    `gate_and_project` runs that multiply as its own program: it reads o, reads g and writes o
+    back, 201.3 MB a call at boltz-2's 512 aa triangle attention. Handed the gate, the kernel keeps
+    g's read and deletes the other two, 268.4 MB a Pairformer block.
+    """
+    if gate is None or bias is None or not _triatt_sdpa._GATE_EPILOGUE:
+        return None
+    shape = [int(d) for d in q.shape]
+    if att.subtile or int(q.shape[3]) != 32:
+        # head_dim 32 is one tile, which is what makes gate tile i the output's tile i.
+        return _triatt_sdpa._gate_reject("head_dim", shape)
+    if att.biased or _FP32_SOFTMAX or att.fp32_softmax:
+        return _triatt_sdpa._gate_reject("site", shape)
+    if _TRIATT_BIAS_B8 or _TRIATT_DUALPROBE:
+        # Instruments, not shipped paths: one retypes the bias under this call and the other
+        # re-runs the attention beside it against an ungated reference.
+        return _triatt_sdpa._gate_reject("instrument", shape)
+    q_len, k_len = int(q.shape[2]), int(k.shape[2])
+    if q_len % SDPA_CHUNK_TILE or k_len % SDPA_CHUNK_TILE:
+        # A ragged length would need `_sdpa_masked` to pad the gate alongside q, k, v and the bias.
+        # Declining leaves that path exactly as it ships.
+        return _triatt_sdpa._gate_reject("ragged", shape)
+    o = _tri_att_sdpa_at(q, k, v, bias, scale, ckc, gate=gate)
+    if o is None:
+        return _triatt_sdpa._gate_reject("fused_declined", shape)
+    # `_sdpa_masked` owns the per-site ragged census and this route bypasses it. q_len is a
+    # multiple of 32 here, so the call is non-ragged by construction.
+    SDPA_RAGGED_SITES.setdefault("tri_att", [0, 0])[1] += 1
+    if ckc is not None:
+        SDPA_HIFI_CALLS[0] += 1
+    return o
 
 
 # Triangle attention through the FUSED SDPA at the model's own fidelity, for the blocks that today
@@ -7181,11 +7232,15 @@ class TriangleAttention(Module):
                 triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
 
-        def attend(qkv_in, bias, keep_heads=False):
+        # Set fresh by every `_attend_heads` call: True when the fused SDPA took the gate into
+        # its own pack stage, so `gate_and_project` below must not multiply a second time.
+        gate_fused = False
+
+        def attend(qkv_in, bias, keep_heads=False, gate=None):
             if isinstance(qkv_in, tuple):
                 # already head-major, written there by the projection itself
                 q, k, v = qkv_in
-                return _attend_heads(q, k, v, bias, keep_heads)
+                return _attend_heads(q, k, v, bias, keep_heads, gate)
             qkv_in = ttnn.unsqueeze(qkv_in, 1)
             # The head split follows the projection: when the projection kept its result in L1
             # (see _tri_att_qkv_l1_config) reading it back out to DRAM here would hand back the
@@ -7195,9 +7250,11 @@ class TriangleAttention(Module):
                 transpose_k_heads=False, memory_config=qkv_in.memory_config(),
             )
             ttnn.deallocate(qkv_in)
-            return _attend_heads(q, k, v, bias, keep_heads)
+            return _attend_heads(q, k, v, bias, keep_heads, gate)
 
-        def _attend_heads(q, k, v, bias, keep_heads=False):
+        def _attend_heads(q, k, v, bias, keep_heads=False, gate=None):
+            nonlocal gate_fused
+            gate_fused = False
             if _FP32_SOFTMAX or self.fp32_softmax:
                 o = None
                 # The kernel adds the bias BEFORE applying `scale` (compute_common.hpp: the scale
@@ -7247,9 +7304,16 @@ class TriangleAttention(Module):
                 b = bias
                 if self._bias_scale != self.scale:
                     b = ttnn.multiply(bias, self.scale / self._bias_scale)
-                o = _tri_att_sdpa(q, k, v, b, self.scale**-1,
-                                  _TRIATT_FUSED_HIFI_CKC if self.sdpa_hifi else None,
-                                  self.sdpa_ragged_pad)
+                ckc = _TRIATT_FUSED_HIFI_CKC if self.sdpa_hifi else None
+                # The gate multiply folded into the kernel's pack stage. All or nothing: the gated
+                # entry point returns None rather than an ungated output, so a decline falls
+                # through to the ladder below with `gate_fused` still False and the caller's own
+                # multiply still owed.
+                o = _tri_att_gated_sdpa(self, q, k, v, b, self.scale**-1,
+                                        gate if keep_heads else None, ckc)
+                gate_fused = o is not None
+                if o is None:
+                    o = _tri_att_sdpa(q, k, v, b, self.scale**-1, ckc, self.sdpa_ragged_pad)
                 if b is not bias:
                     ttnn.deallocate(b)
                 if _TRIATT_DUALPROBE:
@@ -7281,7 +7345,9 @@ class TriangleAttention(Module):
         def gate_and_project(o_in: ttnn.Tensor, g_in: ttnn.Tensor,
                              l1_dest: bool = False) -> ttnn.Tensor:
             head_major = len(g_in.shape) == 4
-            o_in = ttnn.multiply_(o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+            if not gate_fused:
+                o_in = ttnn.multiply_(
+                    o_in, g_in, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g_in)
             # the head-major output projection takes no bias, and a biased block never reaches it:
             # `gate_proj` is gated on `not self.biased`, so `g` comes from `minimal_matmul` and is
@@ -7360,10 +7426,11 @@ class TriangleAttention(Module):
                 ttnn.deallocate(x_chunk)
                 if self.affinity:
                     bias = ttnn.add(triangle_bias, attn_mask[s:end, :, :])
-                    o_chunk = attend(qkv_chunk, bias, len(g_chunk.shape) == 4)
+                    o_chunk = attend(qkv_chunk, bias, len(g_chunk.shape) == 4, g_chunk)
                     ttnn.deallocate(bias)
                 else:
-                    o_chunk = attend(qkv_chunk, triangle_bias, len(g_chunk.shape) == 4)
+                    o_chunk = attend(qkv_chunk, triangle_bias, len(g_chunk.shape) == 4,
+                                     g_chunk)
                 if not isinstance(qkv_chunk, tuple):   # the triple is freed inside attend
                     ttnn.deallocate(qkv_chunk)
                 # The projection keeps its L1 output -- same program config, same numerics --
@@ -7509,7 +7576,7 @@ class TriangleAttention(Module):
                     ttnn.deallocate(o)
                     o = ttnn.squeeze(o_heads, 1)
             else:
-                o = attend(qkv, triangle_bias, len(g.shape) == 4)
+                o = attend(qkv, triangle_bias, len(g.shape) == 4, g)
             if qkv is not None and not isinstance(qkv, tuple):  # the triple is freed inside attend
                 ttnn.deallocate(qkv)
             ttnn.deallocate(triangle_bias)

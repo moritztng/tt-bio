@@ -509,3 +509,118 @@ def test_default_layout_is_unchanged(monkeypatch):
     assert weights.ARTIFACTS["rfd3"].derived_dest() == root / "rfd3/weights"
     assert weights.ARTIFACTS["rf3"].dest() == root / "rf3/rf3_foundry_01_24_latest_remapped.ckpt"
     assert weights.ARTIFACTS["openfold3"].filename == "of3-p2-155k.pt"
+
+# ---------------------------------------------------------------------------
+# Hub pins: a repo we do not own must never be read at `main`
+# ---------------------------------------------------------------------------
+
+def test_third_party_repos_are_revision_pinned():
+    """Every hub repo tt-bio does not own is read at a fixed commit.
+
+    2026-09-14: `biohub/ESMFold2` and `biohub/ESMC-6B` were re-published in a new schema
+    and JapanFold served nothing but errors for six hours. Both were read at `main`. This
+    fails the moment a row goes back to tracking a branch somebody else can push to."""
+    unpinned = [(k, a.repo) for k, a in weights.ARTIFACTS.items()
+                if a.repo and weights.is_third_party(a.repo) and not a.revision]
+    assert not unpinned, f"third-party hub repos read at the default branch: {unpinned}"
+
+
+def test_pins_are_commits_or_tags_not_branches():
+    """`main` in the pin dict would satisfy the row check and pin nothing."""
+    branchy = {r: v for r, v in weights.HF_REVISIONS.items()
+               if v in ("main", "master", "HEAD")}
+    assert not branchy, f"pinned to a moving branch: {branchy}"
+
+
+def test_rows_on_one_repo_agree_on_the_revision():
+    """Two rows of one repo fetching two snapshots is 2.6 GB of duplicate cache and two
+    different sets of weights in one process."""
+    by_repo: dict[str, set] = {}
+    for a in weights.ARTIFACTS.values():
+        if a.repo:
+            by_repo.setdefault(a.repo, set()).add(a.revision)
+    split = {r: v for r, v in by_repo.items() if len(v) > 1}
+    assert not split, f"rows disagree about the revision: {split}"
+
+
+def _fake_hub_module(monkeypatch, **attrs):
+    """Stand in for `huggingface_hub`, which weights.py imports inside each function.
+
+    Injected as a module rather than patched onto the real one so these tests run on a
+    host that has no hub client installed."""
+    import sys
+    import types
+    mod = types.ModuleType("huggingface_hub")
+    for k, v in attrs.items():
+        setattr(mod, k, v)
+    monkeypatch.setitem(sys.modules, "huggingface_hub", mod)
+    return mod
+
+
+def test_fetch_hf_repo_pins_a_bare_repo_id(monkeypatch):
+    """A caller outside the registry (esmc.ESMCLanguageModel.from_pretrained passes a
+    bare repo id) is pinned by fetch_hf_repo itself, not by remembering to pass one."""
+    seen = {}
+
+    def fake_snapshot_download(repo_id, revision=None, force_download=False, **kw):
+        seen["repo"], seen["revision"] = repo_id, revision
+        return "/tmp"
+
+    _fake_hub_module(monkeypatch, snapshot_download=fake_snapshot_download)
+    weights.fetch_hf_repo("biohub/ESMC-6B")
+    assert seen["revision"] == weights.HF_REVISIONS["biohub/ESMC-6B"]
+
+    # Negative control: an unpinned repo still tracks its default branch.
+    weights.fetch_hf_repo("moritztng/boltz-2")
+    assert seen["revision"] is None
+
+def test_prune_never_deletes_a_pinned_revision(monkeypatch):
+    """`--prune` calls "no ref" superseded, which for a pinned repo whose upstream has
+    moved is precisely the revision we run on. On the JapanFold Galaxy, the day ESMC-6B
+    was re-published, prune would have deleted 26.3 GB including both pins."""
+    import types
+    pin = weights.HF_REVISIONS["biohub/ESMC-6B"]
+
+    class Rev:
+        def __init__(self, h, refs): self.commit_hash, self.refs = h, refs
+
+    class Repo:
+        repo_id = "biohub/ESMC-6B"
+        revisions = [Rev("7d0f99a8", {"main"}), Rev(pin, set()), Rev("deadbeef", set())]
+
+    deleted = {}
+
+    class Info:
+        repos = [Repo()]
+        def delete_revisions(self, *hashes):
+            deleted["hashes"] = hashes
+            return types.SimpleNamespace(expected_freed_size=1)
+
+    _fake_hub_module(monkeypatch, scan_cache_dir=lambda: Info())
+    dead, _ = weights.superseded_revisions()
+    assert pin not in dead, "prune would delete the revision production runs on"
+    assert "deadbeef" in dead, "an unpinned ref-less revision is still reclaimable"
+
+
+def test_no_hub_download_outside_the_registry_forgets_the_revision():
+    """`weights.py` pins for anything that goes through it. A module that calls the hub
+    client directly does not, and that is how a repo quietly goes back to `main`.
+
+    Requires a literal `revision=`: a `**kwargs` spread is exactly the call you cannot
+    read, so it fails here and the author names the revision. Vendored upstream code is
+    excluded, it is not ours to change."""
+    import ast
+    root = Path(weights.__file__).parent
+    bare = []
+    for path in sorted(root.rglob("*.py")):
+        if path.name == "weights.py" or "_vendor" in path.parts:
+            continue
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(node, ast.Call):
+                continue
+            fn = node.func
+            name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", None)
+            if name in ("hf_hub_download", "snapshot_download") and not any(
+                    k.arg == "revision" for k in node.keywords):
+                bare.append(f"{path.relative_to(root.parent)}:{node.lineno}")
+    assert not bare, f"hub download with no revision, so it reads the default branch: {bare}"
