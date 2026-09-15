@@ -124,7 +124,11 @@ ARMS = ("on", "e6", "noe6", "nok1", "nok2", "tr125", "nomm", "nofp32", "nofp32hi
         # (`cdk2x2-chimeric-fixture-cannot-score-non-bit-exact-parity`). Pairing `on` (device
         # branch below the base budget) with `hostcat` at 298 aa runs the same two branches on the
         # monomeric fixture, where an RMSD IS readable.
-        "devcat", "devcat_trimul", "devcat_zstruct", "hostcat")
+        "devcat", "devcat_trimul", "devcat_zstruct", "hostcat",
+        # roof-gate-epilogue-sdpa-build. `gateep` folds `gate_and_project`'s `o * sigmoid(g)` into
+        # the fused SDPA's pack stage (TT_BIO_TRIATT_GATE_EPILOGUE). Shipped OFF, so `on` is the
+        # ungated reference on every arm whatever the default does later.
+        "gateep")
 
 # Which sites each arm routes onto the fused SDPA. The confidence head is never in a flip set:
 # it stays on `_fp32_softmax_attention` on every arm, deliberately, so plDDT reports on the
@@ -255,6 +259,13 @@ def main():
     ap.add_argument("--arms", default="on,on")
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--cif-dir", type=Path, default=None,
+                    help="Where to keep each arm's CIFs. Default `perf/other512/cif`, whose "
+                         "subdirectory name is `<size>_<arm>_<run>` and so carries nothing "
+                         "about the campaign -- two campaigns running the same size and arm "
+                         "name silently overwrite each other's COMMITTED record, which "
+                         "happened to `512_on_1` on 2026-09-14. Pass a campaign-local "
+                         "directory and the default stays put for every other caller.")
     ap.add_argument("--dram-tags", default="",
                     help="Comma-separated tag prefixes the DRAM probe is allowed to sample. "
                          "dram_peak() fires at ~12k sites per opendde fold, most of them inside "
@@ -478,6 +489,11 @@ def main():
         PM.STATS[0] = PM.STATS[1] = 0
         PM.REJECTS.clear()
 
+        PM._GATE_EPILOGUE = name == "gateep"
+        PM.GATE_STATS[0] = PM.GATE_STATS[1] = 0
+        PM.GATE_REJECTS.clear()
+        PM._GATE_OVER_L1.clear()
+
         T._TRANSPOSE_L1_HEADROOM = {"tr125": 1.25, "tr250": 2.5}.get(
             name, SHIPPED["headroom"])
         # every arm starts from the shipped table, so no arm can inherit the last one's blocks
@@ -609,7 +625,7 @@ def main():
             a.out.write_text(json.dumps(res, indent=1))
             continue
 
-        cif_keep = Path(__file__).resolve().parent / "cif"
+        cif_keep = a.cif_dir or (Path(__file__).resolve().parent / "cif")
         run_ix = Counter()
         for arm in a.arms.split(","):
             set_arm(arm)
@@ -652,6 +668,14 @@ def main():
                                        "declined": PM.STATS[1],
                                        "rejects": {f"{r}:{sh}": n for (r, sh), n in PM.REJECTS.items()},
                                        "pm_over_l1": sorted(str(k) for k in PM._PM_OVER_L1)},
+                   # The gate epilogue's own census. `served` must be 2x the block count on
+                   # `gateep` and 0 everywhere else -- an arm that serves 0 did not take the lever
+                   # and its CIF is the ungated one, whatever the arm name says.
+                   "gate_epilogue": {"enabled": PM._GATE_EPILOGUE,
+                                     "served": PM.GATE_STATS[0],
+                                     "declined": PM.GATE_STATS[1],
+                                     "rejects": {f"{r}:{sh}": n
+                                                 for (r, sh), n in PM.GATE_REJECTS.items()}},
                    "transpose_l1_headroom": T._TRANSPOSE_L1_HEADROOM,
                    # must differ between arms; equal values mean the arm did not take. The
                    # second is the z_struct seam, which the two isolation arms move on its own.
@@ -720,6 +744,7 @@ def main():
                   f"{rec['head_major_qkv']['rejects']}  K2 {rec['persistent_mask']['served']}/"
                   f"{rec['persistent_mask']['declined']} {rec['persistent_mask']['rejects']}  "
                   f"E6 {rec['gated_kernel']}", flush=True)
+            print(f"      GATEEP {rec['gate_epilogue']}", flush=True)
             for k, v in sorted(DEC.items()):
                 if k.startswith(("qkv_mm_config", "qkv_mm_M", "mm_block_for",
                                  "transpose", "tri_att_sdpa")):

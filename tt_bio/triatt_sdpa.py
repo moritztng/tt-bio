@@ -270,6 +270,46 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
     return tuple((qc, kc) for _c, qc, kc in sorted(out))
 
 
+# The gate multiply folded into this kernel's pack stage. `gate_and_project` runs
+# `o * sigmoid(g)` as its own program: it reads o (67.1 MB at boltz-2's 512 aa triangle
+# attention), reads g (67.1 MB) and writes o back (67.1 MB). Handed the gate, this kernel keeps
+# g's read and deletes the other two, 134.2 MB a call and 268.4 MB a Pairformer block, at the cost
+# of one CB of `Sq_chunk_t` tiles and one reader stream. See `state/roof-gate-epilogue-sdpa-build.md`.
+#
+# An eligibility condition on the shared kernel, not a second kernel and not a per-model branch:
+# five models route through here and all five take it wherever the conditions below hold.
+# OFF. MEASURED on qb2 card 2 (Blackhole p300c) at 512 aa, arms interleaved, A/A floor 0.110 %:
+# 0.99737x on the Pairformer block, 50.634 -> 50.768 ms. The byte prize is real and nearly
+# worthless here, because the multiply is not the bandwidth-bound op its byte count implies -- the
+# identical op with the activation removed moves the same 201.3 MB in 0.5785 ms (348.0 GB/s, 81.9 %
+# of the measured 424.7 GB/s Blackhole roof) and the accurate sigmoid adds 0.286 ms on top, 33.1 %
+# of the op, which a fusion can only relocate. Relocating it into this kernel's already-critical
+# reader and math thread cost 0.851 ms against the 0.906 ms it deleted.
+#
+# Kept and left wired because Wormhole's DRAM roof is 227.5 GB/s against Blackhole's 424.7, so the
+# deletable bytes are worth ~1.9x more there while the SFPU term is unchanged, and the sign may
+# differ. `TT_BIO_TRIATT_GATE_EPILOGUE=1` is that A/B. Bit-exact either way: `torch.equal`
+# at the op and over a whole PairformerLayer. See `state/roof-gate-epilogue-sdpa-build.md`.
+TRIATT_GATE_EPILOGUE = False
+_GATE_EPILOGUE = env_flag("TT_BIO_TRIATT_GATE_EPILOGUE", TRIATT_GATE_EPILOGUE)
+
+# (calls served gated, calls that asked for the gate and were declined)
+GATE_STATS = [0, 0]
+GATE_REJECTS: dict = {}
+# Configs whose GATED CB set the device refused. Deliberately not `_PM_OVER_L1`: that set is the
+# ungated kernel's memo, and the gate adds a CB of its own, so a refusal here says nothing about
+# what the ungated config fits. Writing it into the shared set would retire a q_chunk the ungated
+# kernel runs perfectly well -- the same all-or-nothing retirement trap `_PM_OVER_L1` documents.
+_GATE_OVER_L1: set = set()
+
+
+def _gate_reject(reason, shape):
+    key = (reason, tuple(shape))
+    GATE_REJECTS[key] = GATE_REJECTS.get(key, 0) + 1
+    GATE_STATS[1] += 1
+    return None
+
+
 def _reject(reason, shape):
     key = (reason, tuple(shape))
     REJECTS[key] = REJECTS.get(key, 0) + 1
@@ -278,14 +318,20 @@ def _reject(reason, shape):
 
 
 def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_factor=2,
-         q_split_cap: int = -1):
+         q_split_cap: int = -1, gate=None):
     """The fold's SDPA with the mask read once per head, or `None` to leave the call alone.
 
     `q_split_cap=0` lifts `_Q_SPLIT_MAX_S` for this call. Only `_tri_att_sdpa_at`'s above-cap
     route passes it, and it passes a pair `fused_pairs` already priced against the same L1 model.
+
+    `gate` folds triangle attention's `o * sigmoid(g)` into the pack stage. It is all or nothing:
+    given a gate this returns a GATED output or `None`, never an ungated one, so a caller that
+    reads `None` still owes the multiply.
     """
     if not _ENABLED or bias is None:
         return None
+    if gate is not None and not _GATE_EPILOGUE:
+        return _gate_reject("off", [int(d) for d in q.shape])
     shape = [int(d) for d in q.shape]
     if len(shape) != 4 or len(bias.shape) != 4:
         return _reject("rank", shape)
@@ -340,10 +386,38 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
         return _reject("fill_preconditions", shape)
 
     persistent = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
+
+    gate_arg = None
+    if gate is not None:
+        gmc = gate.memory_config()
+        if (p["DHt"] != 1 or p["vDHt"] != 1):
+            # head_dim 32 is one tile, which is what makes gate tile i the output's tile i.
+            ttnn.deallocate(out)
+            return _gate_reject("head_dim", shape)
+        if (len(gate.shape) != 4 or str(gate.padded_shape) != str(q.padded_shape)
+                or gate.dtype != ttnn.bfloat16 or gate.layout != ttnn.TILE_LAYOUT
+                or gmc.buffer_type != ttnn.BufferType.DRAM
+                or gmc.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED):
+            ttnn.deallocate(out)
+            return _gate_reject("gate_operand", shape)
+        # The gate CB is priced with everything else rather than left to a device throw:
+        # `fused_pairs` chose this (q, k) without it, so a pair that fits ungated can refuse here.
+        if pm_key in _GATE_OVER_L1:
+            ttnn.deallocate(out)
+            return _gate_reject("gate_over_l1", shape)
+        for gbf in (2, 1):
+            extra = SG.gate_cbs(p, gbf, gate.dtype)
+            if SG.cb_fits_l1(p, mask_cb_tiles=persistent, extra_cbs=extra,
+                             mask_dtype=bias.dtype):
+                gate_arg = (gate, gbf)
+                break
+        if gate_arg is None:
+            ttnn.deallocate(out)
+            return _gate_reject("l1_budget", shape)
     try:
         SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
-                kv_buffer_factor=kv_buffer_factor,
+                kv_buffer_factor=kv_buffer_factor, gate=gate_arg,
                 defines_extra={"PERSISTENT_MASK": p["k_num_chunks"],
                                **{f"ABLATE_{a}": 1 for a in _ABLATE}})
     except Exception as exc:  # noqa: BLE001 -- an L1 refusal must reach the stock op, not the caller
@@ -352,10 +426,16 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
             raise
         # Remember it here only, so the next call declines instead of re-throwing while the stock
         # ladder keeps the q_chunk it fits.
+        if gate is not None:
+            _GATE_OVER_L1.add(pm_key)
+            PM_L1_ERRORS[("gate", *pm_key)] = str(exc)
+            return _gate_reject("l1_budget_device", shape)
         _PM_OVER_L1.add(pm_key)
         PM_L1_ERRORS[pm_key] = str(exc)
         return _reject("l1_budget", shape)
     STATS[0] += 1
+    if gate is not None:
+        GATE_STATS[0] += 1
     return out
 
 
