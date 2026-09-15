@@ -57,7 +57,16 @@ BENCHLOCK="bash $HOME/.coworker/scripts/benchlock.sh roof-transition-chunk-remer
 #    box that is uniformly slow, which the floor is blind to because steady saturation slows both
 #    shipped slots equally. The baselines are this fold's own quiet-box medians from
 #    out/foldab_lo_c1.json. A bad window costs a retry and never a wrong number.
-if [ ! -f "$O/foldab_remerge.json" ]; then
+# The guard is CONTENT, not existence. foldab dumps after every fold, so the file appears within a
+# minute and an existence test would accept a session that a reboot killed halfway. It also has to
+# reject an artifact written before the saturation check existed: `quiet_ship_median_s` is the proof
+# that the check ran, and the first session on this tree had no such field and no such check.
+if ! $PY -c "
+import json,sys
+try: L=json.load(open('$O/foldab_remerge.json'))['legs']
+except Exception: sys.exit(1)
+sys.exit(0 if all(L.get(k,{}).get('verdict')=='INTERPRETABLE' and 'quiet_ship_median_s' in L.get(k,{})
+                  for k in ('512:on','1024:on')) else 1)" 2>/dev/null; then
   echo "-- foldab 512+1024 A/B (ref=off)"
   $BENCHLOCK $PY perf/roof_transition_chunk_bh/foldab.py \
     --out "$O/foldab_remerge.json" --ref off --legs 512:on,1024:on --reps 4 \
