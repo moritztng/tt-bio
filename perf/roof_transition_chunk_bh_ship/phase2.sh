@@ -109,7 +109,11 @@ if [ ! -f "$O/perf_remerge_card1.done" ]; then
   TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=2,1 \
   $BENCHLOCK $PY scripts/perf_regression.py \
     >> "$O/perf_remerge_card1.log" 2>&1
-  echo "$(date -u +%FT%TZ) rc=$?" > "$O/perf_remerge_card1.done"
+  # rc into a variable FIRST. `echo "$(date) rc=$?"` reports the DATE's status: bash expands the
+  # command substitution before it expands $?, and running it resets $?. A marker written that way
+  # recorded rc=0 for a UX run that had just failed thirteen surfaces.
+  rc=$?
+  echo "$(date -u +%FT%TZ) rc=$rc" > "$O/perf_remerge_card1.done"
   echo "   perf_regression $(cat "$O/perf_remerge_card1.done")"
 fi
 
