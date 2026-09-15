@@ -15,3 +15,5 @@
 2026-09-15T04:47:42Z capacity-protenix-v1 START loadavg=5.63
 2026-09-15T04:53:12Z capacity-protenix-v1 rc=0 loadavg=3.88
 2026-09-15T04:53:12Z capacity-protenix-v2 START loadavg=3.88
+2026-09-15T05:06:27Z capacity-protenix-v2 rc=0 loadavg=6.81
+2026-09-15T05:06:27Z capacity-openfold3 START loadavg=6.81
