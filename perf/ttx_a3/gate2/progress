@@ -27,3 +27,5 @@
 2026-09-15T06:54:29Z capacity-opendde START loadavg=1.94
 2026-09-15T07:03:56Z capacity-opendde rc=1 loadavg=3.00
 2026-09-15T07:03:56Z capacity-opendde-abag START loadavg=3.00
+2026-09-15T07:12:31Z capacity-opendde-abag rc=1 loadavg=1.09
+2026-09-15T07:12:31Z capacity-rf3 START loadavg=1.09
