@@ -1,0 +1,25 @@
+THE CROSSING, AS PUBLISHED
+  trunk pairformer floor                10.123 s
+  trunk pairformer measured at cell      9.611 s   105.3 % of roof
+  that measured number is               13.708 s of a contended session x 0.7011
+
+THE THRESHOLD THE QUIET RE-CAPTURE IS BEING TESTED AGAINST
+  the trunk's share of the fold, as published    55.42 %  (9.611 / 17.340)
+  the share at which the crossing disappears     58.38 %  (10.123 / 17.340)
+  so the trunk has to come out 2.96 points, 5.3 % relative, heavier than published.
+
+  equivalently, the scale that would remove it   0.7385  against the published 0.7011,
+  i.e. a session fold of 23.480 s or less where the session measured 24.731 s.
+
+READ THE RESULT LIKE THIS
+  trunk own-work >= 58.38 % of the quiet fold's own wall
+      -> CANDIDATE 1. The crossing was the 0.7011 rescale. Correct the floor with the
+         directly measured times and report the new prize.
+  trunk own-work <  58.38 % of it
+      -> CANDIDATE 2. The rescale was not the cause, so at least one of roof-shape's
+         per-class rates is not an upper bound for its class. Triangle attention is the
+         named suspect: the fold reaches 20.6 % of the cube where the arms reach 14.7 %.
+
+  Note the floor side moves too if the re-capture's bytes and FLOPs differ from the
+  committed ones. At the same head they should not, and that is the control: the
+  re-capture's 26 captures must reproduce 2.9449 TB and 219.492 TFLOP.
