@@ -45,15 +45,23 @@ export PYTHONPATH="$WT" TT_VISIBLE_DEVICES=2 TT_BIO_LEASE_CARDS=2 \
        OF3_CKPT=/home/ttuser/.boltz/of3-p2-155k.pt \
        OPENDDE_DOCKQ_PYTHON=/home/ttuser/dockqenv/bin/python3
 
+# benchlock's foreign-fold guard is a MODEL-NAME regex, so a harness named after a task walks
+# straight through it: on 2026-09-15 it acquired the lock at load 0.60 with a sibling's
+# `perf/ttx_a3/fold_parity_a3.py --fixture cdk2x2_1024` already running, and the box went to 16
+# underneath the measurement. Widen it for this row's own timed steps.
+export BENCHLOCK_FOREIGN_RE='fold_ab512|tt_baseline|protenix|boltz|opendde|esmfold|openfold|fold_parity|foldab|ladder\.py|size_ladder'
 BENCHLOCK="bash $HOME/.coworker/scripts/benchlock.sh roof-transition-chunk-remerge-verify --"
 
 # 1. The fold A/B that carries the number README states, plus the 1024 aa digest. The harness
-#    self-polices: its own A/A floor is the contention detector and a session above ~1 % publishes
-#    BLOCKED, not a scaled ratio, so a bad window costs a retry and never a wrong number.
+#    self-polices on two axes now: the A/A floor catches jitter, and --quiet-ship-median catches a
+#    box that is uniformly slow, which the floor is blind to because steady saturation slows both
+#    shipped slots equally. The baselines are this fold's own quiet-box medians from
+#    out/foldab_lo_c1.json. A bad window costs a retry and never a wrong number.
 if [ ! -f "$O/foldab_remerge.json" ]; then
   echo "-- foldab 512+1024 A/B (ref=off)"
   $BENCHLOCK $PY perf/roof_transition_chunk_bh/foldab.py \
     --out "$O/foldab_remerge.json" --ref off --legs 512:on,1024:on --reps 4 \
+    --quiet-ship-median 512:15.217,1024:56.573 \
     >> "$O/foldab_remerge.log" 2>&1 || echo "   foldab rc=$?"
 fi
 
