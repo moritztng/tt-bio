@@ -65,3 +65,8 @@
 2026-09-15T09:48:04Z ladder-rf3 + perf-boltz2 rows cleared: both were touched by two drivers racing on card 0 after the 09:38:28Z boot (@reboot and the */10 tick both launched). Not tree findings. resume_after_boot.sh now takes an flock BEFORE its sleep.
 2026-09-15T09:48:04Z resume_after_boot relaunching (uptime 581s)
 2026-09-15T09:48:04Z ladder-rf3 START loadavg=3.47
+2026-09-15T09:54:57Z resume_after_boot relaunching (uptime 150s)
+2026-09-15T09:54:57Z ladder-rf3 START loadavg=6.44
+2026-09-15T09:59:59Z ladder-rf3 rc=PARKED-BEHIND-SHORT-ARMS needs ~50min of box; qb2 reset at 08:55:45, 09:26:08, 09:38:28, 09:52:33 (30/12/14 min) while tt-bio-sizeladder-p300c-refresh runs a 60-fold record on cards 1-2. Its rungs 256-1024 already read CLEAN in the 08:47 run (20.6/37.8/52.5/69.3/107.6/122.6s, no drift row) and its 1088 rung is measured far better by the 8-rep A/B in perf/ttx_a3/gate2/rf3_1088 than by one ladder fold. Retry after the sibling lands: delete this row.
+2026-09-15T09:59:59Z resume_after_boot relaunching (uptime 453s)
+2026-09-15T09:59:59Z perf-boltz2 START loadavg=4.69

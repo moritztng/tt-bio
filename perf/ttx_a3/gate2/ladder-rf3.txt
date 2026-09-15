@@ -4,12 +4,3 @@
 [size-ladder] checking for card p300c: rf3 at rungs 256,512,640,768,896,1024,1088
 [size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence
 ======================================================================
-
-##############################################################################
-RELEASE GATE — size-ladder (rungs 256,512,640,768,896,1024,1088, 6 steps / 1 sample, seed 0, single-sequence, card p300c)
-##############################################################################
-model              256aa    512aa    640aa    768aa    896aa   1024aa   1088aa  k256->512  k512->768     wall  result
-rf3                20.6s    37.8s    52.5s    69.3s   107.6s   122.6s        -          -          -    3070s  FAIL (rung 1088 rep 0: census fold timed out after 1800s)
-    FAIL rung 1088 rep 0: census fold timed out after 1800s
-##############################################################################
-GATE FAIL — size-ladder drift vs the recorded baseline (see above); if this change is intentional, re-record with --size-ladder-record
