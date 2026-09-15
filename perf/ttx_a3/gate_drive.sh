@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The release gate on the default-ON tree, one arm at a time on card 3, resumable.
+# The release gate on the default-ON tree, one arm at a time on the granted card, resumable.
 #
 # Arm order is by what can still change the verdict. The lever is gated strictly above 1024
 # tokens, so the arms that can see it at all come first: pytest (the shipping-default
@@ -7,14 +7,16 @@
 # accuracy gate is hours and every one of its targets is below the cap, so it runs as the
 # neutrality control rather than as the discriminator.
 #
-# Timed arms wait for a quiet box; correctness arms only lose wall-clock to load, so they do
-# not. Every arm appends one line to progress and is skipped if that line is already there.
+# The below-cap ladder now runs on a sibling card instead of this one, so the correctness arms
+# no longer wait it out. The TIMED arms still do: a fold on another card is another 100 % core
+# on the same 16-core host, and these two arms are compared against a recorded baseline.
+# Every arm appends one line to progress and is skipped if that line is already there.
 set -u
 WT=/home/ttuser/.coworker/wt/ttx-a3-fused-sdpa-default-ship
 cd "$WT" || exit 1
 OUT="$WT/perf/ttx_a3/gate"
 PROG="$OUT/progress"
-CARD=3
+CARD=1
 P=/home/ttuser/tt-bio-dev/env/bin/python3
 mkdir -p "$OUT"; touch "$PROG"
 
@@ -27,25 +29,18 @@ export TT_BIO_LEASE_HOLDER=worker:ttx-a3-fused-sdpa-default-ship
 
 log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$PROG"; }
 
-# The quiet ladder owns card 3 until it is done; two drivers on one card is a wedge. Wait on its
-# own end marker plus a live fold, not on a pgrep of the driver name: the launching `bash -c`
-# carries the script name in its argv and outlives it, so a name match alone never clears.
 QL=perf/ttx_a3/nochange/quiet/driver.log
-# No short cap here on purpose. The cap is the hazard: if it expires while the ladder is still
-# folding, two drivers own card 3 and that is the wedge this whole campaign keeps paying for.
-# Under load a 1024 aa rung can run an hour, so the wait outlasts the ladder rather than the
-# other way round, and it also refuses to start while any fold is alive even after the marker.
-waited=0
-while [ "$waited" -lt 43200 ]; do
-  grep -q 'QUIET DONE' "$QL" && ! pgrep -f fold_parity_a3.py > /dev/null && break
-  sleep 30; waited=$((waited + 30))
-done
-log "quiet-ladder wait ended after ${waited}s"
 
+# A timed arm needs the box to itself. Two conditions, both required: the sibling-card ladder is
+# finished (its own end marker AND no live fold -- the launching `bash -c` keeps the script name
+# in its argv and outlives it, so a name match alone never clears), and loadavg is under the
+# ceiling so a sibling campaign that relaunched has not taken the window back.
 wait_quiet() {  # $1 = max seconds to wait, $2 = loadavg ceiling
   local waited=0
   while [ "$waited" -lt "$1" ]; do
-    awk -v c="$2" '{exit !($1 < c)}' /proc/loadavg && return 0
+    if grep -q 'QUIET DONE' "$QL" 2>/dev/null && ! pgrep -f fold_parity_a3.py > /dev/null; then
+      awk -v c="$2" '{exit !($1 < c)}' /proc/loadavg && return 0
+    fi
     sleep 60; waited=$((waited + 60))
   done
   return 1
