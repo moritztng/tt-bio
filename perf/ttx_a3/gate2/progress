@@ -41,3 +41,5 @@
 2026-09-15T07:20:55Z capacity-saprot-650m START loadavg=2.02
 2026-09-15T07:21:16Z capacity-saprot-650m rc=0 loadavg=2.97
 2026-09-15T07:21:16Z ladder-boltz2 START loadavg=2.97
+2026-09-15T07:28:04Z ladder-boltz2 rc=1 loadavg=1.14
+2026-09-15T07:28:04Z ladder-esmfold2 START loadavg=1.14

@@ -1,0 +1,71 @@
+[release-gate] granted card(s) [0]
+
+======================================================================
+[size-ladder] checking for card p300c: boltz2 at rungs 256,512,640,768,896,1024
+[size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence
+======================================================================
+
+##############################################################################
+RELEASE GATE — size-ladder (rungs 256,512,640,768,896,1024, 6 steps / 1 sample, seed 0, single-sequence, card p300c)
+##############################################################################
+model              256aa    512aa    640aa    768aa    896aa   1024aa  k256->512  k512->768     wall  result
+boltz2              4.3s    11.4s    17.5s    26.5s    38.4s    49.7s       1.41       2.08     406s  FAIL (boltz2/256 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)'] -> []; boltz2/256 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); boltz2/256 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); boltz2/256 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); boltz2/256 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); boltz2/256 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); boltz2/256 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); boltz2/512 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)'] -> []; boltz2/512 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []; boltz2/512 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark); boltz2/512 REBLOCK_PERMUTE_GATED: frac 0.000 -> 1.000 (started firing); boltz2/512 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); boltz2/512 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); boltz2/512 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); boltz2/512 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); boltz2/512 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); boltz2/512 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); boltz2/640 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> []; boltz2/640 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []; boltz2/640 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark); boltz2/640 REBLOCK_PERMUTE_GATED: frac 0.000 -> 1.000 (started firing); boltz2/640 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); boltz2/640 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); boltz2/640 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); boltz2/640 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); boltz2/640 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); boltz2/640 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); boltz2/768 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> ['k_tiles=4:(4,4)']; boltz2/768 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []; boltz2/768 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark); boltz2/768 REBLOCK_PERMUTE_GATED: frac 0.000 -> 1.000 (started firing); boltz2/768 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); boltz2/768 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); boltz2/768 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); boltz2/768 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); boltz2/768 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); boltz2/768 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); boltz2/896 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> ['k_tiles=4:(4,4)']; boltz2/896 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []; boltz2/896 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark); boltz2/896 REBLOCK_PERMUTE_GATED: frac 0.000 -> 1.000 (started firing); boltz2/896 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); boltz2/896 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); boltz2/896 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); boltz2/896 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); boltz2/896 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); boltz2/896 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record); boltz2/1024 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> ['k_tiles=4:(4,4)']; boltz2/1024 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []; boltz2/1024 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark); boltz2/1024 REBLOCK_PERMUTE_GATED: frac 0.000 -> 1.000 (started firing); boltz2/1024 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed); boltz2/1024 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record); boltz2/1024 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record); boltz2/1024 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record); boltz2/1024 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record); boltz2/1024 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record))
+    FAIL boltz2/256 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)'] -> []
+    FAIL boltz2/256 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL boltz2/256 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/256 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/256 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/256 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/256 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/512 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)'] -> []
+    FAIL boltz2/512 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []
+    FAIL boltz2/512 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+    FAIL boltz2/512 REBLOCK_PERMUTE_GATED: frac 0.000 -> 1.000 (started firing)
+    FAIL boltz2/512 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL boltz2/512 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/512 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/512 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/512 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/512 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/640 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> []
+    FAIL boltz2/640 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []
+    FAIL boltz2/640 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+    FAIL boltz2/640 REBLOCK_PERMUTE_GATED: frac 0.000 -> 1.000 (started firing)
+    FAIL boltz2/640 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL boltz2/640 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/640 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/640 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/640 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/640 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/768 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> ['k_tiles=4:(4,4)']
+    FAIL boltz2/768 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []
+    FAIL boltz2/768 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+    FAIL boltz2/768 REBLOCK_PERMUTE_GATED: frac 0.000 -> 1.000 (started firing)
+    FAIL boltz2/768 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL boltz2/768 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/768 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/768 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/768 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/768 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/896 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> ['k_tiles=4:(4,4)']
+    FAIL boltz2/896 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []
+    FAIL boltz2/896 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+    FAIL boltz2/896 REBLOCK_PERMUTE_GATED: frac 0.000 -> 1.000 (started firing)
+    FAIL boltz2/896 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL boltz2/896 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/896 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/896 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/896 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/896 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/1024 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=4:(4,1)', 'k_tiles=4:(4,4)'] -> ['k_tiles=4:(4,4)']
+    FAIL boltz2/1024 TRIMUL_TAIL_F1: decline clause ['k_tiles=4'] -> []
+    FAIL boltz2/1024 REBLOCK_PERMUTE: frac 1.000 -> 0.000 (went dark)
+    FAIL boltz2/1024 REBLOCK_PERMUTE_GATED: frac 0.000 -> 1.000 (started firing)
+    FAIL boltz2/1024 B2_TOKEN_DIT_SDPA: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL boltz2/1024 TRIMUL_MASK_AFTER_MOVE: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/1024 SDPA_FUSED_LARGE_S: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/1024 APB_CONCAT_HEADS: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/1024 ATOM_AXIS_BUCKET: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/1024 TRANSITION_H_CHUNK: new lever not in the baseline (re-record with --size-ladder-record)
+##############################################################################
+GATE FAIL — size-ladder drift vs the recorded baseline (see above); if this change is intentional, re-record with --size-ladder-record
