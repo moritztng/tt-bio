@@ -1,0 +1,76 @@
+........................................................................ [ 12%]
+..............................................ss........................ [ 24%]
+........................................................................ [ 37%]
+........................................................................ [ 49%]
+....F...F............................................................... [ 62%]
+........................................................................ [ 74%]
+..................................ss...s................................ [ 86%]
+........................................................................ [ 99%]
+....                                                                     [100%]
+=================================== FAILURES ===================================
+E   AssertionError: tt_bio/tenstorrent.py cites perf/b2z2_adaln_sdpa/chunks_wh_c12.json, which is not in the repo. Either commit the artifact or state the measurement without naming a path.
+    assert False
+     +  where False = _resolves('perf/b2z2_adaln_sdpa/chunks_wh_c12.json')
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tests/test_perf_citations.py:111: AssertionError: tt_bio/tenstorrent.py cites perf/b2z2_adaln_sdpa/chunks_wh_c12.json, which is not in the repo. Either commit the artifact or state the measurement without naming a path.
+E   AssertionError: tt_bio/tenstorrent.py cites perf/b2z2_layout/PER-SITE-TABLE.md, which is not in the repo. Either commit the artifact or state the measurement without naming a path.
+    assert False
+     +  where False = _resolves('perf/b2z2_layout/PER-SITE-TABLE.md')
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tests/test_perf_citations.py:111: AssertionError: tt_bio/tenstorrent.py cites perf/b2z2_layout/PER-SITE-TABLE.md, which is not in the repo. Either commit the artifact or state the measurement without naming a path.
+=============================== warnings summary ===============================
+tests/test_openbind_ligand_gate.py::test_a_blank_ligand_spec_never_reaches_a_model
+  /home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tt_bio/main.py:48: DeprecationWarning: This process (pid=32217) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    pid = _os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_perf_citations.py::test_cited_perf_artifact_exists[tt_bio/tenstorrent.py-perf/b2z2_adaln_sdpa/chunks_wh_c12.json]
+FAILED tests/test_perf_citations.py::test_cited_perf_artifact_exists[tt_bio/tenstorrent.py-perf/b2z2_layout/PER-SITE-TABLE.md]
+2 failed, 573 passed, 5 skipped, 1 warning in 10.94s
+nanobind: leaked 581 instances!
+ - leaked instance 0x70a62225d130 of type "ttnn._ttnn.operations.binary.logaddexp2_t"
+ - leaked instance 0x70a62225a8a8 of type "ttnn._ttnn.operations.unary.relu_min_t"
+ - leaked instance 0x70a62225d640 of type "ttnn._ttnn.operations.binary.logical_xor_t"
+ - leaked instance 0x70a62225ecc8 of type "ttnn._ttnn.operations.data_movement.transpose_t"
+ - leaked instance 0x70a622253b28 of type "ttnn._ttnn.operations.reduction.min_t"
+ - leaked instance 0x70a62225eba8 of type "ttnn._ttnn.operations.data_movement.squeeze_t"
+ - leaked instance 0x70a62225a158 of type "ttnn._ttnn.operations.unary.tan_t"
+ - leaked instance 0x70a622260920 of type "ttnn._ttnn.operations.creation.empty_t"
+ - leaked instance 0x70a62225adb8 of type "ttnn._ttnn.operations.unary.logical_not__t"
+ - leaked instance 0x70a622256bc8 of type "ttnn._ttnn.operations.experimental.dit_rms_norm_unary_fused_t"
+ - leaked instance 0x70a62224feb0 of type "ttnn._ttnn.operations.experimental.ccl_experimental.reduce_scatter_minimal_async_t"
+ - leaked instance 0x70a62225d010 of type "ttnn._ttnn.operations.binary.logical_and_t"
+ - leaked instance 0x70a622259978 of type "ttnn._ttnn.operations.unary.trunc_t"
+ - leaked instance 0x70a62225abc0 of type "ttnn._ttnn.operations.unary.cosh_t"
+ - leaked instance 0x70a62225bfb8 of type "ttnn._ttnn.operations.unary_backward.asin_bw_t"
+ - leaked instance 0x70a622253c48 of type "ttnn._ttnn.operations.reduction.cumprod_t"
+ - leaked instance 0x70a61e774ca8 of type "ttnn._ttnn.operations.normalization.SoftmaxDefaultProgramConfig"
+ - leaked instance 0x70a62225e060 of type "ttnn._ttnn.operations.binary_backward.remainder_bw_t"
+ - leaked instance 0x70a62224f9e0 of type "ttnn._ttnn.operations.experimental.ccl_experimental.deepseek_moe_reduce_scatter_t"
+ - leaked instance 0x70a622259bb8 of type "ttnn._ttnn.operations.unary.i1_t"
+ - ... skipped remainder
+nanobind: leaked 635 types!
+ - leaked type "ttnn._ttnn.operations.binary.lt__t"
+ - leaked type "ttnn._ttnn.operations.binary_backward.xlogy_bw_t"
+ - leaked type "ttnn._ttnn.operations.reduction.var_t"
+ - leaked type "DispatchCoreAxis"
+ - leaked type "ttnn._ttnn.operations.experimental.ccl_experimental.strided_all_gather_async_t"
+ - leaked type "ttnn._ttnn.operations.unary.fill_t"
+ - leaked type "ttnn._ttnn.operations.data_movement.gather_t"
+ - leaked type "ttnn._ttnn.operations.point_to_point.point_to_point_t"
+ - leaked type "ttnn._ttnn.operations.experimental.rotary_embedding_t"
+ - leaked type "ttnn._ttnn.operations.ternary.where_t"
+ - ... skipped remainder
+nanobind: leaked 2731 functions!
+ - leaked function ""
+ - leaked function "__eq__"
+ - leaked function ""
+ - leaked function "init_device_compute_kernel_config"
+ - leaked function "__call__"
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function "__init__"
+ - leaked function ""
+ - ... skipped remainder
+nanobind: this is likely caused by a reference counting issue in the binding code.
+See https://nanobind.readthedocs.io/en/latest/refleaks.html

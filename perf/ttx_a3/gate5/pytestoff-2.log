@@ -1,0 +1,161 @@
+........................................................................ [ 12%]
+.F................F.....................F............................... [ 24%]
+........................................................................ [ 37%]
+........................................................................ [ 49%]
+.............................................................sss.sss.... [ 62%]
+..........................................sssss................s.....s.. [ 74%]
+....................................F................................... [ 87%]
+..............................F......................................... [ 99%]
+.                                                                        [100%]
+=================================== FAILURES ===================================
+E   AssertionError: tt_bio/size_limits.CEILINGS has changed since these cells were measured, so the sizes tt-bio now advertises have not been capacity-tested: ['p150a/boltz2', 'p150a/esmc-300m', 'p150a/esmc-600m', 'p150a/esmc-6b', 'p150a/esmfold2', 'p150a/esmfold2-fast', 'p150a/openbind', 'p150a/opendde', 'p150a/opendde-abag', 'p150a/openfold3', 'p150a/protenix-v1', 'p150a/protenix-v2', 'p150a/rf3', 'p150a/saprot-35m', 'p150a/saprot-650m']. Re-run
+        TT_VISIBLE_DEVICES=0 PYTHONPATH=$PWD python3 scripts/capacity_gate.py --models <them> --record
+      This is the check that was missing when the ceilings went to 1024 on 2026-09-03 and three models broke in traffic.
+    assert not ['p150a/boltz2', 'p150a/esmc-300m', 'p150a/esmc-600m', 'p150a/esmc-6b', 'p150a/esmfold2', 'p150a/esmfold2-fast', ...]
+     +  where ['p150a/boltz2', 'p150a/esmc-300m', 'p150a/esmc-600m', 'p150a/esmc-6b', 'p150a/esmfold2', 'p150a/esmfold2-fast', ...] = <function baseline_stale at 0x7d41aa318900>()
+     +    where <function baseline_stale at 0x7d41aa318900> = cg.baseline_stale
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tests/test_capacity_gate.py:161: AssertionError: tt_bio/size_limits.CEILINGS has changed since these cells were measured, so the sizes tt-bio now advertises have not been capacity-tested: ['p150a/boltz2', 'p150a/esmc-300m', 'p150a/esmc-600m', 'p150a/esmc-6b', 'p150a/esmfold2', 'p150a/esmfold2-fast', 'p150a/openbind', 'p150a/opendde', 'p150a/opendde-abag', 'p150a/openfold3', 'p150a/protenix-v1', 'p150a/protenix-v2', 'p150a/rf3', 'p150a/saprot-35m', 'p150a/saprot-650m']. Re-run
+E   AssertionError: the inner session is red, but not from the pollution this guard is about -- every failure is in test_capacity_gate.py itself:
+      ...........F................s.....................F..................... [ 58%]
+      .....................................s..............                     [100%]
+      =========================== short test summary info ============================
+      FAILED tests/test_capacity_gate.py::test_a_moved_ceiling_re_runs_the_capacity_gate
+      FAILED tests/test_capacity_gate.py::test_every_runnable_model_has_a_recorded_cell
+      2 failed, 120 passed, 2 skipped in 11.41s
+      nanobind: leaked 582 instances!
+       - leaked instance 0x7c7c39c5c630 of type "ttnn._ttnn.operations.examples.composite_example_t"
+       - leaked instance 0x7c7c39c5d3b8 of type "ttnn._ttnn.operations.binary.bitwise_xor_t"
+       - leaked instance 0x7c7c39c5d9a0 of type "ttnn._ttnn.operations.binary.maximum_t"
+       - leaked instance 0x7c7c39c60848 of type "ttnn._ttnn.operations.creation.zeros_like_t"
+       - leaked instance 0x7c7c39c5e570 of type "ttnn._ttnn.operations.complex_unary.angle_t"
+       - leaked instance 0x7c7c39c58f50 of type "ttnn._ttnn.operations.experimental.moe_gate_mm_t"
+       - leaked instance 0x7c7c39c55968 of type "ttnn._ttnn.operations.moreh.moreh_cumsum_backward_t"
+       - leaked instance 0x7c7c39c5ad28 of type "ttnn._ttnn.operations.unary.std_hw_t"
+       - leaked instance 0x7c7c39c59bb8 of type "ttnn._ttnn.operations.unary.i1_t"
+       - leaked instance 0x7c7c39c51680 of type "ttnn._ttnn.operations.experimental.ccl_experimental.llama_all_gather_matmul_async_t"
+       - leaked instance 0x7c7c39c55ec8 of type "ttnn._ttnn.operations.moreh.moreh_abs_pow_t"
+       - leaked instance 0x7c7c39c5ac50 of type "ttnn._ttnn.operations.unary.multigammaln_t"
+       - leaked instance 0x7c7c39c60a40 of type "ttnn._ttnn.operations.conv.conv1d_t"
+       - leaked instance 0x7c7c39c5a1e8 of type "ttnn._ttnn.operations.unary.bitwise_not_t"
+       - leaked instance 0x7c7c39c5b238 of type "ttnn._ttnn.operations.unary_backward.hardshrink_bw_t"
+       - leaked instance 0x7c7c39c54310 of type "ttnn._ttnn.operations.normalization.scale_mask_softmax_in_place_t"
+       - leaked instance 0x7c7c39c5c090 of type "ttnn._ttnn.operations.unary_backward.sinh_bw_t"
+       - leaked instance 0x7c7c39c58388 of type "ttnn._ttnn.operations.experimental.plus_one_t"
+       - leaked instance 0x7c7c39c54e60 of type "ttnn._ttnn.operations.moreh.moreh_sgd_t"
+       - leaked instance 0x7c7c39c5b8b0 of type "ttnn._ttnn.operations.unary_backward.atan_bw_t"
+       - ... skipped remainder
+      nanobind: leaked 637 types!
+       - leaked type "ttnn._ttnn.operations.binary.lt__t"
+       - leaked type "ttnn._ttnn.operations.binary_backward.xlogy_bw_t"
+       - leaked type "ttnn._ttnn.operations.reduction.var_t"
+       - leaked type "DispatchCoreAxis"
+       - leaked type "ttnn._ttnn.operations.experimental.ccl_experimental.strided_all_gather_async_t"
+       - leaked type "ttnn._ttnn.operations.unary.fill_t"
+       - leaked type "ttnn._ttnn.operations.data_movement.gather_t"
+       - leaked type "ttnn._ttnn.operations.point_to_point.point_to_point_t"
+       - leaked type "ttnn._ttnn.operations.experimental.rotary_embedding_t"
+       - leaked type "ttnn._ttnn.operations.ternary.where_t"
+       - ... skipped remainder
+      nanobind: leaked 2736 functions!
+       - leaked function "__ne__"
+       - leaked function ""
+       - leaked function ""
+       - leaked function ""
+       - leaked function ""
+       - leaked function "__repr__"
+       - leaked function "__call__"
+       - leaked function ""
+       - leaked function ""
+       - leaked function ""
+       - ... skipped remainder
+      nanobind: this is likely caused by a reference counting issue in the binding code.
+      See https://nanobind.readthedocs.io/en/latest/refleaks.html
+    assert 1 == 0
+     +  where 1 = CompletedProcess(args=['/home/ttuser/tt-bio-dev/env/bin/python3', '-m', 'pytest', '-q', '-p', 'no:randomly', '--tb=no'...aused by a reference counting issue in the binding code.\nSee https://nanobind.readthedocs.io/en/latest/refleaks.html').returncode
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tests/test_capacity_gate.py:659: AssertionError: the inner session is red, but not from the pollution this guard is about -- every failure is in test_capacity_gate.py itself:
+E   AssertionError: these models are runnable by the gate but have no cell in docs/capacity_gate_baseline.json, so their verdict is prose and not evidence: ['p300c/opendde', 'p300c/opendde-abag']. Run the gate for them and --record (or --record-from a finished report). A model that genuinely cannot be measured anywhere needs a written EXEMPT reason instead, the way saprot-1.3b has one.
+    assert not ['p300c/opendde', 'p300c/opendde-abag']
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tests/test_capacity_gate.py:1042: AssertionError: these models are runnable by the gate but have no cell in docs/capacity_gate_baseline.json, so their verdict is prose and not evidence: ['p300c/opendde', 'p300c/opendde-abag']. Run the gate for them and --record (or --record-from a finished report). A model that genuinely cannot be measured anywhere needs a written EXEMPT reason instead, the way saprot-1.3b has one.
+E   AssertionError: the above-cap route ships on
+    assert False is True
+     +  where False = <module 'tt_bio.tenstorrent' from '/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tt_bio/tenstorrent.py'>._SDPA_FUSED_LARGE_S
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tests/test_sdpa_fused_pairs.py:46: AssertionError: the above-cap route ships on
+E   AssertionError: the size ladder walks rungs these recorded cells have never been measured at, so `release_gate.py --model size-ladder` will report 'rung not recorded in the baseline' for each of them after hours on a card:
+        p150a/boltz2: no cell at 896, 1024
+        p150a/nesso1: no cell at 896, 1024
+        p150a/openbind: no cell at 896, 1024
+        p150a/opendde: no cell at 896, 1024
+        p150a/openfold3: no cell at 896, 1024
+      
+      Re-record on a card of that type: python3 scripts/release_gate.py --model size-ladder --size-ladder-record
+    assert not ['p150a/boltz2: no cell at 896, 1024', 'p150a/nesso1: no cell at 896, 1024', 'p150a/openbind: no cell at 896, 1024', 'p150a/opendde: no cell at 896, 1024', 'p150a/openfold3: no cell at 896, 1024']
+/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tests/test_size_ladder_gate.py:1057: AssertionError: the size ladder walks rungs these recorded cells have never been measured at, so `release_gate.py --model size-ladder` will report 'rung not recorded in the baseline' for each of them after hours on a card:
+=============================== warnings summary ===============================
+tt_bio/main.py:48
+  /home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tt_bio/main.py:48: DeprecationWarning: This process (pid=45703) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    pid = _os.fork()
+
+tests/test_rf3_featurizer.py::test_rf3_featurizer_parity
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=45703) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/test_rf3_featurizer.py::test_rf3_featurizer_parity
+  /home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:387: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+    is_protein[atom_array.token_id.astype(np.int32)]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_capacity_gate.py::test_a_moved_ceiling_re_runs_the_capacity_gate
+FAILED tests/test_capacity_gate.py::test_this_file_does_not_break_the_files_that_run_after_it
+FAILED tests/test_capacity_gate.py::test_every_runnable_model_has_a_recorded_cell
+FAILED tests/test_sdpa_fused_pairs.py::test_the_above_cap_route_is_strictly_above_the_cap
+FAILED tests/test_size_ladder_gate.py::test_every_recorded_card_covers_every_rung_the_ladder_walks
+5 failed, 559 passed, 13 skipped, 3 warnings in 103.49s (0:01:43)
+nanobind: leaked 581 instances!
+ - leaked instance 0x7d41b6c571b8 of type "ttnn._ttnn.operations.experimental.nlp_create_qkv_heads_segformer_t"
+ - leaked instance 0x7d41b6c5f108 of type "ttnn._ttnn.operations.data_movement.scatter_t"
+ - leaked instance 0x7d41b6c55920 of type "ttnn._ttnn.operations.moreh.moreh_cumsum_t"
+ - leaked instance 0x7d41b6c55528 of type "ttnn._ttnn.operations.moreh.moreh_mean_t"
+ - leaked instance 0x7d41b6c5a8f0 of type "ttnn._ttnn.operations.unary.rpow_t"
+ - leaked instance 0x7d41b6c5d130 of type "ttnn._ttnn.operations.binary.logaddexp2_t"
+ - leaked instance 0x7d41b6c56ca0 of type "ttnn._ttnn.operations.experimental.rotary_embedding_llama_fused_qk_t"
+ - leaked instance 0x7d41b6c60a40 of type "ttnn._ttnn.operations.conv.conv1d_t"
+ - leaked instance 0x7d41b6c5ad70 of type "ttnn._ttnn.operations.unary.normalize_hw_t"
+ - leaked instance 0x7d41b6c5b748 of type "ttnn._ttnn.operations.unary_backward.fill_bw_t"
+ - leaked instance 0x7d41b6c597c8 of type "ttnn._ttnn.operations.unary.cos_t"
+ - leaked instance 0x7d41b6c54160 of type "ttnn._ttnn.operations.pool.grid_sample_t"
+ - leaked instance 0x7d41b6c53db0 of type "ttnn._ttnn.operations.reduction.sampling_t"
+ - leaked instance 0x7d41b6c5ac98 of type "ttnn._ttnn.operations.unary.sinh_t"
+ - leaked instance 0x7d41b6c5b3a0 of type "ttnn._ttnn.operations.unary_backward.logiteps_bw_t"
+ - leaked instance 0x7d41b6c5bd30 of type "ttnn._ttnn.operations.unary_backward.log_bw_t"
+ - leaked instance 0x7d41b6c4fdd8 of type "ttnn._ttnn.operations.experimental.ccl_experimental.llama_rs_create_heads_t"
+ - leaked instance 0x7d41b6c5c0d8 of type "ttnn._ttnn.operations.unary_backward.log10_bw_t"
+ - leaked instance 0x7d41b6c56c10 of type "ttnn._ttnn.operations.experimental.rotary_embedding_t"
+ - leaked instance 0x7d41b6c5b3e8 of type "ttnn._ttnn.operations.unary_backward.threshold_bw_t"
+ - ... skipped remainder
+nanobind: leaked 635 types!
+ - leaked type "ttnn._ttnn.operations.binary.lt__t"
+ - leaked type "ttnn._ttnn.operations.binary_backward.xlogy_bw_t"
+ - leaked type "ttnn._ttnn.operations.reduction.var_t"
+ - leaked type "DispatchCoreAxis"
+ - leaked type "ttnn._ttnn.operations.experimental.ccl_experimental.strided_all_gather_async_t"
+ - leaked type "ttnn._ttnn.operations.unary.fill_t"
+ - leaked type "ttnn._ttnn.operations.data_movement.gather_t"
+ - leaked type "ttnn._ttnn.operations.point_to_point.point_to_point_t"
+ - leaked type "ttnn._ttnn.operations.experimental.rotary_embedding_t"
+ - leaked type "ttnn._ttnn.operations.ternary.where_t"
+ - ... skipped remainder
+nanobind: leaked 2731 functions!
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function "__call__"
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - leaked function ""
+ - ... skipped remainder
+nanobind: this is likely caused by a reference counting issue in the binding code.
+See https://nanobind.readthedocs.io/en/latest/refleaks.html

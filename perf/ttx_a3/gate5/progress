@@ -1,0 +1,39 @@
+2026-09-15T20:55:16Z CARD=0 (UMD) resolves to /dev/tenstorrent/0
+2026-09-15T20:55:16Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-15T20:55:16Z pytest-0 START loadavg=0.69
+2026-09-15T20:55:31Z pytest-0 rc=0 loadavg=0.69
+2026-09-15T20:55:31Z REAP after pytest-0: card 0 still held by 9118(python3)
+2026-09-15T21:15:37Z resume_after_boot relaunching (uptime 150s)
+2026-09-15T21:15:37Z CARD=0 (UMD) resolves to /dev/tenstorrent/0
+2026-09-15T21:15:37Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-15T21:15:37Z pytest-1 START loadavg=0.05
+2026-09-15T21:29:54Z resume_after_boot relaunching (uptime 150s)
+2026-09-15T21:29:54Z CARD=0 (UMD) resolves to /dev/tenstorrent/0
+2026-09-15T21:29:54Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-15T21:29:54Z pytest-1 START loadavg=0.03
+2026-09-15T21:33:24Z pytest-1 rc=0 loadavg=12.20
+2026-09-15T21:33:24Z pytest-2 START loadavg=12.20
+2026-09-15T21:34:33Z pytest-2 rc=1 loadavg=7.27
+2026-09-15T21:34:33Z pytest-3 START loadavg=7.27
+2026-09-15T21:55:56Z pytest-3 rc=0 loadavg=1.75
+2026-09-15T21:55:56Z pytest-4 START loadavg=1.75
+2026-09-15T21:56:20Z pytest-4 rc=1 loadavg=2.44
+2026-09-15T21:56:21Z pytest-5 START loadavg=2.44
+2026-09-15T21:56:32Z pytest-5 rc=1 loadavg=2.53
+2026-09-15T21:56:32Z ux START loadavg=2.53
+2026-09-15T22:05:32Z ux rc=0 loadavg=7.10
+2026-09-15T22:05:32Z capacity-boltz2 START loadavg=7.10
+2026-09-15T22:08:31Z resume_after_boot relaunching (uptime 2468s)
+2026-09-15T22:08:31Z CARD=0 (UMD) resolves to /dev/tenstorrent/0
+2026-09-15T22:08:31Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-15T22:08:31Z pytestoff-0 START loadavg=3.09
+2026-09-15T22:08:46Z pytestoff-0 rc=0 loadavg=3.07
+2026-09-15T22:08:46Z pytestoff-1 START loadavg=3.07
+2026-09-15T22:12:45Z pytestoff-1 rc=0 loadavg=7.54
+2026-09-15T22:12:45Z pytestoff-2 START loadavg=7.54
+2026-09-15T22:14:30Z pytestoff-2 rc=1 loadavg=3.80
+2026-09-15T22:14:30Z pytestoff-3 START loadavg=3.80
+2026-09-15T23:10:52Z resume_after_boot relaunching (uptime 465s)
+2026-09-15T23:10:52Z CARD=0 (UMD) resolves to /dev/tenstorrent/0
+2026-09-15T23:10:52Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-15T23:10:52Z pytestoff-3 START loadavg=0.51

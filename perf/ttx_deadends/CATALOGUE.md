@@ -97,3 +97,15 @@ the same state docs and are easy to mis-file.
 | The Blackhole per-op launch constant | Two recorded numbers disagree and neither is a fit. `roof-orchestrator` pass 20 assumes **5.0 us** for a projection ("353,384 calls at a Blackhole fixed cost of 5.0 us -> 1.77 s"); `b2z2-bh-tile-census:57` states **3.0 us** ("~3.8 % across 232 compute programs"); the only measured fit is **WH** (20.6 us + 8.3 us/block). The BH sweep that `roof-orchestrator` names as its own next step ("sweep rows per op type, fit `fixed + per-block`") was never run. Anything ranked off a BH launch floor today is ranked off an assumption |
 | The 15.031 s true floor | The floor "takes `max(traffic, arithmetic)` and omits the per-op launch cost". The registered prediction is **above 15.031 s, most likely 15.5-17.0 s**, putting the fold at 90-100 % rather than 86.7 %. Predicted, not measured |
 | "Widening `eligible_back` to bfp8_b is worth ~1.17x" | Explicitly retired. See A5. Kept here only because the seed set carried it and someone will find it again |
+
+---
+
+# HELD — measured GO, unmerged because the release gate could not complete
+
+Not dead ends. Nothing refused these and nothing measured came back against them. They are here so
+a reader of the tables above does not mistake an unmerged flag for a refuted one, and so nobody
+re-measures a number that is already banked.
+
+| lever | what is measured | what is missing |
+|---|---|---|
+| `TT_BIO_SDPA_FUSED_LARGE_S` default-ON (branch `wk/ttx-a3-sdpa-ship-remerge`) | **1.1856x** on a 200-step 1536 aa fold against a 1.21 % same-session A/A floor, 1.007 Å all-atom where a seed change moves the same structure 36.6 Å. Byte-identical CIFs off/on/off at 298, 512, 768 and 1024 aa, the last of those with `TT_BIO_TRANSITION_L1_ROWS` also on. pytest 7 reds, 0 attributable, split between a flag-off control and three tree-state tests checked against `origin/main`. UX gate PASS on the default-ON tree | The gate's `capacity`, `size-ladder`, `perf` and `parity` arms, across four passes. Each pass died on infrastructure, not on the lever: an esmfold2/esmc-6b weights outage (since fixed), qb2 resetting every ~40 min, then qb2 under an exclusive reservation and qb1 down at mains level with its BMC dark. Independently, `docs/size_ladder_baseline.d/` is stale against nine merged levers, so the ladder arm is red for every branch including main. Full write-up: `perf/ttx_a3/gate5/REPORT.md` |

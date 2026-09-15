@@ -1,0 +1,63 @@
+........................................................................ [ 14%]
+........................................................................ [ 29%]
+...sssss........................................ssssssssssssssssssssssss [ 43%]
+s....................................................................... [ 58%]
+........................................................................ [ 72%]
+........................................................................ [ 87%]
+..............................................................           [100%]
+=============================== warnings summary ===============================
+tests/test_nesso1_input.py::test_inline_and_pooled_agree_on_everything_but_the_conformer
+tests/test_nesso1_input.py::test_inline_and_pooled_agree_on_everything_but_the_conformer
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=43611) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+464 passed, 30 skipped, 2 warnings in 237.94s (0:03:57)
+nanobind: leaked 581 instances!
+ - leaked instance 0x74961625b790 of type "ttnn._ttnn.operations.unary_backward.hardsigmoid_bw_t"
+ - leaked instance 0x749616260848 of type "ttnn._ttnn.operations.creation.zeros_like_t"
+ - leaked instance 0x74961625cab8 of type "ttnn._ttnn.operations.quantization.requantize_t"
+ - leaked instance 0x749616259d68 of type "ttnn._ttnn.operations.unary.lez_t"
+ - leaked instance 0x749616252e70 of type "ttnn._ttnn.operations.data_movement.sort_t"
+ - leaked instance 0x74961625ca70 of type "ttnn._ttnn.operations.quantization.quantize_t"
+ - leaked instance 0x749616256548 of type "ttnn._ttnn.operations.loss.l1_loss_t"
+ - leaked instance 0x74961625b820 of type "ttnn._ttnn.operations.unary_backward.acosh_bw_t"
+ - leaked instance 0x74961625c5a0 of type "ttnn._ttnn.operations.embedding.embedding_t"
+ - leaked instance 0x749616257c78 of type "ttnn._ttnn.operations.experimental.slice_write_t"
+ - leaked instance 0x74961625d400 of type "ttnn._ttnn.operations.binary.bitwise_left_shift_t"
+ - leaked instance 0x749616259a50 of type "ttnn._ttnn.operations.unary.ceil_t"
+ - leaked instance 0x749616257320 of type "ttnn._ttnn.operations.experimental.dit_layernorm_post_allgather_t"
+ - leaked instance 0x74961625a980 of type "ttnn._ttnn.operations.unary.fill_t"
+ - leaked instance 0x749616251c70 of type "ttnn._ttnn.operations.ccl.all_to_all_dispatch_t"
+ - leaked instance 0x74961625b598 of type "ttnn._ttnn.operations.unary_backward.exp_bw_t"
+ - leaked instance 0x74961625ac50 of type "ttnn._ttnn.operations.unary.multigammaln_t"
+ - leaked instance 0x7496162541f0 of type "ttnn._ttnn.operations.pool.upsample_t"
+ - leaked instance 0x749611f7f148 of type "ttnn._ttnn.operations.sliding_window.Op2DSliceConfig"
+ - leaked instance 0x749616256470 of type "ttnn._ttnn.operations.kv_cache.update_cache_t"
+ - ... skipped remainder
+nanobind: leaked 636 types!
+ - leaked type "ttnn._ttnn.operations.binary.lt__t"
+ - leaked type "ttnn._ttnn.operations.binary_backward.xlogy_bw_t"
+ - leaked type "ttnn._ttnn.operations.reduction.var_t"
+ - leaked type "DispatchCoreAxis"
+ - leaked type "ttnn._ttnn.operations.experimental.ccl_experimental.strided_all_gather_async_t"
+ - leaked type "ttnn._ttnn.operations.unary.fill_t"
+ - leaked type "ttnn._ttnn.operations.data_movement.gather_t"
+ - leaked type "ttnn._ttnn.operations.point_to_point.point_to_point_t"
+ - leaked type "ttnn._ttnn.operations.experimental.rotary_embedding_t"
+ - leaked type "ttnn._ttnn.operations.ternary.where_t"
+ - ... skipped remainder
+nanobind: leaked 2733 functions!
+ - leaked function "create_descriptor"
+ - leaked function ""
+ - leaked function ""
+ - leaked function "block_sharded"
+ - leaked function ""
+ - leaked function "create_descriptor"
+ - leaked function ""
+ - leaked function "__call__"
+ - leaked function ""
+ - leaked function ""
+ - ... skipped remainder
+nanobind: this is likely caused by a reference counting issue in the binding code.
+See https://nanobind.readthedocs.io/en/latest/refleaks.html
