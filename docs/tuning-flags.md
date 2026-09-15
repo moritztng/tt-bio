@@ -454,6 +454,65 @@ because the win is occupancy and occupancy depends on the grid. Narrower chunks 
 keys and values once more per chunk, 20.1 GB more traffic over the fold, which the idle cores more
 than pay for here but would not on every card.
 
+## `TT_BIO_TRANSITION_L1_ROWS` — on, Blackhole only
+
+Every transition block splits its input into row blocks so the SwiGLU's intermediates fit in L1.
+The height of that block was 16 rows everywhere, a number fitted on Wormhole. Blackhole has more L1
+per core and more cores, and nothing ever revisited the height for it, so a 512-residue pair tensor
+was cut into 32 blocks when its own budget allows 11.
+
+The flag makes the height a function of the shape and the card instead of a constant: the tallest
+block whose live bytes (the normalized input plus the SwiGLU's two halves, tile-padded) fit the
+card's measured per-core L1 budget, floored at the height that ships today so nothing gets shorter.
+On Blackhole the budget is 514,756 B per core. At the pair channel that works out to
+`height x width = 24576`, which is 48 rows at 512 residues, 32 at 768 and 24 at 1024, and 16 at
+1536, where the old constant already sat at the budget. Above that the flag does nothing at all.
+
+It is one expression, not a table: the MSA track has a quarter of the pair track's channel and gets
+its own taller block from the same budget, and a model with a wider channel gets a shorter one.
+A fixed height cannot do this. 768 residues refuses 48 rows and 1024 refuses 28, so every constant
+between 24 and 48 clashes on some size.
+
+**Accuracy: identical on the shapes it was measured on, and inside the noise elsewhere.**
+Byte-identical CIF at 298, 512, 768 and 1024 residues, both arms, on an 11x10 Blackhole p300c
+(`perf/roof_transition_chunk_bh_ship/`). Digests `a8c6fd65f70f4418`, `45781db716ebf020`,
+`9e1a1fdd392e0b4c`, `9a049ee58a5a0f7e`. Also byte-identical with the MSA depth axis at its full
+1024 rows, where the rule gives the MSA track a 96-row block instead of 16.
+
+Bit-exactness is not a property of every shape, though, and the page should not claim it is. On the
+release gate's no-MSA prot leg the two arms differ: 7.2161 Å from the fp32 reference with the flag
+on against 7.0511 Å with it off, a 0.165 Å move on a target whose arms both already sit 7 Å out.
+That leg is a documented bf16 floor and its verdict does not change with the flag.
+
+**Speed: 1.023-1.035x at 512 residues, 1.030x at 768, 1.013x at 1024.** Four paired reps per
+measurement, the off arm run on both sides of the on arm so the session's own A/A floor comes out of
+the same folds, one process and one card:
+
+| size | off | on | saved | A/A floor |
+|---|---|---|---|---|
+| 512 | 15.270 s | 14.750 s | 0.519 s | 0.005 s |
+| 512, second session | 15.217 s | 14.875 s | 0.342 s | 0.030 s |
+| 768 | 31.733 s | 30.806 s | 0.927 s | 0.120 s |
+| 1024 | 56.573 s | 55.825 s | 0.748 s | 0.078 s |
+
+512 is quoted as a range on purpose. Both sessions clear their own floor by an order of magnitude
+and they still disagree by 0.177 s, because an A/A floor bounds contention inside a session, not
+where the session itself sits.
+
+The saving does not shrink as the win per block does: 512 residues goes from 32 row blocks to 11 and
+1024 from 64 to 43, but 1024 has four times as many blocks to remove.
+
+**Which models it reaches.** Boltz-2, BoltzGen and OpenFold3, whose pair track is 128 channels
+wide and whose MSA track is 64. Protenix-v2 (256) and OpenDDE (384) share the same transition block
+but keep the height they ship today, because the budget was fitted at 128 and over-predicts above
+it: unbounded, it kills every seed of OpenDDE's structure and abag legs and the release gate's
+capacity leg with an L1 circular-buffer clash, all of which pass with the flag off. Getting the
+wider channels in needs a budget measured at that channel, not this one extrapolated.
+
+AF2-IG's transition is a different block (ReLU, not SwiGLU) and OpenFold3's diffusion conditioning
+has its own unchunked copy; neither changes. Wormhole is untouched: there the same budget only ever
+shortens the block, which is what it already did.
+
 ## `TT_BIO_TRIATT_FUSED_QKVG` — on
 
 A triangle attention's query, key, value and gate projections all read the same normed pair tensor,

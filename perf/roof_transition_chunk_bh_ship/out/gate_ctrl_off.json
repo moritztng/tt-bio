@@ -1,0 +1,47 @@
+{
+  "legs": [
+    {
+      "leg": "boltz2-prot-nomsa",
+      "verdict": "GAP",
+      "detail": "envelope worst kabsch_rmsd: num=7.0511 env=3.4501 ratio=2.04; kabsch_rmsd r=2.04",
+      "wall": 44.032708721000006,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-prot-nomsa.json"
+    }
+  ],
+  "tally": {
+    "GAP": 1
+  },
+  "scored": 1,
+  "total_wall_s": 44.033009323,
+  "card_grant": null,
+  "skipped_for_card_grant": [],
+  "workers": [
+    "tt-quietbox2:2"
+  ],
+  "stack": {
+    "tt_kmd": "2.11.0",
+    "cards": {
+      "0": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "1": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "2": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      },
+      "3": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      }
+    }
+  }
+}

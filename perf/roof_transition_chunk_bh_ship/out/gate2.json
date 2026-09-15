@@ -1,0 +1,393 @@
+{
+  "legs": [
+    {
+      "leg": "esmc-300m",
+      "verdict": "PASS",
+      "detail": "(resumed from esmc-300m.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "esmc-300m.json"
+    },
+    {
+      "leg": "esmc-600m",
+      "verdict": "PASS",
+      "detail": "(resumed from esmc-600m.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "esmc-600m.json"
+    },
+    {
+      "leg": "saprot-35m",
+      "verdict": "PASS",
+      "detail": "(resumed from saprot-35m.json)",
+      "wall": 0.0,
+      "committed": null,
+      "report": "saprot-35m.json"
+    },
+    {
+      "leg": "saprot-650m",
+      "verdict": "PASS",
+      "detail": "(resumed from saprot-650m.json)",
+      "wall": 0.0,
+      "committed": null,
+      "report": "saprot-650m.json"
+    },
+    {
+      "leg": "esmfold2-trpcage",
+      "verdict": "PASS",
+      "detail": "(resumed from esmfold2-trpcage.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "esmfold2-trpcage.json"
+    },
+    {
+      "leg": "esmfold2-fast-trpcage",
+      "verdict": "PASS",
+      "detail": "(resumed from esmfold2-fast-trpcage.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "esmfold2-fast-trpcage.json"
+    },
+    {
+      "leg": "esmfold2-cocrystal",
+      "verdict": "PASS",
+      "detail": "(resumed from esmfold2-cocrystal.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "esmfold2-cocrystal.json"
+    },
+    {
+      "leg": "boltz2-trpcage-nomsa",
+      "verdict": "PASS",
+      "detail": "(resumed from boltz2-trpcage-nomsa.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "boltz2-trpcage-nomsa.json"
+    },
+    {
+      "leg": "boltz2-prot-nomsa",
+      "verdict": "GAP",
+      "detail": "(resumed from boltz2-prot-nomsa.json)",
+      "wall": 0.0,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-prot-nomsa.json"
+    },
+    {
+      "leg": "boltz2-hsa-nomsa",
+      "verdict": "PASS",
+      "detail": "(resumed from boltz2-hsa-nomsa.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "boltz2-hsa-nomsa.json"
+    },
+    {
+      "leg": "boltz2-9ncy-nomsa",
+      "verdict": "GAP",
+      "detail": "(resumed from boltz2-9ncy-nomsa.json)",
+      "wall": 0.0,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-9ncy-nomsa.json"
+    },
+    {
+      "leg": "protenix-prot-msa",
+      "verdict": "PASS",
+      "detail": "(resumed from protenix-prot-msa.json)",
+      "wall": 0.0,
+      "committed": "GAP-evidenced",
+      "report": "protenix-prot-msa.json"
+    },
+    {
+      "leg": "protenix-ubq-msa",
+      "verdict": "PASS",
+      "detail": "(resumed from protenix-ubq-msa.json)",
+      "wall": 0.0,
+      "committed": "GAP-evidenced",
+      "report": "protenix-ubq-msa.json"
+    },
+    {
+      "leg": "protenix-hsa-msa",
+      "verdict": "PASS",
+      "detail": "(resumed from protenix-hsa-msa.json)",
+      "wall": 0.0,
+      "committed": "GAP",
+      "report": "protenix-hsa-msa.json"
+    },
+    {
+      "leg": "protenix-9ncy-msa",
+      "verdict": "BLOCKED-REF-REGEN-NEEDED",
+      "detail": "fixture incomplete: seed0, seed1, seed2, seed3, seed4 missing structures/9ncy.cif (run scripts/fetch_parity_fixtures.sh to restore the externalized reference binaries; if it already ran clean, the release asset itself is missing them (scripts/full_parity_gate.py --verify-fixtures))",
+      "wall": 0
+    },
+    {
+      "leg": "protenix-v1-prot-msa",
+      "verdict": "PASS",
+      "detail": "(resumed from protenix-v1-prot-msa.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "protenix-v1-prot-msa.json"
+    },
+    {
+      "leg": "openfold3-ubq-msa",
+      "verdict": "PASS",
+      "detail": "(resumed from openfold3-ubq-msa.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "openfold3-ubq-msa.json"
+    },
+    {
+      "leg": "openfold3-prot-msa",
+      "verdict": "PASS",
+      "detail": "(resumed from openfold3-prot-msa.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "openfold3-prot-msa.json"
+    },
+    {
+      "leg": "openfold3-7xi5-tmpl",
+      "verdict": "PASS",
+      "detail": "(resumed from openfold3-7xi5-tmpl.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "openfold3-7xi5-tmpl.json"
+    },
+    {
+      "leg": "openfold3-7xi5-notmpl",
+      "verdict": "GAP",
+      "detail": "(resumed from openfold3-7xi5-notmpl.json)",
+      "wall": 0.0,
+      "committed": "GAP-evidenced",
+      "report": "openfold3-7xi5-notmpl.json"
+    },
+    {
+      "leg": "openfold3-8hel-msa",
+      "verdict": "PASS",
+      "detail": "(resumed from openfold3-8hel-msa.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "openfold3-8hel-msa.json"
+    },
+    {
+      "leg": "openfold3-8hel-nomsa",
+      "verdict": "PASS",
+      "detail": "(resumed from openfold3-8hel-nomsa.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "openfold3-8hel-nomsa.json"
+    },
+    {
+      "leg": "openfold3-9bk6-complex-msa",
+      "verdict": "PASS",
+      "detail": "(resumed from openfold3-9bk6-complex-msa.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "openfold3-9bk6-complex-msa.json"
+    },
+    {
+      "leg": "openbind-ubq-msa",
+      "verdict": "PASS",
+      "detail": "(resumed from openbind-ubq-msa.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "openbind-ubq-msa.json"
+    },
+    {
+      "leg": "openbind-fkg-ligand-msa",
+      "verdict": "PASS",
+      "detail": "(resumed from openbind-fkg-ligand-msa.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "openbind-fkg-ligand-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-fkbp12-nomsa",
+      "verdict": "PASS",
+      "detail": "(resumed from boltz2-affinity-fkbp12-nomsa.json)",
+      "wall": 0.0,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-affinity-fkbp12-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-fkbp12-msa",
+      "verdict": "PASS",
+      "detail": "(resumed from boltz2-affinity-fkbp12-msa.json)",
+      "wall": 0.0,
+      "committed": "GAP-evidenced",
+      "report": "boltz2-affinity-fkbp12-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-nomsa",
+      "verdict": "PASS",
+      "detail": "(resumed from boltz2-affinity-dhfr-nomsa.json)",
+      "wall": 0.0,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-dhfr-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-dhfr-msa",
+      "verdict": "PASS",
+      "detail": "(resumed from boltz2-affinity-dhfr-msa.json)",
+      "wall": 0.0,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-dhfr-msa.json"
+    },
+    {
+      "leg": "boltz2-affinity-tryp-nomsa",
+      "verdict": "PASS",
+      "detail": "(resumed from boltz2-affinity-tryp-nomsa.json)",
+      "wall": 0.0,
+      "committed": "GAP",
+      "report": "boltz2-affinity-tryp-nomsa.json"
+    },
+    {
+      "leg": "boltz2-affinity-tryp-msa",
+      "verdict": "PASS",
+      "detail": "(resumed from boltz2-affinity-tryp-msa.json)",
+      "wall": 0.0,
+      "committed": "PASS-caveated",
+      "report": "boltz2-affinity-tryp-msa.json"
+    },
+    {
+      "leg": "opendde-trpcage-nomsa",
+      "verdict": "PASS",
+      "detail": "(resumed from opendde-trpcage-nomsa.json)",
+      "wall": 0.0,
+      "committed": "GAP-evidenced",
+      "report": "opendde-trpcage-nomsa.json"
+    },
+    {
+      "leg": "opendde-prot-prod",
+      "verdict": "PASS",
+      "detail": "(resumed from opendde-prot-prod.json)",
+      "wall": 0.0,
+      "committed": "GAP-evidenced",
+      "report": "opendde-prot-prod.json"
+    },
+    {
+      "leg": "opendde-abag",
+      "verdict": "PASS",
+      "detail": "(resumed from opendde-abag.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "opendde-abag.json"
+    },
+    {
+      "leg": "boltzgen",
+      "verdict": "PASS",
+      "detail": "(resumed from boltzgen.json)",
+      "wall": 0.0,
+      "committed": "PASS",
+      "report": "boltzgen.json"
+    },
+    {
+      "leg": "capacity",
+      "verdict": "PASS",
+      "detail": "peak 8.83 GiB, 58 CIFs / 2 PAEs (capacity:9j4c_abag 8.83 GiB; capacity:9ivj 7.86 GiB)",
+      "wall": 934.931984792,
+      "committed": null,
+      "report": "capacity.json"
+    },
+    {
+      "leg": "rfd3-featurizer",
+      "verdict": "PASS",
+      "detail": "43/43 keys bit-exact",
+      "wall": 0.17816989100003866,
+      "committed": "PASS",
+      "report": "rfd3-featurizer.json"
+    },
+    {
+      "leg": "af2ig-featurizer",
+      "verdict": "PASS",
+      "detail": "60/60 keys bit-exact",
+      "wall": 0.11978467000005821,
+      "committed": null,
+      "report": "af2ig-featurizer.json"
+    },
+    {
+      "leg": "af2ig-trunk",
+      "verdict": "PASS",
+      "detail": "complex: 94 taps, 0 failed; worst structure_module#3/traj pcc=0.998624",
+      "wall": 60.31399133499997,
+      "committed": null,
+      "report": "af2ig-trunk.json"
+    },
+    {
+      "leg": "af2ig-trunk-monomer",
+      "verdict": "PASS-caveated",
+      "detail": "monomer: 90 taps, 0 failed, 32 in the float32 envelope; worst structure_module#3/final_atom_positions pcc=0.971828",
+      "wall": 9.672106205000091,
+      "committed": null,
+      "report": "af2ig-trunk-monomer.json"
+    },
+    {
+      "leg": "af2ig-trunk-device",
+      "verdict": "GAP",
+      "detail": "13/94 taps and 2/6 scalars on the committed bf16 floor (tol 1.10x)",
+      "wall": 184.39409120899995,
+      "committed": "GAP-evidenced",
+      "report": "af2ig-trunk-device.json"
+    },
+    {
+      "leg": "pxdesign-featurizer",
+      "verdict": "PASS",
+      "detail": "25/25 arms on pdl1_protenix05_noH (196 tokens, 0 conditioned at origin)",
+      "wall": 0.6346789029998945,
+      "committed": null,
+      "report": "pxdesign-featurizer.json"
+    },
+    {
+      "leg": "nesso1",
+      "verdict": "PASS",
+      "detail": "worst scalar 3.486xR (upstream spread), device spread 0",
+      "wall": 12.488146479999841,
+      "committed": "PASS",
+      "report": "nesso1.json"
+    },
+    {
+      "leg": "rf3-1024aa",
+      "verdict": "PASS",
+      "detail": "xtal 1.959 A worst seed, ref 2.009 A, X 0.587 A, n_ca 966",
+      "wall": 150.35593530000006,
+      "committed": null,
+      "report": "rf3-1024aa.json"
+    }
+  ],
+  "tally": {
+    "PASS": 38,
+    "GAP": 4,
+    "BLOCKED-REF-REGEN-NEEDED": 1,
+    "PASS-caveated": 1
+  },
+  "scored": 43,
+  "total_wall_s": 1353.107591199,
+  "card_grant": null,
+  "skipped_for_card_grant": [],
+  "workers": [
+    "tt-quietbox2:0",
+    "tt-quietbox2:1"
+  ],
+  "stack": {
+    "tt_kmd": "2.11.0",
+    "cards": {
+      "0": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "1": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "0000046131934103"
+      },
+      "2": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      },
+      "3": {
+        "card_type": "p300c",
+        "fw_bundle_ver": "19.11.0.0",
+        "serial": "000004613193410D"
+      }
+    }
+  }
+}

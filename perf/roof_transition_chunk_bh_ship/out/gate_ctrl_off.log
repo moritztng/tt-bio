@@ -1,0 +1,12 @@
+
+##############################################################################
+# FULL PARITY GATE — 1 legs, workers ['tt-quietbox2:2'], granted the whole box (unpinned)
+##############################################################################
+leg                               kind       ref           verdict               wall  detail
+--------------------------------------------------------------------------------------------------------------
+boltz2-prot-nomsa                 structure  cached        GAP                    44s  envelope worst kabsch_rmsd: num=7.0511 env=3.4501 ratio=2.04 [reproduces committed]
+
+##############################################################################
+# Tally: {'GAP': 1}    total wall 0.7 min
+# GATE PASS — every fast-path leg reproduces within its floor
+##############################################################################

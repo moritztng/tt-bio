@@ -1,0 +1,210 @@
+{
+ "doc": "What the Transition row chunk is worth in FOLD SECONDS, and what its own session's floor is.\n\nThe op ratio is not the deliverable any more. `roof-true-floor` put the whole remaining prize at\n2.309 s against a 17.340 s cell, so a lever is worth what it moves on the fold and nothing else.\n\nOne process, one device open, model loaded once. Arms alternate INSIDE the process with the\nshipped arm run twice per rep, so the session's own A/A floor falls out of the same data instead\nof being a separate run that a load change can sit between. Arm order is fixed and the whole set\nruns once per rep, so a clock ramp or a JIT warm-up cannot bias one arm against another.\n\nThe floor is the contention detector and it has the last word: `roof-pair-transition` got 0.157 %\non a quiet box, and this row's contention guard says a session above ~1 % is not interpretable.\nWhen that happens the ratio is BLOCKED, not scaled -- publish a number you trust or none.\n\nEvery arm is bit-exact (proved fold-level at 298/512/768 aa by the ladder in this directory), so\nthe digest is carried here only as the cheap regression signal it is.\n\n    foldab.py --out <json> --legs 512:h48,768:h32 --reps 4\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "1",
+  "commit": "b81fe4c0ac59270a1877f31a58336755093c59a6",
+  "started_utc": "2026-09-14T15:09:07Z",
+  "loadavg_start": [
+   0.52880859375,
+   0.1630859375,
+   0.0556640625
+  ],
+  "unfused_silu": false,
+  "protocol": {
+   "sampling_steps": 200,
+   "recycling_steps": 3,
+   "seed": 0,
+   "reps": 2
+  },
+  "loadavg_now": [
+   4.390625,
+   2.2685546875,
+   0.99267578125
+  ]
+ },
+ "folds": [
+  {
+   "size": 768,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 0,
+   "loadavg": 0.65,
+   "wall_s": 31.67,
+   "digest": "9e1a1fdd392e0b4c",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x768x64x256@h16": 16,
+    "768x768x128x512@h16": 280
+   }
+  },
+  {
+   "size": 768,
+   "arm": "on",
+   "slot": "test",
+   "rep": 0,
+   "loadavg": 1.42,
+   "wall_s": 31.276,
+   "digest": "9e1a1fdd392e0b4c",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x768x64x256@h64": 16,
+    "768x768x128x512@h32": 280
+   }
+  },
+  {
+   "size": 768,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 0,
+   "loadavg": 1.25,
+   "wall_s": 31.182,
+   "digest": "9e1a1fdd392e0b4c",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x768x64x256@h16": 16,
+    "768x768x128x512@h16": 280
+   }
+  },
+  {
+   "size": 768,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 1,
+   "loadavg": 1.15,
+   "wall_s": 31.21,
+   "digest": "9e1a1fdd392e0b4c",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x768x64x256@h16": 16,
+    "768x768x128x512@h16": 280
+   }
+  },
+  {
+   "size": 768,
+   "arm": "on",
+   "slot": "test",
+   "rep": 1,
+   "loadavg": 1.08,
+   "wall_s": 30.623,
+   "digest": "9e1a1fdd392e0b4c",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x768x64x256@h64": 16,
+    "768x768x128x512@h32": 280
+   }
+  },
+  {
+   "size": 768,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 1,
+   "loadavg": 1.05,
+   "wall_s": 31.214,
+   "digest": "9e1a1fdd392e0b4c",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x768x64x256@h16": 16,
+    "768x768x128x512@h16": 280
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 0,
+   "loadavg": 1.55,
+   "wall_s": 56.592,
+   "digest": "9a049ee58a5a0f7e",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x1024x64x256@h16": 16,
+    "1024x1024x128x512@h16": 280
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "on",
+   "slot": "test",
+   "rep": 0,
+   "loadavg": 1.78,
+   "wall_s": 55.523,
+   "digest": "9a049ee58a5a0f7e",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x1024x64x256@h48": 16,
+    "1024x1024x128x512@h24": 280
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 0,
+   "loadavg": 2.61,
+   "wall_s": 56.783,
+   "digest": "9a049ee58a5a0f7e",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x1024x64x256@h16": 16,
+    "1024x1024x128x512@h16": 280
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 1,
+   "loadavg": 3.57,
+   "wall_s": 57.178,
+   "digest": "9a049ee58a5a0f7e",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x1024x64x256@h16": 16,
+    "1024x1024x128x512@h16": 280
+   }
+  }
+ ],
+ "legs": {
+  "768:on": {
+   "ship_median_s": 31.212,
+   "arm_median_s": 30.95,
+   "shipA_median_s": 31.44,
+   "shipB_median_s": 31.198,
+   "fold_seconds_saved": 0.262,
+   "ratio": 1.0085,
+   "aa_floor_pct": 0.775,
+   "aa_floor_s": 0.242,
+   "n": {
+    "shipA": 2,
+    "shipB": 2,
+    "test": 2
+   },
+   "bit_exact_across_arms": true,
+   "digest": [
+    "9e1a1fdd392e0b4c"
+   ],
+   "loadavg_span": [
+    0.65,
+    1.42
+   ],
+   "verdict": "INTERPRETABLE"
+  }
+ },
+ "model_load_s": 2.719
+}
