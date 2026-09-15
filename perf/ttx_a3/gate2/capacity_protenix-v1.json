@@ -1,0 +1,161 @@
+{
+ "bar_tokens": 1536,
+ "started": "2026-09-15T04:47:45Z",
+ "tree": "ff2c828397894bd903e6f5946b1606fb7168caa3",
+ "dirty": true,
+ "workers": [
+  "tt-quietbox2:0"
+ ],
+ "geometry": {
+  "arch": "blackhole",
+  "grid": "(x=11,y=10)",
+  "dram": {
+   "banks": 8,
+   "bytes_per_bank": 4278190016,
+   "largest_contiguous_free_per_bank": 4278190016,
+   "total_bytes": 34225520128
+  },
+  "l1": {
+   "banks": 110,
+   "bytes_per_bank": 1461760,
+   "largest_contiguous_free_per_bank": 1461760,
+   "total_bytes": 160793600
+  },
+  "board_type": "p300c",
+  "host": "tt-quietbox2",
+  "card": 0
+ },
+ "coverage_gaps": [],
+ "reductions": [
+  "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
+  "The MSA is a committed alignment rather than a fresh search. Device memory does not care how the alignment was found; this costs no coverage.",
+  "Target-first: 1536 runs FIRST and a pass ends the cell. Only a failure pays for a downward bisect. Costs no coverage.",
+  "The fixture is polymer-only, so the LIGAND-TOKEN path is uncovered: no cell here sets ligand_tokens, and a model whose production input carries ligands is tested at 1536 polymer tokens only."
+ ],
+ "results": [
+  {
+   "model": "protenix-v1",
+   "verb": "predict",
+   "worker": "tt-quietbox2:0",
+   "bar_tokens": 1536,
+   "legs": [
+    {
+     "rc": 0,
+     "wall_s": 96.1,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 1.1,
+     "progress_events": 1784,
+     "block_calls": 6,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 208507,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": null,
+      "dram_largest_free_at_peak": null,
+      "dram_peak_bytes": null,
+      "dram_total_bytes": null,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "screen",
+      "pid": 48112,
+      "samples": 6,
+      "truncated": [
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        48
+       ],
+       [
+        "tt_bio.tenstorrent.Pairformer",
+        "blocks",
+        4
+       ]
+      ]
+     },
+     "first_error": null,
+     "tail": "04:47:52  [tt-quietbox2:tt0] loading model\u2026\n04:47:57  [tt-quietbox2:tt0] cap_1536\n04:47:57  [tt-quietbox2:tt0]   prep\n04:48:27  [tt-quietbox2:tt0]   trunk 0/1\n04:49:00  [tt-quietbox2:tt0]   diffusion 0/1\n04:49:17  [tt-quietbox2:tt0]   confidence\n04:49:22  [tt-quietbox2:tt0]   saving\n04:49:22  [tt-quietbox2:tt0] \u2713 cap_1536 \u2014 86.0s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/perf/ttx_a3/gate2/cap-protenix-v1/out_screen_protenix-v1_1536/protenix_results_cap_1536/results.json",
+     "stacks_truncated": 2,
+     "truncated": [
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       48
+      ],
+      [
+       "tt_bio.tenstorrent.Pairformer",
+       "blocks",
+       4
+      ]
+     ],
+     "hook_installed": true,
+     "verdict": "INCONCLUSIVE",
+     "tier": "screen",
+     "tokens": 1536
+    },
+    {
+     "rc": 0,
+     "wall_s": 227.4,
+     "stalled": false,
+     "warmed": true,
+     "quiet_s": 2.4,
+     "progress_events": 42772,
+     "block_calls": 212,
+     "cpu_s_while_quiet": 0.0,
+     "host_ram_floor_mb": 209444,
+     "mechanism": null,
+     "hook": {
+      "dram_banks": 8,
+      "dram_largest_free_at_peak": 3361512896,
+      "dram_peak_bytes": 7286513664,
+      "dram_total_bytes": 34225520128,
+      "errors": [],
+      "instrumented": [
+       "tt_bio.tenstorrent.PairformerLayer.__call__"
+      ],
+      "mode": "residency",
+      "pid": 57882,
+      "samples": 212,
+      "truncated": []
+     },
+     "first_error": null,
+     "tail": "04:52:58  [tt-quietbox2:tt0]   diffusion 180/200\n04:52:58  [tt-quietbox2:tt0]   diffusion 181/200\n04:52:58  [tt-quietbox2:tt0]   diffusion 182/200\n04:52:58  [tt-quietbox2:tt0]   diffusion 183/200\n04:52:59  [tt-quietbox2:tt0]   diffusion 184/200\n04:52:59  [tt-quietbox2:tt0]   diffusion 185/200\n04:52:59  [tt-quietbox2:tt0]   diffusion 186/200\n04:53:00  [tt-quietbox2:tt0]   diffusion 187/200\n04:53:00  [tt-quietbox2:tt0]   diffusion 188/200\n04:53:00  [tt-quietbox2:tt0]   diffusion 189/200\n04:53:01  [tt-quietbox2:tt0]   diffusion 190/200\n04:53:01  [tt-quietbox2:tt0]   diffusion 191/200\n04:53:01  [tt-quietbox2:tt0]   diffusion 192/200\n04:53:01  [tt-quietbox2:tt0]   diffusion 193/200\n04:53:02  [tt-quietbox2:tt0]   diffusion 194/200\n04:53:02  [tt-quietbox2:tt0]   diffusion 195/200\n04:53:02  [tt-quietbox2:tt0]   diffusion 196/200\n04:53:03  [tt-quietbox2:tt0]   diffusion 197/200\n04:53:03  [tt-quietbox2:tt0]   diffusion 198/200\n04:53:03  [tt-quietbox2:tt0]   diffusion 199/200\n04:53:03  [tt-quietbox2:tt0]   confidence\n04:53:10  [tt-quietbox2:tt0]   saving\n04:53:10  [tt-quietbox2:tt0] \u2713 cap_1536 \u2014 216.9s\n\nDone: 1 ok, 0 failed \u2014 /home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge/perf/ttx_a3/gate2/cap-protenix-v1/out_resid_protenix-v1_1536/protenix_results_cap_1536/results.json",
+     "dram_peak_bytes": 7286513664,
+     "dram_total_bytes": 34225520128,
+     "dram_largest_free_at_peak": 3361512896,
+     "blocks_instrumented": 1,
+     "verdict": "PASS",
+     "tier": "residency",
+     "tokens": 1536
+    }
+   ],
+   "tokens_requested": 1536,
+   "tokens_padded": 1536,
+   "residues": 1536,
+   "msa_rows_in_file": 8833,
+   "msa_rows_effective": 8832,
+   "verdict": "PASS",
+   "decided_by": "residency",
+   "mechanism": null,
+   "wall_s": 227.4,
+   "dram_peak_bytes": 7286513664,
+   "dram_total_bytes": 34225520128,
+   "dram_largest_free_at_peak": 3361512896,
+   "blocks_instrumented": 1,
+   "host_ram_floor_mb": 209444
+  }
+ ],
+ "note": "CAPACITY ONLY. Allocates and completes. Says nothing about whether the output is correct; that is scripts/full_parity_gate.py, which this does not substitute for.",
+ "counts": {
+  "PASS": 1,
+  "fail_like": 0,
+  "CONTENDED": 0,
+  "SKIPPED": 0,
+  "NO_WEIGHTS": 0,
+  "INCONCLUSIVE": 0,
+  "GATE_BUG": 0,
+  "BAD_FIXTURE": 0
+ }
+}
