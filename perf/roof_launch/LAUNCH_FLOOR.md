@@ -24,7 +24,7 @@ Both launch rows are the second pass, with 111 of the 122 (class, shape, K) keys
 shape rather than the first pass's 19. Wider coverage moved the floor **down** 0.107 s, from
 13.300 s, and why it moved down rather than up is the one new finding here.
 
-## Why the prediction missed by 5x
+## Why the prediction missed by 6x
 
 **"465,664 op calls" is not 465,664 device programs.** It counts top-level `ttnn` calls in the
 capture, and a third of them launch nothing:
@@ -209,8 +209,8 @@ extrapolated to zero rows, so it is additive-independent of traffic and arithmet
 the three is still a floor. The cheapest-measured-point fallback is a valid lower bound on the op's
 device time but it is not purely launch: `linear|1x512x3072` reads 38.42 us at an eighth of the rows
 against 39.05 us at full size, so calling 38.42 us "launch" over-reads. **Strict** keeps only the
-clean intercepts and charges zero for the rest, 13.231 s. **All floors** takes both, 13.300 s. The
-two differ by 0.069 s, so nothing in the verdict turns on the choice.
+clean intercepts and charges zero for the rest, 13.152 s. **All floors** takes both, 13.193 s. The
+two differ by 0.041 s, so nothing in the verdict turns on the choice.
 
 ## The control
 
