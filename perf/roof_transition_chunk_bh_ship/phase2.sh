@@ -8,10 +8,15 @@
 # chain starts once the gate has written its report, and each step leaves its own artifact so a
 # reboot costs one step and not the chain.
 #
-# Order is by what the box can still give you, not by what is cheap. qb2 comes back from a reboot
-# completely idle and the sibling workers take a few minutes to reclaim it, so a fresh boot IS the
-# quiet window, and the two timed legs are the only things that need one. They go first. UX is
-# plumbing, it folds fine on a loaded box, so it goes last and loses nothing by being interrupted.
+# Order: the leg that can ALWAYS run goes first, then the ones that may never get their window.
+#
+# This was the other way round for half an hour, on the theory that a fresh boot is the quiet window
+# and the timed legs should grab it. The 02:49 boot falsified that in four minutes: a sibling worker
+# started its own 200-step campaign outside benchlock and the box went from 0.08 to 16. A quiet
+# window is not something this box reliably offers, so a benchlocked step that cannot start must not
+# sit in front of a step that can. ux_regression is deterministic plumbing, it folds fine under
+# contention, and it is one of the three legs RELEASING.md actually requires. It goes first and
+# finishes. The timed legs follow and the */10 cron retries them until a window appears.
 #
 # The separate 1024 aa ladder rung is gone. foldab records the CIF digest of every fold it runs, so
 # 1024:on inside the A/B gives the same digest the ladder would, at 4 reps instead of 1, for no
@@ -52,7 +57,18 @@ export PYTHONPATH="$WT" TT_VISIBLE_DEVICES=2 TT_BIO_LEASE_CARDS=2 \
 export BENCHLOCK_FOREIGN_RE='fold_ab512|tt_baseline|protenix|boltz|opendde|esmfold|openfold|fold_parity|foldab|ladder\.py|size_ladder'
 BENCHLOCK="bash $HOME/.coworker/scripts/benchlock.sh roof-transition-chunk-remerge-verify --"
 
-# 1. The fold A/B that carries the number README states. The harness
+# 1. UX regression. Plumbing, not timing, so it does not need a quiet box and is not benchlocked.
+#    It takes no --out, so its completion is recorded by a marker written only on exit 0.
+if [ ! -f "$O/ux_remerge.ok" ]; then
+  echo "-- ux_regression"
+  if $PY scripts/ux_regression.py >> "$O/ux_remerge.log" 2>&1; then
+    date -u +%FT%TZ > "$O/ux_remerge.ok"; echo "   ux PASS"
+  else
+    echo "   ux rc=$? (see ux_remerge.log)"
+  fi
+fi
+
+# 2. The fold A/B that carries the number README states. The harness
 #    self-polices on two axes now: the A/A floor catches jitter, and --quiet-ship-median catches a
 #    box that is uniformly slow, which the floor is blind to because steady saturation slows both
 #    shipped slots equally. The baselines are this fold's own quiet-box medians from
@@ -74,22 +90,11 @@ sys.exit(0 if all(L.get(k,{}).get('verdict')=='INTERPRETABLE' and 'quiet_ship_me
     >> "$O/foldab_remerge_512.log" 2>&1 || echo "   foldab 512 rc=$?"
 fi
 
-# 2. perf_regression: a RELEASING.md leg. 15 % bands on short folds, so benchlocked too.
+# 3. perf_regression: a RELEASING.md leg. 15 % bands on short folds, so benchlocked too.
 if [ ! -f "$O/perf_remerge.json" ]; then
   echo "-- perf_regression"
   $BENCHLOCK $PY scripts/perf_regression.py --out "$O/perf_remerge.json" \
     >> "$O/perf_remerge.log" 2>&1 || echo "   perf_regression rc=$?"
-fi
-
-# 3. UX regression. Plumbing, not timing, so it does not need a quiet box and is not benchlocked.
-#    It takes no --out, so its completion is recorded by a marker written only on exit 0.
-if [ ! -f "$O/ux_remerge.ok" ]; then
-  echo "-- ux_regression"
-  if $PY scripts/ux_regression.py >> "$O/ux_remerge.log" 2>&1; then
-    date -u +%FT%TZ > "$O/ux_remerge.ok"; echo "   ux PASS"
-  else
-    echo "   ux rc=$? (see ux_remerge.log)"
-  fi
 fi
 
 # 4. The 1024 aa rung, last. Same A/B, same guards, its own artifact. It is the longest leg by far
