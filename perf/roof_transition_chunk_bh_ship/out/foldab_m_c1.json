@@ -1,0 +1,375 @@
+{
+ "doc": "What the Transition row chunk is worth in FOLD SECONDS, and what its own session's floor is.\n\nThe op ratio is not the deliverable any more. `roof-true-floor` put the whole remaining prize at\n2.309 s against a 17.340 s cell, so a lever is worth what it moves on the fold and nothing else.\n\nOne process, one device open, model loaded once. Arms alternate INSIDE the process with the\nshipped arm run twice per rep, so the session's own A/A floor falls out of the same data instead\nof being a separate run that a load change can sit between. Arm order is fixed and the whole set\nruns once per rep, so a clock ramp or a JIT warm-up cannot bias one arm against another.\n\nThe floor is the contention detector and it has the last word: `roof-pair-transition` got 0.157 %\non a quiet box, and this row's contention guard says a session above ~1 % is not interpretable.\nWhen that happens the ratio is BLOCKED, not scaled -- publish a number you trust or none.\n\nEvery arm is bit-exact (proved fold-level at 298/512/768 aa by the ladder in this directory), so\nthe digest is carried here only as the cheap regression signal it is.\n\n    foldab.py --out <json> --legs 512:h48,768:h32 --reps 4\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "1",
+  "commit": "e273d67b86fb519d1f72993088b6bf62fb2352a1",
+  "started_utc": "2026-09-14T16:21:11Z",
+  "loadavg_start": [
+   2.921875,
+   3.93896484375,
+   4.76513671875
+  ],
+  "unfused_silu": false,
+  "protocol": {
+   "sampling_steps": 200,
+   "recycling_steps": 3,
+   "seed": 0,
+   "reps": 4
+  },
+  "loadavg_now": [
+   7.20703125,
+   4.92919921875,
+   4.55908203125
+  ]
+ },
+ "folds": [
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 0,
+   "loadavg": 2.92,
+   "wall_s": 15.638,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "slot": "test",
+   "rep": 0,
+   "loadavg": 2.94,
+   "wall_s": 15.405,
+   "digest": "45781db716ebf020",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x512x64x256@h96": 16,
+    "512x512x128x512@h48": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 0,
+   "loadavg": 2.95,
+   "wall_s": 16.128,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 1,
+   "loadavg": 3.44,
+   "wall_s": 15.328,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "slot": "test",
+   "rep": 1,
+   "loadavg": 3.53,
+   "wall_s": 14.714,
+   "digest": "45781db716ebf020",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x512x64x256@h96": 16,
+    "512x512x128x512@h48": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 1,
+   "loadavg": 3.45,
+   "wall_s": 15.159,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 2,
+   "loadavg": 3.91,
+   "wall_s": 15.163,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "slot": "test",
+   "rep": 2,
+   "loadavg": 4.17,
+   "wall_s": 14.738,
+   "digest": "45781db716ebf020",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x512x64x256@h96": 16,
+    "512x512x128x512@h48": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 2,
+   "loadavg": 4.39,
+   "wall_s": 15.123,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 3,
+   "loadavg": 4.95,
+   "wall_s": 15.211,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "on",
+   "slot": "test",
+   "rep": 3,
+   "loadavg": 5.03,
+   "wall_s": 14.763,
+   "digest": "45781db716ebf020",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x512x64x256@h96": 16,
+    "512x512x128x512@h48": 280
+   }
+  },
+  {
+   "size": 512,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 3,
+   "loadavg": 4.72,
+   "wall_s": 15.39,
+   "digest": "45781db716ebf020",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x512x64x256@h16": 16,
+    "512x512x128x512@h16": 280
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 0,
+   "loadavg": 4.75,
+   "wall_s": 56.657,
+   "digest": "9a049ee58a5a0f7e",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x1024x64x256@h16": 16,
+    "1024x1024x128x512@h16": 280
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "on",
+   "slot": "test",
+   "rep": 0,
+   "loadavg": 4.26,
+   "wall_s": 55.511,
+   "digest": "9a049ee58a5a0f7e",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x1024x64x256@h48": 16,
+    "1024x1024x128x512@h24": 280
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 0,
+   "loadavg": 2.9,
+   "wall_s": 56.471,
+   "digest": "9a049ee58a5a0f7e",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x1024x64x256@h16": 16,
+    "1024x1024x128x512@h16": 280
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 1,
+   "loadavg": 2.4,
+   "wall_s": 56.512,
+   "digest": "9a049ee58a5a0f7e",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x1024x64x256@h16": 16,
+    "1024x1024x128x512@h16": 280
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "on",
+   "slot": "test",
+   "rep": 1,
+   "loadavg": 2.66,
+   "wall_s": 55.561,
+   "digest": "9a049ee58a5a0f7e",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x1024x64x256@h48": 16,
+    "1024x1024x128x512@h24": 280
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 1,
+   "loadavg": 2.19,
+   "wall_s": 56.473,
+   "digest": "9a049ee58a5a0f7e",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x1024x64x256@h16": 16,
+    "1024x1024x128x512@h16": 280
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "off",
+   "slot": "shipA",
+   "rep": 2,
+   "loadavg": 2.07,
+   "wall_s": 65.018,
+   "digest": "9a049ee58a5a0f7e",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x1024x64x256@h16": 16,
+    "1024x1024x128x512@h16": 280
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "on",
+   "slot": "test",
+   "rep": 2,
+   "loadavg": 5.58,
+   "wall_s": 68.277,
+   "digest": "9a049ee58a5a0f7e",
+   "served": 296,
+   "declined": 0,
+   "heights": {
+    "64x1024x64x256@h48": 16,
+    "1024x1024x128x512@h24": 280
+   }
+  },
+  {
+   "size": 1024,
+   "arm": "off",
+   "slot": "shipB",
+   "rep": 2,
+   "loadavg": 7.28,
+   "wall_s": 82.314,
+   "digest": "9a049ee58a5a0f7e",
+   "served": 0,
+   "declined": 296,
+   "heights": {
+    "64x1024x64x256@h16": 16,
+    "1024x1024x128x512@h16": 280
+   }
+  }
+ ],
+ "legs": {
+  "512:on": {
+   "ship_median_s": 15.27,
+   "arm_median_s": 14.75,
+   "shipA_median_s": 15.27,
+   "shipB_median_s": 15.274,
+   "fold_seconds_saved": 0.519,
+   "ratio": 1.0352,
+   "aa_floor_pct": 0.033,
+   "aa_floor_s": 0.005,
+   "n": {
+    "shipA": 4,
+    "shipB": 4,
+    "test": 4
+   },
+   "bit_exact_across_arms": true,
+   "digest": [
+    "45781db716ebf020"
+   ],
+   "loadavg_span": [
+    2.92,
+    5.03
+   ],
+   "verdict": "INTERPRETABLE"
+  }
+ },
+ "model_load_s": 2.423
+}

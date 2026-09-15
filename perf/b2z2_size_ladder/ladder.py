@@ -204,7 +204,20 @@ def _transition_h_census(TQ, TT):
     }
 
 
+def _transition_l1_apply(arm, TQ, TT):
+    """`off` is today's shipped Blackhole behaviour; `on` is the per-shape L1 row-height raise.
+
+    A module global, not the environment, because this gate is read once at import: the arm has
+    to move the value the derivation actually sees, and the screen hook `TT_BIO_TRANSITION_H_CHUNK`
+    stays free so a rung can still be forced to a flat height on top of either arm.
+    """
+    TT._TRANSITION_L1_ROWS = arm == "on"
+
+
 LEVER_SETS = {
+    "transition_l1": {"pins": ("TT_BIO_TRANSITION_L1_ROWS", "TT_BIO_TRANSITION_H_CHUNK"),
+                      "apply": _transition_l1_apply, "reset": _transition_h_reset,
+                      "census": _transition_h_census},
     "transition_h": {"pins": ("TT_BIO_TRANSITION_H_CHUNK",),
                      "apply": _transition_h_apply, "reset": _transition_h_reset,
                      "census": _transition_h_census},

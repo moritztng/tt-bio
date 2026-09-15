@@ -1,0 +1,36 @@
+{
+ "doc": "ONE fold at one forced Transition row height, in its own process, with a digest.\n\nfoldab.py is the A/B harness and it runs the reference arm on both sides of every test arm, so a\nthree-fold leg costs minutes and the reference slot itself wedges whenever the shipped default is\nthe arm under test. To find the height at which the 1024 aa fold stops finishing, what is needed is\nthe cheapest possible \"does this height finish, and with which bytes\" -- one fold, one process, one\nline of output. A process that wedges is killed by the caller and costs nothing else.\n\n    hfold.py --size 1024 --arm h20 --steps 2 --out out/h20.json\n",
+ "size": 1536,
+ "arm": "on",
+ "host": "tt-quietbox2",
+ "grid": [
+  11,
+  10
+ ],
+ "arch": "Arch.BLACKHOLE",
+ "card": "2",
+ "commit": "23bb45e2b112cfc4c7aed4cd95180d314ebd1b72",
+ "steps": 2,
+ "recycles": 3,
+ "started_utc": "2026-09-15T11:15:14Z",
+ "loadavg_start": [
+  2.595703125,
+  2.45166015625,
+  1.2470703125
+ ],
+ "model_load_s": 2.614,
+ "wall_s": 196.854,
+ "digest": "d91473e4ad3cf26b",
+ "verdict": "DONE",
+ "served": 296,
+ "declined": 0,
+ "heights": {
+  "64x1536x64x256@h48": 16,
+  "1536x1536x128x512@h24": 280
+ },
+ "loadavg_end": [
+  4.1650390625,
+  3.4345703125,
+  1.8857421875
+ ]
+}

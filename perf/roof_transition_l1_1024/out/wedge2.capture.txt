@@ -1,0 +1,126 @@
+launched pid=3741 legs=1024:on steps=2 fallback_throw=1
+t=16s trace=42 stalled=0s load=2.87
+t=31s trace=111 stalled=0s load=4.12
+t=46s trace=154 stalled=0s load=3.65
+t=61s trace=154 stalled=15s load=3.28
+t=76s trace=154 stalled=30s load=4.27
+t=91s trace=154 stalled=45s load=4.97
+t=106s trace=154 stalled=60s load=4.31
+======== WEDGE t=106s pid=3744 ========
+--- py-spy ---
+Process 3744: /home/ttuser/tt-bio-dev/env/bin/python3 perf/roof_transition_chunk_bh/foldab.py --out /home/ttuser/.coworker/wt/roof-transition-l1-1024-overflow-fix/perf/roof_transition_l1_1024/out/wedge2.json --legs 1024:on --reps 1 --steps 2
+Python v3.12.3 (/usr/bin/python3.12)
+
+Thread 3744 (active+gil): "MainThread"
+    __call__ (ttnn/decorators.py:473)
+    __call__ (tt_bio/tenstorrent.py:8414)
+    __call__ (tt_bio/tenstorrent.py:8531)
+    __call__ (tt_bio/tenstorrent.py:8615)
+    _iteration (tt_bio/tenstorrent.py:12798)
+    forward (tt_bio/tenstorrent.py:12827)
+    _call_impl (torch/nn/modules/module.py:1784)
+    _wrapped_call_impl (torch/nn/modules/module.py:1773)
+    forward (tt_bio/boltz2.py:5841)
+    _call_impl (torch/nn/modules/module.py:1784)
+    _wrapped_call_impl (torch/nn/modules/module.py:1773)
+    predict_step (tt_bio/boltz2.py:6213)
+    predict_one (tt_bio/worker.py:769)
+    fold (foldab.py:169)
+    main (foldab.py:197)
+    <module> (foldab.py:235)
+--- gdb THREAD 1 ---
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+__memcpy_avx512_unaligned_erms () at ../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:289
+
+[Switching to thread 1 (Thread 0x7d6bde522080 (LWP 3744))]
+#0  __memcpy_avx512_unaligned_erms () at ../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:289
+289	in ../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S
+#0  __memcpy_avx512_unaligned_erms () at ../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:289
+#1  0x00007d6b97c64af5 in tt::Cluster::read_core(void*, unsigned int, tt::cxy_pair, unsigned long) const () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#2  0x00007d6b97a1997e in tt::tt_metal::SystemMemoryManager::fetch_queue_reserve_back(unsigned char)::$_0::operator()() const () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#3  0x00007d6b97a19745 in tt::tt_metal::SystemMemoryManager::fetch_queue_reserve_back(unsigned char) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#4  0x00007d6b97acb20f in tt::tt_metal::program_dispatch::write_program_command_sequence(tt::tt_metal::ProgramCommandSequence const&, tt::tt_metal::SystemMemoryManager&, unsigned int, tt::CoreType, bool, bool, bool) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#5  0x00007d6b97d05897 in tt::tt_metal::distributed::FDMeshCommandQueue::write_program_cmds_to_subgrid(tt::tt_metal::distributed::MeshCoordinateRange const&, tt::tt_metal::ProgramCommandSequence&, bool, bool, std::unordered_set<unsigned int, std::hash<unsigned int>, std::equal_to<unsigned int>, std::allocator<unsigned int> >&, unsigned int) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#6  0x00007d6b97d03fc3 in tt::tt_metal::distributed::FDMeshCommandQueue::enqueue_mesh_workload(tt::tt_metal::distributed::MeshWorkload&, bool) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#7  0x00007d6b97cf9951 in tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#8  0x00007d6b98f55a12 in _ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim20SliceDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSI_12MeshWorkloadEb () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so
+#9  0x00007d6b98f54e94 in _ZN4ttnn16device_operation6detail29handle_mesh_adapter_cache_hitITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim20SliceDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSH_13program_cache6detail12ProgramCacheEm () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so
+#10 0x00007d6b98f4be46 in _ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim20SliceDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so
+#11 0x00007d6b98f3dd39 in ttnn::prim::slice(tt::tt_metal::Tensor const&, tt::tt_metal::Shape const&, tt::tt_metal::Shape const&, tt::tt_metal::Shape const&, tt::tt_metal::MemoryConfig const&, bool, std::optional<tt::tt_metal::Tensor>, std::optional<tt::tt_metal::Tensor>, std::optional<unsigned int> const&, std::optional<unsigned int> const&, std::optional<tt::tt_metal::CoreRangeSet> const&, std::optional<tt::tt_metal::Tensor> const&) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so
+#12 0x00007d6b98f4d666 in tt::tt_metal::Tensor ttnn::slice<int>(tt::tt_metal::Tensor const&, std::span<int const, 18446744073709551615ul>, std::span<int const, 18446744073709551615ul>, std::span<int const, 18446744073709551615ul>, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::optional<float> const&, std::optional<tt::tt_metal::CoreRangeSet> const&) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so
+#13 0x00007d6b99060cd9 in ttnn::chunk(tt::tt_metal::Tensor const&, unsigned int, int) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so
+#14 0x00007d6b9a413106 in nanobind::detail::func_create<false, true, ttnn::detail::make_method_wrapper<ttnn::unique_wrapper_base<ttnn::unique_string<6ul>{std::array<char, 6ul>{char [6]{(char)99, (char)104, (char)117, (char)110, (char)107}}}, ttnn::unique_string<6ul>{std::array<char, 6ul>{char [6]{(char)116, (char)116, (char)110, (char)110, (char)46}}}>, std::vector<tt::tt_metal::Tensor, std::allocator<tt::tt_metal::Tensor> >, tt::tt_metal::Tensor const&, unsigned int, int>(std::vector<tt::tt_metal::Tensor, std::allocator<tt::tt_metal::Tensor> > (*)(tt::tt_metal::Tensor const&, unsigned int, int))::{lambda(ttnn::unique_wrapper_base<ttnn::unique_string<6ul>{std::array<char, 6ul>{char [6]{(char)99, (char)104, (char)117, (char)110, (char)107}}}, ttnn::unique_string<6ul>{std::array<char, 6ul>{char [6]{(char)116, (char)116, (char)110, (char)110, (char)46}}}> const&, tt::tt_metal::Tensor const&, unsigned int, int)#1}&, std::vector<tt::tt_metal::Tensor, std::allocator<tt::tt_metal::Tensor> >, ttnn::unique_wrapper_base<ttnn::unique_string<6ul>{std::array<char, 6ul>{char [6]{(char)99, (char)104, (char)117, (char)110, (char)107}}}, ttnn::unique_string<6ul>{std::array<char, 6ul>{char [6]{(char)116, (char)116, (char)110, (char)110, (char)46}}}> const&, tt::tt_metal::Tensor const&, unsigned int, int, 0ul, 1ul, 2ul, 3ul, nanobind::scope, nanobind::name, nanobind::is_method, nanobind::arg, nanobind::arg, nanobind::arg>(ttnn::detail::make_method_wrapper<ttnn::unique_wrapper_base<ttnn::unique_string<6ul>{std::array<char, 6ul>{char [6]{(char)99, (char)104, (char)117, (char)110, (char)107}}}, ttnn::unique_string<6ul>{std::array<char, 6ul>{char [6]{(char)116, (char)116, (char)110, (char)110, (char)46}}}>, std::vector<tt::tt_metal::Tensor, std::allocator<tt::tt_metal::Tensor> >, tt::tt_metal::Tensor const&, unsigned int, int>(std::vector<tt::tt_metal::Tensor, std::allocator<tt::tt_metal::Tensor> > (*)(tt::tt_metal::Tensor const&, unsigned int, int))::{lambda(ttnn::unique_wrapper_base<ttnn::unique_string<6ul>{std::array<char, 6ul>{char [6]{(char)99, (char)104, (char)117, (char)110, (char)107}}}, ttnn::unique_string<6ul>{std::array<char, 6ul>{char [6]{(char)116, (char)116, (char)110, (char)110, (char)46}}}> const&, tt::tt_metal::Tensor const&, unsigned int, int)#1}&, std::vector<tt::tt_metal::Tensor, std::allocator<tt::tt_metal::Tensor> > (*)(ttnn::unique_wrapper_base<ttnn::unique_string<6ul>{std::array<char, 6ul>{char [6]{(char)99, (char)104, (char)117, (char)110, (char)107}}}, ttnn::unique_string<6ul>{std::array<char, 6ul>{char [6]{(char)116, (char)116, (char)110, (char)110, (char)46}}}> const&, tt::tt_metal::Tensor const&, unsigned int, int), std::integer_sequence<unsigned long, 0ul, 1ul, 2ul, 3ul>, nanobind::scope const&, nanobind::name const&, nanobind::is_method const&, nanobind::arg const&, nanobind::arg const&, nanobind::arg const&)::{lambda(void*, _object**, unsigned char*, nanobind::rv_policy, nanobind::detail::cleanup_list*)#1}::__invoke(void*, _object**, unsigned char*, nanobind::rv_policy, nanobind::detail::cleanup_list*) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so
+#15 0x00007d6b9a06daa5 in nanobind::detail::nb_func_vectorcall_complex(_object*, _object* const*, unsigned long, _object*) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so
+#16 0x000000000054aaeb in _PyObject_Call_Prepend ()
+#17 0x00000000005a3778 in ?? ()
+#18 0x000000000054b12c in PyObject_Call ()
+#19 0x00000000005db2ee in _PyEval_EvalFrameDefault ()
+#20 0x000000000054a8ca in _PyObject_Call_Prepend ()
+#21 0x00000000005a3778 in ?? ()
+#22 0x000000000054907e in _PyObject_MakeTpCall ()
+#23 0x00000000005d710f in _PyEval_EvalFrameDefault ()
+#24 0x000000000054a8ca in _PyObject_Call_Prepend ()
+#25 0x00000000005a3778 in ?? ()
+#26 0x000000000054907e in _PyObject_MakeTpCall ()
+#27 0x00000000005d710f in _PyEval_EvalFrameDefault ()
+#28 0x000000000054a802 in _PyObject_Call_Prepend ()
+#29 0x00000000005a3778 in ?? ()
+#30 0x0000000000548fb5 in _PyObject_MakeTpCall ()
+#31 0x00000000005d710f in _PyEval_EvalFrameDefault ()
+#32 0x000000000054a802 in _PyObject_Call_Prepend ()
+#33 0x00000000005a3778 in ?? ()
+#34 0x0000000000548fb5 in _PyObject_MakeTpCall ()
+#35 0x00000000005d710f in _PyEval_EvalFrameDefault ()
+#36 0x000000000054cbb4 in ?? ()
+#37 0x000000000054b1d5 in PyObject_Call ()
+#38 0x00000000005db2ee in _PyEval_EvalFrameDefault ()
+#39 0x000000000054cbb4 in ?? ()
+[Inferior 1 (process 3744) detached]
+--- gdb THREAD 1 again (is it advancing?) ---
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+__memcpy_avx512_unaligned_erms () at ../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:289
+
+[Switching to thread 1 (Thread 0x7d6bde522080 (LWP 3744))]
+#0  __memcpy_avx512_unaligned_erms () at ../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:289
+289	in ../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S
+#0  __memcpy_avx512_unaligned_erms () at ../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:289
+#1  0x00007d6b97c64af5 in tt::Cluster::read_core(void*, unsigned int, tt::cxy_pair, unsigned long) const () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#2  0x00007d6b97a1997e in tt::tt_metal::SystemMemoryManager::fetch_queue_reserve_back(unsigned char)::$_0::operator()() const () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#3  0x00007d6b97a19745 in tt::tt_metal::SystemMemoryManager::fetch_queue_reserve_back(unsigned char) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#4  0x00007d6b97acb20f in tt::tt_metal::program_dispatch::write_program_command_sequence(tt::tt_metal::ProgramCommandSequence const&, tt::tt_metal::SystemMemoryManager&, unsigned int, tt::CoreType, bool, bool, bool) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#5  0x00007d6b97d05897 in tt::tt_metal::distributed::FDMeshCommandQueue::write_program_cmds_to_subgrid(tt::tt_metal::distributed::MeshCoordinateRange const&, tt::tt_metal::ProgramCommandSequence&, bool, bool, std::unordered_set<unsigned int, std::hash<unsigned int>, std::equal_to<unsigned int>, std::allocator<unsigned int> >&, unsigned int) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#6  0x00007d6b97d03fc3 in tt::tt_metal::distributed::FDMeshCommandQueue::enqueue_mesh_workload(tt::tt_metal::distributed::MeshWorkload&, bool) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#7  0x00007d6b97cf9951 in tt::tt_metal::distributed::EnqueueMeshWorkload(tt::tt_metal::distributed::MeshCommandQueue&, tt::tt_metal::distributed::MeshWorkload&, bool) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so
+#8  0x00007d6b98f55a12 in _ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim20SliceDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSI_12MeshWorkloadEb () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so
+#9  0x00007d6b98f54e94 in _ZN4ttnn16device_operation6detail29handle_mesh_adapter_cache_hitITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim20SliceDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSH_13program_cache6detail12ProgramCacheEm () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so
+#10 0x00007d6b98f4be46 in _ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim20SliceDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so
+#11 0x00007d6b98f3dd39 in ttnn::prim::slice(tt::tt_metal::Tensor const&, tt::tt_metal::Shape const&, tt::tt_metal::Shape const&, tt::tt_metal::Shape const&, tt::tt_metal::MemoryConfig const&, bool, std::optional<tt::tt_metal::Tensor>, std::optional<tt::tt_metal::Tensor>, std::optional<unsigned int> const&, std::optional<unsigned int> const&, std::optional<tt::tt_metal::CoreRangeSet> const&, std::optional<tt::tt_metal::Tensor> const&) () from /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so
+[Inferior 1 (process 3744) detached]
+=== done elapsed=109s log_tail ===
+[transition-h] t=1789469337.480 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469337.703 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469337.927 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469338.150 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469338.374 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469338.598 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469338.821 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469339.045 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469339.268 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469339.492 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469339.716 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469339.940 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469340.164 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469340.388 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469340.612 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469340.847 z=64x1024x64 hid=256 w_eff=1024 chunked=0 h=48 base=16 l1_rows=48.00 elem_rows=48.00 live=56623104 per_core=514755
+[transition-h] t=1789469340.858 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469341.095 z=64x1024x64 hid=256 w_eff=1024 chunked=0 h=48 base=16 l1_rows=48.00 elem_rows=48.00 live=56623104 per_core=514755
+[transition-h] t=1789469341.270 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469341.496 z=64x1024x64 hid=256 w_eff=1024 chunked=0 h=48 base=16 l1_rows=48.00 elem_rows=48.00 live=56623104 per_core=514755
+[transition-h] t=1789469341.508 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469341.736 z=64x1024x64 hid=256 w_eff=1024 chunked=0 h=48 base=16 l1_rows=48.00 elem_rows=48.00 live=56623104 per_core=514755
+[transition-h] t=1789469341.748 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469342.086 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755
+[transition-h] t=1789469342.138 z=1024x1024x128 hid=512 w_eff=1024 chunked=0 h=24 base=16 l1_rows=24.00 elem_rows=24.00 live=56623104 per_core=514755

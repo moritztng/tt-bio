@@ -1,0 +1,11 @@
+=== ARM on (default) 2026-09-15T04:36:21Z load=1.88
+[boltz2] 1.917319 structures/s  (522 ms/call, load 2s)
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — boltz2  | threshold ±15%  | warm (2 warmup + 5 timed)
+boltz2          structures/s           1.76      1.917     +9.0%      PASS
+GATE PASS — no model regressed beyond ±15%
+=== ARM off 2026-09-15T04:36:32Z load=1.90
+[boltz2] 1.930229 structures/s  (518 ms/call, load 3s)
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — boltz2  | threshold ±15%  | warm (2 warmup + 5 timed)
+boltz2          structures/s           1.76       1.93     +9.7%      PASS
+GATE PASS — no model regressed beyond ±15%
+=== done 2026-09-15T04:36:43Z

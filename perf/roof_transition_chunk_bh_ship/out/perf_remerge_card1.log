@@ -1,0 +1,196 @@
+[boltz2] 1.488377 structures/s  (672 ms/call, load 3s)
+Loading weights:   0%|          | 0/1594 [00:00<?, ?it/s]Loading weights: 100%|██████████| 1594/1594 [00:00<00:00, 38206.52it/s]
+Fetching 14 files:   0%|          | 0/14 [00:00<?, ?it/s]Fetching 14 files: 100%|██████████| 14/14 [00:00<00:00, 4724.46it/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[esmfold2] 2.629744 structures/s  (380 ms/call, load 12s)
+Loading CCD dictionary from /home/ttuser/.cache/huggingface/hub/models--biohub--ESMFold2/snapshots/b1324ddff3a32630bd5d36dd47213b2723b4ef50/ccd.pkl
+Loading weights:   0%|          | 0/1032 [00:00<?, ?it/s]Loading weights: 100%|██████████| 1032/1032 [00:00<00:00, 59109.39it/s]
+Fetching 14 files:   0%|          | 0/14 [00:00<?, ?it/s]Fetching 14 files: 100%|██████████| 14/14 [00:00<00:00, 2467.86it/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[esmfold2-fast] 3.686211 structures/s  (271 ms/call, load 14s)
+Loading CCD dictionary from /home/ttuser/.cache/huggingface/hub/models--biohub--ESMFold2/snapshots/b1324ddff3a32630bd5d36dd47213b2723b4ef50/ccd.pkl
+[protenix-v2] 2.354542 structures/s  (425 ms/call, load 2s)
+[protenix-v1] 3.374321 structures/s  (296 ms/call, load 1s)
+Fetching 21 files:   0%|          | 0/21 [00:00<?, ?it/s]Fetching 21 files: 100%|██████████| 21/21 [00:00<00:00, 5745.62it/s]
+[opendde] 2.869892 structures/s  (348 ms/call, load 2s)
+[openfold3] 2.343425 structures/s  (427 ms/call, load 1s)
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+  [fold] sample 0: xl_final std=4.9550 range=[-12.84,12.64]
+[openbind] 2.330273 structures/s  (429 ms/call, load 1s)
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+  [fold] sample 0: xl_final std=4.7524 range=[-13.29,13.47]
+Fetching 21 files:   0%|          | 0/21 [00:00<?, ?it/s]Fetching 21 files: 100%|██████████| 21/21 [00:00<00:00, 1523.86it/s]
+[opendde-abag] 2.926215 structures/s  (342 ms/call, load 3s)
+Environment variable CCD_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Environment variable PDB_MIRROR_PATH not set. Will not be able to use function requiring this variable. To set it you may:
+  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file
+  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'
+  (3) write it to a .env file in the root of the atomworks.io repository
+Using element type for atom names of atomized tokens.
+/usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=7412) is multi-threaded, use of fork() may lead to deadlocks in the child.
+  self.pid = os.fork()
+/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/tt_bio/_vendor/atomworks/ml/transforms/atom_frames.py:387: DeprecationWarning: __array_wrap__ must accept context and return_scalar arguments (positionally) in the future. (Deprecated NumPy 2.0)
+  is_protein[atom_array.token_id.astype(np.int32)]
+Using element type for atom names of atomized tokens.
+/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+Using element type for atom names of atomized tokens.
+/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+Using element type for atom names of atomized tokens.
+/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+Using element type for atom names of atomized tokens.
+/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+Using element type for atom names of atomized tokens.
+/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+Using element type for atom names of atomized tokens.
+/home/ttuser/.coworker/wt/roof-transition-chunk-remerge-verify/tt_bio/_vendor/rf3/utils/inference.py:176: DeprecationWarning: build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.
+  parsed = parse_atom_array(
+Cached data not found for ARG at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ARG/ARG.pt
+Cached data not found for ASN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASN/ASN.pt
+Cached data not found for ASP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/A/ASP/ASP.pt
+Cached data not found for GLN at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLN/GLN.pt
+Cached data not found for GLY at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/G/GLY/GLY.pt
+Cached data not found for ILE at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/I/ILE/ILE.pt
+Cached data not found for LEU at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LEU/LEU.pt
+Cached data not found for LYS at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/L/LYS/LYS.pt
+Cached data not found for PRO at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/P/PRO/PRO.pt
+Cached data not found for SER at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/S/SER/SER.pt
+Cached data not found for TRP at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TRP/TRP.pt
+Cached data not found for TYR at /net/tukwila/lschaaf/datahub/MACE-OMOL-Jul2025/mace_embeddings/T/TYR/TYR.pt
+[rf3] 0.224576 structures/s  (4453 ms/call, load 3s)
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]Fetching 4 files: 100%|██████████| 4/4 [00:00<00:00, 2750.36it/s]
+[esmc-300m] 113.747196 seq/s  (70 ms/call, load 2s)
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]Fetching 4 files: 100%|██████████| 4/4 [00:00<00:00, 2555.17it/s]
+[esmc-300m-single] 57.198165 seq/s  (140 ms/call, load 1s)
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]Fetching 4 files: 100%|██████████| 4/4 [00:00<00:00, 2930.52it/s]
+[esmc-600m] 105.82309 seq/s  (76 ms/call, load 2s)
+Fetching 14 files:   0%|          | 0/14 [00:00<?, ?it/s]Fetching 14 files: 100%|██████████| 14/14 [00:00<00:00, 4740.09it/s]
+[esmc-6b] 10.284074 seq/s  (778 ms/call, load 12s)
+Fetching 8 files:   0%|          | 0/8 [00:00<?, ?it/s]Fetching 8 files: 100%|██████████| 8/8 [00:00<00:00, 3798.33it/s]
+[saprot-650m] 285.308679 seq/s  (28 ms/call, load 3s)
+[boltzgen] 0.024841 designs/s  (40257 ms/design, median wall 161s, reps ['156', '161', '172']s)
+[boltz2-affinity] 0.012907 affinities/s  (77476 ms/call, median wall 77s, reps ['68', '77', '93']s)
+[rfd3] 0.272641 designs/s  (3668 ms/design, median wall 4s, reps ['4', '4', '4']s)
+[pxdesign] 0.083489 designs/s  (11978 ms/design, median wall 12s, reps ['12', '12', '12']s)
+[nesso1] 0.057588 affinities/s  (17365 ms/call, median wall 17s, reps ['16', '17', '17']s)
+
+##############################################################################
+PERF REGRESSION GATE — card p300c @ tt-quietbox2 — boltz2, esmfold2, esmfold2-fast, protenix-v2, protenix-v1, opendde, openfold3, openbind, opendde-abag, rf3, esmc-300m, esmc-300m-single, esmc-600m, esmc-6b, saprot-650m, boltzgen, boltz2-affinity, rfd3, pxdesign, nesso1  | threshold ±15%  | per-model protocol
+##############################################################################
+model           metric             baseline    current     delta   verdict
+--------------------------------------------------------------------------
+boltz2          structures/s           1.76      1.488    -15.4%      FAIL
+esmfold2        structures/s          3.299       2.63    -20.3%      FAIL
+esmfold2-fast   structures/s          3.922      3.686     -6.0%      PASS
+protenix-v2     structures/s          3.091      2.355    -23.8%      FAIL
+protenix-v1     structures/s          3.328      3.374     +1.4%      PASS
+opendde         structures/s          2.905       2.87     -1.2%      PASS
+openfold3       structures/s          2.259      2.343     +3.7%      PASS
+openbind        structures/s          2.234       2.33     +4.3%      PASS
+opendde-abag    structures/s          2.903      2.926     +0.8%      PASS
+rf3             structures/s         0.1976     0.2246    +13.7%      PASS
+esmc-300m       seq/s                 153.4      113.7    -25.8%      FAIL
+esmc-300m-singleseq/s                 58.97       57.2     -3.0%      PASS
+esmc-600m       seq/s                 110.5      105.8     -4.2%      PASS
+esmc-6b         seq/s                 10.48      10.28     -1.9%      PASS
+saprot-650m     seq/s                 282.3      285.3     +1.1%      PASS
+boltzgen        designs/s           0.02248    0.02484    +10.5%      PASS
+boltz2-affinity affinities/s        0.02413    0.01291    -46.5%      FAIL
+rfd3            designs/s            0.2842     0.2726     -4.1%      PASS
+pxdesign        designs/s           0.07702    0.08349     +8.4%      PASS
+nesso1          affinities/s        0.06949    0.05759    -17.1%      FAIL
+--------------------------------------------------------------------------
+  card: p300c  |  machine: tt-quietbox2  |  hardware: blackhole  |  tt-bio 0.8.0  |  input: per-model (8 distinct)
+##############################################################################
+GATE FAIL — regressed beyond ±15%: boltz2, esmfold2, protenix-v2, esmc-300m, boltz2-affinity, nesso1

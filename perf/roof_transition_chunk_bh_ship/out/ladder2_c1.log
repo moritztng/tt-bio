@@ -1,0 +1,8 @@
+2026-09-14 14:55:11.507 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+    298 off PASS     11.29s dram= 1.469GiB l1=    25.4MiB transition_h_chunk=296/0 sha=a8c6fd65f70f4418
+    298 on  PASS     10.95s dram= 1.469GiB l1=    25.4MiB transition_h_chunk=296/0 sha=a8c6fd65f70f4418
+    512 off PASS     15.83s dram= 2.078GiB l1=    64.7MiB transition_h_chunk=0/296 sha=45781db716ebf020
+        transition_h_chunk rejects: {'base-unraised@64x512x64': 16, 'base-unraised@512x512x128': 280}
+    512 on  PASS     15.04s dram= 2.078GiB l1=    64.7MiB transition_h_chunk=296/0 sha=45781db716ebf020
+2026-09-14 14:56:09.568 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2198016 B which is beyond max L1 size of 1572864 B (assert.hpp:104)

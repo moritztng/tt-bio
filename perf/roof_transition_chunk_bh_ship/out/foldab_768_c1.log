@@ -1,0 +1,42 @@
+2026-09-14 15:52:11.175 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-09-14 15:52:16.549 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2198016 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+    768 rep0  shipA  off     31.628s load=  0.2 served=0/296 sha=9e1a1fdd392e0b4c
+    768 rep0  test   on      30.587s load=  0.9 served=296/0 sha=9e1a1fdd392e0b4c
+    768 rep0  shipB  off     31.190s load=  0.9 served=0/296 sha=9e1a1fdd392e0b4c
+    768 rep1  shipA  off     31.341s load=  1.8 served=0/296 sha=9e1a1fdd392e0b4c
+    768 rep1  test   on      38.097s load=  1.9 served=296/0 sha=9e1a1fdd392e0b4c
+    768 rep1  shipB  off     39.002s load=  5.3 served=0/296 sha=9e1a1fdd392e0b4c
+    768 rep2  shipA  off     39.536s load=  8.7 served=0/296 sha=9e1a1fdd392e0b4c
+    768 rep2  test   on      39.432s load=  9.9 served=296/0 sha=9e1a1fdd392e0b4c
+    768 rep2  shipB  off     39.686s load= 10.9 served=0/296 sha=9e1a1fdd392e0b4c
+    768 rep3  shipA  off     40.552s load= 12.0 served=0/296 sha=9e1a1fdd392e0b4c
+    768 rep3  test   on      39.054s load= 11.5 served=296/0 sha=9e1a1fdd392e0b4c
+    768 rep3  shipB  off     40.290s load= 11.9 served=0/296 sha=9e1a1fdd392e0b4c
+[leg 768:on] {"ship_median_s": 39.269, "arm_median_s": 38.576, "shipA_median_s": 35.582, "shipB_median_s": 39.344, "fold_seconds_saved": 0.694, "ratio": 1.018, "aa_floor_pct": 9.58, "aa_floor_s": 3.762, "n": {"shipA": 4, "shipB": 4, "test": 4}, "bit_exact_across_arms": true, "digest": ["9e1a1fdd392e0b4c"], "loadavg_span": [0.17, 11.99], "verdict": "BLOCKED-ON-CONTENTION"}
+{
+ "768:on": {
+  "ship_median_s": 39.269,
+  "arm_median_s": 38.576,
+  "shipA_median_s": 35.582,
+  "shipB_median_s": 39.344,
+  "fold_seconds_saved": 0.694,
+  "ratio": 1.018,
+  "aa_floor_pct": 9.58,
+  "aa_floor_s": 3.762,
+  "n": {
+   "shipA": 4,
+   "shipB": 4,
+   "test": 4
+  },
+  "bit_exact_across_arms": true,
+  "digest": [
+   "9e1a1fdd392e0b4c"
+  ],
+  "loadavg_span": [
+   0.17,
+   11.99
+  ],
+  "verdict": "BLOCKED-ON-CONTENTION"
+ }
+}

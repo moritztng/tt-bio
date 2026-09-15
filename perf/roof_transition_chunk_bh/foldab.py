@@ -9,9 +9,22 @@ shipped arm run twice per rep, so the session's own A/A floor falls out of the s
 of being a separate run that a load change can sit between. Arm order is fixed and the whole set
 runs once per rep, so a clock ramp or a JIT warm-up cannot bias one arm against another.
 
-The floor is the contention detector and it has the last word: `roof-pair-transition` got 0.157 %
-on a quiet box, and this row's contention guard says a session above ~1 % is not interpretable.
-When that happens the ratio is BLOCKED, not scaled -- publish a number you trust or none.
+There are TWO contention detectors, because one of them is blind on its own.
+
+The A/A floor is the variance detector: two shipped slots per rep, either side of the test arm, so
+box drift lands in the floor and not in the ratio. `roof-pair-transition` got 0.157 % on a quiet
+box; above ~1 % the session is BLOCKED, not scaled.
+
+The floor cannot see SATURATION. On 2026-09-15 this harness ran at 512 aa with a sibling worker's
+200-step fold on the box at 253 % CPU. The fold went host-bound, both arms clamped to the same
+host-limited wall at 23.5 s against a 15.2 s quiet-box median, the 0.34 s of device time the lever
+saves vanished into the stall -- and the A/A floor stayed tight, because steady saturation slows
+both shipped slots equally. The session would have published ratio ~1.000 as INTERPRETABLE and
+refuted a real win. A tight floor means "no jitter", not "not saturated".
+
+So pass `--quiet-ship-median SIZE:SECONDS` with the reference arm's known quiet-box median. Any leg
+whose shipped median exceeds it by more than `--saturation-tol` is BLOCKED-ON-SATURATION and its
+ratio is suppressed. Digests are never suppressed: contention costs you the clock, never the bytes.
 
 Every arm is bit-exact (proved fold-level at 298/512/768 aa by the ladder in this directory), so
 the digest is carried here only as the cheap regression signal it is.
@@ -40,12 +53,38 @@ sys.path.insert(0, str(REPO / "perf" / "b2x-flag-levers"))
 import ab_flag_levers as AB  # noqa: E402  -- fixtures, cfg and MSA seeding, unmodified
 
 
+def leg_verdict(floor_pct, ship_median_s, quiet_median_s, tol):
+    """Both detectors have to clear, because neither sees the other's failure.
+
+    The A/A floor catches JITTER: a box whose speed moves between the two shipped slots. It is
+    blind to SATURATION, where the box is uniformly slow, both shipped slots agree, the floor
+    reads tight and the device-side saving is hidden inside a host stall. The saturation check
+    catches that, and is itself blind to jitter around a correct mean. Contention is only allowed
+    to cost the clock, so this never touches the digests.
+    """
+    if floor_pct > 1.0:
+        return "BLOCKED-ON-CONTENTION"
+    if quiet_median_s and ship_median_s > quiet_median_s * tol:
+        return "BLOCKED-ON-SATURATION"
+    return "INTERPRETABLE"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--legs", default="512:h48",
                     help="comma list of <size>:<arm>; the shipped arm is added around each")
     ap.add_argument("--reps", type=int, default=4)
+    ap.add_argument("--quiet-ship-median", default="",
+                    help="SIZE:SECONDS[,...] -- the reference arm's median on a QUIET box. A leg "
+                         "whose shipped median runs above it by more than --saturation-tol is "
+                         "blocked, because a host-bound session hides the saving without moving "
+                         "the A/A floor.")
+    ap.add_argument("--saturation-tol", type=float, default=1.10,
+                    help="how far above the quiet median a session may sit and still be read")
+    ap.add_argument("--ref", default="ship",
+                    help="the arm run on both sides of the test arm; `ship` is the tree's own "
+                         "default, `off` pins the Blackhole row-height raise off")
     ap.add_argument("--steps", type=int, default=AB.SAMPLING_STEPS)
     ap.add_argument("--recycles", type=int, default=AB.RECYCLING_STEPS)
     args = ap.parse_args()
@@ -106,8 +145,15 @@ def main() -> int:
     dump()
 
     def fold(size, arm, slot, rep):
-        if arm == "ship":
+        # `ship` leaves the tree alone. `off`/`on` pin the Blackhole per-shape row-height raise,
+        # which is default-on, so the shipped lever is still A/B-able on one build without the
+        # flat-height hook -- the hook forces ONE height for every shape and this lever gives a
+        # different height to the pair track and the MSA track, so it cannot stand in for it.
+        # `hNN` is the old flat-height screen arm, unchanged.
+        if arm in ("ship", "off", "on"):
             os.environ.pop("TT_BIO_TRANSITION_H_CHUNK", None)
+            if arm != "ship":
+                TT._TRANSITION_L1_ROWS = arm == "on"
         else:
             os.environ["TT_BIO_TRANSITION_H_CHUNK"] = str(int(arm.lstrip("h")))
         TT.TRANSITION_H_CHUNK_STATS[:] = [0, 0]
@@ -139,12 +185,15 @@ def main() -> int:
             rec["served"], rec["declined"], rec.get("digest")), flush=True)
         return rec
 
+    quiet = {int(k): float(v) for k, v in
+             (t.split(":") for t in args.quiet_ship_median.split(",") if t.strip())}
+
     for size, arm in legs:
         # ship / arm / ship per rep. The two shipped slots are the A/A floor and they sit on
         # either side of the test arm, so a drift in the box shows up as the floor and not as
         # the ratio.
         for rep in range(args.reps):
-            for slot, a in (("shipA", "ship"), ("test", arm), ("shipB", "ship")):
+            for slot, a in (("shipA", args.ref), ("test", arm), ("shipB", args.ref)):
                 out["folds"].append(fold(size, a, slot, rep))
                 dump()
         sel = lambda s: [f["wall_s"] for f in out["folds"]
@@ -171,9 +220,9 @@ def main() -> int:
             "digest": sorted(d for d in digests if d),
             "loadavg_span": [min(f["loadavg"] for f in out["folds"] if f["size"] == size),
                              max(f["loadavg"] for f in out["folds"] if f["size"] == size)],
-            # The floor has the last word. Above 1 % the session is not interpretable and the
-            # ratio above must not be published, scaled or caveated.
-            "verdict": "INTERPRETABLE" if floor_pct <= 1.0 else "BLOCKED-ON-CONTENTION",
+            "quiet_ship_median_s": quiet.get(size),
+            "saturation_x": round(ship / quiet[size], 3) if quiet.get(size) else None,
+            "verdict": leg_verdict(floor_pct, ship, quiet.get(size), args.saturation_tol),
         }
         dump()
         print("[leg %d:%s] %s" % (size, arm, json.dumps(out["legs"][f"{size}:{arm}"])), flush=True)
