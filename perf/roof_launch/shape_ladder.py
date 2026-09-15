@@ -223,9 +223,12 @@ def main() -> int:
             print("budget reached, closing the table", flush=True)
             break
         if arm == "reshape":
-            # `ttnn.reshape([1,768,512])` hung a card twice and killed two sweeps. The two reshape
-            # keys left in the table hold 280 of 84,224 unmeasured calls, so the class fallback is
-            # cheaper than one more wedge. Route around, do not reproduce.
+            # The builder above reshapes a tensor to the shape it already has, because it derives
+            # the input from the output's own element count, and an IDENTITY reshape at [1,768,512]
+            # is what hung a card twice and killed two sweeps. Refusing costs the table nothing:
+            # `launch_sweep.py`'s class arm reshapes (1,16,48,512) -> (1,768,512), the fold's own
+            # output shape, and `launch_trace_qb2c1.json` has it at 22.81 us with no hang, so these
+            # 5,080 calls already fall back to a ladder built on their own shape family.
             out["refused"][key] = "skipped: ttnn.reshape wedges this card (2 sightings)"
             print("%-22s %-24s  SKIPPED (reshape wedge)" % (arm, "x".join(map(str, sh))),
                   flush=True)
