@@ -1,0 +1,22 @@
+2026-09-15T08:49:22Z resume_after_boot relaunching ATTR (uptime 10102s)
+2026-09-15T08:49:22Z off1 START arm=off loadavg=5.16
+2026-09-15T08:58:09Z resume_after_boot relaunching ATTR (uptime 150s)
+2026-09-15T08:58:09Z off1 START arm=off loadavg=3.82
+2026-09-15T09:01:42Z off1 rc=0 wall=213s arm=off served=0 declined=0 resolved=False
+2026-09-15T09:01:42Z on1 START arm=on loadavg=12.03
+2026-09-15T09:04:53Z on1 rc=0 wall=191s arm=on served=1088 declined=0 resolved=True
+2026-09-15T09:04:53Z off2 START arm=off loadavg=8.82
+2026-09-15T09:08:28Z off2 rc=0 wall=215s arm=off served=0 declined=0 resolved=False
+2026-09-15T09:08:28Z on2 START arm=on loadavg=9.31
+2026-09-15T09:11:37Z on2 rc=0 wall=189s arm=on served=1088 declined=0 resolved=True
+2026-09-15T09:11:37Z off3 START arm=off loadavg=4.53
+2026-09-15T09:15:04Z off3 rc=0 wall=207s arm=off served=0 declined=0 resolved=False
+2026-09-15T09:15:04Z on3 START arm=on loadavg=5.16
+2026-09-15T09:18:10Z on3 rc=0 wall=186s arm=on served=1088 declined=0 resolved=True
+2026-09-15T09:18:10Z off4 START arm=off loadavg=2.78
+2026-09-15T09:22:04Z off4 rc=0 wall=234s arm=off served=0 declined=0 resolved=False
+2026-09-15T09:22:04Z on4 START arm=on loadavg=3.89
+2026-09-15T09:28:32Z resume_after_boot relaunching ATTR (uptime 150s)
+2026-09-15T09:28:32Z on4 START arm=on loadavg=3.09
+2026-09-15T09:31:38Z on4 rc=0 wall=186s arm=on served=1088 declined=0 resolved=True
+2026-09-15T09:31:38Z RF3_1088_DONE
