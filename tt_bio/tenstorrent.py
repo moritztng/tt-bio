@@ -1741,6 +1741,10 @@ def _tri_att_k_chunks(q_len: int, k_len: int) -> tuple:
 # A silently-declined config is indistinguishable from an absent one, so an A/B on this path can
 # only be believed if the fold itself says which pair it ran.
 SDPA_K_CHUNK_STATS = [0, 0]
+#: Above-cap fused route only, so `scripts/lever_census.py` can tell a lever that is on from one
+#: that fires. It cannot share `SDPA_K_CHUNK_STATS`: that counts every fused serve including the
+#: ones the stock ladder makes below the cap, where this route is unreachable by construction.
+SDPA_FUSED_LARGE_S_STATS = [0, 0]
 # (q_len, k_len) -> [q_chunk, k_chunk, "fused"|"stock"], the pair actually served at that shape.
 SDPA_CHUNK_PICKS: dict = {}
 # Calls served per route. `SDPA_CHUNK_PICKS` records the route per shape and a fold repeats one
@@ -1781,8 +1785,11 @@ _SDPA_QK_OVER_L1: set = set()
 #
 # NOT bit-exact above the cap: k_chunk sets the online-softmax reduction order. It has no digest to
 # break -- no length above 1024 served fused before -- and the fold-level Angstrom evidence is in
-# `perf/ttx_a3/`.
-_SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", False)
+# `perf/ttx_a3/`. Default ON since the release gate cleared it: 1.1856x on a 200-step 1536 aa fold
+# against a 1.21 % A/A floor in the same session, and 1.007 A of all-atom displacement at a size
+# where changing the seed moves the same structure 36.6 A. `TT_BIO_SDPA_FUSED_LARGE_S=0` restores
+# the stock ladder everywhere.
+_SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", True)
 
 
 def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
@@ -1803,8 +1810,12 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
                                   q_split_cap=0, gate=gate)
             if o is not None:
                 SDPA_K_CHUNK_STATS[0] += 1
+                SDPA_FUSED_LARGE_S_STATS[0] += 1
                 _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
                 return o
+        # Above the cap and eligible, and no pair ran: an L1 refusal, or a token count with no
+        # 32-aligned divisor. Counted so the census reads a reach, not just a default.
+        SDPA_FUSED_LARGE_S_STATS[1] += 1
     k_chunks = _tri_att_k_chunks(q_len, k_len)
     if len(k_chunks) > 1:
         # Only q_chunks that DIVIDE the padded sequence are offered against a wide k. The q ladder's
