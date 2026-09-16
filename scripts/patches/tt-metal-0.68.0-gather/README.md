@@ -14,7 +14,7 @@ build**. `apply.sh` copies the installed runtime into a private prefix and patch
 shared wheel other workers run on is never written.
 
 ```sh
-patches/tt-metal-0.68.0-gather/apply.sh /path/to/prefix
+scripts/patches/tt-metal-0.68.0-gather/apply.sh /path/to/prefix
 TT_METAL_RUNTIME_ROOT=/path/to/prefix/ttnn \
 TT_METAL_CACHE=/path/to/prefix-cache \
 PYTHONPATH=/path/to/prefix \

@@ -17,7 +17,7 @@ helpers, so there is no per-model fusion code to keep in sync.
 read the same inputs, but the chain packs the intermediate to the tensor dtype and
 reloads it, rounding twice, while the fused op keeps the product in an fp32 SFPU
 register and packs once. Screened at every real site shape on Blackhole
-(``scripts/profiling/eltwise_fusion_screen.py``, artifacts/eltwise_screen.json): the
+(``scripts/profiling/eltwise_fusion_screen.py``, perf/eltwise_fusion/eltwise_screen.json): the
 fused arm is closer to a float64 reference at every site, and its disagreement with
 the current chain is exactly one bf16 ULP (6.25e-2 on logits reaching ~11.6, rel
 ~5e-3). Where the scale is a power of two the fused arm is bit-identical, because

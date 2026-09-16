@@ -43,7 +43,7 @@ def main():
     ap.add_argument("--reps", type=int, default=4)
     ap.add_argument("--gates", default=",".join(GATES),
                     help="comma-separated subset to flip (the rest stay at their default)")
-    ap.add_argument("--out", default=os.path.join(WT, "artifacts/eltwise_ab.json"))
+    ap.add_argument("--out", default=os.path.join(WT, "perf/eltwise_fusion/eltwise_ab.json"))
     a = ap.parse_args()
     gates = tuple(g for g in a.gates.split(",") if g)
     results = {}

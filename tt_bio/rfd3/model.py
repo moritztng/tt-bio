@@ -306,7 +306,7 @@ _GATHERED_SOFTMAX = env_flag("RFD3_GATHERED_SOFTMAX", False)
 # scripts/rfd3_port/p81{,b,c}_*.py, perf/p81/*.json. ttnn.scatter at the same shape is clean.
 #
 # Upstream fixed this one day after our tag and the fix is backported in
-# patches/tt-metal-0.68.0-gather, where p97 finds no threshold at any key axis up to 6080. The
+# scripts/patches/tt-metal-0.68.0-gather, where p97 finds no threshold at any key axis up to 6080. The
 # ceiling stays here because it guards the wheel we SHIP, not the private patched runtime that
 # backport builds. Raising it is not worth doing anyway: with the gather correct, the gathered
 # chain is still 6.2-48.9x slower than the dense one in every atom band (p99), so this flag is

@@ -10,7 +10,7 @@ slower than the dense chain; ``ttnn.gather`` is silently wrong above 1920 on the
 
 Both of those gather numbers are properties of ``ttnn==0.68.0`` rather than of a per-row gather,
 and both have now been re-measured against the two upstream fixes backported onto our own pin
-(``patches/tt-metal-0.68.0-gather``, ``scripts/rfd3_port/p97_gather_backport.py`` and
+(``scripts/patches/tt-metal-0.68.0-gather``, ``scripts/rfd3_port/p97_gather_backport.py`` and
 ``p99_gather_bands.py``, 2026-09-14). The correctness half was real: patched, ``ttnn.gather`` on
 dim 3 is exact at every key axis up to the production 6080 in both fp32 and bf16, and 0 of
 3112960 elements are wrong at ``[1,4,6080,6080]``, so the 1920 ceiling is an artefact of the pin.
