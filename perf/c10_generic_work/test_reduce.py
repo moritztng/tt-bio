@@ -181,6 +181,7 @@ class Contracts(unittest.TestCase):
         self.refuse("reblock_gated", lambda d: d["compile"].update(granularity=3), "granularity")
         self.refuse("reblock_reverse", lambda d: d["operands"][0].update(shape=[1, 64, 31, 31]), "ragged")
         self.refuse("sdpa_dense", lambda d: d["compile"].update(k_chunk=64), "padded chunk")
+        self.refuse("sdpa_dense", lambda d: d["compile"].update(heads_per_worker=3), "partition exceeds")
         self.refuse("sdpa_dense", lambda d: d["operands"][3].update(shape=[2, 1, 32, 32], padded_shape=[2, 1, 32, 32]), "mask broadcast")
 
     def test_ownership_and_unsupported_family(self):

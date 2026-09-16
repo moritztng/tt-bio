@@ -16,6 +16,6 @@ test_source_roles_flags_refuse_even_with_new_hash (test_reduce.Contracts.test_so
 test_unsupported_shapes_dtypes_and_aliases (test_reduce.Contracts.test_unsupported_shapes_dtypes_and_aliases) ... ok
 
 ----------------------------------------------------------------------
-Ran 16 tests in 0.088s
+Ran 16 tests in 0.084s
 
 OK

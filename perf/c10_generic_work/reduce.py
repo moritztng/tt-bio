@@ -207,6 +207,8 @@ def count_sdpa(d, row):
     require(sq % qc == sk % kc == 0, "padded chunk/mask schedule unsupported")
     require(all(positive(c[k]) for k in ("heads_per_worker", "q_chunks_per_worker", "kv_buffer_factor")),
             "missing worker/buffer limits")
+    require(c["heads_per_worker"] <= h and c["q_chunks_per_worker"] <= sq // qc,
+            "worker partition exceeds head/Q domain")
     if c["persistent_mask"]:
         require(mask[0] == 1 and qc == sq and c["heads_per_worker"] == c["q_chunks_per_worker"] == 1,
                 "persistent mask requires batch broadcast and one head/Q chunk per worker")
