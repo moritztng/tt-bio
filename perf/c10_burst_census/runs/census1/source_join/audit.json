@@ -1,0 +1,42 @@
+{
+  "files": [
+    {
+      "path": "/home/ttuser/tt-metal-k10/tt_metal/impl/profiler/tt_metal_profiler.cpp",
+      "sha256": "0237b1cbde34b2ab3e2867c0069fb6c64f04ba6e521c2864895cf944785fa4ca",
+      "archive": "0_tt_metal_profiler.cpp.gz"
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/tt_metal/tools/profiler/kernel_profiler.hpp",
+      "sha256": "bc09b610f39312a9d2fcd000d299e0162391d3e6054f78273ce036dc1c2f9823",
+      "archive": "1_kernel_profiler.hpp.gz"
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/ttnn/api/ttnn/device_operation.hpp",
+      "sha256": "e588a59e3703e621d1c0596f4dc17124e48d05c2a16283732d8c5caf28567d48",
+      "archive": "2_device_operation.hpp.gz"
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/ttnn/api/tools/profiler/op_profiler.hpp",
+      "sha256": "d331baa2e602792879ce31d8e6f1ea17a8db66758091fd7fab0fefffff50312d",
+      "archive": "3_op_profiler.hpp.gz"
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn-nanobind/tensor.cpp",
+      "sha256": "7342f1e6a17b1cdf62ea35b98071247ffa903265bed8e81022ffa4280a766765",
+      "archive": "4_tensor.cpp.gz"
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/ttnn/core/core.cpp",
+      "sha256": "dc353224b0b17e3439e90a784bb1c2859b7219f22ee53bf09211cd70480ed094",
+      "archive": "5_core.cpp.gz"
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/tools/tracy/__init__.py",
+      "sha256": "9a90e88f8bee5ec0aacbf94de49b4993f52562cbeeacde8d9f44db1fa5111e74",
+      "archive": "6___init__.py.gz"
+    }
+  ],
+  "encoding": "non-host node0: global call ID = native runtime ID << 10; native counter after generic dispatch minus one supplies runtime ID",
+  "evidence": "device_operation.hpp fetches/increments counter at enqueue, op_profiler.hpp encodes program runtime ID, tt_metal_profiler.cpp implements ten-bit physical-device encoding",
+  "limits": "Source/readback identity, not proof of cached JIT machine code; no trace/replay; single dispatch thread only"
+}

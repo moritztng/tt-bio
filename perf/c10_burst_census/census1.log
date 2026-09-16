@@ -1,0 +1,87 @@
+benchlock: c10-burst-census acquired after 53s, loadavg 1.74 2.21 2.02
+2026-09-16 19:04:03.836 | INFO     | __main__:main:175 - Setting profiler artifacts folder to /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/census1/tracy
+2026-09-16 19:04:03.837 | WARNING  | __main__:main:293 - Skipping runtime analysis (C++ post-processing) due to conflicting options (--enable-sum-profiling). Falling back to legacy Python processing.
+2026-09-16 19:04:03.837 | INFO     | __main__:main:309 - Using port 8086
+2026-09-16 19:04:03.837 | INFO     | tracy:run_report_setup:88 - Verifying tracy profiling tools
+2026-09-16 19:04:03.845 | INFO     | __main__:main:374 - Test process started
+2026-09-16 19:04:04.570 | INFO     | __main__:main:175 - Setting profiler artifacts folder to /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/census1/tracy
+2026-09-16 19:04:04.571 | WARNING  | __main__:main:293 - Skipping runtime analysis (C++ post-processing) due to conflicting options (--enable-sum-profiling). Falling back to legacy Python processing.
+2026-09-16 19:04:04.806 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-09-16 19:04:45.630 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+WINDOW MSALayer_0 4665
+2026-09-16 19:04:57.995 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+WINDOW PairformerLayer_0 2950
+2026-09-16 19:07:26.024 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+WINDOW DiffusionModule_0 19457
+2026-09-16 19:14:41.781 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+WINDOW ConfidenceHeadsDevice_0 483
+2026-09-16 19:14:46.081 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+WINDOW stream_copy_0 51
+2026-09-16 19:14:46.912 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+WINDOW stream_add_0 56
+2026-09-16 19:14:47.772 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+WINDOW dense_hifi4_0 56
+2026-09-16 19:14:48.653 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+WINDOW stream_copy_1 51
+2026-09-16 19:14:49.502 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+WINDOW stream_add_1 56
+2026-09-16 19:14:50.367 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+WINDOW dense_hifi4_1 56
+2026-09-16 19:14:51.237 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+WINDOW stream_copy_2 51
+2026-09-16 19:14:52.086 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+WINDOW stream_add_2 56
+2026-09-16 19:14:52.946 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+WINDOW dense_hifi4_2 56
+{"verdict": "CAPTURED_ANALYSIS_REQUIRED", "intervals": 0}
+2026-09-16 19:17:13.127 | INFO     | tracy:generate_report:154 - Host side ops time report generated at /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/census1/tracy/.logs/tracy_ops_times.csv
+2026-09-16 19:17:17.452 | INFO     | tracy:generate_report:165 - Host side ops data report generated at /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/census1/tracy/.logs/tracy_ops_data.csv
+2026-09-16 19:17:17.452 | INFO     | tracy.process_ops_logs:import_tracy_op_logs:309 - Importing ops logs
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ttuser/tt-metal-k10/tools/tracy/__main__.py", line 415, in <module>
+    main()
+  File "/home/ttuser/tt-metal-k10/tools/tracy/__main__.py", line 392, in main
+    generate_report(
+  File "/home/ttuser/tt-metal-k10/tools/tracy/__init__.py", line 167, in generate_report
+    process_ops(
+  File "/home/ttuser/tt-metal-k10/tools/tracy/process_ops_logs.py", line 2160, in process_ops
+    ops, signposts, traceReplays = import_tracy_op_logs(logFolder)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/tt-metal-k10/tools/tracy/process_ops_logs.py", line 422, in import_tracy_op_logs
+    tt_df = df[tt_mask]
+            ~~^^^^^^^^^
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/pandas/core/frame.py", line 4369, in __getitem__
+    return self._getitem_bool_array(key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/pandas/core/frame.py", line 4431, in _getitem_bool_array
+    return self.take(indexer, axis=0)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/pandas/core/generic.py", line 4089, in take
+    new_data = self._mgr.take(
+               ^^^^^^^^^^^^^^^
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/pandas/core/internals/managers.py", line 1090, in take
+    return self.reindex_indexer(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/pandas/core/internals/managers.py", line 879, in reindex_indexer
+    blk.take_nd(
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/pandas/core/internals/blocks.py", line 1015, in take_nd
+    new_values = algos.take_nd(
+                 ^^^^^^^^^^^^^^
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/pandas/core/array_algos/take.py", line 112, in take_nd
+    return arr.take(indexer, fill_value=fill_value, allow_fill=allow_fill)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/pandas/core/arrays/arrow/array.py", line 1651, in take
+    return self._from_pyarrow_array(self._pa_array.take(indices))
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "pyarrow/table.pxi", line 1083, in pyarrow.lib.ChunkedArray.take
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/pyarrow/compute.py", line 508, in take
+    return call_function('take', [data, indices], options, memory_pool)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/tt-metal-k10/tools/tracy/__main__.py", line 377, in signal_handler
+    os.killpg(os.getpgid(testProcess.pid), signal.SIGTERM)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ProcessLookupError: [Errno 3] No such process
+benchlock: c10-burst-census released, rc=1, loadavg 1.61 1.64 1.80

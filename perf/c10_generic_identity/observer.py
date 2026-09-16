@@ -36,7 +36,7 @@ _GAPS = ['transitive includes and JIT compiler flags are not captured automatica
          'observed files are not proof of the binary executed on a cache hit',
          'machine instructions, tensor contents, physical traffic and cycles are unmeasured',
          'trace replay and pre-bound aliases bypassing ttnn.generic_op are not observed',
-         'device/graph/profiler call IDs are unavailable; sequence is host observation order']
+         'native counter may be recorded; device/graph/profiler join requires separate encoding and dispatch validation']
 
 
 def sha(data):

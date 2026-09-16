@@ -1,0 +1,20 @@
+test_counter_namespace_and_multiplicity (test_census.CensusTests.test_counter_namespace_and_multiplicity) ... ok
+test_live_legacy_clone_join (test_census.CensusTests.test_live_legacy_clone_join) ... /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/reduce_census.py:89: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/census1/out/windows/stream_copy_0.jsonl' mode='r' encoding='UTF-8'>
+  rows=[json.loads(l) for l in open(path)]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_live_uncounted_work_stays_unknown (test_census.CensusTests.test_live_uncounted_work_stays_unknown) ... ok
+test_missing_endpoints_rejected (test_census.CensusTests.test_missing_endpoints_rejected) ... ok
+test_native_end_is_required (test_census.CensusTests.test_native_end_is_required) ... ok
+test_opcode_join_rejects_stale_identity (test_census.CensusTests.test_opcode_join_rejects_stale_identity) ... ok
+test_overlap_is_not_double_counted (test_census.CensusTests.test_overlap_is_not_double_counted) ... ok
+test_descriptor_cache_mismatch (test_reduce.JoinControls.test_descriptor_cache_mismatch) ... ok
+test_live_gaps_refuse_continuation (test_reduce.JoinControls.test_live_gaps_refuse_continuation) ... ok
+test_missing_fence (test_reduce.JoinControls.test_missing_fence) ... ok
+test_missing_graph_dispatch (test_reduce.JoinControls.test_missing_graph_dispatch) ... ok
+test_wrong_role (test_reduce.JoinControls.test_wrong_role) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 1.224s
+
+OK

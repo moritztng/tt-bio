@@ -1,0 +1,16 @@
+[
+  {
+    "original": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/census1/tracy/.logs/tracy_ops_data.csv",
+    "bytes": 26969586,
+    "sha256": "c0a300308a4c90fad3f4ef9fd5e31998b2e3efe9cc564b80e26a0827760bed82",
+    "archive": "raw/tracy_ops_data.csv.gz",
+    "archive_sha256": "e11200ecb59404f2a8ef32954c5d4ac26a63c50ef637a92ba3fa8db51fa976e3"
+  },
+  {
+    "original": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/census1/out/clock.jsonl",
+    "bytes": 99348740,
+    "sha256": "80a5f0c76ebabbb7a2f5640be629901b63bcf6807c9463009fff89f2979a8d79",
+    "archive": "out/clock.jsonl.gz",
+    "archive_sha256": "e14cf817203d1cc7b8f42132ab877c4f80efc46eefb851d015aa5d77125aa2a7"
+  }
+]
