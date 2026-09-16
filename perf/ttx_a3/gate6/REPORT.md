@@ -636,3 +636,46 @@ Attribution discipline for what follows: a PASS settles a cell on its own, but a
 settles nothing without a same-cell flag-off arm, because the tree carries everyone else's merged
 levers. `perf/ttx_a3/cap_offarm.sh <model>` runs exactly that, one env var and one arm per process,
 so the first red costs one command rather than a pass.
+
+### The first wedge inside the lever's regime, and it is unattributed
+
+`capacity-protenix-v2` at 1536 tokens passed tier 1 (screen, 56.2 s) and then stopped in tier 2 at
+`trunk 6/10`, 16:58:46Z. Fold at **0.0 % CPU**, 4.52 s of CPU total, log and heartbeat file both
+frozen at the same second, against a steady ~58 s per trunk step before it. That is this box's
+documented wedge signature exactly.
+
+**Why this one cannot be waved off.** Every wedge this campaign has recorded sat at 256-896 aa,
+below `_Q_SPLIT_MAX_S`, where the census now measures `served=0` and the route is provably not
+entered, so each was attributable to the box by construction. protenix-v2 at 1536 tokens is
+**above** the cap and in the route's regime. The by-construction argument does not reach it.
+
+**It is also not evidence against the lever.** This box wedges roughly 1 fold in 6 independent of
+any flag, which is why the ladder harness carries a 3-attempt budget in the first place. One wedge
+is not a verdict in either direction. What it needs is repetition against a flag-off arm at the
+same cell, which is what `perf/ttx_a3/cap_offarm.sh` was added for an hour before it happened.
+
+Four cells in the same regime passed immediately before it, including the tightest one on the
+roster at 61 % of DRAM, so nothing suggests a residency wall at 1536.
+
+### The wedge healer does not watch this lane
+
+`wedge_watch.sh` identifies folds by iterating `pgrep -f 'lever_census.py --tt-bio'` and reading
+each wrapper's `--label`. That is deliberate and it is the right discipline for the ladder lane,
+where a label names the exact process and no sibling on another card can be hit. But the capacity,
+perf and parity arms do not go through `lever_census.py`; they spawn `tt_bio.main predict`
+directly. So the healer is structurally blind to three of the five phases, and `wedge_watch.log` is
+empty through a 15-minute freeze.
+
+The cost was small, not catastrophic, and the reason is worth recording: `capacity_gate.py:105`
+carries its own `STALL_S = 900`, which fired and killed the fold, after which the gate began its
+downward bisect. The 43200 s `ARM_TIMEOUT` was never the binding limit. So the capacity lane
+self-protects and the healer's blind spot cost about 7 extra minutes of a held card rather than
+12 hours. Capacity cells name their fold pid in the beat filename
+(`resid_protenix-v2_1536.beat.31971`), which is the same precise identification the `--label`
+scheme gives, so extending the healer to these lanes is available without loosening it into a
+pattern match.
+
+### Verdict: HOLD, and now on a substantive gap rather than a coverage claim
+
+Nothing has measured against the lever. But an in-regime wedge that the construction argument
+cannot dismiss is a real gap, and it is the first one this campaign has had.
