@@ -1,0 +1,26 @@
+test_bad_integer_and_incomplete_trace (test_stream.StreamTests.test_bad_integer_and_incomplete_trace) ... ok
+test_device_trace_replay_are_separate (test_stream.StreamTests.test_device_trace_replay_are_separate) ... ok
+test_duplicate_kernel_and_sum (test_stream.StreamTests.test_duplicate_kernel_and_sum) ... ok
+test_footer_and_gzip_integrity (test_stream.StreamTests.test_footer_and_gzip_integrity) ... ok
+test_header_is_a_compatibility_check_not_clock_evidence (test_stream.StreamTests.test_header_is_a_compatibility_check_not_clock_evidence) ... ok
+test_interleaved_integer_endpoints (test_stream.StreamTests.test_interleaved_integer_endpoints) ... ok
+test_malformed_and_truncated_csv (test_stream.StreamTests.test_malformed_and_truncated_csv) ... ok
+test_missing_and_reversed_endpoints (test_stream.StreamTests.test_missing_and_reversed_endpoints) ... ok
+test_per_core_oversum_cannot_hide_in_aggregate (test_stream.StreamTests.test_per_core_oversum_cannot_hide_in_aggregate) ... ok
+test_publication_failure_retains_raw (test_stream.StreamTests.test_publication_failure_retains_raw) ... ok
+test_repeated_ids_across_chunks_are_observations (test_stream.StreamTests.test_repeated_ids_across_chunks_are_observations) ... ok
+test_resource_caps_fail_without_publication (test_stream.StreamTests.test_resource_caps_fail_without_publication) ... ok
+test_split_endpoint_pair_cannot_certify_either_chunk (test_stream.StreamTests.test_split_endpoint_pair_cannot_certify_either_chunk) ... ok
+test_sum_without_core_endpoints_is_rejected (test_stream.StreamTests.test_sum_without_core_endpoints_is_rejected) ... ok
+test_sum_without_risc_endpoints_is_preserved_as_unplaced (test_stream.StreamTests.test_sum_without_risc_endpoints_is_preserved_as_unplaced) ... ok
+test_synchronous_api_and_memory_cap (test_stream.StreamTests.test_synchronous_api_and_memory_cap) ... cycle-stream STOP: OSError: [Errno 12] Cannot allocate memory: '/tmp/tmp77xgeeey/low-memory/.cycle-e4i7s_5y'
+ok
+test_truncated_gzip_input (test_stream.StreamTests.test_truncated_gzip_input) ... ok
+test_unknown_markers_preserve_payload_and_duplicate_count (test_stream.StreamTests.test_unknown_markers_preserve_payload_and_duplicate_count) ... ok
+test_unknown_zone_sum_preserved_without_attribution (test_stream.StreamTests.test_unknown_zone_sum_preserved_without_attribution) ... ok
+test_wrong_raw_receipt (test_stream.StreamTests.test_wrong_raw_receipt) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 0.145s
+
+OK

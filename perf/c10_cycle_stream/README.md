@@ -19,7 +19,12 @@ windows, the calibrated raw/CSV known answers and seven published calibration
 intervals. Its two additional reductions of the largest retained archive use the
 same bytes and IDs; they are resource exercises, not new hardware observations.
 See [replay_report.json](replay_report.json) for the measured CPU resources and
-accepted comparisons. Existing evidence remains unchanged.
+accepted comparisons. Existing evidence remains unchanged. On pc, the largest
+retained raw chunk was 327,094,028 bytes; its three CPU reductions took
+41.10–41.52 seconds and peaked at 469,040 KiB RSS. The 13 census windows produced
+39,474,345 compressed output bytes from 478,607,197 raw bytes. These resource
+measurements replay archives captured at sampled 1350 MHz; they are not fold
+latencies. Synchronous reduction overhead still needs a device-capture assessment.
 
 For the next device owner, call this after `ReadDeviceProfiler` has returned and
 your existing drain has produced a closed, immutable raw chunk and byte/hash
