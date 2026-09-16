@@ -1,0 +1,21 @@
+{
+  "scope": "CPU read of the shipped gate. No device, no timing.",
+  "rev": "origin/main",
+  "flag": {
+    "env": "TT_BIO_SDPA_FUSED_LARGE_S",
+    "default_on": true
+  },
+  "threshold": {
+    "env": "TT_BIO_TRIATT_MASK_Q_SPLIT_MAX",
+    "value": 1024,
+    "condition": "q_len > threshold"
+  },
+  "gate_found_in_source": true,
+  "reachable_at": {
+    "298": false,
+    "512": false,
+    "1024": false,
+    "1536": true
+  },
+  "conclusion": "The above-cap fused route is unreachable at 512 aa and 298 aa: the gate needs q_len > 1024. It cannot explain any timing difference at those sizes."
+}
