@@ -2,7 +2,7 @@
 
 The existing byte counter fails the exact dense-matmul control. Do not use it to publish a new roofline until its compulsory-byte accounting is corrected and calibrated.
 
-The capture used qb2 physical card 0, tt-metal source `1452925b033c6608726b731a81500bd3e19f7894`, and tt-bio `71a306a8a5d94d880e85ce6829218ad671fbc246`. `FORCE_AICLK` requested 1350 MHz; all nine sysfs samples taken inside the capture read 1350 MHz. This is a counter validation, with no device-time, throughput, or fold-performance claim.
+The capture used qb2 physical card 0, tt-metal source `1452925b033c6608726b731a81500bd3e19f7894`, and tt-bio `71a306a8a5d94d880e85ce6829218ad671fbc246`. `FORCE_AICLK` requested 1350 MHz; all nine sysfs samples taken inside the capture read 1350 MHz. This is a counter validation, with no device-time, throughput, or fold-performance claim. The capture did not hold benchlock and must not be used as timing evidence. Co-tenancy cannot change the arithmetic discrepancy reproduced from the saved graph.
 
 | 8192 × 8192 × 8192 bf16 matmul | Exact control | Counter |
 |---|---:|---:|
@@ -15,7 +15,33 @@ The failure is reproduced without modifying the existing counters. The program e
 
 Evidence: [result](control/control.json), [raw graph](control/matmul_graph.json), [clock samples](control/clock.jsonl), and [run log](control.log). Clock reads run in a separate process because a Python thread can miss an entire device call while the extension holds the GIL. Only reads whose start and end both fall within the synchronized capture are counted.
 
-Reproduce from this worktree on qb2, with card 0 granted and free:
+Recheck the stored counter failure without importing ttnn or opening a device:
+
+```bash
+python3 - <<'PYTHON'
+import json
+import sys
+from pathlib import Path
+sys.path[:0] = ['perf/roof_budget', 'perf/b2x_difflayer']
+import exec_flops
+from real_traffic import counts
+p = Path('perf/c10_roofline_reset/control')
+graph = json.loads((p / 'matmul_graph.json').read_text())
+record = json.loads((p / 'control.json').read_text())
+n = 8192
+flops = exec_flops.totals(graph)['matmul_padded']
+byte_count = round(counts({'nodes': graph})['real_MB'] * 1e6)
+assert flops == record['observed_flops'] == 2 * n**3
+assert byte_count == record['observed_bytes'] == 4 * n**2 * 2
+assert record['expected_min_bytes'] == 3 * n**2 * 2
+assert byte_count - record['expected_min_bytes'] == n**2 * 2
+print('Confirmed: exact FLOPs, one extra output read, instrument unfit.')
+PYTHON
+```
+
+A new device capture on qb2 must use benchlock. Only cards 0 and 1 are available; this control uses card 0. Exit 75 means the lock timed out: retry later. A lock warning that it proceeded with foreign folds or high load also disqualifies timing evidence.
+
+Run from the worktree:
 
 ```bash
 export PATH=/home/ttuser/tt-bio-dev/env/bin:$PATH
@@ -27,8 +53,11 @@ export OMP_NUM_THREADS=2
 export TT_BIO_AICLK=1350
 TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 \
 TT_BIO_LEASE_HOLDER=worker:c10-roofline-reset \
+~/.coworker/scripts/benchlock.sh c10-roofline-reset -- \
 python3 perf/c10_roofline_reset/control.py \
   --out perf/c10_roofline_reset/control
 ```
 
 The harness loads the clock holder verbatim from `5c60137c2:tt_bio/aiclk.py` through `git show`; it does not install or change model code. It releases the pin and closes the device on normal completion. The source build is reused without rebuilding. The counters are imported from `perf/roof_budget/exec_flops.py` and `perf/b2x_difflayer/real_traffic.py`.
+
+The fitted `15355 -> 9584` Mcycle term is a conditional planning target, not a measured device budget. This failed control supplies neither a fold census nor a closure error, so it cannot establish a new floor or confirm the historical utilization fractions. Any later roofline requires clock-matched roofs and workload measurements with explicit accounting for gaps, overlaps and profiling overhead; rows must not be rescaled to the fitted term.
