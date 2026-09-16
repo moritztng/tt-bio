@@ -1,0 +1,38 @@
+{
+ "arm": "off",
+ "tag": "s298_off",
+ "fixture": "cdk2x2_298",
+ "seed": 0,
+ "steps": 200,
+ "recycles": 3,
+ "fold_s": 31.494,
+ "plddt": 0.908011,
+ "cif_sha256": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28",
+ "fused_large_s": false,
+ "q_split_max_s": 1024,
+ "triatt_served": 560,
+ "triatt_declined": 0,
+ "pm_over_l1": [],
+ "pm_l1_errors": {},
+ "sdpa_picks": {
+  "(320, 320)": [
+   320,
+   64,
+   "fused"
+  ]
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "grid_measured": true,
+ "maxrss_mb": 4167.4,
+ "host": "tt-quietbox2",
+ "card": "3",
+ "loadavg": [
+  48.013671875,
+  24.833984375,
+  15.94580078125
+ ],
+ "commit": "b81ee6f259e127bd4f27afa5817dab70407e7fb6"
+}

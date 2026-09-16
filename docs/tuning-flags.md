@@ -405,7 +405,7 @@ adds happen in the same order — only how many run per pass changes.
 **Speed: 1.0317x on the fused SDPA on Blackhole** (2.8299 to 2.7430 ms at 512x512) and **1.0267x on
 Wormhole**. `TT_BIO_SDPA_ADD_GRANULARITY=1` restores the per-tile loop.
 
-## `TT_BIO_SDPA_FUSED_LARGE_S` — off
+## `TT_BIO_SDPA_FUSED_LARGE_S` — on
 
 Triangle attention re-reads the same pair bias once per row of the pair tensor. The fused kernel
 reads it once per head instead and holds it, and it needs a narrow query chunk against a wide key
@@ -436,13 +436,21 @@ the same stock attention the flag-off arm takes, bit-identical, max absolute dif
 **Speed: 4.23x on the attention op at 1536 tokens** (136.143 to 32.184 ms on a Blackhole
 p300c), 2.678x at 1920 and 1.865x at 2208. The win survives changing operands: timed per call with
 a fresh bias every call it is still 2.71x, and rotating whole operand sets 4.06x. At the fold it
-saves **28.9 s of trunk time** at 1536 residues, which on a 20-step fold is 1.1973x (175.388 to
-146.489 s, adjacent arms, one process per fold).
+saves **27.3 s of trunk time** at 1536 residues, which at the shipped 200 sampling steps is
+**1.1856x** (174.178 to 146.915 s, off/on/off interleaved, one process per fold, against a 1.21 %
+same-session A/A floor). The saving is a fixed trunk saving, so it barely dilutes with step count:
+a 20-step fold of the same target read 1.1973x. `TT_BIO_SDPA_FUSED_LARGE_S=0` restores the stock
+ladder.
 
-**It is off by default because that 1.1973x is not a full-fold number.** Triangle attention is in
-the trunk, and a 20-step fold gives the trunk a much larger share than the default 200 steps does,
-so the same 28.9 s buys a smaller ratio in the shipped configuration. Nothing measured came back
-negative; the full-fold pair is simply still missing. Turn it on to get the op gain.
+**It is on by default because the win is a shipped-configuration number and the cap bounds the
+risk.** The earlier 1.1973x came off a 20-step fold, which gives the trunk a larger share than the
+default 200 steps does, so it could not carry the default on its own. At 200 steps the ratio is
+1.1856x, 15.3x the same-session A/A floor, and the 27.3 s is trunk time rather than per-step time.
+Below the cap the route is unreachable by construction, and that is measured and not just argued:
+off/on/off in one process per fold gives one CIF digest per size across all three arms at 298, 512
+and 1024 residues -- including 1024, the cap boundary itself, which is the last length where the
+flip has to change nothing. The chunk pick is also unchanged in every arm at every one of those
+sizes, so the stock ladder still serves the call.
 
 **Reach depends on the head count and the grid, not on the model.** The fused pair needs one query
 chunk per core, so a card with fewer cores, or a model with more heads on the same card, serves
