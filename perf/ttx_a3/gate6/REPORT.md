@@ -200,3 +200,21 @@ next pass must delete PAUSE after the box is back, or the chain will not restart
 **Gate state is unchanged by this pass.** Correctness and UX still recorded; the ladder, capacity,
 perf and parity arms are still owed and still need a device. `TT_BIO_SDPA_FUSED_LARGE_S` stays off
 on `main`.
+
+**Correction to the recovery paragraph above.** The guard is not a leftover to be removed.
+`qb2-endpoint-containment.service` is enabled and active, and runs
+`/opt/qb2-endpoint-containment/activate.py` at boot, which swaps the stock module for the
+candidate only if host, kernel, module sha256, all four `p300c` boards at firmware `19.15.0.0`
+and an unowned `/dev/tenstorrent/*` all check out. `manifest.json` names `stock
+28CFF5A6678E4F2D87F6383` and `candidate A10759A24565BC5BBE903C5`. It is a qualified instrument for
+the vendor handoff, so disabling it would discard another row's evidence.
+
+It also does not need disabling. The quarantine says "reboot to recover", and a reboot
+re-establishes the endpoints with the guard back in place but dormant. A second quarantine after
+that is a recurrence, which is the datum the handoff is after. Recovery is a plain reboot once the
+card-1 soak ends at 16:18:14Z.
+
+One note for the containment owner: the guard isolates one card and darks all four, because UMD
+enumerates every board before `TT_VISIBLE_DEVICES` filters and `TopologyDiscovery` then hangs or
+throws host-wide. Isolating a board without breaking discovery for its neighbours would keep the
+box usable.
