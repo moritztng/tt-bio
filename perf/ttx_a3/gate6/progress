@@ -211,3 +211,27 @@
 2026-09-16T18:22:23Z capacity-opendde-abag START loadavg=1.07
 2026-09-16T18:30:54Z capacity-opendde-abag rc=1 loadavg=1.02
 2026-09-16T18:30:54Z capacity-rf3 START loadavg=1.02
+2026-09-16T18:37:14Z capacity-rf3 rc=0 loadavg=2.01
+2026-09-16T18:37:14Z capacity-esmc-300m START loadavg=2.01
+2026-09-16T18:37:29Z capacity-esmc-300m rc=0 loadavg=1.79
+2026-09-16T18:37:29Z capacity-esmc-600m START loadavg=1.79
+2026-09-16T18:37:47Z capacity-esmc-600m rc=0 loadavg=1.64
+2026-09-16T18:37:47Z capacity-esmc-6b START loadavg=1.64
+2026-09-16T18:38:26Z capacity-esmc-6b rc=0 loadavg=1.67
+2026-09-16T18:38:26Z capacity-saprot-35m START loadavg=1.67
+2026-09-16T18:38:38Z capacity-saprot-35m rc=0 loadavg=1.57
+2026-09-16T18:38:38Z capacity-saprot-650m START loadavg=1.57
+2026-09-16T18:38:56Z capacity-saprot-650m rc=0 loadavg=1.40
+2026-09-16T18:38:56Z size-ladder SKIPPED by GATE_SKIP_LADDER
+2026-09-16T18:38:56Z perf SKIPPED by GATE_SKIP_PERF
+2026-09-16T18:38:56Z parity PRECHECK card 3 free, 0 holders
+2026-09-16T18:38:56Z parity SKIPPED by GATE_SKIP_PARITY
+2026-09-16T18:38:56Z GATE_DRIVER_DONE
+2026-09-16T18:38:56Z PHASE 4/5 perf under benchlock, then the 44-leg parity gate
+2026-09-16T18:38:56Z CARD=3 (UMD) resolves to /dev/tenstorrent/3
+2026-09-16T18:38:56Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T18:38:56Z capacity SKIPPED by GATE_SKIP_CAP
+2026-09-16T18:38:56Z size-ladder SKIPPED by GATE_SKIP_LADDER
+2026-09-16T18:38:56Z perf-boltz2 START loadavg=1.40
+2026-09-16T18:39:08Z perf-boltz2 rc=0 loadavg=1.34
+2026-09-16T18:39:08Z perf-boltz2-affinity START loadavg=1.34

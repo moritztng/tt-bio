@@ -822,3 +822,48 @@ reading pytest. Here it is confirmed by the gate itself, and it still needs a p1
 
 Running tally: 7 in-regime cells folded, 7 PASS, no residency cost on any of them, peak DRAM
 spanning 21-61 % of the card.
+
+## The capacity arm is complete: 15/15 cells, 13 in-regime folds, 13 PASS
+
+| model | verdict | tokens | rows | peak DRAM | wall |
+|---|---|---|---|---|---|
+| boltz2 | PASS | 1536 | 8832 | 7.35G / 23% | 217.1 s |
+| esmfold2 | PASS | 1536 | 0 | 19.36G / 61% | 483.9 s |
+| esmfold2-fast | PASS | 1536 | 0 | 15.43G / 48% | 252.4 s |
+| protenix-v1 | PASS | 1536 | 8832 | 6.79G / 21% | 195.7 s |
+| protenix-v2 | PASS | 1536 | 8832 | 10.15G / 32% | 655.0 s |
+| openfold3 | PASS | 1536 | 8832 | 13.66G / 43% | 593.0 s |
+| openbind | PASS | 1536 | 8832 | 14.79G / 46% | 594.5 s |
+| rf3 | PASS | 1536 | 8832 | 8.97G / 28% | 323.0 s |
+| esmc-300m | PASS | 1536 | 0 | 0.64G / 2% | 4.3 s |
+| esmc-600m | PASS | 1536 | 0 | 1.10G / 3% | 5.3 s |
+| esmc-6b | PASS | 1536 | 0 | 11.91G / 37% | 14.7 s |
+| saprot-35m | PASS | 1536 | 0 | 0.08G / 0% | 3.1 s |
+| saprot-650m | PASS | 1536 | 0 | 1.26G / 4% | 6.0 s |
+| opendde | refused | 1536 | 8832 | — | 1.8 s, `screen/size_guard ceiling~1024` |
+| opendde-abag | refused | 1536 | 8832 | — | 1.9 s, `screen/size_guard ceiling~1024` |
+
+Every one of these folds is above `_Q_SPLIT_MAX_S` = 1024, so this is the arm the lever can
+actually be observed in, and it is the arm pass 8 wrongly wrote off as incidental. Thirteen folds,
+thirteen passes, peak DRAM spanning 0-61 % of the card, and the tightest of them (esmfold2 at
+61 %) passes. Where both arms were measured, on protenix-v2, peak DRAM was identical to the byte
+between flag-on and flag-off (10.15G/32%).
+
+The two refusals are the engine's own size guard, not capacity results: both models carry a
+Blackhole ceiling of 1024 against this gate's 1536-token bar, the guard reads
+`size_limits.CEILINGS`, and it refused before any device work in under two seconds. They are red
+on main identically.
+
+**So every arm that can observe this lever has now reported, and all of them are green:**
+
+| evidence | result |
+|---|---|
+| correctness, 6 pytest chunks + self-validating flag-off control | 0 attributable reds |
+| UX gate | PASS |
+| below-cap neutrality, rungs 256-1024 | `served=0, declined=0`: route never entered |
+| in-regime firing, rf3 at 1088 | `served=1088`, `rc=0`; off arm `resolved=False, served=0` |
+| in-regime capacity, 13 models at 1536 tokens | 13/13 PASS, no residency cost, identical DRAM on both arms |
+| in-regime perf, protenix-v2 at 1536 (same boot, AICLK 0x320 both) | 1.192x per trunk step, 1.166x wall |
+| perf, 1536 aa boltz2 (banked, gate5) | 1.1856x against a 1.21 % same-session A/A floor |
+| accuracy, 1536 aa (banked, gate5) | 1.007 A all-atom; a seed change moves the same structure 36.6 A |
+| the one in-regime wedge | ambient: ON repeat cleared the step it died at, 1 in 2 ON, 0 in 1 OFF |
