@@ -59,3 +59,35 @@ interleaved A/B session to find out.
 Numbers here are arithmetic on committed artifacts. Nothing in this note was measured on a device
 by its author, and the 8.49 us per call is a ratio of two numbers from different trees: the call
 census is from the roof campaign's capture and the 3.952 s from commit `0df13ad9`.
+
+## How much of it the diffusion trace can reach: about 3.0 s
+
+The burst census measured **1,096 device programs in one diffusion step** — its README says the
+four windows "cover one MSA layer, one Pairformer layer, one diffusion step and the confidence
+head", so that is a step, not the loop. The protocol runs **200 steps**, so the diffusion loop
+issues **219,200 device programs**: **76 % of the fold's ~287,000 program-launching calls** and
+47 % of all 465,664 top-level calls. For scale, one Pairformer layer is 137 programs, one MSA layer
+227, the confidence head 18.
+
+At 13.77 us of clock-immune cost per launching call, those 219,200 programs carry **3.02 s of the
+3.952 s**. That is the trace lever's reach: if the clock-immune term is per-call host dispatch,
+tracing the diffusion loop addresses about three quarters of it, and the fold would read roughly
+11.9 s with nothing else touched.
+
+Trace replay does not delete device work. The chip still runs all 219,200 programs; what goes away
+is the host's per-call cost, which is exactly what the clock-immune term measures.
+
+### What this is not
+
+- The 1,096 came from a run carrying graph capture, the identity observer and sum profiling. A
+  program *count* is far less instrument-sensitive than a time, but the observer can add programs,
+  so read it as an upper-ish estimate.
+- The program count and the call census come from different instruments on different trees, and a
+  device program is not exactly one launching ttnn call.
+- Per-call cost is assumed uniform, and it is not: a large matmul costs the host the same as a
+  `deallocate`, so a loop of small ops carries more than its share — which if anything favours the
+  diffusion loop, since that is where the small ops are.
+- A reach is not a win. `c10-trace-lever` measures what the lever actually removes.
+
+    python3 trace_reach.py                       # prints trace_reach.json
+    PYTHONPATH=. python3 -m pytest test_trace_reach.py -q   # 6 controls
