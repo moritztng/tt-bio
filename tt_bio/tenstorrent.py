@@ -797,7 +797,7 @@ ATOM_N_LAYERS = 3
 # that drags the half-window axis last so the matmul can contract over it, the inverse permute,
 # and a reshape that glues the eight gathered half-blocks back into a 128-row key window. On
 # Blackhole those four cost 2.3045 ms of a 22.0224 ms diffusion step -- 45 % of every program in
-# the step that moves data and computes nothing (perf/b2z2_layout/PER-SITE-TABLE.md).
+# the step that moves data and computes nothing.
 #
 # Shift the flat atom axis by 48 and all four 32-row pieces of a key window land on a window
 # boundary, so the same gather is four window-axis slices and one concat. Measured 1.797x on the
@@ -1129,9 +1129,9 @@ def _capped_sdpa_chunk_size(seq_len: int) -> int:
 # ttnn's SDPA parallelises over (batch * heads * q_chunks), one chunk per core, so `q_chunk` is a
 # GRID parameter -- and `_capped_sdpa_chunk_size` above has no grid term at all: it returns 256
 # whatever card it is on. At 512 tokens and 16 heads that is 32 work units on a 72-core Wormhole,
-# so 40 cores sit idle for the whole op. Measured on the diffusion step's token SDPA
-# (`perf/b2z2_adaln_sdpa/chunks_wh_c12.json`), q/k/v [1, 16, 512, 64] against a [1, 16, 512, 512]
-# bias, every rung checked with `torch.equal` against the shipped config:
+# so 40 cores sit idle for the whole op. Measured on the diffusion step's token SDPA,
+# q/k/v [1, 16, 512, 64] against a [1, 16, 512, 512] bias, every rung checked with
+# `torch.equal` against the shipped config:
 #
 #     q_chunk 512   16 units  182.70 us       q_chunk  64  128 units  106.00 us
 #     q_chunk 256   32 units  125.40 us       q_chunk  32  256 units  140.40 us
