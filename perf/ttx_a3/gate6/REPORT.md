@@ -614,3 +614,25 @@ put it: the capacity arm is the decisive one, not the incidental one.
 lever: 0 attributable pytest reds, UX PASS, below-cap route never entered, 1088 firing with a
 self-validating off arm, and boltz2 PASS at 1536 with 7.35G/23%. The claim that changes is about
 coverage, not about a result.
+
+### The 1536-token roster, as it lands
+
+Card 3, default-ON tree, one cell per arm, `TOKEN_BAR = 1536` so every row below folds in the
+lever's regime:
+
+| model | verdict | tokens | MSA rows | peak DRAM | wall |
+|---|---|---|---|---|---|
+| boltz2 | PASS | 1536 | 8832 | 7.35G / 23% | 217.1 s |
+| esmfold2 | PASS | 1536 | 0 | 19.36G / 61% | 483.9 s |
+| esmfold2-fast | PASS | 1536 | 0 | 15.43G / 48% | 252.4 s |
+| protenix-v1 | PASS | 1536 | 8832 | 6.79G / 21% | 195.7 s |
+
+4 of 15, no failures, no wedges, no card moves. esmfold2 at **61 % of DRAM** is the useful one: it
+is the tightest cell on the roster so far and it is where a fused route's extra residency would
+show up first. It does not. boltz2 and protenix-v1 carry 8832 alignment rows, so the deep-MSA
+shape is covered rather than only single-sequence.
+
+Attribution discipline for what follows: a PASS settles a cell on its own, but a FAIL on this tree
+settles nothing without a same-cell flag-off arm, because the tree carries everyone else's merged
+levers. `perf/ttx_a3/cap_offarm.sh <model>` runs exactly that, one env var and one arm per process,
+so the first red costs one command rather than a pass.
