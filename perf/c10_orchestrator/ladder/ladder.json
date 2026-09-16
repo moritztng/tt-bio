@@ -1,0 +1,118 @@
+{
+  "scope": "CPU consolidation. Every number is cited to an artifact; none is measured here.",
+  "baseline": {
+    "512_aa_s": 14.8813252375,
+    "298_aa_s": 9.6800812565,
+    "clock_MHz": 1350.0,
+    "source": "c10-bare-baseline bc66f7d6d, 16 folds per size, min=max=1350 MHz"
+  },
+  "target_s": 10.0,
+  "gap_s": 4.8813252375000005,
+  "ladder": [
+    {
+      "item": "ttnn trace of the diffusion loop",
+      "mechanism": "replay one captured graph per sampling step, removing the host's per-call dispatch for 219,200 of the fold's ~287,000 program-launching calls",
+      "fold_s": 3.02,
+      "evidence": "arithmetic on measured artifacts, not itself measured",
+      "basis": "3.952 s clock-immune term measured from an interleaved 800/1339 MHz A/B (33 ms worst residual), times the diffusion loop's 76 % share of launching calls",
+      "accuracy_spend": "none claimed: the code documents the replayed graph as bit-identical to the untraced forward, so a digest comparison settles it for free",
+      "row": "c10-trace-lever",
+      "status": "queued",
+      "Mcycles": 4077.0
+    },
+    {
+      "item": "cut the rest of the clock-immune term",
+      "mechanism": "featurization, MSA handling, output writing and whatever dispatch the trace does not reach",
+      "fold_s": 0.93,
+      "evidence": "arithmetic on measured artifacts, not itself measured",
+      "basis": "the 3.952 s clock-immune term minus the 3.02 s the trace reaches",
+      "accuracy_spend": "unknown, depends entirely on what it turns out to be",
+      "row": "c10-fixed-cost measures the term; no row attacks the remainder yet",
+      "status": "unowned",
+      "Mcycles": 1255.5
+    },
+    {
+      "item": "per-class grid sizing, trimul and triangle attention",
+      "mechanism": "fewer cores for a class whose parallel efficiency falls off, more for one whose does not",
+      "fold_s": null,
+      "evidence": "transferred across architectures, not measured here",
+      "basis": "the ledger's 810 Mcycles came from a Wormhole 8x9 sweep where the two classes move in OPPOSITE directions; no Blackhole core sweep exists. Withdrawn as a value. Blackhole does show trimul at 11.47 TFLOP/s against a same-session dense cube's 67.59",
+      "accuracy_spend": "a grid change can alter reduction order; digest check needed",
+      "row": "c10-grid-sweep",
+      "status": "queued",
+      "Mcycles": null
+    },
+    {
+      "item": "TT_BIO_SDPA_GRID_Q_CHUNK sign",
+      "mechanism": "a default-ON flag whose value is not known to be positive",
+      "fold_s": null,
+      "evidence": "not measured anywhere",
+      "basis": "the ledger puts it between -623 and +281 Mcycles, i.e. -0.46 s to +0.21 s at 1350 MHz. The downside is a live loss on a shipped default",
+      "accuracy_spend": "digest check; it routes a grid decision",
+      "row": "c10-qchunk-sign",
+      "status": "queued",
+      "Mcycles": null
+    },
+    {
+      "item": "TT_BIO_DIT_FUSED_QKV",
+      "mechanism": "fuse the DiT QKV projections",
+      "fold_s": 0.12,
+      "evidence": "measured on Wormhole, clock not recorded",
+      "basis": "1.04124x on the Wormhole step, about 162 Mcycles if it transfers at full value. Never measured on Blackhole",
+      "accuracy_spend": "0.346 A of the 0.60 A bar alone; 0.713 A jointly with HEAD_PAD_TAIL, over the bar, so the two cannot ship together",
+      "row": null,
+      "status": "not rowed",
+      "excludes": [
+        "TT_BIO_HEAD_PAD_TAIL"
+      ],
+      "Mcycles": 162.0
+    },
+    {
+      "item": "TT_BIO_HEAD_PAD_TAIL",
+      "mechanism": "pad the head tail so the token DiT head widths stop splitting",
+      "fold_s": 0.21,
+      "evidence": "measured on Wormhole, clock not recorded",
+      "basis": "0.211 s on a Wormhole fold with 72 of its 96 sites OUTSIDE the diffusion step, so pricing it as a step-only 1.02549x lever under-prices it by roughly 4x",
+      "accuracy_spend": "0.3696 A at 512 aa, not bit-exact; excludes DIT_FUSED_QKV",
+      "row": null,
+      "status": "not rowed",
+      "excludes": [
+        "TT_BIO_DIT_FUSED_QKV"
+      ],
+      "Mcycles": 283.5
+    },
+    {
+      "item": "the byte axis, all remaining levers together",
+      "mechanism": "delete bytes in the elementwise tail",
+      "fold_s": null,
+      "evidence": "measured on Blackhole, clock not recorded",
+      "basis": "CEILING, not a value: deleting EVERY byte takes the floor 12.706 -> 8.543 s, 1.487x, and the headroom is concentrated in multiply_ 0.770 s, layer_norm 0.665 s, add_ 0.640 s and permute 0.256 s. The corpus independently caps the byte axis at 1.470x. Levers already shipped have consumed an unknown part of it",
+      "accuracy_spend": "varies per lever",
+      "row": null,
+      "status": "closed as a ceiling, not a candidate",
+      "Mcycles": null
+    }
+  ],
+  "priced_total": {
+    "fold_s": 4.16,
+    "Mcycles": 5616.0,
+    "items": [
+      "ttnn trace of the diffusion loop",
+      "cut the rest of the clock-immune term",
+      "TT_BIO_HEAD_PAD_TAIL"
+    ],
+    "dropped_as_mutually_exclusive": [
+      "TT_BIO_DIT_FUSED_QKV"
+    ],
+    "naive_sum_including_excluded_s": 4.28,
+    "would_read_s": 10.7213252375,
+    "covers_pct_of_gap": 85.22275811579743
+  },
+  "honest_reading": [
+    "Nothing in this table has been measured as a fold-level win yet. Cycles saved to date: zero. Accuracy spent to date: none.",
+    "Two of the priced rows are DERIVED, meaning arithmetic over measured artifacts rather than a measured lever, and two are Wormhole numbers that have never run on Blackhole. Do not read the total as a forecast.",
+    "The two Wormhole rows cannot both ship: jointly they are 0.713 A against a 0.60 A bar.",
+    "Perturbations stack strongly sub-additively on this fixture, so a stack must be measured as a stack and never by summing individual readings. This total is an inventory, not a prediction.",
+    "If every priced row landed at its full value the fold would read 10.72 s, which is above the 10.0 s target. On present evidence the target needs either the clock-immune term to give up more than the trace reaches, or a device-work lever nobody has found yet."
+  ]
+}
