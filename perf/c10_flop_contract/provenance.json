@@ -1,0 +1,13 @@
+{
+  "audited_production_revision": "71a306a8a",
+  "historical_capture_revision": "f072ae02f6de655e21a4d8f388522ae826cc4ca7",
+  "historical_capture_directory": "perf/roof_budget/captures",
+  "historical_control": "perf/roof_budget/control_matmul_8192.json",
+  "copied_control": {
+    "path": "perf/c10_flop_contract/control_8192.json",
+    "source_revision": "6bf1d227a3b6f2d0efc77246498028101643bacd",
+    "source_path": "perf/c10_roofline_reset/control/matmul_graph.json",
+    "sha256": "a0e4b7caaa694d399a9189cdd325f640f6f6623ef1b6aa5125bb193d309ddbd0"
+  },
+  "scope": "Raw graph only. CPU replay does not repeat or certify device timing. Historical graphs do not establish current-default coverage."
+}
