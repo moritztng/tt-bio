@@ -35,6 +35,10 @@ Two things make 1.267x a floor rather than an estimate:
 So the win is largest exactly where it matters most for a hosted service: a single fold arriving at
 an otherwise idle card, which is the case where the governor has sagged furthest.
 
+The same measurement through the shipped `TT_BIO_AICLK` path rather than the harness, one fold each
+way on a quiet card: **20.167 s unset against 15.053 s at 1350, so 1.340x**, with the held fold
+averaging exactly 1350.0 MHz and needing no re-assert.
+
 ## Accuracy
 
 Unchanged, and not in a hand-waving sense. Over two sessions and 33 folds the held arm never wrote
