@@ -35,10 +35,22 @@ T = {3: 4.303, 4: 3.182, 5: 2.776, 6: 2.571, 7: 2.447, 8: 2.365, 9: 2.306, 10: 2
 ap = argparse.ArgumentParser()
 ap.add_argument("json", type=Path)
 ap.add_argument("--arms", default=None, help="comma list; default every non-base arm present")
+ap.add_argument("--max-load", type=float, default=None,
+                help="keep only brackets where every fold in them had load0 and load1 below "
+                     "this. qb2 is shared; a bracket straddling a co-tenant is not a reading.")
 a = ap.parse_args()
 
 d = json.loads(a.json.read_text())
 warm = [r for r in d["runs"] if not r.get("cold")]
+if a.max_load is not None:
+    have = [r for r in warm if "load0" in r]
+    if not have:
+        raise SystemExit("--max-load needs a run recorded by a harness that logs load0/load1")
+    def quiet(r):
+        return r["load0"] <= a.max_load and r["load1"] <= a.max_load
+else:
+    def quiet(r):
+        return True
 arms = a.arms.split(",") if a.arms else sorted({r["arm"] for r in warm} - {"base"})
 reps = sorted({r["rep"] for r in warm})
 
@@ -55,6 +67,8 @@ for arm in arms:
             before = [x for x in rr[:i] if x["arm"] == "base"]
             after = [x for x in rr[i + 1:] if x["arm"] == "base"]
             if not before or not after:
+                continue
+            if not (quiet(r) and quiet(before[-1]) and quiet(after[0])):
                 continue
             b = (before[-1]["fold_s"] + after[0]["fold_s"]) / 2
             diffs.append(b - r["fold_s"])

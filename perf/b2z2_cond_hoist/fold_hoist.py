@@ -171,16 +171,22 @@ def main() -> int:
         for p in struct_dir.glob("*"):
             p.unlink() if p.is_file() else shutil.rmtree(p)
         ttnn.synchronize_device(dev)
+        # Load at both ends of the fold, not once at the start. qb2 is shared and a co-tenant
+        # that starts mid-fold is exactly the case a single reading misses -- the same blind spot
+        # benchlock's acquire-time check has. A bracket is only usable if BOTH ends were quiet.
+        load0 = os.getloadavg()[0]
         t = time.perf_counter()
         metrics, _b, _f = state.predict_one(target, cfg)
         ttnn.synchronize_device(dev)
         wall = time.perf_counter() - t
+        load1 = os.getloadavg()[0]
         cifs = sorted(struct_dir.glob("*.cif"))
         assert cifs, "no CIF written"
         keep.mkdir(parents=True, exist_ok=True)
         shutil.copy2(cifs[0], keep / cifs[0].name)
         body = (keep / cifs[0].name).read_bytes()
         return {"arm": arm, "seed": seed, "target": target.stem, "fold_s": round(wall, 3),
+                "load0": round(load0, 2), "load1": round(load1, 2),
                 "sha256": hashlib.sha256(body).hexdigest()[:16],
                 "cond_hoist": bool(getattr(T, ATTR_HOIST)), "hoist_norms": fired["h"],
                 "plddt": round(float(metrics.get("plddt", metrics.get("confidence_score", 0))), 6)}
@@ -256,7 +262,7 @@ def timing(args, out, dump, fold, T, ttnn, dev):
                      block_s=round(wall["s"], 4), block_n=wall["n"])
             out["runs"].append(r)
             print(f"  rep{rep:<2d} {arm:7s} pos{pos} fold {r['fold_s']:7.3f}s  "
-                  f"block {r['block_s']:7.3f}s/{r['block_n']:<4d} sha={r['sha256']}", flush=True)
+                  f"load {r['load0']:5.2f}->{r['load1']:5.2f} sha={r['sha256']}", flush=True)
             dump()
 
     warm = [r for r in out["runs"] if not r["cold"]]
