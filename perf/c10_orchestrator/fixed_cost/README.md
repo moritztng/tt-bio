@@ -109,3 +109,29 @@ and `5e1886b4f` enabling the above-cap fused SDPA route is the obvious suspect.
 
     python3 two_clock_session.py                      # prints two_clock_session.json
     python3 -m pytest test_two_clock_session.py -q    # 6 known-answer controls
+
+## A mean-clock label cannot re-price an old lever
+
+The campaign's premise invites an arithmetic shortcut: take a lever recorded at 1.03x, look up the
+mean AICLK of the run it was measured on, and rescale. This tests whether that works. Take the model
+solved above from one clean interleaved session, and ask it to predict folds from three other
+sessions on three other commits, each fold labelled with its own recorded mean AICLK.
+
+| session | commit | folds | mean error | worst error |
+|---|---|---|---|---|
+| force_ab | `149c8a97f` | 16 | +0.400 s | +1.253 s |
+| maxclk_ab | `ab9e3275` | 16 | +0.305 s | +1.044 s |
+| pin_ab | `33feece9` | 4 | +0.461 s | +1.101 s |
+| **pooled** | | **36** | **+0.364 s** | **+1.253 s** |
+
+Inside the clean interleaved session the same model fits to **33 ms**. Across sessions it is off by
+**364 ms on average and up to 1.25 s**, and the error is almost always positive: the co-tenanted,
+clock-varying folds run longer than their mean-clock label says they should.
+
+That is the answer to the shortcut. Every byte-deletion lever in this corpus landed between 1.02x
+and 1.05x, which at this fixture is 0.3 to 0.7 s — **smaller than the error of the clock label you
+would have to use to rescale it**. So the underpriced-lever hypothesis cannot be settled by
+arithmetic on the record, only by re-measuring at a pinned clock with interleaved arms. `0.364 s`
+is also a useful floor on how much any cross-run comparison in this project's history is worth.
+
+    python3 clock_label_error.py     # prints clock_label_error.json

@@ -1,0 +1,41 @@
+{
+  "scope": "CPU cross-session check of one solved model. No device, no new timing.",
+  "model": {
+    "fixed_s": 3.9516,
+    "work_Mcycles": 14417.7,
+    "solved_from": "mainab_down800_qb2c1.json, commit 0df13ad9, interleaved, worst in-session residual 0.033 s"
+  },
+  "sessions": {
+    "force_ab_qb2c1": {
+      "commit": "149c8a97f8aa518958276fc874d90e2ef93e67df",
+      "n": 16,
+      "mean_error_s": 0.399629031591223,
+      "worst_error_s": 1.2526222222222216,
+      "flat_clock_n": 6,
+      "clock_varied_n": 10
+    },
+    "maxclk_ab_qb2c1": {
+      "commit": "ab9e327542218fef9b306b95d9200142eb8e90e5",
+      "n": 16,
+      "mean_error_s": 0.30483630236444226,
+      "worst_error_s": 1.0435106374129113,
+      "flat_clock_n": 0,
+      "clock_varied_n": 16
+    },
+    "pin_ab_qb2c1": {
+      "commit": "33feece9266492f8a1b4bd87543925c7c5860f04",
+      "n": 4,
+      "mean_error_s": 0.4607116598244616,
+      "worst_error_s": 1.1008258555133068,
+      "flat_clock_n": 0,
+      "clock_varied_n": 4
+    }
+  },
+  "pooled": {
+    "n": 36,
+    "mean_error_s": 0.36428588840523585,
+    "worst_error_s": 1.2526222222222216,
+    "in_session_residual_s": 0.0333,
+    "conclusion": "A mean-clock label carries several hundred milliseconds of error across sessions, which is larger than every lever ratio in the corpus. Old ratios cannot be clock-corrected by arithmetic; they have to be re-measured."
+  }
+}
