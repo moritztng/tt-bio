@@ -16,7 +16,7 @@ export PYTHONPATH="$WT"
 export OPENDDE_DOCKQ_PYTHON=/home/ttuser/dockqenv/bin/python3
 export OF3_CKPT=/home/ttuser/.boltz/of3-p2-155k.pt
 export ESM_ROOT=/home/ttuser/esm
-if [ "$CARD" = 0 ]; then export TT_BIO_LEASE_CARDS=0; else export TT_BIO_LEASE_CARDS="0,$CARD"; fi
+export TT_BIO_LEASE_CARDS="$CARD"
 export TT_BIO_LEASE_HOLDER=worker:ttx-a3-sdpa-ship-remerge2
 P=/home/ttuser/tt-bio-dev/env/bin/python3
 log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$PROG"; }

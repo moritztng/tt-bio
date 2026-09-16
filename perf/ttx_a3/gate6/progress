@@ -134,3 +134,17 @@
 2026-09-16T15:01Z REBOOT 14:12Z restored all four endpoints (1e52:b140, bridges 0407, 4 device nodes). Card 3 opens in 1.1s via tt_bio get_device, grid 11x10.
 2026-09-16T15:05:00Z VOIDED ladder-boltz2 + -att2 (were rc=1 on card 2 at 13:26/13:39Z, inside the kmd-quarantine window; both wedged at 640/768 aa, below _Q_SPLIT_MAX_S=1024 where the lever is unreachable, so infra not a lever verdict). Budget back to 3 attempts.
 2026-09-16T15:05:00Z TIMED HOLD to 1789575614 (16:20:14Z) = sibling b2z2-aiclk-default-decision until.txt + 120s. Its folds are 14.6s +-0.04 across loadavg 0.79-2.08 so ambient load does not move its forced-clock arm, but a wedged open holds /tmp/tt-bio-device-open.lock host-wide and starved it once already at 13:53Z. Card moved 2 -> 3.
+2026-09-16T16:04:52Z PAUSE CLEARED 17 min early: sibling b2z2-aiclk-default-decision finished and wrote its own cleanup (state doc: "no soak or A/B process left, all four chips read 800 MHz, no lease files, card 1 is free"); ps shows zero device procs on the box and all four p300c boards enumerate healthy. The hold existed to protect that soak, not for a clock.
+2026-09-16T16:04:52Z GRANT NARROWED 0,3 -> 3 in ladder_campaign.sh:19 and both crontab lines: a hardcoded 0 in the lease list let an arm land on the quarantine-prone board 0.
+2026-09-16T16:05:14Z resume_after_boot relaunching (uptime 1713s)
+2026-09-16T16:05:14Z PHASE 1/5 correctness: pytest, the flag-off control, ux
+2026-09-16T16:05:14Z CARD=3 (UMD) resolves to /dev/tenstorrent/3
+2026-09-16T16:05:14Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T16:05:14Z capacity SKIPPED by GATE_SKIP_CAP
+2026-09-16T16:05:14Z size-ladder SKIPPED by GATE_SKIP_LADDER
+2026-09-16T16:05:14Z perf SKIPPED by GATE_SKIP_PERF
+2026-09-16T16:05:14Z parity PRECHECK card 3 already held by pids: 9839  --    9839 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi;
+2026-09-16T16:05:14Z parity SKIPPED by GATE_SKIP_PARITY
+2026-09-16T16:05:14Z GATE_DRIVER_DONE
+2026-09-16T16:05:14Z PHASE 2/5 size ladder, in-regime: rf3 (the 1088 rung, the one cell above the cap)
+2026-09-16T16:05:14Z splice-rf3 START card=3 loadavg=0.07
