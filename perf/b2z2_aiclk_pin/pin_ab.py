@@ -52,8 +52,14 @@ class AiClkForce:
     FORCE_AICLK = 0x33
 
     def __init__(self, node: int):
+        import threading
+        self.node = node
         self.fd = os.open(f"/dev/tenstorrent/{node}", os.O_RDWR | os.O_APPEND)
         self.mhz = 0
+        self.reasserts = 0
+        self.lock = threading.Lock()
+        self.stop = threading.Event()
+        threading.Thread(target=self._watch, daemon=True).start()
 
     def _smc(self, msg_type: int, *args: int) -> tuple:
         msg = [msg_type] + list(args) + [0] * (7 - len(args))
@@ -72,13 +78,47 @@ class AiClkForce:
             return resp[0] & 0xFF, resp[0] >> 16
         raise TimeoutError(f"no ARC response to message 0x{msg_type:02X}")
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.close()
+
     def set(self, mhz: int) -> None:
         """Force the clock to `mhz`, or hand it back to the governor with 0."""
-        status, _ = self._smc(self.FORCE_AICLK, mhz)
-        assert status == 0, f"FORCE_AICLK({mhz}) rejected by firmware, status 0x{status:02X}"
-        self.mhz = mhz
+        with self.lock:
+            status, _ = self._smc(self.FORCE_AICLK, mhz)
+            assert status == 0, f"FORCE_AICLK({mhz}) rejected by firmware, status 0x{status:02X}"
+            self.mhz = mhz
+
+    def _watch(self) -> None:
+        """Re-send the force whenever the chip is found below target.
+
+        The force survives an fd close and holds indefinitely on an idle chip, so a sag during a
+        fold means something else on the chip put the clock back under the governor. Re-asserting
+        both holds the clock and counts the clears, which is the measurement that says whether a
+        one-shot force would have been enough.
+        """
+        clk = Path(f"/sys/class/tenstorrent/tenstorrent!{self.node}/tt_aiclk")
+        while not self.stop.wait(0.25):
+            if not self.mhz:
+                continue
+            try:
+                if int(clk.read_text()) >= self.mhz - 50:
+                    continue
+            except (OSError, ValueError):
+                continue
+            with self.lock:
+                if not self.mhz:
+                    continue
+                try:
+                    self._smc(self.FORCE_AICLK, self.mhz)
+                except (OSError, TimeoutError):
+                    continue
+                self.reasserts += 1
 
     def close(self) -> None:
+        self.stop.set()
         self.set(0)
         os.close(self.fd)
 
@@ -116,6 +156,49 @@ class Sampler(CN.ClockSampler):
         if t:
             d["temp_c_max"] = round(max(t), 1)
         return d
+
+
+class MaxAiClk:
+    """`TENSTORRENT_IOCTL_SET_POWER_STATE` with `TT_POWER_FLAG_MAX_AI_CLK` — the documented knob.
+
+    Worth measuring even though a saturating matmul could not tell it apart from the default,
+    because that fixture is already at the governor's loaded ceiling and a fold is not: a fold
+    blocks on ~200 host syncs and loses its clock in the gaps, which is a different question.
+
+    Unlike `FORCE_AICLK`, this is aggregated: tt-kmd ORs `power_flags` across every open fd on the
+    chip (`chardev.c:584`), so the bit survives another process opening and closing the same chip,
+    and it is dropped automatically when this fd closes. `validity` declares only flag 0 as
+    specified, which leaves every other power flag at the driver's default-on
+    (`unspecified_flags_mask`, `chardev.c:576`) instead of this code having to restate them.
+
+    The fd is opened `O_APPEND` so that opening it does not itself emit the legacy AICLK-low
+    aggregate first (`chardev.c:987`).
+    """
+
+    IOCTL = (0xFA << 8) | 15           # _IO(TENSTORRENT_IOCTL_MAGIC, 15)
+    MAX_AI_CLK = 1 << 0
+    LAYOUT = "=IIBBH14H"               # struct tenstorrent_power_state, 40 bytes
+
+    def __init__(self, node: int):
+        self.node = node
+        self.fd = os.open(f"/dev/tenstorrent/{node}", os.O_RDWR | os.O_APPEND)
+        self.mhz = 0
+        self.reasserts = 0
+
+    def set(self, mhz: int) -> None:
+        """Ask for max AI clock when `mhz` is non-zero, min when it is 0."""
+        flags = self.MAX_AI_CLK if mhz else 0
+        validity = 1                   # TT_POWER_VALIDITY(flags_count=1, settings_count=0)
+        fcntl.ioctl(self.fd, self.IOCTL,
+                    struct.pack(self.LAYOUT, 40, 0, 0, validity, flags, *([0] * 14)))
+        self.mhz = mhz
+
+    def close(self) -> None:
+        self.set(0)
+        os.close(self.fd)
+
+
+KNOBS = {"force": AiClkForce, "maxclk": MaxAiClk}
 
 
 def holder_nodes(pid: int) -> set:
@@ -168,6 +251,7 @@ def arm_stats(runs: list, arm: str) -> dict:
         "aiclk_min": min(pick("aiclk_min"), default=None),
         "aiclk_frac_burst": round(st.fmean(burst), 3) if burst else None,
         "power_w_mean": round(st.fmean(pw), 1) if pw else None,
+        "reasserts_total": sum(x["reasserts"] for x in r),
         "temp_c_max": max(pick("temp_c_max"), default=None),
         "digests": sorted({x["cif_sha256"][:16] for x in r}),
         "plddt": sorted({round(x["plddt"], 6) for x in r}),
@@ -181,6 +265,8 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=10, help="timed folds PER ARM")
     ap.add_argument("--warm", type=int, default=1, help="discarded folds before timing")
     ap.add_argument("--mhz", type=int, default=1350, help="forced AICLK target for the on arm")
+    ap.add_argument("--knob", choices=sorted(KNOBS), default="force",
+                    help="force = ARC FORCE_AICLK 0x33; maxclk = SET_POWER_STATE MAX_AI_CLK")
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--recycles", type=int, default=3)
     ap.add_argument("--fixture", default="cdk2x2_512")
@@ -211,7 +297,7 @@ def main() -> int:
     OUT["env"] = {
         "host": socket.gethostname(), "visible_devices": os.environ.get("TT_VISIBLE_DEVICES"),
         "device_node": node, "board_serial": board, "fixture": args.fixture,
-        "forced_mhz": args.mhz, "tt_bio_file": _TB.__file__,
+        "knob": args.knob, "forced_mhz": args.mhz, "tt_bio_file": _TB.__file__,
         "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "loadavg": os.getloadavg(), "steps": args.steps, "recycles": args.recycles,
         "commit": os.popen(f"git -C {REPO} rev-parse HEAD").read().strip(),
@@ -241,12 +327,20 @@ def main() -> int:
     state.load_model(cfg)
     state.bind_run("b2z2-aiclk-burst-pin", cfg)
 
-    force = AiClkForce(node)
+    force = KNOBS[args.knob](node)
+    # FORCE_AICLK outlives both the fd and the process: a run killed between folds would leave the
+    # chip pinned at burst, ~40 W above idle, until someone noticed. Release on the way out of any
+    # exit path this process can still observe.
+    import atexit, signal
+    atexit.register(lambda: force.mhz and force.set(0))
+    for _sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        signal.signal(_sig, lambda *_a: sys.exit(128))
     clk = Sampler(f"tenstorrent!{node}", node)
     clk.start()
 
     def fold(i: int, warm: bool, arm: str) -> dict:
         force.set(args.mhz if arm == "force" else 0)
+        force.reasserts = 0
         for p in struct_dir.glob("*"):
             p.unlink() if p.is_file() else shutil.rmtree(p)
         ttnn.synchronize_device(dev)
@@ -261,6 +355,7 @@ def main() -> int:
                 "foreign_tt": CN.tt_holders(os.getpid()),
                 "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
                 "cif_sha256": hashlib.sha256(cifs[0].read_bytes()).hexdigest(),
+                "reasserts": force.reasserts,
                 "loadavg1": round(os.getloadavg()[0], 2), **clk.take()}
 
     runs = []
@@ -270,10 +365,10 @@ def main() -> int:
             arm = "force" if (i - args.warm) % 2 else "base"
             r = fold(i, warm, arm)
             runs.append(r)
-            print("  {:<5s} {:<3d} {:7.3f}s aiclk={} min={} burst={} {}W {}C plddt={} cif {}".format(
+            print("  {:<5s} {:<3d} {:7.3f}s aiclk={} min={} burst={} reassert={} {}W {}C plddt={} cif {}".format(
                 "warm" if warm else arm, i, r["fold_s"], r.get("aiclk_mean"), r.get("aiclk_min"),
-                r.get("aiclk_frac_burst"), r.get("power_w_mean"), r.get("temp_c_max"),
-                round(r["plddt"], 6), r["cif_sha256"][:12]), flush=True)
+                r.get("aiclk_frac_burst"), r["reasserts"], r.get("power_w_mean"),
+                r.get("temp_c_max"), round(r["plddt"], 6), r["cif_sha256"][:12]), flush=True)
             OUT["runs"] = runs
             dump()
     finally:
