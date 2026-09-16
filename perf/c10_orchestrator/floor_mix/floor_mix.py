@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""What binds the 512 aa fold's committed floor, by op class, and why that cannot be read at burst.
+"""What the 512 aa floor is made of, and what each axis could win if it went to zero.
 
-The roof campaign's floor of record takes max(traffic, arithmetic) per op. This splits its 12.706 s
-by class and by which term binds, and locates the clock provenance of the roof it is computed
-against. CPU only; opens no device and measures nothing new.
+The roof campaign's floor of record takes max(traffic, arithmetic) PER CALL, so a class is not
+"bound by" one term -- some of its calls are traffic-bound and some are not, and summing a class's
+two columns and comparing them says nothing. The meaningful question an aggregate can answer is a
+ceiling: delete every byte and the floor becomes the arithmetic sum; make arithmetic free and it
+becomes the traffic sum.
+
+CPU only; opens no device and measures nothing new.
 """
 import json
 import sys
@@ -17,52 +21,45 @@ ROOFS = HERE.parent.parent / "roof_shape" / "shape_roofs_qb2c3_shipped.json"
 def main():
     c = json.loads(CENSUS.read_text())
     r = json.loads(ROOFS.read_text())
-    by, total = c["by_op"], c["total_floor_s"]
-    rows = sorted(
-        ({"op": k, "calls": v["calls"], "floor_s": v["s_floor"],
-          "traffic_s": v["s_traffic"], "arith_s": v["s_arith"],
-          "binds": "arithmetic" if v["s_arith"] >= v["s_traffic"] else "traffic"}
-         for k, v in by.items() if isinstance(v, dict)),
-        key=lambda x: -x["floor_s"])
-    arith = sum(x["floor_s"] for x in rows if x["binds"] == "arithmetic")
-    traffic = total - arith
-    top3 = rows[:3]
+    by = {k: v for k, v in c["by_op"].items() if isinstance(v, dict)}
+    A = sum(v["s_arith"] for v in by.values())
+    T = sum(v["s_traffic"] for v in by.values())
+    F = sum(v["s_floor"] for v in by.values())
+    byte_rank = sorted(
+        ({"op": k, "calls": v["calls"], "floor_s": v["s_floor"], "arith_s": v["s_arith"],
+          "traffic_s": v["s_traffic"], "byte_headroom_s": v["s_floor"] - v["s_arith"]}
+         for k, v in by.items()),
+        key=lambda x: -x["byte_headroom_s"])
     out = {
-        "scope": "CPU split of a committed floor artifact. No device, no new timing.",
+        "scope": "CPU ceiling analysis of a committed floor artifact. No device, no new timing.",
         "census": str(CENSUS),
         "total_calls": c["total_calls"],
-        "total_floor_s": total,
-        "by_binding_term": {
-            "arithmetic_s": arith, "arithmetic_pct": 100 * arith / total,
-            "traffic_s": traffic, "traffic_pct": 100 * traffic / total,
+        "totals_s": {"floor": F, "arithmetic": A, "traffic": T,
+                     "reported_total_floor": c["total_floor_s"]},
+        "note_on_summing": "floor >= max(sum arithmetic, sum traffic) because max() is per call. "
+                           "A class-level comparison of the two columns is not a binding verdict.",
+        "ceilings": {
+            "delete_every_byte": {"floor_becomes_s": A, "wins_s": F - A,
+                                  "pct_of_floor": 100 * (F - A) / F, "ratio": F / A},
+            "make_arithmetic_free": {"floor_becomes_s": T, "wins_s": F - T,
+                                     "pct_of_floor": 100 * (F - T) / F, "ratio": F / T},
         },
-        "top_classes": [dict(x, pct_of_floor=100 * x["floor_s"] / total) for x in rows[:8]],
-        "concentration": {
-            "classes": [x["op"] for x in top3],
-            "calls": sum(x["calls"] for x in top3),
-            "floor_s": sum(x["floor_s"] for x in top3),
-            "pct_of_floor": 100 * sum(x["floor_s"] for x in top3) / total,
-            "pct_of_calls": 100 * sum(x["calls"] for x in top3) / c["total_calls"],
-        },
+        "where_the_byte_axis_lives": byte_rank[:8],
         "roof_provenance": {
-            "file": str(ROOFS),
-            "host": r.get("host"), "card": r.get("card"), "grid": r.get("grid"),
-            "cube4096_TFLOPs": r.get("cube4096_TFLOPs"),
-            "loadavg_at_measurement": r.get("loadavg"),
-            "recorded_clock": None,
-            "problem": "The compute roof every floor second is divided by carries NO clock and was "
-                       "taken at loadavg 6.2. An arithmetic-bound floor second scales with AICLK, "
-                       "so an unclocked roof makes every arithmetic-bound floor second unreadable, "
-                       "and with it the 74/26 split below.",
+            "file": str(ROOFS), "host": r.get("host"), "card": r.get("card"),
+            "grid": r.get("grid"), "cube4096_TFLOPs": r.get("cube4096_TFLOPs"),
+            "loadavg_at_measurement": r.get("loadavg"), "recorded_clock": None,
+            "problem": "The compute roof every arithmetic second is divided by carries NO clock "
+                       "and was taken at loadavg 6.2. Arithmetic seconds scale with AICLK, so "
+                       "both ceilings below are only true at whatever clock that roof ran at.",
         },
         "why_the_mix_moves_at_burst": [
-            "Arithmetic-bound time scales with AICLK: the same FLOPs take fewer seconds at 1350 MHz.",
-            "DRAM-bandwidth-bound time does not: DRAM runs on its own clock.",
-            "L1 and NOC bandwidth DO track the core clock, so a traffic term is only AICLK-immune "
-            "to the extent it is DRAM rather than L1/NOC. This census does not separate them, "
-            "which is one more reason the split has to be re-measured rather than rescaled.",
-            "So at burst clock the arithmetic side shrinks, the DRAM side does not, and the "
-            "binding mix moves toward traffic by an amount this artifact cannot tell you.",
+            "Arithmetic time scales with AICLK: the same FLOPs take fewer seconds at 1350 MHz.",
+            "DRAM-bandwidth time does not: DRAM runs on its own clock.",
+            "L1 and NOC bandwidth DO track the core clock, so a traffic term is AICLK-immune only "
+            "to the extent it is DRAM rather than L1/NOC, and this census does not separate them.",
+            "So at burst the arithmetic side shrinks, the DRAM side does not, and the byte axis is "
+            "worth MORE than 1.487x there -- by an amount this artifact cannot quantify.",
         ],
     }
     json.dump(out, sys.stdout, indent=2)
