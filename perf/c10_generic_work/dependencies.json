@@ -1,0 +1,34 @@
+{
+  "basis": "unchanged imports from reviewed parent branch",
+  "files": [
+    {
+      "path": "perf/c10_flop_contract/README.md",
+      "sha256": "b8861f98b42acfdbe2bf4dea5db8c8f1215c209a434acf4dcf3cb8d16f5ccc5b"
+    },
+    {
+      "path": "perf/c10_flop_contract/control_8192.json",
+      "sha256": "a0e4b7caaa694d399a9189cdd325f640f6f6623ef1b6aa5125bb193d309ddbd0"
+    },
+    {
+      "path": "perf/c10_flop_contract/provenance.json",
+      "sha256": "5121fac6ff80267fe2de920a01533fa6be0fc1b969e6fa93e7847810efb93bcd"
+    },
+    {
+      "path": "perf/c10_flop_contract/test_audit.py",
+      "sha256": "73ac5493bf305cd53545ec90f24b8840a1e9919b12715388bbe8c55a9265ee14"
+    },
+    {
+      "path": "perf/c10_flop_contract/coverage.json",
+      "sha256": "a35ae15a8fe8ca2a8c9f2a8a8ea760100a6560630e2ce996c58cade20c82a5df"
+    },
+    {
+      "path": "perf/c10_flop_contract/audit.py",
+      "sha256": "714dd7bce76ff3307cfe4a188f76b68ca15a63187e3c424b4e5e953ce18d3077"
+    },
+    {
+      "path": "perf/c10_generic_identity/roles.json",
+      "sha256": "4555839104c5261159fc349eae5f30f85cc9bba1b3ffb8cbc1c6e653f2df283f"
+    }
+  ],
+  "parent_commit": "68f705837ec89207102223af2246a3e88a4559e6"
+}

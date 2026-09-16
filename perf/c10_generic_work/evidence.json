@@ -1,0 +1,20 @@
+{
+  "basis": "raw artifact bytes; no binary execution claim",
+  "sha256": {
+    "README.md": "5831fa1448d76605f38235c05a626ee66f12557db40149d47da9e890609c0d9f",
+    "contracts.json": "957c962710f770b90e129e15718ebb6d36c33f1fb8e8dfd35ec261519916d5fa",
+    "controls.py": "71b0d83be10af4008b8f75f8b29b8e12a144381c0b014fff640e613add894c7d",
+    "dependencies.json": "50c854e86cfc752277360575bb0dee51c3d075a599ea9ddbc241e57eee4b6592",
+    "evidence/matmul_on.jsonl": "58da38cdc065b142270e125f1df3976713289089922080ec6462f3b5f477025d",
+    "evidence/provenance.json": "8910e6de4bdd996420d69d4a0a1719da1816bcd40a6093b6ac997b3f5a77551d",
+    "evidence/reblock_on.jsonl": "cbcd3658c0ff000356b6f3d3a7f9a9e57c1b8ca277e82fb2bc3238cc3dbfca2e",
+    "reduce.py": "ececdd1db4ca7eaf74aa06933876f5e3a83f8af44136926551ee5459d62fe464",
+    "report.json": "12559c6558411e0a2647c24653feefeb4e6fd299d744320a0d3d150d43f64671",
+    "sources/matmul_compute.cpp": "08b3b7c9e4dd4d8d347a787c8cf3c3a38ef6e36105c5b0254614f72b61ecb2e1",
+    "sources/matmul_in0.cpp": "7070e58e4956d25955e277dc18eae5596ee5fd621f026939ad35bd06ded6ab44",
+    "sources/matmul_in1.cpp": "76f3b8cf024afec6436cf27df1896393278df903876e240ad9f32de44402ab2a",
+    "sources/sdpa_writer.cpp": "fdb3303db1777fc7c548abb9ae1c6143d22883c5edb45cd65961ab6e6fcbc39d",
+    "test_reduce.py": "fda71c21cf5a677085e4bb0fb94652981d38bb0f65860ac3820d3379321ad094",
+    "tests.txt": "9b8533a532cb2c664b8a6be870d45191637d51f256840590846c58c1a90c146a"
+  }
+}

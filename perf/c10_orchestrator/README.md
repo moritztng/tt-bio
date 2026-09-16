@@ -139,3 +139,10 @@ identity was unavailable despite a successful observer footer. Four intervals
 contain 956 samples at minimum=maximum 1350 MHz; no model invocation was captured.
 The observer's Python endpoint mapping is repaired and CPU-tested, with fresh
 live validation still required before a model census.
+
+[Generic work contracts](../c10_generic_work/README.md) provide source-conditional
+matrix components, permutation/gate counts and logical bytes for explicitly
+identified inputs. Parent review reproduced its report and 16 reducer tests;
+exact-total requests still refuse. The 15 normalized controls are synthetic,
+and the two archived calls are refused. Actual source/flag/ownership joins are
+required before these components can enter a measured model table.

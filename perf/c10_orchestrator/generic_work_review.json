@@ -1,0 +1,16 @@
+{
+  "source_commit": "407573d2f546fa06564b457e1501af5f92a91c20",
+  "scope": "CPU source-conditional components only; no hardware or model aggregate",
+  "reducer_tests_passed": 16,
+  "report_reproduces_byte_for_byte": true,
+  "require_exact_total_exit_code": 2,
+  "synthetic_contracts": 15,
+  "archived_call_refusals": 2,
+  "reviewed_sources": [
+    "minimal matmul K padding and tile loop",
+    "gated reblock tile calls",
+    "SDPA component and unknown-work separation"
+  ],
+  "model_cycles_saved": 0,
+  "verdict": "ACCEPT_CONDITIONAL_CONTRACTS_ONLY"
+}

@@ -1,0 +1,748 @@
+{
+  "aggregate": null,
+  "archived": {
+    "matmul_on.jsonl": {
+      "archive_sha256": "58da38cdc065b142270e125f1df3976713289089922080ec6462f3b5f477025d",
+      "compulsory_logical_bytes": null,
+      "conventional": null,
+      "descriptor_sha256": "dc2020f2e389648e753e52fe7cd42566e43e0be7ea17da49b882e8d08631f232",
+      "exact_total": false,
+      "execution_sha256": "ae39250b04f5a5988b5d3e43a2cfa9ae76720e2ea6c00ca6fc340d884ae7ee65",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": null,
+      "physical_bytes": null,
+      "reason": "kernel 0: per-core runtime arguments/ownership unavailable; kernel 1: per-core runtime arguments/ownership unavailable; kernel 2: per-core runtime arguments/ownership unavailable; kernel 3: per-core runtime arguments/ownership unavailable; kernel 4: per-core runtime arguments/ownership unavailable; storage alias identity absent; observer-to-normalized translation requires a reviewed source/flag/ownership mapping",
+      "sequence": 1,
+      "sfpu_flops": null,
+      "source_schedule": null,
+      "status": "REFUSED"
+    },
+    "reblock_on.jsonl": {
+      "archive_sha256": "cbcd3658c0ff000356b6f3d3a7f9a9e57c1b8ca277e82fb2bc3238cc3dbfca2e",
+      "compulsory_logical_bytes": null,
+      "conventional": null,
+      "descriptor_sha256": "df7cf838fc5a95e91a55fe77717baf3036bfafb0619b015596e19d5d49f1e84e",
+      "exact_total": false,
+      "execution_sha256": "2ad2b9eb868c9c172401e61b185659b2273b9a070080813698d2a17955df925a",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": null,
+      "physical_bytes": null,
+      "reason": "kernel 0: per-core runtime arguments/ownership unavailable; kernel 1: per-core runtime arguments/ownership unavailable; kernel 2: per-core runtime arguments/ownership unavailable; storage alias identity absent; observer-to-normalized translation requires a reviewed source/flag/ownership mapping",
+      "sequence": 1,
+      "sfpu_flops": null,
+      "source_schedule": null,
+      "status": "REFUSED"
+    }
+  },
+  "basis": "CPU arithmetic only; synthetic cases are not observations",
+  "controls": {
+    "matmul_dense": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "left": 2048,
+          "right": 2048
+        },
+        "total": 6144,
+        "write": 2048
+      },
+      "conventional": {},
+      "descriptor_sha256": "678b1fbd72c5686e8af45a1651b8a9b5a481613a8d85a5613dc407ce17e59b76",
+      "exact_total": false,
+      "family": "matmul",
+      "id": "matmul_dense",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 65536,
+      "matrix_components": {
+        "AB": 65536
+      },
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "ae7a048e1190fdf7c7505a58514b44f4bc41f9e8e5473a32633db54864e709f4",
+      "source_schedule": {
+        "basis": "conditional source loops, not machine instructions",
+        "conditions": "full rectangular grid; wrapper ownership; 1x1 subblocks; no extra defines",
+        "matmul_block_calls": 8,
+        "matrix_padded_extents": [
+          64,
+          64,
+          64
+        ],
+        "padded_domain_matrix_flops": 524288
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "matmul_flattened": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "left": 8192,
+          "right": 6144
+        },
+        "total": 38912,
+        "write": 24576
+      },
+      "conventional": {},
+      "descriptor_sha256": "a50a0f1983bfddb8c6a3558f81a3d7b705508ff77b05f79490c4a16e3ccbfc18",
+      "exact_total": false,
+      "family": "matmul",
+      "id": "matmul_flattened",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 786432,
+      "matrix_components": {
+        "AB": 786432
+      },
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "ae7a048e1190fdf7c7505a58514b44f4bc41f9e8e5473a32633db54864e709f4",
+      "source_schedule": {
+        "basis": "conditional source loops, not machine instructions",
+        "conditions": "full rectangular grid; wrapper ownership; 1x1 subblocks; no extra defines",
+        "matmul_block_calls": 32,
+        "matrix_padded_extents": [
+          128,
+          64,
+          128
+        ],
+        "padded_domain_matrix_flops": 2097152
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "matmul_rectangular": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "left": 4096,
+          "right": 6144
+        },
+        "total": 22528,
+        "write": 12288
+      },
+      "conventional": {},
+      "descriptor_sha256": "478e488c8e3e43f2bfcb74d48c8b5418f873667d52068151f604734e927334b8",
+      "exact_total": false,
+      "family": "matmul",
+      "id": "matmul_rectangular",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 393216,
+      "matrix_components": {
+        "AB": 393216
+      },
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "ae7a048e1190fdf7c7505a58514b44f4bc41f9e8e5473a32633db54864e709f4",
+      "source_schedule": {
+        "basis": "conditional source loops, not machine instructions",
+        "conditions": "full rectangular grid; wrapper ownership; 1x1 subblocks; no extra defines",
+        "matmul_block_calls": 16,
+        "matrix_padded_extents": [
+          64,
+          64,
+          128
+        ],
+        "padded_domain_matrix_flops": 1048576
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "reblock_dense": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "input": 65536
+        },
+        "total": 131072,
+        "write": 65536
+      },
+      "conventional": {},
+      "descriptor_sha256": "c542b9c379e52c0a16da620e8d886da2d47521b1312ec9b322a9bea80b5dba43",
+      "exact_total": false,
+      "family": "reblock",
+      "id": "reblock_dense",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 0,
+      "matrix_components": {},
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "3403ff2758bfddaf21afa76a709a5c169f1abc2809eecd9841aa3a096e4833ec",
+      "source_schedule": {
+        "basis": "conditional source loops; full disjoint group cover assumed",
+        "groups": 1,
+        "mul_binary_tile_calls": 0,
+        "note": "tile API calls/lane slots are not scalar issued FLOPs or SFPU instructions",
+        "padded_lane_slots": 32768,
+        "sigmoid_tile_calls": 0,
+        "transpose_wh_tile_calls": 32
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "reblock_gated": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "gate_slice": 65536,
+          "projection_slice": 65536
+        },
+        "total": 196608,
+        "write": 65536
+      },
+      "conventional": {
+        "multiply": 32768,
+        "sigmoid_evaluations": 32768
+      },
+      "descriptor_sha256": "7b51b50372cf9fcf484f7ef8d0b446108aa5728f264c87110e9cf8addb16a28b",
+      "exact_total": false,
+      "family": "reblock_gated",
+      "id": "reblock_gated",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 0,
+      "matrix_components": {},
+      "output_region": {
+        "channels": 32,
+        "rows": [
+          0,
+          32
+        ]
+      },
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "7ad2372acf7a581edd2e58ad33323c84036f1ffc993de6a17314e024fd3334f4",
+      "source_schedule": {
+        "basis": "conditional source loops; full disjoint group cover assumed",
+        "groups": 1,
+        "mul_binary_tile_calls": 32,
+        "note": "tile API calls/lane slots are not scalar issued FLOPs or SFPU instructions",
+        "padded_lane_slots": 32768,
+        "sigmoid_tile_calls": 32,
+        "transpose_wh_tile_calls": 32
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "reblock_gated_row": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "gate_slice": 131072,
+          "projection_slice": 131072
+        },
+        "total": 393216,
+        "write": 131072
+      },
+      "conventional": {
+        "multiply": 65536,
+        "sigmoid_evaluations": 65536
+      },
+      "descriptor_sha256": "17977969b3d409a8080067f29fda8ecb00cc0d60fd1b30112d5dfbd36726bca8",
+      "exact_total": false,
+      "family": "reblock_gated",
+      "id": "reblock_gated_row",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 0,
+      "matrix_components": {},
+      "output_region": {
+        "channels": 32,
+        "rows": [
+          32,
+          64
+        ]
+      },
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "7ad2372acf7a581edd2e58ad33323c84036f1ffc993de6a17314e024fd3334f4",
+      "source_schedule": {
+        "basis": "conditional source loops; full disjoint group cover assumed",
+        "groups": 2,
+        "mul_binary_tile_calls": 64,
+        "note": "tile API calls/lane slots are not scalar issued FLOPs or SFPU instructions",
+        "padded_lane_slots": 65536,
+        "sigmoid_tile_calls": 64,
+        "transpose_wh_tile_calls": 64
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "reblock_gated_tail": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "gate_slice": 2112,
+          "projection_slice": 2112
+        },
+        "total": 6336,
+        "write": 2112
+      },
+      "conventional": {
+        "multiply": 1056,
+        "sigmoid_evaluations": 1056
+      },
+      "descriptor_sha256": "245aaab7ecb10d7d08894d46f26da35a5e59ce7e4eabb04c54bb71bc0a60e815",
+      "exact_total": false,
+      "family": "reblock_gated",
+      "id": "reblock_gated_tail",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 0,
+      "matrix_components": {},
+      "output_region": {
+        "channels": 32,
+        "rows": [
+          32,
+          33
+        ]
+      },
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "7ad2372acf7a581edd2e58ad33323c84036f1ffc993de6a17314e024fd3334f4",
+      "source_schedule": {
+        "basis": "conditional source loops; full disjoint group cover assumed",
+        "groups": 2,
+        "mul_binary_tile_calls": 64,
+        "note": "tile API calls/lane slots are not scalar issued FLOPs or SFPU instructions",
+        "padded_lane_slots": 65536,
+        "sigmoid_tile_calls": 64,
+        "transpose_wh_tile_calls": 64
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "reblock_ragged": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "input": 139392
+        },
+        "total": 278784,
+        "write": 139392
+      },
+      "conventional": {},
+      "descriptor_sha256": "1f5bdb18be4ec41c4ee3fb8ff5ea1259abb083a9c3397677399206d4510944d3",
+      "exact_total": false,
+      "family": "reblock",
+      "id": "reblock_ragged",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 0,
+      "matrix_components": {},
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "3403ff2758bfddaf21afa76a709a5c169f1abc2809eecd9841aa3a096e4833ec",
+      "source_schedule": {
+        "basis": "conditional source loops; full disjoint group cover assumed",
+        "groups": 4,
+        "mul_binary_tile_calls": 0,
+        "note": "tile API calls/lane slots are not scalar issued FLOPs or SFPU instructions",
+        "padded_lane_slots": 262144,
+        "sigmoid_tile_calls": 0,
+        "transpose_wh_tile_calls": 256
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "reblock_reverse": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "input": 131072
+        },
+        "total": 262144,
+        "write": 131072
+      },
+      "conventional": {},
+      "descriptor_sha256": "ad65f36efc06c20671562a9e35cb13e1810474d855e6b14977331e56ffc48504",
+      "exact_total": false,
+      "family": "reblock_back",
+      "id": "reblock_reverse",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 0,
+      "matrix_components": {},
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "2dd876794f2e67a150819667577fc1afcf82ab5972001a096ad97c0180ce5784",
+      "source_schedule": {
+        "basis": "conditional source loops; full disjoint group cover assumed",
+        "groups": 2,
+        "mul_binary_tile_calls": 0,
+        "note": "tile API calls/lane slots are not scalar issued FLOPs or SFPU instructions",
+        "padded_lane_slots": 65536,
+        "sigmoid_tile_calls": 0,
+        "transpose_wh_tile_calls": 64
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "sdpa_broadcast_mask": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "key": 16384,
+          "mask": 4096,
+          "query": 8192,
+          "value": 16384
+        },
+        "total": 53248,
+        "write": 8192
+      },
+      "conventional": {
+        "exp_evaluations": 8192,
+        "mask_add": 8192,
+        "max_comparisons": 8064,
+        "probability_normalize_multiply": 8192,
+        "reciprocal_evaluations": 128,
+        "score_scale_multiply": 8192,
+        "stable_softmax_subtract": 8192,
+        "sum_add": 8064
+      },
+      "conventional_basis": "dense real-arithmetic reference decomposition only; online softmax rescales accumulators, fuses scale into exp and uses matmul_reduce; these are NOT source operation totals",
+      "descriptor_sha256": "d147622accc3ba977631cb34d8f65d4f33e56399aff920a6ca44fcf62d3494c7",
+      "exact_total": false,
+      "family": "sdpa",
+      "id": "sdpa_broadcast_mask",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 1048576,
+      "matrix_components": {
+        "PV": 524288,
+        "QK_transpose": 524288
+      },
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "541085feee59ca9cfa4d1892e3201a5ccf676ed65f908a15adf0b9761f8f0076",
+      "source_schedule": {
+        "basis": "source-conditional primary contractions only",
+        "conditions": "single phase; full disjoint B/head/Q cover; no causal/padded mask; fusion one head per worker",
+        "note": "matmul_reduce, online recurrence, SFPU and packing remain uncounted",
+        "primary_matrix_flops": 1048576,
+        "pv_chunk_pairs": 8,
+        "qk_chunk_pairs": 8,
+        "reduction_matrix_flops": null
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "sdpa_dense": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "key": 2048,
+          "mask": 2048,
+          "query": 2048,
+          "value": 2048
+        },
+        "total": 10240,
+        "write": 2048
+      },
+      "conventional": {
+        "exp_evaluations": 1024,
+        "mask_add": 1024,
+        "max_comparisons": 992,
+        "probability_normalize_multiply": 1024,
+        "reciprocal_evaluations": 32,
+        "score_scale_multiply": 1024,
+        "stable_softmax_subtract": 1024,
+        "sum_add": 992
+      },
+      "conventional_basis": "dense real-arithmetic reference decomposition only; online softmax rescales accumulators, fuses scale into exp and uses matmul_reduce; these are NOT source operation totals",
+      "descriptor_sha256": "baff2d5d43316a7c1b7bf549723b3c8d4635ef8fcc41e85d6733fd8af5a01589",
+      "exact_total": false,
+      "family": "sdpa",
+      "id": "sdpa_dense",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 131072,
+      "matrix_components": {
+        "PV": 65536,
+        "QK_transpose": 65536
+      },
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "541085feee59ca9cfa4d1892e3201a5ccf676ed65f908a15adf0b9761f8f0076",
+      "source_schedule": {
+        "basis": "source-conditional primary contractions only",
+        "conditions": "single phase; full disjoint B/head/Q cover; no causal/padded mask; fusion one head per worker",
+        "note": "matmul_reduce, online recurrence, SFPU and packing remain uncounted",
+        "primary_matrix_flops": 131072,
+        "pv_chunk_pairs": 1,
+        "qk_chunk_pairs": 1,
+        "reduction_matrix_flops": null
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "sdpa_fused_qkv": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "mask": 4096,
+          "projection_input": 8192,
+          "projection_weight": 24576
+        },
+        "total": 45056,
+        "write": 8192
+      },
+      "conventional": {
+        "exp_evaluations": 4096,
+        "mask_add": 4096,
+        "max_comparisons": 3968,
+        "probability_normalize_multiply": 4096,
+        "reciprocal_evaluations": 128,
+        "score_scale_multiply": 4096,
+        "stable_softmax_subtract": 4096,
+        "sum_add": 3968
+      },
+      "conventional_basis": "dense real-arithmetic reference decomposition only; online softmax rescales accumulators, fuses scale into exp and uses matmul_reduce; these are NOT source operation totals",
+      "descriptor_sha256": "f29c3596bd78981d93b1d6eb171a8f4eea660c26ea50be3f5b95167502634b30",
+      "exact_total": false,
+      "family": "sdpa_fused_qkv",
+      "id": "sdpa_fused_qkv",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 2097152,
+      "matrix_components": {
+        "PV": 262144,
+        "QKV_projection": 1572864,
+        "QK_transpose": 262144
+      },
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "541085feee59ca9cfa4d1892e3201a5ccf676ed65f908a15adf0b9761f8f0076",
+      "source_schedule": {
+        "basis": "source-conditional primary contractions only",
+        "conditions": "single phase; full disjoint B/head/Q cover; no causal/padded mask; fusion one head per worker",
+        "note": "matmul_reduce, online recurrence, SFPU and packing remain uncounted",
+        "primary_matrix_flops": 2097152,
+        "pv_chunk_pairs": 4,
+        "qk_chunk_pairs": 4,
+        "reduction_matrix_flops": null
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "sdpa_gated": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "gate": 4096,
+          "key": 8192,
+          "mask": 8192,
+          "query": 4096,
+          "value": 8192
+        },
+        "total": 36864,
+        "write": 4096
+      },
+      "conventional": {
+        "exp_evaluations": 4096,
+        "gate_multiply": 2048,
+        "mask_add": 4096,
+        "max_comparisons": 4032,
+        "probability_normalize_multiply": 4096,
+        "reciprocal_evaluations": 64,
+        "score_scale_multiply": 4096,
+        "sigmoid_evaluations": 2048,
+        "stable_softmax_subtract": 4096,
+        "sum_add": 4032
+      },
+      "conventional_basis": "dense real-arithmetic reference decomposition only; online softmax rescales accumulators, fuses scale into exp and uses matmul_reduce; these are NOT source operation totals",
+      "descriptor_sha256": "ca2433e9ee1f60a70f97d8819d1758d99292949e593a05b87f816fd4eca9a20d",
+      "exact_total": false,
+      "family": "sdpa_gated",
+      "id": "sdpa_gated",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 524288,
+      "matrix_components": {
+        "PV": 262144,
+        "QK_transpose": 262144
+      },
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "541085feee59ca9cfa4d1892e3201a5ccf676ed65f908a15adf0b9761f8f0076",
+      "source_schedule": {
+        "basis": "source-conditional primary contractions only",
+        "conditions": "single phase; full disjoint B/head/Q cover; no causal/padded mask; fusion one head per worker",
+        "note": "matmul_reduce, online recurrence, SFPU and packing remain uncounted",
+        "primary_matrix_flops": 524288,
+        "pv_chunk_pairs": 4,
+        "qk_chunk_pairs": 4,
+        "reduction_matrix_flops": null
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "sdpa_persistent_mask": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "key": 16384,
+          "mask": 4096,
+          "query": 8192,
+          "value": 16384
+        },
+        "total": 53248,
+        "write": 8192
+      },
+      "conventional": {
+        "exp_evaluations": 8192,
+        "mask_add": 8192,
+        "max_comparisons": 8064,
+        "probability_normalize_multiply": 8192,
+        "reciprocal_evaluations": 128,
+        "score_scale_multiply": 8192,
+        "stable_softmax_subtract": 8192,
+        "sum_add": 8064
+      },
+      "conventional_basis": "dense real-arithmetic reference decomposition only; online softmax rescales accumulators, fuses scale into exp and uses matmul_reduce; these are NOT source operation totals",
+      "descriptor_sha256": "2bfda6a1bd5bb33706c0e6754f7584510ebf6d64bed1df37c1ad216a0eff6880",
+      "exact_total": false,
+      "family": "sdpa",
+      "id": "sdpa_persistent_mask",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 1048576,
+      "matrix_components": {
+        "PV": 524288,
+        "QK_transpose": 524288
+      },
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "541085feee59ca9cfa4d1892e3201a5ccf676ed65f908a15adf0b9761f8f0076",
+      "source_schedule": {
+        "basis": "source-conditional primary contractions only",
+        "conditions": "single phase; full disjoint B/head/Q cover; no causal/padded mask; fusion one head per worker",
+        "note": "matmul_reduce, online recurrence, SFPU and packing remain uncounted",
+        "primary_matrix_flops": 1048576,
+        "pv_chunk_pairs": 8,
+        "qk_chunk_pairs": 8,
+        "reduction_matrix_flops": null
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    },
+    "sdpa_rectangular": {
+      "compulsory_logical_bytes": {
+        "basis": "unique required logical elements per call, bf16, distinct storage; not DRAM traffic",
+        "read_by_role": {
+          "key": 8192,
+          "mask": 8192,
+          "query": 4096,
+          "value": 8192
+        },
+        "total": 32768,
+        "write": 4096
+      },
+      "conventional": {
+        "exp_evaluations": 4096,
+        "mask_add": 4096,
+        "max_comparisons": 4032,
+        "probability_normalize_multiply": 4096,
+        "reciprocal_evaluations": 64,
+        "score_scale_multiply": 4096,
+        "stable_softmax_subtract": 4096,
+        "sum_add": 4032
+      },
+      "conventional_basis": "dense real-arithmetic reference decomposition only; online softmax rescales accumulators, fuses scale into exp and uses matmul_reduce; these are NOT source operation totals",
+      "descriptor_sha256": "47578b53c79600c522583fee99ce4d2c1fa451224f4f5c293bb2537ce8a8b39c",
+      "exact_total": false,
+      "family": "sdpa",
+      "id": "sdpa_rectangular",
+      "issued_arithmetic": null,
+      "logical_matrix_flops": 524288,
+      "matrix_components": {
+        "PV": 262144,
+        "QK_transpose": 262144
+      },
+      "ownership": "one call only; do not sum overlapping captures or inclusive parents",
+      "physical_bytes": null,
+      "sfpu_flops": null,
+      "source_manifest_sha256": "541085feee59ca9cfa4d1892e3201a5ccf676ed65f908a15adf0b9761f8f0076",
+      "source_schedule": {
+        "basis": "source-conditional primary contractions only",
+        "conditions": "single phase; full disjoint B/head/Q cover; no causal/padded mask; fusion one head per worker",
+        "note": "matmul_reduce, online recurrence, SFPU and packing remain uncounted",
+        "primary_matrix_flops": 524288,
+        "pv_chunk_pairs": 4,
+        "qk_chunk_pairs": 4,
+        "reduction_matrix_flops": null
+      },
+      "status": "SOURCE_CONDITIONAL",
+      "uncounted": [
+        "API/header lowering and cached machine-code linkage",
+        "issued arithmetic, conversion/packing and SFPU instructions",
+        "physical rereads, spills, transactions and memory-level placement"
+      ]
+    }
+  },
+  "exact_total": false,
+  "measured_model_cycles_saved": null,
+  "predicted_model_cycles_saved": 0,
+  "schema": 1,
+  "source_contract_sha256": "957c962710f770b90e129e15718ebb6d36c33f1fb8e8dfd35ec261519916d5fa",
+  "verdict": "GO for conditional components; STOP for observed work and exact totals"
+}
