@@ -45,40 +45,48 @@ branch.
 one arm per process and got byte-identical CIFs, 768 aa `38aabd4058facb3f` and 1024 aa
 `649aad7b46727c7e`.
 
-## The wedges were card 0 dying, not load and not a kernel
+## Two separate faults on qb2, and only one of them is settled
 
-The prior pass read three wedges at loadavg 4-9 as load-driven. Two more today killed that
-reading: boltz2 at the 768 rung (12:41:15Z) and rf3 at the 768 rung (12:53:40Z) both stopped
-writing with this gate as the only lane on the box and loadavg 1.1.
-
-py-spy named a different ttnn op each time, which is the tell that it is not a kernel:
-
-| wedge | rung | stack |
-|---|---|---|
-| 12:41:15Z | boltz2 768 rep0 | `ttnn.layer_norm` in `swiglu`, `tenstorrent.py:8205` |
-| 10:09:09Z | boltz2 1024 warm-up | `ttnn.linear` in `swiglu`, `tenstorrent.py:8224` |
-| earlier | opendde 640 | `ttnn.transpose` in `_pair_transpose`, `tenstorrent.py:2506` |
-
-All three are `active+gil` inside `ttnn/decorators.py:473`: the call entered the device and never
-came back. After the second one the next fold stopped even earlier, in `_open_device_locked`
-(`tenstorrent.py:4935`) holding `/tmp/tt-bio-device-open.lock`, so the open itself had stopped
-returning. `tt-smi -ls` then named it:
+**Card 0 is dead at the PCIe link. This one is settled.** After the second wedge, the next fold
+stopped earlier than the others, in `_open_device_locked` (`tenstorrent.py:4935`) holding
+`/tmp/tt-bio-device-open.lock`, so the device open itself had stopped returning. `tt-smi -ls`
+names it:
 
     Read 0xffffffff over PCIe ID 0: the board should be reset.
 
-**qb2 card 0 is down at the PCIe link.** The control is clean and cheap: on the same host, at the
-same minute, `TT_VISIBLE_DEVICES=0` hung past a 120 s timeout with no device and
-`TT_VISIBLE_DEVICES=2` returned `MeshDevice(1x1 grid, 1 devices)` in 7 s. The gate moved to card
-2 on grant `0,2` at 13:15:28Z and walked boltz2's 256 and 512 rungs in under 90 s, against the
-4 minutes card 0 needed for a 256 warm-up before it hung for good.
+The control is one minute of work and it is unambiguous: same host, same minute,
+`TT_VISIBLE_DEVICES=0` hung past a 120 s timeout with no device, `TT_VISIBLE_DEVICES=2` returned
+`MeshDevice(1x1 grid, 1 devices)` in 7 s. It matches the QBROOT verdict
+(`qbroot-verdict-pcie-link-failure`, board 410D, hardware-only fix). Card 0 must not be
+dispatched. `tt-smi -ls` also fails outright for every user on the host now, because topology
+discovery walks card 0 first.
 
-Every ladder attempt recorded on card 0 today is marked `VOID-` in `progress`: a dead card is not
-a verdict on a lever, and leaving those rc lines in place would have burned the retry budget on
-hardware. This also matches the QBROOT verdict (`qbroot-verdict-pcie-link-failure`, qb2 board
-410D, hardware-only fix) rather than anything in this tree.
+**The mid-trunk wedge is NOT explained by it, and is still open.** A fold stops writing, holds
+the card and burns no CPU, and py-spy puts it `active+gil` inside `ttnn/decorators.py:473`:
 
-A `tt-smi -r 0` takes the whole 0/1 board pair down, and card 1 is carrying
-`b2z2-aiclk-default-decision`'s soak until 16:18:14Z, so the reset is not this task's to run.
+| wedge | card | rung | stack |
+|---|---|---|---|
+| 12:41:15Z | 0 | boltz2 768 rep0 | `ttnn.layer_norm` in `swiglu`, `tenstorrent.py:8205` |
+| 12:53:40Z | 0 | rf3 768 splice | mid-trunk, `trunk 3/10` |
+| 10:09:09Z | 0 | boltz2 1024 warm-up | `ttnn.linear` in `swiglu`, `tenstorrent.py:8224` |
+| 13:17:53Z | **2** | boltz2 640 rep0 | `ttnn.linear` in `swiglu`, `tenstorrent.py:8225` |
+| earlier | 0 | opendde 640 | `ttnn.transpose` in `_pair_transpose`, `tenstorrent.py:2506` |
+
+Three readings are now dead. It is not box load: 12:41 and 12:53 happened at loadavg 1.1 with
+this gate as the only lane. It is not one kernel: layer_norm, linear and transpose. And it is not
+card 0 alone, which is what the 13:17:53Z wedge on card 2 says, four clean folds into a fresh
+lane on the other board pair.
+
+What is left, and untested, is that card 0's link fault is disturbing the whole host's UMD layer:
+discovery, the ARC message locks and the `/dev/shm/TT_UMD_LOCK.*` robust mutexes are host-wide,
+and `tt-smi` already proves card 0 breaks a host-wide path. Testing that means resetting card 0
+and re-running the same arms on card 2, which cannot happen before 16:18:14Z: `tt-smi -r 0` takes
+the whole 0/1 board pair down and card 1 is carrying `b2z2-aiclk-default-decision`'s soak until
+then.
+
+Every ladder attempt recorded on card 0 today is marked `VOID-` in `progress`. A dead card is not
+a verdict on a lever, and leaving those rc lines in place would have spent the retry budget on
+hardware.
 
 ## Co-tenant
 
