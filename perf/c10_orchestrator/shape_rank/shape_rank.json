@@ -1,0 +1,256 @@
+{
+  "scope": "CPU ranking of a committed floor artifact. No device, no new timing.",
+  "census": "/home/moritz/.coworker/wt/c10-orchestrator/perf/roof_launch/op_census_512.json",
+  "total_floor_s": 12.706201633707975,
+  "total_calls": 465664.0,
+  "distinct_shapes_recorded": 60,
+  "top": [
+    {
+      "op": "ttnn.add_",
+      "signature": "out=|in=1x512x512x128,1x512x512x128",
+      "calls": 1416.0,
+      "floor_s": 0.4525542418083352,
+      "pct_of_floor": 3.561679995757072,
+      "us_per_call": 319.600453254474,
+      "bytes": 192199786496.0,
+      "out_tiles": 0,
+      "in_tiles": 65536
+    },
+    {
+      "op": "ttnn.linear",
+      "signature": "out=1x512x1536|in=1x512x768,768x1536",
+      "calls": 11200.0,
+      "floor_s": 0.3909948680498267,
+      "pct_of_floor": 3.0771970988762356,
+      "us_per_call": 34.910256075877385,
+      "bytes": 50960793600.0,
+      "out_tiles": 768,
+      "in_tiles": 1536
+    },
+    {
+      "op": "ttnn.linear",
+      "signature": "out=1x16x512x128|in=1x16x512x512,512x128",
+      "calls": 8448.0,
+      "floor_s": 0.3700154388782924,
+      "pct_of_floor": 2.9120853701604057,
+      "us_per_call": 43.79917600358575,
+      "bytes": 18824036352.0,
+      "out_tiles": 1024,
+      "in_tiles": 4160
+    },
+    {
+      "op": "ttnn.linear",
+      "signature": "out=1x16x512x512|in=128x512,1x16x512x128",
+      "calls": 9472.0,
+      "floor_s": 0.32383760948623425,
+      "pct_of_floor": 2.5486578823614234,
+      "us_per_call": 34.188936812313585,
+      "bytes": 1241513984.0,
+      "out_tiles": 4096,
+      "in_tiles": 1088
+    },
+    {
+      "op": "ttnn.linear",
+      "signature": "out=1x512x768|in=1x512x768,768x768",
+      "calls": 10200.0,
+      "floor_s": 0.29431796958558226,
+      "pct_of_floor": 2.316333221131902,
+      "us_per_call": 28.85470290054728,
+      "bytes": 28075622400.0,
+      "out_tiles": 384,
+      "in_tiles": 960
+    },
+    {
+      "op": "ttnn.linear",
+      "signature": "out=1x16x512x512|in=1x16x512x128,128x512",
+      "calls": 8448.0,
+      "floor_s": 0.288828138190426,
+      "pct_of_floor": 2.2731273004845196,
+      "us_per_call": 34.18893681231369,
+      "bytes": 1107296256.0,
+      "out_tiles": 4096,
+      "in_tiles": 1088
+    },
+    {
+      "op": "ttnn.linear",
+      "signature": "out=1x512x768|in=768x768,1x512x768",
+      "calls": 9200.0,
+      "floor_s": 0.26546326668503495,
+      "pct_of_floor": 2.089241728864068,
+      "us_per_call": 28.854702900547277,
+      "bytes": 25323110400.0,
+      "out_tiles": 384,
+      "in_tiles": 960
+    },
+    {
+      "op": "ttnn.linear",
+      "signature": "out=1x512x768|in=1x512x1536,1536x768",
+      "calls": 4800.0,
+      "floor_s": 0.2451333553200683,
+      "pct_of_floor": 1.929241817395373,
+      "us_per_call": 51.06944902501423,
+      "bytes": 22334668800.0,
+      "out_tiles": 384,
+      "in_tiles": 1920
+    },
+    {
+      "op": "ttnn.linear",
+      "signature": "out=1x512x768|in=1x512x768,768,768x768",
+      "calls": 6600.0,
+      "floor_s": 0.19044103914361193,
+      "pct_of_floor": 1.4988038489677002,
+      "us_per_call": 28.854702900547263,
+      "bytes": 18490982400.0,
+      "out_tiles": 384,
+      "in_tiles": 984
+    },
+    {
+      "op": "ttnn.linear",
+      "signature": "out=1x512x3072|in=1x512x768,768x3072,3072",
+      "calls": 3000.0,
+      "floor_s": 0.1673962799939363,
+      "pct_of_floor": 1.3174376168394397,
+      "us_per_call": 55.79875999797877,
+      "bytes": 26542080000.0,
+      "out_tiles": 1536,
+      "in_tiles": 2784
+    },
+    {
+      "op": "ttnn.multiply_",
+      "signature": "out=|in=1x512x1536,1x512x1536",
+      "calls": 10264.0,
+      "floor_s": 0.14221327431127853,
+      "pct_of_floor": 1.1192430154264543,
+      "us_per_call": 13.85554114490243,
+      "bytes": 60397977600.0,
+      "out_tiles": 0,
+      "in_tiles": 1536
+    },
+    {
+      "op": "ttnn.linear",
+      "signature": "out=1x512x1536|in=768x1536,1x512x768",
+      "calls": 4000.0,
+      "floor_s": 0.13964102430350953,
+      "pct_of_floor": 1.0989989638843698,
+      "us_per_call": 34.910256075877385,
+      "bytes": 18874368000.0,
+      "out_tiles": 768,
+      "in_tiles": 1536
+    },
+    {
+      "op": "ttnn.linear",
+      "signature": "out=1x512x768|in=768,768x768,1x512x768",
+      "calls": 4200.0,
+      "floor_s": 0.12118975218229842,
+      "pct_of_floor": 0.9537842675248994,
+      "us_per_call": 28.854702900547245,
+      "bytes": 11766988800.0,
+      "out_tiles": 384,
+      "in_tiles": 984
+    },
+    {
+      "op": "ttnn.linear",
+      "signature": "out=1x512x768|in=1x512x768,768x768,768",
+      "calls": 3800.0,
+      "floor_s": 0.10964787102207953,
+      "pct_of_floor": 0.8629476706177663,
+      "us_per_call": 28.854702900547245,
+      "bytes": 10646323200.0,
+      "out_tiles": 384,
+      "in_tiles": 984
+    },
+    {
+      "op": "ttnn.multiply_",
+      "signature": "out=|in=1x512x768,1x512x768",
+      "calls": 14400.0,
+      "floor_s": 0.10665995573345889,
+      "pct_of_floor": 0.8394322615698406,
+      "us_per_call": 7.40694137037909,
+      "bytes": 45298483200.0,
+      "out_tiles": 0,
+      "in_tiles": 768
+    },
+    {
+      "op": "ttnn.linear",
+      "signature": "out=1x512x3072|in=1x512x768,3072,768x3072",
+      "calls": 1800.0,
+      "floor_s": 0.10043776799636175,
+      "pct_of_floor": 0.7904625701036636,
+      "us_per_call": 55.798759997978756,
+      "bytes": 15925248000.0,
+      "out_tiles": 1536,
+      "in_tiles": 2784
+    },
+    {
+      "op": "ttnn.transformer.scaled_dot_product_attention",
+      "signature": "out=1x16x512x64|in=1x16x512x512,1x16x512x64,1x16x512x64,1x16x512x64",
+      "calls": 3000.0,
+      "floor_s": 0.08888329644454908,
+      "pct_of_floor": 0.6995268846415339,
+      "us_per_call": 29.62776548151636,
+      "bytes": 37748736000.0,
+      "out_tiles": 512,
+      "in_tiles": 5632
+    },
+    {
+      "op": "ttnn.add_",
+      "signature": "out=|in=1x512x768,1x512x768",
+      "calls": 9600.0,
+      "floor_s": 0.07110663715563927,
+      "pct_of_floor": 0.5596215077132272,
+      "us_per_call": 7.406941370379091,
+      "bytes": 30198988800.0,
+      "out_tiles": 0,
+      "in_tiles": 768
+    },
+    {
+      "op": "ttnn.experimental.nlp_create_qkv_heads",
+      "signature": "out=1x16x512x64|in=1x1x512x3072",
+      "calls": 4800.0,
+      "floor_s": 0.07110663715563927,
+      "pct_of_floor": 0.5596215077132272,
+      "us_per_call": 14.813882740758181,
+      "bytes": 30198988800.0,
+      "out_tiles": 512,
+      "in_tiles": 1536
+    },
+    {
+      "op": "ttnn.add",
+      "signature": "out=1x512x768|in=1x512x768,1x512x768",
+      "calls": 10200.0,
+      "floor_s": 0.056663101483400036,
+      "pct_of_floor": 0.4459483889589778,
+      "us_per_call": 5.555206027784317,
+      "bytes": 24064819200.0,
+      "out_tiles": 384,
+      "in_tiles": 768
+    }
+  ],
+  "top_share_pct": 31.453392918992098,
+  "largest_single_item": {
+    "op": "ttnn.add_",
+    "signature": "out=|in=1x512x512x128,1x512x512x128",
+    "calls": 1416.0,
+    "floor_s": 0.4525542418083352,
+    "pct_of_floor": 3.561679995757072,
+    "us_per_call": 319.600453254474,
+    "bytes": 192199786496.0,
+    "out_tiles": 0,
+    "in_tiles": 65536
+  },
+  "pure_traffic_elementwise": {
+    "floor_s": 1.182286105618083,
+    "calls": 117800.0,
+    "pct_of_floor": 9.304795718664064
+  },
+  "observations": [
+    "The largest single (class, shape) in the fold is an in-place add over the PAIR representation, 1x512x512x128, at 1,416 calls and 0.453 s, 3.6 %% of the floor and 319.6 us per call. It has no arithmetic term at all: it is a DRAM round trip of the pair tensor, and it is the kind of thing a producer's epilogue can absorb. Prior art says fusion of this kind returns about a third of the cost it deletes, not all of it.",
+    "The 768-family linears carry a modelled 28.9 to 55.8 us per call. Against the same-session dense cube rate of 67.59 TFLOP/s those shapes are modelled far below peak, which is expected for their size but is worth confirming as MEASURED rather than modelled, because the roof behind the model carries no recorded clock.",
+    "No single shape holds more than 3.6 %% of the floor. There is no giant hiding here: the fold is a long tail, and a lever has to either hit a class across many shapes or remove per-call cost rather than per-shape cost."
+  ],
+  "limits": [
+    "These are FLOOR seconds from max(traffic, arithmetic) per call, not measured time.",
+    "The roof behind them has no recorded clock and was taken at loadavg 6.2, so the arithmetic side of every row is only valid at that unknown clock.",
+    "Shapes are as the capture recorded them on an older tree."
+  ]
+}
