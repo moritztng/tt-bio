@@ -48,3 +48,17 @@ read; a consuming operation does. Internal scratch estimates remain separate in
 For fold analysis, use `perf/roof_arb/corrected_traffic.py` to retain its L1-output,
 preallocated-output and partial-read corrections. A passing matmul control does
 not certify unobserved kernel rereads, spills or whole-fold traffic.
+
+`reconcile_cycles.py CAPTURE.json` partitions a single synchronized device
+timeline into exclusive program time by class, concurrent program time, and
+idle or unobserved time. It reports summed program durations separately so
+overlap cannot silently become fold latency. Gaps are not labelled CPU work.
+
+The JSON input contains `device`, `timebase`, `start_tick`, `end_tick` and
+`programs`. Every program has a unique string `id`, `op_class`, `device`,
+`timebase`, `start_tick` and `end_tick`. All spans must lie inside the capture
+and share the same device and synchronized timebase. The script refuses mixed
+clocks, mixed devices, duplicate IDs and invalid spans. It does not convert
+ticks to seconds or certify telemetry, marker completeness or profiler overhead;
+those require the measured controls accompanying the capture. The unit tests
+use synthetic timelines only, and make no hardware performance claim.
