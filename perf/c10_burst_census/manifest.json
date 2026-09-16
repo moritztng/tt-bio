@@ -1,0 +1,201 @@
+{
+  "schema": 1,
+  "scope": "STOP at live identity smoke; zero model coverage",
+  "artifacts": [
+    {
+      "path": ".gitignore",
+      "sha256": "a7bdd37adef15bd39486d26448ea25f5239872b38b72886f963543d00230e705",
+      "bytes": 27
+    },
+    {
+      "path": "README.md",
+      "sha256": "80ea1a3b59210de671cdb5ea3d67132ba7bb623705489cc80ef797af17fb0d10",
+      "bytes": 6018
+    },
+    {
+      "path": "TABLE.md",
+      "sha256": "ffd00535b346c345c2eacaac1d7ffa11f61648b5608ea415aead8c2dd8cf2ebb",
+      "bytes": 1424
+    },
+    {
+      "path": "calibration_replay.log",
+      "sha256": "1963d1717d44c3f931676abed51ce770e341dc287d3b7a26dae02cd799594b0b",
+      "bytes": 1101
+    },
+    {
+      "path": "cleanup.json",
+      "sha256": "8bcd69afdf9c52632fb5ecd730105484b93ed3cc619f9ca1591bf1d298b06ce0",
+      "bytes": 265
+    },
+    {
+      "path": "criterion.json",
+      "sha256": "032923899378481fa7e88db9907baaa0067a9b9d8d81ba82c9449160c8bf1a78",
+      "bytes": 1096
+    },
+    {
+      "path": "dependency_acceptance.json",
+      "sha256": "2dd890dd78d6e519e2cd3df7652884998aa9ceb4370caa97e90d6a582e3f3183",
+      "bytes": 3110
+    },
+    {
+      "path": "join_tests.log",
+      "sha256": "ae2f42d273ec7ec794a9807ad7b9370738492d30fd535fc836aa9760ad580324",
+      "bytes": 526
+    },
+    {
+      "path": "parser_tests.log",
+      "sha256": "113cde69be6e627ea1ba49f7cc18430da6ed5ddbed4183691b28ededce8937c0",
+      "bytes": 776
+    },
+    {
+      "path": "preflight.json",
+      "sha256": "61a4806f2b88c1a2b8ff40d31c53cd3a14de845bdfbac2f84425dfba291f488a",
+      "bytes": 763
+    },
+    {
+      "path": "provenance.json",
+      "sha256": "e239daf9d14de5c1542f9de81bdb085c652f39234b1ca39bc46025670fd39088",
+      "bytes": 3079
+    },
+    {
+      "path": "reduce.py",
+      "sha256": "ec0bfab9a588692d08d4102cc4f65a550e8d4adb8d7fbe67868196d0ac4b078a",
+      "bytes": 11433
+    },
+    {
+      "path": "run_smoke.sh",
+      "sha256": "a192573b3367048556b1a161b5866d8c5f958f5449131c2b114f16d77dd6ddbc",
+      "bytes": 1310
+    },
+    {
+      "path": "runs/smoke1/analysis.json",
+      "sha256": "e54eca26f37c484a2c194df0c61f6a5a200d5ad09864dc699d217911eba9d9fb",
+      "bytes": 114187
+    },
+    {
+      "path": "runs/smoke1/criterion.json",
+      "sha256": "032923899378481fa7e88db9907baaa0067a9b9d8d81ba82c9449160c8bf1a78",
+      "bytes": 1096
+    },
+    {
+      "path": "runs/smoke1/kernel_sources.json",
+      "sha256": "7c5c98c33596e21e252932b2dccb98e89780bdd86dbc61cd3e7f9951dd92a335",
+      "bytes": 2868
+    },
+    {
+      "path": "runs/smoke1/out/bio_dirty.patch",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "runs/smoke1/out/capture.json",
+      "sha256": "33330dc60a1f79cbd61ea5f016c619f13616c4a460517b6fb0408a96a2bba5f2",
+      "bytes": 23206
+    },
+    {
+      "path": "runs/smoke1/out/clock.jsonl",
+      "sha256": "f8311317e1ca5a21efa405df4f9cefa3cbcc7764c204dcbb7285dd03308311ab",
+      "bytes": 204672
+    },
+    {
+      "path": "runs/smoke1/out/holders.jsonl",
+      "sha256": "de5b74060c20252711598db63c4cd6f997e81726b18c5848e61b722fc949ac84",
+      "bytes": 11385
+    },
+    {
+      "path": "runs/smoke1/out/matmul_off_graph.json",
+      "sha256": "e25065eb487f7d4221ecd7387c2b6c4bb870deb18021ff50644bd87923ab345b",
+      "bytes": 96472
+    },
+    {
+      "path": "runs/smoke1/out/matmul_on.jsonl",
+      "sha256": "58da38cdc065b142270e125f1df3976713289089922080ec6462f3b5f477025d",
+      "bytes": 164593
+    },
+    {
+      "path": "runs/smoke1/out/matmul_on_graph.json",
+      "sha256": "8bb0f8491daafa05ec258244a43a856403ced7fb858b300eba55fad8a011dd23",
+      "bytes": 94237
+    },
+    {
+      "path": "runs/smoke1/out/metal_dirty.patch",
+      "sha256": "023fd0ed6d042883e1ab613526d663203880e9ce60a7eaedfd7023f2bb57a0b5",
+      "bytes": 10281
+    },
+    {
+      "path": "runs/smoke1/out/reblock_off_graph.json",
+      "sha256": "d7d407495c754495ca8cac613785ba108a9750e5e5ecd94263752739a9df1874",
+      "bytes": 77401
+    },
+    {
+      "path": "runs/smoke1/out/reblock_on.jsonl",
+      "sha256": "cbcd3658c0ff000356b6f3d3a7f9a9e57c1b8ca277e82fb2bc3238cc3dbfca2e",
+      "bytes": 127092
+    },
+    {
+      "path": "runs/smoke1/out/reblock_on_graph.json",
+      "sha256": "5e6e6f780a58d9c7a701a594da47bb8dab1dc69e06fe5672a6f98796eed850e3",
+      "bytes": 75511
+    },
+    {
+      "path": "runs/smoke1/raw/new_zone_src_locations.log.gz",
+      "sha256": "14f7cd38dbfe16528f6d00c3046a4aab8c822e19d5ba122008055b74bc1265f8",
+      "bytes": 725
+    },
+    {
+      "path": "runs/smoke1/raw/ops.csv",
+      "sha256": "6b5deee34a28b8b8e6d3c666b65a10719520a16511e8ee6f726fa8158f75bed1",
+      "bytes": 54973
+    },
+    {
+      "path": "runs/smoke1/raw/profile_log_device.csv.gz",
+      "sha256": "e23815b4a5bc9531306533903c6423d7472d241e6b6721af8422860815d082c4",
+      "bytes": 37235
+    },
+    {
+      "path": "runs/smoke1/raw/tracy_ops_data.csv.gz",
+      "sha256": "4ba79511649e4e10aa4cfa3e55970b1da0515f7d98ee46cee733646239184472",
+      "bytes": 2295
+    },
+    {
+      "path": "runs/smoke1/raw/tracy_ops_times.csv.gz",
+      "sha256": "83206ea15ff38e93a7902f09aa865e3f7fe4f468f6fb871fe34e196dbe70c8ce",
+      "bytes": 7946768
+    },
+    {
+      "path": "runs/smoke1/raw/tracy_profile_log_host.tracy",
+      "sha256": "2c12ea314d3f5f87f1893e09d1030ab4a857cfa5059faf23eb7fca436d717753",
+      "bytes": 18240120
+    },
+    {
+      "path": "runs/smoke1/raw/zone_src_locations.log.gz",
+      "sha256": "9261aec04718108114ce1b2e542bb5d31f2d7bd3e7663c28aa2a18f6549dba04",
+      "bytes": 543
+    },
+    {
+      "path": "runs/smoke1/raw_manifest.json",
+      "sha256": "bf12196afb41435868769d58393d8d3d06ce074d7e863ec3b7fe83114bbc37ee",
+      "bytes": 3464
+    },
+    {
+      "path": "smoke.py",
+      "sha256": "c4de330cf78bdd18d07abbf72a8a69bccb00828f3dde5ea0c50b284b9f91668d",
+      "bytes": 11685
+    },
+    {
+      "path": "smoke1.log",
+      "sha256": "126757351ccdfd22d8df0f3ebf243bcc04d0bb5c75898d3d1b3db7ad23e67d52",
+      "bytes": 5105
+    },
+    {
+      "path": "test_reduce.py",
+      "sha256": "fe6f1ad8499f2806479305c9fc6180710ab3bb1cceeab89555ce5a94c64885f4",
+      "bytes": 2223
+    },
+    {
+      "path": "verify_calibration.py",
+      "sha256": "40135ca381559a2ab2f171f637b013b340382161771f181a2dd7c90ad6df614a",
+      "bytes": 2085
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/compute_reblock_permute.cpp",
+    "sha256": "de7e334bd00c814705ff06e48de9665bac894db4d908c00fae2f5b40ff331297",
+    "bytes": 1765
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/reader_reblock_permute.cpp",
+    "sha256": "19fa71ed500683c5a9484e9568d70bfeb529567c78cd635185544cb9907d688f",
+    "bytes": 5828
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/writer_reblock_permute.cpp",
+    "sha256": "01db9b43df41088e2c646142d9070e89bc6c18caba66e782db5a4bb413776330",
+    "bytes": 11464
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp",
+    "sha256": "08b3b7c9e4dd4d8d347a787c8cf3c3a38ef6e36105c5b0254614f72b61ecb2e1",
+    "bytes": 15563
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp",
+    "sha256": "7070e58e4956d25955e277dc18eae5596ee5fd621f026939ad35bd06ded6ab44",
+    "bytes": 17740
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp",
+    "sha256": "76f3b8cf024afec6436cf27df1896393278df903876e240ad9f32de44402ab2a",
+    "bytes": 15954
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/eltwise/binary_ng/device/kernels/compute/eltwise_binary_no_bcast.cpp",
+    "sha256": "5e15acc228ef33f5ecee840c3852e800e744d6282415272f2e177701bbd3bebd",
+    "bytes": 2005
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/eltwise/binary_ng/device/kernels_ng/dataflow/reader_interleaved_no_bcast.cpp",
+    "sha256": "cc705523801013e1b2a35ae40776a7d340f3220932f3906133492ae506dc5a9e",
+    "bytes": 6495
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/eltwise/binary_ng/device/kernels_ng/dataflow/writer_interleaved_no_bcast.cpp",
+    "sha256": "dc0cf65a7cea8b720c2335b67d8d7df28522aad042a10a1eb47d326c25a1b6d8",
+    "bytes": 3927
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/eltwise/unary/device/kernels/compute/eltwise_sfpu.cpp",
+    "sha256": "9d340c5478f4555d9a60ec8f7dad82ba60487c21f5342367a6c7d5962c7b15ba",
+    "bytes": 1471
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/eltwise/unary/device/kernels/dataflow/reader_unary_interleaved_start_id.cpp",
+    "sha256": "5af4a488495ed3fa46e41ca65d35dc1a4ac69663a473bc1571af5c46d0ba27e9",
+    "bytes": 1443
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/eltwise/unary/device/kernels/dataflow/writer_unary_interleaved_start_id.cpp",
+    "sha256": "c45d4cd8631c9ed3baf7e969c25450130c022a84643e0ef1d16e8e4f8f19fe31",
+    "bytes": 1455
+  }
+]

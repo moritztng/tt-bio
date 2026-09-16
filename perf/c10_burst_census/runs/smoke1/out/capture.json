@@ -1,0 +1,718 @@
+{
+  "scope": "Live identity smoke before any model census. Zero predicted model cycles saved.",
+  "requested_node": 0,
+  "requested_clock_MHz": 1350,
+  "host": "tt-quietbox2",
+  "pid": 66197,
+  "intervals": [
+    {
+      "case": "matmul_off",
+      "reps": 4,
+      "start_monotonic_ns": 4174816140986,
+      "end_monotonic_ns": 4175317643372,
+      "clock": {
+        "samples": 455,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1207491,
+        "first_offset_ns": 357621,
+        "last_offset_ns": 650349,
+        "sample_span_fraction": 0.9979900992933661,
+        "errors": [],
+        "pass": true
+      }
+    },
+    {
+      "case": "matmul_on",
+      "reps": 4,
+      "start_monotonic_ns": 4175388649312,
+      "end_monotonic_ns": 4175444084781,
+      "clock": {
+        "samples": 53,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1079371,
+        "first_offset_ns": 61933,
+        "last_offset_ns": 9553,
+        "sample_span_fraction": 0.9987104645944278,
+        "errors": [],
+        "pass": true
+      }
+    },
+    {
+      "case": "reblock_off",
+      "reps": 4,
+      "start_monotonic_ns": 4175518359949,
+      "end_monotonic_ns": 4175925252362,
+      "clock": {
+        "samples": 380,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1135408,
+        "first_offset_ns": 509600,
+        "last_offset_ns": 57154,
+        "sample_span_fraction": 0.9986071158323613,
+        "errors": [],
+        "pass": true
+      }
+    },
+    {
+      "case": "reblock_on",
+      "reps": 4,
+      "start_monotonic_ns": 4176006705984,
+      "end_monotonic_ns": 4176078581761,
+      "clock": {
+        "samples": 68,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1069978,
+        "first_offset_ns": 299500,
+        "last_offset_ns": 375310,
+        "sample_span_fraction": 0.9906114406248436,
+        "errors": [],
+        "pass": true
+      }
+    }
+  ],
+  "criterion": {
+    "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/criterion.json",
+    "sha256": "032923899378481fa7e88db9907baaa0067a9b9d8d81ba82c9449160c8bf1a78",
+    "bytes": 1096
+  },
+  "before": {
+    "monotonic_ns": 4173380371386,
+    "utc_ns": 1789583552521380935,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [
+      {
+        "pid": 64753,
+        "nodes": [
+          "/dev/tenstorrent/3"
+        ],
+        "state": "R",
+        "utime_ticks": 6473,
+        "stime_ticks": 3248,
+        "starttime_ticks": 413370,
+        "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "3",
+          "TT_BIO_LEASE_CARDS": "3",
+          "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+        }
+      }
+    ],
+    "own_nodes": []
+  },
+  "runtime": {
+    "modules": {
+      "ttnn": {
+        "path": "/home/ttuser/tt-metal-k10/ttnn/ttnn/__init__.py",
+        "sha256": "71245145e8192624719f03b11a319c7e600e398c2ab411219d5e260c9ef32f1d",
+        "bytes": 14612
+      },
+      "tracy": {
+        "path": "/home/ttuser/tt-metal-k10/tools/tracy/__init__.py",
+        "sha256": "9a90e88f8bee5ec0aacbf94de49b4993f52562cbeeacde8d9f44db1fa5111e74",
+        "bytes": 5860
+      }
+    },
+    "shared_libraries": [
+      {
+        "path": "/home/ttuser/tt-metal-k10/build_Release/lib/_ttnncpp.so",
+        "sha256": "23401c0f45c246a0d1283f3fd0db67eb4ee4a430d52efe66cc21940720e16912",
+        "bytes": 33947712
+      },
+      {
+        "path": "/home/ttuser/tt-metal-k10/build_Release/lib/libdevice.so",
+        "sha256": "d9c468608e6ecdc831bcfe01aa442acc2ed424e884e9c0a30a01010108309954",
+        "bytes": 4774728
+      },
+      {
+        "path": "/home/ttuser/tt-metal-k10/build_Release/lib/libtracy.so.0.10.0",
+        "sha256": "e604eac19b2b0cea1b965164e135e4fe43e57bd74e7f7c2832fbc6cb59ff9d18",
+        "bytes": 436528
+      },
+      {
+        "path": "/home/ttuser/tt-metal-k10/build_Release/lib/libtt_metal.so",
+        "sha256": "3038e12f50b775a4ee561da77228bec0a9ccefa9a68077651b752d8d22c65500",
+        "bytes": 19265880
+      },
+      {
+        "path": "/home/ttuser/tt-metal-k10/build_Release/lib/libtt_stl.so",
+        "sha256": "178b247ebf96bebd2035d402340b2c53584129bfcbbbd63efe7ae5dd4cc3e8b9",
+        "bytes": 18912
+      },
+      {
+        "path": "/home/ttuser/tt-metal-k10/ttnn/ttnn/_ttnn.so",
+        "sha256": "e12967f52249a748c28c8886e1272177ce8c0799ff28fb922a567759a4cae762",
+        "bytes": 14179848
+      }
+    ],
+    "python": "/usr/bin/python3.12",
+    "flags": {
+      "LD_LIBRARY_PATH": "/home/ttuser/tt-metal-k10/build_Release/lib",
+      "TT_BIO_LEASE_CARDS": "0",
+      "TT_VISIBLE_DEVICES": "0",
+      "TT_METAL_DEVICE_PROFILER": "1",
+      "TT_BIO_AICLK": "1350",
+      "TT_METAL_PROFILER_TRACE_TRACKING": "1",
+      "TT_BIO_LEASE_HOLDER": "worker:c10-burst-census",
+      "TTNN_OP_PROFILER": "1",
+      "TT_METAL_PROFILER_SUM": "1",
+      "TT_METAL_HOME": "/home/ttuser/tt-metal-k10",
+      "PYTHONPATH": "/home/ttuser/.coworker/wt/c10-burst-census:/home/ttuser/tt-metal-k10/ttnn:/home/ttuser/tt-metal-k10:/home/ttuser/tt-metal-k10/tools",
+      "OMP_NUM_THREADS": "2",
+      "TT_METAL_RUNTIME_ROOT": "/home/ttuser/tt-metal-k10",
+      "TT_METAL_PROFILER_DIR": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke1/tracy",
+      "TT_METAL_LOGGER_LEVEL": "FATAL",
+      "TT_METAL_CACHE": "/home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0",
+      "TT_MESH_GRAPH_DESC_PATH": "/home/ttuser/tt-metal-k10/tt_metal/fabric/mesh_graph_descriptors/p150_mesh_graph_descriptor.textproto"
+    }
+  },
+  "source_head": "1452925b033c6608726b731a81500bd3e19f7894",
+  "source_files": [
+    {
+      "path": "/home/ttuser/tt-metal-k10/tt_metal/hw/inc/api/dataflow/dataflow_api.h",
+      "sha256": "f3e050fdde4b2d72af237c4a0be36dffd8d1b4dd56ec5b1cab3135027cdf51f3",
+      "bytes": 136307
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/tt_metal/hostdevcommon/api/hostdevcommon/profiler_common.h",
+      "sha256": "c4d2df3c379f0b1d2740a008a91ea511ea1dd23fd3f23b89f1ed8acce08b10dc",
+      "bytes": 3185
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/tt_metal/tools/profiler/kernel_profiler.hpp",
+      "sha256": "bc09b610f39312a9d2fcd000d299e0162391d3e6054f78273ce036dc1c2f9823",
+      "bytes": 34805
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/tools/tracy/device_post_proc_config.py",
+      "sha256": "6394457f7facf9e0daefae8b71cb7b2c079ee46454a7ecf307e5a5cde78172e8",
+      "bytes": 20578
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/tools/tracy/process_device_log.py",
+      "sha256": "c28fee16749a35232b9d8c6aac0d048bf49082840a696facde84b0458bc9bac2",
+      "bytes": 34690
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/tools/tracy/process_ops_logs.py",
+      "sha256": "38475f3960063ecbd1bfde0ebe1580cafb409ca8a05891a74802fdd3b528e2a7",
+      "bytes": 112041
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/build_Release/CMakeCache.txt",
+      "sha256": "ddb5a295309333bc1edfa34b9c3bd1a68c689432cdbdf4ad6297fb55d2a90379",
+      "bytes": 130503
+    }
+  ],
+  "profiler_tools": [
+    {
+      "path": "/home/ttuser/tt-metal-k10/build_Release/tools/profiler/bin/capture-release",
+      "sha256": "03639d4afe5e9294ec7623f6a7327bc798ad4a297df891d2e322f9c1fa4ea516",
+      "bytes": 1732152
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/build_Release/tools/profiler/bin/csvexport-release",
+      "sha256": "f79af294e68ddde77b61d42929c7af82d38dd8a05d68efdec5ec2d22e3e64dfd",
+      "bytes": 1982112
+    }
+  ],
+  "bio_head": "cd13bc7666312955350e3def7a14edd9967db578",
+  "metal_dirty_diff_sha256": "023fd0ed6d042883e1ab613526d663203880e9ce60a7eaedfd7023f2bb57a0b5",
+  "bio_dirty_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "clock_source": {
+    "ref": "5c60137c2:tt_bio/aiclk.py",
+    "sha256": "f1c9c7bc50bf4162bc7e1ee098ea47bc49985f213b6889f69fe204401988e9f5"
+  },
+  "opened": {
+    "monotonic_ns": 4174737284361,
+    "utc_ns": 1789583553878295683,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [
+      {
+        "pid": 64753,
+        "nodes": [
+          "/dev/tenstorrent/3"
+        ],
+        "state": "R",
+        "utime_ticks": 6608,
+        "stime_ticks": 3248,
+        "starttime_ticks": 413370,
+        "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "3",
+          "TT_BIO_LEASE_CARDS": "3",
+          "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+        }
+      },
+      {
+        "pid": 66197,
+        "nodes": [
+          "/dev/tenstorrent/0"
+        ],
+        "state": "S",
+        "utime_ticks": 235,
+        "stime_ticks": 42,
+        "starttime_ticks": 417201,
+        "argv": "python3 -m tracy -o /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke1/tracy --enable-sum-profiling -- perf/c10_burst_census/smoke.py --out /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke1/out ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "0",
+          "TT_BIO_LEASE_CARDS": "0",
+          "TT_BIO_LEASE_HOLDER": "worker:c10-burst-census"
+        }
+      }
+    ],
+    "own_nodes": [
+      "/dev/tenstorrent/0"
+    ]
+  },
+  "clock_hold": {
+    "mhz": 1350,
+    "nodes": [
+      0
+    ],
+    "reasserts": 0
+  },
+  "binding_smoke": {
+    "runtime_view_type": "ttnn._ttnn.program_descriptor.RuntimeArgsView",
+    "runtime_coordinate_values": [
+      13,
+      17
+    ],
+    "descriptor": {
+      "type": "ProgramDescriptor",
+      "fields": {
+        "kernels": [
+          {
+            "type": "KernelDescriptor",
+            "fields": {
+              "kernel_source": "unused.cpp",
+              "source_type": {
+                "enum": "ttnn._ttnn.program_descriptor.KernelDescriptor.SourceType",
+                "name": "FILE_PATH",
+                "value": 0
+              },
+              "core_ranges": {
+                "type": "CoreRangeSet",
+                "ranges": [
+                  {
+                    "type": "CoreRange",
+                    "fields": {
+                      "start_coord": {
+                        "unavailable": "getter failed: AttributeError"
+                      },
+                      "end_coord": {
+                        "unavailable": "getter failed: AttributeError"
+                      }
+                    }
+                  }
+                ]
+              },
+              "compile_time_args": [],
+              "named_compile_time_args": [],
+              "defines": [],
+              "common_runtime_args": [],
+              "config": {
+                "type": "ComputeConfigDescriptor",
+                "fields": {
+                  "math_fidelity": {
+                    "enum": "ttnn._ttnn.tensor.MathFidelity",
+                    "name": "HiFi4",
+                    "value": 4
+                  },
+                  "math_approx_mode": false,
+                  "fp32_dest_acc_en": false,
+                  "dst_full_sync_en": false,
+                  "unpack_to_dest_mode": [],
+                  "bfp8_pack_precise": false
+                }
+              },
+              "opt_level": {
+                "unavailable": "getter failed: AttributeError"
+              }
+            }
+          }
+        ],
+        "semaphores": [],
+        "cbs": [],
+        "custom_program_hash": {
+          "unavailable": "getter failed: AttributeError"
+        }
+      }
+    },
+    "gaps": [
+      "/fields/kernels/0/fields/core_ranges/ranges/0/fields/start_coord",
+      "/fields/kernels/0/fields/core_ranges/ranges/0/fields/end_coord",
+      "/fields/kernels/0/fields/opt_level",
+      "/fields/custom_program_hash"
+    ]
+  },
+  "controls": [
+    {
+      "case": "matmul_off",
+      "index": 0,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": null,
+      "sha256": "a80721124159f37d86a7f509e6dc66ae2ddc72d61fe0e98d89a19b019f4e76fc"
+    },
+    {
+      "case": "matmul_off",
+      "index": 1,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": null,
+      "sha256": "4bb52da112bfd24b68d8871ca1baa8af8c6fc11e2656502727f4f0e3da97cc15"
+    },
+    {
+      "case": "matmul_off",
+      "index": 2,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": null,
+      "sha256": "a80721124159f37d86a7f509e6dc66ae2ddc72d61fe0e98d89a19b019f4e76fc"
+    },
+    {
+      "case": "matmul_off",
+      "index": 3,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": null,
+      "sha256": "4bb52da112bfd24b68d8871ca1baa8af8c6fc11e2656502727f4f0e3da97cc15"
+    },
+    {
+      "case": "matmul_on",
+      "index": 0,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": true,
+      "sha256": "a80721124159f37d86a7f509e6dc66ae2ddc72d61fe0e98d89a19b019f4e76fc"
+    },
+    {
+      "case": "matmul_on",
+      "index": 1,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": true,
+      "sha256": "4bb52da112bfd24b68d8871ca1baa8af8c6fc11e2656502727f4f0e3da97cc15"
+    },
+    {
+      "case": "matmul_on",
+      "index": 2,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": true,
+      "sha256": "a80721124159f37d86a7f509e6dc66ae2ddc72d61fe0e98d89a19b019f4e76fc"
+    },
+    {
+      "case": "matmul_on",
+      "index": 3,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": true,
+      "sha256": "4bb52da112bfd24b68d8871ca1baa8af8c6fc11e2656502727f4f0e3da97cc15"
+    },
+    {
+      "case": "reblock_off",
+      "index": 0,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": null,
+      "sha256": "7f8ceb6c831cca0cb2196803b486b8ad11c0ee135c57757ed99650de8661a19e"
+    },
+    {
+      "case": "reblock_off",
+      "index": 1,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": null,
+      "sha256": "27ca84ea6d239246caffab24376a44a85f1e0df66b17ab2066c1cc8ca2421f2a"
+    },
+    {
+      "case": "reblock_off",
+      "index": 2,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": null,
+      "sha256": "7f8ceb6c831cca0cb2196803b486b8ad11c0ee135c57757ed99650de8661a19e"
+    },
+    {
+      "case": "reblock_off",
+      "index": 3,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": null,
+      "sha256": "27ca84ea6d239246caffab24376a44a85f1e0df66b17ab2066c1cc8ca2421f2a"
+    },
+    {
+      "case": "reblock_on",
+      "index": 0,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": true,
+      "sha256": "7f8ceb6c831cca0cb2196803b486b8ad11c0ee135c57757ed99650de8661a19e"
+    },
+    {
+      "case": "reblock_on",
+      "index": 1,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": true,
+      "sha256": "27ca84ea6d239246caffab24376a44a85f1e0df66b17ab2066c1cc8ca2421f2a"
+    },
+    {
+      "case": "reblock_on",
+      "index": 2,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": true,
+      "sha256": "7f8ceb6c831cca0cb2196803b486b8ad11c0ee135c57757ed99650de8661a19e"
+    },
+    {
+      "case": "reblock_on",
+      "index": 3,
+      "float64_exact": true,
+      "max_abs": 0.0,
+      "off_on_exact": true,
+      "sha256": "27ca84ea6d239246caffab24376a44a85f1e0df66b17ab2066c1cc8ca2421f2a"
+    }
+  ],
+  "compute_config": {
+    "cfg": [
+      [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        2,
+        2
+      ]
+    ],
+    "fidelity": "HiFi4",
+    "approx": false,
+    "fp32_dest": true
+  },
+  "holder_snapshots": [
+    {
+      "monotonic_ns": 4174783446736,
+      "utc_ns": 1789583553924456274,
+      "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+      "module_srcversion": "A10759A24565BC5BBE903C5",
+      "containment": "active",
+      "holders": [
+        {
+          "pid": 64753,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "R",
+          "utime_ticks": 6613,
+          "stime_ticks": 3248,
+          "starttime_ticks": 413370,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        },
+        {
+          "pid": 66197,
+          "nodes": [
+            "/dev/tenstorrent/0"
+          ],
+          "state": "S",
+          "utime_ticks": 237,
+          "stime_ticks": 42,
+          "starttime_ticks": 417201,
+          "argv": "python3 -m tracy -o /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke1/tracy --enable-sum-profiling -- perf/c10_burst_census/smoke.py --out /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke1/out ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "0",
+            "TT_BIO_LEASE_CARDS": "0",
+            "TT_BIO_LEASE_HOLDER": "worker:c10-burst-census"
+          }
+        }
+      ],
+      "own_nodes": [
+        "/dev/tenstorrent/0"
+      ]
+    },
+    {
+      "monotonic_ns": 4175362542261,
+      "utc_ns": 1789583554503552420,
+      "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+      "module_srcversion": "A10759A24565BC5BBE903C5",
+      "containment": "active",
+      "holders": [
+        {
+          "pid": 64753,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "R",
+          "utime_ticks": 6671,
+          "stime_ticks": 3249,
+          "starttime_ticks": 413370,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        },
+        {
+          "pid": 66197,
+          "nodes": [
+            "/dev/tenstorrent/0"
+          ],
+          "state": "S",
+          "utime_ticks": 249,
+          "stime_ticks": 43,
+          "starttime_ticks": 417201,
+          "argv": "python3 -m tracy -o /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke1/tracy --enable-sum-profiling -- perf/c10_burst_census/smoke.py --out /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke1/out ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "0",
+            "TT_BIO_LEASE_CARDS": "0",
+            "TT_BIO_LEASE_HOLDER": "worker:c10-burst-census"
+          }
+        }
+      ],
+      "own_nodes": [
+        "/dev/tenstorrent/0"
+      ]
+    },
+    {
+      "monotonic_ns": 4175491689775,
+      "utc_ns": 1789583554632699333,
+      "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+      "module_srcversion": "A10759A24565BC5BBE903C5",
+      "containment": "active",
+      "holders": [
+        {
+          "pid": 64753,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "R",
+          "utime_ticks": 6684,
+          "stime_ticks": 3249,
+          "starttime_ticks": 413370,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        },
+        {
+          "pid": 66197,
+          "nodes": [
+            "/dev/tenstorrent/0"
+          ],
+          "state": "S",
+          "utime_ticks": 260,
+          "stime_ticks": 44,
+          "starttime_ticks": 417201,
+          "argv": "python3 -m tracy -o /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke1/tracy --enable-sum-profiling -- perf/c10_burst_census/smoke.py --out /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke1/out ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "0",
+            "TT_BIO_LEASE_CARDS": "0",
+            "TT_BIO_LEASE_HOLDER": "worker:c10-burst-census"
+          }
+        }
+      ],
+      "own_nodes": [
+        "/dev/tenstorrent/0"
+      ]
+    },
+    {
+      "monotonic_ns": 4175980463364,
+      "utc_ns": 1789583555121472762,
+      "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+      "module_srcversion": "A10759A24565BC5BBE903C5",
+      "containment": "active",
+      "holders": [
+        {
+          "pid": 64753,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "R",
+          "utime_ticks": 6733,
+          "stime_ticks": 3249,
+          "starttime_ticks": 413370,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        },
+        {
+          "pid": 66197,
+          "nodes": [
+            "/dev/tenstorrent/0"
+          ],
+          "state": "S",
+          "utime_ticks": 274,
+          "stime_ticks": 44,
+          "starttime_ticks": 417201,
+          "argv": "python3 -m tracy -o /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke1/tracy --enable-sum-profiling -- perf/c10_burst_census/smoke.py --out /home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke1/out ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "0",
+            "TT_BIO_LEASE_CARDS": "0",
+            "TT_BIO_LEASE_HOLDER": "worker:c10-burst-census"
+          }
+        }
+      ],
+      "own_nodes": [
+        "/dev/tenstorrent/0"
+      ]
+    }
+  ],
+  "verdict": "CAPTURED_ANALYSIS_REQUIRED",
+  "sampler_exit": 0,
+  "clock_hold_final": {
+    "mhz": 1350,
+    "nodes": [
+      0
+    ],
+    "reasserts": 0
+  },
+  "clock_released": true,
+  "after": {
+    "monotonic_ns": 4176711095582,
+    "utc_ns": 1789583555852105011,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [
+      {
+        "pid": 64753,
+        "nodes": [
+          "/dev/tenstorrent/3"
+        ],
+        "state": "R",
+        "utime_ticks": 6806,
+        "stime_ticks": 3249,
+        "starttime_ticks": 413370,
+        "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "3",
+          "TT_BIO_LEASE_CARDS": "3",
+          "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+        }
+      }
+    ],
+    "own_nodes": []
+  }
+}

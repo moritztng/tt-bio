@@ -1,0 +1,17 @@
+{
+  "source_commit": "5d8b761981dde4f0e3fbbf6fc13a5037bc252663",
+  "scope": "CPU replay of archived failed identity smoke; no parent device run",
+  "manifest_files_verified": 39,
+  "raw_archive_and_original_hashes_verified": true,
+  "reducer_output_matches_archived_hash": true,
+  "execution_join_tests_passed": 5,
+  "require_go_exit_code": 2,
+  "verdict": "STOP",
+  "required_identity_gaps": 35,
+  "during_samples": 956,
+  "clock_min_MHz": 1350,
+  "clock_max_MHz": 1350,
+  "model_invocations_measured": 0,
+  "repair_commit": "4fe3c7bf9",
+  "repair_scope": "CPU-tested getter mapping, fresh live validation pending"
+}

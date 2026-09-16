@@ -1,0 +1,2418 @@
+[
+  {
+    "arguments": [],
+    "connections": [
+      1
+    ],
+    "counter": 0,
+    "input_tensors": [],
+    "node_type": "capture_start",
+    "params": null,
+    "stacking_level": 0
+  },
+  {
+    "arguments": [],
+    "connections": [
+      2
+    ],
+    "counter": 1,
+    "input_tensors": [],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "0",
+      "name": "ttnn.generic_op"
+    },
+    "stacking_level": 1
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))"
+    ],
+    "connections": [
+      4,
+      5,
+      9
+    ],
+    "counter": 2,
+    "input_tensors": [
+      3
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "1",
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 2
+  },
+  {
+    "arguments": [],
+    "connections": [
+      2
+    ],
+    "counter": 3,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6402112,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6402112,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 6
+    },
+    "stacking_level": 2
+  },
+  {
+    "arguments": [],
+    "connections": [
+      3,
+      6,
+      24,
+      71,
+      73,
+      89
+    ],
+    "counter": 4,
+    "input_tensors": [],
+    "node_type": "buffer",
+    "params": {
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "exact_buffer_type": "DRAM",
+      "layout": "INTERLEAVED",
+      "size": 8192,
+      "type": "DRAM"
+    },
+    "stacking_level": 2
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))",
+      "1"
+    ],
+    "connections": [
+      7
+    ],
+    "counter": 5,
+    "input_tensors": [
+      6
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 3
+  },
+  {
+    "arguments": [],
+    "connections": [
+      5
+    ],
+    "counter": 6,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6402112,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6402112,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 6
+    },
+    "stacking_level": 3
+  },
+  {
+    "arguments": [],
+    "connections": [
+      8,
+      9
+    ],
+    "counter": 7,
+    "duration_ns": 40897,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 3
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 8,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 23
+    },
+    "stacking_level": 3
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))"
+    ],
+    "connections": [
+      11,
+      12,
+      16,
+      38
+    ],
+    "counter": 9,
+    "input_tensors": [
+      10
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "1",
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 3
+  },
+  {
+    "arguments": [],
+    "connections": [
+      9
+    ],
+    "counter": 10,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6406208,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6406208,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 10
+    },
+    "stacking_level": 3
+  },
+  {
+    "arguments": [],
+    "connections": [
+      10,
+      13,
+      25,
+      77,
+      79,
+      90
+    ],
+    "counter": 11,
+    "input_tensors": [],
+    "node_type": "buffer",
+    "params": {
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "exact_buffer_type": "DRAM",
+      "layout": "INTERLEAVED",
+      "size": 8192,
+      "type": "DRAM"
+    },
+    "stacking_level": 3
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))",
+      "1"
+    ],
+    "connections": [
+      14
+    ],
+    "counter": 12,
+    "input_tensors": [
+      13
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 4
+  },
+  {
+    "arguments": [],
+    "connections": [
+      12
+    ],
+    "counter": 13,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6406208,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6406208,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 10
+    },
+    "stacking_level": 4
+  },
+  {
+    "arguments": [],
+    "connections": [
+      15,
+      16
+    ],
+    "counter": 14,
+    "duration_ns": 13776,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 4
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 15,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 27
+    },
+    "stacking_level": 4
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))"
+    ],
+    "connections": [
+      18,
+      19,
+      23,
+      37
+    ],
+    "counter": 16,
+    "input_tensors": [
+      17
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "1",
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 4
+  },
+  {
+    "arguments": [],
+    "connections": [
+      16
+    ],
+    "counter": 17,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6475840,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 17
+    },
+    "stacking_level": 4
+  },
+  {
+    "arguments": [],
+    "connections": [
+      17,
+      20,
+      26,
+      27,
+      36,
+      83,
+      85,
+      91,
+      92,
+      95
+    ],
+    "counter": 18,
+    "input_tensors": [],
+    "node_type": "buffer",
+    "params": {
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "exact_buffer_type": "DRAM",
+      "layout": "INTERLEAVED",
+      "size": 8192,
+      "type": "DRAM"
+    },
+    "stacking_level": 4
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))",
+      "1"
+    ],
+    "connections": [
+      21
+    ],
+    "counter": 19,
+    "input_tensors": [
+      20
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [
+      19
+    ],
+    "counter": 20,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6475840,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 17
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [
+      22,
+      23
+    ],
+    "counter": 21,
+    "duration_ns": 12323,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 22,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 31
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [
+      "MeshProgramDescriptor({{MeshCoordinateRange(start=MeshCoordinate([0, 0]), end=MeshCoordinate([0, 0])), ProgramDescriptor(SmallVector([KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=0) - (x=0,y=1)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 0, 1, 2, 1, 1, 1, 2, 2048, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=0,y=0), {6402112, 0, 0, 0, 2, 2, 1, 2, 0, 1, 0, 1, 0, 6475840}}, {(x=0,y=1), {6402112, 0, 0, 0, 2, 3, 1, 3, 1, 2, 0, 1, 1, 6475840}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_1,noc=NOC::RISCV_1_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=1,y=0) - (x=1,y=1)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 0, 1, 2, 1, 0, 1, 2, 2048, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=1,y=0), {6402112, 0, 0, 1, 2, 2, 1, 2, 0, 1, 1, 2, 0, 6475840}}, {(x=1,y=1), {6402112, 0, 0, 1, 2, 3, 1, 3, 1, 2, 1, 2, 1, 6475840}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_1,noc=NOC::RISCV_1_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=0) - (x=1,y=0)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 3, 4, 5, 0, 1, 1, 2, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=0,y=0), {6406208, 0, 0, 1, 3, 1, 2, 0, 1, 0, 1, 0, 6475840}}, {(x=1,y=0), {6406208, 0, 0, 2, 3, 2, 2, 0, 1, 1, 2, 0, 6475840}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_0,noc=NOC::RISCV_0_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=1) - (x=1,y=1)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 3, 4, 5, 0, 0, 1, 2, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=0,y=1), {6406208, 0, 1, 1, 3, 1, 2, 1, 2, 0, 1, 1, 6475840}}, {(x=1,y=1), {6406208, 0, 1, 2, 3, 2, 2, 1, 2, 1, 2, 1, 6475840}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_0,noc=NOC::RISCV_0_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=0) - (x=1,y=1)]},compile_time_args={2, 1, 1, 1, 1, 1, 1, 1},named_compile_time_args={},defines={},runtime_args={{(x=0,y=0), {0, 1, 0, 1}}, {(x=0,y=1), {1, 2, 0, 1}}, {(x=1,y=0), {0, 1, 1, 2}}, {(x=1,y=1), {1, 2, 1, 2}}},common_runtime_args={},opt_level=std::nullopt,config=ComputeConfigDescriptor(math_fidelity=HiFi4,fp32_dest_acc_en=1,dst_full_sync_en=0,unpack_to_dest_mode={},bfp8_pack_precise=0,math_approx_mode=0))]), SmallVector([SemaphoreDescriptor(id=0,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=1,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=2,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=1), SemaphoreDescriptor(id=3,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=4,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=5,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=1)]), SmallVector([CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0000,data_format=Float16_b,page_size=2048,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0), CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0001,data_format=Float16_b,page_size=2048,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0), CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0002,data_format=Float16_b,page_size=2048,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0), CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0003,data_format=Float32,page_size=4096,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0)]), std::nullopt)}})",
+      "{Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32])))), Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32])))), Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32])))), Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))}"
+    ],
+    "connections": [
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35
+    ],
+    "counter": 23,
+    "input_tensors": [
+      24,
+      25,
+      26,
+      27
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "GenericOpDeviceOperation"
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [
+      23
+    ],
+    "counter": 24,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6402112,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6402112,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 6
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [
+      23
+    ],
+    "counter": 25,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6406208,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6406208,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 10
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [
+      23
+    ],
+    "counter": 26,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6475840,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 17
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [
+      23
+    ],
+    "counter": 27,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6475840,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 17
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [
+      23
+    ],
+    "counter": 28,
+    "input_tensors": [],
+    "node_type": "circular_buffer_deallocate_all",
+    "params": {
+      "device_id": 1
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 29,
+    "input_tensors": [],
+    "node_type": "circular_buffer_allocate",
+    "params": {
+      "address": 111104,
+      "core_range_set": "{[(x=0,y=0) - (x=1,y=1)]}",
+      "device_id": 1,
+      "globally_allocated": "0",
+      "size": 4096
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 30,
+    "input_tensors": [],
+    "node_type": "circular_buffer_allocate",
+    "params": {
+      "address": 115200,
+      "core_range_set": "{[(x=0,y=0) - (x=1,y=1)]}",
+      "device_id": 1,
+      "globally_allocated": "0",
+      "size": 4096
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 31,
+    "input_tensors": [],
+    "node_type": "circular_buffer_allocate",
+    "params": {
+      "address": 119296,
+      "core_range_set": "{[(x=0,y=0) - (x=1,y=1)]}",
+      "device_id": 1,
+      "globally_allocated": "0",
+      "size": 4096
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 32,
+    "input_tensors": [],
+    "node_type": "circular_buffer_allocate",
+    "params": {
+      "address": 123392,
+      "core_range_set": "{[(x=0,y=0) - (x=1,y=1)]}",
+      "device_id": 1,
+      "globally_allocated": "0",
+      "size": 4096
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 33,
+    "input_tensors": [],
+    "node_type": "buffer",
+    "params": {
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "exact_buffer_type": "DRAM",
+      "layout": "INTERLEAVED",
+      "size": 20480,
+      "type": "DRAM"
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [
+      33
+    ],
+    "counter": 34,
+    "input_tensors": [],
+    "node_type": "buffer_allocate",
+    "params": {
+      "address": 4278181888,
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "exact_buffer_type": "DRAM",
+      "layout": "INTERLEAVED",
+      "max_size_per_bank": 4096,
+      "num_cores": 0,
+      "page_size": 2048,
+      "size": 20480,
+      "type": "DRAM"
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [
+      36
+    ],
+    "counter": 35,
+    "duration_ns": 473954079,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "GenericOpDeviceOperation"
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 36,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6475840,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 17
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [
+      38
+    ],
+    "counter": 37,
+    "duration_ns": 482473007,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 4
+  },
+  {
+    "arguments": [],
+    "connections": [
+      39
+    ],
+    "counter": 38,
+    "input_tensors": [],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "0",
+      "name": "ttnn.generic_op"
+    },
+    "stacking_level": 4
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))"
+    ],
+    "connections": [
+      41,
+      42,
+      46
+    ],
+    "counter": 39,
+    "input_tensors": [
+      40
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "1",
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [
+      39
+    ],
+    "counter": 40,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6404160,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6404160,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 8
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [],
+    "connections": [
+      40,
+      43,
+      61,
+      99,
+      101,
+      117
+    ],
+    "counter": 41,
+    "input_tensors": [],
+    "node_type": "buffer",
+    "params": {
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "exact_buffer_type": "DRAM",
+      "layout": "INTERLEAVED",
+      "size": 8192,
+      "type": "DRAM"
+    },
+    "stacking_level": 5
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))",
+      "1"
+    ],
+    "connections": [
+      44
+    ],
+    "counter": 42,
+    "input_tensors": [
+      43
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 6
+  },
+  {
+    "arguments": [],
+    "connections": [
+      42
+    ],
+    "counter": 43,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6404160,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6404160,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 8
+    },
+    "stacking_level": 6
+  },
+  {
+    "arguments": [],
+    "connections": [
+      45,
+      46
+    ],
+    "counter": 44,
+    "duration_ns": 52821,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 6
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 45,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 36
+    },
+    "stacking_level": 6
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))"
+    ],
+    "connections": [
+      48,
+      49,
+      53,
+      69
+    ],
+    "counter": 46,
+    "input_tensors": [
+      47
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "1",
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 6
+  },
+  {
+    "arguments": [],
+    "connections": [
+      46
+    ],
+    "counter": 47,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6408256,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6408256,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 12
+    },
+    "stacking_level": 6
+  },
+  {
+    "arguments": [],
+    "connections": [
+      47,
+      50,
+      62,
+      105,
+      107,
+      118
+    ],
+    "counter": 48,
+    "input_tensors": [],
+    "node_type": "buffer",
+    "params": {
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "exact_buffer_type": "DRAM",
+      "layout": "INTERLEAVED",
+      "size": 8192,
+      "type": "DRAM"
+    },
+    "stacking_level": 6
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))",
+      "1"
+    ],
+    "connections": [
+      51
+    ],
+    "counter": 49,
+    "input_tensors": [
+      50
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 7
+  },
+  {
+    "arguments": [],
+    "connections": [
+      49
+    ],
+    "counter": 50,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6408256,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6408256,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 12
+    },
+    "stacking_level": 7
+  },
+  {
+    "arguments": [],
+    "connections": [
+      52,
+      53
+    ],
+    "counter": 51,
+    "duration_ns": 12935,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 7
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 52,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 40
+    },
+    "stacking_level": 7
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))"
+    ],
+    "connections": [
+      55,
+      56,
+      60,
+      68
+    ],
+    "counter": 53,
+    "input_tensors": [
+      54
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "1",
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 7
+  },
+  {
+    "arguments": [],
+    "connections": [
+      53
+    ],
+    "counter": 54,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6477888,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 18
+    },
+    "stacking_level": 7
+  },
+  {
+    "arguments": [],
+    "connections": [
+      54,
+      57,
+      63,
+      64,
+      67,
+      111,
+      113,
+      119,
+      120,
+      123
+    ],
+    "counter": 55,
+    "input_tensors": [],
+    "node_type": "buffer",
+    "params": {
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "exact_buffer_type": "DRAM",
+      "layout": "INTERLEAVED",
+      "size": 8192,
+      "type": "DRAM"
+    },
+    "stacking_level": 7
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))",
+      "1"
+    ],
+    "connections": [
+      58
+    ],
+    "counter": 56,
+    "input_tensors": [
+      57
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [],
+    "connections": [
+      56
+    ],
+    "counter": 57,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6477888,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 18
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [],
+    "connections": [
+      59,
+      60
+    ],
+    "counter": 58,
+    "duration_ns": 11852,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 59,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 44
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [
+      "MeshProgramDescriptor({{MeshCoordinateRange(start=MeshCoordinate([0, 0]), end=MeshCoordinate([0, 0])), ProgramDescriptor(SmallVector([KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=0) - (x=0,y=1)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 0, 1, 2, 1, 1, 1, 2, 2048, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=0,y=0), {6404160, 0, 0, 0, 2, 2, 1, 2, 0, 1, 0, 1, 0, 6477888}}, {(x=0,y=1), {6404160, 0, 0, 0, 2, 3, 1, 3, 1, 2, 0, 1, 1, 6477888}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_1,noc=NOC::RISCV_1_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=1,y=0) - (x=1,y=1)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 0, 1, 2, 1, 0, 1, 2, 2048, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=1,y=0), {6404160, 0, 0, 1, 2, 2, 1, 2, 0, 1, 1, 2, 0, 6477888}}, {(x=1,y=1), {6404160, 0, 0, 1, 2, 3, 1, 3, 1, 2, 1, 2, 1, 6477888}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_1,noc=NOC::RISCV_1_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=0) - (x=1,y=0)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 3, 4, 5, 0, 1, 1, 2, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=0,y=0), {6408256, 0, 0, 1, 3, 1, 2, 0, 1, 0, 1, 0, 6477888}}, {(x=1,y=0), {6408256, 0, 0, 2, 3, 2, 2, 0, 1, 1, 2, 0, 6477888}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_0,noc=NOC::RISCV_0_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=1) - (x=1,y=1)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 3, 4, 5, 0, 0, 1, 2, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=0,y=1), {6408256, 0, 1, 1, 3, 1, 2, 1, 2, 0, 1, 1, 6477888}}, {(x=1,y=1), {6408256, 0, 1, 2, 3, 2, 2, 1, 2, 1, 2, 1, 6477888}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_0,noc=NOC::RISCV_0_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=0) - (x=1,y=1)]},compile_time_args={2, 1, 1, 1, 1, 1, 1, 1},named_compile_time_args={},defines={},runtime_args={{(x=0,y=0), {0, 1, 0, 1}}, {(x=0,y=1), {1, 2, 0, 1}}, {(x=1,y=0), {0, 1, 1, 2}}, {(x=1,y=1), {1, 2, 1, 2}}},common_runtime_args={},opt_level=std::nullopt,config=ComputeConfigDescriptor(math_fidelity=HiFi4,fp32_dest_acc_en=1,dst_full_sync_en=0,unpack_to_dest_mode={},bfp8_pack_precise=0,math_approx_mode=0))]), SmallVector([SemaphoreDescriptor(id=0,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=1,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=2,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=1), SemaphoreDescriptor(id=3,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=4,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=5,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=1)]), SmallVector([CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0000,data_format=Float16_b,page_size=2048,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0), CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0001,data_format=Float16_b,page_size=2048,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0), CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0002,data_format=Float16_b,page_size=2048,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0), CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0003,data_format=Float32,page_size=4096,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0)]), std::nullopt)}})",
+      "{Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32])))), Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32])))), Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32])))), Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))}"
+    ],
+    "connections": [
+      65,
+      66
+    ],
+    "counter": 60,
+    "input_tensors": [
+      61,
+      62,
+      63,
+      64
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "GenericOpDeviceOperation"
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [],
+    "connections": [
+      60
+    ],
+    "counter": 61,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6404160,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6404160,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 8
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [],
+    "connections": [
+      60
+    ],
+    "counter": 62,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6408256,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6408256,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 12
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [],
+    "connections": [
+      60
+    ],
+    "counter": 63,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6477888,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 18
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [],
+    "connections": [
+      60
+    ],
+    "counter": 64,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6477888,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 18
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [],
+    "connections": [
+      60
+    ],
+    "counter": 65,
+    "input_tensors": [],
+    "node_type": "circular_buffer_deallocate_all",
+    "params": {
+      "device_id": 1
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [],
+    "connections": [
+      67
+    ],
+    "counter": 66,
+    "duration_ns": 123395,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "GenericOpDeviceOperation"
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 67,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6477888,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 18
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [],
+    "connections": [
+      69
+    ],
+    "counter": 68,
+    "duration_ns": 5796412,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 7
+  },
+  {
+    "arguments": [],
+    "connections": [
+      70
+    ],
+    "counter": 69,
+    "input_tensors": [],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "0",
+      "name": "ttnn.generic_op"
+    },
+    "stacking_level": 7
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))"
+    ],
+    "connections": [
+      72,
+      76
+    ],
+    "counter": 70,
+    "input_tensors": [
+      71
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "1",
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [],
+    "connections": [
+      70
+    ],
+    "counter": 71,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6402112,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6402112,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 6
+    },
+    "stacking_level": 8
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))",
+      "1"
+    ],
+    "connections": [
+      74
+    ],
+    "counter": 72,
+    "input_tensors": [
+      73
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 9
+  },
+  {
+    "arguments": [],
+    "connections": [
+      72
+    ],
+    "counter": 73,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6402112,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6402112,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 6
+    },
+    "stacking_level": 9
+  },
+  {
+    "arguments": [],
+    "connections": [
+      75,
+      76
+    ],
+    "counter": 74,
+    "duration_ns": 34946,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 9
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 75,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 49
+    },
+    "stacking_level": 9
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))"
+    ],
+    "connections": [
+      78,
+      82,
+      97
+    ],
+    "counter": 76,
+    "input_tensors": [
+      77
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "1",
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 9
+  },
+  {
+    "arguments": [],
+    "connections": [
+      76
+    ],
+    "counter": 77,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6406208,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6406208,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 10
+    },
+    "stacking_level": 9
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))",
+      "1"
+    ],
+    "connections": [
+      80
+    ],
+    "counter": 78,
+    "input_tensors": [
+      79
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 10
+  },
+  {
+    "arguments": [],
+    "connections": [
+      78
+    ],
+    "counter": 79,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6406208,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6406208,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 10
+    },
+    "stacking_level": 10
+  },
+  {
+    "arguments": [],
+    "connections": [
+      81,
+      82
+    ],
+    "counter": 80,
+    "duration_ns": 13976,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 10
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 81,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 53
+    },
+    "stacking_level": 10
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))"
+    ],
+    "connections": [
+      84,
+      88,
+      96
+    ],
+    "counter": 82,
+    "input_tensors": [
+      83
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "1",
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 10
+  },
+  {
+    "arguments": [],
+    "connections": [
+      82
+    ],
+    "counter": 83,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6475840,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 17
+    },
+    "stacking_level": 10
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))",
+      "1"
+    ],
+    "connections": [
+      86
+    ],
+    "counter": 84,
+    "input_tensors": [
+      85
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [],
+    "connections": [
+      84
+    ],
+    "counter": 85,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6475840,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 17
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [],
+    "connections": [
+      87,
+      88
+    ],
+    "counter": 86,
+    "duration_ns": 13125,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 87,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 57
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [
+      "MeshProgramDescriptor({{MeshCoordinateRange(start=MeshCoordinate([0, 0]), end=MeshCoordinate([0, 0])), ProgramDescriptor(SmallVector([KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=0) - (x=0,y=1)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 0, 1, 2, 1, 1, 1, 2, 2048, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=0,y=0), {6402112, 0, 0, 0, 2, 2, 1, 2, 0, 1, 0, 1, 0, 6475840}}, {(x=0,y=1), {6402112, 0, 0, 0, 2, 3, 1, 3, 1, 2, 0, 1, 1, 6475840}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_1,noc=NOC::RISCV_1_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=1,y=0) - (x=1,y=1)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 0, 1, 2, 1, 0, 1, 2, 2048, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=1,y=0), {6402112, 0, 0, 1, 2, 2, 1, 2, 0, 1, 1, 2, 0, 6475840}}, {(x=1,y=1), {6402112, 0, 0, 1, 2, 3, 1, 3, 1, 2, 1, 2, 1, 6475840}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_1,noc=NOC::RISCV_1_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=0) - (x=1,y=0)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 3, 4, 5, 0, 1, 1, 2, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=0,y=0), {6406208, 0, 0, 1, 3, 1, 2, 0, 1, 0, 1, 0, 6475840}}, {(x=1,y=0), {6406208, 0, 0, 2, 3, 2, 2, 0, 1, 1, 2, 0, 6475840}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_0,noc=NOC::RISCV_0_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=1) - (x=1,y=1)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 3, 4, 5, 0, 0, 1, 2, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=0,y=1), {6406208, 0, 1, 1, 3, 1, 2, 1, 2, 0, 1, 1, 6475840}}, {(x=1,y=1), {6406208, 0, 1, 2, 3, 2, 2, 1, 2, 1, 2, 1, 6475840}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_0,noc=NOC::RISCV_0_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=0) - (x=1,y=1)]},compile_time_args={2, 1, 1, 1, 1, 1, 1, 1},named_compile_time_args={},defines={},runtime_args={{(x=0,y=0), {0, 1, 0, 1}}, {(x=0,y=1), {1, 2, 0, 1}}, {(x=1,y=0), {0, 1, 1, 2}}, {(x=1,y=1), {1, 2, 1, 2}}},common_runtime_args={},opt_level=std::nullopt,config=ComputeConfigDescriptor(math_fidelity=HiFi4,fp32_dest_acc_en=1,dst_full_sync_en=0,unpack_to_dest_mode={},bfp8_pack_precise=0,math_approx_mode=0))]), SmallVector([SemaphoreDescriptor(id=0,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=1,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=2,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=1), SemaphoreDescriptor(id=3,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=4,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=5,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=1)]), SmallVector([CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0000,data_format=Float16_b,page_size=2048,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0), CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0001,data_format=Float16_b,page_size=2048,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0), CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0002,data_format=Float16_b,page_size=2048,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0), CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0003,data_format=Float32,page_size=4096,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0)]), std::nullopt)}})",
+      "{Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32])))), Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32])))), Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32])))), Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))}"
+    ],
+    "connections": [
+      93,
+      94
+    ],
+    "counter": 88,
+    "input_tensors": [
+      89,
+      90,
+      91,
+      92
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "GenericOpDeviceOperation"
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [],
+    "connections": [
+      88
+    ],
+    "counter": 89,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6402112,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6402112,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 6
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [],
+    "connections": [
+      88
+    ],
+    "counter": 90,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6406208,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6406208,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 10
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [],
+    "connections": [
+      88
+    ],
+    "counter": 91,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6475840,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 17
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [],
+    "connections": [
+      88
+    ],
+    "counter": 92,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6475840,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 17
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [],
+    "connections": [
+      88
+    ],
+    "counter": 93,
+    "input_tensors": [],
+    "node_type": "circular_buffer_deallocate_all",
+    "params": {
+      "device_id": 1
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [],
+    "connections": [
+      95
+    ],
+    "counter": 94,
+    "duration_ns": 106833,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "GenericOpDeviceOperation"
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 95,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6475840,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 17
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [],
+    "connections": [
+      97
+    ],
+    "counter": 96,
+    "duration_ns": 5484036,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 10
+  },
+  {
+    "arguments": [],
+    "connections": [
+      98
+    ],
+    "counter": 97,
+    "input_tensors": [],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "0",
+      "name": "ttnn.generic_op"
+    },
+    "stacking_level": 10
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))"
+    ],
+    "connections": [
+      100,
+      104
+    ],
+    "counter": 98,
+    "input_tensors": [
+      99
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "1",
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [],
+    "connections": [
+      98
+    ],
+    "counter": 99,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6404160,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6404160,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 8
+    },
+    "stacking_level": 11
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))",
+      "1"
+    ],
+    "connections": [
+      102
+    ],
+    "counter": 100,
+    "input_tensors": [
+      101
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 12
+  },
+  {
+    "arguments": [],
+    "connections": [
+      100
+    ],
+    "counter": 101,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6404160,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6404160,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 8
+    },
+    "stacking_level": 12
+  },
+  {
+    "arguments": [],
+    "connections": [
+      103,
+      104
+    ],
+    "counter": 102,
+    "duration_ns": 35117,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 12
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 103,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 62
+    },
+    "stacking_level": 12
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))"
+    ],
+    "connections": [
+      106,
+      110
+    ],
+    "counter": 104,
+    "input_tensors": [
+      105
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "1",
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 12
+  },
+  {
+    "arguments": [],
+    "connections": [
+      104
+    ],
+    "counter": 105,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6408256,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6408256,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 12
+    },
+    "stacking_level": 12
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))",
+      "1"
+    ],
+    "connections": [
+      108
+    ],
+    "counter": 106,
+    "input_tensors": [
+      107
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 13
+  },
+  {
+    "arguments": [],
+    "connections": [
+      106
+    ],
+    "counter": 107,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6408256,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6408256,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 12
+    },
+    "stacking_level": 13
+  },
+  {
+    "arguments": [],
+    "connections": [
+      109,
+      110
+    ],
+    "counter": 108,
+    "duration_ns": 13776,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 13
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 109,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 66
+    },
+    "stacking_level": 13
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))"
+    ],
+    "connections": [
+      112,
+      116,
+      124
+    ],
+    "counter": 110,
+    "input_tensors": [
+      111
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "1",
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 13
+  },
+  {
+    "arguments": [],
+    "connections": [
+      110
+    ],
+    "counter": 111,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6477888,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 18
+    },
+    "stacking_level": 13
+  },
+  {
+    "arguments": [
+      "Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))",
+      "1"
+    ],
+    "connections": [
+      114
+    ],
+    "counter": 112,
+    "input_tensors": [
+      113
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 14
+  },
+  {
+    "arguments": [],
+    "connections": [
+      112
+    ],
+    "counter": 113,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6477888,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 18
+    },
+    "stacking_level": 14
+  },
+  {
+    "arguments": [],
+    "connections": [
+      115,
+      116
+    ],
+    "counter": 114,
+    "duration_ns": 12554,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "Tensor::cpu"
+    },
+    "stacking_level": 14
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 115,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 70
+    },
+    "stacking_level": 14
+  },
+  {
+    "arguments": [
+      "MeshProgramDescriptor({{MeshCoordinateRange(start=MeshCoordinate([0, 0]), end=MeshCoordinate([0, 0])), ProgramDescriptor(SmallVector([KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=0) - (x=0,y=1)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 0, 1, 2, 1, 1, 1, 2, 2048, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=0,y=0), {6404160, 0, 0, 0, 2, 2, 1, 2, 0, 1, 0, 1, 0, 6477888}}, {(x=0,y=1), {6404160, 0, 0, 0, 2, 3, 1, 3, 1, 2, 0, 1, 1, 6477888}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_1,noc=NOC::RISCV_1_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=1,y=0) - (x=1,y=1)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 0, 1, 2, 1, 0, 1, 2, 2048, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=1,y=0), {6404160, 0, 0, 1, 2, 2, 1, 2, 0, 1, 1, 2, 0, 6477888}}, {(x=1,y=1), {6404160, 0, 0, 1, 2, 3, 1, 3, 1, 2, 1, 2, 1, 6477888}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_1,noc=NOC::RISCV_1_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=0) - (x=1,y=0)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 3, 4, 5, 0, 1, 1, 2, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=0,y=0), {6408256, 0, 0, 1, 3, 1, 2, 0, 1, 0, 1, 0, 6477888}}, {(x=1,y=0), {6408256, 0, 0, 2, 3, 2, 2, 0, 1, 1, 2, 0, 6477888}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_0,noc=NOC::RISCV_0_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=1) - (x=1,y=1)]},compile_time_args={2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2048, 2048, 2048, 3, 4, 5, 0, 0, 1, 2, 2, 2048, 2, 2048},named_compile_time_args={},defines={},runtime_args={{(x=0,y=1), {6408256, 0, 1, 1, 3, 1, 2, 1, 2, 0, 1, 1, 6477888}}, {(x=1,y=1), {6408256, 0, 1, 2, 3, 2, 2, 1, 2, 1, 2, 1, 6477888}}},common_runtime_args={},opt_level=std::nullopt,config=DataMovementConfigDescriptor(processor=DataMovementProcessor::RISCV_0,noc=NOC::RISCV_0_default,noc_mode=NOC_MODE::DM_DEDICATED_NOC)), KernelDescriptor(kernel_source=/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp,source_type=SourceType::FILE_PATH,core_ranges={[(x=0,y=0) - (x=1,y=1)]},compile_time_args={2, 1, 1, 1, 1, 1, 1, 1},named_compile_time_args={},defines={},runtime_args={{(x=0,y=0), {0, 1, 0, 1}}, {(x=0,y=1), {1, 2, 0, 1}}, {(x=1,y=0), {0, 1, 1, 2}}, {(x=1,y=1), {1, 2, 1, 2}}},common_runtime_args={},opt_level=std::nullopt,config=ComputeConfigDescriptor(math_fidelity=HiFi4,fp32_dest_acc_en=1,dst_full_sync_en=0,unpack_to_dest_mode={},bfp8_pack_precise=0,math_approx_mode=0))]), SmallVector([SemaphoreDescriptor(id=0,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=1,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=2,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=1), SemaphoreDescriptor(id=3,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=4,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=0), SemaphoreDescriptor(id=5,core_type=CoreType::WORKER,core_ranges={[(x=0,y=0) - (x=1,y=1)]},initial_value=1)]), SmallVector([CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0000,data_format=Float16_b,page_size=2048,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0), CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0001,data_format=Float16_b,page_size=2048,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0), CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0002,data_format=Float16_b,page_size=2048,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0), CBDescriptor(total_size=4096,core_ranges={[(x=0,y=0) - (x=1,y=1)]},format_descriptors=SmallVector([CBFormatDescriptor(buffer_index=\u0003,data_format=Float32,page_size=4096,tile=std::nullopt)]),remote_format_descriptors=SmallVector([]),buffer=0,address_offset=0,global_circular_buffer=0)]), std::nullopt)}})",
+      "{Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32])))), Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32])))), Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32])))), Tensor(storage=DeviceStorage(),tensor_spec=TensorSpec(logical_shape=Shape([64, 64]),tensor_layout=TensorLayout(dtype=DataType::BFLOAT16,page_config=PageConfig(config=TilePageConfig(tile=Tile(tile_shape={32, 32},face_shape={16, 16},num_faces=4))),memory_config=MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0),alignment=Alignment([32, 32]))))}"
+    ],
+    "connections": [
+      121,
+      122
+    ],
+    "counter": 116,
+    "input_tensors": [
+      117,
+      118,
+      119,
+      120
+    ],
+    "node_type": "function_start",
+    "params": {
+      "inputs": "2",
+      "name": "GenericOpDeviceOperation"
+    },
+    "stacking_level": 14
+  },
+  {
+    "arguments": [],
+    "connections": [
+      116
+    ],
+    "counter": 117,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6404160,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6404160,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 8
+    },
+    "stacking_level": 14
+  },
+  {
+    "arguments": [],
+    "connections": [
+      116
+    ],
+    "counter": 118,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6408256,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6408256,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 12
+    },
+    "stacking_level": 14
+  },
+  {
+    "arguments": [],
+    "connections": [
+      116
+    ],
+    "counter": 119,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6477888,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 18
+    },
+    "stacking_level": 14
+  },
+  {
+    "arguments": [],
+    "connections": [
+      116
+    ],
+    "counter": 120,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6477888,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 18
+    },
+    "stacking_level": 14
+  },
+  {
+    "arguments": [],
+    "connections": [
+      116
+    ],
+    "counter": 121,
+    "input_tensors": [],
+    "node_type": "circular_buffer_deallocate_all",
+    "params": {
+      "device_id": 1
+    },
+    "stacking_level": 14
+  },
+  {
+    "arguments": [],
+    "connections": [
+      123
+    ],
+    "counter": 122,
+    "duration_ns": 96223,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "GenericOpDeviceOperation"
+    },
+    "stacking_level": 14
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 123,
+    "input_tensors": [],
+    "node_type": "tensor",
+    "params": {
+      "address": 6477888,
+      "buffer_type": "BufferType::DRAM",
+      "buffer_type_value": 0,
+      "device_id": 1,
+      "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+      "dtype": "DataType::BFLOAT16",
+      "layout": "Layout::TILE",
+      "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+      "shape": "Shape([64, 64])",
+      "size": 8192,
+      "tensor_id": 18
+    },
+    "stacking_level": 14
+  },
+  {
+    "arguments": [],
+    "connections": [
+      125
+    ],
+    "counter": 124,
+    "duration_ns": 5677104,
+    "input_tensors": [],
+    "node_type": "function_end",
+    "params": {
+      "name": "ttnn::to_string"
+    },
+    "stacking_level": 13
+  },
+  {
+    "arguments": [],
+    "connections": [],
+    "counter": 125,
+    "duration_ns": 501283870,
+    "input_tensors": [],
+    "node_type": "capture_end",
+    "params": null,
+    "stacking_level": 0
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "monotonic_ns": 3988293557602,
+  "utc_ns": 1789583367434566259,
+  "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+  "module_srcversion": "A10759A24565BC5BBE903C5",
+  "containment": "active",
+  "holders": [
+    {
+      "pid": 58154,
+      "nodes": [
+        "/dev/tenstorrent/3"
+      ],
+      "state": "R",
+      "utime_ticks": 38222,
+      "stime_ticks": 1588,
+      "starttime_ticks": 363036,
+      "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+      "env": {
+        "TT_VISIBLE_DEVICES": "3",
+        "TT_BIO_LEASE_CARDS": "3",
+        "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+      }
+    }
+  ],
+  "own_nodes": []
+}

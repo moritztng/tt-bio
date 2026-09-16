@@ -1,0 +1,2656 @@
+{
+  "verdict": "STOP",
+  "reason": "Installed CoreRange getters unavailable; observer per-core runtime snapshots fail. No model census authorized past this identity gate.",
+  "capture_valid": true,
+  "identity_smoke_pass": false,
+  "raw_header": "ARCH: blackhole, CHIP_FREQ[MHz]: 1350, Max Compute Cores: 120",
+  "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+  "other_chip_holder_pids": [
+    64753
+  ],
+  "holder_observations": 11,
+  "float64_exact_checks": 16,
+  "on_off_exact_checks": 8,
+  "binding_smoke": {
+    "runtime_view_type": "ttnn._ttnn.program_descriptor.RuntimeArgsView",
+    "runtime_coordinate_values": [
+      13,
+      17
+    ],
+    "descriptor": {
+      "type": "ProgramDescriptor",
+      "fields": {
+        "kernels": [
+          {
+            "type": "KernelDescriptor",
+            "fields": {
+              "kernel_source": "unused.cpp",
+              "source_type": {
+                "enum": "ttnn._ttnn.program_descriptor.KernelDescriptor.SourceType",
+                "name": "FILE_PATH",
+                "value": 0
+              },
+              "core_ranges": {
+                "type": "CoreRangeSet",
+                "ranges": [
+                  {
+                    "type": "CoreRange",
+                    "fields": {
+                      "start_coord": {
+                        "unavailable": "getter failed: AttributeError"
+                      },
+                      "end_coord": {
+                        "unavailable": "getter failed: AttributeError"
+                      }
+                    }
+                  }
+                ]
+              },
+              "compile_time_args": [],
+              "named_compile_time_args": [],
+              "defines": [],
+              "common_runtime_args": [],
+              "config": {
+                "type": "ComputeConfigDescriptor",
+                "fields": {
+                  "math_fidelity": {
+                    "enum": "ttnn._ttnn.tensor.MathFidelity",
+                    "name": "HiFi4",
+                    "value": 4
+                  },
+                  "math_approx_mode": false,
+                  "fp32_dest_acc_en": false,
+                  "dst_full_sync_en": false,
+                  "unpack_to_dest_mode": [],
+                  "bfp8_pack_precise": false
+                }
+              },
+              "opt_level": {
+                "unavailable": "getter failed: AttributeError"
+              }
+            }
+          }
+        ],
+        "semaphores": [],
+        "cbs": [],
+        "custom_program_hash": {
+          "unavailable": "getter failed: AttributeError"
+        }
+      }
+    },
+    "gaps": [
+      "/fields/kernels/0/fields/core_ranges/ranges/0/fields/start_coord",
+      "/fields/kernels/0/fields/core_ranges/ranges/0/fields/end_coord",
+      "/fields/kernels/0/fields/opt_level",
+      "/fields/custom_program_hash"
+    ]
+  },
+  "required_identity_gaps": [
+    "/descriptor/fields/cbs/0/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/cbs/0/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/cbs/1/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/cbs/1/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/cbs/2/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/cbs/2/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/cbs/3/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/cbs/3/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/kernels/0/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/kernels/0/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/kernels/0/fields/runtime_args",
+    "/descriptor/fields/kernels/1/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/kernels/1/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/kernels/1/fields/runtime_args",
+    "/descriptor/fields/kernels/2/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/kernels/2/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/kernels/2/fields/runtime_args",
+    "/descriptor/fields/kernels/3/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/kernels/3/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/kernels/3/fields/runtime_args",
+    "/descriptor/fields/kernels/4/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/kernels/4/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/kernels/4/fields/runtime_args",
+    "/descriptor/fields/semaphores/0/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/semaphores/0/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/semaphores/1/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/semaphores/1/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/semaphores/2/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/semaphores/2/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/semaphores/3/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/semaphores/3/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/semaphores/4/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/semaphores/4/fields/core_ranges/ranges/0/fields/start_coord",
+    "/descriptor/fields/semaphores/5/fields/core_ranges/ranges/0/fields/end_coord",
+    "/descriptor/fields/semaphores/5/fields/core_ranges/ranges/0/fields/start_coord"
+  ],
+  "joins": [
+    {
+      "case": "matmul_off",
+      "observer_sequence": null,
+      "graph_counter": 23,
+      "device": 0,
+      "global_call": 5120,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6402112,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6402112,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 6
+        },
+        {
+          "address": 6406208,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6406208,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 10
+        },
+        {
+          "address": 6475840,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 17
+        }
+      ]
+    },
+    {
+      "case": "matmul_off",
+      "observer_sequence": null,
+      "graph_counter": 60,
+      "device": 0,
+      "global_call": 6144,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6404160,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6404160,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 8
+        },
+        {
+          "address": 6408256,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6408256,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 12
+        },
+        {
+          "address": 6477888,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 18
+        }
+      ]
+    },
+    {
+      "case": "matmul_off",
+      "observer_sequence": null,
+      "graph_counter": 88,
+      "device": 0,
+      "global_call": 7168,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6402112,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6402112,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 6
+        },
+        {
+          "address": 6406208,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6406208,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 10
+        },
+        {
+          "address": 6475840,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 17
+        }
+      ]
+    },
+    {
+      "case": "matmul_off",
+      "observer_sequence": null,
+      "graph_counter": 116,
+      "device": 0,
+      "global_call": 8192,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6404160,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6404160,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 8
+        },
+        {
+          "address": 6408256,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6408256,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 12
+        },
+        {
+          "address": 6477888,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 18
+        }
+      ]
+    },
+    {
+      "case": "matmul_on",
+      "observer_sequence": 0,
+      "graph_counter": 23,
+      "device": 0,
+      "global_call": 15360,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6402112,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6402112,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 6
+        },
+        {
+          "address": 6406208,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6406208,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 10
+        },
+        {
+          "address": 6475840,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 17
+        }
+      ]
+    },
+    {
+      "case": "matmul_on",
+      "observer_sequence": 1,
+      "graph_counter": 54,
+      "device": 0,
+      "global_call": 16384,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6404160,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6404160,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 8
+        },
+        {
+          "address": 6408256,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6408256,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 12
+        },
+        {
+          "address": 6477888,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 18
+        }
+      ]
+    },
+    {
+      "case": "matmul_on",
+      "observer_sequence": 2,
+      "graph_counter": 82,
+      "device": 0,
+      "global_call": 17408,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6402112,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6402112,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 6
+        },
+        {
+          "address": 6406208,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6406208,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 10
+        },
+        {
+          "address": 6475840,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6475840,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 17
+        }
+      ]
+    },
+    {
+      "case": "matmul_on",
+      "observer_sequence": 3,
+      "graph_counter": 110,
+      "device": 0,
+      "global_call": 18432,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6404160,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6404160,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 8
+        },
+        {
+          "address": 6408256,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6408256,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 12
+        },
+        {
+          "address": 6477888,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6477888,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([64, 64])",
+          "size": 8192,
+          "tensor_id": 18
+        }
+      ]
+    },
+    {
+      "case": "reblock_off",
+      "observer_sequence": null,
+      "graph_counter": 22,
+      "device": 0,
+      "global_call": 25600,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6410304,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6410304,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 64, 64, 32])",
+          "size": 262144,
+          "tensor_id": 14
+        },
+        {
+          "address": 6479936,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6479936,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 32, 64, 64])",
+          "size": 262144,
+          "tensor_id": 148
+        }
+      ]
+    },
+    {
+      "case": "reblock_off",
+      "observer_sequence": null,
+      "graph_counter": 56,
+      "device": 0,
+      "global_call": 26624,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6443072,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6443072,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 64, 64, 32])",
+          "size": 262144,
+          "tensor_id": 16
+        },
+        {
+          "address": 6512704,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6512704,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 32, 64, 64])",
+          "size": 262144,
+          "tensor_id": 160
+        }
+      ]
+    },
+    {
+      "case": "reblock_off",
+      "observer_sequence": null,
+      "graph_counter": 84,
+      "device": 0,
+      "global_call": 27648,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6410304,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6410304,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 64, 64, 32])",
+          "size": 262144,
+          "tensor_id": 14
+        },
+        {
+          "address": 6545472,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6545472,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 32, 64, 64])",
+          "size": 262144,
+          "tensor_id": 172
+        }
+      ]
+    },
+    {
+      "case": "reblock_off",
+      "observer_sequence": null,
+      "graph_counter": 112,
+      "device": 0,
+      "global_call": 28672,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6443072,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6443072,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 64, 64, 32])",
+          "size": 262144,
+          "tensor_id": 16
+        },
+        {
+          "address": 6578240,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6578240,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 32, 64, 64])",
+          "size": 262144,
+          "tensor_id": 184
+        }
+      ]
+    },
+    {
+      "case": "reblock_on",
+      "observer_sequence": 0,
+      "graph_counter": 22,
+      "device": 0,
+      "global_call": 35840,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6410304,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6410304,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 64, 64, 32])",
+          "size": 262144,
+          "tensor_id": 14
+        },
+        {
+          "address": 6479936,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6479936,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 32, 64, 64])",
+          "size": 262144,
+          "tensor_id": 206
+        }
+      ]
+    },
+    {
+      "case": "reblock_on",
+      "observer_sequence": 1,
+      "graph_counter": 51,
+      "device": 0,
+      "global_call": 36864,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6443072,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6443072,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 64, 64, 32])",
+          "size": 262144,
+          "tensor_id": 16
+        },
+        {
+          "address": 6512704,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6512704,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 32, 64, 64])",
+          "size": 262144,
+          "tensor_id": 218
+        }
+      ]
+    },
+    {
+      "case": "reblock_on",
+      "observer_sequence": 2,
+      "graph_counter": 79,
+      "device": 0,
+      "global_call": 37888,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6410304,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6410304,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 64, 64, 32])",
+          "size": 262144,
+          "tensor_id": 14
+        },
+        {
+          "address": 6545472,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6545472,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 32, 64, 64])",
+          "size": 262144,
+          "tensor_id": 230
+        }
+      ]
+    },
+    {
+      "case": "reblock_on",
+      "observer_sequence": 3,
+      "graph_counter": 107,
+      "device": 0,
+      "global_call": 38912,
+      "trace": null,
+      "replay": null,
+      "basis": "single-thread four-call bounded control between triple-exp fences; multiplicity, actual operand order/shapes, source-audited roles and output sequence checked",
+      "operands": [
+        {
+          "address": 6443072,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6443072,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 64, 64, 32])",
+          "size": 262144,
+          "tensor_id": 16
+        },
+        {
+          "address": 6578240,
+          "buffer_type": "BufferType::DRAM",
+          "buffer_type_value": 0,
+          "device_id": 1,
+          "device_tensors": "[{\"address\":6578240,\"device_id\":0,\"mesh_device_id\":1}]",
+          "dtype": "DataType::BFLOAT16",
+          "layout": "Layout::TILE",
+          "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::DRAM,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)",
+          "shape": "Shape([1, 32, 64, 64])",
+          "size": 262144,
+          "tensor_id": 242
+        }
+      ]
+    }
+  ],
+  "table": [
+    {
+      "class": "matmul_off",
+      "scope": "bounded identity control, not model",
+      "invocations": 4,
+      "observed_clock_MHz": 1350,
+      "clock": {
+        "samples": 455,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1207491,
+        "first_offset_ns": 357621,
+        "last_offset_ns": 650349,
+        "sample_span_fraction": 0.9979900992933661,
+        "errors": [],
+        "pass": true
+      },
+      "cores_each": [
+        4
+      ],
+      "raw_span_cycles_sum": 12490,
+      "fence_start_cycle": 3357500565517,
+      "fence_end_cycle": 3358213906025,
+      "fenced_envelope_cycles": 713340508,
+      "unclassified_gap_cycles": 713328018,
+      "overlap_cycles": 0,
+      "matrix_shape_flops": 2097152,
+      "matrix_basis": "ordered 64x64 @ 64x64, 2/FMA",
+      "conditional_tile_padding": "already tile aligned; issued work unverified",
+      "issued_work": null,
+      "modeled_compulsory_bytes": 98304,
+      "physical_reads": "unknown, includes no proof about cache/spills/rereads",
+      "roof_control_basis": null,
+      "utilization": null,
+      "cycles_above_roof": null,
+      "graph_tensor_cpu_calls": 12,
+      "ops": [
+        {
+          "call_id": 5120,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3358153378023,
+          "end_cycle": 3358153381091,
+          "span_cycles": 3068,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 7307,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1781,
+                "DM-CB-RESERVE-BACK": 263,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 336,
+                "DM-SEM-WAIT": 2818
+              },
+              "unclassified_core_cycles_sum": 2109,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.1451271186440678,
+                "DM-CB-RESERVE-BACK": 0.02143089960886571,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.027379400260756193,
+                "DM-SEM-WAIT": 0.2296284224250326
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.24373888052552348,
+                "DM-CB-RESERVE-BACK": 0.03599288353633502,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0459833036814014,
+                "DM-SEM-WAIT": 0.3856575886136581
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 11430,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1941,
+                "DM-CB-RESERVE-BACK": 272,
+                "DM-CB-WAIT-FRONT": 2011,
+                "DM-NOC-WRITE-WAIT": 1192,
+                "DM-SEM-WAIT": 3329
+              },
+              "unclassified_core_cycles_sum": 2685,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.15816492829204692,
+                "DM-CB-RESERVE-BACK": 0.02216427640156454,
+                "DM-CB-WAIT-FRONT": 0.16386897001303782,
+                "DM-NOC-WRITE-WAIT": 0.09713168187744459,
+                "DM-SEM-WAIT": 0.27126792698826596
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.16981627296587926,
+                "DM-CB-RESERVE-BACK": 0.023797025371828522,
+                "DM-CB-WAIT-FRONT": 0.17594050743657044,
+                "DM-NOC-WRITE-WAIT": 0.10428696412948381,
+                "DM-SEM-WAIT": 0.2912510936132983
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 9169,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 6208
+              },
+              "unclassified_core_cycles_sum": 2961,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.5058670143415906
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.6770640200676191
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 5227,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 5227,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 8749,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 224
+              },
+              "unclassified_core_cycles_sum": 8525,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.018252933507170794
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.025602926048691278
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi4",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute/14403391176390457390/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp'; '/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['dm_in1_sender_out/15093191219547253464/'; 'dm_in0_sender/16189737816367392584/']",
+            "PROGRAM HASH": "1805221077978933811",
+            "PROGRAM CACHE HIT": "False"
+          }
+        },
+        {
+          "call_id": 6144,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3358161918035,
+          "end_cycle": 3358161921120,
+          "span_cycles": 3085,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 7368,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1802,
+                "DM-CB-RESERVE-BACK": 274,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 323,
+                "DM-SEM-WAIT": 2880
+              },
+              "unclassified_core_cycles_sum": 2089,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.1460291734197731,
+                "DM-CB-RESERVE-BACK": 0.022204213938411668,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.026175040518638573,
+                "DM-SEM-WAIT": 0.233387358184765
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.24457111834961998,
+                "DM-CB-RESERVE-BACK": 0.03718783930510315,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.043838219326818674,
+                "DM-SEM-WAIT": 0.39087947882736157
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 11526,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1960,
+                "DM-CB-RESERVE-BACK": 284,
+                "DM-CB-WAIT-FRONT": 1977,
+                "DM-NOC-WRITE-WAIT": 1192,
+                "DM-SEM-WAIT": 3392
+              },
+              "unclassified_core_cycles_sum": 2721,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.15883306320907617,
+                "DM-CB-RESERVE-BACK": 0.02301458670988655,
+                "DM-CB-WAIT-FRONT": 0.16021069692058346,
+                "DM-NOC-WRITE-WAIT": 0.09659643435980551,
+                "DM-SEM-WAIT": 0.27487844408427875
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.1700503210133611,
+                "DM-CB-RESERVE-BACK": 0.024639944473364567,
+                "DM-CB-WAIT-FRONT": 0.1715252472670484,
+                "DM-NOC-WRITE-WAIT": 0.10341835849384001,
+                "DM-SEM-WAIT": 0.29429116779455144
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 9236,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 6261
+              },
+              "unclassified_core_cycles_sum": 2975,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.5073743922204214
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.6778908618449545
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 5251,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 5251,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 8837,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 225
+              },
+              "unclassified_core_cycles_sum": 8612,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.018233387358184763
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.02546112934253706
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi4",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute/14403391176390457390/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp'; '/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['dm_in1_sender_out/15093191219547253464/'; 'dm_in0_sender/16189737816367392584/']",
+            "PROGRAM HASH": "1805221077978933811",
+            "PROGRAM CACHE HIT": "False"
+          }
+        },
+        {
+          "call_id": 7168,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3358169619416,
+          "end_cycle": 3358169622683,
+          "span_cycles": 3267,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 7336,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1804,
+                "DM-CB-RESERVE-BACK": 275,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 329,
+                "DM-SEM-WAIT": 2819
+              },
+              "unclassified_core_cycles_sum": 2109,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.13804713804713806,
+                "DM-CB-RESERVE-BACK": 0.021043771043771045,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.025176002448729723,
+                "DM-SEM-WAIT": 0.21571778389960208
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.24591057797164667,
+                "DM-CB-RESERVE-BACK": 0.037486368593238825,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.04484732824427481,
+                "DM-SEM-WAIT": 0.38426935659760086
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 11938,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1959,
+                "DM-CB-RESERVE-BACK": 289,
+                "DM-CB-WAIT-FRONT": 1942,
+                "DM-NOC-WRITE-WAIT": 1185,
+                "DM-SEM-WAIT": 3486
+              },
+              "unclassified_core_cycles_sum": 3077,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.14990817263544537,
+                "DM-CB-RESERVE-BACK": 0.022115090296908477,
+                "DM-CB-WAIT-FRONT": 0.14860728497092132,
+                "DM-NOC-WRITE-WAIT": 0.09067952249770432,
+                "DM-SEM-WAIT": 0.2667584940312213
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.16409783883397555,
+                "DM-CB-RESERVE-BACK": 0.024208410118947896,
+                "DM-CB-WAIT-FRONT": 0.16267381470933154,
+                "DM-NOC-WRITE-WAIT": 0.09926285810018429,
+                "DM-SEM-WAIT": 0.2920087116769978
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 9697,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 6220
+              },
+              "unclassified_core_cycles_sum": 3477,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.4759718396082032
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.6414354955140765
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 5708,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 5708,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 9210,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 200
+              },
+              "unclassified_core_cycles_sum": 9010,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.015304560759106214
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.021715526601520086
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi4",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute/14403391176390457390/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp'; '/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['dm_in1_sender_out/15093191219547253464/'; 'dm_in0_sender/16189737816367392584/']",
+            "PROGRAM HASH": "1805221077978933811",
+            "PROGRAM CACHE HIT": "False"
+          }
+        },
+        {
+          "call_id": 8192,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3358177561301,
+          "end_cycle": 3358177564371,
+          "span_cycles": 3070,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 7419,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1826,
+                "DM-CB-RESERVE-BACK": 265,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 334,
+                "DM-SEM-WAIT": 2907
+              },
+              "unclassified_core_cycles_sum": 2087,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.14869706840390878,
+                "DM-CB-RESERVE-BACK": 0.021579804560260585,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.02719869706840391,
+                "DM-SEM-WAIT": 0.23672638436482085
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.2461248146650492,
+                "DM-CB-RESERVE-BACK": 0.03571909960911174,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.04501954441299366,
+                "DM-SEM-WAIT": 0.3918317832591994
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 11464,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1935,
+                "DM-CB-RESERVE-BACK": 282,
+                "DM-CB-WAIT-FRONT": 2052,
+                "DM-NOC-WRITE-WAIT": 1192,
+                "DM-SEM-WAIT": 3313
+              },
+              "unclassified_core_cycles_sum": 2690,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.15757328990228012,
+                "DM-CB-RESERVE-BACK": 0.022964169381107492,
+                "DM-CB-WAIT-FRONT": 0.16710097719869707,
+                "DM-NOC-WRITE-WAIT": 0.09706840390879479,
+                "DM-SEM-WAIT": 0.2697882736156352
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.16878925331472436,
+                "DM-CB-RESERVE-BACK": 0.02459874389392882,
+                "DM-CB-WAIT-FRONT": 0.17899511514305652,
+                "DM-NOC-WRITE-WAIT": 0.10397766922540126,
+                "DM-SEM-WAIT": 0.2889916259595255
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 9157,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 6184
+              },
+              "unclassified_core_cycles_sum": 2973,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.5035830618892508
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.6753303483673693
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 5214,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 5214,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 8796,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 199
+              },
+              "unclassified_core_cycles_sum": 8597,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.016205211726384366
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.022623919963619826
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi4",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute/14403391176390457390/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp'; '/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['dm_in1_sender_out/15093191219547253464/'; 'dm_in0_sender/16189737816367392584/']",
+            "PROGRAM HASH": "1805221077978933811",
+            "PROGRAM CACHE HIT": "False"
+          }
+        }
+      ]
+    },
+    {
+      "class": "matmul_on",
+      "scope": "bounded identity control, not model",
+      "invocations": 4,
+      "observed_clock_MHz": 1350,
+      "clock": {
+        "samples": 53,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1079371,
+        "first_offset_ns": 61933,
+        "last_offset_ns": 9553,
+        "sample_span_fraction": 0.9987104645944278,
+        "errors": [],
+        "pass": true
+      },
+      "cores_each": [
+        4
+      ],
+      "raw_span_cycles_sum": 12480,
+      "fence_start_cycle": 3358273462695,
+      "fence_end_cycle": 3358382788213,
+      "fenced_envelope_cycles": 109325518,
+      "unclassified_gap_cycles": 109313038,
+      "overlap_cycles": 0,
+      "matrix_shape_flops": 2097152,
+      "matrix_basis": "ordered 64x64 @ 64x64, 2/FMA",
+      "conditional_tile_padding": "already tile aligned; issued work unverified",
+      "issued_work": null,
+      "modeled_compulsory_bytes": 98304,
+      "physical_reads": "unknown, includes no proof about cache/spills/rereads",
+      "roof_control_basis": null,
+      "utilization": null,
+      "cycles_above_roof": null,
+      "graph_tensor_cpu_calls": 12,
+      "ops": [
+        {
+          "call_id": 15360,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3358305924455,
+          "end_cycle": 3358305927629,
+          "span_cycles": 3174,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 7255,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1765,
+                "DM-CB-RESERVE-BACK": 261,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 321,
+                "DM-SEM-WAIT": 2793
+              },
+              "unclassified_core_cycles_sum": 2115,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.13902016383112792,
+                "DM-CB-RESERVE-BACK": 0.02055765595463138,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.025283553875236293,
+                "DM-SEM-WAIT": 0.21999054820415878
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.24328049620951067,
+                "DM-CB-RESERVE-BACK": 0.035975189524465885,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.04424534803583735,
+                "DM-SEM-WAIT": 0.38497587870434186
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 11631,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 2058,
+                "DM-CB-RESERVE-BACK": 263,
+                "DM-CB-WAIT-FRONT": 1870,
+                "DM-NOC-WRITE-WAIT": 1192,
+                "DM-SEM-WAIT": 3432
+              },
+              "unclassified_core_cycles_sum": 2816,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.16209829867674858,
+                "DM-CB-RESERVE-BACK": 0.02071518588531821,
+                "DM-CB-WAIT-FRONT": 0.14729048519218652,
+                "DM-NOC-WRITE-WAIT": 0.09388783868935098,
+                "DM-SEM-WAIT": 0.27032136105860116
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.1769409337116327,
+                "DM-CB-RESERVE-BACK": 0.022611985211933625,
+                "DM-CB-WAIT-FRONT": 0.16077723325595392,
+                "DM-NOC-WRITE-WAIT": 0.10248473905941019,
+                "DM-SEM-WAIT": 0.2950735104462213
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 9319,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 6294
+              },
+              "unclassified_core_cycles_sum": 3025,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.4957466918714556
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.6753943556175556
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 5385,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 5385,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 8931,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 234
+              },
+              "unclassified_core_cycles_sum": 8697,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.018431001890359167
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.026200873362445413
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi4",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute/14403391176390457390/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp'; '/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['dm_in1_sender_out/15093191219547253464/'; 'dm_in0_sender/16189737816367392584/']",
+            "PROGRAM HASH": "1805221077978933811",
+            "PROGRAM CACHE HIT": "False"
+          }
+        },
+        {
+          "call_id": 16384,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3358320154995,
+          "end_cycle": 3358320158073,
+          "span_cycles": 3078,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 7418,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1815,
+                "DM-CB-RESERVE-BACK": 266,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 322,
+                "DM-SEM-WAIT": 2845
+              },
+              "unclassified_core_cycles_sum": 2170,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.14741715399610136,
+                "DM-CB-RESERVE-BACK": 0.021604938271604937,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.026153346328784924,
+                "DM-SEM-WAIT": 0.23107537361923328
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.24467511458614183,
+                "DM-CB-RESERVE-BACK": 0.03585872202750067,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.043407926664869236,
+                "DM-SEM-WAIT": 0.38352655702345645
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 11564,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1968,
+                "DM-CB-RESERVE-BACK": 270,
+                "DM-CB-WAIT-FRONT": 2005,
+                "DM-NOC-WRITE-WAIT": 1193,
+                "DM-SEM-WAIT": 3328
+              },
+              "unclassified_core_cycles_sum": 2800,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.15984405458089668,
+                "DM-CB-RESERVE-BACK": 0.021929824561403508,
+                "DM-CB-WAIT-FRONT": 0.16284925276153348,
+                "DM-NOC-WRITE-WAIT": 0.09689733593242365,
+                "DM-SEM-WAIT": 0.27030539311241064
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.17018332756831547,
+                "DM-CB-RESERVE-BACK": 0.023348322379799377,
+                "DM-CB-WAIT-FRONT": 0.17338291248702872,
+                "DM-NOC-WRITE-WAIT": 0.10316499481148392,
+                "DM-SEM-WAIT": 0.2877896921480457
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 9214,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 6171
+              },
+              "unclassified_core_cycles_sum": 3043,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.5012183235867447
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.6697416974169742
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 5247,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 5247,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 8835,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 234
+              },
+              "unclassified_core_cycles_sum": 8601,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.019005847953216373
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.026485568760611207
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi4",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute/14403391176390457390/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp'; '/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['dm_in1_sender_out/15093191219547253464/'; 'dm_in0_sender/16189737816367392584/']",
+            "PROGRAM HASH": "1805221077978933811",
+            "PROGRAM CACHE HIT": "False"
+          }
+        },
+        {
+          "call_id": 17408,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3358334153845,
+          "end_cycle": 3358334156965,
+          "span_cycles": 3120,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 7436,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1799,
+                "DM-CB-RESERVE-BACK": 264,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 325,
+                "DM-SEM-WAIT": 2900
+              },
+              "unclassified_core_cycles_sum": 2148,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.144150641025641,
+                "DM-CB-RESERVE-BACK": 0.021153846153846155,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.026041666666666668,
+                "DM-SEM-WAIT": 0.23237179487179488
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.24193114577729963,
+                "DM-CB-RESERVE-BACK": 0.03550295857988166,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.043706293706293704,
+                "DM-SEM-WAIT": 0.38999462076385155
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 11701,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1967,
+                "DM-CB-RESERVE-BACK": 283,
+                "DM-CB-WAIT-FRONT": 2013,
+                "DM-NOC-WRITE-WAIT": 1192,
+                "DM-SEM-WAIT": 3424
+              },
+              "unclassified_core_cycles_sum": 2822,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.15761217948717948,
+                "DM-CB-RESERVE-BACK": 0.02267628205128205,
+                "DM-CB-WAIT-FRONT": 0.16129807692307693,
+                "DM-NOC-WRITE-WAIT": 0.0955128205128205,
+                "DM-SEM-WAIT": 0.2743589743589744
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.16810529014614137,
+                "DM-CB-RESERVE-BACK": 0.02418596701136655,
+                "DM-CB-WAIT-FRONT": 0.1720365780702504,
+                "DM-NOC-WRITE-WAIT": 0.10187163490299975,
+                "DM-SEM-WAIT": 0.2926245620032476
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 9314,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 6288
+              },
+              "unclassified_core_cycles_sum": 3026,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.5038461538461538
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.6751127335194331
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 5392,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 5392,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 8989,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 232
+              },
+              "unclassified_core_cycles_sum": 8757,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.01858974358974359
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.025809322505284237
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi4",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute/14403391176390457390/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp'; '/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['dm_in1_sender_out/15093191219547253464/'; 'dm_in0_sender/16189737816367392584/']",
+            "PROGRAM HASH": "1805221077978933811",
+            "PROGRAM CACHE HIT": "False"
+          }
+        },
+        {
+          "call_id": 18432,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3358348187351,
+          "end_cycle": 3358348190459,
+          "span_cycles": 3108,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 7383,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1815,
+                "DM-CB-RESERVE-BACK": 277,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 323,
+                "DM-SEM-WAIT": 2843
+              },
+              "unclassified_core_cycles_sum": 2125,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.1459942084942085,
+                "DM-CB-RESERVE-BACK": 0.02228120978120978,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.025981338481338483,
+                "DM-SEM-WAIT": 0.22868404118404118
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.24583502641202762,
+                "DM-CB-RESERVE-BACK": 0.03751862386563728,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.04374915346065285,
+                "DM-SEM-WAIT": 0.3850738182310714
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 11571,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 1929,
+                "DM-CB-RESERVE-BACK": 285,
+                "DM-CB-WAIT-FRONT": 2008,
+                "DM-NOC-WRITE-WAIT": 1192,
+                "DM-SEM-WAIT": 3355
+              },
+              "unclassified_core_cycles_sum": 2802,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.15516409266409267,
+                "DM-CB-RESERVE-BACK": 0.022924710424710424,
+                "DM-CB-WAIT-FRONT": 0.1615186615186615,
+                "DM-NOC-WRITE-WAIT": 0.09588159588159588,
+                "DM-SEM-WAIT": 0.26986808236808235
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.16670987814363494,
+                "DM-CB-RESERVE-BACK": 0.024630541871921183,
+                "DM-CB-WAIT-FRONT": 0.17353729150462363,
+                "DM-NOC-WRITE-WAIT": 0.10301616109238614,
+                "DM-SEM-WAIT": 0.2899490104571774
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 9224,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 6163
+              },
+              "unclassified_core_cycles_sum": 3061,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.4957368082368082
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.6681483087597572
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 5229,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 5229,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 8858,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 207
+              },
+              "unclassified_core_cycles_sum": 8651,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.016650579150579152
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.02336870625423346
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi4",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute/14403391176390457390/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in1_sender_out.cpp'; '/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/dm_in0_sender.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['dm_in1_sender_out/15093191219547253464/'; 'dm_in0_sender/16189737816367392584/']",
+            "PROGRAM HASH": "1805221077978933811",
+            "PROGRAM CACHE HIT": "False"
+          }
+        }
+      ]
+    },
+    {
+      "class": "reblock_off",
+      "scope": "bounded identity control, not model",
+      "invocations": 4,
+      "observed_clock_MHz": 1350,
+      "clock": {
+        "samples": 380,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1135408,
+        "first_offset_ns": 509600,
+        "last_offset_ns": 57154,
+        "sample_span_fraction": 0.9986071158323613,
+        "errors": [],
+        "pass": true
+      },
+      "cores_each": [
+        4
+      ],
+      "raw_span_cycles_sum": 320931,
+      "fence_start_cycle": 3358448568039,
+      "fence_end_cycle": 3359030645991,
+      "fenced_envelope_cycles": 582077952,
+      "unclassified_gap_cycles": 581757021,
+      "overlap_cycles": 0,
+      "matrix_shape_flops": null,
+      "matrix_basis": "permutation, not a contraction",
+      "conditional_tile_padding": "already tile aligned; issued work unverified",
+      "issued_work": null,
+      "modeled_compulsory_bytes": 2097152,
+      "physical_reads": "unknown, includes no proof about cache/spills/rereads",
+      "roof_control_basis": null,
+      "utilization": null,
+      "cycles_above_roof": null,
+      "graph_tensor_cpu_calls": 8,
+      "ops": [
+        {
+          "call_id": 25600,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3358950962073,
+          "end_cycle": 3358951042470,
+          "span_cycles": 80397,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 320392,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 4264,
+                "DM-CB-RESERVE-BACK": 147,
+                "DM-CB-WAIT-FRONT": 79602,
+                "DM-NOC-WRITE-WAIT": 1266,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 235113,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.013259201213975646,
+                "DM-CB-RESERVE-BACK": 0.0004571066084555394,
+                "DM-CB-WAIT-FRONT": 0.24752789283182208,
+                "DM-NOC-WRITE-WAIT": 0.003936714056494645,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.013308696846363205,
+                "DM-CB-RESERVE-BACK": 0.00045881295413118927,
+                "DM-CB-WAIT-FRONT": 0.24845189642687707,
+                "DM-NOC-WRITE-WAIT": 0.003951409523333916,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 79809,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 61740,
+                "DM-CB-RESERVE-BACK": 4448,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 0,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 13621,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.19198477555132654,
+                "DM-CB-RESERVE-BACK": 0.01383136186673632,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.7735969627485622,
+                "DM-CB-RESERVE-BACK": 0.05573306268716561,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 80392,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 57100
+              },
+              "unclassified_core_cycles_sum": 23292,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.17755637648170952
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.7102696785749826
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 78510,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 78510,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 78427,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 2899
+              },
+              "unclassified_core_cycles_sum": 75528,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.009014639849745638
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.03696431076032489
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi2",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/compute_reblock_permute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute_reblock_permute/11818734307832727385/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/writer_reblock_permute.cpp'; '/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/reader_reblock_permute.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['writer_reblock_permute/11493112377237927567/'; 'reader_reblock_permute/7517285229923016601/']",
+            "PROGRAM HASH": "12947249190126974513",
+            "PROGRAM CACHE HIT": "False"
+          }
+        },
+        {
+          "call_id": 26624,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3358967126140,
+          "end_cycle": 3358967206270,
+          "span_cycles": 80130,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 319303,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 4232,
+                "DM-CB-RESERVE-BACK": 140,
+                "DM-CB-WAIT-FRONT": 78693,
+                "DM-NOC-WRITE-WAIT": 1292,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 234946,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.01320354424060901,
+                "DM-CB-RESERVE-BACK": 0.00043679021589916383,
+                "DM-CB-WAIT-FRONT": 0.24551666042680645,
+                "DM-NOC-WRITE-WAIT": 0.0040309497067265694,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.013253868582506271,
+                "DM-CB-RESERVE-BACK": 0.0004384550098182604,
+                "DM-CB-WAIT-FRONT": 0.24645242919734547,
+                "DM-NOC-WRITE-WAIT": 0.004046313376322803,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 78745,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 60706,
+                "DM-CB-RESERVE-BACK": 4475,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 0,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 13564,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.18939847747410457,
+                "DM-CB-RESERVE-BACK": 0.013961687258205416,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.7709187884945076,
+                "DM-CB-RESERVE-BACK": 0.0568290050161915,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 79360,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 56230
+              },
+              "unclassified_core_cycles_sum": 23130,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.1754336702857856
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.7085433467741935
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 77588,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 77588,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 77505,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 2902
+              },
+              "unclassified_core_cycles_sum": 74603,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.009054037189566953
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.03744274562931424
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi2",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/compute_reblock_permute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute_reblock_permute/11818734307832727385/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/writer_reblock_permute.cpp'; '/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/reader_reblock_permute.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['writer_reblock_permute/11493112377237927567/'; 'reader_reblock_permute/7517285229923016601/']",
+            "PROGRAM HASH": "12947249190126974513",
+            "PROGRAM CACHE HIT": "False"
+          }
+        },
+        {
+          "call_id": 27648,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3358982480965,
+          "end_cycle": 3358982561153,
+          "span_cycles": 80188,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 319155,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 4224,
+                "DM-CB-RESERVE-BACK": 133,
+                "DM-CB-WAIT-FRONT": 78570,
+                "DM-NOC-WRITE-WAIT": 1260,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 234968,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.01316905272609368,
+                "DM-CB-RESERVE-BACK": 0.00041465057115777924,
+                "DM-CB-WAIT-FRONT": 0.2449556043298249,
+                "DM-NOC-WRITE-WAIT": 0.003928268568863171,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.013234948535977816,
+                "DM-CB-RESERVE-BACK": 0.00041672541555043787,
+                "DM-CB-WAIT-FRONT": 0.24618132255487146,
+                "DM-NOC-WRITE-WAIT": 0.003947924989425201,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 78579,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 60490,
+                "DM-CB-RESERVE-BACK": 4493,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 0,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 13596,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.18858806804010575,
+                "DM-CB-RESERVE-BACK": 0.014007706888811294,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.7697985466855012,
+                "DM-CB-RESERVE-BACK": 0.05717812647144911,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 79205,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 56055
+              },
+              "unclassified_core_cycles_sum": 23150,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.17476118621240086
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.7077204721924121
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 77338,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 77338,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 77340,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 2934
+              },
+              "unclassified_core_cycles_sum": 74406,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.009147253953209956
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.037936384794414274
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi2",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/compute_reblock_permute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute_reblock_permute/11818734307832727385/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/writer_reblock_permute.cpp'; '/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/reader_reblock_permute.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['writer_reblock_permute/11493112377237927567/'; 'reader_reblock_permute/7517285229923016601/']",
+            "PROGRAM HASH": "12947249190126974513",
+            "PROGRAM CACHE HIT": "False"
+          }
+        },
+        {
+          "call_id": 28672,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3358997823443,
+          "end_cycle": 3358997903659,
+          "span_cycles": 80216,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 318729,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 4249,
+                "DM-CB-RESERVE-BACK": 151,
+                "DM-CB-WAIT-FRONT": 78081,
+                "DM-NOC-WRITE-WAIT": 1260,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 234988,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.01324237059938167,
+                "DM-CB-RESERVE-BACK": 0.00047060436820584424,
+                "DM-CB-WAIT-FRONT": 0.24334609055550016,
+                "DM-NOC-WRITE-WAIT": 0.003926897377081879,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.013331074360977508,
+                "DM-CB-RESERVE-BACK": 0.00047375670240235436,
+                "DM-CB-WAIT-FRONT": 0.24497613960449158,
+                "DM-NOC-WRITE-WAIT": 0.003953201622695142,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 78126,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 60123,
+                "DM-CB-RESERVE-BACK": 4447,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 0,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 13556,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.18737845317642365,
+                "DM-CB-RESERVE-BACK": 0.013859454472923107,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.7695645495737654,
+                "DM-CB-RESERVE-BACK": 0.056920871412845915,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 78749,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 55559
+              },
+              "unclassified_core_cycles_sum": 23190,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.1731543582327715
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.7055200700961282
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 76973,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 76973,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 77020,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 2895
+              },
+              "unclassified_core_cycles_sum": 74125,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.009022514211628602
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.037587639574136585
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi2",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/compute_reblock_permute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute_reblock_permute/11818734307832727385/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/writer_reblock_permute.cpp'; '/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/reader_reblock_permute.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['writer_reblock_permute/11493112377237927567/'; 'reader_reblock_permute/7517285229923016601/']",
+            "PROGRAM HASH": "12947249190126974513",
+            "PROGRAM CACHE HIT": "False"
+          }
+        }
+      ]
+    },
+    {
+      "class": "reblock_on",
+      "scope": "bounded identity control, not model",
+      "invocations": 4,
+      "observed_clock_MHz": 1350,
+      "clock": {
+        "samples": 68,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1069978,
+        "first_offset_ns": 299500,
+        "last_offset_ns": 375310,
+        "sample_span_fraction": 0.9906114406248436,
+        "errors": [],
+        "pass": true
+      },
+      "cores_each": [
+        4
+      ],
+      "raw_span_cycles_sum": 321495,
+      "fence_start_cycle": 3359107838603,
+      "fence_end_cycle": 3359237314499,
+      "fenced_envelope_cycles": 129475896,
+      "unclassified_gap_cycles": 129154401,
+      "overlap_cycles": 0,
+      "matrix_shape_flops": null,
+      "matrix_basis": "permutation, not a contraction",
+      "conditional_tile_padding": "already tile aligned; issued work unverified",
+      "issued_work": null,
+      "modeled_compulsory_bytes": 2097152,
+      "physical_reads": "unknown, includes no proof about cache/spills/rereads",
+      "roof_control_basis": null,
+      "utilization": null,
+      "cycles_above_roof": null,
+      "graph_tensor_cpu_calls": 8,
+      "ops": [
+        {
+          "call_id": 35840,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3359146769141,
+          "end_cycle": 3359146849580,
+          "span_cycles": 80439,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 319405,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 4213,
+                "DM-CB-RESERVE-BACK": 140,
+                "DM-CB-WAIT-FRONT": 78618,
+                "DM-NOC-WRITE-WAIT": 1261,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 235173,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.013093772921095488,
+                "DM-CB-RESERVE-BACK": 0.00043511232113775656,
+                "DM-CB-WAIT-FRONT": 0.2443404318800582,
+                "DM-NOC-WRITE-WAIT": 0.003919118835390793,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.013190150435966877,
+                "DM-CB-RESERVE-BACK": 0.00043831499193813496,
+                "DM-CB-WAIT-FRONT": 0.24613891454423067,
+                "DM-NOC-WRITE-WAIT": 0.003947965748814201,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 78668,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 60667,
+                "DM-CB-RESERVE-BACK": 4457,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 0,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 13544,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.18854970847474484,
+                "DM-CB-RESERVE-BACK": 0.013852111537935578,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.7711776071592007,
+                "DM-CB-RESERVE-BACK": 0.056655819392891646,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 79329,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 56197
+              },
+              "unclassified_core_cycles_sum": 23132,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.17465719364984647
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.7084042405677621
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 77494,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 77494,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 77402,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 2906
+              },
+              "unclassified_core_cycles_sum": 74496,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.009031688608759433
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.037544249502596834
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi2",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/compute_reblock_permute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute_reblock_permute/11818734307832727385/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/writer_reblock_permute.cpp'; '/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/reader_reblock_permute.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['writer_reblock_permute/11493112377237927567/'; 'reader_reblock_permute/7517285229923016601/']",
+            "PROGRAM HASH": "12947249190126974513",
+            "PROGRAM CACHE HIT": "False"
+          }
+        },
+        {
+          "call_id": 36864,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3359166140357,
+          "end_cycle": 3359166220932,
+          "span_cycles": 80575,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 318932,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 4224,
+                "DM-CB-RESERVE-BACK": 139,
+                "DM-CB-WAIT-FRONT": 78361,
+                "DM-NOC-WRITE-WAIT": 1260,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 234948,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.01310580204778157,
+                "DM-CB-RESERVE-BACK": 0.000431275209432206,
+                "DM-CB-WAIT-FRONT": 0.24313062364256904,
+                "DM-NOC-WRITE-WAIT": 0.003909401179025752,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.013244202525930292,
+                "DM-CB-RESERVE-BACK": 0.00043582958122734625,
+                "DM-CB-WAIT-FRONT": 0.24569814255076317,
+                "DM-NOC-WRITE-WAIT": 0.003950685412564434,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 78360,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 60439,
+                "DM-CB-RESERVE-BACK": 4430,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 0,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 13491,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.18752404591995037,
+                "DM-CB-RESERVE-BACK": 0.013744958113558796,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.7712991322103114,
+                "DM-CB-RESERVE-BACK": 0.05653394589076059,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 78987,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 55863
+              },
+              "unclassified_core_cycles_sum": 23124,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.17332609370152033
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.7072429640320559
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 77427,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 77427,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 77178,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 2915
+              },
+              "unclassified_core_cycles_sum": 74263,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.009044368600682594
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.037769830780792456
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi2",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/compute_reblock_permute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute_reblock_permute/11818734307832727385/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/writer_reblock_permute.cpp'; '/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/reader_reblock_permute.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['writer_reblock_permute/11493112377237927567/'; 'reader_reblock_permute/7517285229923016601/']",
+            "PROGRAM HASH": "12947249190126974513",
+            "PROGRAM CACHE HIT": "False"
+          }
+        },
+        {
+          "call_id": 37888,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3359185511214,
+          "end_cycle": 3359185591551,
+          "span_cycles": 80337,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 319172,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 4242,
+                "DM-CB-RESERVE-BACK": 134,
+                "DM-CB-WAIT-FRONT": 78584,
+                "DM-NOC-WRITE-WAIT": 1260,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 234952,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.013200642294335114,
+                "DM-CB-RESERVE-BACK": 0.00041699341523830863,
+                "DM-CB-WAIT-FRONT": 0.24454485479915855,
+                "DM-NOC-WRITE-WAIT": 0.003920982859703499,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.013290639529783314,
+                "DM-CB-RESERVE-BACK": 0.0004198363264948053,
+                "DM-CB-WAIT-FRONT": 0.24621207374080434,
+                "DM-NOC-WRITE-WAIT": 0.003947714711816826,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 78658,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 60688,
+                "DM-CB-RESERVE-BACK": 4396,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 0,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 13574,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.18885445062673487,
+                "DM-CB-RESERVE-BACK": 0.013679873532743319,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.7715426275776145,
+                "DM-CB-RESERVE-BACK": 0.055887513031096646,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 79258,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 56134
+              },
+              "unclassified_core_cycles_sum": 23124,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.17468289829094938
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.7082439627545485
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 77546,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 77546,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 77524,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 2920
+              },
+              "unclassified_core_cycles_sum": 74604,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.009086722182804935
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.037665755120994786
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi2",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/compute_reblock_permute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute_reblock_permute/11818734307832727385/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/writer_reblock_permute.cpp'; '/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/reader_reblock_permute.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['writer_reblock_permute/11493112377237927567/'; 'reader_reblock_permute/7517285229923016601/']",
+            "PROGRAM HASH": "12947249190126974513",
+            "PROGRAM CACHE HIT": "False"
+          }
+        },
+        {
+          "call_id": 38912,
+          "op": "GenericOpDeviceOperation",
+          "cores": 4,
+          "start_cycle": 3359204768394,
+          "end_cycle": 3359204848538,
+          "span_cycles": 80144,
+          "threads": {
+            "BRISC": {
+              "resident_core_cycles_sum": 319195,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 4248,
+                "DM-CB-RESERVE-BACK": 137,
+                "DM-CB-WAIT-FRONT": 78648,
+                "DM-NOC-WRITE-WAIT": 1268,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 234894,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.013251147933719305,
+                "DM-CB-RESERVE-BACK": 0.0004273557596326612,
+                "DM-CB-WAIT-FRONT": 0.2453333998802156,
+                "DM-NOC-WRITE-WAIT": 0.003955380315432222,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.013308479142843716,
+                "DM-CB-RESERVE-BACK": 0.00042920471811901817,
+                "DM-CB-WAIT-FRONT": 0.24639483701185796,
+                "DM-NOC-WRITE-WAIT": 0.003972493303466533,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "NCRISC": {
+              "resident_core_cycles_sum": 78574,
+              "zone_core_cycles_sum": {
+                "DM-NOC-READ-BARRIER": 60649,
+                "DM-CB-RESERVE-BACK": 4528,
+                "DM-CB-WAIT-FRONT": 0,
+                "DM-NOC-WRITE-WAIT": 0,
+                "DM-SEM-WAIT": 0
+              },
+              "unclassified_core_cycles_sum": 13397,
+              "zone_fraction_of_op_span": {
+                "DM-NOC-READ-BARRIER": 0.189187587342783,
+                "DM-CB-RESERVE-BACK": 0.014124575763625474,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              },
+              "zone_fraction_of_own_residency": {
+                "DM-NOC-READ-BARRIER": 0.7718711024002851,
+                "DM-CB-RESERVE-BACK": 0.057627204927838724,
+                "DM-CB-WAIT-FRONT": 0.0,
+                "DM-NOC-WRITE-WAIT": 0.0,
+                "DM-SEM-WAIT": 0.0
+              }
+            },
+            "TRISC_0": {
+              "resident_core_cycles_sum": 79301,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-WAIT-FRONT": 56205
+              },
+              "unclassified_core_cycles_sum": 23096,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-WAIT-FRONT": 0.17532503992812937
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-WAIT-FRONT": 0.708755248988033
+              }
+            },
+            "TRISC_1": {
+              "resident_core_cycles_sum": 77325,
+              "zone_core_cycles_sum": {},
+              "unclassified_core_cycles_sum": 77325,
+              "zone_fraction_of_op_span": {},
+              "zone_fraction_of_own_residency": {}
+            },
+            "TRISC_2": {
+              "resident_core_cycles_sum": 77394,
+              "zone_core_cycles_sum": {
+                "CB-COMPUTE-RESERVE-BACK": 2896
+              },
+              "unclassified_core_cycles_sum": 74498,
+              "zone_fraction_of_op_span": {
+                "CB-COMPUTE-RESERVE-BACK": 0.009033739269315232
+              },
+              "zone_fraction_of_own_residency": {
+                "CB-COMPUTE-RESERVE-BACK": 0.03741892136341318
+              }
+            }
+          },
+          "identity": {
+            "ATTRIBUTES": "{'num_mesh_programs': '1'}",
+            "MATH FIDELITY": "HiFi2",
+            "COMPUTE KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/compute_reblock_permute.cpp']",
+            "COMPUTE KERNEL HASH": "['compute_reblock_permute/11818734307832727385/']",
+            "DATA MOVEMENT KERNEL SOURCE": "['/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/writer_reblock_permute.cpp'; '/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/kernels/reblock_permute/reader_reblock_permute.cpp']",
+            "DATA MOVEMENT KERNEL HASH": "['writer_reblock_permute/11493112377237927567/'; 'reader_reblock_permute/7517285229923016601/']",
+            "PROGRAM HASH": "12947249190126974513",
+            "PROGRAM CACHE HIT": "False"
+          }
+        }
+      ]
+    }
+  ],
+  "model_invocations_measured": 0,
+  "model_coverage_fraction": 0,
+  "whole_fold_closure": null,
+  "model_roof": null,
+  "model_floor": null,
+  "model_cycles_above_roof": null,
+  "rank_scope": "raw instrumented spans in these 16 small controls only; not a model class ranking or observer overhead estimate",
+  "limits": [
+    "No synchronized host/device timebase conversion",
+    "No profiler perturbation calibration",
+    "No machine-code provenance proof",
+    "All program-cache-hit labels false; descriptor hash equality is not a binary cache-hit proof",
+    "Missing runtime arguments prevent matmul rebinding validation",
+    "Co-tenant node3 recorded; host walls diagnostic only"
+  ]
+}

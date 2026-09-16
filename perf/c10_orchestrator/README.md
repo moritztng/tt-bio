@@ -131,3 +131,11 @@ This build disables C++ postprocessing in that mode, so the C++ report required
 by `import_profiler_cycles.py` is absent. The profiler also reused stale 32×32
 shape metadata for 120 graph-confirmed 8192×8192 add calls. A census needs an
 explicit join to actual operands before assigning per-call work.
+
+The [first live identity smoke](../c10_burst_census/README.md) is also archived.
+Its [CPU replay](identity_smoke_review.json) verifies all 39 artifact hashes and
+five execution-join controls, and reproduces the required STOP: per-core runtime
+identity was unavailable despite a successful observer footer. Four intervals
+contain 956 samples at minimum=maximum 1350 MHz; no model invocation was captured.
+The observer's Python endpoint mapping is repaired and CPU-tested, with fresh
+live validation still required before a model census.
