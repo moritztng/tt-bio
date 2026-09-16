@@ -5405,6 +5405,10 @@ def _open_and_init_device(trace_region_size):
         kwargs["trace_region_size"] = trace_region_size
     dev = _open_device_locked(device_id, kwargs)
     _assert_local_dispatch(dev)   # raises (and closes) on a remote-only bring-up
+    # Opt-in clock hold, once the chip is open so aiclk can read which nodes we actually got.
+    # Off unless $TT_BIO_AICLK names a target; see tt_bio/aiclk.py for the measured cost.
+    from . import aiclk
+    aiclk.engage(arch_name())
     _trace_region_size = trace_region_size
     return dev
 
@@ -5440,6 +5444,8 @@ def cleanup():
     if _device_lease is not None:
         _device_lease.release()
         _device_lease = None
+    from . import aiclk
+    aiclk.release()
 
 
 def _drop_cycles_at_exit():
