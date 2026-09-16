@@ -1,0 +1,10 @@
+test_descriptor_cache_mismatch (test_reduce.JoinControls.test_descriptor_cache_mismatch) ... ok
+test_live_gaps_refuse_continuation (test_reduce.JoinControls.test_live_gaps_refuse_continuation) ... ok
+test_missing_fence (test_reduce.JoinControls.test_missing_fence) ... ok
+test_missing_graph_dispatch (test_reduce.JoinControls.test_missing_graph_dispatch) ... ok
+test_wrong_role (test_reduce.JoinControls.test_wrong_role) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.563s
+
+OK
