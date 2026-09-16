@@ -387,11 +387,9 @@
       "how": "stats",
       "counter": "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS",
       "resolved": "16",
-      "served": 0,
-      "declined": 296,
-      "rejects": {
-        "base-unraised": 296
-      },
+      "served": 296,
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     }
   ],

@@ -1,0 +1,75 @@
+======================================================================
+boltz2 old: 2026-09-15 d35f9db1f -> new: 2026-09-16 60896891b
+runtime old: {'256': 7.4, '512': 15.5, '640': 23.5, '768': 30.4, '896': 42.7, '1024': 54.2}
+runtime new: {'1024': 53.4, '512': 15.8, '256': 5.9, '896': 43.2, '640': 21.9, '768': 30.1}
+exponents old: {'256->512': 1.067, '512->768': 1.661}
+exponents new: {'256->512': 1.421, '512->768': 1.59}
+sigma old: 0.0254 new: 0.0028 reps old: 1 new: 1 grid: 11x10 11x10
+ rung 256: 0 finding(s) old->new
+ rung 512: 1 finding(s) old->new
+   RED: boltz2/512 TRANSITION_H_CHUNK: frac 0.000 -> 1.000 (started firing)
+ rung 640: 1 finding(s) old->new
+   RED: boltz2/640 TRANSITION_H_CHUNK: frac 0.000 -> 1.000 (started firing)
+ rung 768: 1 finding(s) old->new
+   RED: boltz2/768 TRANSITION_H_CHUNK: frac 0.000 -> 1.000 (started firing)
+ rung 896: 1 finding(s) old->new
+   RED: boltz2/896 TRANSITION_H_CHUNK: frac 0.000 -> 1.000 (started firing)
+ rung 1024: 1 finding(s) old->new
+   RED: boltz2/1024 TRANSITION_H_CHUNK: frac 0.000 -> 1.000 (started firing)
+ flags implicated: ['TRANSITION_H_CHUNK']
+ NOT in the nine: none
+ --- new state of the nine, per rung ---
+  256 REBLOCK_PERMUTE: resolved=True served=0 declined=4450 frac=0.0 rejects=['window_BufferType.L1']
+  256 REBLOCK_PERMUTE_GATED: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  256 B2_TOKEN_DIT_SDPA: resolved=True served=144 declined=0 frac=1.0 rejects=[]
+  256 TRIMUL_MASK_AFTER_MOVE: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  256 APB_CONCAT_HEADS: resolved=False served=0 declined=408 frac=0.0 rejects=[]
+  256 ATOM_AXIS_BUCKET: resolved=True served=6 declined=0 frac=1.0 rejects=[]
+  256 TRANSITION_H_CHUNK: resolved=16 served=296 declined=0 frac=1.0 rejects=[]
+  256 PAIR_PROJ_MINIMAL_MATMUL: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  256 TRIMUL_TAIL_F1: resolved=True served=0 declined=560 frac=0.0 rejects=['k_tiles=4']
+  512 REBLOCK_PERMUTE: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  512 REBLOCK_PERMUTE_GATED: resolved=True served=1120 declined=0 frac=1.0 rejects=[]
+  512 B2_TOKEN_DIT_SDPA: resolved=True served=144 declined=0 frac=1.0 rejects=[]
+  512 TRIMUL_MASK_AFTER_MOVE: resolved=True served=1120 declined=0 frac=1.0 rejects=[]
+  512 APB_CONCAT_HEADS: resolved=False served=0 declined=408 frac=0.0 rejects=[]
+  512 ATOM_AXIS_BUCKET: resolved=True served=6 declined=0 frac=1.0 rejects=[]
+  512 TRANSITION_H_CHUNK: resolved=16 served=296 declined=0 frac=1.0 rejects=[]
+  512 PAIR_PROJ_MINIMAL_MATMUL: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  512 TRIMUL_TAIL_F1: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  640 REBLOCK_PERMUTE: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  640 REBLOCK_PERMUTE_GATED: resolved=True served=1120 declined=0 frac=1.0 rejects=[]
+  640 B2_TOKEN_DIT_SDPA: resolved=True served=144 declined=0 frac=1.0 rejects=[]
+  640 TRIMUL_MASK_AFTER_MOVE: resolved=True served=1120 declined=0 frac=1.0 rejects=[]
+  640 APB_CONCAT_HEADS: resolved=False served=0 declined=408 frac=0.0 rejects=[]
+  640 ATOM_AXIS_BUCKET: resolved=True served=6 declined=0 frac=1.0 rejects=[]
+  640 TRANSITION_H_CHUNK: resolved=16 served=296 declined=0 frac=1.0 rejects=[]
+  640 PAIR_PROJ_MINIMAL_MATMUL: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  640 TRIMUL_TAIL_F1: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  768 REBLOCK_PERMUTE: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  768 REBLOCK_PERMUTE_GATED: resolved=True served=1120 declined=0 frac=1.0 rejects=[]
+  768 B2_TOKEN_DIT_SDPA: resolved=True served=144 declined=0 frac=1.0 rejects=[]
+  768 TRIMUL_MASK_AFTER_MOVE: resolved=True served=1120 declined=0 frac=1.0 rejects=[]
+  768 APB_CONCAT_HEADS: resolved=False served=0 declined=408 frac=0.0 rejects=[]
+  768 ATOM_AXIS_BUCKET: resolved=True served=6 declined=0 frac=1.0 rejects=[]
+  768 TRANSITION_H_CHUNK: resolved=16 served=296 declined=0 frac=1.0 rejects=[]
+  768 PAIR_PROJ_MINIMAL_MATMUL: resolved=True served=0 declined=560 frac=0.0 rejects=['k_tiles=4:(4,4)']
+  768 TRIMUL_TAIL_F1: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  896 REBLOCK_PERMUTE: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  896 REBLOCK_PERMUTE_GATED: resolved=True served=1120 declined=0 frac=1.0 rejects=[]
+  896 B2_TOKEN_DIT_SDPA: resolved=True served=144 declined=0 frac=1.0 rejects=[]
+  896 TRIMUL_MASK_AFTER_MOVE: resolved=True served=1120 declined=0 frac=1.0 rejects=[]
+  896 APB_CONCAT_HEADS: resolved=False served=0 declined=408 frac=0.0 rejects=[]
+  896 ATOM_AXIS_BUCKET: resolved=True served=6 declined=0 frac=1.0 rejects=[]
+  896 TRANSITION_H_CHUNK: resolved=16 served=296 declined=0 frac=1.0 rejects=[]
+  896 PAIR_PROJ_MINIMAL_MATMUL: resolved=True served=0 declined=560 frac=0.0 rejects=['k_tiles=4:(4,4)']
+  896 TRIMUL_TAIL_F1: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  1024 REBLOCK_PERMUTE: resolved=True served=0 declined=0 frac=0.0 rejects=[]
+  1024 REBLOCK_PERMUTE_GATED: resolved=True served=1120 declined=0 frac=1.0 rejects=[]
+  1024 B2_TOKEN_DIT_SDPA: resolved=True served=144 declined=0 frac=1.0 rejects=[]
+  1024 TRIMUL_MASK_AFTER_MOVE: resolved=True served=1120 declined=0 frac=1.0 rejects=[]
+  1024 APB_CONCAT_HEADS: resolved=False served=0 declined=408 frac=0.0 rejects=[]
+  1024 ATOM_AXIS_BUCKET: resolved=True served=6 declined=0 frac=1.0 rejects=[]
+  1024 TRANSITION_H_CHUNK: resolved=16 served=296 declined=0 frac=1.0 rejects=[]
+  1024 PAIR_PROJ_MINIMAL_MATMUL: resolved=True served=0 declined=560 frac=0.0 rejects=['k_tiles=4:(4,4)']
+  1024 TRIMUL_TAIL_F1: resolved=True served=0 declined=0 frac=0.0 rejects=[]

@@ -26,6 +26,17 @@ J = {
    "resolved (8, 8) is the rectangle the constant holds rather than a block that ran. The row "
    "is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead "
    "of scoring it off the bias hoist's",
+ ("REBLOCK_PERMUTE_GATED", ("256",)):
+   "the gated channel move is only offered once the trimul has moved its pair tensors to DRAM, "
+   "and at 256 aa they stay L1-resident, so the gate is never reached here. It serves all 1120 "
+   "calls at every rung from 512 up",
+ ("FP32_SOFTMAX_BIAS_HOIST", ALL):
+   "boltz-2's SDPA bias is bf16, so the fp32 hoist has no call site on this model: 0 served and "
+   "0 declined at every rung, on every card",
+ ("PAIR_TRANSPOSE_VIA_ROW_MAJOR", ("256", "512", "640")):
+   "the row-major route needs a DRAM destination, and through 640 the pair transpose destination "
+   "is L1-resident, so TRANSPOSE_L1_RESIDENT serves those calls instead. From 768 up the tensor "
+   "stops fitting and this lever serves all 560; exactly one of the two serves at every rung",
  ("TRIMUL_MASK_AFTER_MOVE", ("256",)):
    "it unlocks the gated channel move, which is only offered once the trimul's pair tensors are "
    "in DRAM. At 256 aa they are L1-resident, so nothing is offered here; it serves 1120 at every "
@@ -36,11 +47,11 @@ J = {
    "chunk+gate route is eligible and REBLOCK_PERMUTE_GATED now serves the 1120 calls this "
    "counter served when the baseline was recorded. The ungated wrapper is not offered, not "
    "refused",
- ("TRANSITION_H_CHUNK", ("512", "640", "768", "896", "1024")):
-   "served means a row block TALLER than the unconditional 16, and the raise to 32 is gated to "
-   "pair W <= TRANSITION_H_CHUNK_BIG_MAX_W (384). boltz-2's pair W is the token count, so every "
-   "rung above 256 ships the base height -- the verified envelope, since 32 clashes in-block L1 "
-   "at W=512. The row is new because 7fb08268f gave the lever its first counter",
+ # TRANSITION_H_CHUNK is no longer dark at any rung, so it gets no exemption. It read
+ # `declined 296, base-unraised` from 512 up when this campaign started; the Blackhole L1 row
+ # raise (b81fe4c0a, bounded to c <= 128 by d002db0d9, default on through
+ # _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)) now picks a height above
+ # the base of 16 on every boltz-2 rung, so the counter serves all 296.
  # Repairs: the carried text claimed declines on entries that now have no calls at all.
  ("PAIR_PROJ_MINIMAL_MATMUL", ("256", "512", "640")):
    "the separate triangle-attention gate projection that fell through to this wrapper is gone. "
@@ -69,12 +80,9 @@ J = {
    "exactly one of the two serves at every rung",
 }
 # Heads normalised, judgement kept verbatim from the existing reason.
-KEEP = [("PAIR_TRANSPOSE_VIA_ROW_MAJOR", ("256", "512", "640")),
-        ("REBLOCK_PERMUTE", ("256",)),
+KEEP = [("REBLOCK_PERMUTE", ("256",)),
         ("TRIMUL_IN_PROJ_DUAL_NOC", ("256",)),
         ("REBLOCK_PERMUTE_BACK", ("256",)),
-        ("REBLOCK_PERMUTE_GATED", ("256",)),
-        ("FP32_SOFTMAX_BIAS_HOIST", ALL),
         ("TRANSPOSE_L1_RESIDENT", ("768",))]
 
 path = ROOT / "docs" / "size_ladder_baseline.d" / f"{MODEL}.json"
