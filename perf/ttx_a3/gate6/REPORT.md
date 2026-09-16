@@ -717,3 +717,36 @@ Two things this adds to the record independent of the lever:
    reporting.** When the chip is ARC-dead the probe does not fail fast, it spins inside
    `ttnn.open_device` holding the host-wide `/tmp/tt-bio-device-open.lock`, so the instrument built
    to detect a dead card becomes a second process stuck on it.
+
+## Attribution rep 1: the flag-off control completes the cell that froze
+
+`cap_offarm.sh protenix-v2`, same tree, same card, same cell, one env var, its own process:
+
+    protenix-v2    PASS   1536 tok   8832 rows   10.15G/32%   763.6 s   residency/-
+
+So the freeze **did not reproduce with the flag off**. That is one run against one run on a box
+that wedges roughly 1 fold in 6, which is not a verdict in either direction
+(`qbroot-n1-beats-controls-is-not-a-lever`). It does establish that the freeze is not a
+deterministic function of (model, size) alone: the first control cleared the exact step the on-arm
+died at.
+
+### An in-regime speed signal, and the confound that stops it being a measurement
+
+Trunk cadence is unusually clean on this cell, so the two arms can be compared step by step:
+
+| arm | steps | per-step | mean |
+|---|---|---|---|
+| ON (froze at 6/10) | 6 | 58, 57, 58, 57, 58, 58 s | 57.67 s |
+| OFF | 9 | 69, 68, 68, 68, 69, 68, 69, 68, 69 s | 68.44 s |
+
+**1.187x**, and the within-arm spread is +-1 s, roughly a tenth of the 10.8 s/step gap. That is
+close to the 1.1856x banked at 1536 aa in gate5, from a different model and a different
+instrument, which is the kind of independent agreement worth noticing.
+
+It is NOT quoted as a measurement, for one reason: the two arms straddle the 17:22:32Z reboot.
+`qb2-aiclk-governor-sets-fold-time-not-cotenancy` says a governor difference across a boot can
+produce exactly this size of effect, and neither arm recorded its clock. Idle AICLK on the current
+boot reads 0x320 (800 MHz) against an `AICLK_LIMIT_MAX` of 0x546 (1350 MHz).
+
+The next rep removes the confound rather than arguing about it: an ON arm on **this** boot, beside
+the OFF arm it is compared against. Started 17:39:31Z.

@@ -184,3 +184,20 @@
 2026-09-16T17:22:13Z CARD-3 STATE IS ARC-DEAD, NOT BRIDGE-QUARANTINE: all four endpoints read 1e52:b140 COMMAND=0406, bridges 00:01.1/.3/.4 all 0407, all four /dev/tenstorrent nodes present -- so PCIe config space is INTACT, unlike the 13:02Z containment episode that cleared Memory-Space-Enable. UMD still reads 0xffffffff in init_tt_device, i.e. the chip is unresponsive at the BAR while its config space answers. tt-smi -ls AND tt-smi -r 3 both throw from TopologyDiscovery::create_ethernet_map, so the reset path needs the enumeration that is broken and cannot recover it. Rebooting (allowed on qb2; power-off is not and is not needed).
 2026-09-16T17:24:32Z REBOOT 17:22:32Z cleared it: all four p300c boards enumerate, card 3 opens in 2.9s and card 2 in 0.9s, both grid 11x10. ARC-dead confirmed as reboot-only, matching tt-kmd-upgrade-can-leave-a-blackhole-arc-dead.
 2026-09-16T17:24:32Z capoff-protenix-v2 START card=3 loadavg=0.14
+2026-09-16T17:38:24Z capoff-protenix-v2 rc=0 loadavg=2.83
+2026-09-16T17:39:31Z ATTRIBUTION rep 1: capoff-protenix-v2 (flag OFF) PASS 1536 tok, 10.15G/32%, 763.6s -- it COMPLETED the exact cell the ON arm froze in, so the freeze did not reproduce on the control. 1-vs-1 on a box that wedges ~1 in 6 is not a verdict (qbroot-n1-beats-controls-is-not-a-lever). Trunk cadence ON 57.67 s/step (6 steps, 57-58) vs OFF 68.44 (9 steps, 68-69) = 1.187x, close to the banked 1.1856x at 1536 aa from a different model and instrument -- BUT the arms straddle the 17:22:32Z reboot, so an AICLK governor difference is an untested confound. Next rep is ON on THIS boot, which removes it.
+2026-09-16T17:39:31Z resume_after_boot relaunching (uptime 992s)
+2026-09-16T17:39:31Z PHASE 1/5 correctness: pytest, the flag-off control, ux
+2026-09-16T17:39:31Z CARD=3 (UMD) resolves to /dev/tenstorrent/3
+2026-09-16T17:39:31Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T17:39:31Z capacity SKIPPED by GATE_SKIP_CAP
+2026-09-16T17:39:31Z size-ladder SKIPPED by GATE_SKIP_LADDER
+2026-09-16T17:39:31Z perf SKIPPED by GATE_SKIP_PERF
+2026-09-16T17:39:31Z parity PRECHECK card 3 free, 0 holders
+2026-09-16T17:39:31Z parity SKIPPED by GATE_SKIP_PARITY
+2026-09-16T17:39:31Z GATE_DRIVER_DONE
+2026-09-16T17:39:31Z PHASE 2/5 size ladder, in-regime: rf3 SKIPPED (p300c baseline stale vs 9 merged levers, needs --size-ladder-record; lever verdict taken directly in census_1088_pair.sh)
+2026-09-16T17:39:31Z PHASE 3/5 capacity, 15 cells (tests at the 1536 aa ceiling, in the lever's regime)
+2026-09-16T17:39:31Z CARD=3 (UMD) resolves to /dev/tenstorrent/3
+2026-09-16T17:39:31Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T17:39:31Z capacity-protenix-v2 START loadavg=0.95
