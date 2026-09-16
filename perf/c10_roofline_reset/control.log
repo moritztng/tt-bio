@@ -1,0 +1,13 @@
+2026-09-16 17:07:38.699 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+{
+  "verdict": "INSTRUMENT_UNFIT",
+  "expected_flops": 1099511627776,
+  "observed_flops": 1099511627776,
+  "expected_min_bytes": 402653184,
+  "observed_bytes": 536870912,
+  "byte_ratio": 1.3333333333333333,
+  "clock_pin_MHz": 1350,
+  "clock_min_MHz": 1350,
+  "clock_max_MHz": 1350,
+  "clock_mean_MHz": 1350.0
+}

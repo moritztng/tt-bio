@@ -1,0 +1,161 @@
+{
+  "host": "tt-quietbox2",
+  "physical_card": 0,
+  "repo_head": "71a306a8a5d94d880e85ce6829218ad671fbc246",
+  "ttnn_module": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+  "ttnn_version": null,
+  "metal_source_head": "1452925b033c6608726b731a81500bd3e19f7894",
+  "clock_holder_ref": "5c60137c2:tt_bio/aiclk.py",
+  "clock_holder_sha256": "f1c9c7bc50bf4162bc7e1ee098ea47bc49985f213b6889f69fe204401988e9f5",
+  "clock_pin_MHz": 1350,
+  "clock_hold": {
+    "mhz": 1350,
+    "nodes": [
+      0
+    ],
+    "reasserts": 0
+  },
+  "capture_start_monotonic_ns": 2920110095971,
+  "capture_end_monotonic_ns": 2920120316217,
+  "during_capture_clock": [
+    {
+      "read_start_ns": 2920110797093,
+      "read_end_ns": 2920110804166,
+      "MHz": 1350
+    },
+    {
+      "read_start_ns": 2920111857462,
+      "read_end_ns": 2920111864294,
+      "MHz": 1350
+    },
+    {
+      "read_start_ns": 2920112918812,
+      "read_end_ns": 2920112929732,
+      "MHz": 1350
+    },
+    {
+      "read_start_ns": 2920114003516,
+      "read_end_ns": 2920114014466,
+      "MHz": 1350
+    },
+    {
+      "read_start_ns": 2920115070417,
+      "read_end_ns": 2920115077921,
+      "MHz": 1350
+    },
+    {
+      "read_start_ns": 2920116131617,
+      "read_end_ns": 2920116138370,
+      "MHz": 1350
+    },
+    {
+      "read_start_ns": 2920117192086,
+      "read_end_ns": 2920117199340,
+      "MHz": 1350
+    },
+    {
+      "read_start_ns": 2920118252886,
+      "read_end_ns": 2920118260059,
+      "MHz": 1350
+    },
+    {
+      "read_start_ns": 2920119313415,
+      "read_end_ns": 2920119320197,
+      "MHz": 1350
+    }
+  ],
+  "clock_errors": [],
+  "clock_min_MHz": 1350,
+  "clock_max_MHz": 1350,
+  "clock_mean_MHz": 1350.0,
+  "shape": {
+    "M": 8192,
+    "N": 8192,
+    "K": 8192
+  },
+  "dtype": "bf16",
+  "expected_flops": 1099511627776,
+  "observed_flops": 1099511627776,
+  "expected_min_bytes": 402653184,
+  "observed_bytes": 536870912,
+  "bytes_error": 134217728,
+  "byte_ratio": 1.3333333333333333,
+  "flops_exact": true,
+  "bytes_exact": false,
+  "flop_counter": {
+    "n_ops": 1,
+    "matmul_logical": 1099511627776,
+    "matmul_padded": 1099511627776,
+    "eltwise_logical": 0,
+    "logical": 1099511627776,
+    "eltwise_padded": 0,
+    "padded": 1099511627776,
+    "tile_pad_factor": 1.0
+  },
+  "byte_counter": {
+    "floor_MB": 536.870912,
+    "once_MB": 402.653184,
+    "real_MB": 536.870912,
+    "real_w_MB": 134.217728,
+    "real_r_MB": 402.653184,
+    "n_ops": 1,
+    "per_op": [
+      [
+        536870912,
+        "ttnn.matmul",
+        134217728,
+        402653184
+      ]
+    ]
+  },
+  "ops": [
+    {
+      "name": "ttnn.matmul",
+      "start": 1,
+      "end": 15
+    }
+  ],
+  "buffers": [
+    {
+      "buffer": 4,
+      "size": 134217728,
+      "kind": "DRAM",
+      "alloc_op": null,
+      "alloc_op_i": null,
+      "n_consumers": 1,
+      "consumers": [
+        0
+      ],
+      "consumer_names": [
+        "ttnn.matmul"
+      ]
+    },
+    {
+      "buffer": 6,
+      "size": 134217728,
+      "kind": "DRAM",
+      "alloc_op": null,
+      "alloc_op_i": null,
+      "n_consumers": 1,
+      "consumers": [
+        0
+      ],
+      "consumer_names": [
+        "ttnn.matmul"
+      ]
+    },
+    {
+      "buffer": 8,
+      "size": 134217728,
+      "kind": "DRAM",
+      "alloc_op": "ttnn.matmul",
+      "alloc_op_i": 0,
+      "n_consumers": 0,
+      "consumers": [],
+      "consumer_names": []
+    }
+  ],
+  "device_cycles": null,
+  "timing_note": "Capture boundaries identify clock samples only; no device timing or roof measured.",
+  "verdict": "INSTRUMENT_UNFIT"
+}

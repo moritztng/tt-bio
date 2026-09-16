@@ -1,0 +1,43 @@
+{
+  "source_head": "1452925b033c6608726b731a81500bd3e19f7894",
+  "files": {
+    "tt_metal/hw/inc/api/dataflow/dataflow_api.h": {
+      "sha256": "d88b820d26320805bc2313293a9aabf4cae4c89976df6542274c0c839bf23fbd",
+      "bytes": 135615,
+      "dm_zones": {
+        "DM-CB-RESERVE-BACK": 0,
+        "DM-CB-WAIT-FRONT": 0,
+        "DM-NOC-READ-BARRIER": 0,
+        "DM-NOC-WRITE-WAIT": 0,
+        "DM-SEM-WAIT": 0
+      }
+    },
+    "tt_metal/hostdevcommon/api/hostdevcommon/profiler_common.h": {
+      "sha256": "685e0c839605c418ec0e0017ef12b1f95b4629f5543d4ce5f4be3a8c51f8b204",
+      "bytes": 3185,
+      "dm_zones": {
+        "DM-CB-RESERVE-BACK": 0,
+        "DM-CB-WAIT-FRONT": 0,
+        "DM-NOC-READ-BARRIER": 0,
+        "DM-NOC-WRITE-WAIT": 0,
+        "DM-SEM-WAIT": 0
+      }
+    },
+    "tools/tracy/device_post_proc_config.py": {
+      "sha256": "9cd000e5609799b46d262240cbbccdde394a187de7961364bbf16d11743dfaeb",
+      "bytes": 18724,
+      "dm_zones": {
+        "DM-CB-RESERVE-BACK": 0,
+        "DM-CB-WAIT-FRONT": 0,
+        "DM-NOC-READ-BARRIER": 0,
+        "DM-NOC-WRITE-WAIT": 0,
+        "DM-SEM-WAIT": 0
+      }
+    },
+    "ttnn/ttnn/_ttnn.so": {
+      "sha256": "297dd53e3319a6bb4e378482e243420bdb2e27b704b43f07b33fd63fb117b109",
+      "bytes": 14179872
+    }
+  },
+  "note": "Local source has no k10 DM zones. It is sufficient for this graph-counter control, not for the requested per-RISC capture."
+}
