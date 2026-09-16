@@ -1,0 +1,120 @@
+{
+  "scope": "CPU split of a committed floor artifact. No device, no new timing.",
+  "census": "/home/moritz/.coworker/wt/c10-orchestrator/perf/roof_launch/op_census_512.json",
+  "total_calls": 465664.0,
+  "total_floor_s": 12.706201633707975,
+  "by_binding_term": {
+    "arithmetic_s": 9.407581517409406,
+    "arithmetic_pct": 74.03929032931651,
+    "traffic_s": 3.2986201162985687,
+    "traffic_pct": 25.960709670683478
+  },
+  "top_classes": [
+    {
+      "op": "ttnn.generic_op",
+      "calls": 3920.0,
+      "floor_s": 4.0840893153558815,
+      "traffic_s": 2.149026822510006,
+      "arith_s": 3.376183238784186,
+      "binds": "arithmetic",
+      "pct_of_floor": 32.14248784248236
+    },
+    {
+      "op": "ttnn.linear",
+      "calls": 108608.0,
+      "floor_s": 3.8053766613955355,
+      "traffic_s": 0.9552995000329679,
+      "arith_s": 3.6652600217884923,
+      "binds": "arithmetic",
+      "pct_of_floor": 29.948971148862803
+    },
+    {
+      "op": "ttnn.matmul",
+      "calls": 1632.0,
+      "floor_s": 1.51811554065799,
+      "traffic_s": 0.32871079934071135,
+      "arith_s": 1.5010844225120483,
+      "binds": "arithmetic",
+      "pct_of_floor": 11.947831337971358
+    },
+    {
+      "op": "ttnn.multiply_",
+      "calls": 42720.0,
+      "floor_s": 0.7695614565387372,
+      "traffic_s": 0.7695614565387372,
+      "arith_s": 0.0,
+      "binds": "traffic",
+      "pct_of_floor": 6.056581492435837
+    },
+    {
+      "op": "ttnn.layer_norm",
+      "calls": 35304.0,
+      "floor_s": 0.6647945915705202,
+      "traffic_s": 0.6647945915705202,
+      "arith_s": 0.0,
+      "binds": "traffic",
+      "pct_of_floor": 5.232048181943711
+    },
+    {
+      "op": "ttnn.add_",
+      "calls": 14616.0,
+      "floor_s": 0.6400646660701682,
+      "traffic_s": 0.6400646660701682,
+      "arith_s": 0.0,
+      "binds": "traffic",
+      "pct_of_floor": 5.037419399768977
+    },
+    {
+      "op": "ttnn.permute",
+      "calls": 12432.0,
+      "floor_s": 0.2560764805274315,
+      "traffic_s": 0.2560764805274315,
+      "arith_s": 0.0,
+      "binds": "traffic",
+      "pct_of_floor": 2.015366101605789
+    },
+    {
+      "op": "ttnn.transformer.scaled_dot_product_attention",
+      "calls": 6000.0,
+      "floor_s": 0.18758079020485044,
+      "traffic_s": 0.18758079020485044,
+      "arith_s": 0.0,
+      "binds": "traffic",
+      "pct_of_floor": 1.4762931961289039
+    }
+  ],
+  "concentration": {
+    "classes": [
+      "ttnn.generic_op",
+      "ttnn.linear",
+      "ttnn.matmul"
+    ],
+    "calls": 114160.0,
+    "floor_s": 9.407581517409406,
+    "pct_of_floor": 74.03929032931651,
+    "pct_of_calls": 24.51553051126993
+  },
+  "roof_provenance": {
+    "file": "/home/moritz/.coworker/wt/c10-orchestrator/perf/roof_shape/shape_roofs_qb2c3_shipped.json",
+    "host": "tt-quietbox2",
+    "card": "3",
+    "grid": [
+      11,
+      10
+    ],
+    "cube4096_TFLOPs": 108.54279824685312,
+    "loadavg_at_measurement": [
+      6.20068359375,
+      4.31201171875,
+      4.72216796875
+    ],
+    "recorded_clock": null,
+    "problem": "The compute roof every floor second is divided by carries NO clock and was taken at loadavg 6.2. An arithmetic-bound floor second scales with AICLK, so an unclocked roof makes every arithmetic-bound floor second unreadable, and with it the 74/26 split below."
+  },
+  "why_the_mix_moves_at_burst": [
+    "Arithmetic-bound time scales with AICLK: the same FLOPs take fewer seconds at 1350 MHz.",
+    "DRAM-bandwidth-bound time does not: DRAM runs on its own clock.",
+    "L1 and NOC bandwidth DO track the core clock, so a traffic term is only AICLK-immune to the extent it is DRAM rather than L1/NOC. This census does not separate them, which is one more reason the split has to be re-measured rather than rescaled.",
+    "So at burst clock the arithmetic side shrinks, the DRAM side does not, and the binding mix moves toward traffic by an amount this artifact cannot tell you."
+  ]
+}
