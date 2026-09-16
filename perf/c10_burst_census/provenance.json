@@ -1,0 +1,77 @@
+{
+  "source_base": "71a306a8a",
+  "tools_parent": "c45d5103b818355e93a3fde28882bfd58fa87c28",
+  "observer_parent": "747fa1c77f933cccbe99b53e536d6fc886a994f5",
+  "calibration_commit": "ee11d5263ffc96cf25939967d3bdd38c1a0f96e3",
+  "measurement_commit": "cd13bc7666312955350e3def7a14edd9967db578",
+  "measurement_script_matches_commit": true,
+  "inputs": [
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/size512/fixtures/cdk2x2_512.yaml",
+      "sha256": "24d8b2d8c06e4409995abae024766e316da3175dde7596073b68c7963d2df398",
+      "bytes": 813
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/size512/fixtures/cdk2x2_512.a3m",
+      "sha256": "ef2301402e7716e9df368987210456194b108c8ae7e144b7bf09a3dd6f40bf5e",
+      "bytes": 20418
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/roof_quiet/out_shipped_trimmed/roof_budget_512_qb2c2.json",
+      "sha256": "30ff25004f415eafc7b1b3d8acefb9d2ac65162d406ee3c997e0b1a56a7fbc97",
+      "bytes": 15707
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/smoke.py",
+      "sha256": "c4de330cf78bdd18d07abbf72a8a69bccb00828f3dde5ea0c50b284b9f91668d",
+      "bytes": 11685
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_generic_identity/observer.py",
+      "sha256": "14c514924c39f7ae02b91c3a1786fdcb8f5c221cb837a9ede961d620d44d1a60",
+      "bytes": 22697
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_generic_identity/roles.json",
+      "sha256": "4555839104c5261159fc349eae5f30f85cc9bba1b3ffb8cbc1c6e653f2df283f",
+      "bytes": 695
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/mm_generic.py",
+      "sha256": "a7426479c47f44a83623bfbfc15be24e8d6e9541c1f6b144819d3d9de5e22d51",
+      "bytes": 19006
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/tt_bio/reblock_permute.py",
+      "sha256": "44e91eb8edcc8eb31f3c4a71bb52b5e6792551e77c4d7b63e0241f9cfdbc7565",
+      "bytes": 46752
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn-nanobind/tensor.cpp",
+      "sha256": "7342f1e6a17b1cdf62ea35b98071247ffa903265bed8e81022ffa4280a766765",
+      "bytes": 28357
+    }
+  ],
+  "intended_fold": {
+    "fixture": "cdk2x2_512",
+    "a3m_rows": 35,
+    "steps": 200,
+    "recycles": 3,
+    "samples": 1,
+    "seed": 0,
+    "templates": false,
+    "executed": false
+  },
+  "resource_budget": {
+    "host_RAM_available_preflight_GiB_approx": 221,
+    "disk_free_preflight_TiB_approx": 3.1,
+    "profiler_sum_slots_source": 6,
+    "profiler_optional_marker_count_source": 250,
+    "profiler_guaranteed_marker_count_source": 4,
+    "model_graph_op_count": null,
+    "full_trace_budget": "not authorized after identity STOP",
+    "bounded_scope_generic_invocations": 16,
+    "bounded_scope_fence_invocations": 24
+  },
+  "limits": "Fixture hashes describe intended next fold only. No fold executed; no defaults changed. Source+dirty patches and loaded library hashes retained in out/capture.json."
+}

@@ -1,0 +1,4 @@
+__pycache__/
+runs/*/tracy/
+tmp/
+runs/census1/out/clock.jsonl

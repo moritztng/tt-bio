@@ -1,0 +1,21 @@
+{
+  "scope": "Live identity smoke before any model census. Zero predicted model cycles saved.",
+  "prediction": "Observer off/on preserves outputs and one generic dispatch per wrapper call. Exact integer matmul and permutation equal independent float64 CPU math. Rebinding changes runtime addresses while cache identity stays constant. Required core-range and runtime fields must be present; observation_ok alone is insufficient.",
+  "kill": [
+    "failed dependency raw replay",
+    "wrong binding or operand identity",
+    "missing execution join",
+    "duplicate dispatch",
+    "float64 mismatch",
+    "clock coverage failure",
+    "resource limit",
+    "benchlock timeout"
+  ],
+  "join": "Each graph contains four wrapper calls, between unique triple-exp fence pairs. Raw global call IDs must match profiler rows; per-arm generic multiplicity and graph order must agree. No traces/replays in smoke.",
+  "clock": {
+    "requested_MHz": 1350,
+    "min_during_samples": 3,
+    "max_gap_ns": 10000000
+  },
+  "scope_limits": "No wall-time, roof, floor or model speedup claim. Missing getters remain explicit. Cached code provenance remains unproven. Census follows only after smoke PASS."
+}

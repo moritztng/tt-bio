@@ -1,0 +1,691 @@
+{
+  "schema": 2,
+  "scope": "STOP at host-export resource limit; 1478 measured model programs in four windows plus36 controls; full default fold complete at sampled1350 MHz",
+  "artifacts": [
+    {
+      "path": ".gitignore",
+      "sha256": "fee038ce89638c0fd90307db3000c03e8949385f5d6705c4fe70731509860f3e",
+      "bytes": 61
+    },
+    {
+      "path": "README.md",
+      "sha256": "ee7f7c17a5b03e6c95d4bda19fa0f694b20a27a58e4c9d3341010c122dbfae98",
+      "bytes": 8548
+    },
+    {
+      "path": "TABLE.md",
+      "sha256": "ef50eec4bd21d4b01ee5f92d945e25c55b3f62bb538b79b7091bd7e8f9190959",
+      "bytes": 4728
+    },
+    {
+      "path": "calibration_replay.log",
+      "sha256": "1963d1717d44c3f931676abed51ce770e341dc287d3b7a26dae02cd799594b0b",
+      "bytes": 1101
+    },
+    {
+      "path": "census.py",
+      "sha256": "2c5eef6a02c69f9d248a37e3cd38fa91593b199d2046467e809ccc070315e517",
+      "bytes": 5720
+    },
+    {
+      "path": "census1.log",
+      "sha256": "3591c69332eb73ccd9baa5fda8f04a680b8ecdf7cb5209c479885111c1fe8a99",
+      "bytes": 10542
+    },
+    {
+      "path": "census_criterion.json",
+      "sha256": "947321362bd46d3f1ce91873b7b7868246e50356536c4bc6246707333378b733",
+      "bytes": 1552
+    },
+    {
+      "path": "census_tests.log",
+      "sha256": "e7474406afb6f40712841c2c8bda7f58870005a0931133a88696bb8c4891cd3f",
+      "bytes": 1640
+    },
+    {
+      "path": "census_work.py",
+      "sha256": "70fd3e47ea9c57e57e92e8c96b179783bc25a97eeb7572996c2056bb4138be1f",
+      "bytes": 8328
+    },
+    {
+      "path": "cleanup.json",
+      "sha256": "8bcd69afdf9c52632fb5ecd730105484b93ed3cc619f9ca1591bf1d298b06ce0",
+      "bytes": 265
+    },
+    {
+      "path": "criterion.json",
+      "sha256": "b1223c895f380d74b5b752856acb76b556c74e68065d7eaeff20e0d31fb6ffc2",
+      "bytes": 1190
+    },
+    {
+      "path": "dependency_acceptance.json",
+      "sha256": "2dd890dd78d6e519e2cd3df7652884998aa9ceb4370caa97e90d6a582e3f3183",
+      "bytes": 3110
+    },
+    {
+      "path": "join_tests.log",
+      "sha256": "ae2f42d273ec7ec794a9807ad7b9370738492d30fd535fc836aa9760ad580324",
+      "bytes": 526
+    },
+    {
+      "path": "observer_v2_tests.log",
+      "sha256": "01c512af051b8ede6fb3d12f276a64724c3198e09c9a3f5c0f37cd02542a136b",
+      "bytes": 4145
+    },
+    {
+      "path": "observer_v3_tests.log",
+      "sha256": "4a882594d52898eaaeddcb1c8656b6ead7836913611a5e93a9a26af059709de0",
+      "bytes": 4145
+    },
+    {
+      "path": "parser_tests.log",
+      "sha256": "113cde69be6e627ea1ba49f7cc18430da6ed5ddbed4183691b28ededce8937c0",
+      "bytes": 776
+    },
+    {
+      "path": "preflight.json",
+      "sha256": "61a4806f2b88c1a2b8ff40d31c53cd3a14de845bdfbac2f84425dfba291f488a",
+      "bytes": 763
+    },
+    {
+      "path": "provenance.json",
+      "sha256": "e239daf9d14de5c1542f9de81bdb085c652f39234b1ca39bc46025670fd39088",
+      "bytes": 3079
+    },
+    {
+      "path": "raw_parser_tests.log",
+      "sha256": "113cde69be6e627ea1ba49f7cc18430da6ed5ddbed4183691b28ededce8937c0",
+      "bytes": 776
+    },
+    {
+      "path": "reduce.py",
+      "sha256": "524b3d66abd23e67e82c6f0e63de960f3e1b24671adce64d4c9eca0c8f4076e6",
+      "bytes": 12433
+    },
+    {
+      "path": "reduce_census.py",
+      "sha256": "3157daa370754f18616f14458610f27e404b73eb4fd513a5e57111ffd12ef7ba",
+      "bytes": 21077
+    },
+    {
+      "path": "reducer_census1.log",
+      "sha256": "b358ad7318f6de2c1020a7b4870220a4eb9af367aa5e2ab5eb7dd168253af96f",
+      "bytes": 6631
+    },
+    {
+      "path": "run_census.sh",
+      "sha256": "5b4956982e9cb506fd2390c9adc59f7424a2cbe7df5008aa97b00e91344da0b5",
+      "bytes": 1462
+    },
+    {
+      "path": "run_smoke.sh",
+      "sha256": "a192573b3367048556b1a161b5866d8c5f958f5449131c2b114f16d77dd6ddbc",
+      "bytes": 1310
+    },
+    {
+      "path": "runs/census1/analysis.json",
+      "sha256": "342ec3d4385e03462629aa9eed66e8b595ca2c8510daaa08e27302d93c8ad60c",
+      "bytes": 13340968
+    },
+    {
+      "path": "runs/census1/census_criterion.json",
+      "sha256": "947321362bd46d3f1ce91873b7b7868246e50356536c4bc6246707333378b733",
+      "bytes": 1552
+    },
+    {
+      "path": "runs/census1/out/bio_dirty.patch",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "runs/census1/out/capture.json",
+      "sha256": "10e413b07306caffaf00c2e016e4207a5b362a3d5b0d4964be42ded2f7cfa34c",
+      "bytes": 141740
+    },
+    {
+      "path": "runs/census1/out/cifs/cdk2x2_512.cif",
+      "sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "bytes": 363661
+    },
+    {
+      "path": "runs/census1/out/cifs/structure_check.json",
+      "sha256": "55de9d180a2df831710ca7e7c7c0e5a3714049e152d21cc7633c5b8458de43e0",
+      "bytes": 183
+    },
+    {
+      "path": "runs/census1/out/clock.jsonl.gz",
+      "sha256": "e14cf817203d1cc7b8f42132ab877c4f80efc46eefb851d015aa5d77125aa2a7",
+      "bytes": 11158296
+    },
+    {
+      "path": "runs/census1/out/holders.jsonl",
+      "sha256": "be486c6c97d0079e5a5a08c5c458c88bef24bb8b09da2408b08637b0c0b68f1c",
+      "bytes": 3751544
+    },
+    {
+      "path": "runs/census1/out/metal_dirty.patch",
+      "sha256": "023fd0ed6d042883e1ab613526d663203880e9ce60a7eaedfd7023f2bb57a0b5",
+      "bytes": 10281
+    },
+    {
+      "path": "runs/census1/out/msa/4e5c2b391bde62d4.a3m",
+      "sha256": "ef2301402e7716e9df368987210456194b108c8ae7e144b7bf09a3dd6f40bf5e",
+      "bytes": 20418
+    },
+    {
+      "path": "runs/census1/out/windows/ConfidenceHeadsDevice_0.csv.gz",
+      "sha256": "5cfec22ebec55c42d4cc7f29f0106e40a7d68632bab02e335b63c0b7eafc40de",
+      "bytes": 519152
+    },
+    {
+      "path": "runs/census1/out/windows/ConfidenceHeadsDevice_0.jsonl",
+      "sha256": "8908d233e27ffe03d21c928cc44659b086738e15fbe45dcc7297d247a824e1c3",
+      "bytes": 2309
+    },
+    {
+      "path": "runs/census1/out/windows/ConfidenceHeadsDevice_0_graph.json.gz",
+      "sha256": "4cf1d3edd6ec61e343419769f4c5f941567361453dbf7eb1b83e211eeef9cd5e",
+      "bytes": 9236
+    },
+    {
+      "path": "runs/census1/out/windows/DiffusionModule_0.csv.gz",
+      "sha256": "29d20909b582ab001b40b527bf5eab97e31595d6955d71a6471062ae7e487f2e",
+      "bytes": 21327697
+    },
+    {
+      "path": "runs/census1/out/windows/DiffusionModule_0.jsonl",
+      "sha256": "eb8835fb44fd1ddc9c6aa360ff821011da5408324cb913bf8c6ca25bfa934566",
+      "bytes": 2303
+    },
+    {
+      "path": "runs/census1/out/windows/DiffusionModule_0_graph.json.gz",
+      "sha256": "75ac2480cf3fcd3894fd581d7aadc1290a707ae5638c66084199a7583a844a00",
+      "bytes": 350350
+    },
+    {
+      "path": "runs/census1/out/windows/MSALayer_0.csv.gz",
+      "sha256": "8dc5f35b40645378b177e3ee81ead4bba48fa580c1e351131ffda49f807f5ddf",
+      "bytes": 5369619
+    },
+    {
+      "path": "runs/census1/out/windows/MSALayer_0.jsonl",
+      "sha256": "5e6d610267a94c7fe7b6aa10d04f654e5dfaad46e2637dab6551f412a4a7bd83",
+      "bytes": 997999
+    },
+    {
+      "path": "runs/census1/out/windows/MSALayer_0_graph.json.gz",
+      "sha256": "f406f381d2bd0e59b91c47b67114d1bf22fa522387f06720c43d7ea1e97ea12d",
+      "bytes": 127975
+    },
+    {
+      "path": "runs/census1/out/windows/PairformerLayer_0.csv.gz",
+      "sha256": "9e66558c5e7f4796a58a50a349a1b54a27a5ec914f48c982aa4cb9c012c14718",
+      "bytes": 3522944
+    },
+    {
+      "path": "runs/census1/out/windows/PairformerLayer_0.jsonl",
+      "sha256": "901d2a65003a7bd15792ab2855a0216a95ecb9508f5c2575049b321d4febf3ff",
+      "bytes": 998020
+    },
+    {
+      "path": "runs/census1/out/windows/PairformerLayer_0_graph.json.gz",
+      "sha256": "89a274671d552fcad185c60ee7eae99681c0093797dc0a4f4777c14acbc34a5d",
+      "bytes": 98515
+    },
+    {
+      "path": "runs/census1/out/windows/dense_hifi4_0.csv.gz",
+      "sha256": "ff6b2768e0050467882eea453055111508fbb23cba39cbc50be8278e45b52e6f",
+      "bytes": 114545
+    },
+    {
+      "path": "runs/census1/out/windows/dense_hifi4_0.jsonl",
+      "sha256": "1a906516efae93eb772034c54fc566abc895aeb6c3682c38e5cd92fbb4715584",
+      "bytes": 2299
+    },
+    {
+      "path": "runs/census1/out/windows/dense_hifi4_0_graph.json.gz",
+      "sha256": "4930c56c9b97771b5d9590f67bd6a2117bc97c064247056da7ef52deda2a7714",
+      "bytes": 1735
+    },
+    {
+      "path": "runs/census1/out/windows/dense_hifi4_1.csv.gz",
+      "sha256": "2c4e3b5255044d0a94f7d6a66a79bdacd01eb5f6d80bbc9a4b4640722d913b81",
+      "bytes": 114527
+    },
+    {
+      "path": "runs/census1/out/windows/dense_hifi4_1.jsonl",
+      "sha256": "d7784f304d3c06ce02fb2e539612edeb36232cda9fd2fc8b0127879ff7731573",
+      "bytes": 2299
+    },
+    {
+      "path": "runs/census1/out/windows/dense_hifi4_1_graph.json.gz",
+      "sha256": "27f6ba2215814f6be67c7e82be3ae589d0647d9e16fe4967334df5bd05eb2654",
+      "bytes": 1735
+    },
+    {
+      "path": "runs/census1/out/windows/dense_hifi4_2.csv.gz",
+      "sha256": "c9fc0e245e49bfeab61307f59b784c77f909b81ade8753a334d05b53da5a36d0",
+      "bytes": 114679
+    },
+    {
+      "path": "runs/census1/out/windows/dense_hifi4_2.jsonl",
+      "sha256": "6fd4b47c11d367ce3011b74e85e3cc17e6284424034da2a0f7cc8912988b1ceb",
+      "bytes": 2299
+    },
+    {
+      "path": "runs/census1/out/windows/dense_hifi4_2_graph.json.gz",
+      "sha256": "db522d7db9d2e4dbdf981d3e2515df13e312552b19f7ab1211015b7cc58c6b85",
+      "bytes": 1745
+    },
+    {
+      "path": "runs/census1/out/windows/stream_add_0.csv.gz",
+      "sha256": "a013e11e2230d4302d413a6a8665cfb6193c36f546f32ee0ce2c28740f16fbd4",
+      "bytes": 98677
+    },
+    {
+      "path": "runs/census1/out/windows/stream_add_0.jsonl",
+      "sha256": "65e90f9fa8d4bd4a67962422f1e402ba2a44d21279b4eafe1817f43dc4d0ea74",
+      "bytes": 2298
+    },
+    {
+      "path": "runs/census1/out/windows/stream_add_0_graph.json.gz",
+      "sha256": "067af0c9507496c36fe8f08e95389006909eaa35449c3ff37f8ddec16401d89c",
+      "bytes": 1671
+    },
+    {
+      "path": "runs/census1/out/windows/stream_add_1.csv.gz",
+      "sha256": "f94c5573ba4427e847903c0d05ed0b0c18544b11e0c837ae2896d186179d603b",
+      "bytes": 98522
+    },
+    {
+      "path": "runs/census1/out/windows/stream_add_1.jsonl",
+      "sha256": "48dba0a9d75f791ec6bda8a6a736db67504f26e8e3ef76dc48c08b35fde1eb03",
+      "bytes": 2298
+    },
+    {
+      "path": "runs/census1/out/windows/stream_add_1_graph.json.gz",
+      "sha256": "780571e5181b9d1cef8069e7979fd8626f623313698ccc7df508f29fdcd46a98",
+      "bytes": 1674
+    },
+    {
+      "path": "runs/census1/out/windows/stream_add_2.csv.gz",
+      "sha256": "d69bd69e294411476d999a911142ed611cfba9f7142d4accd4c22e6a5f210c11",
+      "bytes": 98605
+    },
+    {
+      "path": "runs/census1/out/windows/stream_add_2.jsonl",
+      "sha256": "4111d4309066d3a54d221fbe96e59abb4504d8f994a8fe7285854f30cc2593c4",
+      "bytes": 2298
+    },
+    {
+      "path": "runs/census1/out/windows/stream_add_2_graph.json.gz",
+      "sha256": "fab14220b0c099fb849d59bd2d626266cbd0b383b34e06cc842513a4d666ae37",
+      "bytes": 1679
+    },
+    {
+      "path": "runs/census1/out/windows/stream_copy_0.csv.gz",
+      "sha256": "12da5864da53a0ae62e886a44ce90d2bb7e9c52ea5f2ebdaab99be5694746f26",
+      "bytes": 47806
+    },
+    {
+      "path": "runs/census1/out/windows/stream_copy_0.jsonl",
+      "sha256": "c2f4d76b79ed72969f1a9c9c934a092da69e3ffeb159807d666a9e12f08eea4c",
+      "bytes": 2299
+    },
+    {
+      "path": "runs/census1/out/windows/stream_copy_0_graph.json.gz",
+      "sha256": "66fbd842e07726842fbd3f43e360777313f790135aa9081e12d1ed15be0d29f2",
+      "bytes": 1593
+    },
+    {
+      "path": "runs/census1/out/windows/stream_copy_1.csv.gz",
+      "sha256": "6fd26ebef9d97d4a6f4e4e6f30c0bbc1ae2bdaf4dcd3fb8bbc534d8645463842",
+      "bytes": 47618
+    },
+    {
+      "path": "runs/census1/out/windows/stream_copy_1.jsonl",
+      "sha256": "159787565c5fbd526a2c85c652ee88c0bb1d3cf862edd12a45a73affd0d54656",
+      "bytes": 2299
+    },
+    {
+      "path": "runs/census1/out/windows/stream_copy_1_graph.json.gz",
+      "sha256": "0f96d033cb597b93da57e8f62621f1b8099a78ead84af1ef3db60f0a511c93a0",
+      "bytes": 1602
+    },
+    {
+      "path": "runs/census1/out/windows/stream_copy_2.csv.gz",
+      "sha256": "beb1edba5443539562849061d43e5e2915f91d2755616629b772ac375f25cf3a",
+      "bytes": 47637
+    },
+    {
+      "path": "runs/census1/out/windows/stream_copy_2.jsonl",
+      "sha256": "8a97b49b504f964475e692ae5bbb7e8f23f8ffd4092ca68c9c82c814aae590e6",
+      "bytes": 2299
+    },
+    {
+      "path": "runs/census1/out/windows/stream_copy_2_graph.json.gz",
+      "sha256": "f556c18d19e5e2be1955ace48eb7490100eaa654f755a2d67dc2637710ca043e",
+      "bytes": 1600
+    },
+    {
+      "path": "runs/census1/oversized_host_artifacts.json",
+      "sha256": "75175129ee3f2714a21b2bd4e97d9c177ecdbfd97c975799112ae6fbebf686a0",
+      "bytes": 755
+    },
+    {
+      "path": "runs/census1/postprocess_stop.json",
+      "sha256": "96905c42ac40d8f6c7cabcc7937beb05e3953cf721fcd277b50015d4c0d33e02",
+      "bytes": 2412
+    },
+    {
+      "path": "runs/census1/raw/tracy_ops_data.csv.gz",
+      "sha256": "e11200ecb59404f2a8ef32954c5d4ac26a63c50ef637a92ba3fa8db51fa976e3",
+      "bytes": 2970320
+    },
+    {
+      "path": "runs/census1/raw_manifest.json",
+      "sha256": "705c6ac098e8f8dfc6b26c2c1529b4dcbb2c89b5d18015420d63b3751fee8e04",
+      "bytes": 731
+    },
+    {
+      "path": "runs/census1/source_join/0_tt_metal_profiler.cpp.gz",
+      "sha256": "79b17af8cd712de8de471f9d86f1118255641de8024bedd05a59320a1435897d",
+      "bytes": 11262
+    },
+    {
+      "path": "runs/census1/source_join/1_kernel_profiler.hpp.gz",
+      "sha256": "e23fb6b9f6f1df2684e8021561656506291fe9c70b0073740b2453683c6ace4d",
+      "bytes": 6604
+    },
+    {
+      "path": "runs/census1/source_join/2_device_operation.hpp.gz",
+      "sha256": "9dd12aaa6e85dc25440dd1bbd824eee5e1097a8ec4e1b62e8d9bfecbb3ad0a87",
+      "bytes": 4982
+    },
+    {
+      "path": "runs/census1/source_join/3_op_profiler.hpp.gz",
+      "sha256": "d310d5683bc314bccd3ddeaf33305fe0fb2de1a29af88a46ac7851d800f2115d",
+      "bytes": 5815
+    },
+    {
+      "path": "runs/census1/source_join/4_tensor.cpp.gz",
+      "sha256": "53e21bf5385fa601b6139bdc4802fd3c48d759bfb7438ccf508f585d04e81f3d",
+      "bytes": 5291
+    },
+    {
+      "path": "runs/census1/source_join/5_core.cpp.gz",
+      "sha256": "994efab5f75e2925cc8131f4a24acb9273d62228319131ae3ce61821941409d5",
+      "bytes": 921
+    },
+    {
+      "path": "runs/census1/source_join/6___init__.py.gz",
+      "sha256": "febc10d7faf7a98380c7586c1e66e02029ede14c5d6484fa984aecfb03bf8715",
+      "bytes": 1871
+    },
+    {
+      "path": "runs/census1/source_join/audit.json",
+      "sha256": "0c8417e321b22d5b57f625604e8ed830ec79055029f9572d935488af10901c3f",
+      "bytes": 1974
+    },
+    {
+      "path": "runs/smoke1/analysis.json",
+      "sha256": "e54eca26f37c484a2c194df0c61f6a5a200d5ad09864dc699d217911eba9d9fb",
+      "bytes": 114187
+    },
+    {
+      "path": "runs/smoke1/criterion.json",
+      "sha256": "032923899378481fa7e88db9907baaa0067a9b9d8d81ba82c9449160c8bf1a78",
+      "bytes": 1096
+    },
+    {
+      "path": "runs/smoke1/kernel_sources.json",
+      "sha256": "7c5c98c33596e21e252932b2dccb98e89780bdd86dbc61cd3e7f9951dd92a335",
+      "bytes": 2868
+    },
+    {
+      "path": "runs/smoke1/out/bio_dirty.patch",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "runs/smoke1/out/capture.json",
+      "sha256": "33330dc60a1f79cbd61ea5f016c619f13616c4a460517b6fb0408a96a2bba5f2",
+      "bytes": 23206
+    },
+    {
+      "path": "runs/smoke1/out/clock.jsonl",
+      "sha256": "f8311317e1ca5a21efa405df4f9cefa3cbcc7764c204dcbb7285dd03308311ab",
+      "bytes": 204672
+    },
+    {
+      "path": "runs/smoke1/out/holders.jsonl",
+      "sha256": "de5b74060c20252711598db63c4cd6f997e81726b18c5848e61b722fc949ac84",
+      "bytes": 11385
+    },
+    {
+      "path": "runs/smoke1/out/matmul_off_graph.json",
+      "sha256": "e25065eb487f7d4221ecd7387c2b6c4bb870deb18021ff50644bd87923ab345b",
+      "bytes": 96472
+    },
+    {
+      "path": "runs/smoke1/out/matmul_on.jsonl",
+      "sha256": "58da38cdc065b142270e125f1df3976713289089922080ec6462f3b5f477025d",
+      "bytes": 164593
+    },
+    {
+      "path": "runs/smoke1/out/matmul_on_graph.json",
+      "sha256": "8bb0f8491daafa05ec258244a43a856403ced7fb858b300eba55fad8a011dd23",
+      "bytes": 94237
+    },
+    {
+      "path": "runs/smoke1/out/metal_dirty.patch",
+      "sha256": "023fd0ed6d042883e1ab613526d663203880e9ce60a7eaedfd7023f2bb57a0b5",
+      "bytes": 10281
+    },
+    {
+      "path": "runs/smoke1/out/reblock_off_graph.json",
+      "sha256": "d7d407495c754495ca8cac613785ba108a9750e5e5ecd94263752739a9df1874",
+      "bytes": 77401
+    },
+    {
+      "path": "runs/smoke1/out/reblock_on.jsonl",
+      "sha256": "cbcd3658c0ff000356b6f3d3a7f9a9e57c1b8ca277e82fb2bc3238cc3dbfca2e",
+      "bytes": 127092
+    },
+    {
+      "path": "runs/smoke1/out/reblock_on_graph.json",
+      "sha256": "5e6e6f780a58d9c7a701a594da47bb8dab1dc69e06fe5672a6f98796eed850e3",
+      "bytes": 75511
+    },
+    {
+      "path": "runs/smoke1/raw/new_zone_src_locations.log.gz",
+      "sha256": "14f7cd38dbfe16528f6d00c3046a4aab8c822e19d5ba122008055b74bc1265f8",
+      "bytes": 725
+    },
+    {
+      "path": "runs/smoke1/raw/ops.csv",
+      "sha256": "6b5deee34a28b8b8e6d3c666b65a10719520a16511e8ee6f726fa8158f75bed1",
+      "bytes": 54973
+    },
+    {
+      "path": "runs/smoke1/raw/profile_log_device.csv.gz",
+      "sha256": "e23815b4a5bc9531306533903c6423d7472d241e6b6721af8422860815d082c4",
+      "bytes": 37235
+    },
+    {
+      "path": "runs/smoke1/raw/tracy_ops_data.csv.gz",
+      "sha256": "4ba79511649e4e10aa4cfa3e55970b1da0515f7d98ee46cee733646239184472",
+      "bytes": 2295
+    },
+    {
+      "path": "runs/smoke1/raw/tracy_ops_times.csv.gz",
+      "sha256": "83206ea15ff38e93a7902f09aa865e3f7fe4f468f6fb871fe34e196dbe70c8ce",
+      "bytes": 7946768
+    },
+    {
+      "path": "runs/smoke1/raw/tracy_profile_log_host.tracy",
+      "sha256": "2c12ea314d3f5f87f1893e09d1030ab4a857cfa5059faf23eb7fca436d717753",
+      "bytes": 18240120
+    },
+    {
+      "path": "runs/smoke1/raw/zone_src_locations.log.gz",
+      "sha256": "9261aec04718108114ce1b2e542bb5d31f2d7bd3e7663c28aa2a18f6549dba04",
+      "bytes": 543
+    },
+    {
+      "path": "runs/smoke1/raw_manifest.json",
+      "sha256": "bf12196afb41435868769d58393d8d3d06ce074d7e863ec3b7fe83114bbc37ee",
+      "bytes": 3464
+    },
+    {
+      "path": "runs/smoke2/TABLE.md",
+      "sha256": "f653c1c4945923451c0b79e8148d7cfb1d2f7675e07ba17847591d0d3bc5cc45",
+      "bytes": 1392
+    },
+    {
+      "path": "runs/smoke2/analysis.json",
+      "sha256": "c6723c53a4c04e1ac7fbb2426791168153b872f7f610a6150ca1fcb898ebc8b9",
+      "bytes": 111448
+    },
+    {
+      "path": "runs/smoke2/criterion.json",
+      "sha256": "b1223c895f380d74b5b752856acb76b556c74e68065d7eaeff20e0d31fb6ffc2",
+      "bytes": 1190
+    },
+    {
+      "path": "runs/smoke2/kernel_sources.json",
+      "sha256": "7c5c98c33596e21e252932b2dccb98e89780bdd86dbc61cd3e7f9951dd92a335",
+      "bytes": 2868
+    },
+    {
+      "path": "runs/smoke2/out/bio_dirty.patch",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "runs/smoke2/out/capture.json",
+      "sha256": "b0e782afbb9e319a83e9e9ba0c5a2afa99a3cb4a88d554703002fc003c471e33",
+      "bytes": 19221
+    },
+    {
+      "path": "runs/smoke2/out/clock.jsonl",
+      "sha256": "02bd56f352cf64f521ddc2fa5488eaf501958c7936a0dbee7b4d449402ccb6d9",
+      "bytes": 74620
+    },
+    {
+      "path": "runs/smoke2/out/holders.jsonl",
+      "sha256": "1f31f368a2d7e9a1c9fdbd5b7de323e1d8424922bf7a7f2b223f32568049152f",
+      "bytes": 2464
+    },
+    {
+      "path": "runs/smoke2/out/matmul_off_graph.json",
+      "sha256": "5cdaac02e5f2765e261672861bf317b7f6d4c1b2f1f07448a3578c8098c3ffcc",
+      "bytes": 96466
+    },
+    {
+      "path": "runs/smoke2/out/matmul_on.jsonl",
+      "sha256": "5238386aee4ed7ef116295aa4ae26f09e02d94d89a7b5fcc89e375edbe1fbeca",
+      "bytes": 159705
+    },
+    {
+      "path": "runs/smoke2/out/matmul_on_graph.json",
+      "sha256": "8f39bc8ff3655caa5dd045f298d04f72352cdb5932b87ec98b5176ffd41d0334",
+      "bytes": 94237
+    },
+    {
+      "path": "runs/smoke2/out/metal_dirty.patch",
+      "sha256": "023fd0ed6d042883e1ab613526d663203880e9ce60a7eaedfd7023f2bb57a0b5",
+      "bytes": 10281
+    },
+    {
+      "path": "runs/smoke2/out/reblock_off_graph.json",
+      "sha256": "dc5f9d62fa8ab4a7755f3c2834e1f418a6c60b5520075044935293e302d5025c",
+      "bytes": 77396
+    },
+    {
+      "path": "runs/smoke2/out/reblock_on.jsonl",
+      "sha256": "a37965033f305f26662921ee45b8b5b9d945a7897374aecc0e7eefa273f3ed25",
+      "bytes": 127092
+    },
+    {
+      "path": "runs/smoke2/out/reblock_on_graph.json",
+      "sha256": "231e04de35ef9922fa72562fb8d022e918ce379ad2be9991c2e4d3a2bf1ec3c3",
+      "bytes": 75511
+    },
+    {
+      "path": "runs/smoke2/raw/new_zone_src_locations.log.gz",
+      "sha256": "8f19aed0c1443f64b1bfbadc99d409df7748fd5004659d2a6ae0b568f54a9e1c",
+      "bytes": 715
+    },
+    {
+      "path": "runs/smoke2/raw/ops.csv",
+      "sha256": "2988abc689386e38d0f5a3eabea27be2762ffde7d4bd0e7590341764077f3010",
+      "bytes": 54965
+    },
+    {
+      "path": "runs/smoke2/raw/profile_log_device.csv.gz",
+      "sha256": "a0b560b32b13f38ee3959808a8624abc6ff1cc120c7aad511140e0179a4e8c04",
+      "bytes": 37108
+    },
+    {
+      "path": "runs/smoke2/raw/tracy_ops_data.csv.gz",
+      "sha256": "2a506a3cffc6546f02a91ae5d8dfd5d5454235a40030839c978558f6fd1cafd2",
+      "bytes": 2283
+    },
+    {
+      "path": "runs/smoke2/raw/tracy_ops_times.csv.gz",
+      "sha256": "a0e378d7c281e487a1d5d67041700c8366b13059fed5f29921af75def68a415d",
+      "bytes": 7685161
+    },
+    {
+      "path": "runs/smoke2/raw/tracy_profile_log_host.tracy",
+      "sha256": "7994f55f5bd36b6e7427d5150b444d887cd91c1c015646a978378181285ba93c",
+      "bytes": 17834466
+    },
+    {
+      "path": "runs/smoke2/raw/zone_src_locations.log.gz",
+      "sha256": "044482620e333faf0b73a7c8bcf11d4619054d9e5e4326356af40cf52255bbc9",
+      "bytes": 547
+    },
+    {
+      "path": "runs/smoke2/raw_manifest.json",
+      "sha256": "e4f5f7193da0c10d66d997e1ecb52e161378a7556caf0de93aafa3e3f45a4bcf",
+      "bytes": 3464
+    },
+    {
+      "path": "smoke.py",
+      "sha256": "c4de330cf78bdd18d07abbf72a8a69bccb00828f3dde5ea0c50b284b9f91668d",
+      "bytes": 11685
+    },
+    {
+      "path": "smoke1.log",
+      "sha256": "126757351ccdfd22d8df0f3ebf243bcc04d0bb5c75898d3d1b3db7ad23e67d52",
+      "bytes": 5105
+    },
+    {
+      "path": "smoke2.log",
+      "sha256": "7ac14e091c17f4abbb88fea0f539f1a24116f27b9d01b91044bb53741d2547ab",
+      "bytes": 5236
+    },
+    {
+      "path": "test_census.py",
+      "sha256": "27148118eead5a49abe6880752cbd983c8eaf42e3443a1ef51346f7eb5cdefde",
+      "bytes": 2465
+    },
+    {
+      "path": "test_reduce.py",
+      "sha256": "fe6f1ad8499f2806479305c9fc6180710ab3bb1cceeab89555ce5a94c64885f4",
+      "bytes": 2223
+    },
+    {
+      "path": "verify_artifacts.py",
+      "sha256": "956a5c4fb2a186065c3a0cbfcc021d94c5ab3275971f4d3f1ed0ffd54df38e84",
+      "bytes": 433
+    },
+    {
+      "path": "verify_calibration.py",
+      "sha256": "40135ca381559a2ab2f171f637b013b340382161771f181a2dd7c90ad6df614a",
+      "bytes": 2085
+    }
+  ]
+}

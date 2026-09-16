@@ -1,0 +1,43 @@
+{
+  "scope": "One complete default512 fold with bounded disjoint graph/identity/raw-cycle windows, followed by matched-instrument controls. No optimization or bare performance claim.",
+  "prediction": "Model cycles saved zero. Native-class ranking will be measurable inside retained windows; opaque generic work and physical reads may remain unknown. Increased utilization at1350 MHz is not assumed.",
+  "window_selection": {
+    "MSALayer": 2,
+    "PairformerLayer": 2,
+    "DiffusionModule": 2,
+    "ConfidenceHeadsDevice": 1
+  },
+  "controls": "three alternating rounds: 8192-square clone, add and HiFi4 FP32-accumulating8192-cube matmul, four calls each, all under the same graph+sum instrument",
+  "model": {
+    "fixture": "cdk2x2_512",
+    "msa_rows": 35,
+    "steps": 200,
+    "recycles": 3,
+    "samples": 1,
+    "seed": 0,
+    "templates": false
+  },
+  "budget": {
+    "program_support_count": 8192,
+    "optional_markers": 250,
+    "sum_slots": 6,
+    "max_window_graph_nodes": 50000,
+    "max_drain_bytes": 1073741824,
+    "max_retained_bytes": 2147483648,
+    "scope": "selected windows only; outside-window raw discarded after synchronous drain with byte/hash ledger; occurrence counts retained, never extrapolated"
+  },
+  "stops": [
+    "smoke/calibration not GO",
+    "clock invalid",
+    "wrong or missing graph/raw identity",
+    "missing kernel endpoints",
+    "marker overflow",
+    "resource limit",
+    "benchlock timeout"
+  ],
+  "clock": {
+    "requested_MHz": 1350,
+    "max_gap_ns": 10000000,
+    "min_during_samples": 3
+  }
+}

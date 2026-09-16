@@ -1,0 +1,17 @@
+{
+  "measurement_commit": "ec761a98f",
+  "prepared_source": "origin/wk/c10--roofline-recheck @ 08fcc81b8 (includes 652980690)",
+  "counter_source": "origin/wk/c10-orchestrator @ 103da98e0",
+  "dm_patch_ref": "4d80e855e7fc75a436d6506359459349bb002999",
+  "clock_ref": "5c60137c2:tt_bio/aiclk.py",
+  "device_launches": 1,
+  "model_folds": 0,
+  "predicted_model_cycles_saved": 0,
+  "measured_model_cycles_saved": 0,
+  "files_at_capture": {
+    "capture.py": "fdff690810a86900f24fe753483dd428e258bfefe402f400ced1b64b368deee5",
+    "control.py": "99003cb322b8750ba3e75439b92e13890b13172b824b4377ed08312a66f63ef4",
+    "criterion.json": "bbb7cd097290c9dd00980816beddb2a32e2ab641a259ecff50b84b0fb132c1e0",
+    "run.sh": "2dcd0235253df6a4d331072ae37abe9c95a9f334f8950d0b79060344bb6ceae1"
+  }
+}

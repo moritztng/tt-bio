@@ -1,0 +1,84 @@
+{
+ "csv": "/home/ttuser/scratch/k10_art/starved2/reports/2026_09_13_16_47_45/ops_perf_results_2026_09_13_16_47_45.csv",
+ "n_rows_file": 30,
+ "n_rows": 30,
+ "fenced": false,
+ "reps": 1,
+ "ops_per_rep": 30,
+ "op_codes": {
+  "BinaryNgDeviceOperation": {
+   "n_ops": 23,
+   "total_span_ms": 20.878968,
+   "mean_span_us": 907.7812173913043,
+   "cores": [
+    110
+   ],
+   "frac": {
+    "brisc": 1.0,
+    "ncrisc": 0.9996,
+    "trisc0": 0.9996,
+    "trisc1": 0.9978,
+    "trisc2": 0.999,
+    "cpu_wait_front": 0.8925,
+    "cpu_reserve_back": 0.2842,
+    "br_reserve_back": 0.0,
+    "nc_reserve_back": 0.0374,
+    "br_wait_front": 0.688,
+    "nc_wait_front": 0.0,
+    "br_noc_read": 0.0,
+    "nc_noc_read": 0.8065,
+    "br_noc_write": 0.2035,
+    "nc_noc_write": 0.0,
+    "br_sem": 0.0,
+    "nc_sem": 0.0,
+    "dm_noc_read": 0.8065,
+    "dm_reserve_back": 0.0374,
+    "dm_wait_front": 0.688,
+    "br_blocked": 0.8916,
+    "br_unaccounted": 0.1084,
+    "nc_blocked": 0.8439,
+    "nc_unaccounted": 0.1556
+   },
+   "rows_over_unity": 0
+  }
+ },
+ "all_op_codes": [
+  "BinaryNgDeviceOperation",
+  "UnaryDeviceOperation"
+ ],
+ "ALL": {
+  "n_ops": 23,
+  "total_span_ms": 20.878968,
+  "mean_span_us": 907.7812173913043,
+  "cores": [
+   110
+  ],
+  "frac": {
+   "brisc": 1.0,
+   "ncrisc": 0.9996,
+   "trisc0": 0.9996,
+   "trisc1": 0.9978,
+   "trisc2": 0.999,
+   "cpu_wait_front": 0.8925,
+   "cpu_reserve_back": 0.2842,
+   "br_reserve_back": 0.0,
+   "nc_reserve_back": 0.0374,
+   "br_wait_front": 0.688,
+   "nc_wait_front": 0.0,
+   "br_noc_read": 0.0,
+   "nc_noc_read": 0.8065,
+   "br_noc_write": 0.2035,
+   "nc_noc_write": 0.0,
+   "br_sem": 0.0,
+   "nc_sem": 0.0,
+   "dm_noc_read": 0.8065,
+   "dm_reserve_back": 0.0374,
+   "dm_wait_front": 0.688,
+   "br_blocked": 0.8916,
+   "br_unaccounted": 0.1084,
+   "nc_blocked": 0.8439,
+   "nc_unaccounted": 0.1556
+  },
+  "rows_over_unity": 0
+ }
+}
