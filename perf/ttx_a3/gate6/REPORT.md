@@ -45,13 +45,13 @@ branch.
 one arm per process and got byte-identical CIFs, 768 aa `38aabd4058facb3f` and 1024 aa
 `649aad7b46727c7e`.
 
-## The wedge is not load, and that changes how the ladder has to run
+## The wedges were card 0 dying, not load and not a kernel
 
-The prior pass read three wedges at loadavg 4-9 as load-driven. The 12:41:15Z wedge refutes it:
-boltz-2 stopped writing at the 768 rung with this gate as the only lane on the box and loadavg
-1.1, and the same tree walked all six rungs clean at 07:52-07:59.
+The prior pass read three wedges at loadavg 4-9 as load-driven. Two more today killed that
+reading: boltz2 at the 768 rung (12:41:15Z) and rf3 at the 768 rung (12:53:40Z) both stopped
+writing with this gate as the only lane on the box and loadavg 1.1.
 
-py-spy names a different ttnn op each time, so it is not one kernel:
+py-spy named a different ttnn op each time, which is the tell that it is not a kernel:
 
 | wedge | rung | stack |
 |---|---|---|
@@ -59,16 +59,26 @@ py-spy names a different ttnn op each time, so it is not one kernel:
 | 10:09:09Z | boltz2 1024 warm-up | `ttnn.linear` in `swiglu`, `tenstorrent.py:8224` |
 | earlier | opendde 640 | `ttnn.transpose` in `_pair_transpose`, `tenstorrent.py:2506` |
 
-Each is `active+gil` inside `ttnn/decorators.py:473`: the call entered the device and never came
-back. The fold holds the card, burns no CPU, and clears on SIGINT to the device child.
+All three are `active+gil` inside `ttnn/decorators.py:473`: the call entered the device and never
+came back. After the second one the next fold stopped even earlier, in `_open_device_locked`
+(`tenstorrent.py:4935`) holding `/tmp/tt-bio-device-open.lock`, so the open itself had stopped
+returning. `tt-smi -ls` then named it:
 
-A ladder arm is six rungs, so at roughly one wedge per six rungs a single-shot arm fails more
-often than it passes, and the red it records says nothing about the lever.
-`ladder_campaign.sh` now gives each model three attempts under separate arm names
-(`ladder-<m>`, `ladder-<m>-att2`, `ladder-<m>-att3`) and reads the verdict from the recorded
-`rc=` rather than from `run`'s exit status, which returns 0 when it skips an already-recorded
-arm. `wedge_watch.sh` finds the stuck fold by its census `--label` and SIGINTs it after 480 s, so
-a wedge costs eight minutes instead of a 3600 s timeout.
+    Read 0xffffffff over PCIe ID 0: the board should be reset.
+
+**qb2 card 0 is down at the PCIe link.** The control is clean and cheap: on the same host, at the
+same minute, `TT_VISIBLE_DEVICES=0` hung past a 120 s timeout with no device and
+`TT_VISIBLE_DEVICES=2` returned `MeshDevice(1x1 grid, 1 devices)` in 7 s. The gate moved to card
+2 on grant `0,2` at 13:15:28Z and walked boltz2's 256 and 512 rungs in under 90 s, against the
+4 minutes card 0 needed for a 256 warm-up before it hung for good.
+
+Every ladder attempt recorded on card 0 today is marked `VOID-` in `progress`: a dead card is not
+a verdict on a lever, and leaving those rc lines in place would have burned the retry budget on
+hardware. This also matches the QBROOT verdict (`qbroot-verdict-pcie-link-failure`, qb2 board
+410D, hardware-only fix) rather than anything in this tree.
+
+A `tt-smi -r 0` takes the whole 0/1 board pair down, and card 1 is carrying
+`b2z2-aiclk-default-decision`'s soak until 16:18:14Z, so the reset is not this task's to run.
 
 ## Co-tenant
 
@@ -77,6 +87,18 @@ and folding every 240 s until 16:18:14Z. It does not corrupt the untimed arms: t
 tolerance floors at +-0.50 on a runtime exponent, against 1-10 % co-tenant noise. It does block
 phase 4, because `perf_regression` scores wall clock against `docs/perf_baselines.json`, so those
 arms wait for benchlock and a quiet box.
+
+## Retries, because one wedge is not a verdict
+
+`ladder_campaign.sh` gives each step three attempts under separate arm names (`splice-<m>`,
+`splice-<m>-att2`, and the same for `ladder-<m>`). The verdict comes from the recorded `rc=`, not
+from `run`'s exit status, which returns 0 when it skips an already-recorded arm. An attempt
+already in the progress file is re-read rather than re-run, so a resume costs nothing. The splice
+needs this as much as the check does: a failed splice `continue`s past the model, and for rf3
+that silently drops the 1088 rung, the only ladder cell above the cap.
+
+`wedge_watch.sh` finds a stuck fold by its census `--label` and SIGINTs it after 480 s of
+silence, so a wedge costs eight minutes instead of a 3600 s timeout.
 
 ## Arms still owed
 
