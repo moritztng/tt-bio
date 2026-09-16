@@ -43,9 +43,20 @@ GATE_SKIP_CAP=1 GATE_SKIP_LADDER=1 GATE_SKIP_PERF=1 GATE_SKIP_PARITY=1 \
 
 # rf3 alone: its 1088 rung is the ONLY ladder cell above `_Q_SPLIT_MAX_S`, so this is the only
 # part of the ladder arm that carries information about the lever.
-phase "2/5 size ladder, in-regime: rf3 (the 1088 rung, the one cell above the cap)"
-CARD="$CARD" bash perf/ttx_a3/ladder_campaign.sh rf3 \
-  >> "$WT/$RUN/campaign.log" 2>&1
+# rf3 is SKIPPED, and not for want of attempts. The splice folds all seven rungs and then refuses
+# on the contents of a checked-in record: rf3's p300c baseline is stale against nine levers merged
+# after it was recorded (FP32_SOFTMAX_L1_GRID, TRIMUL_MASK_AFTER_MOVE, APB_CONCAT_HEADS,
+# ATOM_AXIS_BUCKET and TRANSITION_H_CHUNK absent entirely, B2_TOKEN_DIT_SDPA resolved False->True,
+# TRIMUL_TAIL_F1 / REBLOCK_PERMUTE / PAIR_PROJ_MINIMAL_MATMUL clauses drifted). `d78f23757`
+# refreshed boltz2 and esmfold2 only. A refusal driven by record contents is deterministic, so the
+# 3-attempt budget just re-reads the same nine rows: 21 minutes of device time per pass for the
+# same red. It unblocks with `--size-ladder-record` for rf3 on a p300c host, which is a record
+# chore this task does not own, so it is named as a follow-up rather than retried here.
+#
+# The lever's own verdict at 1088 does NOT wait on it. `census_1088_pair.sh` took it directly with
+# one fold per arm: SDPA_FUSED_LARGE_S resolved=True served=1088 on, resolved=False served=0 off,
+# both rc=0. That is in `gate6/census_1088_{on,off}.json` and written up in REPORT.md.
+phase "2/5 size ladder, in-regime: rf3 SKIPPED (p300c baseline stale vs 9 merged levers, needs --size-ladder-record; lever verdict taken directly in census_1088_pair.sh)"
 
 phase "3/5 capacity, 15 cells (tests at the 1536 aa ceiling, in the lever's regime)"
 GATE_SKIP_LADDER=1 GATE_SKIP_PERF=1 GATE_SKIP_PARITY=1 \
