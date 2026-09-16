@@ -201,3 +201,5 @@
 2026-09-16T17:39:31Z CARD=3 (UMD) resolves to /dev/tenstorrent/3
 2026-09-16T17:39:31Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
 2026-09-16T17:39:31Z capacity-protenix-v2 START loadavg=0.95
+2026-09-16T17:51:30Z capacity-protenix-v2 rc=0 loadavg=4.16
+2026-09-16T17:51:30Z capacity-openfold3 START loadavg=4.16

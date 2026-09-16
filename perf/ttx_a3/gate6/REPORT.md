@@ -750,3 +750,42 @@ boot reads 0x320 (800 MHz) against an `AICLK_LIMIT_MAX` of 0x546 (1350 MHz).
 
 The next rep removes the confound rather than arguing about it: an ON arm on **this** boot, beside
 the OFF arm it is compared against. Started 17:39:31Z.
+
+## Attribution resolved: the wedge is ambient, and the lever's 1536-token behaviour is clean
+
+The ON arm was repeated on the same boot as the OFF arm, which removes the reboot/governor
+confound instead of arguing about it. AICLK read `0x320` (800 MHz) throughout both.
+
+    protenix-v2  ON   PASS  1536 tok  8832 rows  10.15G/32%  655.0 s
+    protenix-v2  OFF  PASS  1536 tok  8832 rows  10.15G/32%  763.6 s
+
+Three results, in order of how much they matter:
+
+**1. The wedge does not belong to the lever.** The ON arm cleared trunk 6/10, the exact step the
+first run froze at, and finished all ten. So the tally at this cell is one freeze in two ON runs
+and none in one OFF run, which is what this box's ambient ~1-in-6 wedge rate looks like and is not
+a flag effect. The first in-regime wedge this campaign could not dismiss by construction is now
+dismissed by measurement instead.
+
+**2. Peak DRAM is identical to the byte: 10.15G/32% on both arms.** The fused route does not cost
+residency at 1536 tokens. That is the OOM-class risk the capacity arm exists to catch, answered
+directly rather than inferred from a pass.
+
+**3. An independent in-regime speedup, on a second model and a different instrument.** Same boot,
+same clock, same card, same cell:
+
+| phase | ON | OFF | ratio |
+|---|---|---|---|
+| tier-1 screen | 49.7 s | 56.2 s | 1.131x |
+| trunk, per step | 57.44 s (9 steps, 57-58) | 68.44 s (9 steps, 68-69) | 1.192x |
+| tier-2 residency wall | 655.0 s | 763.6 s | 1.166x |
+
+Within-arm spread is +-1 s per step against an 11 s gap. gate5 banked **1.1856x** at 1536 aa on
+boltz2 through the fold A/B harness; this is protenix-v2 through the capacity gate's own phase
+timings, and it lands in the same place.
+
+Stated precisely, because the unit matters: this is ONE session per arm
+(`perf-ab-session-is-the-independent-unit`). The per-step cadence is a repeated measure inside a
+fold, not nine independent samples, so it corroborates the banked number rather than replacing a
+session-level A/B. What it does settle on its own is the direction and the rough size, on a model
+the banked number never touched.
