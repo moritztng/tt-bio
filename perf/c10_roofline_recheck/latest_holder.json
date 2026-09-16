@@ -1,0 +1,24 @@
+{
+  "utc": "2026-09-16T17:40:08.680615+00:00",
+  "host_monotonic_ns": 1029539613108,
+  "host": "tt-quietbox2",
+  "holders": [
+    {
+      "pid": 14839,
+      "nodes": [
+        "/dev/tenstorrent/3"
+      ],
+      "state": "R",
+      "utime_ticks": 6012,
+      "stime_ticks": 2039,
+      "starttime_ticks": 99973,
+      "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+      "env": {
+        "TT_VISIBLE_DEVICES": "3",
+        "TT_BIO_LEASE_CARDS": "3",
+        "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+      }
+    }
+  ],
+  "scope": "Latest read-only holder check; prior PID ended, replacement holds same excluded node."
+}
