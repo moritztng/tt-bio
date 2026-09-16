@@ -32,3 +32,19 @@ or a per-op cycle budget. Its work coefficient has units of MHz·seconds, or
 Mcycles dimensionally. Reported target work and reductions are conditional
 model calculations, not hardware cycle counts. `--baseline` and `--historical`
 allow checking copies of these records, including intentionally invalid inputs.
+
+The graph-traffic controls run without a device:
+
+```sh
+python3 -m pytest -q tests/test_perf_traffic.py
+```
+
+Both traffic counters share the terminal-output rule in
+`perf/b2x_difflayer/itemize.py`. The saved 8192-cube bf16 matmul graph must count
+402,653,184 bytes: two input reads and one output write. Metadata aliases add no
+read; a consuming operation does. Internal scratch estimates remain separate in
+`assumed_read_MB`, including opaque buffers in `opaque_buffer_assumed_read_MB`.
+`traffic_model_version=2` distinguishes these counts from historical artifacts.
+For fold analysis, use `perf/roof_arb/corrected_traffic.py` to retain its L1-output,
+preallocated-output and partial-read corrections. A passing matmul control does
+not certify unobserved kernel rereads, spills or whole-fold traffic.

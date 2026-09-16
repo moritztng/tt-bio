@@ -2,8 +2,15 @@
 """The 512 aa fold's DRAM byte counter, with three charging defects fixed and each one switchable.
 
 Same captures, same `itemize` buffer-address dedupe, same everything else as
-`perf/b2x_difflayer/real_traffic.py`, which this file reproduces byte-for-byte with all three
-corrections off. Each correction is a separate flag so its effect is a number, not a claim.
+`perf/b2x_difflayer/real_traffic.py`, with the same terminal-output correction (model version 2).
+With all three corrections off its byte totals match that counter. Historical version-1
+artifacts included an invented read of each unconsumed tensor output.
+
+Terminal outputs carry a write only. Internal intermediates and opaque scratch with no
+counted reader retain one ASSUMED read, itemised as assumed_read_MB (opaque buffers also
+separately). Graphs do not expose all internal reads, rereads or spills, so these are estimates,
+not exact physical traffic. floor_MB is the historical once-read/write estimate, now also
+excluding terminal output reads; it is not a proven physical bound.
 
 L1   `real_traffic.counts` decides whether an op touches DRAM from the DRAM rows alone
      (`alloc_by_op[i] > 0`), so an op whose only output landed in L1 is not charged as a reader of
@@ -39,7 +46,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "b2x_difflayer"))
-from itemize import itemize, top_level_spans                                  # noqa: E402
+from itemize import itemize, top_level_spans, is_terminal_tensor_output         # noqa: E402
 
 NO_TRAFFIC = {"ttnn.reshape", "ttnn.unsqueeze", "ttnn.squeeze", "ttnn.deallocate"}
 ALLOC = "ttnn.allocate_tensor_on_device"
@@ -133,6 +140,7 @@ def counts(call, l1=True, pre=True, gate=True):
         return size * frac.get(i, {}).get(size, 1.0)
 
     w, rd, phantom, saved = defaultdict(float), defaultdict(float), defaultdict(float), 0.0
+    terminal_read_removed = opaque_read = 0
     for r in dram:
         size, ai = r["size"], r["alloc_op_i"]
         wi = writer_of.get(r["buffer"], "none") if pre else "none"
@@ -151,10 +159,14 @@ def counts(call, l1=True, pre=True, gate=True):
             saved += size - read_bytes(i, size)
             if ops[i]["name"].endswith("_") and alloc_by_op[i] == 0:
                 w[i] += size                  # in-place: rewrites what it read
-        if not readers:
+        if is_terminal_tensor_output(r, readers):
+            terminal_read_removed += size
+        elif not readers:
             k = ai if ai is not None else -1
             rd[k] += size
             phantom[k] += size
+            if not r["tensor_nodes"]:
+                opaque_read += size
 
     pre_B = sum(r["size"] for r in dram if r["alloc_op_i"] is None)
     al = sum(r["size"] for r in dram if r["alloc_op_i"] is not None)
@@ -164,10 +176,16 @@ def counts(call, l1=True, pre=True, gate=True):
     # Bytes with no owning op: a pre-existing buffer (a weight) whose only consumers all fail
     # `moves_dram`. Real traffic, so it must not vanish from a per-op sum; it carries no FLOPs.
     unattributed = w[-1] + rd[-1]
-    return {"floor_MB": (pre_B + 2 * al) / 1e6, "once_MB": (pre_B + al) / 1e6,
+    return {"floor_MB": (pre_B + 2 * al - terminal_read_removed) / 1e6, "once_MB": (pre_B + al) / 1e6,
             "real_MB": (sum(w.values()) + sum(rd.values())) / 1e6,
             "real_w_MB": sum(w.values()) / 1e6, "real_r_MB": sum(rd.values()) / 1e6,
             "phantom_read_MB": sum(phantom.values()) / 1e6,
+            "traffic_model_version": 2,
+            "terminal_read_removed_MB": terminal_read_removed / 1e6,
+            # Keep phantom_read_MB for old consumers; these retained reads are estimates,
+            # not evidence that scratch traffic is absent or exactly one pass.
+            "assumed_read_MB": sum(phantom.values()) / 1e6,
+            "opaque_buffer_assumed_read_MB": opaque_read / 1e6,
             "gate_saved_MB": saved / 1e6,
             "prealloc_MB": sum(r["size"] for r in dram if r["alloc_op_i"] is not None
                                and ops[r["alloc_op_i"]]["name"] == ALLOC) / 1e6,
