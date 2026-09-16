@@ -1,0 +1,624 @@
+[
+  {
+    "name": "TT_BIO_DEVICE_CONDITIONING",
+    "flag": "TT_BIO_DEVICE_CONDITIONING",
+    "op_class": "host->device port (conditioning assembly)",
+    "deletes": "host time and host<->device transfers; clock-immune seconds",
+    "ratio": 1.04642,
+    "ratio_text": "1.04642x",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Blackhole p300c qb2",
+    "clock": "unrecorded",
+    "accuracy_A": 0.58,
+    "accuracy_note": "0.580 / 0.403 A per pseudo-domain, against the 0.60 A bar and 1.84 A seed floor",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "| `TT_BIO_DEVICE_CONDITIONING` | in `wk/b2z2-union-ship` @ `540b8531f` | 1.04642x BH fold | 0.580 / 0.403 \u00c5 per pseudo-domain |"
+      }
+    ],
+    "note": "On main. The cell moved 17.989 -> 17.340 s over this and the re-cell that followed."
+  },
+  {
+    "name": "TT_BIO_UNFUSED_SILU",
+    "flag": "TT_BIO_UNFUSED_SILU",
+    "op_class": "eltwise / activation",
+    "deletes": "a fused activation op, trading it for two cheaper ones",
+    "ratio": 1.02337,
+    "ratio_text": "1.02337x",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Blackhole p300c qb2",
+    "clock": "unrecorded",
+    "accuracy_A": null,
+    "accuracy_note": "the 0.805 A that first killed it was an instrument artifact; held OFF because it costs Protenix-v2 0.0509 and 0.0721 CA-lDDT and this is a shared engine default",
+    "status": "shipped-default-off",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "| `TT_BIO_UNFUSED_SILU` | `wk/b2z2-silu-bh-land` @ `9229f9aa6` | 1.02337x BH fold, four seeds clean (1.02423x in the union session) | the 0.805 \u00c5 that killed it was an instrument artifact |"
+      }
+    ]
+  },
+  {
+    "name": "TT_BIO_ATOM_SHIFT_GATHER",
+    "flag": "TT_BIO_ATOM_SHIFT_GATHER",
+    "op_class": "layout / gather elision",
+    "deletes": "one one-hot gather matmul per atom-attention call",
+    "ratio": 1.01985,
+    "ratio_text": "1.01985x",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Blackhole p300c qb2, n=20/arm",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "max abs 0.0 against a float64 reference gather; bit-exact 8/8 folds",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "**`wk/b2z2-asg-ship` @ `2f5072d88`** (from `wk/b2z2-layout-op-elision`) | **1.01985x BH fold**, n=20/arm | **max abs 0.0** against the same reference; bit-exact 8/8 folds"
+      }
+    ],
+    "note": "Correct implementation of what TT_BIO_ATOM_KEY_WINDOW was staged to ship."
+  },
+  {
+    "name": "TT_BIO_ATOM_KEY_WINDOW",
+    "flag": null,
+    "op_class": "layout / gather elision",
+    "deletes": "the same one-hot gather matmul, gated on shapes instead of on the operand",
+    "ratio": 1.02744,
+    "ratio_text": "1.02744x",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Blackhole p300c qb2",
+    "clock": "unrecorded",
+    "accuracy_A": null,
+    "accuracy_note": "not an accuracy spend but a WRONG transform: max abs 4.21875 against a float64 reference, 13 wrong windows",
+    "status": "refuted",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "| ~~`TT_BIO_ATOM_KEY_WINDOW`~~ | `wk/b2z2-akw-ship` @ `2ecb899c5` | 1.02744x BH fold | **DEFECTIVE \u2014 4.21875 max abs against the true gather, see \u00a70-A** | **DO NOT MERGE** |"
+      }
+    ],
+    "note": "Never on origin/main in any form; no user ever ran it. Superseded by ATOM_SHIFT_GATHER.",
+    "absent_symbol": "TT_BIO_ATOM_KEY_WINDOW"
+  },
+  {
+    "name": "TT_BIO_ATOM_L1",
+    "flag": null,
+    "op_class": "L1 residency (atom attention)",
+    "deletes": "DRAM round trips for the atom-layer K/V operands",
+    "ratio": 1.08461,
+    "ratio_text": "1.08461x",
+    "ratio_scope": "step",
+    "cell": "boltz2 512 aa, Wormhole B0 whglx",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "torch.equal, max abs 0.0",
+    "status": "declined",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "| ~~`TT_BIO_ATOM_L1`~~ | `wk/b2z2-step-fusion-next-sites` @ `9cd6c2ff1` | **1.08461x WH step**, 0.6475 s/WH fold | `torch.equal`, max abs **0.0** | **NO-GO \u2014 crashes a size users get today, see below** |"
+      }
+    ],
+    "note": "NO-GO: L1 overflow at K=294 (1152 aa), a size that folds today at shipped defaults. Flat in size 512-1024 aa; clears its own A/A floor at 2 of 7 points. Do not re-run.",
+    "absent_symbol": "TT_BIO_ATOM_L1"
+  },
+  {
+    "name": "TT_BIO_ATOM_KV_PREPROJ",
+    "flag": null,
+    "op_class": "layout / pre-projection",
+    "deletes": "a repeated K/V projection inside the atom attention",
+    "ratio": 1.01566,
+    "ratio_text": "1.01566x",
+    "ratio_scope": "step",
+    "cell": "boltz2 512 aa, Wormhole B0 whglx, measured ON TOP OF the defective key window",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "torch.equal at the op and on the step output",
+    "status": "declined",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "| `TT_BIO_ATOM_KV_PREPROJ` | `wk/b2z2-atom-window-next` @ `6d575f829` | 1.01566x WH step, **on top of the key window** | `torch.equal` at the op and on the step output | marginal ratio only; do not add it to a stack that lacks AKW |"
+      }
+    ],
+    "note": "NO on the cell: marginal contribution measured zero within the floor, fold and step alike.",
+    "absent_symbol": "TT_BIO_ATOM_KV_PREPROJ"
+  },
+  {
+    "name": "PairWeightedAveraging.proj_z",
+    "flag": null,
+    "op_class": "layout / projection elision (MSA)",
+    "deletes": "a per-head projection in PairWeightedAveraging, guarded n_heads <= 32",
+    "ratio": 1.0372,
+    "ratio_text": "1.0372x",
+    "ratio_scope": "block",
+    "cell": "MSALayer, Wormhole B0",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "torch.equal True on both outputs, max abs 0",
+    "status": "shipped-default-off",
+    "flag_note": "ships as TT_BIO_PWA_BATCH_HEAD_WEIGHTS in the tree; this row prices the branch measurement",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "| `PairWeightedAveraging.proj_z` | `wk/b2z2-msa-layer-census` @ `dfb8b9e08` | 1.0372x on `MSALayer` | `torch.equal` True on both outputs, max abs 0 | **already default ON** on its branch, guarded `n_heads <= 32` |"
+      }
+    ],
+    "note": "Bit-exact at seven shapes across boltz2, protenix-v2 and openfold3; engages at 2 of 7.",
+    "status_evidence": {
+      "path": "repo:tt_bio/tenstorrent.py",
+      "quote": "env_flag(\"TT_BIO_PWA_BATCH_HEAD_WEIGHTS\""
+    }
+  },
+  {
+    "name": "qkvg_heads + TRIMUL_FUSED_GOUT + TRIATT_FUSED_QKVGB (trunk byte round 2)",
+    "flag": null,
+    "op_class": "trunk byte deletion (read redundancy)",
+    "deletes": "402.6 MB of DRAM reads per Pairformer block: 3,672.0 -> 3,269.4 MB",
+    "ratio": 1.05106,
+    "ratio_text": "1.05106x",
+    "ratio_scope": "block",
+    "cell": "PairformerLayer block, Wormhole B0",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "torch.equal, eligibility census flat",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "| `qkvg_heads` + `TRIMUL_FUSED_GOUT` + `TRIATT_FUSED_QKVGB` | **`wk/b2z2-trunk-byte-round2` @ `67c2e432b`** | **1.05106x on the block**, A/A floor 1.00064x, additive to 0.1 pp | `torch.equal`, eligibility census flat | all three default OFF |"
+      }
+    ],
+    "note": "The block ratio did NOT compose at the fold: see the two fold rows below. Block additivity is a block property and does not transfer.",
+    "status_evidence": {
+      "path": "repo:tt_bio/triatt_qkv.py",
+      "quote": "TRIATT_FUSED_QKVGB = True"
+    }
+  },
+  {
+    "name": "trunk byte levers, Wormhole fold",
+    "flag": null,
+    "op_class": "trunk byte deletion (read redundancy)",
+    "deletes": "the same 402.6 MB/block, measured at the fold",
+    "ratio": 1.02648,
+    "ratio_text": "1.02648x",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Wormhole B0 whglx, n=7 paired",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "bit-exact, all 21 folds share sha da476491dbb2a847",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:b2z2/CLOSING.md",
+        "quote": "**1.02648x on a Wormhole fold, +1.046 s**, n=7 paired, bit-exact (all 21 folds share sha `da476491dbb2a847`"
+      }
+    ],
+    "fold_seconds": "+1.046 s on a Wormhole fold",
+    "status_evidence": {
+      "path": "repo:tt_bio/tenstorrent.py",
+      "quote": "TRIMUL_FUSED_GOUT = True"
+    }
+  },
+  {
+    "name": "trunk byte levers, Blackhole fold",
+    "flag": null,
+    "op_class": "trunk byte deletion (read redundancy)",
+    "deletes": "the same 402.6 MB/block on the production part",
+    "ratio": 1.01522,
+    "ratio_text": "1.01522x",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Blackhole p300c qb2 card 2, n=15 paired",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "bit-exact, all 48 folds write a91aa44441f0d9c5, negative control moves the digest",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:b2z2/CLOSING.md",
+        "quote": "**The Blackhole leg is now delivered: 1.01522x paired, +0.3066 s, faster in 13 of 15 reps**"
+      }
+    ],
+    "fold_seconds": "+0.3066 s",
+    "note": "57.5 % of the Wormhole ratio. TT_BIO_TRIMUL_FUSED_GOUT declines all 560 calls at 1536 aa, so this is a <=1024 aa number.",
+    "status_evidence": {
+      "path": "repo:tt_bio/tenstorrent.py",
+      "quote": "TRIMUL_FUSED_GOUT = True"
+    }
+  },
+  {
+    "name": "five-lever Blackhole stack (corrected)",
+    "flag": null,
+    "op_class": "mixed stack (conditioning, silu, gather, LN fusion, layout elision)",
+    "deletes": "host transfers, one gather matmul, two sampler-stage op groups",
+    "ratio": 1.11982,
+    "ratio_text": "1.11982x",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Blackhole p300c qb2, 50 warm folds under benchlock",
+    "clock": "unrecorded",
+    "accuracy_A": 0.49519,
+    "accuracy_note": "0.49519 A worst per-pseudo-domain all-atom at 512 aa (0.60 A bar, 1.84 A seed floor); 0.42995 A at 298 aa. A/A floor 1.04204x",
+    "status": "superseded",
+    "evidence": [
+      {
+        "path": "state:b2z2/CLOSING.md",
+        "quote": "the five-lever stack with `TT_BIO_ATOM_SHIFT_GATHER` in place of the defective key window is\n**1.11982x**, and **1.12296x** with both bit-exact atom levers added."
+      }
+    ],
+    "note": "Never shipped as a stack: TT_BIO_UNFUSED_SILU is off and TT_BIO_ATOM_L1 is not in the tree. Perturbations are strongly sub-additive: LN alone reads 0.70391 A and fails the bar while the stack containing it reads 0.49519 A."
+  },
+  {
+    "name": "nine-lever single-chip union (Wormhole)",
+    "flag": null,
+    "op_class": "mixed stack across four stages",
+    "deletes": "host glue, byte redundancy and sampler layout across nine sites",
+    "ratio": 1.10789,
+    "ratio_text": "1.10789x",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Wormhole B0 whglx, n=6 paired, 95 folds over five sessions",
+    "clock": "unrecorded",
+    "accuracy_A": 0.40355,
+    "accuracy_note": "0.40355 A at 512 aa against a 0.60 A bar and 1.86363 A seed floor; 0.29521 A at 298 aa",
+    "status": "superseded",
+    "evidence": [
+      {
+        "path": "state:b2z2/CLOSING.md",
+        "quote": "measured them\ntogether: **40.561 s \u2192 36.570 s, 1.10789x**, paired n=6 against a floor **bootstrapped at that same\nn** of [0.99650, 1.00351] \u2014 **30.7x clear**."
+      }
+    ],
+    "fold_seconds": "40.561 -> 36.570 s (Wormhole)"
+  },
+  {
+    "name": "TT_BIO_DEVICE_ZINIT",
+    "flag": "TT_BIO_DEVICE_ZINIT",
+    "op_class": "host->device port (z init)",
+    "deletes": "host assembly and upload of the initial pair tensor; clock-immune seconds",
+    "ratio": 1.0109,
+    "ratio_text": "1.01090x",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Wormhole B0",
+    "clock": "unrecorded",
+    "accuracy_A": 0.298,
+    "accuracy_note": "0.298 A of a 0.35 A budget",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "| `TT_BIO_DEVICE_ZINIT` | `wk/b2z2-host-residual-round2` | 1.01090x fold, 6/6 positive | 0.298 \u00c5 of a 0.35 \u00c5 budget |"
+      }
+    ]
+  },
+  {
+    "name": "confidence pair assembly on device",
+    "flag": "TT_BIO_DEVICE_CONFIDENCE",
+    "op_class": "host->device port (confidence head)",
+    "deletes": "host assembly of the confidence pair input; clock-immune seconds",
+    "ratio": 1.0128,
+    "ratio_text": "1.0128x",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Wormhole B0",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "coordinates bit-identical; only pLDDT moves (max 0.300/0.334)",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "| confidence pair assembly | `wk/b2z2-conf-head-device` @ `ffba26dd3` | 1.0128x fold, 6/6 positive | coordinates **bit-identical**; only pLDDT moves (max 0.300/0.334) |"
+      }
+    ],
+    "note": "A CIF sha256 is the wrong instrument for it: write_result puts pLDDT in the B-factor column."
+  },
+  {
+    "name": "TT_BIO_DIT_FUSED_QKV",
+    "flag": null,
+    "op_class": "layout / QKV fusion (token DiT)",
+    "deletes": "three separate QKV projections per DiT layer",
+    "ratio": 1.04124,
+    "ratio_text": "1.04124x",
+    "ratio_scope": "step",
+    "cell": "boltz2 512 aa sampler step, Wormhole B0",
+    "clock": "unrecorded",
+    "accuracy_A": 0.346,
+    "accuracy_note": "0.346 A; cannot ship together with TT_BIO_HEAD_PAD_TAIL, jointly 0.713 A over the 0.60 A bar",
+    "status": "unmerged",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "| `TT_BIO_DIT_FUSED_QKV` | `wk/b2z2-step-layout-elision` | 1.04124x step | 0.346 \u00c5 |"
+      }
+    ],
+    "absent_symbol": "TT_BIO_DIT_FUSED_QKV"
+  },
+  {
+    "name": "TT_BIO_HEAD_PAD_TAIL",
+    "flag": null,
+    "op_class": "layout / head padding (token DiT)",
+    "deletes": "a head-axis pad round trip in the DiT tail",
+    "ratio": 1.02549,
+    "ratio_text": "1.02549x",
+    "ratio_scope": "step",
+    "cell": "boltz2 512 aa sampler step, Wormhole B0",
+    "clock": "unrecorded",
+    "accuracy_A": 0.37,
+    "accuracy_note": "0.370 A alone; 0.713 A together with DIT_FUSED_QKV, over the 0.60 A bar",
+    "status": "unmerged",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "| `TT_BIO_HEAD_PAD_TAIL` | same | 1.02549x step | 0.370 \u00c5 \u2014 **cannot ship with the row above**, together 0.713 \u00c5 |"
+      }
+    ],
+    "absent_symbol": "TT_BIO_HEAD_PAD_TAIL"
+  },
+  {
+    "name": "step layernorm fusion",
+    "flag": null,
+    "op_class": "op fusion (sampler layernorm)",
+    "deletes": "separate layernorm dispatches in the 200-step sampler",
+    "ratio": 1.02694,
+    "ratio_text": "1.02694x",
+    "ratio_scope": "sampler-wall",
+    "cell": "boltz2 512 aa, 200-step sampler wall, Blackhole p300c qb2",
+    "clock": "unrecorded",
+    "accuracy_A": 0.70391,
+    "accuracy_note": "0.70391 A ALONE, over the 0.60 A bar; inside the five-lever stack the stack reads 0.49519 A",
+    "status": "unmerged",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "| step layernorm fusion | in `wk/b2z2-bh-union-step` @ `6cdab4d02` | 1.02694x BH sampler wall | **0.70391 \u00c5 alone \u2014 over the 0.60 \u00c5 bar** |"
+      }
+    ],
+    "note": "The sampler is 5.365 s of the 20.113 s cell it was measured against, so a sampler-wall ratio is worth roughly a quarter of the same number on the fold. On the fold alone it reads 1.00752x, inside the session's 1.03547x A/A floor.",
+    "absent_symbol": "TT_BIO_STEP_LN_FUSION"
+  },
+  {
+    "name": "step layout elision",
+    "flag": null,
+    "op_class": "layout elision (sampler)",
+    "deletes": "layout conversions inside the sampler step",
+    "ratio": 1.02936,
+    "ratio_text": "1.02936x",
+    "ratio_scope": "sampler-wall",
+    "cell": "boltz2 512 aa, 200-step sampler wall, Blackhole p300c qb2",
+    "clock": "unrecorded",
+    "accuracy_A": null,
+    "accuracy_note": "no standalone Angstrom reading on record",
+    "status": "unmerged",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "| step layout elision | same branch | 1.02936x BH sampler wall | \u2014 |"
+      }
+    ],
+    "note": "On the fold alone it reads 1.02185x, inside the session's 1.03547x A/A floor.",
+    "absent_symbol": "TT_BIO_STEP_LAYOUT_ELISION"
+  },
+  {
+    "name": "TT_BIO_SDPA_GRID_Q_CHUNK",
+    "flag": "TT_BIO_SDPA_GRID_Q_CHUNK",
+    "op_class": "occupancy / grid chunking (SDPA)",
+    "deletes": "nothing; it re-sizes the Q chunk to fill one grid pass",
+    "ratio": null,
+    "contested": true,
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Blackhole p300c qb2",
+    "clock": "unrecorded",
+    "accuracy_A": null,
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "**Its published 1.01831x standalone figure was a marginal on a branch already carrying\n`TT_BIO_ATOM_L1`, not a standalone number.** Measured on `main`'s atom path by\n`b2z2-everything-union-wh`, it makes the **sampler stage 15.2 % SLOWER**."
+      }
+    ],
+    "note": "Two readings on record that disagree in SIGN. The ledger refuses to price it. An occupancy lever's sign is path-dependent in a way a read deletion's is not. It is default-ON in the tree today, which is itself worth checking."
+  },
+  {
+    "name": "TT_BIO_TRIMUL_GP_BANK_SPLIT",
+    "flag": "TT_BIO_TRIMUL_GP_BANK_SPLIT",
+    "op_class": "layout (B1 column permutation)",
+    "deletes": "a bank-conflicted access pattern in the triangle product",
+    "ratio": 1.02287,
+    "ratio_text": "1.02287x",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Blackhole p300c qb2 card 0, benchlock",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "0.000 A, bit-exact",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:roof-orchestrator.md",
+        "quote": "| `TT_BIO_TRIMUL_GP_BANK_SPLIT` (B1 column permutation) | **layout** | none, not WH-screened | n/a | **1.02287x** @ 512 aa, qb2 card 0 p300c under benchlock | **0.000 A**, bit-exact |"
+      }
+    ],
+    "note": "Wormhole neutrality later measured, not argued: 1.0015x-1.0221x on whglx, 16/16 bit-exact."
+  },
+  {
+    "name": "TT_BIO_TRIMUL_MASK_L1 + TT_BIO_RESIDUAL_L1",
+    "flag": "TT_BIO_TRIMUL_MASK_L1",
+    "op_class": "L1 placement (trunk)",
+    "deletes": "DRAM round trips for the trimul mask and the residual",
+    "ratio": 1.01492,
+    "ratio_text": "1.01492x",
+    "ratio_scope": "stage",
+    "cell": "boltz2 512 aa trunk, Blackhole p300c qb2",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "0.000 A, bit-exact",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:roof-orchestrator.md",
+        "quote": "| `TT_BIO_TRIMUL_MASK_L1` + `TT_BIO_RESIDUAL_L1` | **placement** | none, not WH-screened | n/a | **1.01492x** on the trunk, 0.1035 s off the fold | **0.000 A**, bit-exact |"
+      }
+    ],
+    "fold_seconds": "0.1035 s off the fold"
+  },
+  {
+    "name": "TT_BIO_MSA_LADDER",
+    "flag": null,
+    "op_class": "padding ladder (MSA depth axis)",
+    "deletes": "a 1024-row MSA pad on a 35-row MSA; the extra reduction terms are exactly 0.0",
+    "ratio": 1.0577,
+    "ratio_text": "1.0577x",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Blackhole p300c qb2",
+    "clock": "unrecorded",
+    "accuracy_A": null,
+    "accuracy_note": "full release parity gate PASSES with it on",
+    "status": "shipped-on",
+    "flag_note": "read via os.environ.get in tt_bio/token_axis.py rather than env_flag, so the extractor's env_flag oracle cannot see it; status is pinned by a quoted line of tt_bio/token_axis.py instead",
+    "evidence": [
+      {
+        "path": "state:roof-msa-ladder-bh-ship.md",
+        "quote": "VERDICT: **GO.** `TT_BIO_MSA_LADDER` is worth **1.0577x / 0.865 fold-seconds** on a qb2 p300c at\n512 aa"
+      }
+    ],
+    "fold_seconds": "0.865 fold-seconds",
+    "note": "roof-orchestrator's own scoreboard lists the earlier roof-msa-ladder row as PARTIAL, real, correct, default OFF and worth 0.000 s at 1024 rows or deeper: the win exists only because the fixture's MSA is 35 rows against a real 8833.",
+    "status_evidence": {
+      "path": "repo:tt_bio/token_axis.py",
+      "quote": "The live MSA depth ladder. ON by default; ``TT_BIO_MSA_LADDER=0`` restores the single 1024."
+    }
+  },
+  {
+    "name": "Transition row-chunk widening (Blackhole)",
+    "flag": "TT_BIO_TRANSITION_L1_ROWS",
+    "op_class": "L1 residency / row chunking (pair Transition)",
+    "deletes": "DRAM round trips for the Transition's row blocks",
+    "ratio": null,
+    "unpriced_reason": "the shipping row quotes a RANGE (1.023-1.035x at 512 aa) rather than one paired figure, and the quiet-box remeasure could not distinguish its fold second from zero: -0.448 s with a 95 % CI of [-1.073, +0.177] s at loadavg 23-28",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Blackhole p300c qb2",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "bit-exact at 298/512/768/1024 aa and at full MSA depth",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:roof-transition-chunk-bh-ship.md",
+        "quote": "Folds are 1.023-1.035x faster at 512 aa, 1.030x at 768 and 1.013x at 1024, bit-exact at 298/512/768/1024 aa and at full MSA depth."
+      }
+    ],
+    "note": "Bounded: Boltz-2, BoltzGen and OpenFold3 get the whole win; Protenix-v2 (c_z=256) and OpenDDE (c_z=384) keep the height they ship today. Unbounded it killed every seed of opendde-prot-prod and opendde-abag."
+  },
+  {
+    "name": "TT_BIO_SDPA_FUSED_LARGE_S (above-cap fused triangle-attention SDPA)",
+    "flag": "TT_BIO_SDPA_FUSED_LARGE_S",
+    "op_class": "op fusion (triangle attention SDPA, above the L1 cap)",
+    "deletes": "the unfused attention chain above the persistent-mask cap",
+    "ratio": 1.1856,
+    "ratio_text": "1.1856x",
+    "ratio_scope": "fold",
+    "cell": "boltz2 1536 aa, 200-step fold; A/A floor 1.0121x",
+    "clock": "unrecorded",
+    "accuracy_A": 1.007,
+    "accuracy_note": "1.007 A all-atom at 1536 aa against a 0.60 A bar calibrated at 512 aa, where a seed change moves the same structure 1.84 A and at 1536 aa moves it 36.6 A",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:ttx-a3-1536-200step-fold.md",
+        "quote": "- **200-step fold ratio: 1.1856x** (off median 174.178 s -> 146.915 s, 27.263 s saved)."
+      }
+    ],
+    "fold_seconds": "174.178 -> 146.915 s, 27.263 s saved",
+    "note": "NOT a 512 aa lever. The fused route serves 0 of the 50 lengths from 1024 to 2592 under the old cap; this is the above-cap extension. It does nothing for the 512 aa cell C10 is targeting."
+  },
+  {
+    "name": "_FP32_SOFTMAX_L1_GRID -> live grid",
+    "flag": null,
+    "op_class": "grid envelope (fp32-softmax attention)",
+    "deletes": "a fitted (8,8) rectangle that makes the part refuse the L1 destination",
+    "ratio": 1.2655,
+    "ratio_text": "1.2655x",
+    "ratio_scope": "fold",
+    "cell": "512 aa, 200 steps, 3 recycles, Wormhole Galaxy whglx card 0, ABBA, n=4/arm x2 sessions",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "bit-exact at the fold: all 20 folds of both arms of both sessions wrote the same CIF sha256 and the same 0.84482 pLDDT; no accuracy spend at all",
+    "status": "unmerged",
+    "evidence": [
+      {
+        "path": "state:roof-orchestrator.md",
+        "quote": "`_FP32_SOFTMAX_L1_GRID = (8, 8)` -> the live grid is **1.2655x / 1.2623x on a whole 512 aa fold**,"
+      }
+    ],
+    "fold_seconds": "96.784 -> 76.480 s, ~20.1 s off a 96.8 s fold",
+    "note": "The largest measured win in the corpus and it does NOT help Boltz-2, which ships the fused SDPA. The path is taken by default by OpenFold3 (trunk, template, MSA embedder, confidence head) and AF2-IG. Release-gated, not merged. Never quote as a Boltz-2 speedup.",
+    "present_symbol": "_FP32_SOFTMAX_L1_GRID = (8, 8)",
+    "status_note": "the tree still carries the fitted (8, 8) rectangle; the live-grid change is branch-only"
+  },
+  {
+    "name": "DP host-thread park (runtime.host_thread_cap_env)",
+    "flag": null,
+    "op_class": "host runtime (OpenMP wait policy)",
+    "deletes": "idle OpenMP pool threads spinning through ~200 per-step device syncs",
+    "ratio": null,
+    "unpriced_reason": "a throughput figure at width 32, not a fold ratio: 1789.4 -> 1813.9 folds/hour, 1.4 %, against a 0.35 % same-configuration floor",
+    "ratio_scope": "throughput",
+    "cell": "whglx Wormhole Galaxy at width 32",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "bit-exact, both arms writing one CIF digest",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:b2z2/MERGE-LADDER.md",
+        "quote": "**1.4 %, not 1.5x.** 1789.4 to 1813.9 folds/hour at width 32 on whglx, 0.35 % same-configuration\nfloor, bit-exact."
+      }
+    ],
+    "note": "The 1.499x that circulated belongs to the thread CAP main already applies, not to the park. Single-card hosts run width 1 and are byte-identical to before, so this lever is worth 0.000 s on the 512 aa latency cell.",
+    "status_evidence": {
+      "path": "repo:tt_bio/runtime.py",
+      "quote": "host_thread_cap_env"
+    }
+  },
+  {
+    "name": "confidence pTM readback (conf-ptm-device)",
+    "flag": "TT_BIO_DEVICE_CONF_HEADS",
+    "op_class": "host<->device transfer (confidence readback)",
+    "deletes": "65.0 MB of device->host download per fold: 67.1 MB -> 2.097 MB",
+    "ratio": null,
+    "unpriced_reason": "no fold ratio on record; the row quotes a transfer reduction and a device track of 38.6-43.5 ms",
+    "ratio_scope": "fold",
+    "cell": "boltz2 298 aa / 512 aa / two-chain",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "coordinates AND per-atom pLDDT bit-identical at 298 aa, 512 aa and two-chain",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:b2z2/CLOSING.md",
+        "quote": "**67.1 MB \u2192 2.097 MB**, device track 38.6-43.5 ms, coordinates **and per-atom pLDDT bit-identical at\n298 aa, 512 aa and two-chain**."
+      }
+    ]
+  },
+  {
+    "name": "b_shard (split the b role of both triangle products)",
+    "flag": null,
+    "op_class": "tensor parallelism (pair axis)",
+    "deletes": "the replicated b-role read that caps the trunk shard",
+    "ratio": null,
+    "ratio_scope": "stage",
+    "cell": "boltz2 512 aa trunk, Wormhole B0, 7 paired interleaved reps",
+    "clock": "unrecorded",
+    "accuracy_A": 0,
+    "accuracy_note": "31 of 31 folds across all three arms emit da476491dbb2a847",
+    "status": "refuted",
+    "evidence": [
+      {
+        "path": "state:b2z2/CLOSING.md",
+        "quote": "**`b_shard` hands back 4.6 % of the trunk, slower in 7 of 7 reps** against an A/A\nfloor of 0.99863x (p = 0.0078 one-sided)"
+      }
+    ],
+    "note": "Excluded twice over: it is a fold regression AND it is tensor parallelism, which Moritz ruled out on 2026-09-13.",
+    "unpriced_reason": "the fold refused it and the row quotes a percentage, not a ratio: b_shard hands back 4.6 % of the trunk, slower in 7 of 7 reps against an A/A floor of 0.99863x",
+    "absent_symbol": "b_shard"
+  }
+]
