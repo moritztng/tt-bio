@@ -679,3 +679,41 @@ pattern match.
 
 Nothing has measured against the lever. But an in-regime wedge that the construction argument
 cannot dismiss is a real gap, and it is the first one this campaign has had.
+
+## The 1536 aa protenix-v2 wedge cost the card, and the state it left is reboot-only
+
+The freeze did not just end its own fold. Afterwards `tt-smi -ls` threw
+`Read 0xffffffff over PCIe ID 3: the board should be reset` from
+`TopologyDiscovery::init_device`, and the gate's own `CARD_DIRTY` health probe
+(`ttnn.open_device` plus a 32x32 tile add) spun 4+ minutes at 100 % CPU with py-spy parked at
+`<string>:4`, i.e. inside the open, in native UMD code rather than Python.
+
+**This is not the containment episode from earlier today, and the difference matters.** At 13:02Z
+the kmd guard cleared Memory-Space-Enable on a bridge port, so config space itself was unreadable.
+Here config space is intact: all four endpoints read `1e52:b140 COMMAND=0406`, bridges
+`00:01.1/.3/.4` all read `0407`, and all four `/dev/tenstorrent` nodes exist. The chip answers on
+config space and returns all-ones at the BAR, which is a dead ARC rather than an isolated link, and
+matches `tt-kmd-upgrade-can-leave-a-blackhole-arc-dead-only-reboot-clears-it`.
+
+**The reset path cannot recover it, because the reset path needs the enumeration that is broken.**
+`tt-smi -r 3` throws from the same `TopologyDiscovery::create_ethernet_map` frame as `-ls`. So a
+per-card reset is unavailable by construction in this state and the remedy is a reboot, which is
+allowed on qb2 where power-off is not.
+
+Rebooted 17:22:32Z. All four boards enumerate, card 3 opens in 2.9 s and card 2 in 0.9 s, both at
+grid 11x10. Recovery cost: about 5 minutes once diagnosed, against 26 minutes of a held card and a
+dark host before it.
+
+Two things this adds to the record independent of the lever:
+
+1. **`capacity_gate.py` runs an unguarded 1536-token attempt at any model with no Blackhole
+   ceiling row.** protenix-v2 has a `wormhole_b0` row and no `blackhole` row, so nothing refused
+   the input. opendde and opendde-abag carry Blackhole rows capped at 1024 precisely because their
+   own `fail_at=1536` is a trunk freeze that "leaves the chip refusing every device open, so an
+   unguarded attempt costs the next job on that card too". protenix-v2 at 1536 on Blackhole has
+   now produced that same failure, which is an argument for giving it a Blackhole row rather than
+   discovering the wall once per gate run.
+2. **The gate's `CARD_DIRTY` probe cannot report a dirty card in the state that most needs
+   reporting.** When the chip is ARC-dead the probe does not fail fast, it spins inside
+   `ttnn.open_device` holding the host-wide `/tmp/tt-bio-device-open.lock`, so the instrument built
+   to detect a dead card becomes a second process stuck on it.

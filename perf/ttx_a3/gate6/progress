@@ -180,3 +180,7 @@
 2026-09-16T16:47:20Z capacity-protenix-v1 START loadavg=2.09
 2026-09-16T16:51:27Z capacity-protenix-v1 rc=0 loadavg=2.63
 2026-09-16T16:51:27Z capacity-protenix-v2 START loadavg=2.63
+2026-09-16T17:19:48Z CARD 3 PCIE-DOWN after capacity-protenix-v2 froze at trunk 6/10: tt-smi -ls throws "Read 0xffffffff over PCIe ID 3: the board should be reset" from TopologyDiscovery::init_device. The gate own CARD_DIRTY probe then spun 4+ min at 100% CPU inside ttnn.open_device (py-spy: <string>:4, native, not Python). Chain PAUSED and stopped by explicit pid; a spinning open holds /tmp/tt-bio-device-open.lock host-wide.
+2026-09-16T17:22:13Z CARD-3 STATE IS ARC-DEAD, NOT BRIDGE-QUARANTINE: all four endpoints read 1e52:b140 COMMAND=0406, bridges 00:01.1/.3/.4 all 0407, all four /dev/tenstorrent nodes present -- so PCIe config space is INTACT, unlike the 13:02Z containment episode that cleared Memory-Space-Enable. UMD still reads 0xffffffff in init_tt_device, i.e. the chip is unresponsive at the BAR while its config space answers. tt-smi -ls AND tt-smi -r 3 both throw from TopologyDiscovery::create_ethernet_map, so the reset path needs the enumeration that is broken and cannot recover it. Rebooting (allowed on qb2; power-off is not and is not needed).
+2026-09-16T17:24:32Z REBOOT 17:22:32Z cleared it: all four p300c boards enumerate, card 3 opens in 2.9s and card 2 in 0.9s, both grid 11x10. ARC-dead confirmed as reboot-only, matching tt-kmd-upgrade-can-leave-a-blackhole-arc-dead.
+2026-09-16T17:24:32Z capoff-protenix-v2 START card=3 loadavg=0.14
