@@ -1,0 +1,233 @@
+{
+ "doc": "The bar a confidence-score change is scored against: the model's own seed-to-seed scatter.\n\n`score_scalars.py` measures what TT_BIO_DEVICE_CONF_HEADS does to pTM/pAE/pDE. That number is\nonly readable against something. For a coordinate the campaign has one -- 0.60 A kill bar at\n512 aa, against a 1.84 A seed floor -- but pTM is not an Angstrom and this lever moves no atom,\nso the coordinate bar does not apply. The honest comparison is the same one the coordinate bar\nis built from: re-run the model with a different diffusion seed, on the SAME fixture, same arm,\nsame process, and see how far its own confidence scores move. A lever whose shift is a small\nfraction of that scatter is inside variation the model already has.\n\nOne arm throughout (the lever pinned OFF, which is the base of score_scalars' comparison), one\nprocess, one device open, N seeds. `build_fold` bakes `seed` into the cfg dict it returns as\n`meta[\"job_cfg\"]`, and `one_fold` reads that same dict every fold, so the seed is changed by\nwriting it there -- no second fold driver.\n\nCapture is imported from `score_scalars` rather than re-implemented: one definition of what a\nconfidence reading is, or the two numbers are not comparable.\n",
+ "env": {
+  "started": "2026-09-16T04:15:19+0000",
+  "card": "0",
+  "host": "tt-quietbox2",
+  "size": 512,
+  "target": "/home/ttuser/.coworker/wt/b2z2-conf-ptm-bh-leg/perf/size512/fixtures/cdk2x2_512.yaml",
+  "arm": "TT_BIO_DEVICE_CONF_HEADS=0",
+  "seeds": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "commit": "408e93d6e",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-conf-ptm-bh-leg/tt_bio/__init__.py",
+  "recycling_steps": 3,
+  "sampling_steps": 200
+ },
+ "folds": [
+  {
+   "seed": 0,
+   "wall_s": 17.5084,
+   "plddt": 0.845919,
+   "ptm": 0.633376,
+   "iptm": 0.0,
+   "ligand_iptm": 0.0,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.845919,
+   "complex_iplddt": 0.845919,
+   "complex_pde": 0.620783,
+   "complex_ipde": 0.0
+  },
+  {
+   "seed": 1,
+   "wall_s": 21.9128,
+   "plddt": 0.862263,
+   "ptm": 0.612068,
+   "iptm": 0.0,
+   "ligand_iptm": 0.0,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.862263,
+   "complex_iplddt": 0.862263,
+   "complex_pde": 0.658098,
+   "complex_ipde": 0.0
+  },
+  {
+   "seed": 2,
+   "wall_s": 22.1253,
+   "plddt": 0.854541,
+   "ptm": 0.628826,
+   "iptm": 0.0,
+   "ligand_iptm": 0.0,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.854541,
+   "complex_iplddt": 0.854541,
+   "complex_pde": 0.634972,
+   "complex_ipde": 0.0
+  },
+  {
+   "seed": 3,
+   "wall_s": 22.1392,
+   "plddt": 0.875384,
+   "ptm": 0.687882,
+   "iptm": 0.0,
+   "ligand_iptm": 0.0,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.875384,
+   "complex_iplddt": 0.875384,
+   "complex_pde": 0.604335,
+   "complex_ipde": 0.0
+  }
+ ],
+ "scatter": {
+  "ptm": {
+   "values": [
+    0.633376,
+    0.612068,
+    0.628826,
+    0.687882
+   ],
+   "min": 0.612068,
+   "max": 0.687882,
+   "range": 0.075814,
+   "stdev": 0.032866
+  },
+  "iptm": {
+   "values": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "min": 0.0,
+   "max": 0.0,
+   "range": 0.0,
+   "stdev": 0.0
+  },
+  "ligand_iptm": {
+   "values": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "min": 0.0,
+   "max": 0.0,
+   "range": 0.0,
+   "stdev": 0.0
+  },
+  "protein_iptm": {
+   "values": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "min": 0.0,
+   "max": 0.0,
+   "range": 0.0,
+   "stdev": 0.0
+  },
+  "complex_plddt": {
+   "values": [
+    0.845919,
+    0.862263,
+    0.854541,
+    0.875384
+   ],
+   "min": 0.845919,
+   "max": 0.875384,
+   "range": 0.029465,
+   "stdev": 0.012503
+  },
+  "complex_iplddt": {
+   "values": [
+    0.845919,
+    0.862263,
+    0.854541,
+    0.875384
+   ],
+   "min": 0.845919,
+   "max": 0.875384,
+   "range": 0.029465,
+   "stdev": 0.012503
+  },
+  "complex_pde": {
+   "values": [
+    0.620783,
+    0.658098,
+    0.634972,
+    0.604335
+   ],
+   "min": 0.604335,
+   "max": 0.658098,
+   "range": 0.053763,
+   "stdev": 0.022782
+  },
+  "complex_ipde": {
+   "values": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "min": 0.0,
+   "max": 0.0,
+   "range": 0.0,
+   "stdev": 0.0
+  }
+ },
+ "vs_seed0": {
+  "1": {
+   "d_ptm": -0.021308,
+   "d_iptm": 0.0,
+   "d_ligand_iptm": 0.0,
+   "d_protein_iptm": 0.0,
+   "d_complex_plddt": 0.016344,
+   "d_complex_iplddt": 0.016344,
+   "d_complex_pde": 0.037315,
+   "d_complex_ipde": 0.0,
+   "pae_max_abs": 11.133394,
+   "pae_mean_abs": 1.035471,
+   "pae_mean_ref": 14.764975,
+   "pde_max_abs": 16.722401,
+   "pde_mean_abs": 1.745529,
+   "pde_mean_ref": 5.765136,
+   "plddt_max_abs": 0.21945,
+   "plddt_mean_abs": 0.019864,
+   "plddt_mean_ref": 0.845919
+  },
+  "2": {
+   "d_ptm": -0.00455,
+   "d_iptm": 0.0,
+   "d_ligand_iptm": 0.0,
+   "d_protein_iptm": 0.0,
+   "d_complex_plddt": 0.008622,
+   "d_complex_iplddt": 0.008622,
+   "d_complex_pde": 0.014189,
+   "d_complex_ipde": 0.0,
+   "pae_max_abs": 9.231884,
+   "pae_mean_abs": 1.068681,
+   "pae_mean_ref": 14.764975,
+   "pde_max_abs": 16.876495,
+   "pde_mean_abs": 1.804846,
+   "pde_mean_ref": 5.765136,
+   "plddt_max_abs": 0.204224,
+   "plddt_mean_abs": 0.013944,
+   "plddt_mean_ref": 0.845919
+  },
+  "3": {
+   "d_ptm": 0.054506,
+   "d_iptm": 0.0,
+   "d_ligand_iptm": 0.0,
+   "d_protein_iptm": 0.0,
+   "d_complex_plddt": 0.029465,
+   "d_complex_iplddt": 0.029465,
+   "d_complex_pde": -0.016448,
+   "d_complex_ipde": 0.0,
+   "pae_max_abs": 15.186808,
+   "pae_mean_abs": 2.515178,
+   "pae_mean_ref": 14.764975,
+   "pde_max_abs": 17.4484,
+   "pde_mean_abs": 1.716172,
+   "pde_mean_ref": 5.765136,
+   "plddt_max_abs": 0.366862,
+   "plddt_mean_abs": 0.032136,
+   "plddt_mean_ref": 0.845919
+  }
+ },
+ "seed_took": true
+}
