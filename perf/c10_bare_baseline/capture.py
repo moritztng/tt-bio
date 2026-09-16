@@ -52,7 +52,7 @@ def main():
         result['profiling']={'tracy_launched':False,'graph':False,'generic_observer':False,'module_timers':False,'sum_profiling':False,'runtime_env':{k:v for k,v in os.environ.items() if 'PROFIL' in k or 'TRACY' in k}}
         root=Path('/sys/class/tenstorrent/tenstorrent!0')
         result['assigned_node_sysfs']={'resolved':str(root.resolve()),'device':str((root/'device').resolve()),'subsystem_device':(root/'device/subsystem_device').read_text().strip()}
-        for name in ['tt_board_id','tt_firmware_version','tt_flash_bundle_version']:
+        for name in ['tt_asic_id','tt_card_type','tt_fw_bundle_ver','tt_m3app_fw_ver','tt_serial']:
             if (root/name).exists():result['assigned_node_sysfs'][name]=(root/name).read_text().strip()
         B.RECYCLING_STEPS=3;B.SAMPLING_STEPS=200;B.DIFFUSION_SAMPLES=1;B.SEED=0
         patch_boltz2_cfg();B._card_info=lambda:{'assigned_node_sysfs':result['assigned_node_sysfs']}
@@ -66,7 +66,8 @@ def main():
         unused_fold,meta,state=B.build_fold('boltz2',out/'msa',target,msa,instrument=False,hoist=False,fast=False,trace=False,recycling_steps=3)
         dev=T.get_device();result['opened']=snapshot();quiet(result['opened'],True)
         if own_nodes()!=['/dev/tenstorrent/0']:raise RuntimeError('wrong actual opened device')
-        result['model_meta']=meta;result['model_predict_args']=state.model.predict_args
+        result['model_meta']=meta;result['model_predict_args']=dict(state.model.predict_args)
+        result['acquisition_sources']=[digest(p) for p in sorted(HERE.glob('*.py'))]
         expected={'recycling_steps':3,'sampling_steps':200,'diffusion_samples':1,'max_parallel_samples':None}
         if dict(state.model.predict_args)!=expected:raise RuntimeError('actual model config mismatch')
         if meta['n_msa']!=35:raise RuntimeError('MSA rows not 35')
@@ -85,6 +86,8 @@ def main():
         reference=None
         for label in labels:
             before=snapshot();quiet(before,True)
+            if dict(state.model.predict_args)!=expected:raise RuntimeError('model config changed between labels')
+            if meta['job_cfg']['seed']!=0:raise RuntimeError('seed changed between labels')
             if before['boot_id']!=result['before']['boot_id']:raise RuntimeError('boot changed')
             struct_dir=Path(meta['struct_dir'])
             for p in struct_dir.glob('*'):p.unlink()
@@ -133,8 +136,13 @@ def main():
         if T is not None:
             try:T.cleanup()
             except BaseException as e:result['errors'].append('cleanup: '+repr(e));result['completed']=False
-        try:result['after']=snapshot()
-        except BaseException as e:result['errors'].append('snapshot: '+repr(e))
+        try:
+            result['after']=snapshot()
+            validate_snapshot(result['after'])
+            if result['after']['own_nodes']:raise RuntimeError('device still open after cleanup')
+            if result.get('release_response',[None])[0]!=0:raise RuntimeError('clock release not confirmed')
+            if result['after']['boot_id']!=result['before']['boot_id']:raise RuntimeError('boot changed')
+        except BaseException as e:result['errors'].append('snapshot: '+repr(e));result['completed']=False
         for name in ['clock.jsonl','holders.jsonl']:
             p=out/name
             if p.exists():

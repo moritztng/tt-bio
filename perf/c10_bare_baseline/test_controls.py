@@ -2,7 +2,7 @@
 import tempfile, unittest
 from pathlib import Path
 import numpy as np
-from reduce import coverage, holder_coverage, kabsch_rmsd, score, validate_atoms
+from reduce import coverage, holder_coverage, kabsch_rmsd, score, validate_atoms, validate_sequence
 
 class Controls(unittest.TestCase):
     def test_monotonic_units(self):
@@ -38,6 +38,9 @@ class Controls(unittest.TestCase):
         with self.assertRaises(ValueError):validate_atoms(keys,xyz,298)
         xyz[0,0]=0;keys[0]=keys[1]
         with self.assertRaises(ValueError):validate_atoms(keys,xyz,298)
+    def test_wrong_residue_sequence(self):
+        keys=[('A',str(i),'CA','ALA') for i in range(1,299)]
+        with self.assertRaises(ValueError):validate_sequence(keys,298)
     def test_atom_mapping_reordered_rows(self):
         cols=['label_asym_id','label_seq_id','label_atom_id','label_comp_id','Cartn_x','Cartn_y','Cartn_z']
         rows=[f'A {i} CA ALA {i%7} {i%13} {i%19}' for i in range(1,299)]

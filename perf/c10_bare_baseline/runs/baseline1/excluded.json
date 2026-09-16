@@ -1,0 +1,17 @@
+{
+  "verdict": "STOP",
+  "excluded_all_timings": true,
+  "reason": "The PC relay fetch was started while capture was active. Its own Git pack-objects workload overlapped the later 512 folds and the 298 session. Retained as diagnostic evidence only; repeat after transfer has finished and host quiet is rechecked.",
+  "evidence": {
+    "observed_utc": "2026-09-16T20:08:36Z",
+    "pack_pid": 149387,
+    "pack_elapsed_s": 21,
+    "pack_cpu_percent": 19.0,
+    "loadavg": [
+      1.54,
+      0.67,
+      0.32
+    ]
+  },
+  "recorded_utc": "2026-09-16T20:09:48.790627+00:00"
+}

@@ -30,6 +30,15 @@ def coordinates(path,size):
     order=sorted(range(len(keys)),key=lambda i:keys[i])
     return [keys[i] for i in order],xyz[order]
 
+def validate_sequence(keys,size):
+    import yaml
+    from Bio.SeqUtils import seq1
+    fixture=yaml.safe_load((ROOT/f'perf/size512/fixtures/cdk2x2_{size}.yaml').read_text())
+    expected=fixture['sequences'][0]['protein']['sequence']
+    ca=sorted((int(k[1]),k[3]) for k in keys if k[2]=='CA')
+    actual=''.join(seq1(name) for _,name in ca)
+    if actual!=expected:raise ValueError('CIF residue sequence differs from fixture')
+
 def score(a,b,size):
     ka,xa=coordinates(a,size);kb,xb=coordinates(b,size)
     if ka!=kb:raise ValueError('atom identities differ')
@@ -45,15 +54,27 @@ def reduce(root):
         if not (d/'result.json').exists():
             result['targets'][str(size)]={'verdict':'STOP','reason':'target not run'};result['verdict']='STOP';continue
         run=json.loads((d/'result.json').read_text());samples=lines(d/'clock.jsonl');holders=lines(d/'holders.jsonl')
+        prerequisite_errors=[]
+        if run.get('production_diff'):prerequisite_errors.append('production diff')
+        if run.get('source_base')!=criterion['source_base']:prerequisite_errors.append('source base')
+        if run.get('model_predict_args')!={'recycling_steps':3,'sampling_steps':200,'diffusion_samples':1,'max_parallel_samples':None}:prerequisite_errors.append('model config')
+        if run.get('release_response',[None])[0]!=0 or run.get('sampler_returncode')!=0:prerequisite_errors.append('release/sampler')
+        for snap in [run.get('before',{}),run.get('after',{})]+[r[k] for r in run['rows'] for k in ['before','after']]:
+            if snap.get('boot_id')!=run['before']['boot_id'] or snap.get('containment')!='active' or snap.get('module_srcversion')!='A10759A24565BC5BBE903C5':prerequisite_errors.append('boot/containment')
+            if any(h['pid']!=run['pid'] for h in snap.get('holders',[])):prerequisite_errors.append('foreign holder snapshot')
+        if run.get('after',{}).get('own_nodes'):prerequisite_errors.append('device remains open')
         records=[];accepted=[];paths={}
         for r in run['rows']:
             clock=coverage(samples,r);hc=holder_coverage(holders,r,run['pid']);rr=dict(r,clock=clock,holder_coverage=hc)
-            failures=[]
+            failures=list(prerequisite_errors)
+            if abs(r['elapsed_s']-(r['end_monotonic_ns']-r['start_monotonic_ns'])/1e9)>1e-12:failures.append('timer mismatch')
+            if r.get('above_cap_sdpa_counts')!=[0,0]:failures.append('above-cap route')
+            if not math.isfinite(float(r.get('plddt',float('nan')))):failures.append('nonfinite confidence')
             for name,val in [('clock',clock['pass']),('holders',hc['passed']),('run_valid',r.get('valid',False))]:
                 if not val:failures.append(name)
             p=d/r['cif'];paths[r['label']]=p
             try:
-                keys,xyz=coordinates(p,size)
+                keys,xyz=coordinates(p,size);validate_sequence(keys,size)
                 if sha(p)!=r['cif_sha256']:raise ValueError('CIF hash mismatch')
                 bf=bfactor_plddt(p)
                 if not bf or not math.isfinite(bf['mean_ca']):raise ValueError('invalid pLDDT column')
@@ -81,6 +102,12 @@ def reduce(root):
             out['summary']={'median_s':statistics.median(times),'min_s':min(times),'max_s':max(times),'spread_s':max(times)-min(times),'sample_stdev_s':statistics.stdev(times) if len(times)>1 else None,'during_min_MHz':min(r['clock']['min_MHz'] for r in accepted),'during_max_MHz':max(r['clock']['max_MHz'] for r in accepted),'median_elapsed_device_clock_equivalent_Mcycles':statistics.median(times)*1350,'cycle_units_warning':'Elapsed device-clock-equivalent only, includes host gaps; not measured device work.','max_all_warm_pair_domain_A':max((p['max_domain_all_atom_A'] for p in allpairs),default=None),'adjacent_abs_delta_median_s':statistics.median([p['abs_delta_s'] for p in pairs if p['timing_accepted']]) if any(p['timing_accepted'] for p in pairs) else None,'all_warm_cif_byte_exact':len({r['cif_sha256'] for r in accepted})==1}
         result['targets'][str(size)]=out
         if not ok:result['verdict']='STOP'
+    if (root/'excluded.json').exists():
+        result['exclusion']=json.loads((root/'excluded.json').read_text());result['verdict']='STOP'
+        for v in result['targets'].values():
+            v['verdict']='STOP';v['accepted_folds']=0;v.pop('summary',None)
+            for r in v.get('rows',[]):r['accepted']=False;r['rejections'].append('whole capture excluded')
+            for p in v.get('adjacent_pairs',[]):p['timing_accepted']=False
     return result
 
 if __name__=='__main__':
