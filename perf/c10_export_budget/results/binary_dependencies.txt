@@ -1,0 +1,34 @@
+
+Dynamic section at offset 0x1e2d10 contains 31 entries:
+  Tag        Type                         Name/Value
+ 0x0000000000000001 (NEEDED)             Shared library: [libcapstone.so.4]
+ 0x0000000000000001 (NEEDED)             Shared library: [libtbb.so.12]
+ 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x000000000000000c (INIT)               0x9000
+ 0x000000000000000d (FINI)               0x1b4034
+ 0x0000000000000019 (INIT_ARRAY)         0x1e1e60
+ 0x000000000000001b (INIT_ARRAYSZ)       8 (bytes)
+ 0x000000000000001a (FINI_ARRAY)         0x1e1e68
+ 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)
+ 0x000000006ffffef5 (GNU_HASH)           0x3a0
+ 0x0000000000000005 (STRTAB)             0x1498
+ 0x0000000000000006 (SYMTAB)             0x3e8
+ 0x000000000000000a (STRSZ)              4524 (bytes)
+ 0x000000000000000b (SYMENT)             24 (bytes)
+ 0x0000000000000015 (DEBUG)              0x0
+ 0x0000000000000003 (PLTGOT)             0x1e3fe8
+ 0x0000000000000002 (PLTRELSZ)           3432 (bytes)
+ 0x0000000000000014 (PLTREL)             RELA
+ 0x0000000000000017 (JMPREL)             0x75a0
+ 0x0000000000000007 (RELA)               0x2968
+ 0x0000000000000008 (RELASZ)             19512 (bytes)
+ 0x0000000000000009 (RELAENT)            24 (bytes)
+ 0x000000006ffffffb (FLAGS_1)            Flags: PIE
+ 0x000000006ffffffe (VERNEED)            0x27a8
+ 0x000000006fffffff (VERNEEDNUM)         4
+ 0x000000006ffffff0 (VERSYM)             0x2644
+ 0x000000006ffffff9 (RELACOUNT)          657
+ 0x0000000000000000 (NULL)               0x0

@@ -9,8 +9,8 @@
     },
     {
       "path": "README.md",
-      "sha256": "435097f41a4c25f1cc49d53dbaba5383a3cf6e88d561306cff37f19a123b1738",
-      "bytes": 8616
+      "sha256": "e72b9447200af55f0fb5fb1b8a4e27bd8bb029a271ba7bd0ca56bf4828f84c20",
+      "bytes": 8294
     },
     {
       "path": "TABLE.md",
@@ -114,8 +114,8 @@
     },
     {
       "path": "run_census.sh",
-      "sha256": "97d84024d82778f990a8f9cba50c48ffadd1f2dfdccf0e5658794a65c644921e",
-      "bytes": 1539
+      "sha256": "5b4956982e9cb506fd2390c9adc59f7424a2cbe7df5008aa97b00e91344da0b5",
+      "bytes": 1462
     },
     {
       "path": "run_smoke.sh",

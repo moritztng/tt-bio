@@ -1,0 +1,24 @@
+{
+  "verdict": "GO",
+  "manifest": {
+    "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay/packaged-controls/packaging/raw_manifest.json",
+    "bytes": 782,
+    "sha256": "8e7db08ccda8bc26d175966adbf1eeaa05319243543e94e826976a8d287dc640"
+  },
+  "files": [
+    {
+      "original": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay/packaged-controls/packaging/tracy/metadata/tracy_ops_data.csv",
+      "bytes": 26969586,
+      "sha256": "c0a300308a4c90fad3f4ef9fd5e31998b2e3efe9cc564b80e26a0827760bed82",
+      "archive": "raw/tracy_ops_data.csv.gz",
+      "archive_sha256": "54649dffe2073d75e7517d6c6b54c9ce86d8e069a5766977732e841c85507ee8"
+    },
+    {
+      "original": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay/packaged-controls/packaging/out/clock.jsonl",
+      "bytes": 99348740,
+      "sha256": "80a5f0c76ebabbb7a2f5640be629901b63bcf6807c9463009fff89f2979a8d79",
+      "archive": "out/clock.jsonl.gz",
+      "archive_sha256": "2e7645f16865aa82d64c5a723248ded8361866c0211b587782e2d8d630cf08f4"
+    }
+  ]
+}

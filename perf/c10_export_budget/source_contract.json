@@ -1,0 +1,19 @@
+{
+  "metal_root": "/home/ttuser/tt-metal-k10",
+  "metal_revision": "1452925b",
+  "census_revision": "6eb4dd6fa5eceab34f72a5e7ad382b8607554390",
+  "binary_sha256": "f79af294e68ddde77b61d42929c7af82d38dd8a05d68efdec5ec2d22e3e64dfd",
+  "sources": {
+    "LICENSE.tracy": "b04d971f616a03d75b51ae90bc1db6a3dd9ae195b68636d481539c008e013594",
+    "TracyWorker.cpp": "92caa20699d8b006734898455dbb1fd873fca6fb30ee9331e53fe3b2e0a97daf",
+    "TracyWorker.hpp": "efc23c102d3fab13bf2f1b8c28cdc6827c7c07caddc2fa24733ed7c270494f74",
+    "census_manifest.previous.json": "c43c52961d67e5331bebbdeb1faa98355c84511e42cea0ee13ea293ec5d6df9c",
+    "csvexport.cpp": "f2269142a81adca09f0dc9f1af23d3228ea8c6aef22acbbd1edc0b8556f6e9ef",
+    "csvexport_Makefile": "774fd2e167e4f739aae4d4712b85fff26cd555414f6e21a14b5953f8ef1cc5ef",
+    "process_ops_logs.py": "38475f3960063ecbd1bfde0ebe1580cafb409ca8a05891a74802fdd3b528e2a7",
+    "run_census.failed.sh": "5b4956982e9cb506fd2390c9adc59f7424a2cbe7df5008aa97b00e91344da0b5",
+    "run_smoke.previous.sh": "a192573b3367048556b1a161b5866d8c5f958f5449131c2b114f16d77dd6ddbc",
+    "tracy_init.py": "9a90e88f8bee5ec0aacbf94de49b4993f52562cbeeacde8d9f44db1fa5111e74",
+    "tracy_main.py": "3d630948fa555230294f7bfc840e9bffdc3d5ec5330157eed2cfa9cb9270817c"
+  }
+}

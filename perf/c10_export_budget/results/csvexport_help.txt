@@ -1,0 +1,13 @@
+Extract statistics from a trace to a CSV format
+Usage:
+  extract [OPTION...] <trace file>
+
+  -h, --help        Print usage
+  -f, --filter arg  Filter zone names (default: )
+  -x arg            List of special functions delimited by comma (default: )
+  -p arg            Parent to find for special functions (default: )
+  -s, --sep arg     CSV separator (default: ,)
+  -c, --case        Case sensitive filtering
+  -e, --self        Get self times
+  -u, --unwrap      Report each zone event
+  -m, --messages    Report only messages

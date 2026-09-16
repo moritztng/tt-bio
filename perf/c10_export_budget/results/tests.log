@@ -1,0 +1,20 @@
+test_address_limit (test_export.ExportTests.test_address_limit) ... ok
+test_archive_metadata_roundtrip_and_no_overwrite (test_export.ExportTests.test_archive_metadata_roundtrip_and_no_overwrite) ... ok
+test_archive_rejects_changed_metadata (test_export.ExportTests.test_archive_rejects_changed_metadata) ... ok
+test_archived_cli_calls_only_replacement_after_capture (test_export.ExportTests.test_archived_cli_calls_only_replacement_after_capture) ... ok
+test_cpu_limit (test_export.ExportTests.test_cpu_limit) ... ok
+test_disk_limit_cannot_publish_a_prefix (test_export.ExportTests.test_disk_limit_cannot_publish_a_prefix) ... ok
+test_duplicate_and_missing_cache_rejected (test_export.ExportTests.test_duplicate_and_missing_cache_rejected) ... ok
+test_empty_or_malformed_metadata_not_coverage (test_export.ExportTests.test_empty_or_malformed_metadata_not_coverage) ... ok
+test_harness_preserves_capture_flags (test_export.ExportTests.test_harness_preserves_capture_flags) ... ok
+test_input_limit_before_child_or_output (test_export.ExportTests.test_input_limit_before_child_or_output) ... ok
+test_no_overwrite (test_export.ExportTests.test_no_overwrite) ... ok
+test_nonzero_exit_not_coverage (test_export.ExportTests.test_nonzero_exit_not_coverage) ... ok
+test_report_hook_never_calls_old_report_or_process_ops (test_export.ExportTests.test_report_hook_never_calls_old_report_or_process_ops) ... ok
+test_unreviewed_tool_refused (test_export.ExportTests.test_unreviewed_tool_refused) ... ok
+test_wall_timeout_reaps_owned_child (test_export.ExportTests.test_wall_timeout_reaps_owned_child) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 1.452s
+
+OK

@@ -1,0 +1,584 @@
+{
+  "verdict": "GO",
+  "clock": "CPU only; 1350 MHz campaign context, no hardware measurement",
+  "predicted": "same metadata/call identities without timing CSV; zero model cycles saved",
+  "measured": [
+    {
+      "case": "dm_control",
+      "byte_exact": true,
+      "archive": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_dm_control/raw/tracy_ops_data.csv.gz",
+        "bytes": 5376,
+        "sha256": "b402b316500b3e6ac2367f51c2309d80c774c22b228c40c9c811be2674896817"
+      },
+      "verdict": "GO",
+      "scope": "CPU metadata export only; zero model cycles saved",
+      "budget": {
+        "trace_bytes": 4294967296,
+        "output_bytes": 67108864,
+        "address_bytes": 8589934592,
+        "cpu_seconds": 300,
+        "wall_seconds": 600
+      },
+      "trace_retention": "Input retained unchanged, including on failure",
+      "trace": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_dm_control/raw/tracy_profile_log_host.tracy",
+        "bytes": 33050506,
+        "sha256": "ad1fbf6fb33a682f4322f11f5103d39fe806845bb07d56ebd919f7454b402ac2"
+      },
+      "binary": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/csvexport-release",
+        "bytes": 1982112,
+        "sha256": "f79af294e68ddde77b61d42929c7af82d38dd8a05d68efdec5ec2d22e3e64dfd"
+      },
+      "runtime": [
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+          "bytes": 236616,
+          "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libc.so.6",
+          "bytes": 2129424,
+          "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libcapstone.so.4",
+          "bytes": 6585392,
+          "sha256": "bb6e89df9ae3d44ebfe1d535372a86c227dd5a3824892018f0f4bc2cf0dfc721"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libgcc_s.so.1",
+          "bytes": 187120,
+          "sha256": "9c08cedd322f564a362444b58135cf0356a1113ceebb702c7e634e481fe1c8bb"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libm.so.6",
+          "bytes": 952616,
+          "sha256": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libstdc++.so.6",
+          "bytes": 2739808,
+          "sha256": "c3d5641b6d085d5b2e8d955cc709ab16a2616cf23cff91517a7e44733de39eb6"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libtbb.so.12",
+          "bytes": 252632,
+          "sha256": "1e2a936d4519f2a4f2e62411a9f680f967a4742525ecf5c2dcac57f1b82501e7"
+        }
+      ],
+      "export": {
+        "command": [
+          "/usr/bin/python3",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+          "_exec",
+          "8589934592",
+          "67108864",
+          "300",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+          "--library-path",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/csvexport-release",
+          "-m",
+          "-s",
+          ";",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_dm_control/raw/tracy_profile_log_host.tracy"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 0.1008644379908219,
+        "max_rss_KiB": 204280,
+        "user_seconds": 0.11620399999999999,
+        "system_seconds": 0.028048999999999998,
+        "stdout_bytes": 45251,
+        "stderr_bytes": 0
+      },
+      "validation": {
+        "command": [
+          "/usr/bin/python3",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+          "_exec",
+          "8589934592",
+          "67108864",
+          "300",
+          "/usr/bin/python3",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+          "_validate",
+          "perf/c10_export_budget/replay/packaged-controls/dm_control/metadata.partial"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 0.08111031600856222,
+        "max_rss_KiB": 19964,
+        "user_seconds": 0.046653,
+        "system_seconds": 0.015550999999999999,
+        "stdout_bytes": 372,
+        "stderr_bytes": 0
+      },
+      "identity": {
+        "calls": 293,
+        "unparsed_messages": 0,
+        "ordered_decoded_sha256": "de5e36f9bee62aab9e3044c3aef82c77c1fe1040998fd87fb16b203834b02984",
+        "metadata": {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay/packaged-controls/dm_control/metadata.partial",
+          "bytes": 45251,
+          "sha256": "50d01147101a4b366597a68839b6b03a8e643d730318a61ffe3023c3f6c982b8"
+        }
+      },
+      "metadata": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay/packaged-controls/dm_control/tracy_ops_data.csv",
+        "bytes": 45251,
+        "sha256": "50d01147101a4b366597a68839b6b03a8e643d730318a61ffe3023c3f6c982b8"
+      }
+    },
+    {
+      "case": "smoke1",
+      "byte_exact": true,
+      "archive": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_burst_census/runs/smoke1/raw/tracy_ops_data.csv.gz",
+        "bytes": 2295,
+        "sha256": "4ba79511649e4e10aa4cfa3e55970b1da0515f7d98ee46cee733646239184472"
+      },
+      "verdict": "GO",
+      "scope": "CPU metadata export only; zero model cycles saved",
+      "budget": {
+        "trace_bytes": 4294967296,
+        "output_bytes": 67108864,
+        "address_bytes": 8589934592,
+        "cpu_seconds": 300,
+        "wall_seconds": 600
+      },
+      "trace_retention": "Input retained unchanged, including on failure",
+      "trace": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_burst_census/runs/smoke1/raw/tracy_profile_log_host.tracy",
+        "bytes": 18240120,
+        "sha256": "2c12ea314d3f5f87f1893e09d1030ab4a857cfa5059faf23eb7fca436d717753"
+      },
+      "binary": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/csvexport-release",
+        "bytes": 1982112,
+        "sha256": "f79af294e68ddde77b61d42929c7af82d38dd8a05d68efdec5ec2d22e3e64dfd"
+      },
+      "runtime": [
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+          "bytes": 236616,
+          "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libc.so.6",
+          "bytes": 2129424,
+          "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libcapstone.so.4",
+          "bytes": 6585392,
+          "sha256": "bb6e89df9ae3d44ebfe1d535372a86c227dd5a3824892018f0f4bc2cf0dfc721"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libgcc_s.so.1",
+          "bytes": 187120,
+          "sha256": "9c08cedd322f564a362444b58135cf0356a1113ceebb702c7e634e481fe1c8bb"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libm.so.6",
+          "bytes": 952616,
+          "sha256": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libstdc++.so.6",
+          "bytes": 2739808,
+          "sha256": "c3d5641b6d085d5b2e8d955cc709ab16a2616cf23cff91517a7e44733de39eb6"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libtbb.so.12",
+          "bytes": 252632,
+          "sha256": "1e2a936d4519f2a4f2e62411a9f680f967a4742525ecf5c2dcac57f1b82501e7"
+        }
+      ],
+      "export": {
+        "command": [
+          "/usr/bin/python3",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+          "_exec",
+          "8589934592",
+          "67108864",
+          "300",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+          "--library-path",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/csvexport-release",
+          "-m",
+          "-s",
+          ";",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_burst_census/runs/smoke1/raw/tracy_profile_log_host.tracy"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 0.08070518198655918,
+        "max_rss_KiB": 136608,
+        "user_seconds": 0.080022,
+        "system_seconds": 0.016004,
+        "stdout_bytes": 18986,
+        "stderr_bytes": 0
+      },
+      "validation": {
+        "command": [
+          "/usr/bin/python3",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+          "_exec",
+          "8589934592",
+          "67108864",
+          "300",
+          "/usr/bin/python3",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+          "_validate",
+          "perf/c10_export_budget/replay/packaged-controls/smoke1/metadata.partial"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 0.06076548498822376,
+        "max_rss_KiB": 21812,
+        "user_seconds": 0.04486,
+        "system_seconds": 0.012234,
+        "stdout_bytes": 367,
+        "stderr_bytes": 0
+      },
+      "identity": {
+        "calls": 41,
+        "unparsed_messages": 0,
+        "ordered_decoded_sha256": "e6355eb3cfd76e66d8006d67e5e87d0d3d61de99ec45dc7277e136ed6a2ae46b",
+        "metadata": {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay/packaged-controls/smoke1/metadata.partial",
+          "bytes": 18986,
+          "sha256": "2ad06cb679b5c4357bc4373b70ec6e01939a7be46380638d0c45c8f49e13cebd"
+        }
+      },
+      "metadata": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay/packaged-controls/smoke1/tracy_ops_data.csv",
+        "bytes": 18986,
+        "sha256": "2ad06cb679b5c4357bc4373b70ec6e01939a7be46380638d0c45c8f49e13cebd"
+      }
+    },
+    {
+      "case": "smoke2",
+      "byte_exact": true,
+      "archive": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_burst_census/runs/smoke2/raw/tracy_ops_data.csv.gz",
+        "bytes": 2283,
+        "sha256": "2a506a3cffc6546f02a91ae5d8dfd5d5454235a40030839c978558f6fd1cafd2"
+      },
+      "verdict": "GO",
+      "scope": "CPU metadata export only; zero model cycles saved",
+      "budget": {
+        "trace_bytes": 4294967296,
+        "output_bytes": 67108864,
+        "address_bytes": 8589934592,
+        "cpu_seconds": 300,
+        "wall_seconds": 600
+      },
+      "trace_retention": "Input retained unchanged, including on failure",
+      "trace": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_burst_census/runs/smoke2/raw/tracy_profile_log_host.tracy",
+        "bytes": 17834466,
+        "sha256": "7994f55f5bd36b6e7427d5150b444d887cd91c1c015646a978378181285ba93c"
+      },
+      "binary": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/csvexport-release",
+        "bytes": 1982112,
+        "sha256": "f79af294e68ddde77b61d42929c7af82d38dd8a05d68efdec5ec2d22e3e64dfd"
+      },
+      "runtime": [
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+          "bytes": 236616,
+          "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libc.so.6",
+          "bytes": 2129424,
+          "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libcapstone.so.4",
+          "bytes": 6585392,
+          "sha256": "bb6e89df9ae3d44ebfe1d535372a86c227dd5a3824892018f0f4bc2cf0dfc721"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libgcc_s.so.1",
+          "bytes": 187120,
+          "sha256": "9c08cedd322f564a362444b58135cf0356a1113ceebb702c7e634e481fe1c8bb"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libm.so.6",
+          "bytes": 952616,
+          "sha256": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libstdc++.so.6",
+          "bytes": 2739808,
+          "sha256": "c3d5641b6d085d5b2e8d955cc709ab16a2616cf23cff91517a7e44733de39eb6"
+        },
+        {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libtbb.so.12",
+          "bytes": 252632,
+          "sha256": "1e2a936d4519f2a4f2e62411a9f680f967a4742525ecf5c2dcac57f1b82501e7"
+        }
+      ],
+      "export": {
+        "command": [
+          "/usr/bin/python3",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+          "_exec",
+          "8589934592",
+          "67108864",
+          "300",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+          "--library-path",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/csvexport-release",
+          "-m",
+          "-s",
+          ";",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_burst_census/runs/smoke2/raw/tracy_profile_log_host.tracy"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 0.08088511598180048,
+        "max_rss_KiB": 134008,
+        "user_seconds": 0.099244,
+        "system_seconds": 0.0,
+        "stdout_bytes": 18986,
+        "stderr_bytes": 0
+      },
+      "validation": {
+        "command": [
+          "/usr/bin/python3",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+          "_exec",
+          "8589934592",
+          "67108864",
+          "300",
+          "/usr/bin/python3",
+          "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+          "_validate",
+          "perf/c10_export_budget/replay/packaged-controls/smoke2/metadata.partial"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "elapsed_seconds": 0.06068918001255952,
+        "max_rss_KiB": 21824,
+        "user_seconds": 0.056867,
+        "system_seconds": 0.0,
+        "stdout_bytes": 367,
+        "stderr_bytes": 0
+      },
+      "identity": {
+        "calls": 41,
+        "unparsed_messages": 0,
+        "ordered_decoded_sha256": "e6355eb3cfd76e66d8006d67e5e87d0d3d61de99ec45dc7277e136ed6a2ae46b",
+        "metadata": {
+          "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay/packaged-controls/smoke2/metadata.partial",
+          "bytes": 18986,
+          "sha256": "8ca8e7fa06528c6a8eed0ced18fee58b7ecc7a7cf3170b60203f4eab31435011"
+        }
+      },
+      "metadata": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay/packaged-controls/smoke2/tracy_ops_data.csv",
+        "bytes": 18986,
+        "sha256": "8ca8e7fa06528c6a8eed0ced18fee58b7ecc7a7cf3170b60203f4eab31435011"
+      }
+    }
+  ],
+  "large_trace_tested": false,
+  "census_metadata": {
+    "resource": {
+      "command": [
+        "/usr/bin/python3",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+        "_exec",
+        "8589934592",
+        "67108864",
+        "300",
+        "/usr/bin/python3",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+        "_validate",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_burst_census/runs/census1/raw/tracy_ops_data.csv.gz"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "elapsed_seconds": 4.768421902990667,
+      "max_rss_KiB": 162428,
+      "user_seconds": 4.626597,
+      "system_seconds": 0.12396199999999999,
+      "stdout_bytes": 362,
+      "stderr_bytes": 0
+    },
+    "identity": {
+      "calls": 259634,
+      "unparsed_messages": 0,
+      "ordered_decoded_sha256": "1f80f913ede92a16c61f859d8ac320687026d56b8b747e9f7314c9c968be327c",
+      "metadata": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_burst_census/runs/census1/raw/tracy_ops_data.csv.gz",
+        "bytes": 2970320,
+        "sha256": "e11200ecb59404f2a8ef32954c5d4ac26a63c50ef637a92ba3fa8db51fa976e3"
+      }
+    }
+  },
+  "packaging": {
+    "resource": {
+      "command": [
+        "/usr/bin/python3",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+        "_exec",
+        "8589934592",
+        "67108864",
+        "300",
+        "/usr/bin/python3",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/archive_replay.py",
+        "_archive",
+        "perf/c10_export_budget/replay/packaged-controls/packaging"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "elapsed_seconds": 2.656020760012325,
+      "max_rss_KiB": 22064,
+      "user_seconds": 2.567438,
+      "system_seconds": 0.079982,
+      "stdout_bytes": 1101,
+      "stderr_bytes": 0
+    },
+    "result": {
+      "verdict": "GO",
+      "manifest": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay/packaged-controls/packaging/raw_manifest.json",
+        "bytes": 782,
+        "sha256": "8e7db08ccda8bc26d175966adbf1eeaa05319243543e94e826976a8d287dc640"
+      },
+      "files": [
+        {
+          "original": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay/packaged-controls/packaging/tracy/metadata/tracy_ops_data.csv",
+          "bytes": 26969586,
+          "sha256": "c0a300308a4c90fad3f4ef9fd5e31998b2e3efe9cc564b80e26a0827760bed82",
+          "archive": "raw/tracy_ops_data.csv.gz",
+          "archive_sha256": "54649dffe2073d75e7517d6c6b54c9ce86d8e069a5766977732e841c85507ee8"
+        },
+        {
+          "original": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay/packaged-controls/packaging/out/clock.jsonl",
+          "bytes": 99348740,
+          "sha256": "80a5f0c76ebabbb7a2f5640be629901b63bcf6807c9463009fff89f2979a8d79",
+          "archive": "out/clock.jsonl.gz",
+          "archive_sha256": "2e7645f16865aa82d64c5a723248ded8361866c0211b587782e2d8d630cf08f4"
+        }
+      ]
+    }
+  },
+  "census_windows": {
+    "resource": {
+      "command": [
+        "/usr/bin/python3",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+        "_exec",
+        "8589934592",
+        "67108864",
+        "300",
+        "/usr/bin/python3",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay_controls.py",
+        "_census",
+        "perf/c10_export_budget/replay/packaged-controls/packaging/raw/tracy_ops_data.csv.gz"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "elapsed_seconds": 15.601695215998916,
+      "max_rss_KiB": 697272,
+      "user_seconds": 15.19595,
+      "system_seconds": 0.387998,
+      "stdout_bytes": 2860,
+      "stderr_bytes": 0
+    },
+    "result": {
+      "verdict": "GO",
+      "scope": "existing retained windows only; clock coverage reused, no new device measurement",
+      "calls": 259634,
+      "metadata_archive": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/replay/packaged-controls/packaging/raw/tracy_ops_data.csv.gz",
+        "bytes": 2970301,
+        "sha256": "54649dffe2073d75e7517d6c6b54c9ce86d8e069a5766977732e841c85507ee8"
+      },
+      "windows": [
+        {
+          "case": "MSALayer_0",
+          "invocations": 227,
+          "window_result_sha256": "c0218d37b3d610a92654ea420455bbc7bea1f26fb819a62798332551ac9989d8"
+        },
+        {
+          "case": "PairformerLayer_0",
+          "invocations": 137,
+          "window_result_sha256": "aea5c0c85da179d76e61eefde2e44f2337b33d0edf93b404b4b5107c865224b1"
+        },
+        {
+          "case": "DiffusionModule_0",
+          "invocations": 1096,
+          "window_result_sha256": "395e00912d15aeb1018de43778a8161ae1f33181c8da4ee0020d359ea4fe1a4c"
+        },
+        {
+          "case": "ConfidenceHeadsDevice_0",
+          "invocations": 18,
+          "window_result_sha256": "148eea31cca48b0f1802b7f08f3a2949d772cdc250c79ca732231a851e8e6075"
+        },
+        {
+          "case": "stream_copy_0",
+          "invocations": 4,
+          "window_result_sha256": "d2b93e554decd104cfb32becd4d6341682eed5893b3f27a13d03c64ce99667ed"
+        },
+        {
+          "case": "stream_add_0",
+          "invocations": 4,
+          "window_result_sha256": "e087b91d1dc492889ca3879612d3dabd373e0e66275628b5f2025e6c19ced7f0"
+        },
+        {
+          "case": "dense_hifi4_0",
+          "invocations": 4,
+          "window_result_sha256": "15d0a4432ef5ea7bc9951bd0705bd4a67dce986ca5f18060aa5a2cee07d129a2"
+        },
+        {
+          "case": "stream_copy_1",
+          "invocations": 4,
+          "window_result_sha256": "15732ae2d7a013e9e1385b0f311761ad99a2fcf0d9da689f9943337425b4c13d"
+        },
+        {
+          "case": "stream_add_1",
+          "invocations": 4,
+          "window_result_sha256": "bca50c92bac6d48ef48c039cb287edf7396caed1412bcc16155ad9622cfa89a1"
+        },
+        {
+          "case": "dense_hifi4_1",
+          "invocations": 4,
+          "window_result_sha256": "8336b8c9359f96371364662eb652e77f62d4096e3de08d6b967627eec5913fff"
+        },
+        {
+          "case": "stream_copy_2",
+          "invocations": 4,
+          "window_result_sha256": "7309db0d6d8182f50d879d7e45aa1aa0b011aa1362aea3ad00bcf799b3105e01"
+        },
+        {
+          "case": "stream_add_2",
+          "invocations": 4,
+          "window_result_sha256": "62303ed6a3d6d135e41ea5b6c67c2efed6fefcbeeccea2d1c4e01664617b7662"
+        },
+        {
+          "case": "dense_hifi4_2",
+          "invocations": 4,
+          "window_result_sha256": "0609f73000008e06a66d1399f57bee549da980147cf706433b24f057064f55a8"
+        }
+      ],
+      "invocations": 1514,
+      "original_analysis": {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_burst_census/runs/census1/analysis.json",
+        "bytes": 13340968,
+        "sha256": "342ec3d4385e03462629aa9eed66e8b595ca2c8510daaa08e27302d93c8ad60c"
+      }
+    }
+  }
+}

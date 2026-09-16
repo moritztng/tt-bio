@@ -1,0 +1,8 @@
+	linux-vdso.so.1 (0x00007ffc9a5ec000)
+	libcapstone.so.4 => perf/c10_export_budget/tools/runtime/libcapstone.so.4 (0x00007f00e8800000)
+	libtbb.so.12 => perf/c10_export_budget/tools/runtime/libtbb.so.12 (0x00007f00e8f04000)
+	libstdc++.so.6 => perf/c10_export_budget/tools/runtime/libstdc++.so.6 (0x00007f00e8400000)
+	libm.so.6 => perf/c10_export_budget/tools/runtime/libm.so.6 (0x00007f00e8717000)
+	libgcc_s.so.1 => perf/c10_export_budget/tools/runtime/libgcc_s.so.1 (0x00007f00e8ed4000)
+	libc.so.6 => perf/c10_export_budget/tools/runtime/libc.so.6 (0x00007f00e8000000)
+	/lib64/ld-linux-x86-64.so.2 => perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2 (0x00007f00e9148000)

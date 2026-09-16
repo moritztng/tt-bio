@@ -1,0 +1,281 @@
+[
+  {
+    "case": "input",
+    "verdict": "STOP",
+    "scope": "CPU metadata export only; zero model cycles saved",
+    "budget": {
+      "trace_bytes": 1,
+      "output_bytes": 67108864,
+      "address_bytes": 8589934592,
+      "cpu_seconds": 300,
+      "wall_seconds": 600
+    },
+    "trace_retention": "Input retained unchanged, including on failure",
+    "trace": {
+      "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_dm_control/raw/tracy_profile_log_host.tracy",
+      "bytes": 33050506
+    },
+    "error": "Trace size 33050506 outside 1..1; export not started"
+  },
+  {
+    "case": "disk",
+    "verdict": "STOP",
+    "scope": "CPU metadata export only; zero model cycles saved",
+    "budget": {
+      "trace_bytes": 4294967296,
+      "output_bytes": 8192,
+      "address_bytes": 8589934592,
+      "cpu_seconds": 300,
+      "wall_seconds": 600
+    },
+    "trace_retention": "Input retained unchanged, including on failure",
+    "trace": {
+      "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_dm_control/raw/tracy_profile_log_host.tracy",
+      "bytes": 33050506,
+      "sha256": "ad1fbf6fb33a682f4322f11f5103d39fe806845bb07d56ebd919f7454b402ac2"
+    },
+    "binary": {
+      "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/csvexport-release",
+      "bytes": 1982112,
+      "sha256": "f79af294e68ddde77b61d42929c7af82d38dd8a05d68efdec5ec2d22e3e64dfd"
+    },
+    "runtime": [
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+        "bytes": 236616,
+        "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libc.so.6",
+        "bytes": 2129424,
+        "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libcapstone.so.4",
+        "bytes": 6585392,
+        "sha256": "bb6e89df9ae3d44ebfe1d535372a86c227dd5a3824892018f0f4bc2cf0dfc721"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libgcc_s.so.1",
+        "bytes": 187120,
+        "sha256": "9c08cedd322f564a362444b58135cf0356a1113ceebb702c7e634e481fe1c8bb"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libm.so.6",
+        "bytes": 952616,
+        "sha256": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libstdc++.so.6",
+        "bytes": 2739808,
+        "sha256": "c3d5641b6d085d5b2e8d955cc709ab16a2616cf23cff91517a7e44733de39eb6"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libtbb.so.12",
+        "bytes": 252632,
+        "sha256": "1e2a936d4519f2a4f2e62411a9f680f967a4742525ecf5c2dcac57f1b82501e7"
+      }
+    ],
+    "export": {
+      "command": [
+        "/usr/bin/python3",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+        "_exec",
+        "8589934592",
+        "8192",
+        "300",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+        "--library-path",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/csvexport-release",
+        "-m",
+        "-s",
+        ";",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_dm_control/raw/tracy_profile_log_host.tracy"
+      ],
+      "returncode": -25,
+      "timed_out": false,
+      "elapsed_seconds": 0.10087851801654324,
+      "max_rss_KiB": 160728,
+      "user_seconds": 0.100188,
+      "system_seconds": 0.04809,
+      "stdout_bytes": 8192,
+      "stderr_bytes": 0
+    },
+    "error": "Metadata exporter failed or exceeded a resource limit; see export.stderr"
+  },
+  {
+    "case": "memory",
+    "verdict": "STOP",
+    "scope": "CPU metadata export only; zero model cycles saved",
+    "budget": {
+      "trace_bytes": 4294967296,
+      "output_bytes": 67108864,
+      "address_bytes": 134217728,
+      "cpu_seconds": 300,
+      "wall_seconds": 600
+    },
+    "trace_retention": "Input retained unchanged, including on failure",
+    "trace": {
+      "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_dm_control/raw/tracy_profile_log_host.tracy",
+      "bytes": 33050506,
+      "sha256": "ad1fbf6fb33a682f4322f11f5103d39fe806845bb07d56ebd919f7454b402ac2"
+    },
+    "binary": {
+      "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/csvexport-release",
+      "bytes": 1982112,
+      "sha256": "f79af294e68ddde77b61d42929c7af82d38dd8a05d68efdec5ec2d22e3e64dfd"
+    },
+    "runtime": [
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+        "bytes": 236616,
+        "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libc.so.6",
+        "bytes": 2129424,
+        "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libcapstone.so.4",
+        "bytes": 6585392,
+        "sha256": "bb6e89df9ae3d44ebfe1d535372a86c227dd5a3824892018f0f4bc2cf0dfc721"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libgcc_s.so.1",
+        "bytes": 187120,
+        "sha256": "9c08cedd322f564a362444b58135cf0356a1113ceebb702c7e634e481fe1c8bb"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libm.so.6",
+        "bytes": 952616,
+        "sha256": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libstdc++.so.6",
+        "bytes": 2739808,
+        "sha256": "c3d5641b6d085d5b2e8d955cc709ab16a2616cf23cff91517a7e44733de39eb6"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libtbb.so.12",
+        "bytes": 252632,
+        "sha256": "1e2a936d4519f2a4f2e62411a9f680f967a4742525ecf5c2dcac57f1b82501e7"
+      }
+    ],
+    "export": {
+      "command": [
+        "/usr/bin/python3",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+        "_exec",
+        "134217728",
+        "67108864",
+        "300",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+        "--library-path",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/csvexport-release",
+        "-m",
+        "-s",
+        ";",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_dm_control/raw/tracy_profile_log_host.tracy"
+      ],
+      "returncode": -11,
+      "timed_out": false,
+      "elapsed_seconds": 0.060621940006967634,
+      "max_rss_KiB": 19116,
+      "user_seconds": 0.043939,
+      "system_seconds": 0.015976999999999998,
+      "stdout_bytes": 0,
+      "stderr_bytes": 0
+    },
+    "error": "Metadata exporter failed or exceeded a resource limit; see export.stderr"
+  },
+  {
+    "case": "timeout",
+    "verdict": "STOP",
+    "scope": "CPU metadata export only; zero model cycles saved",
+    "budget": {
+      "trace_bytes": 4294967296,
+      "output_bytes": 67108864,
+      "address_bytes": 8589934592,
+      "cpu_seconds": 300,
+      "wall_seconds": 0.001
+    },
+    "trace_retention": "Input retained unchanged, including on failure",
+    "trace": {
+      "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_dm_control/raw/tracy_profile_log_host.tracy",
+      "bytes": 33050506,
+      "sha256": "ad1fbf6fb33a682f4322f11f5103d39fe806845bb07d56ebd919f7454b402ac2"
+    },
+    "binary": {
+      "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/csvexport-release",
+      "bytes": 1982112,
+      "sha256": "f79af294e68ddde77b61d42929c7af82d38dd8a05d68efdec5ec2d22e3e64dfd"
+    },
+    "runtime": [
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+        "bytes": 236616,
+        "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libc.so.6",
+        "bytes": 2129424,
+        "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libcapstone.so.4",
+        "bytes": 6585392,
+        "sha256": "bb6e89df9ae3d44ebfe1d535372a86c227dd5a3824892018f0f4bc2cf0dfc721"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libgcc_s.so.1",
+        "bytes": 187120,
+        "sha256": "9c08cedd322f564a362444b58135cf0356a1113ceebb702c7e634e481fe1c8bb"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libm.so.6",
+        "bytes": 952616,
+        "sha256": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libstdc++.so.6",
+        "bytes": 2739808,
+        "sha256": "c3d5641b6d085d5b2e8d955cc709ab16a2616cf23cff91517a7e44733de39eb6"
+      },
+      {
+        "path": "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/libtbb.so.12",
+        "bytes": 252632,
+        "sha256": "1e2a936d4519f2a4f2e62411a9f680f967a4742525ecf5c2dcac57f1b82501e7"
+      }
+    ],
+    "export": {
+      "command": [
+        "/usr/bin/python3",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/export_metadata.py",
+        "_exec",
+        "8589934592",
+        "67108864",
+        "300",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+        "--library-path",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/runtime",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_export_budget/tools/csvexport-release",
+        "-m",
+        "-s",
+        ";",
+        "/home/moritz/.coworker/wt/c10-export-budget/perf/c10_dm_control/raw/tracy_profile_log_host.tracy"
+      ],
+      "returncode": -9,
+      "timed_out": true,
+      "elapsed_seconds": 0.02115020400378853,
+      "max_rss_KiB": 19124,
+      "user_seconds": 0.016760999999999998,
+      "system_seconds": 0.00419,
+      "stdout_bytes": 0,
+      "stderr_bytes": 0
+    },
+    "error": "Metadata exporter failed or exceeded a resource limit; see export.stderr"
+  }
+]
