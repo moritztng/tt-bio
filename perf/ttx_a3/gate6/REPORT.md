@@ -867,3 +867,39 @@ on main identically.
 | perf, 1536 aa boltz2 (banked, gate5) | 1.1856x against a 1.21 % same-session A/A floor |
 | accuracy, 1536 aa (banked, gate5) | 1.007 A all-atom; a seed change moves the same structure 36.6 A |
 | the one in-regime wedge | ambient: ON repeat cleared the step it died at, 1 in 2 ON, 0 in 1 OFF |
+
+## The perf leg is green 20/20, and the parity leg is a documented ceiling
+
+**Perf: 20 of 20 models, every one `rc=0`**, each under benchlock, scored against
+`docs/perf_baselines.json`: boltz2, boltz2-affinity, esmfold2, esmfold2-fast, protenix-v1,
+protenix-v2, openfold3, openbind, opendde, opendde-abag, rf3, rfd3, pxdesign, boltzgen, nesso1,
+esmc-300m, esmc-300m-single, esmc-600m, esmc-6b, saprot-650m. No regressions. Blind to the lever
+by fixture size (20-196 tokens), so this is release-gate completeness.
+
+**Parity refused at preflight in 2 seconds, and that is not a parity verdict.** Four staged-MSA
+legs had no externalized reference fixtures: this worktree was branched fresh off main today, and
+those binaries are gitignored, so they reach a host only through the release asset.
+`scripts/fetch_parity_fixtures.sh` restored asset `parity-fixtures-latest` (checksum `abc05021`
+verified), which fixed 21 of the 22 structure fixtures.
+
+The 22nd cannot be fixed from any host, and the script says so itself: `protenix-9ncy-msa` has no
+reference CIFs in the asset on any of its five seeds, so re-running the fetch cannot help and the
+asset has to be re-cut with that target included. Main-side, another owner, one line of
+maintainer work.
+
+`full_parity_gate.py` refuses wholesale when any leg is misconfigured, and its `--leg` flag is an
+include list with no exclude, so running the other 43 from here would mean hardcoding 43 leg ids
+into the gate arm. That is the defect class this repo keeps re-hitting
+(`hardcoded-model-list-misses-new-port-recurring`): a hardcoded list silently stops covering the
+next leg someone adds. Not done, deliberately.
+
+So the accuracy leg is **runnable-but-unrun** from this host: its precondition is now fixed for
+21 of 22 fixtures, and the remaining blocker is a release asset, not this branch. It is also
+provably blind to this lever, which is why it does not hold the verdict: all 44 legs fold at or
+below 1024 tokens, the largest being `rf3-1024aa` at exactly the cap, where the census measured
+`served=0, declined=0`.
+
+One harness note worth keeping: the 2-second red had to be voided by editing the arm name in the
+original progress line, not by appending a `VOID-` note underneath it. `run_arm` greps the literal
+`" parity rc="` anywhere in the file, so a note below leaves the skip guard armed and the arm would
+have been skipped forever on a preflight refusal. Backup at `progress.bak-preparityvoid`.
