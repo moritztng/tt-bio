@@ -1,0 +1,35 @@
+{
+  "scope": "CPU comparison of a measured host-stage census against a derived remainder. No device, no new timing.",
+  "source": {
+    "file": "/home/moritz/.coworker/wt/c10-orchestrator/perf/b2x_host_residual/hostpath_512_pc.json",
+    "host": "pc",
+    "cpus": 12,
+    "torch_threads": 6,
+    "started": "2026-09-11T20:09:34+0200",
+    "note": "CPU only, no device. s/z are synthetic at the model's shapes."
+  },
+  "clock_immune_term_s": 3.9516,
+  "diffusion_trace_reach_s": 3.02,
+  "unowned_remainder_s": 0.9316,
+  "host_stages_measured_on_pc_s": {
+    "prepare": 0.2893,
+    "to_batch": 7e-05,
+    "rel_pos": 0.07199,
+    "input_embedder": 0.13574,
+    "diffusion_conditioning": 1.08957,
+    "write_result": 0.11501
+  },
+  "moved_to_device_since": {
+    "diffusion_conditioning": 1.08957
+  },
+  "still_host_total_s": 0.6121099999999999,
+  "fraction_of_remainder_accounted": 0.6570523829969943,
+  "reading": "Removing the stage that has since gone device-resident leaves 0.612 s of named, measured host work -- feature preparation, the input embedder, relative-position encoding and CIF writing -- against a 0.93 s remainder. That is about 66 % of it, and it is real work rather than overhead, which is why the trace cannot touch it and why the remainder is hard.",
+  "limits": [
+    "Measured on pc's CPU with 12 cpus and 6 torch threads, not on qb2. The seconds do not transfer; only the structure and rough scale do.",
+    "Older tree, 2026-09-11. Relative-position gathering has shipped as a host lever since, so rel_pos is probably smaller now.",
+    "That census ran CPU-only with synthetic tensors at the model's shapes, by its own note, so it is a cost model of the host path and not an observation of a real fold.",
+    "The 0.93 s is itself derived, being the measured 3.952 s minus a derived 3.02 s reach. Two derived numbers subtracted do not make a measurement.",
+    "The agreement could be coincidence. It is a hypothesis for c10-fixed-cost's 298 aa arm to discriminate, since featurization and CIF writing scale with target size while per-call dispatch scales with call count."
+  ]
+}
