@@ -1,0 +1,26 @@
+benchlock: b2z2-cond-hoist-ship acquired after 2s, loadavg 0.98 2.28 2.00
+2026-09-16 03:23:27.908 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  rep-1 base    pos0 fold  20.275s  block   0.000s/0    sha=b58b1277d0bfd337
+  rep0  base    pos0 fold  19.088s  block   0.000s/0    sha=bd1f82fa44caba81
+  rep0  hoist   pos1 fold  17.994s  block   0.000s/0    sha=f2d1dce81ffa3f34
+  rep0  base    pos2 fold  18.413s  block   0.000s/0    sha=45781db716ebf020
+  rep1  base    pos0 fold  18.101s  block   0.000s/0    sha=be24388e991e9829
+  rep1  hoist   pos1 fold  18.046s  block   0.000s/0    sha=f2d1dce81ffa3f34
+  rep1  base    pos2 fold  19.757s  block   0.000s/0    sha=503a52d5d5ae00b1
+  rep2  base    pos0 fold  18.345s  block   0.000s/0    sha=45781db716ebf020
+  rep2  hoist   pos1 fold  18.643s  block   0.000s/0    sha=f2d1dce81ffa3f34
+  rep2  base    pos2 fold  18.640s  block   0.000s/0    sha=45781db716ebf020
+  rep3  base    pos0 fold  18.914s  block   0.000s/0    sha=45781db716ebf020
+  rep3  hoist   pos1 fold  17.999s  block   0.000s/0    sha=f2d1dce81ffa3f34
+  rep3  base    pos2 fold  18.514s  block   0.000s/0    sha=45781db716ebf020
+  rep4  base    pos0 fold  18.646s  block   0.000s/0    sha=45781db716ebf020
+  rep4  hoist   pos1 fold  18.380s  block   0.000s/0    sha=f2d1dce81ffa3f34
+  rep4  base    pos2 fold  19.529s  block   0.000s/0    sha=45781db716ebf020
+  rep5  base    pos0 fold  18.012s  block   0.000s/0    sha=45781db716ebf020
+  rep5  hoist   pos1 fold  18.496s  block   0.000s/0    sha=f2d1dce81ffa3f34
+  rep5  base    pos2 fold  19.576s  block   0.000s/0    sha=45781db716ebf020
+base     n=12 fold 18.643s 1.00000x  block Nones Nonex  spread 9.36%
+hoist    n=6 fold 18.213s 1.02361x  block Nones Nonex  spread 3.56%
+A/A floor (base pos0 / base pos-last): 0.96914x
+benchlock: b2z2-cond-hoist-ship released, rc=0, loadavg 1.26 1.64 1.79
