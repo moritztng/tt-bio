@@ -1,7 +1,7 @@
 #!/bin/bash
-# Re-take the cell on card 1 once nothing else on this host holds a Tenstorrent device.
-# The first attempt ran with b2z2-conf-readback-bh-fix folding on card 0, the board partner of
-# card 1, for every one of its ten folds; this box reads ~14.7 s idle and ~21.5 s like that.
+# Take the cell on card 1 as soon as nothing else on this host holds a Tenstorrent device.
+# Detached and patient by design: the first attempt was spoiled by a sibling worker folding on
+# card 0, the board partner, and this box reads ~14.7 s idle against ~21.5 s like that.
 set -u
 WT=/home/ttuser/.coworker/wt/b2z2-wave2-cell-recheck
 cd "$WT" || exit 1
@@ -13,13 +13,13 @@ holders() {
   done
   echo "$n"
 }
-for i in $(seq 1 90); do
+for i in $(seq 1 360); do
   h=$(holders)
-  if [ "$h" = "0" ]; then echo "box free after $((i*20))s"; break; fi
-  echo "waiting: $h foreign device holder(s)"
-  sleep 20
+  if [ "$h" = "0" ]; then echo "box free at $(date -u +%H:%M:%S) after $((i*30))s"; break; fi
+  [ $((i % 10)) -eq 1 ] && echo "$(date -u +%H:%M:%S) waiting: $h foreign device holder(s)"
+  sleep 30
 done
-[ "$(holders)" = "0" ] || { echo "STILL-COTENANTED"; echo CELLRECHECKCLEANDONE; exit 75; }
+[ "$(holders)" = "0" ] || { echo "STILL-COTENANTED after 3h"; echo CELLRECHECKCLEANDONE; exit 75; }
 /home/ttuser/.coworker/scripts/benchlock.sh b2z2-wave2-cell-recheck-clean -- \
   env TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=1 \
       TT_BIO_LEASE_HOLDER=worker:b2z2-wave2-cell-recheck PYTHONPATH="$WT" \
