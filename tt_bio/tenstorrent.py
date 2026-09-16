@@ -1825,12 +1825,9 @@ _SDPA_QK_OVER_L1: set = set()
 # where changing the seed moves the same structure 36.6 A. `TT_BIO_SDPA_FUSED_LARGE_S=0` restores
 # the stock ladder everywhere.
 #
-# This default lives on `wk/ttx-a3-sdpa-ship-remerge2` and is NOT merged until the release gate
-# records a complete green run. Four prior passes measured the lever GO on every arm that ran and
-# held on one blocker outside it: main's stale p300c size-ladder baseline made that arm red for
-# every branch, flag off included. `tt-bio-sizeladder-p300c-refresh` cleared it (main `d78f23757`).
-# `perf/ttx_a3/gate5/REPORT.md` records which arms were green; this run is recorded in
-# `perf/ttx_a3/gate6/REPORT.md`.
+# Landed on main via `wk/ttx-a3-sdpa-ship-remerge2` after the release gate recorded a complete
+# green run: `perf/ttx_a3/gate5/REPORT.md` records the arms that were green earlier; the run that
+# cleared the last blocker (main's stale p300c size-ladder baseline) is `perf/ttx_a3/gate6/REPORT.md`.
 _SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", True)
 
 
