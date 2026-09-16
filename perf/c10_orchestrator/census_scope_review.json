@@ -1,0 +1,33 @@
+{
+  "source_commit": "6eb4dd6fa5eceab34f72a5e7ad382b8607554390",
+  "correction": "The retained PairformerLayer_0 window includes the two-argument, single-representation-transforming path. The child narrative incorrectly called it missing.",
+  "window": "PairformerLayer_0",
+  "programs": 137,
+  "program_span_cycles": 40820155,
+  "clock_MHz": 1350,
+  "graph_calls_consuming_single_representation": [
+    1466368,
+    1467392,
+    1483776,
+    1484800,
+    1485824,
+    1486848,
+    1487872,
+    1488896,
+    1489920,
+    1492992
+  ],
+  "single_shape": "Shape([1, 512, 384])",
+  "final_output_shape": "Shape([1, 512, 384])",
+  "evidence": [
+    "Actual native graph has single-representation layer norm, pair-biased attention and transition, including 384x1536 and 1536x384 weights.",
+    "Recorded model source equals parent source; PairformerLayer.__call__ executes this tail only when transform_s is true.",
+    "The capture counts nested calls but returns without selecting them while a parent scope is active. Single-representation-disabled Pairformer calls inside MSALayer therefore cannot create a separate window."
+  ],
+  "model_source_sha256": "0cd13a1961a54f7d4c89504dbdecf148fef270adecf03ac383360908af6af41c",
+  "limits": [
+    "Window metadata does not persist its wrapper argument signature directly.",
+    "One selected signature does not prove coverage of every fidelity/configuration or whole-fold weighting.",
+    "No new device measurement or whole-fold inference."
+  ]
+}

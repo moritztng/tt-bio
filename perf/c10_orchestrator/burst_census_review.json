@@ -290,7 +290,6 @@
   "resource_failure": "The archived owned-process status and size/hash ledger substantiate oversized report generation. Original oversized files were not retrieved or independently rehashed by parent.",
   "unmeasured": [
     "whole-fold cycle budget",
-    "default two-argument Pairformer window",
     "matched model roofs and binding",
     "profiler perturbation",
     "paired 512/298 structure accuracy",
@@ -303,5 +302,7 @@
     "python3 perf/c10_burst_census/reduce_census.py",
     "python3 -m unittest discover -s perf/c10_burst_census -p 'test_*.py' -v",
     "python3 perf/c10_burst_census/verify_artifacts.py"
-  ]
+  ],
+  "narrative_correction": "census_scope_review.json proves PairformerLayer_0 contains the two-argument path. Child README corrected after raw replay; raw evidence is unchanged.",
+  "original_manifest_sha256": "c43c52961d67e5331bebbdeb1faa98355c84511e42cea0ee13ea293ec5d6df9c"
 }
