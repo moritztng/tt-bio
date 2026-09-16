@@ -1,63 +1,92 @@
 #!/usr/bin/env python3
-"""The paired reading of a `base,X,base` bracket run, and why the pooled ratio is not it.
+"""Read a bracketed timing run: every non-base arm against the base folds that surround it.
 
-`fold_hoist.py --timing-reps` prints a pooled ratio (median of every base fold over median of
-every X fold) and an "A/A floor" of median(base pos0) / median(base pos2). On a run with no
-within-rep drift those two are the whole story. This run has drift: base at position 2 is
-systematically slower than base at position 0, so the pooled base median is inflated by the
-late fold and the pooled ratio is biased UP, while the pos0/pos2 "floor" measures the drift
-itself rather than the residual noise the estimator is exposed to.
+Why brackets. A shared box drifts within a rep -- on qb2 the later fold in a rep runs slower than
+the earlier one, systematically. Pooling every base fold and dividing medians lets that drift into
+the ratio, and the harness's own "A/A floor" (median base pos0 / median base pos-last) MEASURES the
+drift rather than the noise the estimator is exposed to, so it is the wrong null. A base,X,base
+bracket cancels a linear drift to first order; the reps are then independent of each other, so the
+rep-level paired t interval is the honest reading. (`roof-difftx-arith-efficiency` lesson 1: the two
+ratios inside an ABBA quad share a rep and are NOT two samples.)
 
-A `base,X,base` bracket exists to cancel exactly that. Per rep, compare X against the MEAN of
-the two base folds that surround it; a linear drift across the rep cancels to first order. The
-reps are then independent of each other (different folds, no shared observation), so a
-rep-level paired t interval is the honest one -- unlike the two ratios inside an ABBA quad,
-which share a rep and are not independent (`roof-difftx-arith-efficiency` lesson 1).
+Why the control has to live in the same rep. Pass 1 of `b2z2-cond-hoist-ship` ran the lever and its
+A/A control as two separate benchlocked runs. The lever got a quiet box (acquired at loadavg 0.98,
+3.6-9.4 % spread) and the control did not (loadavg 2.93, drifted 17 -> 22.6 s), so the control came
+back twenty times wider than the thing it was supposed to price and settled nothing. An arm list
+like `base,hoist,base,default,base` fixes that by construction: `default` is the shipped default,
+which is the base path, so its bracket is an A/A through the IDENTICAL estimator, measured between
+the same two folds of the same rep as the lever's. Whatever the box was doing, it was doing it to
+both.
 
-    paired.py <timing json> [--arm hoist]
+    paired.py <timing json> [--arms hoist,default]
 
-Prints the per-rep bracket ratios, the paired saving and its 95 % interval.
+Prints each arm's per-rep bracket, its paired saving and 95 % interval. An arm whose interval
+excludes zero is resolved; an A/A arm whose interval INCLUDES zero and is narrower than the lever's
+is what licenses reading the lever's.
 """
-import argparse, json, statistics as st, sys
+import argparse, json, statistics as st
 from pathlib import Path
+
+# two-sided 95 % t quantile at df = n-1, keyed by the SAMPLE SIZE n so the lookup cannot be off by
+# one: T[6] is t(0.975, df=5) = 2.571.
+T = {3: 4.303, 4: 3.182, 5: 2.776, 6: 2.571, 7: 2.447, 8: 2.365, 9: 2.306, 10: 2.262,
+     11: 2.228, 12: 2.201, 13: 2.179, 15: 2.145, 20: 2.093, 21: 2.086}
 
 ap = argparse.ArgumentParser()
 ap.add_argument("json", type=Path)
-ap.add_argument("--arm", default="hoist")
+ap.add_argument("--arms", default=None, help="comma list; default every non-base arm present")
 a = ap.parse_args()
 
 d = json.loads(a.json.read_text())
 warm = [r for r in d["runs"] if not r.get("cold")]
+arms = a.arms.split(",") if a.arms else sorted({r["arm"] for r in warm} - {"base"})
 reps = sorted({r["rep"] for r in warm})
-rows, diffs, ratios = [], [], []
-for rep in reps:
-    rr = [r for r in warm if r["rep"] == rep]
-    base = [r["fold_s"] for r in rr if r["arm"] == "base"]
-    arm = [r["fold_s"] for r in rr if r["arm"] == a.arm]
-    if len(base) != 2 or len(arm) != 1:
-        print(f"rep {rep}: not a bracket ({len(base)} base, {len(arm)} {a.arm}), skipped")
+
+print(f"{a.json}\n  arms in file: {sorted({r['arm'] for r in warm})}  reps: {len(reps)}")
+out = {}
+for arm in arms:
+    rows, diffs = [], []
+    for rep in reps:
+        rr = sorted((r for r in warm if r["rep"] == rep), key=lambda r: r["pos"])
+        for i, r in enumerate(rr):
+            if r["arm"] != arm:
+                continue
+            # nearest base BEFORE and AFTER this fold, inside the same rep
+            before = [x for x in rr[:i] if x["arm"] == "base"]
+            after = [x for x in rr[i + 1:] if x["arm"] == "base"]
+            if not before or not after:
+                continue
+            b = (before[-1]["fold_s"] + after[0]["fold_s"]) / 2
+            diffs.append(b - r["fold_s"])
+            rows.append((rep, before[-1]["fold_s"], r["fold_s"], after[0]["fold_s"], b,
+                         b - r["fold_s"], b / r["fold_s"]))
+    if len(diffs) < 3:
+        print(f"\n{arm}: only {len(diffs)} bracket(s), not enough for an interval")
         continue
-    b = sum(base) / 2
-    diffs.append(b - arm[0])
-    ratios.append(b / arm[0])
-    rows.append((rep, base[0], arm[0], base[1], b, b - arm[0], b / arm[0]))
+    n = len(diffs)
+    m, sd = st.mean(diffs), st.stdev(diffs)
+    se = sd / n ** 0.5
+    t = T[n]
+    lo, hi = m - t * se, m + t * se
+    ratio = st.mean([r[4] for r in rows]) / st.mean([r[2] for r in rows])
+    print(f"\n=== {arm} ===")
+    print(f"{'rep':>3} {'base<':>8} {arm[:8]:>8} {'base>':>8} {'bracket':>8} {'saved_s':>8} {'ratio':>8}")
+    for r in rows:
+        print(f"{r[0]:>3} {r[1]:8.3f} {r[2]:8.3f} {r[3]:8.3f} {r[4]:8.3f} {r[5]:8.3f} {r[6]:8.5f}")
+    print(f"n={n} brackets, {sum(1 for x in diffs if x > 0)} of {n} positive")
+    print(f"paired saving {m:+.4f} s  95 % CI [{lo:+.4f}, {hi:+.4f}]  "
+          f"({'EXCLUDES' if lo > 0 or hi < 0 else 'includes'} zero)")
+    print(f"fold ratio    {ratio:.5f}x   CI half-width {t * se:.4f} s")
+    out[arm] = (m, lo, hi, t * se)
 
-print(f"{'rep':>3} {'base0':>8} {a.arm:>8} {'base2':>8} {'bracket':>8} {'saved_s':>8} {'ratio':>8}")
-for r in rows:
-    print(f"{r[0]:>3} {r[1]:8.3f} {r[2]:8.3f} {r[3]:8.3f} {r[4]:8.3f} {r[5]:8.3f} {r[6]:8.5f}")
-
-n = len(diffs)
-assert n >= 2, "need at least two brackets"
-m, sd = st.mean(diffs), st.stdev(diffs)
-se = sd / n ** 0.5
-# two-sided 95 % t quantile at df = n-1, keyed by the SAMPLE SIZE n so the lookup cannot be
-# off by one: T[6] is t(0.975, df=5) = 2.571.
-T = {2: 12.706, 3: 4.303, 4: 3.182, 5: 2.776, 6: 2.571, 7: 2.447, 8: 2.365, 9: 2.306,
-     10: 2.262, 11: 2.228, 12: 2.201, 14: 2.145, 19: 2.093}[n]
-lo, hi = m - T * se, m + T * se
-mean_ratio = st.mean([r[4] for r in rows]) / st.mean([r[2] for r in rows])
-print(f"\nn={n} brackets, {sum(1 for x in diffs if x > 0)} of {n} positive")
-print(f"paired saving  {m:+.4f} s   95 % CI [{lo:+.4f}, {hi:+.4f}]  "
-      f"({'excludes' if lo > 0 or hi < 0 else 'INCLUDES'} zero)")
-print(f"fold ratio     {mean_ratio:.5f}x   (mean bracket / mean {a.arm})")
-print(f"per-rep ratio  mean {st.mean(ratios):.5f}x  min {min(ratios):.5f}  max {max(ratios):.5f}")
+if len(out) > 1 and "default" in out:
+    aa = out["default"]
+    print("\n--- verdict ---")
+    print(f"A/A (default) {aa[0]:+.4f} s, half-width {aa[3]:.4f} s, "
+          f"{'includes' if aa[1] <= 0 <= aa[2] else 'EXCLUDES'} zero")
+    for arm, v in out.items():
+        if arm == "default":
+            continue
+        ok = (v[1] > 0 or v[2] < 0) and (aa[1] <= 0 <= aa[2]) and abs(v[0]) > aa[3]
+        print(f"{arm}: {v[0]:+.4f} s [{v[1]:+.4f}, {v[2]:+.4f}] -> "
+              f"{'RESOLVED, clears its own A/A' if ok else 'not resolved against this A/A'}")
