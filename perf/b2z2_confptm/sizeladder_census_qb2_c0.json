@@ -1,0 +1,36 @@
+{
+ "doc": "The size-ladder sanity for the per-arch confidence readback dispatch, as far as the box let it run. scripts/release_gate.py --model size-ladder --size-ladder-models boltz2 on qb2 card 0: rungs 256, 512 and 640 folded and their lever census is compared here, field by field, against the p300c baseline in docs/size_ladder_baseline.d/boltz2.json. The 768 warmup fold wedged at trunk 2/4 and never returned, so 768, 896 and 1024 are not measured. The stall is before the confidence head in the fold and the same binary folded the three rungs below it plus twelve 298/512 aa folds clean, so it is not attributed to this change; card 0 needed a reset that would have taken the paired card 1 with it, and a sibling campaign was live there.",
+ "host": "tt-quietbox2",
+ "card": "0",
+ "when": "2026-09-16T06:13:52+0000",
+ "gate": "scripts/release_gate.py --model size-ladder --size-ladder-models boltz2",
+ "rungs_measured": [
+  {
+   "rung": 256,
+   "fold_rc": 0,
+   "grid": "11x10",
+   "levers_compared": 37,
+   "mismatches": []
+  },
+  {
+   "rung": 512,
+   "fold_rc": 0,
+   "grid": "11x10",
+   "levers_compared": 37,
+   "mismatches": []
+  },
+  {
+   "rung": 640,
+   "fold_rc": 0,
+   "grid": "11x10",
+   "levers_compared": 37,
+   "mismatches": []
+  }
+ ],
+ "rungs_not_measured": [
+  768,
+  896,
+  1024
+ ],
+ "not_measured_reason": "device stall at trunk 2/4 of the 768 warmup fold, >25 min at 0.3% CPU"
+}
