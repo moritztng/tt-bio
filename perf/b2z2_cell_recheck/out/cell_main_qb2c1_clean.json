@@ -1,0 +1,192 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "1",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-wave2-cell-recheck/tt_bio/__init__.py",
+  "fixture": "cdk2x2_512",
+  "started_utc": "2026-09-16T05:20:55Z",
+  "loadavg": [
+   0.9384765625,
+   1.0029296875,
+   1.04052734375
+  ],
+  "steps": 200,
+  "recycles": 3,
+  "commit": "46812858dfa4962117b65af2f29f7061f758ce9c",
+  "ttnn": "?"
+ },
+ "flags": {
+  "TT_BIO_DEVICE_CONDITIONING": true,
+  "TT_BIO_DEVICE_ZINIT": true,
+  "TT_BIO_DEVICE_CONFIDENCE": true,
+  "TT_BIO_DEVICE_CONF_HEADS": true,
+  "TT_BIO_TRIATT_FUSED_QKVG": true,
+  "TT_BIO_TRIATT_FUSED_QKVGB": true,
+  "TT_BIO_TRIMUL_FUSED_GOUT": true,
+  "TT_BIO_SDPA_GRID_Q_CHUNK": true,
+  "TT_BIO_ATOM_SHIFT_GATHER": true,
+  "TT_BIO_ATOM_L1": "not in tree",
+  "TT_BIO_UNFUSED_SILU": false,
+  "TT_BIO_DIT_COND_HOIST": false,
+  "TT_BIO_TRANSITION_L1_ROWS": true,
+  "TT_BIO_TRIMUL_GP_BANK_SPLIT": true
+ },
+ "runs": [
+  {
+   "i": 0,
+   "warmup": true,
+   "fold_s": 22.212,
+   "foreign_tt": [
+    {
+     "pid": 239130,
+     "fds": 2,
+     "cmd": "/usr/bin/python3 /home/ttuser/.local/bin/tt-smi -r 0 "
+    }
+   ],
+   "plddt": 0.844631,
+   "metrics": {
+    "confidence_score": 0.798536,
+    "ptm": 0.614157,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.844631,
+    "complex_iplddt": 0.844631,
+    "complex_pde": 0.641552,
+    "complex_ipde": 0.0,
+    "plddt": 0.844631
+   },
+   "cif_sha256": "b6ee8113aa259c710c835f2d7328ce377e9cf39c880982cff6e8ca383107921e",
+   "loadavg1": 1.19
+  },
+  {
+   "i": 1,
+   "warmup": true,
+   "fold_s": 21.847,
+   "foreign_tt": [
+    {
+     "pid": 239130,
+     "fds": 2,
+     "cmd": "/usr/bin/python3 /home/ttuser/.local/bin/tt-smi -r 0 "
+    }
+   ],
+   "plddt": 0.845919,
+   "metrics": {
+    "confidence_score": 0.802782,
+    "ptm": 0.630234,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845919,
+    "complex_iplddt": 0.845919,
+    "complex_pde": 0.617971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845919
+   },
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "loadavg1": 1.42
+  },
+  {
+   "i": 2,
+   "warmup": false,
+   "fold_s": 21.861,
+   "foreign_tt": [],
+   "plddt": 0.844507,
+   "metrics": {
+    "confidence_score": 0.799019,
+    "ptm": 0.617069,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.844507,
+    "complex_iplddt": 0.844507,
+    "complex_pde": 0.634292,
+    "complex_ipde": 0.0,
+    "plddt": 0.844507
+   },
+   "cif_sha256": "48fc4e198b8e21fa6fda7c1720742a0545924d85e79a31284975822c57c37e6e",
+   "loadavg1": 1.47
+  },
+  {
+   "i": 3,
+   "warmup": false,
+   "fold_s": 19.132,
+   "foreign_tt": [
+    {
+     "pid": 239492,
+     "fds": 2,
+     "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -u perf/b2z2_confptm/readback_dispatch_ab.py --size 512 --reps 2 --out perf/b2z2"
+    }
+   ],
+   "plddt": 0.867379,
+   "metrics": {
+    "confidence_score": 0.820796,
+    "ptm": 0.634468,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.867379,
+    "complex_iplddt": 0.867379,
+    "complex_pde": 0.597681,
+    "complex_ipde": 0.0,
+    "plddt": 0.867379
+   },
+   "cif_sha256": "2eb8e259bf253805e2f63af3944184947e9f3b42eb51de30e0476bedc30d4d20",
+   "loadavg1": 1.49
+  },
+  {
+   "i": 4,
+   "warmup": false,
+   "fold_s": 15.245,
+   "foreign_tt": [
+    {
+     "pid": 239492,
+     "fds": 2,
+     "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -u perf/b2z2_confptm/readback_dispatch_ab.py --size 512 --reps 2 --out perf/b2z2"
+    }
+   ],
+   "plddt": 0.845919,
+   "metrics": {
+    "confidence_score": 0.802782,
+    "ptm": 0.630234,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845919,
+    "complex_iplddt": 0.845919,
+    "complex_pde": 0.617971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845919
+   },
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "loadavg1": 2.71
+  },
+  {
+   "i": 5,
+   "warmup": false,
+   "fold_s": 15.143,
+   "foreign_tt": [
+    {
+     "pid": 239492,
+     "fds": 2,
+     "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -u perf/b2z2_confptm/readback_dispatch_ab.py --size 512 --reps 2 --out perf/b2z2"
+    }
+   ],
+   "plddt": 0.845919,
+   "metrics": {
+    "confidence_score": 0.802782,
+    "ptm": 0.630234,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845919,
+    "complex_iplddt": 0.845919,
+    "complex_pde": 0.617971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845919
+   },
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "loadavg1": 2.55
+  }
+ ]
+}

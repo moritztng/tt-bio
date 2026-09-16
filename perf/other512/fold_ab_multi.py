@@ -625,7 +625,10 @@ def main():
             a.out.write_text(json.dumps(res, indent=1))
             continue
 
-        cif_keep = a.cif_dir or (Path(__file__).resolve().parent / "cif")
+        # Resolved, because the record below stores this path relative to ROOT and a
+        # relative --cif-dir would raise there -- AFTER the fold has already run.
+        cif_keep = (a.cif_dir.resolve() if a.cif_dir
+                    else Path(__file__).resolve().parent / "cif")
         run_ix = Counter()
         for arm in a.arms.split(","):
             set_arm(arm)
@@ -717,7 +720,10 @@ def main():
             for p in sorted(struct_dir.glob("*")):
                 if p.is_file():
                     shutil.copy2(p, keep / p.name)
-            rec["cif_dir"] = str(keep.relative_to(ROOT))
+            # A --cif-dir outside the repo is legitimate (a scratch disk), so record the
+            # absolute path rather than failing a completed run over a display detail.
+            rec["cif_dir"] = str(
+                keep.relative_to(ROOT) if keep.is_relative_to(ROOT) else keep)
             rec["call_census"] = {"|".join(map(str, k)): v for k, v in sorted(CALLS.items())}
             rec["fp32_on_by_owner"] = {
                 o: sorted({bool(getattr(m, "fp32_softmax", False))
