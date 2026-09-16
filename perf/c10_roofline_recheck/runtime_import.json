@@ -1,0 +1,13 @@
+{
+  "ttnn_module": "/home/ttuser/tt-metal-k10/ttnn/ttnn/__init__.py",
+  "tracy_module": "/home/ttuser/tt-metal-k10/tools/tracy/__init__.py",
+  "shared_libraries": [
+    "/home/ttuser/tt-metal-k10/build_Release/lib/_ttnncpp.so",
+    "/home/ttuser/tt-metal-k10/build_Release/lib/libdevice.so",
+    "/home/ttuser/tt-metal-k10/build_Release/lib/libtracy.so.0.10.0",
+    "/home/ttuser/tt-metal-k10/build_Release/lib/libtt_metal.so",
+    "/home/ttuser/tt-metal-k10/build_Release/lib/libtt_stl.so",
+    "/home/ttuser/tt-metal-k10/ttnn/ttnn/_ttnn.so"
+  ],
+  "scope": "Import-only probe; no device opened; runtime DM zone emission unmeasured."
+}

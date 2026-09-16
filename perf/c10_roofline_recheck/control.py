@@ -31,6 +31,9 @@ def main():
     ap.add_argument('--out', type=Path, required=True)
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
+    initial_holders = device_holders()
+    if initial_holders:
+        raise RuntimeError(f'Quiet-board precondition failed: {initial_holders}')
     if os.environ.get('TT_BIO_AICLK') != '1350':
         raise ValueError('This control requires TT_BIO_AICLK=1350')
 
@@ -96,6 +99,10 @@ def main():
         sampler.communicate('stop\n', timeout=10)
         samples = [json.loads(line) for line in sample_path.read_text().splitlines()]
         errors = [s['error'] for s in samples if 'error' in s]
+        foreign = [s for s in samples if s.get('foreign_holders')]
+        if foreign:
+            raise RuntimeError(f'Quiet-board condition lost: {foreign}')
+
         during = [s for s in samples if s['read_start_ns'] >= start and s['read_end_ns'] <= end]
         if not during or errors or any(not 1200 <= s['MHz'] <= 1400 for s in during):
             raise RuntimeError(f'Invalid during-capture clock: {during}, errors={errors}')
@@ -156,6 +163,15 @@ def main():
             'verdict', 'expected_flops', 'observed_flops', 'expected_min_bytes',
             'observed_bytes', 'byte_ratio', 'clock_pin_MHz', 'clock_min_MHz',
             'clock_max_MHz', 'clock_mean_MHz')}, indent=2), flush=True)
+    except BaseException as error:
+        result.update({
+            'verdict': 'STOP', 'error': repr(error),
+            'host': socket.gethostname(), 'physical_card': 0,
+            'clock_target_MHz': 1350,
+            'scope': 'Failed control; no roof, floor, throughput or model timing claim.',
+        })
+        (args.out / 'control.json').write_text(json.dumps(result, indent=2) + '\n')
+        raise
     finally:
         if sampler and sampler.poll() is None:
             sampler.communicate('stop\n', timeout=10)
@@ -164,8 +180,28 @@ def main():
     return 0 if result.get('verdict') == 'PASS' else 2
 
 
+def device_holders(exclude=()):
+    holders = []
+    for proc in Path('/proc').iterdir():
+        if not proc.name.isdigit() or int(proc.name) in exclude:
+            continue
+        try:
+            for fd in (proc / 'fd').iterdir():
+                try:
+                    target = os.readlink(fd)
+                except OSError:
+                    continue
+                if target.startswith('/dev/tenstorrent/'):
+                    holders.append({'pid': int(proc.name), 'node': target})
+        except (OSError, PermissionError):
+            continue
+    return holders
+
+
 def clock_worker(path):
     clk = Path('/sys/class/tenstorrent/tenstorrent!0/tt_aiclk')
+    owner = os.getppid()
+    last_scan = 0
     with Path(path).open('w') as out:
         while not select.select([sys.stdin], [], [], 0.001)[0]:
             before = time.monotonic_ns()
@@ -174,6 +210,10 @@ def clock_worker(path):
                 row = {'read_start_ns': before, 'read_end_ns': time.monotonic_ns(), 'MHz': value}
             except (OSError, ValueError) as error:
                 row = {'error': str(error)}
+            if before - last_scan > 100_000_000:
+                row['foreign_holders'] = device_holders(exclude=(owner, os.getpid()))
+                row['holders_checked_ns'] = time.monotonic_ns()
+                last_scan = before
             out.write(json.dumps(row) + '\n')
             out.flush()
 

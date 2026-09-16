@@ -1,0 +1,60 @@
+{
+  "host": "tt-quietbox2",
+  "utc": "2026-09-16T17:26:24.378344+00:00",
+  "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+  "module_srcversion": "A10759A24565BC5BBE903C5",
+  "containment": "active",
+  "source_root": "/home/ttuser/tt-metal-k10",
+  "files": {
+    "tt_metal/hw/inc/api/dataflow/dataflow_api.h": {
+      "sha256": "f3e050fdde4b2d72af237c4a0be36dffd8d1b4dd56ec5b1cab3135027cdf51f3",
+      "bytes": 136307,
+      "relevant_lines": [
+        "    DeviceZoneScopedSumN1(\"DM-CB-RESERVE-BACK\");",
+        "    DeviceZoneScopedSumN2(\"DM-CB-WAIT-FRONT\");",
+        "    DeviceZoneScopedSumN3(\"DM-NOC-READ-BARRIER\");",
+        "    DeviceZoneScopedSumN5(\"DM-NOC-WRITE-WAIT\");",
+        "    DeviceZoneScopedSumN6(\"DM-SEM-WAIT\");",
+        "    DeviceZoneScopedSumN6(\"DM-SEM-WAIT\");"
+      ]
+    },
+    "tt_metal/hostdevcommon/api/hostdevcommon/profiler_common.h": {
+      "sha256": "c4d2df3c379f0b1d2740a008a91ea511ea1dd23fd3f23b89f1ed8acce08b10dc",
+      "bytes": 3185,
+      "relevant_lines": []
+    },
+    "tools/tracy/device_post_proc_config.py": {
+      "sha256": "6394457f7facf9e0daefae8b71cb7b2c079ee46454a7ecf307e5a5cde78172e8",
+      "bytes": 20578,
+      "relevant_lines": [
+        "            \"marker\": {\"risc\": \"BRISC\", \"zone_name\": \"DM-CB-RESERVE-BACK\"},",
+        "            \"marker\": {\"risc\": \"NCRISC\", \"zone_name\": \"DM-CB-RESERVE-BACK\"},",
+        "            \"marker\": {\"risc\": \"BRISC\", \"zone_name\": \"DM-CB-WAIT-FRONT\"},",
+        "            \"marker\": {\"risc\": \"NCRISC\", \"zone_name\": \"DM-CB-WAIT-FRONT\"},",
+        "            \"marker\": {\"risc\": \"BRISC\", \"zone_name\": \"DM-NOC-READ-BARRIER\"},",
+        "            \"marker\": {\"risc\": \"NCRISC\", \"zone_name\": \"DM-NOC-READ-BARRIER\"},",
+        "            \"marker\": {\"risc\": \"BRISC\", \"zone_name\": \"DM-NOC-WRITE-WAIT\"},",
+        "            \"marker\": {\"risc\": \"NCRISC\", \"zone_name\": \"DM-NOC-WRITE-WAIT\"},",
+        "            \"marker\": {\"risc\": \"BRISC\", \"zone_name\": \"DM-SEM-WAIT\"},",
+        "            \"marker\": {\"risc\": \"NCRISC\", \"zone_name\": \"DM-SEM-WAIT\"},"
+      ]
+    },
+    "ttnn/ttnn/_ttnn.so": {
+      "sha256": "e12967f52249a748c28c8886e1272177ce8c0799ff28fb922a567759a4cae762",
+      "bytes": 14179848
+    },
+    "build_Release/CMakeCache.txt": {
+      "sha256": "ddb5a295309333bc1edfa34b9c3bd1a68c689432cdbdf4ad6297fb55d2a90379",
+      "bytes": 130503,
+      "relevant_lines": [
+        "ENABLE_TRACY:BOOL=ON",
+        "TT_UMD_ENABLE_TRACY:BOOL=OFF"
+      ]
+    }
+  },
+  "instrumentation_ref": "4d80e855e7fc75a436d6506359459349bb002999",
+  "cpu_tests": {
+    "passed": 16,
+    "command": "python3 -m pytest -q tests/test_perf_traffic.py"
+  }
+}
