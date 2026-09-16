@@ -580,3 +580,37 @@ root directories. None of them is this lever.
 Not merged here. The workspace rule reserves merges for the orchestrator, and
 `tt-bio-sizeladder-p300c-refresh` set the precedent of leaving the merge alone even where its own
 brief said to commit to main.
+
+## Correction, same day: the capacity arm is NOT a blind tail, and the GO was premature
+
+The previous section called the 1536 aa boltz2 cell the last arm that could move the verdict, on
+the basis that "14 of 15 capacity cells are at or below the cap". That is wrong, and the source is
+four lines into the gate's own docstring:
+
+    scripts/capacity_gate.py:90   TOKEN_BAR = 1536
+    scripts/capacity_gate.py:88   Blackhole-only -- 1536 is out of reach on a 12 GiB Wormhole card
+
+The bar is a token count applied to **every** model on the roster, not a per-model ceiling. Each
+cell derives its residue count from `residues = TOKEN_BAR - ligand_tokens`, so all 15 cells fold at
+1536 tokens, every one of them above `_Q_SPLIT_MAX_S` = 1024, every one of them **in this lever's
+regime**. One cell has passed. The rest are owed, and they are the arms that matter most: a fused
+route that fires at 1536 tokens across 15 models is exactly where an OOM-class regression would
+show, and OOM risk is release-gated.
+
+What survives the correction, because it was checked against sizes rather than assumed:
+
+- **The perf arm is blind.** `perf_regression.py` folds `examples/trpcage.yaml` at 20 aa, an 8x
+  ubiquitin embed batch at 76 aa, `tests/fixtures/pxdesign/PDL1.yaml` at 196 tokens and
+  `examples/affinity_fkg.yaml` at 107 aa plus ligand. Nothing approaches 1024.
+- **The parity arm is blind.** Its 44 legs run 140-token targets, and the largest, `rf3-1024aa`,
+  sits at exactly 1024, which the census measured at `served=0`. It stays a
+  fallthrough-unchanged control.
+- **Phase 5's remaining 8 ladder models are blind**, rungs 256-1024.
+
+So the blind/in-regime split is real, but it falls in a different place than the previous section
+put it: the capacity arm is the decisive one, not the incidental one.
+
+**Verdict returns to HOLD pending the capacity roster.** Nothing measured has moved against the
+lever: 0 attributable pytest reds, UX PASS, below-cap route never entered, 1088 firing with a
+self-validating off arm, and boltz2 PASS at 1536 with 7.35G/23%. The claim that changes is about
+coverage, not about a result.
