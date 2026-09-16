@@ -1,0 +1,98 @@
+{
+  "recorded_utc": "2026-09-16T23:02:23.263949+00:00",
+  "clock_MHz": 1350,
+  "clock_source": "FORCE_AICLK pin, sampled during every fold on node 0",
+  "source_base": "5e1886b4fd1bea4211f30c295723c8175c72d63c",
+  "card": "qb2 node 0, p300c, asic D7ADCC7E44A5908A, fw 19.15.0.0",
+  "protocol": "warm default Boltz2, 200 steps, 3 recycles, 1 sample, seed 0, 35-row MSA, no templates; 1 cold fold then 4 A/A pairs per target in one device context",
+  "accepted_runs": [
+    "baseline2",
+    "baseline3"
+  ],
+  "excluded_runs": {
+    "baseline1": "overlapping git pack on the host; retained as evidence"
+  },
+  "targets": {
+    "512": {
+      "per_session": {
+        "baseline2": {
+          "accepted_folds": 8,
+          "median_s": 14.891741898500001,
+          "min_s": 14.813283127,
+          "max_s": 14.972420731,
+          "stdev_s": 0.055923373133042596,
+          "adjacent_abs_delta_median_s": 0.054908535000000036,
+          "max_all_warm_pair_domain_A": 3.700722755141274e-15,
+          "max_foreign_cpu_pct": null
+        },
+        "baseline3": {
+          "accepted_folds": 8,
+          "median_s": 14.8813252375,
+          "min_s": 14.826211851,
+          "max_s": 14.969472851,
+          "stdev_s": 0.045066582954905496,
+          "adjacent_abs_delta_median_s": 0.042782669499999315,
+          "max_all_warm_pair_domain_A": 3.700722755141274e-15,
+          "max_foreign_cpu_pct": 11.7
+        }
+      },
+      "pooled": {
+        "accepted_folds": 16,
+        "median_s": 14.8813252375,
+        "min_s": 14.813283127,
+        "max_s": 14.972420731,
+        "spread_s": 0.15913760399999966,
+        "stdev_s": 0.0490893329296268,
+        "median_elapsed_device_clock_equivalent_Mcycles": 20089.789070625
+      },
+      "between_session_median_delta_s": 0.010416661000000715,
+      "between_session_median_delta_pct": 0.06997371787339603,
+      "cif_sha256": [
+        "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf"
+      ],
+      "all_folds_byte_exact_across_both_sessions": true,
+      "same_seed_structural_floor_A": 0.0
+    },
+    "298": {
+      "per_session": {
+        "baseline2": {
+          "accepted_folds": 8,
+          "median_s": 9.663369507,
+          "min_s": 9.6290968,
+          "max_s": 9.84502283,
+          "stdev_s": 0.06832225092216276,
+          "adjacent_abs_delta_median_s": 0.034516421000001074,
+          "max_all_warm_pair_domain_A": 7.14729353625079e-15,
+          "max_foreign_cpu_pct": null
+        },
+        "baseline3": {
+          "accepted_folds": 8,
+          "median_s": 9.7026825005,
+          "min_s": 9.649848184,
+          "max_s": 9.890128649,
+          "stdev_s": 0.0761045272623324,
+          "adjacent_abs_delta_median_s": 0.0688709025000005,
+          "max_all_warm_pair_domain_A": 7.14729353625079e-15,
+          "max_foreign_cpu_pct": 11.7
+        }
+      },
+      "pooled": {
+        "accepted_folds": 16,
+        "median_s": 9.6800812565,
+        "min_s": 9.6290968,
+        "max_s": 9.890128649,
+        "spread_s": 0.2610318490000001,
+        "stdev_s": 0.07182561874045645,
+        "median_elapsed_device_clock_equivalent_Mcycles": 13068.109696275
+      },
+      "between_session_median_delta_s": 0.039312993499999394,
+      "between_session_median_delta_pct": 0.4059990491069055,
+      "cif_sha256": [
+        "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13"
+      ],
+      "all_folds_byte_exact_across_both_sessions": true,
+      "same_seed_structural_floor_A": 0.0
+    }
+  },
+  "units_warning": "Elapsed seconds x 1350 MHz is elapsed device-clock-equivalent Mcycles and includes host gaps. It is not measured device work and carries no per-op budget."
+}

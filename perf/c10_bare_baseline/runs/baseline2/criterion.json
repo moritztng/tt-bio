@@ -36,15 +36,7 @@
     "lock_wait_s": 60,
     "load_wait_s": 60,
     "benchlock_maxload": 2.0,
-    "matcher_and_location": "unchanged shared benchlock",
-    "host_cpu_witness": {
-      "sampler": "perf/c10_bare_baseline/ambient.py, 250 ms, whole locked window",
-      "record_cpu_pct_at_or_above": 2.0,
-      "foreign_cpu_reject_pct": 20.0,
-      "foreign": "any process outside the run session (own=false)",
-      "added": "2026-09-16, after run baseline1 was excluded for an overlapping git pack the device-holder census could not see",
-      "older_runs": "runs without ambient.jsonl reduce to recorded=false and are not rejected on this criterion"
-    }
+    "matcher_and_location": "unchanged shared benchlock"
   },
   "accuracy": {
     "metric": "maximum independently superposed domain all-atom float64 Kabsch RMSD, split after residue 298; also report whole-chain all-atom",
@@ -75,10 +67,8 @@
     "clock read error, wrong clock or coverage gap",
     "nonfinite/missing/duplicate atoms or identity mismatch",
     "same-seed structural deviation over size bar",
-    "missing CIF or nonfinite confidence",
-    "foreign host CPU process at or above 20% of a core during an accepted fold"
+    "missing CIF or nonfinite confidence"
   ],
   "bare": "Production wheel, no Tracy/graph/observer/module timers/sum profiling. Synchronize before monotonic start and after predict_one including CIF writing.",
-  "unmeasured": "No device-cycle census, per-op budget, CPU removable cost, ceiling, upstream accuracy, or cross-run speedup.",
-  "recorded_utc_host_cpu_witness": "2026-09-16T22:55:56.077107+00:00"
+  "unmeasured": "No device-cycle census, per-op budget, CPU removable cost, ceiling, upstream accuracy, or cross-run speedup."
 }
