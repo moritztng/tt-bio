@@ -1,0 +1,16 @@
+{
+  "evidence": "CPU controls only",
+  "tests_run": 28,
+  "failures": 0,
+  "errors": 0,
+  "success": true,
+  "synthetic_calls": 2,
+  "same_descriptor_object": true,
+  "same_double_cache_hash": true,
+  "different_execution_identity": true,
+  "observer_errors": [],
+  "live_binding_compatibility": "unclaimed",
+  "live_device_smoke": "owed to device worker",
+  "performance_measurement": false,
+  "clock": "CPU only; 1350 MHz target unmeasured; cycles unmeasured"
+}
