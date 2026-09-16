@@ -1,0 +1,42 @@
+Wed Sep 16 01:26:29 PM UTC 2026
+stale 516s: /home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge2/perf/sizegate/work/boltz2-640-rep0.log
+13:17:53  [tt-quietbox2:tt2] cdk2x2_640
+13:17:53  [tt-quietbox2:tt2]   prep
+13:17:53  [tt-quietbox2:tt2]   trunk 0/4
+--- pid 49268
+Permission Denied: Try running again with elevated permissions by going 'sudo env "PATH=$PATH" !!'
+--- pid 49304
+Process 49304: /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork
+Python v3.12.3 (/usr/bin/python3.12)
+
+Thread 49304 (active+gil): "MainThread"
+    __call__ (ttnn/decorators.py:473)
+    swiglu (tt_bio/tenstorrent.py:8225)
+    __call__ (tt_bio/tenstorrent.py:8490)
+    __call__ (tt_bio/tenstorrent.py:8603)
+    __call__ (tt_bio/tenstorrent.py:8687)
+    _iteration (tt_bio/tenstorrent.py:12883)
+    forward (tt_bio/tenstorrent.py:12912)
+    _call_impl (torch/nn/modules/module.py:1784)
+    _wrapped_call_impl (torch/nn/modules/module.py:1773)
+    forward (tt_bio/boltz2.py:5841)
+    _call_impl (torch/nn/modules/module.py:1784)
+    _wrapped_call_impl (torch/nn/modules/module.py:1773)
+    predict_step (tt_bio/boltz2.py:6213)
+    predict_one (tt_bio/worker.py:769)
+    _execute_job (tt_bio/worker.py:2060)
+    run_worker_loop (tt_bio/worker.py:1983)
+    run (multiprocessing/process.py:108)
+    _bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:135)
+    spawn_main (multiprocessing/spawn.py:122)
+    <module> (<string>:1)
+Thread 49309 (idle): "Thread-1 (tick)"
+    tick (lever_census.py:479)
+    run (threading.py:1010)
+    _bootstrap_inner (threading.py:1073)
+    _bootstrap (threading.py:1030)
+--- pid 49310
+Permission Denied: Try running again with elevated permissions by going 'sudo env "PATH=$PATH" !!'
+--- pid 49364
+Permission Denied: Try running again with elevated permissions by going 'sudo env "PATH=$PATH" !!'

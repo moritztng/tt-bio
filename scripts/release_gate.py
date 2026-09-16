@@ -3265,7 +3265,22 @@ def run_size_ladder_add_lever(flags, keep: bool, baseline_path: Path,
                 n_clauses += 1
         for f in flags:
             base_model.setdefault("levers_added", {})[f] = stamp
-        baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
+        # Write back to the file the READER reads. `_size_ladder_read_baseline` is the monolith
+        # OVERLAID with every per-model fragment, and the overlay wins, so dumping the merged
+        # structure to the monolith put the fragment's older rows back in front of the splice:
+        # the arm printed "added at 6 rungs, every other lever unchanged" and check mode still
+        # read "new lever not in the baseline" at every rung, for as many times as anyone cared
+        # to re-run it. A splice that reports PASS and changes nothing the check reads is worse
+        # than one that refuses. It also wrote every OTHER model's rows into the shared monolith
+        # -- 32k lines of duplication, and exactly the merge conflict fragments exist to avoid.
+        #
+        # So route each model to its own fragment when it has one, via the same writer
+        # --size-ladder-record uses, and pass an EMPTY card stamp: this mode re-measures no
+        # timing, so `recorded`/`host`/`commit` must keep naming the run that did.
+        if _size_ladder_fragment_dir(baseline_path).joinpath(f"{m}.json").exists():
+            _size_ladder_write_fragment(baseline_path, card, {}, m, base_model)
+        else:
+            baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
         legs.append({"model": m, "gate": True, "error": None, "findings": [],
                      "added": {rung: {f: (e["served"], e["declined"])
                                       for f, e in es.items()}

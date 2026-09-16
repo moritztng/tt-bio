@@ -1,0 +1,133 @@
+2026-09-16T07:40:47Z ladder-boltz2-presplice START loadavg=0.15
+2026-09-16T07:52:26Z ladder-boltz2-presplice START loadavg=0.46
+2026-09-16T07:59:24Z ladder-boltz2-presplice rc=1 loadavg=2.03
+2026-09-16T08:01:07Z splice-boltz2 START loadavg=1.97
+2026-09-16T08:04:44Z splice-boltz2 rc=0 loadavg=2.57
+2026-09-16T08:08:44Z splice-boltz2 START loadavg=0.04
+2026-09-16T08:12:04Z splice-boltz2 rc=0 loadavg=2.75
+2026-09-16T08:12:46Z ladder-boltz2-att1-wedge896 START loadavg=1.41
+2026-09-16T08:26:23Z ladder-boltz2-att1-wedge896 rc=1 loadavg=1.00
+2026-09-16T08:28:18Z ladder-boltz2-att2-wedge640 START loadavg=0.56
+2026-09-16T08:32:16Z splice-esmfold2-att1-workdirclobber START card=1 loadavg=1.11
+2026-09-16T08:38:32Z CARD=2 (UMD) resolves to /dev/tenstorrent/2
+2026-09-16T08:38:32Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T08:38:32Z pytest-0 START loadavg=2.95
+2026-09-16T08:38:46Z pytest-0 rc=0 loadavg=2.88
+2026-09-16T08:38:46Z pytest-1 START loadavg=2.88
+2026-09-16T08:42:25Z pytest-1 rc=0 loadavg=8.98
+2026-09-16T08:42:25Z pytest-2 START loadavg=8.98
+2026-09-16T08:43:06Z ladder-boltz2-att2-wedge640 rc=1 loadavg=5.70
+2026-09-16T08:43:32Z pytest-2 rc=1 loadavg=4.52
+2026-09-16T08:43:32Z pytest-3 START loadavg=4.52
+2026-09-16T08:43:35Z ladder-boltz2-att3-wedge640 START card=3 loadavg=4.32
+2026-09-16T08:44:05Z splice-esmfold2-att1-workdirclobber rc=1 loadavg=7.71
+2026-09-16T08:53:09Z ladder-boltz2-att3-wedge640 rc=1 loadavg=8.52
+2026-09-16T08:53:09Z LADDER_CAMPAIGN_DONE card=3 models=boltz2
+2026-09-16T08:54:06Z splice-rf3 START card=3 loadavg=6.54
+2026-09-16T09:00:29Z resume_after_boot relaunching (uptime 150s)
+2026-09-16T09:00:29Z PHASE 1/4 correctness: pytest, the flag-off control, ux
+2026-09-16T09:00:29Z CARD=0 (UMD) resolves to /dev/tenstorrent/0
+2026-09-16T09:00:29Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T09:00:29Z pytest-3 START loadavg=0.49
+2026-09-16T09:14:22Z pytest-3 rc=0 loadavg=7.31
+2026-09-16T09:14:22Z pytest-4 START loadavg=7.31
+2026-09-16T09:14:46Z pytest-4 rc=1 loadavg=5.42
+2026-09-16T09:14:46Z pytest-5 START loadavg=5.42
+2026-09-16T09:14:57Z pytest-5 rc=1 loadavg=4.90
+2026-09-16T09:14:57Z pytestoff-0 START loadavg=4.90
+2026-09-16T09:15:11Z pytestoff-0 rc=0 loadavg=4.25
+2026-09-16T09:15:11Z pytestoff-1 START loadavg=4.25
+2026-09-16T09:18:32Z pytestoff-1 rc=0 loadavg=6.87
+2026-09-16T09:18:32Z pytestoff-2 START loadavg=6.87
+2026-09-16T09:19:35Z pytestoff-2 rc=1 loadavg=2.74
+2026-09-16T09:19:35Z pytestoff-3 START loadavg=2.74
+2026-09-16T09:31:57Z resume_after_boot relaunching (uptime 150s)
+2026-09-16T09:31:57Z PHASE 1/4 correctness: pytest, the flag-off control, ux
+2026-09-16T09:31:57Z CARD=0 (UMD) resolves to /dev/tenstorrent/0
+2026-09-16T09:31:57Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T09:31:57Z pytestoff-3 START loadavg=0.72
+2026-09-16T09:41:29Z pytestoff-3 rc=0 loadavg=2.60
+2026-09-16T09:41:29Z pytestoff-4 START loadavg=2.60
+2026-09-16T09:41:52Z pytestoff-4 rc=1 loadavg=3.21
+2026-09-16T09:41:52Z pytestoff-5 START loadavg=3.21
+2026-09-16T09:42:03Z pytestoff-5 rc=1 loadavg=2.72
+2026-09-16T09:42:03Z ux START loadavg=2.72
+2026-09-16T09:46:08Z resume_after_boot relaunching (uptime 150s)
+2026-09-16T09:46:08Z PHASE 1/4 correctness: pytest, the flag-off control, ux
+2026-09-16T09:46:08Z CARD=0 (UMD) resolves to /dev/tenstorrent/0
+2026-09-16T09:46:08Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T09:46:08Z ux START loadavg=0.14
+2026-09-16T09:53:56Z ux rc=0 loadavg=3.69
+2026-09-16T09:53:56Z capacity SKIPPED by GATE_SKIP_CAP
+2026-09-16T09:53:56Z size-ladder SKIPPED by GATE_SKIP_LADDER
+2026-09-16T09:53:56Z perf SKIPPED by GATE_SKIP_PERF
+2026-09-16T09:53:56Z parity PRECHECK card 0 free, 0 holders
+2026-09-16T09:53:56Z parity SKIPPED by GATE_SKIP_PARITY
+2026-09-16T09:53:56Z GATE_DRIVER_DONE
+2026-09-16T09:53:56Z PHASE 2/4 size ladder: splice the new counter into every model, then check
+2026-09-16T09:53:57Z ladder-boltz2 START card=0 loadavg=3.69
+2026-09-16T10:09:09Z WEDGE-KILL boltz2-1024-warmup stale 536s, SIGINT 24538 24572 24573 24536  (dump boltz2-1024-warmup-wedge-100909.txt)
+2026-09-16T10:09:30Z VOID-ladder-boltz2 rc=1 (wedge-kill at 1024 warm-up, not a verdict) loadavg=0.97
+2026-09-16T10:09:30Z splice-rf3 START card=0 loadavg=0.97
+2026-09-16T10:16:21Z resume_after_boot relaunching (uptime 150s)
+2026-09-16T10:16:21Z PHASE 1/4 correctness: pytest, the flag-off control, ux
+2026-09-16T10:16:21Z CARD=0 (UMD) resolves to /dev/tenstorrent/0
+2026-09-16T10:16:21Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T10:16:21Z capacity SKIPPED by GATE_SKIP_CAP
+2026-09-16T10:16:21Z size-ladder SKIPPED by GATE_SKIP_LADDER
+2026-09-16T10:16:21Z perf SKIPPED by GATE_SKIP_PERF
+2026-09-16T10:16:21Z parity PRECHECK card 0 free, 0 holders
+2026-09-16T10:16:21Z parity SKIPPED by GATE_SKIP_PARITY
+2026-09-16T10:16:21Z GATE_DRIVER_DONE
+2026-09-16T10:16:21Z PHASE 2/4 size ladder: splice the new counter into every model, then check
+2026-09-16T10:16:23Z splice-rf3 START card=0 loadavg=0.03
+2026-09-16T10:17:53Z VOID-splice-rf3 rc=143 (killed by host reset, not a verdict) loadavg=1.25
+2026-09-16T10:17:53Z splice-esmfold2 START card=0 loadavg=1.25
+2026-09-16T12:37:55Z PHASE 1/4 correctness: pytest, the flag-off control, ux
+2026-09-16T12:37:56Z CARD=0 (UMD) resolves to /dev/tenstorrent/0
+2026-09-16T12:37:56Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T12:37:56Z capacity SKIPPED by GATE_SKIP_CAP
+2026-09-16T12:37:56Z size-ladder SKIPPED by GATE_SKIP_LADDER
+2026-09-16T12:37:56Z perf SKIPPED by GATE_SKIP_PERF
+2026-09-16T12:37:56Z parity PRECHECK card 0 free, 0 holders
+2026-09-16T12:37:56Z parity SKIPPED by GATE_SKIP_PARITY
+2026-09-16T12:37:56Z GATE_DRIVER_DONE
+2026-09-16T12:37:56Z PHASE 2/4 size ladder: splice the new counter into every model, then check
+2026-09-16T12:37:57Z ladder-boltz2 START card=0 loadavg=0.00
+2026-09-16T12:49:56Z WEDGE-KILL boltz2-768-rep0 stale 521s, SIGINT 23523 23556 23557 23521  (dump boltz2-768-rep0-wedge-124956.txt)
+2026-09-16T12:50:17Z VOID-ladder-boltz2 rc=1 (card 0 PCIe-down, not a verdict) loadavg=1.73
+2026-09-16T12:50:17Z splice-rf3 START card=0 loadavg=1.73
+2026-09-16T13:01:59Z chain restarted by worker: splice+ladder retry code installed, rf3 gets 3 attempts
+2026-09-16T13:01:59Z PHASE 1/4 correctness: pytest, the flag-off control, ux
+2026-09-16T13:01:59Z CARD=0 (UMD) resolves to /dev/tenstorrent/0
+2026-09-16T13:01:59Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T13:01:59Z capacity SKIPPED by GATE_SKIP_CAP
+2026-09-16T13:01:59Z size-ladder SKIPPED by GATE_SKIP_LADDER
+2026-09-16T13:01:59Z perf SKIPPED by GATE_SKIP_PERF
+2026-09-16T13:02:00Z parity PRECHECK card 0 free, 0 holders
+2026-09-16T13:02:00Z parity SKIPPED by GATE_SKIP_PARITY
+2026-09-16T13:02:00Z GATE_DRIVER_DONE
+2026-09-16T13:02:00Z PHASE 2/4 size ladder: splice the new counter into every model, then check
+2026-09-16T13:02:01Z ladder-boltz2-att2 START card=0 loadavg=0.76
+2026-09-16T13:08:19Z VOID-ladder-boltz2-att2 rc=1 (card 0 PCIe-down, not a verdict) loadavg=1.03
+2026-09-16T13:08:19Z ladder-boltz2-att3 START card=0 loadavg=1.03
+2026-09-16T13:15:28Z CARD MOVE 0 -> 2: card 0 reads 0xffffffff over PCIe (tt-smi: "the board should be reset"), open hangs past 120s; card 2 opens in 7s. Grant widened to 0,2.
+2026-09-16T13:15:28Z PHASE 1/4 correctness: pytest, the flag-off control, ux
+2026-09-16T13:15:28Z CARD=2 (UMD) resolves to /dev/tenstorrent/2
+2026-09-16T13:15:28Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T13:15:28Z capacity SKIPPED by GATE_SKIP_CAP
+2026-09-16T13:15:28Z size-ladder SKIPPED by GATE_SKIP_LADDER
+2026-09-16T13:15:28Z perf SKIPPED by GATE_SKIP_PERF
+2026-09-16T13:15:28Z parity PRECHECK card 2 free, 0 holders
+2026-09-16T13:15:28Z parity SKIPPED by GATE_SKIP_PARITY
+2026-09-16T13:15:28Z GATE_DRIVER_DONE
+2026-09-16T13:15:28Z PHASE 2/4 size ladder: splice the new counter into every model, then check
+2026-09-16T13:15:30Z ladder-boltz2 START card=2 loadavg=0.09
+2026-09-16T13:26:29Z WEDGE-KILL boltz2-640-rep0 stale 516s, SIGINT 49270 49303 49304 49268  (dump boltz2-640-rep0-wedge-132629.txt)
+2026-09-16T13:26:50Z ladder-boltz2 rc=1 loadavg=1.15
+2026-09-16T13:26:50Z ladder-boltz2-att2 START card=2 loadavg=1.15
+2026-09-16T13:39:29Z WEDGE-KILL boltz2-768-rep0 stale 511s, SIGINT 57809 57842 57843 57807  (dump boltz2-768-rep0-wedge-133929.txt)
+2026-09-16T13:39:51Z ladder-boltz2-att2 rc=1 loadavg=1.06
+2026-09-16T13:39:51Z ladder-boltz2-att3 START card=2 loadavg=1.06
+2026-09-16T13:53:40Z CHAIN STOP by worker: ttnn.open_device(card 2) hangs at 100% CPU holding /tmp/tt-bio-device-open.lock (py-spy: _open_device_locked tenstorrent.py:4935), 256 aa warm-up, 12 min. Below-cap fixture, so not the lever. Lock also starves the card-1 co-tenant soak.
+2026-09-16T14:05:27Z ROOT CAUSE: non-upstream tt-kmd (srcversion A10759A24565BC5BBE903C5 = qb2-vendor-handoff/kmd-containment) with qb_endpoint_quarantine=Y cleared Memory-Space-Enable on card 0 bridge port 00:01.1 at 13:02:06 and card 2 port 00:01.4 at 13:40:00. UMD TopologyDiscovery walks every board before TT_VISIBLE_DEVICES, so no device opens on qb2 at all. Bridge bit restored via setpci; endpoints still read ffff, so a reboot with the stock module is the fix. Card-1 soak ends 16:18:14Z. PAUSE stays until the box is back.
