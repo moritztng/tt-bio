@@ -456,3 +456,93 @@ main's, still other owners.
 An interactive `tt-smi` TUI (pid 9839, started 15:56:13Z from a login shell, blocked in `ep_poll`)
 holds read fds on all four device nodes. It does not block opens and the parity precheck only logs
 holders, so it is not a blocker, and it belongs to a human terminal so it was left alone.
+
+### The unreachability argument is now a measurement, not a code reading
+
+`--size-ladder-record-lever SDPA_FUSED_LARGE_S` runs one fold per rung under `lever_census.py`
+and reads `tt_bio.tenstorrent.SDPA_FUSED_LARGE_S_STATS`. rf3, card 3, one fold per rung, all on
+the default-ON tree:
+
+| rung | rc | resolved | served | declined |
+|---|---|---|---|---|
+| 256 | 0 | True | 0 | 0 |
+| 512 | 0 | True | 0 | 0 |
+| 640 | 0 | True | 0 | 0 |
+| 768 | 0 | True | 0 | 0 |
+| 896 | 0 | True | 0 | 0 |
+| 1024 | 0 | True | 0 | 0 |
+
+`resolved=True` on every row, so the default flip really is in effect in these processes: the
+control validates itself. And `served=0, declined=0` means the route is not merely rejected at
+these sizes, it is never reached, which is what `q_len > _Q_SPLIT_MAX_S` with `_Q_SPLIT_MAX_S`
+= 1024 predicts. 1024 is the exact boundary and it reads 0, so the cap is off-by-nothing.
+
+This upgrades the neutrality evidence from an argument to a measurement, and it retires two arms
+as sources of information about the route rather than merely deprioritising them:
+
+- All 44 legs of the parity gate fold at or below 1024 tokens, so with `served=0` measured there,
+  the parity arm cannot observe the route. It remains a fallthrough-unchanged control.
+- 14 of the 15 capacity cells are likewise at or below the cap. Only boltz2 at 1536 aa is in the
+  lever's regime, which is why the roster leads with it.
+
+A below-cap byte-identity spot-check is therefore redundant rather than skipped: a code path that
+is never entered cannot change a CIF. The banked gate4 hashes (768 aa `38aabd4058facb3f`,
+1024 aa `649aad7b46727c7e`, byte-identical off/on/off one arm per process) agree with this, and
+this pass adds the mechanism behind why they had to.
+
+### The rf3 arm refuses for a third, distinct form of the same blocker, and it is not the lever
+
+`splice-rf3` folded all seven rungs and then refused: `rf3 FAIL REFUSED`. Not a wedge, and
+nothing to do with `SDPA_FUSED_LARGE_S`. rf3's p300c baseline is stale against nine levers that
+merged after it was recorded:
+
+- absent from the record entirely: `FP32_SOFTMAX_L1_GRID`, `TRIMUL_MASK_AFTER_MOVE`,
+  `APB_CONCAT_HEADS`, `ATOM_AXIS_BUCKET`, `TRANSITION_H_CHUNK` ("new lever not in the baseline")
+- `B2_TOKEN_DIT_SDPA`: resolved `False` -> `True`
+- drifted decline clauses: `TRIMUL_TAIL_F1`, `REBLOCK_PERMUTE` (went dark), and
+  `PAIR_PROJ_MINIMAL_MATMUL`
+
+Every one of those appears at rungs 256 through 1024 as well as 1088, so they are size-independent
+record staleness, not a size effect. `d78f23757` refreshed **boltz2 and esmfold2**; rf3 was never
+in its scope. So the blocker the brief called landed has now appeared in three distinct forms:
+p300c/boltz2+esmfold2 (fixed), p150a for five models (needs a card type this host does not have),
+and now p300c/rf3 (runnable here, nobody's task yet).
+
+Attempts 2 and 3 were stopped by explicit pid at the 640 rung. A refusal driven by the contents of
+a checked-in record is deterministic: re-folding the same seven rungs twice more would have re-read
+the same nine stale rows and burned 14 minutes of the only idle box this host has had today. The
+attempts are `VOID-` prefixed, so the 3-attempt budget is intact for a pass that runs it after the
+record is refreshed.
+
+**The refusal blocks the gate arm, not the measurement.** What the arm would have told us about
+the lever is a census delta at 1088, and that can be taken directly.
+
+### The in-regime measurement, taken at last: the lever fires 1088 times and the fold is clean
+
+The refusal blocks the gate arm, not the measurement. `lever_census.py` with the same
+`cdk2x2_1088.yaml` fixture, the same rf3 CLI the splice uses, card 3, **one arm per process**
+(`perf/ttx_a3/census_1088_pair.sh`), off and on as separate launches:
+
+| flag | ON (resolved / served / declined) | OFF |
+|---|---|---|
+| `SDPA_FUSED_LARGE_S` | True / **1088** / 0 | False / 0 / 0 |
+| `SDPA_WIDE_K` | False / 1088 / 0 | False / 0 / 0 |
+| `TRIATT_PERSISTENT_MASK` | True / 1088 / 0 | True / 0 / 1090 |
+| `SDPA_Q_CHUNK_FITS` | True / 0 / 0 | True / 0 / 2 |
+
+Both arms `rc=0`, grid 11x10. Exactly four rows differ between the arms and all four are this
+lever's own mechanism: the flag serves all 1088 calls through the wide-K route, which is why the
+q-chunk fit test stops being consulted (declined 2 -> 0) and the persistent TriAtt mask flips from
+declined 1090 to served 1088. Nothing outside the SDPA/TriAtt family moves.
+
+Three things follow, and they are what seven passes were missing:
+
+1. **The route is exercised, at the only ladder size that can reach it, and the fold completes.**
+   Reachability was a code reading (`q_len > _Q_SPLIT_MAX_S`, `tt_bio/tenstorrent.py:1844`) until
+   now; it is a count of 1088 served calls.
+2. **The control self-validates.** `SDPA_FUSED_LARGE_S` reads `resolved=False, served=0` in the
+   off arm, so the arm really did take effect and the ON reading is not a no-op comparison.
+3. **Two of the three 1088 rows the stale baseline flagged are attributed to this lever**
+   (`SDPA_WIDE_K`, `SDPA_Q_CHUNK_FITS`) and the third is not: `TRIMUL_TAIL_F1` reads identically
+   in both arms, so its drift is another lever's record staleness. A stale-baseline refusal and a
+   lever effect were superimposed at the same rung, and the off arm separates them.
