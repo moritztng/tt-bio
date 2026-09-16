@@ -35,7 +35,9 @@ export PYTHONPATH="$WT"
 export OPENDDE_DOCKQ_PYTHON=/home/ttuser/dockqenv/bin/python3
 export OF3_CKPT=/home/ttuser/.boltz/of3-p2-155k.pt
 export ESM_ROOT=/home/ttuser/esm
-export TT_BIO_LEASE_CARDS=$CARD
+# The grant is an input too: a fan-out onto an idle sibling card runs on CARD but must
+# declare the widened grant, or tt-bio refuses the open.
+export TT_BIO_LEASE_CARDS=${GATE_LEASE_CARDS:-$CARD}
 export TT_BIO_LEASE_HOLDER=$HOLDER
 
 log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$PROG"; }
@@ -229,26 +231,32 @@ run_arm ux 0 $P scripts/ux_regression.py
 
 # boltz2 leads the roster: 1536 tokens is the only gate arm that folds in this lever's own regime,
 # and boltz2 is the model the 1.1856x was measured on.
+if [ "${GATE_SKIP_CAP:-0}" = 1 ]; then log "capacity SKIPPED by GATE_SKIP_CAP"; else
 for m in $CAP_MODELS; do
   run_arm "capacity-$m" 0 $P scripts/capacity_gate.py --models "$m" \
       --workers "$WORKER:$CARD" --no-card-reset \
       --work-dir "$OUT/cap-$m" --report "$OUT/capacity_$m.json"
 done
+fi
 
 # Untimed. The ladder's verdict is the fired/dark lever census plus a runtime exponent whose
 # tolerance floors at +-0.50; co-tenant noise on this box is 1-10 % and a load factor common to
 # two rungs cancels out of their ratio. Holding benchlock across 9 models x 4 rungs would park
 # every other perf task on qb2 for hours to tighten a band that is already 5x the signal.
+if [ "${GATE_SKIP_LADDER:-0}" = 1 ]; then log "size-ladder SKIPPED by GATE_SKIP_LADDER"; else
 for m in $LADDER_MODELS; do
   run_arm "ladder-$m" 0 $P scripts/release_gate.py --model size-ladder --size-ladder-models "$m"
 done
+fi
 
 # perf_regression compares wall clock against docs/perf_baselines.json, so it is the one arm where
 # a co-tenant makes the number wrong rather than slow. It takes benchlock, which also excludes a
 # foreign fold instead of merely sampling loadavg.
+if [ "${GATE_SKIP_PERF:-0}" = 1 ]; then log "perf SKIPPED by GATE_SKIP_PERF"; else
 for m in $PERF_MODELS; do
   run_arm "perf-$m" 0 bash $BENCH "$HOLDER" -- $P scripts/perf_regression.py --model "$m"
 done
+fi
 
 # gate2's parity arm reported 28 of 44 legs ERROR and it was not an accuracy result: one leg
 # leaked a live process still holding card 0's flock, so every leg after it waited the lease's
@@ -276,6 +284,8 @@ fi
 # workdir and fingerprints tt_bio/ + scripts/, so nothing under tt_bio/ or scripts/ may change
 # once this starts. All 44 legs are below the 1024-token cap, so this is the neutrality control
 # for the fallthrough, not evidence about the route.
+if [ "${GATE_SKIP_PARITY:-0}" = 1 ]; then log "parity SKIPPED by GATE_SKIP_PARITY"; else
 run_arm parity        0 $P scripts/full_parity_gate.py --workers "$WORKER:$CARD" \
           --workdir "$OUT/parity-workdir" --out "$OUT/parity.json"
+fi
 log "GATE_DRIVER_DONE"
