@@ -1,0 +1,83 @@
+{
+  "verdict": "GO",
+  "scope": "existing retained windows only; clock coverage reused, no new device measurement",
+  "calls": 259634,
+  "metadata_archive": {
+    "path": "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_export_budget/replay/parent-review/packaging/raw/tracy_ops_data.csv.gz",
+    "bytes": 2970301,
+    "sha256": "54649dffe2073d75e7517d6c6b54c9ce86d8e069a5766977732e841c85507ee8"
+  },
+  "windows": [
+    {
+      "case": "MSALayer_0",
+      "invocations": 227,
+      "window_result_sha256": "c0218d37b3d610a92654ea420455bbc7bea1f26fb819a62798332551ac9989d8"
+    },
+    {
+      "case": "PairformerLayer_0",
+      "invocations": 137,
+      "window_result_sha256": "aea5c0c85da179d76e61eefde2e44f2337b33d0edf93b404b4b5107c865224b1"
+    },
+    {
+      "case": "DiffusionModule_0",
+      "invocations": 1096,
+      "window_result_sha256": "395e00912d15aeb1018de43778a8161ae1f33181c8da4ee0020d359ea4fe1a4c"
+    },
+    {
+      "case": "ConfidenceHeadsDevice_0",
+      "invocations": 18,
+      "window_result_sha256": "148eea31cca48b0f1802b7f08f3a2949d772cdc250c79ca732231a851e8e6075"
+    },
+    {
+      "case": "stream_copy_0",
+      "invocations": 4,
+      "window_result_sha256": "d2b93e554decd104cfb32becd4d6341682eed5893b3f27a13d03c64ce99667ed"
+    },
+    {
+      "case": "stream_add_0",
+      "invocations": 4,
+      "window_result_sha256": "e087b91d1dc492889ca3879612d3dabd373e0e66275628b5f2025e6c19ced7f0"
+    },
+    {
+      "case": "dense_hifi4_0",
+      "invocations": 4,
+      "window_result_sha256": "15d0a4432ef5ea7bc9951bd0705bd4a67dce986ca5f18060aa5a2cee07d129a2"
+    },
+    {
+      "case": "stream_copy_1",
+      "invocations": 4,
+      "window_result_sha256": "15732ae2d7a013e9e1385b0f311761ad99a2fcf0d9da689f9943337425b4c13d"
+    },
+    {
+      "case": "stream_add_1",
+      "invocations": 4,
+      "window_result_sha256": "bca50c92bac6d48ef48c039cb287edf7396caed1412bcc16155ad9622cfa89a1"
+    },
+    {
+      "case": "dense_hifi4_1",
+      "invocations": 4,
+      "window_result_sha256": "8336b8c9359f96371364662eb652e77f62d4096e3de08d6b967627eec5913fff"
+    },
+    {
+      "case": "stream_copy_2",
+      "invocations": 4,
+      "window_result_sha256": "7309db0d6d8182f50d879d7e45aa1aa0b011aa1362aea3ad00bcf799b3105e01"
+    },
+    {
+      "case": "stream_add_2",
+      "invocations": 4,
+      "window_result_sha256": "62303ed6a3d6d135e41ea5b6c67c2efed6fefcbeeccea2d1c4e01664617b7662"
+    },
+    {
+      "case": "dense_hifi4_2",
+      "invocations": 4,
+      "window_result_sha256": "0609f73000008e06a66d1399f57bee549da980147cf706433b24f057064f55a8"
+    }
+  ],
+  "invocations": 1514,
+  "original_analysis": {
+    "path": "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_burst_census/runs/census1/analysis.json",
+    "bytes": 13340968,
+    "sha256": "342ec3d4385e03462629aa9eed66e8b595ca2c8510daaa08e27302d93c8ad60c"
+  }
+}

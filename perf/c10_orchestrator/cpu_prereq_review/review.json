@@ -1,0 +1,39 @@
+{
+  "clock": "CPU-only review. The archives were captured at a during-window sampled 1350 MHz; nothing here is a new clock or timing measurement.",
+  "model_cycles_saved": 0,
+  "reviewed_at": "2026-09-16T22:57:47.202263+00:00",
+  "reviewer": "c10-orchestrator (CPU, no device opened)",
+  "rows": {
+    "c10-cycle-stream": {
+      "accepted": true,
+      "branch_commit": "c26c9ee754ac37f0d1c45e9c835cf36ccc6314a0",
+      "child_verdict": "GO",
+      "chunks_failed": 0,
+      "chunks_verified": 16,
+      "limits": "replaying archived chunks is CPU reduction, not new measurement. The 377,218,386-byte largest discarded chunk cannot be reconstructed.",
+      "parent_check": "test suite rerun from the branch in a temp tree, and every published chunk footer verified",
+      "tests_passed": 20
+    },
+    "c10-export-budget": {
+      "accepted": true,
+      "branch_commit": "640d893ecc4536eaca1b48d422a8a9fe26077b1b",
+      "census_windows_identical_modulo_scratch_dir": true,
+      "child_verdict": "GO",
+      "distinct_raw_call_ids": 259634,
+      "invocations": 1514,
+      "limits": "the 2,919,007,827-byte census trace was never retrieved or tested, and it no longer exists: the worker's worktree was reclaimed after it concluded. No large-trace feasibility claim.",
+      "manifest_self_difference_reason": "the manifest embeds its own absolute scratch paths, so its bytes/sha differ while every input and output hash inside it matches",
+      "metadata_archive_bytes": 2970301,
+      "metadata_original_bytes": 26969586,
+      "negative_controls": {
+        "file": "STOP",
+        "input": "STOP",
+        "memory": "STOP",
+        "timeout": "STOP"
+      },
+      "packaging_identical_modulo_scratch_dir_except_manifest_self": true,
+      "parent_check": "independent replay outputs compared to the child's published results",
+      "windows": 13
+    }
+  }
+}

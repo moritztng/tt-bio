@@ -141,9 +141,11 @@ passes 16 float64 checks, eight exact off/on checks and runtime-address controls
 Native matmul and binary operations account for 53,004,546 and 25,851,252 raw
 program-span cycles in those windows. These are unweighted sampled counts,
 not whole-fold shares or optimization prizes. Automatic host reporting exceeded
-its resource budget after the complete default fold. Whole-fold closure, matched model roofs and instrumentation
+its resource budget after the complete default fold. Whole-fold closure, matched
+model roofs and instrumentation
 perturbation remain unmeasured. The retained Pairformer window includes the
-two-argument path, as its [actual operands show](census_scope_review.json). The retained census therefore reports STOP;
+two-argument path, as its [actual operands show](census_scope_review.json).
+The retained census therefore reports STOP;
 no model speedup or campaign ceiling follows from it.
 
 [Generic work contracts](../c10_generic_work/README.md) provide source-conditional

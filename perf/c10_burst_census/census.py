@@ -18,7 +18,7 @@ def main():
     try:
         result["before"]=snapshot(); save(); validate_snapshot(result["before"])
         for name,want in (("TT_VISIBLE_DEVICES","0"),("TT_BIO_LEASE_CARDS","0"),
-                          ("TT_BIO_LEASE_HOLDER","worker:c10-burst-census"),("TT_BIO_AICLK","1350")):
+                          ("TT_BIO_LEASE_HOLDER",f"worker:{ROOT.name}"),("TT_BIO_AICLK","1350")):
             if os.environ.get(name)!=want: raise RuntimeError(f"Wrong {name}")
         import torch
         from tt_bio.main import ensure_p300_mesh_descriptor

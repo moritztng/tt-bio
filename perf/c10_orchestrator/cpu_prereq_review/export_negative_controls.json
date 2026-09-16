@@ -1,0 +1,101 @@
+[
+  {
+    "case": "input",
+    "verdict": "STOP",
+    "export": null,
+    "error": "Trace size 33050506 outside 1..1; export not started"
+  },
+  {
+    "case": "file",
+    "verdict": "STOP",
+    "export": {
+      "command": [
+        "/usr/bin/python3",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_export_budget/export_metadata.py",
+        "_exec",
+        "8589934592",
+        "8192",
+        "300",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+        "--library-path",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_export_budget/tools/runtime",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_export_budget/tools/csvexport-release",
+        "-m",
+        "-s",
+        ";",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_dm_control/raw/tracy_profile_log_host.tracy"
+      ],
+      "returncode": -25,
+      "timed_out": false,
+      "elapsed_seconds": 0.10114447199157439,
+      "max_rss_KiB": 201476,
+      "user_seconds": 0.125014,
+      "system_seconds": 0.015626,
+      "stdout_bytes": 8192,
+      "stderr_bytes": 0
+    },
+    "error": "Metadata exporter failed or exceeded a resource limit; see export.stderr"
+  },
+  {
+    "case": "memory",
+    "verdict": "STOP",
+    "export": {
+      "command": [
+        "/usr/bin/python3",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_export_budget/export_metadata.py",
+        "_exec",
+        "134217728",
+        "67108864",
+        "300",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+        "--library-path",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_export_budget/tools/runtime",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_export_budget/tools/csvexport-release",
+        "-m",
+        "-s",
+        ";",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_dm_control/raw/tracy_profile_log_host.tracy"
+      ],
+      "returncode": -6,
+      "timed_out": false,
+      "elapsed_seconds": 0.060809051006799564,
+      "max_rss_KiB": 19152,
+      "user_seconds": 0.041042999999999996,
+      "system_seconds": 0.016416999999999998,
+      "stdout_bytes": 0,
+      "stderr_bytes": 88
+    },
+    "error": "Metadata exporter failed or exceeded a resource limit; see export.stderr"
+  },
+  {
+    "case": "timeout",
+    "verdict": "STOP",
+    "export": {
+      "command": [
+        "/usr/bin/python3",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_export_budget/export_metadata.py",
+        "_exec",
+        "8589934592",
+        "67108864",
+        "300",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_export_budget/tools/runtime/ld-linux-x86-64.so.2",
+        "--library-path",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_export_budget/tools/runtime",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_export_budget/tools/csvexport-release",
+        "-m",
+        "-s",
+        ";",
+        "/home/moritz/.coworker/wt/c10-orchestrator/perf/c10_dm_control/raw/tracy_profile_log_host.tracy"
+      ],
+      "returncode": -9,
+      "timed_out": true,
+      "elapsed_seconds": 0.02115349899395369,
+      "max_rss_KiB": 19152,
+      "user_seconds": 0.016805,
+      "system_seconds": 0.004201,
+      "stdout_bytes": 0,
+      "stderr_bytes": 0
+    },
+    "error": "Metadata exporter failed or exceeded a resource limit; see export.stderr"
+  }
+]

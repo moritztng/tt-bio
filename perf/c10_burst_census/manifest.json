@@ -9,8 +9,8 @@
     },
     {
       "path": "README.md",
-      "sha256": "ee7f7c17a5b03e6c95d4bda19fa0f694b20a27a58e4c9d3341010c122dbfae98",
-      "bytes": 8548
+      "sha256": "84f2ddf2accbbce6686e3904c596a6ba7ccd03ff4442a6a06a1dafa18d543f35",
+      "bytes": 8727
     },
     {
       "path": "TABLE.md",
@@ -24,8 +24,8 @@
     },
     {
       "path": "census.py",
-      "sha256": "2c5eef6a02c69f9d248a37e3cd38fa91593b199d2046467e809ccc070315e517",
-      "bytes": 5720
+      "sha256": "7363f630865be301670adf90008d8bbb897a59c13306d08e318561aec93338ef",
+      "bytes": 5716
     },
     {
       "path": "census1.log",
@@ -114,8 +114,8 @@
     },
     {
       "path": "run_census.sh",
-      "sha256": "5b4956982e9cb506fd2390c9adc59f7424a2cbe7df5008aa97b00e91344da0b5",
-      "bytes": 1462
+      "sha256": "0e689c2daf0775b3f73af37b4dbe73bbdcbb91eabe690268ece7d88a51a1d127",
+      "bytes": 1558
     },
     {
       "path": "run_smoke.sh",
