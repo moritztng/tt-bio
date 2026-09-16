@@ -1,0 +1,317 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "card": "1",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-wave2-cell-recheck/tt_bio/__init__.py",
+  "fixture": "cdk2x2_512",
+  "started_utc": "2026-09-16T04:44:56Z",
+  "loadavg": [
+   1.1904296875,
+   0.6708984375,
+   0.9248046875
+  ],
+  "steps": 200,
+  "recycles": 3,
+  "commit": "3b8cd3ad9e99ed729cc83526ec3a5cea4a6abb12",
+  "ttnn": "?"
+ },
+ "flags": {
+  "TT_BIO_DEVICE_CONDITIONING": true,
+  "TT_BIO_DEVICE_ZINIT": true,
+  "TT_BIO_DEVICE_CONFIDENCE": true,
+  "TT_BIO_DEVICE_CONF_HEADS": true,
+  "TT_BIO_TRIATT_FUSED_QKVG": true,
+  "TT_BIO_TRIATT_FUSED_QKVGB": true,
+  "TT_BIO_TRIMUL_FUSED_GOUT": true,
+  "TT_BIO_SDPA_GRID_Q_CHUNK": true,
+  "TT_BIO_ATOM_SHIFT_GATHER": true,
+  "TT_BIO_ATOM_L1": "not in tree",
+  "TT_BIO_UNFUSED_SILU": false,
+  "TT_BIO_DIT_COND_HOIST": false,
+  "TT_BIO_TRANSITION_L1_ROWS": true,
+  "TT_BIO_TRIMUL_GP_BANK_SPLIT": true
+ },
+ "runs": [
+  {
+   "i": 0,
+   "warmup": true,
+   "fold_s": 21.951,
+   "plddt": 0.845919,
+   "metrics": {
+    "confidence_score": 0.802782,
+    "ptm": 0.630234,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845919,
+    "complex_iplddt": 0.845919,
+    "complex_pde": 0.617971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845919
+   },
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "loadavg1": 1.47
+  },
+  {
+   "i": 1,
+   "warmup": true,
+   "fold_s": 21.348,
+   "plddt": 0.845919,
+   "metrics": {
+    "confidence_score": 0.802782,
+    "ptm": 0.630234,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845919,
+    "complex_iplddt": 0.845919,
+    "complex_pde": 0.617971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845919
+   },
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "loadavg1": 1.65
+  },
+  {
+   "i": 2,
+   "warmup": false,
+   "fold_s": 21.702,
+   "plddt": 0.845736,
+   "metrics": {
+    "confidence_score": 0.799971,
+    "ptm": 0.616911,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845736,
+    "complex_iplddt": 0.845736,
+    "complex_pde": 0.63971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845736
+   },
+   "cif_sha256": "dc1fe181ada7af5b653b3b0f95b9e92095764a3d560e29beb1310da844c59c6d",
+   "loadavg1": 2.27
+  },
+  {
+   "i": 3,
+   "warmup": false,
+   "fold_s": 21.746,
+   "plddt": 0.847197,
+   "metrics": {
+    "confidence_score": 0.801497,
+    "ptm": 0.618696,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.847197,
+    "complex_iplddt": 0.847197,
+    "complex_pde": 0.628587,
+    "complex_ipde": 0.0,
+    "plddt": 0.847197
+   },
+   "cif_sha256": "8d5927b33eaa86079d3fa5e0852ad3767c41881b47c183657284a9063fceb50b",
+   "loadavg1": 2.75
+  },
+  {
+   "i": 4,
+   "warmup": false,
+   "fold_s": 21.221,
+   "plddt": 0.845919,
+   "metrics": {
+    "confidence_score": 0.802782,
+    "ptm": 0.630234,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845919,
+    "complex_iplddt": 0.845919,
+    "complex_pde": 0.617971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845919
+   },
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "loadavg1": 2.54
+  },
+  {
+   "i": 5,
+   "warmup": false,
+   "fold_s": 21.672,
+   "plddt": 0.84835,
+   "metrics": {
+    "confidence_score": 0.799611,
+    "ptm": 0.604654,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.84835,
+    "complex_iplddt": 0.84835,
+    "complex_pde": 0.648172,
+    "complex_ipde": 0.0,
+    "plddt": 0.84835
+   },
+   "cif_sha256": "2735d14a7deab0fa9429cdbbb4dbd73528b0d0a68757b3c52c1b5139ffe8215d",
+   "loadavg1": 2.75
+  },
+  {
+   "i": 6,
+   "warmup": false,
+   "fold_s": 21.147,
+   "plddt": 0.845919,
+   "metrics": {
+    "confidence_score": 0.802782,
+    "ptm": 0.630234,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845919,
+    "complex_iplddt": 0.845919,
+    "complex_pde": 0.617971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845919
+   },
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "loadavg1": 3.62
+  },
+  {
+   "i": 7,
+   "warmup": false,
+   "fold_s": 20.964,
+   "plddt": 0.843419,
+   "metrics": {
+    "confidence_score": 0.798681,
+    "ptm": 0.619728,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.843419,
+    "complex_iplddt": 0.843419,
+    "complex_pde": 0.639284,
+    "complex_ipde": 0.0,
+    "plddt": 0.843419
+   },
+   "cif_sha256": "2b7a0a5fc30acc1bc2b25c9c402ec2b7e1c864618dfe5d609a065b601e3a3512",
+   "loadavg1": 3.72
+  },
+  {
+   "i": 8,
+   "warmup": false,
+   "fold_s": 21.628,
+   "plddt": 0.845919,
+   "metrics": {
+    "confidence_score": 0.802782,
+    "ptm": 0.630234,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845919,
+    "complex_iplddt": 0.845919,
+    "complex_pde": 0.617971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845919
+   },
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "loadavg1": 3.13
+  },
+  {
+   "i": 9,
+   "warmup": false,
+   "fold_s": 21.567,
+   "plddt": 0.845919,
+   "metrics": {
+    "confidence_score": 0.802782,
+    "ptm": 0.630234,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845919,
+    "complex_iplddt": 0.845919,
+    "complex_pde": 0.617971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845919
+   },
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "loadavg1": 3.3
+  },
+  {
+   "i": 10,
+   "warmup": false,
+   "fold_s": 20.837,
+   "plddt": 0.842515,
+   "metrics": {
+    "confidence_score": 0.797816,
+    "ptm": 0.619022,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.842515,
+    "complex_iplddt": 0.842515,
+    "complex_pde": 0.642883,
+    "complex_ipde": 0.0,
+    "plddt": 0.842515
+   },
+   "cif_sha256": "0fabd8bb2cf5c8a58df4a9bf1b73d515983765127560b8e9e7ab3ffdb991f155",
+   "loadavg1": 2.93
+  },
+  {
+   "i": 11,
+   "warmup": false,
+   "fold_s": 21.477,
+   "plddt": 0.865625,
+   "metrics": {
+    "confidence_score": 0.81977,
+    "ptm": 0.636349,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.865625,
+    "complex_iplddt": 0.865625,
+    "complex_pde": 0.601211,
+    "complex_ipde": 0.0,
+    "plddt": 0.865625
+   },
+   "cif_sha256": "014344b668ebca7c477e847ef6ea9a51d98f35e8f06a32aa5f3e79035da72458",
+   "loadavg1": 2.74
+  }
+ ],
+ "n": 10,
+ "fold_s_sorted": [
+  20.837,
+  20.964,
+  21.147,
+  21.221,
+  21.477,
+  21.567,
+  21.628,
+  21.672,
+  21.702,
+  21.746
+ ],
+ "median_fold_s": 21.522,
+ "min_fold_s": 20.837,
+ "max_fold_s": 21.746,
+ "spread_pct": 4.36,
+ "cif_sha256_16": [
+  "014344b668ebca7c",
+  "0fabd8bb2cf5c8a5",
+  "2735d14a7deab0fa",
+  "2b7a0a5fc30acc1b",
+  "45781db716ebf020",
+  "8d5927b33eaa8607",
+  "dc1fe181ada7af5b"
+ ],
+ "one_digest": false,
+ "plddt": [
+  0.842515,
+  0.843419,
+  0.845736,
+  0.845919,
+  0.847197,
+  0.84835,
+  0.865625
+ ],
+ "vs": {
+  "closing_md_20.113": 0.93453,
+  "perf_page_17.340": 0.80569,
+  "h200_7.538_whole_fold": 2.8551
+ }
+}
