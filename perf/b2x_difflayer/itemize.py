@@ -116,8 +116,9 @@ def itemize(call):
         for c in (by_counter[b].get("connections") or []):
             if by_counter.get(c, {}).get("node_type") == "tensor":
                 tensor_of_buffer[b].append(c)
-    consumers = {}
-    for b, tens in tensor_of_buffer.items():
+    consumers, internal_consumers = {}, {}
+    for b in buf_size:
+        tens = tensor_of_buffer[b]
         ops_seen = set()
         for t in tens:
             for c in (by_counter[t].get("connections") or []):
@@ -125,8 +126,22 @@ def itemize(call):
                 if o is not None:
                     ops_seen.add(o)
         # the allocating op is a writer, not a reader
+        internal_consumers[b] = sorted({
+            c for t in tens for c in (by_counter[t].get("connections") or [])
+            if owner.get(c) == buf_alloc_op.get(b)
+            and by_counter.get(c, {}).get("node_type") == "function_start"
+        }) if buf_alloc_op.get(b) is not None else []
         ops_seen.discard(buf_alloc_op.get(b))
         consumers[b] = sorted(ops_seen)
+
+    # A tensor temporary freed inside its allocating op is not a returned output,
+    # even when the capture omits its internal reader.
+    internal_dealloc = set()
+    for n in nodes:
+        if n["node_type"] == "buffer_deallocate":
+            for b in n.get("connections") or []:
+                if buf_alloc_op.get(b) is not None and owner.get(n["counter"]) == buf_alloc_op[b]:
+                    internal_dealloc.add(b)
 
     rows = []
     for b, size in buf_size.items():
@@ -137,8 +152,24 @@ def itemize(call):
             "n_consumers": len(consumers[b]),
             "consumers": consumers[b],
             "consumer_names": [ops[i]["name"] for i in consumers[b]],
+            "tensor_nodes": tensor_of_buffer[b],
+            "internal_consumers": internal_consumers.get(b, []),
+            "deallocated_in_alloc_op": b in internal_dealloc,
         })
     return ops, rows
+
+
+def is_terminal_tensor_output(row, readers):
+    """A graph-visible allocated tensor with no observed data reader.
+
+    Metadata aliases do not add reads: callers supply their filtered reader list.
+    Preserve the scratch estimate for opaque buffers, tensors consumed within the
+    allocating op, and temporaries freed there. Absence of a graph edge cannot
+    establish exact physical traffic; this only removes an invented output read.
+    """
+    return (row["alloc_op_i"] is not None and bool(row["tensor_nodes"])
+            and not readers and not row["internal_consumers"]
+            and not row["deallocated_in_alloc_op"])
 
 
 def main():
