@@ -320,9 +320,20 @@ class Capture:
             self.stream.close()
             raise
 
+    def dispatch_counter(self):
+        # Source-audited getter reads the host counter; it does not open/query a device.
+        native = getattr(self.binding, '_ttnn', None)
+        getter = getattr(native, 'get_device_operation_id', None)
+        if getter is None:
+            return missing('native device-operation counter getter unavailable')
+        try:
+            return int(getter())
+        except Exception as exc:
+            return missing('native counter getter failed: ' + type(exc).__name__)
+
     def finish_call(self, seq, outcome, value_type):
         try:
-            self.emit({'kind': 'outcome', 'sequence': seq, 'outcome': outcome, 'type': value_type})
+            self.emit({'kind': 'outcome', 'sequence': seq, 'outcome': outcome, 'type': value_type, 'device_operation_counter_after': self.dispatch_counter()})
         except Exception as exc:
             self.error('outcome', exc)
 
