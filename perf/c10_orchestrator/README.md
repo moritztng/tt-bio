@@ -92,3 +92,27 @@ It does not establish that the capture contains every dispatched program, that
 core clocks are synchronized, or that the capture boundaries cover a complete
 fold. Clock samples and a profiler-perturbation control are still required. The
 importer has only synthetic CPU validation; no new device result is supplied.
+
+The archived accuracy reference can also be checked without a device:
+
+```sh
+python3 perf/c10_orchestrator/audit_accuracy.py --out reference_spread.json
+```
+
+This replays the existing fp32 upstream seed-0–3 CIFs, verifies atom identity and
+fixture size, and checks the float64 Kabsch results against the archived scorer.
+It preserves each CIF hash. Across six seed pairs, worst-domain all-atom RMSD is
+0.80128 Å mean (0.74099–0.84656 Å) at 298 residues and 1.66454 Å mean
+(0.94540–2.29123 Å) at 512 residues. These reproduce the
+[existing reference evidence](../k10_anchor/FINDINGS.md); they are not new folds
+or a measurement of current TT accuracy.
+
+Different-seed spread, same-seed A/A repeatability and baseline-to-stack movement
+are separate quantities. Keep the campaign's 512-residue 0.60 Å bar and quoted
+1.84 Å seed floor explicit; this replay neither changes that bar nor supplies a
+new stack verdict. The 298-residue control has its own documented
+[0.35 Å all-atom convention](../../docs/implementation-parity.md), so report the
+metric as well as the threshold. CA and all-atom RMSD are not interchangeable.
+A float64 coordinate scorer is also not a float64 model reference: mathematical
+transforms still need independent float64 controls. Compare a new stack as one
+stack, with its own paired baseline/A/A folds and both fixture sizes.
