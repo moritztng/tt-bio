@@ -2736,6 +2736,14 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. 1024 is excluded by the strict `>`, so the cap's own rung is the last one the stock ladder keeps."
               }
             },
             "512": {
@@ -3006,6 +3014,14 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired."
               }
             },
             "256": {
@@ -3289,6 +3305,14 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. The first rung is 4x below the cap."
               }
             },
             "896": {
@@ -3563,6 +3587,14 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired."
               }
             },
             "640": {
@@ -3833,6 +3865,14 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired."
               }
             },
             "768": {
@@ -4107,6 +4147,14 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired."
               }
             }
           },
@@ -4135,6 +4183,9 @@
             "640->768": 1.744,
             "768->896": 2.344,
             "896->1024": 1.587
+          },
+          "levers_added": {
+            "SDPA_FUSED_LARGE_S": "2026-09-16 tt-quietbox2 169fc25dc"
           }
         }
       }
