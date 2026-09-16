@@ -13,7 +13,7 @@ Warm folds only in the summary; the cold ones are kept in the record and exclude
 from __future__ import annotations
 
 import argparse, hashlib, importlib.util, json, os, shutil, socket, statistics as st
-import sys, tempfile, time
+import sys, tempfile, threading, time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -26,6 +26,51 @@ _spec.loader.exec_module(LEV)
 FIX = REPO / "perf" / "size512" / "fixtures"
 OUT: dict = {}
 OUT_PATH: Path | None = None
+
+
+class ClockSampler(threading.Thread):
+    """The card ARC clock, sampled from sysfs at 5 Hz while a fold runs.
+
+    This box reads the same fixture at 21.5 s and at 15.2 s on the same card, the same tree and
+    the same protocol, and the campaign attributed that swing to a host co-tenant. The ARC
+    governor is the better suspect: a 200-step fold blocks on ~200 host syncs, so the chip idles
+    between them and AICLK falls back to its 800 MHz base. Nothing here opens the device, so the
+    probe cannot be the contention it measures.
+    """
+
+    ROOT = Path("/sys/class/tenstorrent")
+
+    def __init__(self, card):
+        super().__init__(daemon=True)
+        self.card, self.stop = card, threading.Event()
+        self.aiclk, self.power = [], []
+
+    def run(self):
+        clk = self.ROOT / self.card / "tt_aiclk"
+        pw = next(iter((self.ROOT / self.card).glob("device/hwmon/hwmon*/power1_input")), None)
+        while not self.stop.wait(0.2):
+            try:
+                v = int(clk.read_text().strip())
+                if v < 3000:
+                    self.aiclk.append(v)
+            except (OSError, ValueError):
+                pass
+            if pw is not None:
+                try:
+                    self.power.append(int(pw.read_text().strip()))
+                except (OSError, ValueError):
+                    pass
+
+    def take(self):
+        a, w = self.aiclk[:], self.power[:]
+        self.aiclk.clear()
+        self.power.clear()
+        if not a:
+            return {}
+        return {"aiclk_mean": round(sum(a) / len(a), 1), "aiclk_max": max(a),
+                "aiclk_frac_boost": round(sum(1 for x in a if x > 900) / len(a), 3),
+                "aiclk_n": len(a),
+                "power_w_mean": round(sum(w) / len(w) / 1e6, 1) if w else None}
 
 
 def dump():
@@ -110,6 +155,9 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--recycles", type=int, default=3)
     ap.add_argument("--fixture", default="cdk2x2_512")
+    ap.add_argument("--clock", default=None,
+                    help="card directory under /sys/class/tenstorrent whose AICLK is sampled "
+                         "while folding; nothing here opens the device")
     ap.add_argument("--allow-cotenant", action="store_true",
                     help="measure anyway with a foreign device holder on the box; the record "
                          "keeps the holder list per fold and the number is not publishable")
@@ -159,6 +207,10 @@ def main() -> int:
     state.load_model(cfg)
     state.bind_run("b2z2-wave2-cell-recheck", cfg)
 
+    clk = ClockSampler(args.clock) if args.clock else None
+    if clk:
+        clk.start()
+
     def fold(i: int, warm: bool) -> dict:
         for p in struct_dir.glob("*"):
             p.unlink() if p.is_file() else shutil.rmtree(p)
@@ -167,6 +219,7 @@ def main() -> int:
         metrics, _b, _f = state.predict_one(FIX / f"{args.fixture}.yaml", cfg)
         ttnn.synchronize_device(dev)
         wall = time.perf_counter() - t0
+        clock = clk.take() if clk else {}
         cifs = sorted(struct_dir.glob("*.cif"))
         assert cifs, "no CIF written"
         return {"i": i, "warmup": warm, "fold_s": round(wall, 3),
@@ -174,7 +227,7 @@ def main() -> int:
                 "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
                 "metrics": {k: v for k, v in metrics.items() if isinstance(v, (int, float))},
                 "cif_sha256": hashlib.sha256(cifs[0].read_bytes()).hexdigest(),
-                "loadavg1": round(os.getloadavg()[0], 2)}
+                "loadavg1": round(os.getloadavg()[0], 2), **clock}
 
     runs = []
     for i in range(args.warm + args.reps):
@@ -182,8 +235,9 @@ def main() -> int:
         r = fold(i, warm)
         runs.append(r)
         tag = "warm" if warm else "fold"
-        print("  {} {:<3d} {:7.3f}s plddt={} load={} cif {}".format(
-            tag, i, r["fold_s"], r["plddt"], r["loadavg1"], r["cif_sha256"][:16]), flush=True)
+        print("  {} {:<3d} {:7.3f}s plddt={} load={} aiclk={} boost={} cif {}".format(
+            tag, i, r["fold_s"], r["plddt"], r["loadavg1"], r.get("aiclk_mean"),
+            r.get("aiclk_frac_boost"), r["cif_sha256"][:16]), flush=True)
         OUT["runs"] = runs
         dump()
 
@@ -199,6 +253,10 @@ def main() -> int:
     OUT["cif_sha256_16"] = shas
     OUT["one_digest"] = len(shas) == 1
     OUT["plddt"] = plddts
+    clocks = [r["aiclk_mean"] for r in runs if not r["warmup"] and "aiclk_mean" in r]
+    if clocks:
+        OUT["aiclk_mean_over_timed_folds"] = round(sum(clocks) / len(clocks), 1)
+        OUT["aiclk_mean_per_fold"] = clocks
     OUT["cotenanted_folds"] = sum(1 for r in runs if not r["warmup"] and r["foreign_tt"])
     OUT["clean_session"] = OUT["cotenanted_folds"] == 0
     OUT["vs"] = {
