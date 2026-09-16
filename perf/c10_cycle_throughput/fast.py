@@ -7,9 +7,16 @@ verification and publication are imported from that accepted module, not reimple
 
 Two changes carry the speed. The raw CSV is parsed once instead of twice, and a
 recognized firmware bracket marker is retained as integer endpoints on the core entry
-that already exists instead of as one verbatim JSON row copy. The accepted span
-arithmetic is the accepted reducer itself: reduce_census.span is called on the same
-structure analyze.read_raw builds, so no cycle arithmetic is re-derived here.
+that already exists instead of as one verbatim JSON row copy. In reduce_chunk_python
+the accepted span arithmetic is the accepted reducer itself: reduce_census.span is
+called on the same structure analyze.read_raw builds, so no cycle arithmetic is
+re-derived there.
+
+reduce.c is a native accelerator for the same contract, used when the chunk is plain
+quote-free ASCII, which is what the profiler emits. It refuses anything else and
+reduce_chunk_python runs instead, so the Python reducer is both the reference the
+native payload is compared against and the fallback. Measured on pc, the pure-Python
+reducer runs 26 MB/s and the native one 240 MB/s on the same archives.
 """
 from __future__ import annotations
 
@@ -29,13 +36,22 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'c10_cycle_stream'))
 from stream import (DEFAULTS, FIELDS, ROOT, RISCS, ZONES, Output, file_sha256, integer,
-                    peak_rss_kib, span, unchanged, verify_chunk)
+                    peak_rss_kib, read_raw, span, unchanged, verify_chunk)
 
+NATIVE_SOURCE = Path(__file__).resolve().parent / 'reduce.c'
+BUILD_DIR = Path(__file__).resolve().parent / '.build'
+CC = os.environ.get('CC', 'cc')
 HEADER_PREFIX = 'ARCH: blackhole, CHIP_FREQ[MHz]: 1350,'
 BRACKET = ('ZONE_START', 'ZONE_END')
 # The five columns a firmware bracket row carries beyond identity, core and tick.
 CONSTANT_COLUMNS = ('timer_id', 'data', 'source line', 'source file', 'meta data')
 DIGITS = re.compile('[0-9]+')
+RETENTION_CONTRACT = (
+    'Every raw row is either reduced into the accepted span arithmetic, retained as '
+    'integer firmware endpoints on its core entry plus the constant_fields payload of '
+    'its marker combo, or copied verbatim. The raw input is never deleted and its '
+    'SHA256/byte/row receipt is in this footer, so any formatting this archive drops '
+    'is recoverable from that input.')
 
 
 def scan(path, limits):
@@ -73,7 +89,7 @@ def scan(path, limits):
 
 
 def append_chunk(raw_path, output_dir, *, chunk_id, counter_scope, expected_bytes,
-                 expected_sha256, compact_firmware=True, **limits):
+                 expected_sha256, compact_firmware=True, native=True, **limits):
     """Reduce in a memory-limited child; return only after immutable output is fsynced.
 
     Caller owns closing/retaining raw_path and supplying the drain's byte/hash receipt.
@@ -87,14 +103,14 @@ def append_chunk(raw_path, output_dir, *, chunk_id, counter_scope, expected_byte
            '--expected-bytes', str(expected_bytes), '--expected-sha256', expected_sha256]
     if not compact_firmware:
         cmd.append('--no-compact-firmware')
+    if not native:
+        cmd.append('--pure-python')
     for name, value in limits.items():
         cmd += ['--' + name.replace('_', '-'), str(value)]
     return json.loads(subprocess.check_output(cmd, text=True))
 
 
-def reduce_chunk(raw_path, output_dir, *, chunk_id, counter_scope, expected_bytes,
-                 expected_sha256, limits, compact_firmware=True):
-    """Worker implementation. Use append_chunk to isolate the address-space limit."""
+def check_request(chunk_id, counter_scope, expected_bytes, expected_sha256, limits):
     if not re.fullmatch(r'[a-zA-Z0-9_.-]{1,100}', chunk_id) or chunk_id in ('.', '..'):
         raise ValueError('Invalid chunk_id')
     if not counter_scope or len(counter_scope) > 256:
@@ -105,6 +121,9 @@ def reduce_chunk(raw_path, output_dir, *, chunk_id, counter_scope, expected_byte
         raise ValueError('Limits must be positive')
     if expected_bytes > limits['max_raw_bytes']:
         raise ValueError('max_raw_bytes exceeded by receipt')
+
+
+def open_target(raw_path, output_dir, chunk_id, limits):
     raw_path, output_dir = Path(raw_path), Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     final = output_dir / (chunk_id + '.jsonl.gz')
@@ -113,7 +132,28 @@ def reduce_chunk(raw_path, output_dir, *, chunk_id, counter_scope, expected_byte
     input_stat = raw_path.stat()
     if input_stat.st_size > limits['max_raw_bytes']:
         raise ValueError('Stored input exceeds max_raw_bytes')
+    return raw_path, output_dir, final, input_stat
 
+
+def publish(out, final, output_dir, limits):
+    """Verify the closed archive, fsync it and link it in without overwriting."""
+    out.close()
+    verify_chunk(out.path, max_output_bytes=limits['max_output_bytes'])
+    with out.path.open('rb') as f:
+        os.fsync(f.fileno())
+    os.link(out.path, final)
+    fd = os.open(output_dir, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def reduce_chunk_python(raw_path, output_dir, *, chunk_id, counter_scope, expected_bytes,
+                        expected_sha256, limits, compact_firmware=True):
+    """Reference reducer. Use append_chunk to isolate the address-space limit."""
+    check_request(chunk_id, counter_scope, expected_bytes, expected_sha256, limits)
+    raw_path, output_dir, final, input_stat = open_target(raw_path, output_dir, chunk_id, limits)
     raw_sha256, raw_bytes, raw_lines, ascii_only = scan(raw_path, limits)
     if raw_bytes != expected_bytes or raw_sha256 != expected_sha256:
         raise ValueError('Raw byte/hash receipt mismatch')
@@ -307,6 +347,7 @@ def reduce_chunk(raw_path, output_dir, *, chunk_id, counter_scope, expected_byte
                              summary=summary, cores=cores))
 
             footer = dict(kind='complete', chunk_id=chunk_id, counter_scope=counter_scope,
+                          header=header,
                           raw_sha256=raw_sha256, raw_bytes=raw_bytes, raw_rows=rows,
                           stored_input_sha256=file_sha256(raw_path), stored_input_bytes=input_stat.st_size,
                           reducer_sha256={str(p.relative_to(ROOT)): file_sha256(p) for p in
@@ -322,45 +363,26 @@ def reduce_chunk(raw_path, output_dir, *, chunk_id, counter_scope, expected_byte
                           firmware_bracket_pairs=firmware_pairs,
                           firmware_bracket_conflicts=firmware_conflicts,
                           firmware_rows_retained_verbatim=firmware_deviations,
-                          retention_contract=(
-                              'Every raw row is either reduced into the accepted span arithmetic, '
-                              'retained as integer firmware endpoints on its core entry plus the '
-                              'constant_fields payload of its marker combo, or copied verbatim. '
-                              'The raw input is never deleted and its SHA256/byte/row receipt is '
-                              'in this footer, so any discarded formatting is recoverable from it.'),
+                          retention_contract=RETENTION_CONTRACT,
                           counter_ranges=[dict(device=int(d), trace=t or None, replay=p or None,
                                                min_call_id=int(v[0]), max_call_id=int(v[1]),
                                                min_tick=v[2], max_tick=v[3])
                                           for (d, t, p), v in sorted(ranges.items(), key=lambda kv: (int(kv[0][0]), kv[0][1], kv[0][2]))],
-                          marker_coverage=[dict(risc=r, zone=z, type=k, rows=n,
-                                                arithmetic=('kernel_endpoint' if z.endswith('-KERNEL') and r in RISCS else
-                                                            'zone_sum' if k == 'ZONE_TOTAL' and r in RISCS else 'unreduced'),
-                                                retention=('span_arithmetic' if (z.endswith('-KERNEL') or k == 'ZONE_TOTAL') and r in RISCS
-                                                           else 'firmware_endpoints' if compact_firmware and z.endswith('-FW') and k in BRACKET and r in RISCS
-                                                           else 'verbatim_record'),
-                                                constant_fields=(dict(zip(CONSTANT_COLUMNS, payloads[r, z, k]))
-                                                                 if compact_firmware and z.endswith('-FW') and k in BRACKET
-                                                                 and r in RISCS and payloads[r, z, k] else None),
-                                                known_zone=z in (*ZONES, 'CB-COMPUTE-WAIT-FRONT', 'CB-COMPUTE-RESERVE-BACK'))
-                                           for (r, z, k), n in sorted(coverage.items())],
+                          marker_coverage=[
+                              marker_entry(r, z, k, n,
+                                           payloads[r, z, k] if compact_firmware and z.endswith('-FW')
+                                           and k in BRACKET and r in RISCS else None,
+                                           compact_firmware)
+                              for (r, z, k), n in sorted(coverage.items())],
                           peak_rss_kib=peak_rss_kib(),
                           rss_basis='Linux post-exec VmHWM, KiB',
                           rusage_maxrss_including_preexec_kib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
             if not unchanged(raw_path, input_stat):
                 raise ValueError('Input changed during provenance hashing')
             out.put(footer, footer=True)
-            out.close()
-            verify_chunk(out.path, max_output_bytes=limits['max_output_bytes'])
-            with out.path.open('rb') as f:
-                os.fsync(f.fileno())
             # Atomic no-overwrite publication, including concurrent chunk-ID collision.
-            os.link(out.path, final)
-            fd = os.open(output_dir, os.O_RDONLY | os.O_DIRECTORY)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
-            return dict(path=str(final.resolve()), raw_rows=rows, programs=len(identities),
+            publish(out, final, output_dir, limits)
+            return dict(path=str(final.resolve()), reducer='python', raw_rows=rows, programs=len(identities),
                         raw_bytes=raw_bytes, output_bytes=out.bytes,
                         archive_bytes=final.stat().st_size, peak_rss_kib=peak_rss_kib(),
                         firmware_bracket_pairs=firmware_pairs,
@@ -373,6 +395,200 @@ def reduce_chunk(raw_path, output_dir, *, chunk_id, counter_scope, expected_byte
                 out.stored.close()
 
 
+class BlockOutput(Output):
+    """Frame a native payload in blocks: hash, count records and cap bytes in bulk.
+
+    The per-record work the accepted Output.put does is exactly what the payload
+    size makes expensive, and all of it is bulk arithmetic over the same bytes.
+    verify_chunk re-reads the closed archive record by record either way.
+    """
+
+    def __init__(self, path, limits):
+        super().__init__(path, limits)
+        self.partial = 0
+
+    def put_block(self, data, max_record_bytes=16 * 1024**2):
+        if self.bytes + len(data) > self.limits['max_output_bytes']:
+            raise ValueError('max_output_bytes exceeded')
+        pieces = data.split(b'\n')
+        if self.partial + len(pieces[0]) > max_record_bytes:
+            raise ValueError('16 MiB output record limit exceeded')
+        if max(map(len, pieces[1:-1]), default=0) > max_record_bytes:
+            raise ValueError('16 MiB output record limit exceeded')
+        self.partial = len(pieces[-1]) if len(pieces) > 1 else self.partial + len(pieces[0])
+        self.file.write(data)
+        self.hash.update(data)
+        self.records += len(pieces) - 1
+        self.bytes += len(data)
+
+
+def native_binary():
+    """Compile reduce.c on demand; the cache key is the source digest."""
+    source = NATIVE_SOURCE.read_bytes()
+    digest = hashlib.sha256(source).hexdigest()
+    binary = BUILD_DIR / ('reduce-' + digest[:16])
+    if not binary.exists():
+        BUILD_DIR.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=BUILD_DIR) as work:
+            staged = Path(work) / 'reduce'
+            subprocess.run([CC, '-O2', '-Wall', '-Wextra', '-o', str(staged), str(NATIVE_SOURCE),
+                            '-lz', '-lcrypto'], check=True)
+            os.replace(staged, binary)
+    return binary, digest
+
+
+UNSUPPORTED_INPUT = 3
+
+
+def reduce_chunk_native(raw_path, output_dir, *, chunk_id, counter_scope, expected_bytes,
+                        expected_sha256, limits, compact_firmware=True):
+    """Frame the native payload. Returns None when reduce.c refuses the input shape."""
+    check_request(chunk_id, counter_scope, expected_bytes, expected_sha256, limits)
+    raw_path, output_dir, final, input_stat = open_target(raw_path, output_dir, chunk_id, limits)
+    binary, source_digest = native_binary()
+    with tempfile.TemporaryDirectory(prefix='.throughput-', dir=output_dir) as scratch:
+        stats_path = Path(scratch) / 'stats.json'
+        cmd = [str(binary), str(raw_path), '--stats-path', str(stats_path),
+               '--max-rows', str(limits['max_rows']), '--max-operations', str(limits['max_operations']),
+               '--max-core-riscs', str(limits['max_core_riscs']), '--max-markers', str(limits['max_markers']),
+               '--max-line-bytes', str(limits['max_line_bytes']), '--max-raw-bytes', str(limits['max_raw_bytes'])]
+        if not compact_firmware:
+            cmd.append('--no-compact-firmware')
+        out = BlockOutput(Path(scratch) / 'chunk.gz', limits)
+        before = resource.getrusage(resource.RUSAGE_CHILDREN)
+        try:
+            child = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # The payload streams first: the chunk record carries the profiler header,
+            # which reduce.c reports in its stats only once the input has been read.
+            # Record order inside the archive is not load-bearing; every record is
+            # self-describing and verify_chunk reads to the footer either way.
+            while True:
+                block = child.stdout.read(1 << 20)
+                if not block:
+                    break
+                out.put_block(block)
+            child.stdout.close()
+            message = child.stderr.read().decode('utf-8', 'replace').strip()
+            child.stderr.close()
+            if child.wait() == UNSUPPORTED_INPUT:
+                return None
+            if child.returncode:
+                raise ValueError(f'native reducer exit {child.returncode}: {message}')
+            if out.partial:
+                raise ValueError('native payload does not end on a record boundary')
+            stats = json.loads(stats_path.read_text())
+            if not unchanged(raw_path, input_stat):
+                raise ValueError('Input changed during reduction')
+            if stats['raw_bytes'] != expected_bytes or stats['raw_sha256'] != expected_sha256:
+                raise ValueError('Raw byte/hash receipt mismatch')
+            if stats['raw_rows'] > limits['max_rows']:
+                raise ValueError('max_rows exceeded')
+            if stats['raw_rows'] != sum(m['rows'] for m in stats['markers']):
+                raise ValueError('Marker coverage does not account for every raw row')
+            if out.records != stats['records']:
+                raise ValueError('Native record count disagrees with the framed payload')
+            if stats['programs'] > limits['max_operations'] or len(stats['markers']) > limits['max_markers']:
+                raise ValueError('Native reducer exceeded an identity/marker cap')
+            if stats['distinct_core_riscs'] > limits['max_core_riscs']:
+                raise ValueError('max_core_riscs exceeded')
+            if not stats['header'].startswith(HEADER_PREFIX):
+                raise ValueError('Unsupported profiler header')
+            out.put(dict(kind='chunk', schema=2, chunk_id=chunk_id, counter_scope=counter_scope,
+                         header=stats['header'], raw_fields=FIELDS, limits=limits,
+                         input_path=str(raw_path.resolve()), reducer='native',
+                         ascii_only_input=stats['ascii_only_input'],
+                         compact_firmware=bool(compact_firmware), clock_telemetry=None))
+            footer = build_footer(
+                stats, chunk_id=chunk_id, counter_scope=counter_scope, raw_path=raw_path,
+                input_stat=input_stat, out=out, limits=limits, compact_firmware=compact_firmware,
+                native=dict(source='perf/c10_cycle_throughput/reduce.c', source_sha256=source_digest,
+                            binary_sha256=file_sha256(binary)))
+            if not unchanged(raw_path, input_stat):
+                raise ValueError('Input changed during provenance hashing')
+            out.put(footer, footer=True)
+            publish(out, final, output_dir, limits)
+            usage = resource.getrusage(resource.RUSAGE_CHILDREN)
+            return dict(path=str(final.resolve()), reducer='native', raw_rows=stats['raw_rows'],
+                        programs=stats['programs'], raw_bytes=stats['raw_bytes'],
+                        output_bytes=out.bytes, archive_bytes=final.stat().st_size,
+                        peak_rss_kib=peak_rss_kib(), native_peak_rss_kib=usage.ru_maxrss,
+                        native_cpu_s=(usage.ru_utime + usage.ru_stime
+                                      - before.ru_utime - before.ru_stime),
+                        firmware_bracket_pairs=stats['firmware_bracket_pairs'],
+                        firmware_rows_retained_verbatim=stats['firmware_rows_retained_verbatim'],
+                        firmware_bracket_conflicts=stats['firmware_bracket_conflicts'])
+        finally:
+            try:
+                out.file.close()
+            finally:
+                out.stored.close()
+
+
+def marker_entry(risc, zone, kind, rows, payload, compact_firmware):
+    """The stream child's arithmetic label, plus what this reducer did with the row."""
+    return dict(risc=risc, zone=zone, type=kind, rows=rows,
+                arithmetic=('kernel_endpoint' if zone.endswith('-KERNEL') and risc in RISCS else
+                            'zone_sum' if kind == 'ZONE_TOTAL' and risc in RISCS else 'unreduced'),
+                retention=('span_arithmetic' if (zone.endswith('-KERNEL') or kind == 'ZONE_TOTAL') and risc in RISCS
+                           else 'firmware_endpoints' if compact_firmware and zone.endswith('-FW')
+                           and kind in BRACKET and risc in RISCS else 'verbatim_record'),
+                constant_fields=dict(zip(CONSTANT_COLUMNS, payload)) if payload else None,
+                known_zone=zone in (*ZONES, 'CB-COMPUTE-WAIT-FRONT', 'CB-COMPUTE-RESERVE-BACK'))
+
+
+def build_footer(stats, *, chunk_id, counter_scope, raw_path, input_stat, out, limits,
+                 compact_firmware, native):
+    sources = [Path(__file__), ROOT / 'perf/c10_cycle_stream/stream.py',
+               ROOT / 'perf/c10_dm_control/analyze.py',
+               ROOT / 'perf/c10_burst_census/reduce_census.py']
+    return dict(kind='complete', chunk_id=chunk_id, counter_scope=counter_scope,
+                raw_sha256=stats['raw_sha256'], raw_bytes=stats['raw_bytes'],
+                raw_rows=stats['raw_rows'], stored_input_sha256=file_sha256(raw_path),
+                stored_input_bytes=input_stat.st_size,
+                reducer_sha256={str(p.relative_to(ROOT)): file_sha256(p) for p in sources},
+                native_reducer=native,
+                programs=stats['programs'], records=out.records,
+                programs_without_endpoints=stats['programs_without_endpoints'],
+                programs_with_unplaced_sums=stats['programs_with_unplaced_sums'],
+                unplaced_sum_markers=stats['unplaced_sum_markers'],
+                payload_sha256=out.hash.hexdigest(), payload_bytes=out.bytes,
+                call_transitions=stats['call_transitions'],
+                noncontiguous_returns=stats['noncontiguous_returns'],
+                compact_firmware=bool(compact_firmware),
+                firmware_bracket_pairs=stats['firmware_bracket_pairs'],
+                firmware_bracket_conflicts=stats['firmware_bracket_conflicts'],
+                firmware_rows_retained_verbatim=stats['firmware_rows_retained_verbatim'],
+                retention_contract=RETENTION_CONTRACT,
+                counter_ranges=sorted(stats['counter_ranges'],
+                                      key=lambda r: (r['device'], r['trace'] or '', r['replay'] or '')),
+                marker_coverage=sorted(
+                    (marker_entry(m['risc'], m['zone'], m['type'], m['rows'],
+                                  m['payload'] if m['route'] == 3 and m['payload_constant'] else None,
+                                  compact_firmware) for m in stats['markers']),
+                    key=lambda m: (m['risc'], m['zone'], m['type'])),
+                peak_rss_kib=peak_rss_kib(),
+                rss_basis='Linux post-exec VmHWM, KiB',
+                rusage_maxrss_including_preexec_kib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+                native_peak_rss_kib=resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss,
+                header=stats['header'])
+
+
+def reduce_chunk(raw_path, output_dir, *, chunk_id, counter_scope, expected_bytes,
+                 expected_sha256, limits, compact_firmware=True, native=True):
+    """Reduce one closed chunk, natively when the input shape allows it."""
+    if native:
+        result = reduce_chunk_native(
+            raw_path, output_dir, chunk_id=chunk_id, counter_scope=counter_scope,
+            expected_bytes=expected_bytes, expected_sha256=expected_sha256,
+            limits=limits, compact_firmware=compact_firmware)
+        if result is not None:
+            return result
+    return reduce_chunk_python(
+        raw_path, output_dir, chunk_id=chunk_id, counter_scope=counter_scope,
+        expected_bytes=expected_bytes, expected_sha256=expected_sha256,
+        limits=limits, compact_firmware=compact_firmware)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('raw_path', type=Path)
@@ -383,6 +599,8 @@ def main():
     ap.add_argument('--expected-sha256', required=True)
     ap.add_argument('--no-compact-firmware', dest='compact_firmware', action='store_false',
                     help='retain every firmware bracket row verbatim, as stream.py does')
+    ap.add_argument('--pure-python', dest='native', action='store_false',
+                    help='skip the native accelerator and run the reference reducer')
     for name, default in DEFAULTS.items():
         ap.add_argument('--' + name.replace('_', '-'), type=int, default=default)
     args = vars(ap.parse_args())

@@ -1,0 +1,23 @@
+{"case": "MSALayer_0", "MB_per_s": 136.02588710097217, "raw_bytes": 79192941, "programs": 233, "verbatim": 0, "stream_child": 200482}
+{"case": "PairformerLayer_0", "MB_per_s": 130.68535010710468, "raw_bytes": 51563054, "programs": 143, "verbatim": 0, "stream_child": 129704}
+{"case": "DiffusionModule_0", "MB_per_s": 144.08791277791852, "raw_bytes": 327094028, "programs": 1102, "verbatim": 0, "stream_child": 832086}
+{"case": "ConfidenceHeadsDevice_0", "MB_per_s": 68.6563043870559, "raw_bytes": 7724861, "programs": 24, "verbatim": 0, "stream_child": 19200}
+{"case": "stream_copy_0", "MB_per_s": 13.57524526459487, "raw_bytes": 796322, "programs": 10, "verbatim": 0, "stream_child": 1820}
+{"case": "stream_add_0", "MB_per_s": 23.574057217840714, "raw_bytes": 1697244, "programs": 10, "verbatim": 0, "stream_child": 4460}
+{"case": "dense_hifi4_0", "MB_per_s": 27.199191937038222, "raw_bytes": 1850553, "programs": 10, "verbatim": 0, "stream_child": 4460}
+{"case": "stream_copy_1", "MB_per_s": 14.1479395486696, "raw_bytes": 796313, "programs": 10, "verbatim": 0, "stream_child": 1820}
+{"case": "stream_add_1", "MB_per_s": 25.16587467976073, "raw_bytes": 1697249, "programs": 10, "verbatim": 0, "stream_child": 4460}
+{"case": "dense_hifi4_1", "MB_per_s": 28.04006485107428, "raw_bytes": 1850552, "programs": 10, "verbatim": 0, "stream_child": 4460}
+{"case": "stream_copy_2", "MB_per_s": 13.847238472164886, "raw_bytes": 796319, "programs": 10, "verbatim": 0, "stream_child": 1820}
+{"case": "stream_add_2", "MB_per_s": 25.376874456277726, "raw_bytes": 1697191, "programs": 10, "verbatim": 0, "stream_child": 4460}
+{"case": "dense_hifi4_2", "MB_per_s": 28.04553858860471, "raw_bytes": 1850570, "programs": 10, "verbatim": 0, "stream_child": 4460}
+{"case": "calibration", "MB_per_s": 139.3363945211466, "intervals": 7, "interval_ops": 241}
+{"identical_program_records": 1102, "identical_footer_fields": true, "native": {"wall_s": 2.269511805003276, "MB_per_s": 144.12528160413243, "peak_rss_kib": 22916, "native_peak_rss_kib": 113900, "archive_bytes": 18143054}, "python": {"wall_s": 12.384237424994353, "MB_per_s": 26.412125088933294, "peak_rss_kib": 758816, "archive_bytes": 18143156}, "case": "DiffusionModule_0"}
+{"repeat": 0, "wall_s": 2.2457495080016088, "MB_per_s": 145.6502725858621, "subtree_cpu_s": 2.243560000000002, "peak_rss_kib": 23952, "native_peak_rss_kib": 112468, "archive_bytes": 18143060, "output_bytes": 110029350, "raw_bytes": 327094028, "raw_rows": 2258392}
+{"repeat": 1, "wall_s": 2.2388566769950558, "MB_per_s": 146.09869017565626, "subtree_cpu_s": 2.2041579999999996, "peak_rss_kib": 24032, "native_peak_rss_kib": 114124, "archive_bytes": 18143052, "output_bytes": 110029350, "raw_bytes": 327094028, "raw_rows": 2258392}
+{"repeat": 2, "wall_s": 2.1657351340109017, "MB_per_s": 151.0314086257759, "subtree_cpu_s": 2.1081949999999985, "peak_rss_kib": 24088, "native_peak_rss_kib": 114120, "archive_bytes": 18143051, "output_bytes": 110029350, "raw_bytes": 327094028, "raw_rows": 2258392}
+{"repeat": 3, "wall_s": 2.1935218310100026, "MB_per_s": 149.11820040988158, "subtree_cpu_s": 2.1355310000000003, "peak_rss_kib": 24056, "native_peak_rss_kib": 113024, "archive_bytes": 18143056, "output_bytes": 110029350, "raw_bytes": 327094028, "raw_rows": 2258392}
+{"repeat": 0, "wall_s": 12.638954238005681, "MB_per_s": 25.8798332394004, "subtree_cpu_s": 12.481905000000005, "peak_rss_kib": 758536, "native_peak_rss_kib": null, "archive_bytes": 18143151, "output_bytes": 110029072, "raw_bytes": 327094028, "raw_rows": 2258392}
+{"repeat": 1, "wall_s": 12.566346079023788, "MB_per_s": 26.02936652731517, "subtree_cpu_s": 12.524280999999995, "peak_rss_kib": 758540, "native_peak_rss_kib": null, "archive_bytes": 18143150, "output_bytes": 110029072, "raw_bytes": 327094028, "raw_rows": 2258392}
+{"verdict": "GO_CPU_PREREQUISITE_ONLY", "MB_per_s_from_slowest_wall": 145.6502725858621, "MB_per_s_from_slowest_serial_cpu": 145.79241384228624, "projected_full_drain_wall_s": 555.4124704800063, "projected_full_drain_serial_cpu_s": 554.8709675011677, "within_20_minute_budget": true}
+replay_report.json
