@@ -1,0 +1,92 @@
+{
+ "env": {
+  "started": "2026-09-16T04:13:52+0000",
+  "card": "2",
+  "host": "tt-quietbox2",
+  "size": 298,
+  "flag": "TT_BIO_DEVICE_CONF_HEADS",
+  "target": "perf/b2z2_confptm/fixtures/twochain_298.yaml",
+  "commit": "408e93d6e",
+  "recycling_steps": 3,
+  "sampling_steps": 200
+ },
+ "folds": [
+  {
+   "tag": "base_0",
+   "TT_BIO_DEVICE_CONF_HEADS": "0",
+   "wall_s": 14.0991,
+   "ptm": 0.966349,
+   "iptm": 0.918635,
+   "ligand_iptm": 0.918635,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.872703,
+   "complex_iplddt": 0.684024,
+   "complex_pde": 0.42448,
+   "complex_ipde": 0.925696
+  },
+  {
+   "tag": "base_1",
+   "TT_BIO_DEVICE_CONF_HEADS": "0",
+   "wall_s": 13.9878,
+   "ptm": 0.966349,
+   "iptm": 0.918635,
+   "ligand_iptm": 0.918635,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.872703,
+   "complex_iplddt": 0.684024,
+   "complex_pde": 0.42448,
+   "complex_ipde": 0.925696
+  },
+  {
+   "tag": "arm_0",
+   "TT_BIO_DEVICE_CONF_HEADS": "1",
+   "wall_s": 13.842,
+   "ptm": 0.961209,
+   "iptm": 0.916666,
+   "ligand_iptm": 0.916666,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.872703,
+   "complex_iplddt": 0.684024,
+   "complex_pde": 0.420496,
+   "complex_ipde": 0.924173
+  }
+ ],
+ "aa": {
+  "d_ptm": 0.0,
+  "d_iptm": 0.0,
+  "d_ligand_iptm": 0.0,
+  "d_protein_iptm": 0.0,
+  "d_complex_plddt": 0.0,
+  "d_complex_iplddt": 0.0,
+  "d_complex_pde": 0.0,
+  "d_complex_ipde": 0.0,
+  "pae_max_abs": 0.0,
+  "pae_mean_abs": 0.0,
+  "pae_mean_ref": 4.03058,
+  "pde_max_abs": 0.0,
+  "pde_mean_abs": 0.0,
+  "pde_mean_ref": 0.58365,
+  "plddt_max_abs": 0.0,
+  "plddt_mean_abs": 0.0,
+  "plddt_mean_ref": 0.872703
+ },
+ "arm": {
+  "d_ptm": -0.00514,
+  "d_iptm": -0.001969,
+  "d_ligand_iptm": -0.001969,
+  "d_protein_iptm": 0.0,
+  "d_complex_plddt": 0.0,
+  "d_complex_iplddt": 0.0,
+  "d_complex_pde": -0.003984,
+  "d_complex_ipde": -0.001523,
+  "pae_max_abs": 1.296728,
+  "pae_mean_abs": 0.041955,
+  "pae_mean_ref": 4.03058,
+  "pde_max_abs": 0.105126,
+  "pde_mean_abs": 0.004732,
+  "pde_mean_ref": 0.58365,
+  "plddt_max_abs": 0.0,
+  "plddt_mean_abs": 0.0,
+  "plddt_mean_ref": 0.872703
+ }
+}
