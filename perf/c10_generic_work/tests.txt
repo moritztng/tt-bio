@@ -1,0 +1,21 @@
+test_all_examples_remain_partial (test_reduce.Contracts.test_all_examples_remain_partial) ... ok
+test_archived_refusal_hash_and_identity (test_reduce.Contracts.test_archived_refusal_hash_and_identity) ... ok
+test_corrupt_archive_fails (test_reduce.Contracts.test_corrupt_archive_fails) ... ok
+test_dense_rectangular_flatten_counts (test_reduce.Contracts.test_dense_rectangular_flatten_counts) ... ok
+test_exact_total_cli_refuses (test_reduce.Contracts.test_exact_total_cli_refuses) ... ok
+test_float64_attention_reference (test_reduce.Contracts.test_float64_attention_reference) ... ok
+test_float64_matrix_reference_and_shared_transpose_broadcast (test_reduce.Contracts.test_float64_matrix_reference_and_shared_transpose_broadcast) ... ok
+test_gated_slices_rows_and_tail (test_reduce.Contracts.test_gated_slices_rows_and_tail) ... ok
+test_hash_tampering (test_reduce.Contracts.test_hash_tampering) ... ok
+test_matmul_padding_is_separate (test_reduce.Contracts.test_matmul_padding_is_separate) ... ok
+test_ownership_and_unsupported_family (test_reduce.Contracts.test_ownership_and_unsupported_family) ... ok
+test_reblock_permutation_reference_and_bytes (test_reduce.Contracts.test_reblock_permutation_reference_and_bytes) ... ok
+test_sdpa_fusions_do_not_charge_virtual_qkv (test_reduce.Contracts.test_sdpa_fusions_do_not_charge_virtual_qkv) ... ok
+test_sdpa_rectangular_and_broadcast (test_reduce.Contracts.test_sdpa_rectangular_and_broadcast) ... ok
+test_source_roles_flags_refuse_even_with_new_hash (test_reduce.Contracts.test_source_roles_flags_refuse_even_with_new_hash) ... ok
+test_unsupported_shapes_dtypes_and_aliases (test_reduce.Contracts.test_unsupported_shapes_dtypes_and_aliases) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.088s
+
+OK

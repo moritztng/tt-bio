@@ -1,0 +1,12 @@
+{
+  "matmul_on.jsonl": {
+    "commit": "5d8b761981dde4f0e3fbbf6fc13a5037bc252663",
+    "path": "perf/c10_burst_census/runs/smoke1/out/matmul_on.jsonl",
+    "sha256": "58da38cdc065b142270e125f1df3976713289089922080ec6462f3b5f477025d"
+  },
+  "reblock_on.jsonl": {
+    "commit": "5d8b761981dde4f0e3fbbf6fc13a5037bc252663",
+    "path": "perf/c10_burst_census/runs/smoke1/out/reblock_on.jsonl",
+    "sha256": "cbcd3658c0ff000356b6f3d3a7f9a9e57c1b8ca277e82fb2bc3238cc3dbfca2e"
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "bio_revision": "71a306a8a",
+  "external_provenance": {
+    "matmul": "embedded sources from archived smoke 5d8b761981dde4f0e3fbbf6fc13a5037bc252663; evidence/provenance.json",
+    "sdpa_writer": "read-only ssh qb2, hostname tt-quietbox2, /home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/transformer/sdpa/device/kernels/dataflow/writer_interleaved.cpp, 2026-09-16"
+  },
+  "families": {
+    "matmul": {
+      "function": "generic_minimal_matmul",
+      "sources": {
+        "perf/c10_generic_work/sources/matmul_compute.cpp": "08b3b7c9e4dd4d8d347a787c8cf3c3a38ef6e36105c5b0254614f72b61ecb2e1",
+        "perf/c10_generic_work/sources/matmul_in0.cpp": "7070e58e4956d25955e277dc18eae5596ee5fd621f026939ad35bd06ded6ab44",
+        "perf/c10_generic_work/sources/matmul_in1.cpp": "76f3b8cf024afec6436cf27df1896393278df903876e240ad9f32de44402ab2a",
+        "tt_bio/mm_generic.py": "a7426479c47f44a83623bfbfc15be24e8d6e9541c1f6b144819d3d9de5e22d51"
+      }
+    },
+    "reblock": {
+      "function": "reblock_permute",
+      "sources": {
+        "tt_bio/core_split.py": "4ba93059dbfb50971ca79a17fe5fcd78c76e67fb24fc3ba308366cd6ec3d6cc5",
+        "tt_bio/kernels/reblock_permute/compute_reblock_permute.cpp": "de7e334bd00c814705ff06e48de9665bac894db4d908c00fae2f5b40ff331297",
+        "tt_bio/kernels/reblock_permute/reader_reblock_permute.cpp": "19fa71ed500683c5a9484e9568d70bfeb529567c78cd635185544cb9907d688f",
+        "tt_bio/kernels/reblock_permute/writer_reblock_permute.cpp": "01db9b43df41088e2c646142d9070e89bc6c18caba66e782db5a4bb413776330",
+        "tt_bio/reblock_permute.py": "44e91eb8edcc8eb31f3c4a71bb52b5e6792551e77c4d7b63e0241f9cfdbc7565"
+      }
+    },
+    "reblock_back": {
+      "function": "reblock_permute_back",
+      "sources": {
+        "tt_bio/core_split.py": "4ba93059dbfb50971ca79a17fe5fcd78c76e67fb24fc3ba308366cd6ec3d6cc5",
+        "tt_bio/kernels/reblock_permute/compute_reblock_permute.cpp": "de7e334bd00c814705ff06e48de9665bac894db4d908c00fae2f5b40ff331297",
+        "tt_bio/kernels/reblock_permute_back/reader_reblock_permute_back.cpp": "724ad0a49678e9a2d8c51e5e0064d468f68655dcaa358e6598bd3cb08b3bbc97",
+        "tt_bio/kernels/reblock_permute_back/writer_reblock_permute_back.cpp": "ad9ea310abd03e7007f561b7565411cd5918719f5ee67cf3e20e301a27837600",
+        "tt_bio/reblock_permute.py": "44e91eb8edcc8eb31f3c4a71bb52b5e6792551e77c4d7b63e0241f9cfdbc7565"
+      }
+    },
+    "reblock_gated": {
+      "function": "reblock_permute_gated",
+      "sources": {
+        "tt_bio/core_split.py": "4ba93059dbfb50971ca79a17fe5fcd78c76e67fb24fc3ba308366cd6ec3d6cc5",
+        "tt_bio/kernels/reblock_permute_gated/compute_reblock_permute_gated.cpp": "5bccec4d0765fe3b1f73028f66e138d44eae39aa1417836795d810a0ece79194",
+        "tt_bio/kernels/reblock_permute_gated/reader_reblock_permute_gated.cpp": "e8c094806dd9a57567e6562e127237811d5879109f0f4745c1d445bafeb69596",
+        "tt_bio/kernels/reblock_permute_gated/writer_reblock_permute_gated.cpp": "85fcfbdfb34bfa2ceda2afe0346a6fe1df7fbdbd73de7c42f46b624554102898",
+        "tt_bio/reblock_permute.py": "44e91eb8edcc8eb31f3c4a71bb52b5e6792551e77c4d7b63e0241f9cfdbc7565"
+      }
+    },
+    "sdpa": {
+      "function": "sdpa",
+      "sources": {
+        "perf/c10_generic_work/sources/sdpa_writer.cpp": "fdb3303db1777fc7c548abb9ae1c6143d22883c5edb45cd65961ab6e6fcbc39d",
+        "tt_bio/kernels/triatt_sdpa/compute/compute_common.hpp": "3f2e3129420223796955dcd1448a7fc79907a792e5f55fbe20b7794432da91e0",
+        "tt_bio/kernels/triatt_sdpa/compute/compute_streaming.hpp": "58ed0bff0dfbb3ba0fd4b695dfadf1499763f4ed65bc5126b75aed0f923b720b",
+        "tt_bio/kernels/triatt_sdpa/compute/sdpa.cpp": "8bc8582ee5d6445faad98501c87c83a6bb7756b56b9b41715af93c45c4ac89d4",
+        "tt_bio/kernels/triatt_sdpa/dataflow/dataflow_common.hpp": "1f9e57e6a5f3cc505344fc8deab63a72a8576d45e74480278331ee776861f306",
+        "tt_bio/kernels/triatt_sdpa/dataflow/reader_interleaved.cpp": "7d447ae11018af612cbc74532cd38d115d98c8278f4795a155864e035a1d6628",
+        "tt_bio/sdpa_generic.py": "201010847b49fe12cb9bd73d5324e0a0bb5dd0b3733f7ea1d049e5b7728b0574"
+      }
+    },
+    "sdpa_fused_qkv": {
+      "function": "sdpa",
+      "sources": {
+        "perf/c10_generic_work/sources/sdpa_writer.cpp": "fdb3303db1777fc7c548abb9ae1c6143d22883c5edb45cd65961ab6e6fcbc39d",
+        "tt_bio/kernels/triatt_sdpa/compute/compute_common.hpp": "3f2e3129420223796955dcd1448a7fc79907a792e5f55fbe20b7794432da91e0",
+        "tt_bio/kernels/triatt_sdpa/compute/compute_streaming.hpp": "58ed0bff0dfbb3ba0fd4b695dfadf1499763f4ed65bc5126b75aed0f923b720b",
+        "tt_bio/kernels/triatt_sdpa/compute/sdpa.cpp": "8bc8582ee5d6445faad98501c87c83a6bb7756b56b9b41715af93c45c4ac89d4",
+        "tt_bio/kernels/triatt_sdpa/dataflow/dataflow_common.hpp": "1f9e57e6a5f3cc505344fc8deab63a72a8576d45e74480278331ee776861f306",
+        "tt_bio/kernels/triatt_sdpa/dataflow/reader_interleaved.cpp": "7d447ae11018af612cbc74532cd38d115d98c8278f4795a155864e035a1d6628",
+        "tt_bio/sdpa_generic.py": "201010847b49fe12cb9bd73d5324e0a0bb5dd0b3733f7ea1d049e5b7728b0574"
+      }
+    },
+    "sdpa_gated": {
+      "function": "sdpa",
+      "sources": {
+        "perf/c10_generic_work/sources/sdpa_writer.cpp": "fdb3303db1777fc7c548abb9ae1c6143d22883c5edb45cd65961ab6e6fcbc39d",
+        "tt_bio/kernels/triatt_sdpa/compute/compute_common.hpp": "3f2e3129420223796955dcd1448a7fc79907a792e5f55fbe20b7794432da91e0",
+        "tt_bio/kernels/triatt_sdpa/compute/compute_streaming.hpp": "58ed0bff0dfbb3ba0fd4b695dfadf1499763f4ed65bc5126b75aed0f923b720b",
+        "tt_bio/kernels/triatt_sdpa/compute/sdpa.cpp": "8bc8582ee5d6445faad98501c87c83a6bb7756b56b9b41715af93c45c4ac89d4",
+        "tt_bio/kernels/triatt_sdpa/dataflow/dataflow_common.hpp": "1f9e57e6a5f3cc505344fc8deab63a72a8576d45e74480278331ee776861f306",
+        "tt_bio/kernels/triatt_sdpa/dataflow/reader_interleaved.cpp": "7d447ae11018af612cbc74532cd38d115d98c8278f4795a155864e035a1d6628",
+        "tt_bio/sdpa_generic.py": "201010847b49fe12cb9bd73d5324e0a0bb5dd0b3733f7ea1d049e5b7728b0574"
+      }
+    }
+  },
+  "metal_source_context": "1452925b033c6608726b731a81500bd3e19f7894",
+  "schema": 1,
+  "source_basis": "file bytes only; includes/compiled/cache linkage not proven"
+}
