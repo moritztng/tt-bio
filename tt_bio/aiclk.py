@@ -36,6 +36,7 @@ import os
 import signal
 import struct
 import threading
+import time
 from pathlib import Path
 
 # _IO(TENSTORRENT_IOCTL_MAGIC, 17) -- tt-kmd owns the ARC message queue and multiplexes it over
@@ -99,11 +100,16 @@ class _Hold:
         # O_APPEND so that opening this fd does not itself emit the legacy "min AI clock"
         # aggregate that we are about to fight (`no_power_contrib`, chardev.c:1074).
         self.fds = {n: os.open(f"/dev/tenstorrent/{n}", os.O_RDWR | os.O_APPEND) for n in nodes}
-        self._apply(mhz)
+        try:
+            self._apply(mhz)
+        except BaseException:
+            self.release()
+            raise
         self.thread = threading.Thread(target=self._watch, name="tt-bio-aiclk", daemon=True)
         self.thread.start()
 
-    def _smc(self, fd: int, msg_type: int, *args: int) -> tuple:
+    def _smc(self, fd: int, msg_type: int, *args: int) -> int:
+        """POST the message then POLL for its response. Caller must hold `self.lock`."""
         msg = [msg_type] + list(args) + [0] * (7 - len(args))
         fcntl.ioctl(fd, _IOCTL_SMC_MSG, struct.pack(_LAYOUT, 48, _POST, 0, 0, *msg))
         buf = bytearray(struct.pack(_LAYOUT, 48, _POLL, 0, 0, *([0] * 8)))
@@ -112,7 +118,7 @@ class _Hold:
                 fcntl.ioctl(fd, _IOCTL_SMC_MSG, buf, True)
             except OSError as e:
                 if e.errno == 11:                  # EAGAIN: the response is not back yet
-                    self.stop.wait(0.005)
+                    time.sleep(0.005)
                     continue
                 raise
             status = struct.unpack(_LAYOUT, bytes(buf))[4] & 0xFF
@@ -131,7 +137,7 @@ class _Hold:
 
     def _watch(self) -> None:
         while not self.stop.wait(_POLL_S):
-            for node, fd in self.fds.items():
+            for node, fd in list(self.fds.items()):
                 try:
                     if _aiclk(node) >= self.mhz - _SAG_MHZ:
                         continue
@@ -148,13 +154,16 @@ class _Hold:
 
     def release(self) -> None:
         self.stop.set()
-        for node, fd in list(self.fds.items()):
-            try:
-                self._smc(fd, _FORCE_AICLK, 0)
-            except (OSError, TimeoutError):
-                pass
-            os.close(fd)
-        self.fds.clear()
+        # Take the lock so the watchdog cannot be mid-exchange on one of these fds; it drops the
+        # lock promptly once `stop` is set.
+        with self.lock:
+            for fd in self.fds.values():
+                try:
+                    self._smc(fd, _FORCE_AICLK, 0)
+                except (OSError, TimeoutError):
+                    pass
+                os.close(fd)
+            self.fds.clear()
 
 
 def _install_signal_release() -> None:
