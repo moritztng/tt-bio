@@ -1,0 +1,57 @@
+[
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/eltwise/binary_ng/device/kernels/compute/eltwise_binary_no_bcast.cpp",
+    "sha256": "5e15acc228ef33f5ecee840c3852e800e744d6282415272f2e177701bbd3bebd",
+    "bytes": 2005
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/eltwise/binary_ng/device/kernels_ng/dataflow/reader_interleaved_no_bcast.cpp",
+    "sha256": "cc705523801013e1b2a35ae40776a7d340f3220932f3906133492ae506dc5a9e",
+    "bytes": 6495
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/eltwise/binary_ng/device/kernels_ng/dataflow/writer_interleaved_no_bcast.cpp",
+    "sha256": "dc0cf65a7cea8b720c2335b67d8d7df28522aad042a10a1eb47d326c25a1b6d8",
+    "bytes": 3927
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/eltwise/unary/device/kernels/compute/eltwise_sfpu.cpp",
+    "sha256": "9d340c5478f4555d9a60ec8f7dad82ba60487c21f5342367a6c7d5962c7b15ba",
+    "bytes": 1471
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/eltwise/unary/device/kernels/dataflow/reader_unary_interleaved_start_id.cpp",
+    "sha256": "5af4a488495ed3fa46e41ca65d35dc1a4ac69663a473bc1571af5c46d0ba27e9",
+    "bytes": 1443
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/eltwise/unary/device/kernels/dataflow/writer_unary_interleaved_start_id.cpp",
+    "sha256": "c45d4cd8631c9ed3baf7e969c25450130c022a84643e0ef1d16e8e4f8f19fe31",
+    "bytes": 1455
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/matmul/device/kernels/compute/bmm_large_block_zm_fused_bias_activation.cpp",
+    "sha256": "653fa3530427f4a9e94ac721ef0f7c67002891ed71dbf1d62ff92c239ba4af89",
+    "bytes": 24585
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/matmul/device/kernels/dataflow/reader_bmm_tile_layout_in0_receiver.cpp",
+    "sha256": "2697fee6796a5dc761b12adb63d3fea89d7d27e1021487b2550f10054d55c322",
+    "bytes": 4007
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/matmul/device/kernels/dataflow/reader_bmm_tile_layout_in0_sender_padding.cpp",
+    "sha256": "ec54f9e77615f35ccd444b7947bbb137eb58a82749f01a0c2c473cd4777120ba",
+    "bytes": 20251
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/matmul/device/kernels/dataflow/reader_bmm_tile_layout_in1_receiver_writer_padding.cpp",
+    "sha256": "102142710d5d9db1706605d13b40f626d3fb55d9a2616684a5989477056ef37d",
+    "bytes": 11044
+  },
+  {
+    "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn/operations/matmul/device/kernels/dataflow/reader_bmm_tile_layout_in1_sender_writer_padding.cpp",
+    "sha256": "15e52a34bad837ccb99c1de0798df52f140890f39ad8cf0df12a722d8dfe6e63",
+    "bytes": 36418
+  }
+]

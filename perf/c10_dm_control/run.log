@@ -1,0 +1,25 @@
+benchlock: c10-dm-control acquired after 2s, loadavg 1.08 1.60 1.38
+2026-09-16 17:56:26.689 | INFO     | __main__:main:175 - Setting profiler artifacts folder to /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy
+2026-09-16 17:56:26.689 | WARNING  | __main__:main:293 - Skipping runtime analysis (C++ post-processing) due to conflicting options (--enable-sum-profiling). Falling back to legacy Python processing.
+2026-09-16 17:56:26.689 | INFO     | __main__:main:309 - Using port 8086
+2026-09-16 17:56:26.689 | INFO     | tracy:run_report_setup:88 - Verifying tracy profiling tools
+2026-09-16 17:56:26.695 | INFO     | __main__:main:374 - Test process started
+2026-09-16 17:56:27.269 | INFO     | __main__:main:175 - Setting profiler artifacts folder to /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy
+2026-09-16 17:56:27.270 | WARNING  | __main__:main:293 - Skipping runtime analysis (C++ post-processing) due to conflicting options (--enable-sum-profiling). Falling back to legacy Python processing.
+2026-09-16 17:56:27.500 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-09-16 17:56:30.074 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+2026-09-16 17:56:30.168 | WARNING  | ttnn.graph:begin_graph_capture:136 - Graph capture started with enable_fast_runtime_mode=true (fast dispatch). FastOperation records arguments, tensor IDs, and output tensor IDs, but does not produce per-operation captured sub-graphs. For full captured-graph detail, disable fast runtime mode via TTNN_CONFIG_OVERRIDES or ttnn.manage_config.
+{"verdict": "CAPTURED_ANALYSIS_REQUIRED", "intervals": 7}
+2026-09-16 17:56:33.897 | INFO     | tracy:generate_report:154 - Host side ops time report generated at /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy/.logs/tracy_ops_times.csv
+2026-09-16 17:56:33.933 | INFO     | tracy:generate_report:165 - Host side ops data report generated at /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy/.logs/tracy_ops_data.csv
+2026-09-16 17:56:33.934 | INFO     | tracy.process_ops_logs:import_tracy_op_logs:309 - Importing ops logs
+2026-09-16 17:56:34.455 | INFO     | tracy.perf_counter_analysis:get_device_op_data:327 - Getting device ops
+2026-09-16 17:56:34.455 | INFO     | tracy.process_ops_logs:append_device_data:1076 - Appending device data
+2026-09-16 17:56:34.455 | WARNING  | tracy.process_ops_logs:append_device_data:1094 - Device perf report cpp_device_perf_report.csv not found in /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy/.logs. Falling back to legacy device-log parsing via import_log_run_stats(); this will take longer.
+2026-09-16 17:56:38.747 | INFO     | tracy.process_device_log:core_to_device_timeseries:417 - Importing Data For Device Number : 0
+2026-09-16 17:56:55.214 | INFO     | tracy.process_ops_logs:generate_reports:1697 - OPs' perf analysis is finished! Generating reports ...
+2026-09-16 17:56:55.214 | INFO     | tracy.process_ops_logs:generate_reports:1715 - Copying runtime artifacts
+2026-09-16 17:56:55.238 | INFO     | tracy.process_ops_logs:generate_reports:1724 - Generating OPs CSV
+2026-09-16 17:56:55.271 | INFO     | tracy.process_ops_logs:generate_reports:2118 - OPs csv generated at: /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy/reports/2026_09_16_17_56_55/ops_perf_results_2026_09_16_17_56_55.csv
+benchlock: c10-dm-control released, rc=0, loadavg 1.44 1.64 1.40
