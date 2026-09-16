@@ -387,3 +387,72 @@ The lever's own evidence is unchanged and still good: 1.1856x at 1536 aa, byte-i
 298/512/768/1024 aa, UX PASS, 0 of 7 pytest reds attributable. What is still owed is rf3/1088, the
 1536 aa capacity cell, the timed perf arm and the 44-leg parity gate, all four of which the
 reordering above puts first on the next idle box.
+
+## Pass 7, 2026-09-16 16:02Z: idle box, hold cleared early, in-regime arm running
+
+`origin/main` @ `71a306a8a` re-confirmed on a fresh fetch to carry `d78f23757`, `793a2ebaa` and
+`095ae476c`; the branch contains all of main (`git rev-list --count HEAD..origin/main` = 0) and the
+flip is live at `tt_bio/tenstorrent.py:1834` against `False` on main.
+
+### The hold was cleared 17 minutes before its epoch, on evidence
+
+`gate6/PAUSE` held `1789575614` (16:20:14Z) to protect `b2z2-aiclk-default-decision`s forced-clock
+soak on card 1. That row finished and wrote its own cleanup: no soak or A/B process left, all four
+chips at 800 MHz, no lease files, card 1 free. Checked independently rather than believed: zero
+device processes on the host, four p300c boards enumerating, and `open_probe.sh 120 3` returning
+OPEN in 1.0 s at grid (x=11,y=10). A timed hold whose only reason has expired is not conservative,
+it is 17 minutes of an idle box thrown away on a box that has been idle for about 20 minutes total
+today.
+
+### The grant named a board the gate refuses to use
+
+`ladder_campaign.sh:19` built `TT_BIO_LEASE_CARDS="0,$CARD"`. Board 0 is the one the containment
+guard quarantined at 13:02Z and the one passes 5 and 6 ruled out, so every ladder arm was carrying
+permission for it while the gate ran elsewhere. Narrowed to `"$CARD"`, and both crontab lines from
+`GATE_LEASE_CARDS=0,3` to `3`. The crontab edit is a read-modify-write: `crontab -` rewrites the
+whole per-user file and silently drops sibling lines, which is what cut the aiclk soak short at
+15:18:24Z.
+
+### Main reds re-verified against the tip rather than recalled
+
+`perf/b2z2_layout/PER-SITE-TABLE.md` and `perf/b2z2_adaln_sdpa/chunks_wh_c12.json` are both
+`git cat-file -e` ABSENT on `origin/main` while `tt_bio/tenstorrent.py:800` and `:1133` cite them.
+`git ls-tree origin/main` still lists `artifacts` and `patches` at the root. Unchanged, still
+mains, still other owners.
+
+## Pass 7, 2026-09-16 16:02Z: idle box, hold cleared early, in-regime arm running
+
+`origin/main` @ `71a306a8a` re-confirmed on a fresh fetch to carry `d78f23757`, `793a2ebaa` and
+`095ae476c`; the branch contains all of main (`git rev-list --count HEAD..origin/main` = 0) and the
+flip is live at `tt_bio/tenstorrent.py:1834` against `False` on main.
+
+### The hold was cleared 17 minutes before its epoch, on evidence
+
+`gate6/PAUSE` held `1789575614` (16:20:14Z) to protect `b2z2-aiclk-default-decision`'s forced-clock
+soak on card 1. That row finished and wrote its own cleanup: no soak or A/B process left, all four
+chips at 800 MHz, no lease files, card 1 free. Checked independently rather than believed: zero
+device processes on the host, four p300c boards enumerating, and `open_probe.sh 120 3` returning
+OPEN in 1.0 s at grid (x=11,y=10). A timed hold whose only reason has expired is not conservative,
+it costs 17 minutes of an idle box, on a box that has been idle for about 20 minutes total today.
+
+### The grant named a board the gate refuses to use
+
+`ladder_campaign.sh:19` built `TT_BIO_LEASE_CARDS="0,$CARD"`. Board 0 is the one the containment
+guard quarantined at 13:02Z and the one passes 5 and 6 ruled out, so every ladder arm carried
+permission for it while the gate ran elsewhere. Narrowed to `"$CARD"`, and both crontab lines from
+`GATE_LEASE_CARDS=0,3` to `3`. The crontab edit is a read-modify-write: `crontab -` rewrites the
+whole per-user file and silently drops sibling lines, which is what cut the aiclk soak short at
+15:18:24Z.
+
+### Main reds re-verified against the tip rather than recalled
+
+`perf/b2z2_layout/PER-SITE-TABLE.md` and `perf/b2z2_adaln_sdpa/chunks_wh_c12.json` are both
+`git cat-file -e` ABSENT on `origin/main` while `tt_bio/tenstorrent.py:800` and `:1133` cite them.
+`git ls-tree origin/main` still lists `artifacts` and `patches` at the root. Unchanged, still
+main's, still other owners.
+
+### Box caveat
+
+An interactive `tt-smi` TUI (pid 9839, started 15:56:13Z from a login shell, blocked in `ep_poll`)
+holds read fds on all four device nodes. It does not block opens and the parity precheck only logs
+holders, so it is not a blocker, and it belongs to a human terminal so it was left alone.
