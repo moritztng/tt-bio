@@ -55,6 +55,8 @@ The device worker must first validate the installed binding's getters and runtim
 
 The first live smoke found that `CoreRange` exposes Python `start` and `end`
 properties, while its C++ members are named `start_coord` and `end_coord`.
+The [binding source record](controls/core_range_binding.json) retains the file
+hash and exact getter declarations.
 The observer now reads the Python properties for both descriptor snapshots and
 runtime enumeration. CPU controls cover native-only endpoint names, runtime
 rebinding and missing endpoints. A fresh live smoke must validate this repair;

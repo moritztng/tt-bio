@@ -1,0 +1,15 @@
+{
+  "scope": "Read-only binding source audit, no device or binary validation",
+  "path": "/home/ttuser/tt-metal-k10/ttnn/cpp/ttnn-nanobind/tensor.cpp",
+  "sha256": "7342f1e6a17b1cdf62ea35b98071247ffa903265bed8e81022ffa4280a766765",
+  "bindings": [
+    {
+      "line": 478,
+      "text": "        .def_ro(\"start\", &CoreRange::start_coord)"
+    },
+    {
+      "line": 479,
+      "text": "        .def_ro(\"end\", &CoreRange::end_coord)"
+    }
+  ]
+}
