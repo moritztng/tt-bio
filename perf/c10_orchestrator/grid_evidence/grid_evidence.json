@@ -1,0 +1,72 @@
+{
+  "scope": "CPU provenance read of committed artifacts. No device, no new timing.",
+  "the_ranked_claim": "triangle product 0.5932 ms on 32 cores against 1.2480 ms on 72",
+  "its_provenance": {
+    "file": "/home/moritz/.coworker/wt/c10-orchestrator/perf/roof_tri_arith/tri_close_whglx_wh.json",
+    "host": "j10glx02",
+    "arch": "Arch.WORMHOLE_B0",
+    "grid": [
+      8,
+      9
+    ],
+    "cores": 72,
+    "loadavg": [
+      "9.85",
+      "6.89",
+      "5.81"
+    ],
+    "recorded_clock": null,
+    "product_72_cores_ms": 1.2479790020734072,
+    "product_32_cores_ms": 0.5931705018156208,
+    "product_16_cores_ms": 0.871192998602055,
+    "product_win_32_over_72": 2.10391278435711
+  },
+  "the_same_sweep_moves_the_other_way_for_sdpa": {
+    "sdpa_72_cores_ms": 1.9023464992642403,
+    "sdpa_32_cores_ms": 2.585065994935576,
+    "sdpa_16_cores_ms": 5.084939002699684,
+    "sdpa_ratio_32_over_72": 1.3588828301970157,
+    "reading": "On the SAME Wormhole sweep, cutting the SDPA to 32 cores makes it 1.36x SLOWER while the product gets 2.10x faster. The lever is class-specific even within one architecture, so it is not 'use fewer cores'."
+  },
+  "what_blackhole_actually_has": {
+    "arch": "Arch.BLACKHOLE",
+    "grid": [
+      11,
+      10
+    ],
+    "card": "3",
+    "host": "tt-quietbox2",
+    "loadavg": [
+      4.583984375,
+      4.4150390625,
+      4.57421875
+    ],
+    "recorded_clock": null,
+    "core_count_sweep_exists": false,
+    "every_arm_ran_the_full_grid": true,
+    "trimul": {
+      "min_ms": 7.4903499998981715,
+      "median_ms": 9.53813700016326,
+      "TFLOPs_at_min": 11.468001618237835
+    },
+    "triatt": {
+      "min_ms": 3.811796999798389,
+      "median_ms": 4.189720999875135,
+      "TFLOPs_at_min": 29.8590489866118
+    },
+    "dense_cube_same_session": {
+      "min_ms": 2.033449999998993,
+      "median_ms": 2.989006000007066,
+      "TFLOPs_at_min": 67.58904987684382
+    },
+    "trimul_vs_cube_rate_ratio": 5.893707738003398,
+    "triatt_vs_cube_rate_ratio": 2.263603569797196
+  },
+  "conclusion": [
+    "The ranked claim is a Wormhole B0 measurement on an 8x9 grid of 72 cores. Blackhole runs 11x10 = 110 cores here and 13x10 elsewhere, with different DRAM behaviour.",
+    "No Blackhole core-count sweep exists for either class: every Blackhole arm ran the full grid. The 810 Mcycle estimate is therefore a cross-architecture transfer.",
+    "This project has been burned by exactly that before: a Blackhole DRAM roof inverted an L1-residency lever's sign, and a Blackhole-fitted envelope capped Wormhole Galaxy.",
+    "Blackhole does show a large same-session efficiency gap at 512 aa: trimul reaches 11.47 TFLOP/s and triatt 29.86 against a dense cube's 67.59 on the same card in the same session. That gap is measured on the right architecture and is the honest motivation, though a trimul is not a dense cube and not all of it is recoverable.",
+    "Both Blackhole sessions ran at loadavg 4.6 to 6.2 with no recorded clock, like every other measurement in this corpus."
+  ]
+}
