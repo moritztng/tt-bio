@@ -43,41 +43,53 @@ recorded_rc() {  # last recorded rc for an arm name, empty if it never ran
   grep " $1 rc=" "$PROG" | tail -1 | sed -n 's/.* rc=\([0-9]*\).*/\1/p'
 }
 
-# THREE ATTEMPTS PER MODEL, because one wedge is not a verdict and a single-shot arm cannot
-# survive this box. boltz-2 wedges at `trunk 0/4` roughly one rung in six -- 08:16 (896), 08:29
-# (640), 08:46 (640), 10:09 (1024 warm-up), 12:41 (768) -- and it is NOT load, whatever the first
-# reading of it said: the 12:41 wedge happened at loadavg 1.1 with this gate as the only lane on
-# the box, and the same tree walked all six rungs clean at 07:52-07:59. A ladder arm is six rungs,
-# so at that rate a single attempt fails more often than it passes and every model would record a
-# red that says nothing about the lever.
+# THREE ATTEMPTS PER ARM, because one wedge is not a verdict and a single-shot arm cannot
+# survive this box. A fold stops writing mid-trunk, holds the card and burns no CPU, and it is
+# NOT load, whatever the first reading of it said: 12:41:15Z (boltz2, 768 rep) and 12:59Z (rf3,
+# 768 splice) both happened at loadavg 1.1 with this gate as the only lane on the box, and the
+# same tree walked all six boltz2 rungs clean at 07:52-07:59. py-spy names a different ttnn op
+# each time -- layer_norm, linear, transpose -- all active+gil inside `ttnn/decorators.py:473`.
+#
+# A splice is one fold per rung and a check is another, so at roughly one wedge per six rungs a
+# single attempt fails more often than it passes and the red it records says nothing about the
+# lever. The splice needs this as much as the check does: a failed splice `continue`s past the
+# model, and for rf3 that silently drops the 1088 rung, the only ladder cell above the cap and
+# the one cell in this lever's own regime.
 #
 # Attempts are SEPARATE arm names, so the progress file keeps each one and a resume re-reads them
 # instead of re-running them. `run` returns 0 when it skips an already-recorded arm, so the
 # verdict has to come from the recorded rc, never from run's exit status.
-ladder_with_retries() {
-  local m="$1" att name rc
-  for att in 1 2 3; do
-    name="ladder-$m"; [ "$att" -gt 1 ] && name="ladder-$m-att$att"
+arm_retry() {  # $1 = base arm name, $2 = attempts, rest = argv
+  local base="$1" n="$2"; shift 2
+  local att name rc
+  for att in $(seq 1 "$n"); do
+    name="$base"; [ "$att" -gt 1 ] && name="$base-att$att"
     rc=$(recorded_rc "$name")
     if [ -z "$rc" ]; then
-      ARM_TIMEOUT=3600 run "$name" $P scripts/release_gate.py --model size-ladder \
-          --size-ladder-models "$m"
+      run "$name" "$@"
       rc=$(recorded_rc "$name")
     fi
-    [ "$rc" = 0 ] && { log "ladder-$m PASS on attempt $att"; return 0; }
+    if [ "$rc" = 0 ]; then
+      [ "$att" -gt 1 ] && log "$base PASS on attempt $att"
+      return 0
+    fi
   done
-  log "ladder-$m RED after 3 attempts"
+  log "$base RED after $n attempts"
   return 1
 }
 
 for m in "$@"; do
   frag="$WT/docs/size_ladder_baseline.d/$m.json"
   [ -f "$frag" ] || { echo "no fragment for $m"; continue; }
-  run "splice-$m" $P scripts/release_gate.py --model size-ladder \
+  ARM_TIMEOUT=3000
+  arm_retry "splice-$m" 3 $P scripts/release_gate.py --model size-ladder \
       --size-ladder-record-lever SDPA_FUSED_LARGE_S --size-ladder-models "$m" || continue
   $P perf/ttx_a3/ladder_reason.py "$frag" p300c >> "$OUT/reasons.log" 2>&1
   $P scripts/release_gate.py --model size-ladder --size-ladder-fill-reasons \
       --size-ladder-models "$m" >> "$OUT/reasons.log" 2>&1
-  ladder_with_retries "$m"
+  ARM_TIMEOUT=3600
+  arm_retry "ladder-$m" 3 $P scripts/release_gate.py --model size-ladder \
+      --size-ladder-models "$m"
+  unset ARM_TIMEOUT
 done
 log "LADDER_CAMPAIGN_DONE card=$CARD models=$*"
