@@ -20,9 +20,13 @@ echo "===== README ====="
   echo; cat "$D/report.md"; } > perf/c10_fixed_cost/README.md
 wc -l perf/c10_fixed_cost/README.md
 echo "===== STATE DOC ====="
+# /home/moritz/.coworker/state is the path the on-qb2 DONE_CHECK reads; /home/ttuser is the mirror
 python3 perf/c10_fixed_cost/state_doc.py "$D/analysis.json" "$D" \
-  /home/ttuser/.coworker/state/c10-fixed-cost.md > /dev/null && echo "state doc written"
-wc -c /home/ttuser/.coworker/state/c10-fixed-cost.md
+  /home/moritz/.coworker/state/c10-fixed-cost.md > /dev/null && echo "state doc written"
+cp /home/moritz/.coworker/state/c10-fixed-cost.md /home/ttuser/.coworker/state/c10-fixed-cost.md
+wc -c /home/moritz/.coworker/state/c10-fixed-cost.md /home/ttuser/.coworker/state/c10-fixed-cost.md
+echo "===== DONE_CHECK ====="
+python3 /home/moritz/.coworker/workstreams/_c10_donecheck.py c10-fixed-cost; echo "donecheck rc=$?"
 echo "===== SIZES ====="
 du -sh "$D" "$D"/512 "$D"/298 2>/dev/null
 du -ch "$D"/*/clock.jsonl.gz "$D"/*/holders.jsonl.gz "$D"/ambient.jsonl.gz 2>/dev/null | tail -1
