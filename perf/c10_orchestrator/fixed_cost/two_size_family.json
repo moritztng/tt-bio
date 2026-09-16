@@ -1,0 +1,103 @@
+{
+  "scope": "CPU arithmetic on c10-bare-baseline's pinned medians. No device, no new timing.",
+  "inputs": {
+    "T512_s": 14.8813252375,
+    "T298_s": 9.6800812565,
+    "clock_MHz": 1350.0,
+    "source": "origin/wk/c10-bare-baseline bc66f7d6d perf/c10_bare_baseline/baseline.json"
+  },
+  "identifiability": "Two sizes cannot separate the fixed term from the work exponent. A second PINNED CLOCK at one size can, because the fixed term is the only part that does not scale with the clock.",
+  "family": [
+    {
+      "work_ratio": 1.6,
+      "fixed_s": 1.0113412881666655,
+      "W298_Mcycles": 11702.798957250001,
+      "W512_Mcycles": 18724.478331600003,
+      "anchor": "token axis padded to a multiple of 32: 512/320",
+      "fixed_pct_of_512_fold": 6.796043175094038,
+      "target_10s": {
+        "cut_with_fixed_untouched_pct": 35.193445467070084,
+        "cut_with_fixed_at_1.0s_pct": 35.11167689251301,
+        "fixed_cut_alone_reaches_goal": false
+      }
+    },
+    {
+      "work_ratio": 1.718,
+      "fixed_s": 2.4360088595640645,
+      "W298_Mcycles": 9779.497735863511,
+      "W512_Mcycles": 16801.177110213514,
+      "anchor": "raw token ratio 512/298",
+      "fixed_pct_of_512_fold": 16.369569380994886,
+      "target_10s": {
+        "cut_with_fixed_untouched_pct": 39.22218679915609,
+        "cut_with_fixed_at_1.0s_pct": 27.683638352851126,
+        "fixed_cut_alone_reaches_goal": false
+      }
+    },
+    {
+      "work_ratio": 1.839,
+      "fixed_s": 3.480743972828961,
+      "W298_Mcycles": 8369.105332955902,
+      "W512_Mcycles": 15390.784707305904,
+      "anchor": "the value implied by the clock-sweep intercept of 3.478 s",
+      "fixed_pct_of_512_fold": 23.39001343816951,
+      "target_10s": {
+        "cut_with_fixed_untouched_pct": 42.81645930305862,
+        "cut_with_fixed_at_1.0s_pct": 21.056656752319615,
+        "fixed_cut_alone_reaches_goal": false
+      }
+    },
+    {
+      "work_ratio": 2.0,
+      "fixed_s": 4.478837275499998,
+      "W298_Mcycles": 7021.679374350001,
+      "W512_Mcycles": 14043.358748700002,
+      "anchor": "",
+      "fixed_pct_of_512_fold": 30.097032381320524,
+      "target_10s": {
+        "cut_with_fixed_untouched_pct": 46.92459395609344,
+        "cut_with_fixed_at_1.0s_pct": 13.48223585668401,
+        "fixed_cut_alone_reaches_goal": false
+      }
+    },
+    {
+      "work_ratio": 2.5,
+      "fixed_s": 6.212585269166666,
+      "W298_Mcycles": 4681.119582900001,
+      "W512_Mcycles": 11702.798957250001,
+      "anchor": "",
+      "fixed_pct_of_512_fold": 41.747526984433776,
+      "target_10s": {
+        "cut_with_fixed_untouched_pct": 56.30951274731213,
+        "cut_with_fixed_at_1.0s_pct": -3.821316971979205,
+        "fixed_cut_alone_reaches_goal": true
+      }
+    },
+    {
+      "work_ratio": 2.95,
+      "fixed_s": 7.0127766508589735,
+      "W298_Mcycles": 3600.8612176153847,
+      "W512_Mcycles": 10622.540591965386,
+      "anchor": "a pure N^2 pair term",
+      "fixed_pct_of_512_fold": 47.1246783397168,
+      "target_10s": {
+        "cut_with_fixed_untouched_pct": 62.03590387415743,
+        "cut_with_fixed_at_1.0s_pct": -14.379417003027918,
+        "fixed_cut_alone_reaches_goal": true
+      }
+    },
+    {
+      "work_ratio": 5.07,
+      "fixed_s": 8.402134332421376,
+      "W298_Mcycles": 1725.2283475061427,
+      "W512_Mcycles": 8746.907721856143,
+      "anchor": "a pure N^3 triangle term",
+      "fixed_pct_of_512_fold": 56.460928031117334,
+      "target_10s": {
+        "cut_with_fixed_untouched_pct": 75.33849996106522,
+        "cut_with_fixed_at_1.0s_pct": -38.90623276658624,
+        "fixed_cut_alone_reaches_goal": true
+      }
+    }
+  ]
+}
