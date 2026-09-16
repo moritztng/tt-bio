@@ -1,0 +1,112 @@
+{
+  "host": "tt-quietbox2",
+  "observed_utc": "2026-09-16T17:54:35.726019+00:00",
+  "root": "/home/ttuser/tt-metal-k10",
+  "head": "1452925b033c6608726b731a81500bd3e19f7894",
+  "tracked_changes": [
+    "M tools/tracy/device_post_proc_config.py",
+    " M tools/tracy/process_device_log.py",
+    " M tools/tracy/process_ops_logs.py",
+    " M tt_metal/hostdevcommon/api/hostdevcommon/profiler_common.h",
+    " M tt_metal/hw/inc/api/dataflow/dataflow_api.h",
+    " M tt_metal/tools/profiler/kernel_profiler.hpp"
+  ],
+  "tracked_diff_sha256": "023fd0ed6d042883e1ab613526d663203880e9ce60a7eaedfd7023f2bb57a0b5",
+  "files": [
+    {
+      "path": "ttnn/cpp/ttnn-nanobind/program_descriptors.cpp",
+      "sha256": "016818542a78449fee0961ea8a3819d1a7f9f336a861f6aa4307bd419a96eb3f",
+      "bytes": 45902
+    },
+    {
+      "path": "tt_metal/api/tt-metalium/program_descriptors.hpp",
+      "sha256": "63001400dea6cd9841528da44b55e1234a7e70d6774492369fd0bbd7cdea193b",
+      "bytes": 5883
+    },
+    {
+      "path": "ttnn/cpp/ttnn/operations/generic/generic_op_nanobind.cpp",
+      "sha256": "4f86c4a365ef6bb995fcb3938b6e315f8deb765ebfaeadcb588dab843b798c3a",
+      "bytes": 3051
+    },
+    {
+      "path": "ttnn/cpp/ttnn/operations/generic/device/generic_op_device_operation.cpp",
+      "sha256": "853921cdc458f31e481f55d33684179ab382e016571b549be12e459547088887",
+      "bytes": 5615
+    },
+    {
+      "path": "ttnn/cpp/ttnn/operations/generic/device/generic_op_program_factory.cpp",
+      "sha256": "54d740042e369b2db183ee87e71463b659b35e2825e87d570042401db74af08a",
+      "bytes": 6508
+    },
+    {
+      "path": "ttnn/ttnn/__init__.py",
+      "sha256": "71245145e8192624719f03b11a319c7e600e398c2ab411219d5e260c9ef32f1d",
+      "bytes": 14612
+    },
+    {
+      "path": "build_Release/CMakeCache.txt",
+      "sha256": "ddb5a295309333bc1edfa34b9c3bd1a68c689432cdbdf4ad6297fb55d2a90379",
+      "bytes": 130503
+    },
+    {
+      "path": "ttnn/ttnn/_ttnn.so",
+      "sha256": "e12967f52249a748c28c8886e1272177ce8c0799ff28fb922a567759a4cae762",
+      "bytes": 14179848
+    },
+    {
+      "path": "tt_metal/impl/kernels/kernel.cpp",
+      "sha256": "32bc932147168ae21daf815084f9c63ebd2d8e5e4baed6bdf547ca50a4dc17b1",
+      "bytes": 50116
+    },
+    {
+      "path": "ttnn/ttnn/types.py",
+      "sha256": "d61153686d1b7c0345757994a14a3e5a3cc3f9327bd55167fbbead6abbda8295"
+    },
+    {
+      "path": "ttnn/cpp/ttnn-nanobind/__init__.cpp",
+      "sha256": "2d113fbffa57ddcd3573c6b7f681748b3acd950531ab29e41765e63848e53649"
+    },
+    {
+      "path": "ttnn/cpp/ttnn-nanobind/pytensor.cpp",
+      "sha256": "37c34430ed53110edbb9eeb1f17cf0a89f6e641d22f52875e7a25b380621a9eb"
+    },
+    {
+      "path": "ttnn/core/tensor/tensor.cpp",
+      "sha256": "9281c9d02474b08db6218b9e64afe05901225c8fb2e2b1f8e533211cb1cb1c6f"
+    },
+    {
+      "path": "ttnn/core/tensor/tensor_attributes.cpp",
+      "sha256": "dc822c04e6f1eb1063d3a50fa6e639321a68d1e5ce1dba77647071b49daddd5c"
+    }
+  ],
+  "selected_build_config": [
+    "CMAKE_BUILD_TYPE:STRING=Release",
+    "CMAKE_CXX_FLAGS:STRING=",
+    "ENABLE_TRACY:BOOL=ON",
+    "CMAKE_CXX_COMPILER:INTERNAL=clang++-20"
+  ],
+  "installed_binding_validation": {
+    "status": "not_run",
+    "reason": "bwrap isolation failed before Python: loopback RTM_NEWADDR Operation not permitted; user namespace uid map Permission denied. No unisolated import attempted.",
+    "device_access": false,
+    "remaining": "device owner must validate installed bindings and run a live passthrough smoke test"
+  },
+  "source_binary_linkage": "unverified; source revision and binary file hash recorded separately",
+  "tt_bio": {
+    "head": "71a306a8a5d94d880e85ce6829218ad671fbc246",
+    "files": {
+      "tt_bio/mm_generic.py": "a7426479c47f44a83623bfbfc15be24e8d6e9541c1f6b144819d3d9de5e22d51",
+      "tt_bio/sdpa_generic.py": "201010847b49fe12cb9bd73d5324e0a0bb5dd0b3733f7ea1d049e5b7728b0574",
+      "tt_bio/reblock_permute.py": "44e91eb8edcc8eb31f3c4a71bb52b5e6792551e77c4d7b63e0241f9cfdbc7565"
+    }
+  },
+  "findings": [
+    "RuntimeArgsView exposes length and coordinate lookup only; enumerate declared core ranges and compare observed entry count to binding count. Missing entries, empty entries, duplicates and outside-range entries are distinct.",
+    "KernelDescriptor opt_level and ProgramDescriptor custom_program_hash exist in the C++ struct but have no Python getter in the audited binding.",
+    "Cache hash excludes runtime values, hashes source path strings rather than file bytes, and is distinct from execution identity.",
+    "SDPA gated call places the gate after out in io_tensors; last operand is not a safe inferred output role.",
+    "Source tree is locally modified; a git HEAD alone is insufficient build provenance.",
+    "RuntimeArgsView and opaque vector classes are native-only exports in ttnn._ttnn.program_descriptor, not top-level ttnn. The adapter resolves both locations.",
+    "Audited tensor shape/padded_shape/dtype/layout getters access TensorAttributes::get_tensor_spec; its DeviceStorage path returns stored tensor_spec_ without synchronization or readback. Installed-binary behavior remains unverified."
+  ]
+}

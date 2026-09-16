@@ -1,0 +1,40 @@
+{
+  "a7426479c47f44a83623bfbfc15be24e8d6e9541c1f6b144819d3d9de5e22d51": {
+    "generic_minimal_matmul": "matmul"
+  },
+  "201010847b49fe12cb9bd73d5324e0a0bb5dd0b3733f7ea1d049e5b7728b0574": {
+    "sdpa": "sdpa"
+  },
+  "44e91eb8edcc8eb31f3c4a71bb52b5e6792551e77c4d7b63e0241f9cfdbc7565": {
+    "reblock_permute": [
+      [
+        "input",
+        "x"
+      ],
+      [
+        "output",
+        "out"
+      ]
+    ],
+    "reblock_permute_back": [
+      [
+        "input",
+        "x"
+      ],
+      [
+        "output",
+        "out"
+      ]
+    ],
+    "reblock_permute_gated": [
+      [
+        "projection_and_gate",
+        "xw"
+      ],
+      [
+        "output",
+        "out"
+      ]
+    ]
+  }
+}
