@@ -789,3 +789,36 @@ Stated precisely, because the unit matters: this is ONE session per arm
 fold, not nine independent samples, so it corroborates the banked number rather than replacing a
 session-level A/B. What it does settle on its own is the direction and the rough size, on a model
 the banked number never touched.
+
+### Roster continued: openbind passes, both opendde cells are guard refusals
+
+| model | verdict | tokens | rows | peak DRAM | wall | mechanism |
+|---|---|---|---|---|---|---|
+| openbind | PASS | 1536 | 8832 | 14.79G / 46% | 594.5 s | residency |
+| opendde | FAIL | 1536 | 8832 | — | 1.8 s | `screen/size_guard  ceiling~1024` |
+| opendde-abag | FAIL | 1536 | 8832 | — | 1.9 s | `screen/size_guard  ceiling~1024` |
+
+The two opendde reds are the predicted ones and they are **not** capacity failures. The engine's
+own size guard refused the input in under two seconds, before any device work, because both models
+carry a Blackhole ceiling of 1024 against this gate's 1536-token bar. That guard reads
+`size_limits.CEILINGS`; it cannot see `TT_BIO_SDPA_FUSED_LARGE_S`. The useful part is that the
+refusal is what protects the card: their recorded `fail_at=1536` is the trunk freeze that "leaves
+the chip refusing every device open", which is exactly what protenix-v2 -- a model with no
+Blackhole row, and so nothing to refuse it -- did to card 3 at 17:19Z.
+
+So the capacity arm will stay red on p300c for these two models on main as well, which is the same
+red the earlier pass recorded as `p300c/opendde` and `p300c/opendde-abag` having no cell.
+
+**The gate also printed the p150a blocker from its own mouth**, unprompted:
+
+    BASELINE STALE: cells measured against another ceiling table: ['p150a/boltz2',
+    'p150a/esmc-300m', 'p150a/esmc-600m', 'p150a/esmc-6b', 'p150a/esmfold2',
+    'p150a/esmfold2-fast', 'p150a/openbind', 'p150a/opendde', 'p150a/opendde-abag',
+    'p150a/openfold3', 'p150a/protenix-v1', 'p150a/protenix-v2', 'p150a/rf3',
+    'p150a/saprot-35m', 'p150a/saprot-650m']
+
+All 15, which is the "15 stale p150a capacity cells" the earlier pass attributed to main by
+reading pytest. Here it is confirmed by the gate itself, and it still needs a p150a host.
+
+Running tally: 7 in-regime cells folded, 7 PASS, no residency cost on any of them, peak DRAM
+spanning 21-61 % of the card.
