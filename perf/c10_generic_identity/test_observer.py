@@ -19,7 +19,7 @@ class CoreCoord:
 
 class CoreRange:
     def __init__(self, start_coord, end_coord):
-        self.start_coord, self.end_coord = start_coord, end_coord
+        self.start, self.end = start_coord, end_coord
 
 
 class CoreRangeSet:

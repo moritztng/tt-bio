@@ -29,7 +29,7 @@ _FIELDS = {
     'CBFormatDescriptor': ('buffer_index', 'data_format_as_uint8', 'page_size', 'tile'),
     'TileDescriptor': ('height', 'width', 'transpose'),
     'SemaphoreDescriptor': ('id', 'core_type', 'core_ranges', 'initial_value'),
-    'CoreCoord': ('x', 'y'), 'CoreRange': ('start_coord', 'end_coord'),
+    'CoreCoord': ('x', 'y'), 'CoreRange': ('start', 'end'),
 }
 _VECTORS = ('VectorUInt32', 'VectorUnpackToDestMode')
 _GAPS = ['transitive includes and JIT compiler flags are not captured automatically',
@@ -153,7 +153,7 @@ class Encoder:
                 expected = len(rt)
                 coords = set()
                 for r in kernel.core_ranges.ranges():
-                    sx, sy, ex, ey = int(r.start_coord.x), int(r.start_coord.y), int(r.end_coord.x), int(r.end_coord.y)
+                    sx, sy, ex, ey = int(r.start.x), int(r.start.y), int(r.end.x), int(r.end.y)
                     if not (0 <= sx <= ex < 1024 and 0 <= sy <= ey < 1024):
                         return missing('core range outside observation bound')
                     for x in range(sx, ex + 1):
