@@ -1,4 +1,54 @@
-# C10 measurement tools
+# C10: what the campaign measured
+
+Boltz-2 at 512 aa, targeting 10.0 s. Everything here is CPU-side: analysis, provenance checks and
+consolidation over artifacts other rows measured. Nothing in this directory opened a device.
+
+**Baseline.** 14.8813 s at 512 aa and 9.6801 s at 298 aa, at a pinned AICLK sampled during every
+fold, min = max = 1350 MHz across all 36 folds, 16 accepted per size, zero same-seed structural
+deviation (`c10-bare-baseline`, `bc66f7d6d`).
+
+## Findings
+
+| | |
+|---|---|
+| [`fixed_cost/`](fixed_cost/) | **3.952 s of the fold is clock-immune**, 27 %, solved from an interleaved 800/1339 MHz A/B that was already in the corpus. Worst residual 33 ms; predicts an out-of-sample arm to 1.9 ms. A mean-clock label carries 0.364 s of error across sessions, which is larger than any lever on record, so old ratios cannot be clock-corrected by arithmetic. |
+| [`dispatch_hypothesis/`](dispatch_hypothesis/) | The fold issues 465,664 top-level ttnn calls, 8.49 µs of clock-immune cost each, while the device's own measured launch cost is 0.487 s, 12 % of the term. The diffusion loop is 219,200 device programs, **76 % of the launching calls**, so a trace of it reaches about **3.02 s**. |
+| [`floor_mix/`](floor_mix/) | **The byte axis caps at 1.487x** of the floor: delete every byte and 12.706 s becomes 8.543 s. Independently reproduces the lever corpus's 1.470x. The headroom is in the elementwise tail, not the matmuls: `ttnn.linear` is the largest call class in the fold and its entire byte headroom is 0.140 s. |
+| [`shape_rank/`](shape_rank/) | **No giant is hiding.** 60 shapes, top 20 hold 31.5 %, none over 3.6 %. A lever has to hit a class across many shapes or remove per-call cost. |
+| [`ladder/`](ladder/) | Every candidate with an evidence class. **Priced total 4.16 s, which reads 10.72 s**, not 10.0 s. Two Wormhole rows are jointly 0.713 Å against a 0.60 Å bar and cannot both ship. |
+| [`remainder/`](remainder/) | Of the 0.93 s the trace cannot reach, about 0.612 s is named host work: feature preparation, the input embedder, relative-position encoding, CIF writing. A hypothesis, measured on the wrong CPU. |
+| [`fit_reexam/`](fit_reexam/) | The campaign's 37.6 % target came from the least-supported of four fits. Tested against an arm in none of them, it misses by 284 ms where the clean fit misses by 1.9 ms. |
+| [`grid_evidence/`](grid_evidence/) | The second-ranked lever's evidence is **Wormhole**, and on that same sweep the two classes move in opposite directions. **No Blackhole core sweep exists.** The 810 Mcycles was withdrawn as a cross-architecture transfer. |
+| [`regression_check/`](regression_check/) | The "+2.3 % regression" on main is not one. The above-cap fused SDPA route needs `q_len > 1024` and 512 aa has 512, so it cannot fire; the gap is smaller than the comparison's own 0.364 s error. |
+| [`cpu_prereq_review/`](cpu_prereq_review/) | Independent acceptance of the bounded exporter and the raw cycle stream. |
+
+Every subdirectory has its own README, a script that regenerates its JSON, and known-answer
+controls. Run them all:
+
+```sh
+for d in perf/c10_orchestrator/*/; do (cd "$d" && python3 -m pytest -q 2>/dev/null); done
+```
+
+## The reading
+
+Three independent lines of evidence point at **per-call cost rather than per-kernel cost**: the
+clock-immune term is 27 % of the fold, the floor is a 60-shape tail with no dominant member, and
+the byte axis is capped at 1.487x with its headroom in the elementwise ops. That is also why this
+project's byte-deletion levers have all landed at 1.02-1.05x.
+
+On present evidence 10.0 s needs either the clock-immune term to give up more than a diffusion
+trace reaches, or a device-work lever nobody has found. **Nothing here has been measured as a
+fold-level win.** Cycles saved to date: zero. Accuracy spent: zero.
+
+## Clock discipline
+
+Every measured second above carries the clock it was taken at. Where a number does not, it is
+labelled: the committed floor divides by a compute roof recorded at **loadavg 6.2 with no AICLK**,
+and all 29 levers in the corpus ledger were measured at an unrecorded clock. Arithmetic-bound
+seconds scale with AICLK and DRAM-bound ones do not, so an unclocked floor cannot be read at burst
+in either direction.
+
+## Tools
 
 Run this CPU-only audit from the repository root:
 
