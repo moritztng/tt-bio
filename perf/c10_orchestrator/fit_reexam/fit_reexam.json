@@ -1,0 +1,188 @@
+{
+  "clock_label_quality": [
+    {
+      "cotenanted": false,
+      "fold": 1,
+      "fold_s": 20.972,
+      "max_mhz": 1350,
+      "mean_mhz": 849.7,
+      "samples": 90
+    },
+    {
+      "cotenanted": false,
+      "fold": 2,
+      "fold_s": 20.644,
+      "max_mhz": 1350,
+      "mean_mhz": 871.1,
+      "samples": 88
+    },
+    {
+      "cotenanted": false,
+      "fold": 3,
+      "fold_s": 20.927,
+      "max_mhz": 1350,
+      "mean_mhz": 863.4,
+      "samples": 89
+    },
+    {
+      "cotenanted": true,
+      "fold": 4,
+      "fold_s": 18.39,
+      "max_mhz": 1350,
+      "mean_mhz": 1057.3,
+      "samples": 77
+    },
+    {
+      "cotenanted": true,
+      "fold": 5,
+      "fold_s": 18.423,
+      "max_mhz": 1350,
+      "mean_mhz": 1058.8,
+      "samples": 81
+    },
+    {
+      "cotenanted": true,
+      "fold": 6,
+      "fold_s": 16.557,
+      "max_mhz": 1350,
+      "mean_mhz": 1124.4,
+      "samples": 69
+    },
+    {
+      "cotenanted": false,
+      "fold": "pinned arm median of 8",
+      "fold_s": 14.553999999999998,
+      "max_mhz": 1350,
+      "mean_mhz": 1350.0,
+      "samples": 489
+    },
+    {
+      "cotenanted": false,
+      "fold": "unpinned arm median of 8",
+      "fold_s": 14.65,
+      "max_mhz": 1350,
+      "mean_mhz": 1339.2125,
+      "samples": 497
+    }
+  ],
+  "fits": {
+    "clean_folds_plus_pinned": {
+      "error_vs_pinned_s": 0.004813266207223776,
+      "intercept_s": 3.4776598210253997,
+      "n": 4,
+      "pinned_point_in_fit": true,
+      "predicted_at_1350": 14.558813266207222,
+      "slope_MHz_s": 14959.55715099546,
+      "target_10s_at_1350": {
+        "fixed_1.0": {
+          "cycle_cut_pct": 18.781018198847576,
+          "work_term_MHz_s": 12150.0
+        },
+        "fixed_2.0": {
+          "cycle_cut_pct": 27.805349510086728,
+          "work_term_MHz_s": 10800.0
+        },
+        "fixed_as_fitted": {
+          "cycle_cut_pct": 41.140241300326295,
+          "work_term_MHz_s": 8805.159241615711
+        }
+      },
+      "unpinned_arm_out_of_sample": {
+        "clock_mhz": 1339.2125,
+        "error_s": -0.001926856969721058,
+        "measured_s": 14.65,
+        "predicted_s": 14.64807314303028
+      }
+    },
+    "cotenanted_folds_plus_pinned": {
+      "error_vs_pinned_s": -0.16250598531071958,
+      "intercept_s": 0.6267861120375784,
+      "n": 4,
+      "pinned_point_in_fit": true,
+      "predicted_at_1350": 14.391494014689279,
+      "slope_MHz_s": 18582.355668579796,
+      "target_10s_at_1350": {
+        "fixed_1.0": {
+          "cycle_cut_pct": 34.615394212134376,
+          "work_term_MHz_s": 12150.0
+        },
+        "fixed_2.0": {
+          "cycle_cut_pct": 41.880350410786114,
+          "work_term_MHz_s": 10800.0
+        },
+        "fixed_as_fitted": {
+          "cycle_cut_pct": 31.90401166335888,
+          "work_term_MHz_s": 12653.83874874927
+        }
+      },
+      "unpinned_arm_out_of_sample": {
+        "clock_mhz": 1339.2125,
+        "error_s": -0.14762979015882927,
+        "measured_s": 14.65,
+        "predicted_s": 14.502370209841171
+      }
+    },
+    "six_point_least_squares": {
+      "error_vs_pinned_s": 0.6686589106708496,
+      "intercept_s": 5.210224495691681,
+      "n": 6,
+      "pinned_point_in_fit": false,
+      "predicted_at_1350": 15.222658910670848,
+      "slope_MHz_s": 13516.786460221876,
+      "target_10s_at_1350": {
+        "fixed_1.0": {
+          "cycle_cut_pct": 10.111770754418215,
+          "work_term_MHz_s": 12150.0
+        },
+        "fixed_2.0": {
+          "cycle_cut_pct": 20.099351781705078,
+          "work_term_MHz_s": 10800.0
+        },
+        "fixed_as_fitted": {
+          "cycle_cut_pct": 52.161729048206865,
+          "work_term_MHz_s": 6466.196930816231
+        }
+      },
+      "unpinned_arm_out_of_sample": {
+        "clock_mhz": 1339.2125,
+        "error_s": 0.6533101413393094,
+        "measured_s": 14.65,
+        "predicted_s": 15.30331014133931
+      }
+    },
+    "two_point_campaign_fit": {
+      "error_vs_pinned_s": -0.2791437333657818,
+      "intercept_s": 2.900554787040086,
+      "n": 2,
+      "pinned_point_in_fit": false,
+      "predicted_at_1350": 14.274856266634217,
+      "slope_MHz_s": 15355.306997452077,
+      "target_10s_at_1350": {
+        "fixed_1.0": {
+          "cycle_cut_pct": 20.874261895147626,
+          "work_term_MHz_s": 12150.0
+        },
+        "fixed_2.0": {
+          "cycle_cut_pct": 29.66601057346456,
+          "work_term_MHz_s": 10800.0
+        },
+        "fixed_as_fitted": {
+          "cycle_cut_pct": 37.58346193217622,
+          "work_term_MHz_s": 9584.251037495884
+        }
+      },
+      "unpinned_arm_out_of_sample": {
+        "clock_mhz": 1339.2125,
+        "error_s": -0.283522517755026,
+        "measured_s": 14.65,
+        "predicted_s": 14.366477482244974
+      }
+    }
+  },
+  "inputs": {
+    "audit": "/home/moritz/.coworker/state/c10-orchestrator-clock-audit.json",
+    "historical_commit": "46812858dfa4962117b65af2f29f7061f758ce9c",
+    "pinned_commit": "0df13ad983e645722da958e176d22d96fa5067ee"
+  },
+  "scope": "CPU re-examination of a banked fit. No device, no fold, no new timing."
+}
