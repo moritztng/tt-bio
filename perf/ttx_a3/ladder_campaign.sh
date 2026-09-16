@@ -39,6 +39,37 @@ run() {  # $1 = arm name, rest = argv
   return $rc
 }
 
+recorded_rc() {  # last recorded rc for an arm name, empty if it never ran
+  grep " $1 rc=" "$PROG" | tail -1 | sed -n 's/.* rc=\([0-9]*\).*/\1/p'
+}
+
+# THREE ATTEMPTS PER MODEL, because one wedge is not a verdict and a single-shot arm cannot
+# survive this box. boltz-2 wedges at `trunk 0/4` roughly one rung in six -- 08:16 (896), 08:29
+# (640), 08:46 (640), 10:09 (1024 warm-up), 12:41 (768) -- and it is NOT load, whatever the first
+# reading of it said: the 12:41 wedge happened at loadavg 1.1 with this gate as the only lane on
+# the box, and the same tree walked all six rungs clean at 07:52-07:59. A ladder arm is six rungs,
+# so at that rate a single attempt fails more often than it passes and every model would record a
+# red that says nothing about the lever.
+#
+# Attempts are SEPARATE arm names, so the progress file keeps each one and a resume re-reads them
+# instead of re-running them. `run` returns 0 when it skips an already-recorded arm, so the
+# verdict has to come from the recorded rc, never from run's exit status.
+ladder_with_retries() {
+  local m="$1" att name rc
+  for att in 1 2 3; do
+    name="ladder-$m"; [ "$att" -gt 1 ] && name="ladder-$m-att$att"
+    rc=$(recorded_rc "$name")
+    if [ -z "$rc" ]; then
+      ARM_TIMEOUT=3600 run "$name" $P scripts/release_gate.py --model size-ladder \
+          --size-ladder-models "$m"
+      rc=$(recorded_rc "$name")
+    fi
+    [ "$rc" = 0 ] && { log "ladder-$m PASS on attempt $att"; return 0; }
+  done
+  log "ladder-$m RED after 3 attempts"
+  return 1
+}
+
 for m in "$@"; do
   frag="$WT/docs/size_ladder_baseline.d/$m.json"
   [ -f "$frag" ] || { echo "no fragment for $m"; continue; }
@@ -47,7 +78,6 @@ for m in "$@"; do
   $P perf/ttx_a3/ladder_reason.py "$frag" p300c >> "$OUT/reasons.log" 2>&1
   $P scripts/release_gate.py --model size-ladder --size-ladder-fill-reasons \
       --size-ladder-models "$m" >> "$OUT/reasons.log" 2>&1
-  ARM_TIMEOUT=3600 run "ladder-$m" $P scripts/release_gate.py --model size-ladder \
-      --size-ladder-models "$m"
+  ladder_with_retries "$m"
 done
 log "LADDER_CAMPAIGN_DONE card=$CARD models=$*"

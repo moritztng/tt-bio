@@ -1829,7 +1829,8 @@ _SDPA_QK_OVER_L1: set = set()
 # records a complete green run. Four prior passes measured the lever GO on every arm that ran and
 # held on one blocker outside it: main's stale p300c size-ladder baseline made that arm red for
 # every branch, flag off included. `tt-bio-sizeladder-p300c-refresh` cleared it (main `d78f23757`).
-# `perf/ttx_a3/gate5/REPORT.md` records which arms were green; `gate6/REPORT.md` records this run.
+# `perf/ttx_a3/gate5/REPORT.md` records which arms were green; this run is recorded in
+# `perf/ttx_a3/gate6/REPORT.md`.
 _SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", True)
 
 
