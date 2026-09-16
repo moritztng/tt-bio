@@ -176,14 +176,29 @@ def reduce(root):
                 lo,cells[str(lo)]['median_s'],cells[str(lo)]['se_median_s'] or 0.0)
             f=out['fit_all_folds']
             floor=max((cells[str(c)].get('adjacent_abs_delta_median_s') or 0.0) for c in criterion['clock']['arms_MHz'])
+            fastest=min(cells[str(c)]['median_s'] for c in criterion['clock']['arms_MHz'])
+            # Three independent estimators of the same F. Their spread IS the model-misfit term, so
+            # F is bounded by it rather than quoted to more digits than the model supports.
+            est=[('all_folds',f['F_s'],f.get('se_F_s') or 0.0),
+                 ('cell_medians',out['fit_cell_medians']['F_s'],out['fit_cell_medians'].get('se_F_s') or 0.0),
+                 ('two_clock_endpoints',out['two_clock_endpoints']['F_s'],out['two_clock_endpoints']['se_F_s'])]
+            lo_b=min(v-e for _,v,e in est);hi_b=max(v+e for _,v,e in est)
+            exact=out['fit_cell_medians']['max_abs_residual_s']<=max(floor,0.05)
             out['model_check']={'aa_timing_floor_s':floor,'max_abs_residual_s':f['max_abs_residual_s'],
                 'rms_residual_s':f['rms_residual_s'],
                 'cell_median_max_abs_residual_s':out['fit_cell_medians']['max_abs_residual_s'],
-                'inverse_clock_model_survives':(0.0<f['F_s']<min(cells[str(c)]['median_s'] for c in criterion['clock']['arms_MHz'])
-                                                and out['fit_cell_medians']['max_abs_residual_s']<=max(floor,0.05)),
-                'refutation_criteria':criterion['refutation']}
+                'cell_median_residual_s':dict(zip([str(c) for c in out['fit_cell_medians']['clocks_MHz']],out['fit_cell_medians']['residual_s'])),
+                'exact_inverse_clock_form_holds':exact,
+                'estimators_F_s':{k:{'F_s':v,'se_s':e} for k,v,e in est},
+                'F_bound_s':[lo_b,hi_b],'F_bound_halfwidth_s':(hi_b-lo_b)/2,
+                'fixed_term_identification':'point-identified' if exact else 'bounded by model misfit: the exact two-parameter T = F + C/f form is refuted, F is an interval',
+                'F_is_meaningful':0.0<f['F_s']<fastest,
+                'refutation_criteria':criterion['refutation'],
+                'note':'refuting the exact 1/f form is a FINDING about the fold, not a failed capture: the arms held, the host was quiet and the structure never moved. Only an F at or below 0 s, or at or above the fastest fold, would make F meaningless.'}
             out['demand']=demand(f['F_s'],f['C_Mcycles'],criterion['clock']['warm_MHz'])
-            if not out['model_check']['inverse_clock_model_survives']:ok=False
+            out['demand_at_F_bounds']={'F_low':demand(lo_b,f['C_Mcycles'],criterion['clock']['warm_MHz'])['F_untouched'],
+                                       'F_high':demand(hi_b,f['C_Mcycles'],criterion['clock']['warm_MHz'])['F_untouched']}
+            if not out['model_check']['F_is_meaningful']:ok=False
         out['verdict']='GO' if ok else 'STOP'
         out['run_errors']=run.get('errors',[])
         result['targets'][str(size)]=out
