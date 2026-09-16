@@ -1,4 +1,4 @@
-# Clock evidence audit
+# C10 measurement tools
 
 Run this CPU-only audit from the repository root:
 
@@ -116,3 +116,5 @@ metric as well as the threshold. CA and all-atom RMSD are not interchangeable.
 A float64 coordinate scorer is also not a float64 model reference: mathematical
 transforms still need independent float64 controls. Compare a new stack as one
 stack, with its own paired baseline/A/A folds and both fixture sizes.
+
+Opaque generic calls can be inspected with the [opt-in identity observer](../c10_generic_identity/README.md). Its CPU controls preserve dispatch behavior; live binding and device validation are still required before using its records in a census.
