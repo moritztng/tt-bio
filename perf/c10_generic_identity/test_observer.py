@@ -18,8 +18,10 @@ class CoreCoord:
 
 
 class CoreRange:
-    def __init__(self, start_coord, end_coord):
-        self.start_coord, self.end_coord = start_coord, end_coord
+    __slots__ = ('start', 'end')
+
+    def __init__(self, start, end):
+        self.start, self.end = start, end
 
 
 class CoreRangeSet:
@@ -153,6 +155,30 @@ class ObserverControls(unittest.TestCase):
 
     def fields(self, call=0):
         return self.calls()[call]['descriptor']['fields']['kernels'][0]['fields']
+
+    def test_native_core_range_names_and_runtime_coordinates(self):
+        encoder = Encoder(binding(lambda *a: None))
+        core_range = self.kernel.core_ranges.ranges()[0]
+        self.assertFalse(hasattr(core_range, 'start_coord'))
+        self.assertFalse(hasattr(core_range, 'end_coord'))
+        fields = encoder.value(core_range)['fields']
+        self.assertEqual(fields['start']['fields'], {'x': 0, 'y': 0})
+        self.assertEqual(fields['end']['fields'], {'x': 1, 'y': 1})
+        runtime = encoder.runtime(self.kernel)
+        self.assertNotIn('unavailable', runtime)
+        self.assertEqual(runtime['entries'], [
+            {'core': [0, 0], 'values': [16, 32], 'length': 2},
+            {'core': [1, 1], 'values': [], 'length': 0},
+        ])
+        self.kernel.runtime_args.pairs[0][1][0] = 48
+        self.assertEqual(encoder.runtime(self.kernel)['entries'][0]['values'], [48, 32])
+
+    def test_missing_native_endpoint_is_an_explicit_gap(self):
+        encoder = Encoder(binding(lambda *a: None))
+        core_range = self.kernel.core_ranges.ranges()[0]
+        del core_range.end
+        self.assertIn('unavailable', encoder.value(core_range)['fields']['end'])
+        self.assertIn('unavailable', encoder.runtime(self.kernel))
 
     def test_paired_arguments_call_count_and_return_identity(self):
         calls = []

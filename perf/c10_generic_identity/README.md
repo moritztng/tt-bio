@@ -52,3 +52,11 @@ The audited k10 source revision is `1452925b033c6608726b731a81500bd3e19f7894`, w
 The committed [CPU report](controls/report.json) and [synthetic capture](controls/synthetic.jsonl) test mechanics only. Installed-binding construction was not run: read-only `bwrap` isolation on qb2 failed before Python at namespace setup. No unisolated import or device access followed.
 
 The device worker must first validate the installed binding's getters and runtime view against constructed descriptors. Then run a small paired live call with the observer off/on, checking exact dispatch count, shapes, output accuracy and changed buffer arguments on a cached descriptor, and inspect missing fields. Verify source/build provenance on that worker's actual deployment and establish a join to the graph/profiler sequence. This does not complete a fold census or Phase0. Future timings require a calibrated bare/profiler comparison and AICLK min/max and coverage sampled during each fold; a 1350 MHz request alone is not a measurement.
+
+The first live smoke found that `CoreRange` exposes Python `start` and `end`
+properties, while its C++ members are named `start_coord` and `end_coord`.
+The observer now reads the Python properties for both descriptor snapshots and
+runtime enumeration. CPU controls cover native-only endpoint names, runtime
+rebinding and missing endpoints. A fresh live smoke must validate this repair;
+the earlier smoke stopped before any model census. A successful
+`observation_ok` footer never overrides missing required identity fields.
