@@ -1,0 +1,30 @@
+{
+  "host": "tt-quietbox2",
+  "utc": "2026-09-16T17:43:28.953912+00:00",
+  "host_monotonic_ns": 1229812911144,
+  "holders": [
+    {
+      "pid": 15909,
+      "nodes": [
+        "/dev/tenstorrent/3"
+      ],
+      "state": "R",
+      "utime_ticks": 20183,
+      "stime_ticks": 2365,
+      "starttime_ticks": 105727,
+      "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+      "env": {
+        "TT_VISIBLE_DEVICES": "3",
+        "TT_BIO_LEASE_CARDS": "3",
+        "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+      }
+    }
+  ],
+  "gate_hashes": {
+    "/home/moritz/.coworker/workstreams/_c10_donecheck.py": "4ea757dd4f9765bbaf6709ad9ee3c545dea567d050627af24ed7c028d57430eb",
+    "/home/moritz/.coworker/workstreams/c10--roofline-recheck_donecheck.py": "a9004bb4fe1ace55746cd53d273a1186e59364263da1f1dc4df7ca6938419fe0"
+  },
+  "containment": "active",
+  "module_srcversion": "A10759A24565BC5BBE903C5",
+  "scope": "Read-only continuation after authoritative shared-gate update; no device opened or performance measured."
+}
