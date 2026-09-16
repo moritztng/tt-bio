@@ -2,36 +2,12 @@
   "verdict": "GO",
   "measured_commit": "ee11d5263ffc96cf25939967d3bdd38c1a0f96e3",
   "criterion_commit": "ec761a98f",
-  "raw_checks": [
-    {
-      "file": "perf/c10_dm_control/raw/profile_log_device.csv.gz",
-      "hashes_match": true
-    },
-    {
-      "file": "perf/c10_dm_control/raw/tracy_ops_times.csv.gz",
-      "hashes_match": true
-    },
-    {
-      "file": "perf/c10_dm_control/raw/tracy_ops_data.csv.gz",
-      "hashes_match": true
-    },
-    {
-      "file": "perf/c10_dm_control/raw/new_zone_src_locations.log.gz",
-      "hashes_match": true
-    },
-    {
-      "file": "perf/c10_dm_control/raw/zone_src_locations.log.gz",
-      "hashes_match": true
-    },
-    {
-      "file": "perf/c10_dm_control/raw/tracy_profile_log_host.tracy",
-      "hashes_match": true
-    },
-    {
-      "file": "perf/c10_dm_control/raw/ops.csv",
-      "hashes_match": true
-    }
-  ],
+  "criterion_sha256": "bbb7cd097290c9dd00980816beddb2a32e2ab641a259ecff50b84b0fb132c1e0",
+  "raw_archives_verified": 7,
+  "dense_graph_recount": {
+    "matrix_flops": 1099511627776,
+    "modeled_bytes_both_counters": 402653184
+  },
   "interval_clocks": [
     {
       "samples": 17,
@@ -128,73 +104,17 @@
       "pass": true
     }
   ],
-  "counter": {
-    "expected": {
-      "n": 8192,
-      "matrix_flops_2_per_FMA": 1099511627776,
-      "modeled_compulsory_bytes_v2": 402653184
-    },
-    "flops": {
-      "n_ops": 1,
-      "matmul_logical": 1099511627776,
-      "matmul_padded": 1099511627776,
-      "eltwise_logical": 0,
-      "logical": 1099511627776,
-      "eltwise_padded": 0,
-      "padded": 1099511627776,
-      "tile_pad_factor": 1.0
-    },
-    "traffic": {
-      "floor_MB": 402.653184,
-      "once_MB": 402.653184,
-      "real_MB": 402.653184,
-      "real_w_MB": 134.217728,
-      "real_r_MB": 268.435456,
-      "n_ops": 1,
-      "per_op": [
-        [
-          402653184,
-          "ttnn.matmul",
-          134217728,
-          268435456
-        ]
-      ],
-      "traffic_model_version": 2,
-      "terminal_read_removed_MB": 134.217728,
-      "assumed_read_MB": 0.0,
-      "opaque_buffer_assumed_read_MB": 0.0,
-      "unattributed_B": 0
-    },
-    "corrected_traffic": {
-      "floor_MB": 402.653184,
-      "once_MB": 402.653184,
-      "real_MB": 402.653184,
-      "real_w_MB": 134.217728,
-      "real_r_MB": 268.435456,
-      "phantom_read_MB": 0.0,
-      "traffic_model_version": 2,
-      "terminal_read_removed_MB": 134.217728,
-      "assumed_read_MB": 0.0,
-      "opaque_buffer_assumed_read_MB": 0.0,
-      "gate_saved_MB": 0.0,
-      "prealloc_MB": 0.0,
-      "n_ops": 1,
-      "per_op": [
-        [
-          402653184.0,
-          "ttnn.matmul",
-          134217728.0,
-          268435456.0
-        ]
-      ],
-      "by_op": [
-        402653184.0
-      ],
-      "unattributed_B": 0.0,
-      "op_names": [
-        "ttnn.matmul"
-      ]
-    },
-    "pass": true
+  "runtime_zone_counts": {
+    "BRISC/DM-CB-RESERVE-BACK": 13970,
+    "BRISC/DM-CB-WAIT-FRONT": 27543,
+    "BRISC/DM-NOC-READ-BARRIER": 1397,
+    "BRISC/DM-NOC-WRITE-WAIT": 27543,
+    "BRISC/DM-SEM-WAIT": 13970,
+    "NCRISC/DM-CB-RESERVE-BACK": 27543,
+    "NCRISC/DM-NOC-READ-BARRIER": 14843,
+    "NCRISC/DM-NOC-WRITE-WAIT": 1270,
+    "NCRISC/DM-SEM-WAIT": 13970,
+    "TRISC_0/CB-COMPUTE-WAIT-FRONT": 27543,
+    "TRISC_2/CB-COMPUTE-RESERVE-BACK": 27543
   }
 }

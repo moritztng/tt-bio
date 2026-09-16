@@ -1,0 +1,11 @@
+test_accumulators_do_not_define_elapsed_time (test_analysis.AnalysisTests.test_accumulators_do_not_define_elapsed_time) ... ok
+test_clock_coverage_rejects_gap_and_sag (test_analysis.AnalysisTests.test_clock_coverage_rejects_gap_and_sag) ... ok
+test_each_operations_own_grid (test_analysis.AnalysisTests.test_each_operations_own_grid) ... ok
+test_float_timestamp_rejected (test_analysis.AnalysisTests.test_float_timestamp_rejected) ... ok
+test_integer_ticks_and_risc_ownership (test_analysis.AnalysisTests.test_integer_ticks_and_risc_ownership) ... ok
+test_missing_core_and_reversed_time_rejected (test_analysis.AnalysisTests.test_missing_core_and_reversed_time_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.000s
+
+OK
