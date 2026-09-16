@@ -1,18 +1,18 @@
 {
  "doc": "The per-arch readback dispatch, scored inside a real fold rather than on a synthetic tensor.\n\n`download_shape.py` timed the two candidate shapes on a tensor of the head's shape and found the\nranking inverts between the parts. This runs the same comparison where it ships: the two arms are\n`ConfidenceHeadsDevice.__call__`'s own branch, selected by monkeypatching the module's\n`is_wormhole` so one process folds both, interleaved, against one device open and one warm cache.\n\n  narrow   to_layout(ROW_MAJOR) + slice on the card, then download 4 channels.   (Wormhole ships)\n  tiled    download the tile whole, slice the 4 channels on the host.            (Blackhole ships)\n\nThree readings per fold. The head's own stage wall gives the download stage in ms, which is what\nthe dispatch is supposed to move. The head's return dict gives pae/pde/tm, and the written CIF plus\nits pLDDT give the fold the user actually receives; neither must move at all. The equality is the\nload-bearing one -- a readback shape that changed a number would be a bug, not a lever -- so both\nare asserted on every fold and not just the first.\n",
  "env": {
-  "started": "2026-09-16T05:34:30+0000",
+  "started": "2026-09-16T05:31:55+0000",
   "card": "0",
   "host": "tt-quietbox2",
-  "size": 512,
+  "size": 298,
   "reps": 3,
   "commit": "d7a470896",
   "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-conf-readback-bh-fix/tt_bio/__init__.py",
   "arch": "blackhole",
   "loadavg_start": [
-   2.75,
-   1.98974609375,
-   1.58837890625
+   2.048828125,
+   1.5908203125,
+   1.40869140625
   ],
   "recycling_steps": 3,
   "sampling_steps": 200
@@ -21,132 +21,132 @@
   {
    "rep": 0,
    "arm": "narrow",
-   "wall_s": 21.9161,
+   "wall_s": 14.867,
    "stages_median_ms": {
-    "z transpose": 3.17,
-    "heads": 6.63,
-    "same-chain select": 4.59,
-    "untilize": 0.64,
-    "download": 14.3
+    "z transpose": 1.55,
+    "heads": 3.38,
+    "same-chain select": 1.98,
+    "untilize": 0.57,
+    "download": 5.14
    },
    "cif": {
-    "sha256_16": "3a8c75bc701404de",
-    "plddt": 0.845919
+    "sha256_16": "ba63084d4d430493",
+    "plddt": 0.908011
    },
-   "loadavg": 2.5361328125
+   "loadavg": 2.037109375
   },
   {
    "rep": 0,
    "arm": "tiled",
-   "wall_s": 21.8876,
+   "wall_s": 14.6865,
    "stages_median_ms": {
-    "z transpose": 3.16,
-    "heads": 6.62,
-    "same-chain select": 4.54,
-    "untilize": 0.01,
-    "download": 4.65
-   },
-   "cif": {
-    "sha256_16": "3a8c75bc701404de",
-    "plddt": 0.845919
-   },
-   "loadavg": 2.3525390625
-  },
-  {
-   "rep": 1,
-   "arm": "tiled",
-   "wall_s": 21.5648,
-   "stages_median_ms": {
-    "z transpose": 3.3,
-    "heads": 6.68,
-    "same-chain select": 4.64,
+    "z transpose": 1.53,
+    "heads": 3.5,
+    "same-chain select": 1.96,
     "untilize": 0.02,
-    "download": 4.75
+    "download": 2.01
    },
    "cif": {
-    "sha256_16": "3a8c75bc701404de",
-    "plddt": 0.845919
+    "sha256_16": "ba63084d4d430493",
+    "plddt": 0.908011
    },
-   "loadavg": 2.76806640625
+   "loadavg": 2.02783203125
+  },
+  {
+   "rep": 1,
+   "arm": "tiled",
+   "wall_s": 14.7596,
+   "stages_median_ms": {
+    "z transpose": 1.54,
+    "heads": 3.32,
+    "same-chain select": 1.96,
+    "untilize": 0.01,
+    "download": 2.03
+   },
+   "cif": {
+    "sha256_16": "ba63084d4d430493",
+    "plddt": 0.908011
+   },
+   "loadavg": 2.02099609375
   },
   {
    "rep": 1,
    "arm": "narrow",
-   "wall_s": 21.6694,
+   "wall_s": 14.8336,
    "stages_median_ms": {
-    "z transpose": 3.25,
-    "heads": 6.46,
-    "same-chain select": 4.54,
-    "untilize": 0.68,
-    "download": 14.49
+    "z transpose": 1.56,
+    "heads": 3.54,
+    "same-chain select": 2.0,
+    "untilize": 0.58,
+    "download": 5.18
    },
    "cif": {
-    "sha256_16": "3a8c75bc701404de",
-    "plddt": 0.845919
+    "sha256_16": "ba63084d4d430493",
+    "plddt": 0.908011
    },
-   "loadavg": 2.54931640625
+   "loadavg": 2.17626953125
   },
   {
    "rep": 2,
    "arm": "narrow",
-   "wall_s": 21.9041,
+   "wall_s": 14.8258,
    "stages_median_ms": {
-    "z transpose": 3.26,
-    "heads": 6.52,
-    "same-chain select": 4.5,
-    "untilize": 0.63,
-    "download": 14.25
+    "z transpose": 1.51,
+    "heads": 3.36,
+    "same-chain select": 1.89,
+    "untilize": 0.54,
+    "download": 5.22
    },
    "cif": {
-    "sha256_16": "3a8c75bc701404de",
-    "plddt": 0.845919
+    "sha256_16": "ba63084d4d430493",
+    "plddt": 0.908011
    },
-   "loadavg": 2.36083984375
+   "loadavg": 2.65283203125
   },
   {
    "rep": 2,
    "arm": "tiled",
-   "wall_s": 21.7755,
+   "wall_s": 14.8004,
    "stages_median_ms": {
-    "z transpose": 3.2,
-    "heads": 6.55,
-    "same-chain select": 4.53,
-    "untilize": 0.01,
-    "download": 4.69
+    "z transpose": 1.6,
+    "heads": 3.51,
+    "same-chain select": 1.96,
+    "untilize": 0.02,
+    "download": 2.04
    },
    "cif": {
-    "sha256_16": "3a8c75bc701404de",
-    "plddt": 0.845919
+    "sha256_16": "ba63084d4d430493",
+    "plddt": 0.908011
    },
-   "loadavg": 2.77392578125
+   "loadavg": 2.50732421875
   }
  ],
  "download_ms": {
   "narrow": {
-   "median": 14.3,
-   "min": 14.25,
-   "max": 14.49,
+   "median": 5.18,
+   "min": 5.14,
+   "max": 5.22,
    "all": [
-    14.3,
-    14.49,
-    14.25
+    5.14,
+    5.18,
+    5.22
    ]
   },
   "tiled": {
-   "median": 4.69,
-   "min": 4.65,
-   "max": 4.75,
+   "median": 2.03,
+   "min": 2.01,
+   "max": 2.04,
    "all": [
-    4.65,
-    4.75,
-    4.69
+    2.01,
+    2.03,
+    2.04
    ]
   }
  },
- "delta_ms": 9.61,
+ "delta_ms": 3.15,
  "head_output_identical": true,
  "cif_identical": {
-  "sha256_16": "3a8c75bc701404de",
-  "plddt": 0.845919
+  "sha256_16": "ba63084d4d430493",
+  "plddt": 0.908011
  }
 }

@@ -9,14 +9,16 @@ ranking inverts between the parts. This runs the same comparison where it ships:
   narrow   to_layout(ROW_MAJOR) + slice on the card, then download 4 channels.   (Wormhole ships)
   tiled    download the tile whole, slice the 4 channels on the host.            (Blackhole ships)
 
-Two readings per fold. The head's own stage wall gives the download stage in ms, which is what the
-dispatch is supposed to move; the head's return dict gives pae/pde/tm, which it must not move at
-all. The equality is the load-bearing one -- a readback shape that changed a number would be a bug,
-not a lever -- so it is asserted on every fold and not just the first.
+Three readings per fold. The head's own stage wall gives the download stage in ms, which is what
+the dispatch is supposed to move. The head's return dict gives pae/pde/tm, and the written CIF plus
+its pLDDT give the fold the user actually receives; neither must move at all. The equality is the
+load-bearing one -- a readback shape that changed a number would be a bug, not a lever -- so both
+are asserted on every fold and not just the first.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -79,26 +81,33 @@ def main() -> int:
 
     boltz2.ConfidenceHeads.forward = wrapped
 
-    one_fold, _meta, _state = B.build_fold("boltz2", HERE / f".msa_{a.size}",
-                                           FIX / f"cdk2x2_{a.size}.yaml",
-                                           FIX / f"cdk2x2_{a.size}.a3m")
+    one_fold, meta, _state = B.build_fold("boltz2", HERE / f".msa_{a.size}",
+                                          FIX / f"cdk2x2_{a.size}.yaml",
+                                          FIX / f"cdk2x2_{a.size}.a3m")
+    struct = Path(meta["struct_dir"])
 
     def fold(arm: str):
-        """One fold on `arm`, returning its confheads stage wall and the head's own output."""
+        """One fold on `arm`: its confheads stage wall, the head's output, and the written CIF."""
         T.is_wormhole = lambda: arm == "narrow"
         buf = StringIO()
         t0 = time.perf_counter()
         with redirect_stdout(buf):
-            one_fold()
+            _t, metrics = one_fold()
         wall_s = time.perf_counter() - t0
+        h = hashlib.sha256()
+        for f in sorted(struct.rglob("*")):
+            if f.is_file():
+                h.update(f.name.encode())
+                h.update(f.read_bytes())
+        cif = {"sha256_16": h.hexdigest()[:16], "plddt": round(float(metrics["plddt"]), 6)}
         stages: dict = {}
         for line in buf.getvalue().splitlines():
             m = WALL.match(line.strip())
             if m:
                 stages.setdefault(m.group(1), []).append(float(m.group(2)))
-        return wall_s, stages, grabbed[-1]
+        return wall_s, stages, grabbed[-1], cif
 
-    print("=== cold folds (discarded), one per arm ===", flush=True)
+    print(f"=== cold folds (discarded), one per arm === struct_dir {struct}", flush=True)
     for arm in ARMS:
         fold(arm)
     grabbed.clear()
@@ -113,14 +122,15 @@ def main() -> int:
                    "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS},
            "folds": []}
     dl: dict = {k: [] for k in ARMS}
-    ref = None
+    ref = ref_cif = None
     for rep in range(a.reps):
         # reverse the order inside the rep so a monotonic drift in the box cancels
         order = ARMS if rep % 2 == 0 else ARMS[::-1]
         for arm in order:
-            wall_s, stages, rec = fold(arm)
+            wall_s, stages, rec, cif = fold(arm)
             if ref is None:
-                ref = rec
+                ref, ref_cif = rec, cif
+            assert cif == ref_cif, f"{arm} rep {rep} moved the written fold: {cif} vs {ref_cif}"
             d = diff(ref, rec)
             # _mean_ref is the reference's own mean, not a delta -- only the d_
             # scalars and the _max_abs / _mean_abs norms say whether anything moved.
@@ -129,7 +139,8 @@ def main() -> int:
             step = {k: round(st.median(v), 3) for k, v in stages.items()}
             dl[arm].append(step["download"])
             out["folds"].append({"rep": rep, "arm": arm, "wall_s": round(wall_s, 4),
-                                 "stages_median_ms": step, "loadavg": os.getloadavg()[0]})
+                                 "stages_median_ms": step, "cif": cif,
+                                 "loadavg": os.getloadavg()[0]})
             print(f"  rep {rep} {arm:7s} fold {wall_s:7.3f} s  download {step['download']:7.3f} ms"
                   f"  untilize {step.get('untilize', 0.0):6.3f} ms", flush=True)
 
@@ -137,10 +148,11 @@ def main() -> int:
                               "max": round(max(v), 3), "all": v} for k, v in dl.items()}
     out["delta_ms"] = round(st.median(dl["narrow"]) - st.median(dl["tiled"]), 3)
     out["head_output_identical"] = True
+    out["cif_identical"] = ref_cif
     print(f"  download median: narrow {out['download_ms']['narrow']['median']:.3f} ms  "
           f"tiled {out['download_ms']['tiled']['median']:.3f} ms  "
           f"delta {out['delta_ms']:.3f} ms/fold", flush=True)
-    print("  head output identical on every fold: asserted", flush=True)
+    print(f"  head output and written CIF identical on every fold: asserted, {ref_cif}", flush=True)
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(out, indent=1))
     print("done", flush=True)

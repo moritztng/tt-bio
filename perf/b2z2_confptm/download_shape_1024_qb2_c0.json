@@ -1,0 +1,50 @@
+{
+ "env": {
+  "started": "2026-09-16T05:37:17+0000",
+  "card": "0",
+  "commit": "d7a470896",
+  "n": 1024,
+  "padded": 1024,
+  "reps": 20,
+  "loadavg": [
+   2.14111328125,
+   2.09814453125,
+   1.70458984375
+  ]
+ },
+ "variants": {
+  "tiled": {
+   "median_ms": 42.293,
+   "min_ms": 41.663,
+   "max_ms": 43.119,
+   "bus_bytes": 67108864,
+   "bus_mb": 67.109,
+   "steps_median_ms": {
+    "to_torch": 37.287
+   }
+  },
+  "narrow": {
+   "median_ms": 57.499,
+   "min_ms": 57.447,
+   "max_ms": 57.598,
+   "bus_bytes": 8388608,
+   "bus_mb": 8.389,
+   "steps_median_ms": {
+    "to_layout": 1.031,
+    "slice": 3.43,
+    "to_torch": 52.928
+   }
+  },
+  "untiled": {
+   "median_ms": 82.003,
+   "min_ms": 81.577,
+   "max_ms": 83.23,
+   "bus_bytes": 67108864,
+   "bus_mb": 67.109,
+   "steps_median_ms": {
+    "to_layout": 0.999,
+    "to_torch": 76.36
+   }
+  }
+ }
+}

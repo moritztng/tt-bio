@@ -91,14 +91,21 @@ numbers per token pair come down instead of a tile's worth of bin logits: 67.1 M
 512 residues, 32.0x fewer bytes. It is built on top of `TT_BIO_DEVICE_CONFIDENCE` and is measured
 with it, so set them together or not at all.
 
-The win is the deleted host work, not the smaller download. Narrowing the readback needs a
-row-major layout, and a row-major readback on Blackhole costs about 13 ms whatever its size: the
-2.097 MB narrow download reads 14.508 ms against 4.750 ms for the 16.777 MB tiled one, measured
-interleaved over 20 reps with the three variants asserted bit-identical first
-(`perf/b2z2_confptm/download_shape_512_qb2_c3.json`). On Wormhole the ranking is the other way
-round, 17.500 ms narrow against 32.644 ms tiled, which is the machine the choice was fitted on.
-It costs 9.8 ms of a 16.5 s fold, so it is not why the flag is on; it is a known 0.06 % left on
-the table on this cell.
+The win is the deleted host work, not the smaller download, and on Blackhole the download is
+deliberately not the smaller one. Narrowing the readback needs a row-major layout, and a row-major
+readback on Blackhole runs at a flat 159 MB/s: 0.524 MB through 8.389 MB, 256 to 1024 residues,
+every rung within 2 MB/s of that, against 1.8 to 3.9 GB/s for the tiled read. An 8x byte saving
+does not cover an 11 to 23x rate penalty, so the narrow shape loses at every rung of the size
+ladder, 3.72 ms against 1.13 at 256 residues, 14.40 against 4.88 at 512 and 57.50 against 42.29 at
+1024 (`perf/b2z2_confptm/download_shape_*_qb2_c0.json`, 20 interleaved reps per rung with the
+three variants asserted bit-identical first). Wormhole ranks them the other way round, 17.500 ms
+narrow against 32.644 tiled, and that is the machine the choice was originally fitted on, so the
+head picks its download shape by `is_wormhole()`: slice on the card there, slice on the host here.
+Scored inside a real fold with both arms interleaved in one process, picking the right one is
+worth 9.61 ms of download plus the 0.64 ms untilize it no longer does at 512 residues, and 3.15
+plus 0.56 ms at 298, with the head's output and the written CIF asserted identical on every fold
+(`perf/b2z2_confptm/readback_ab_298_qb2_c0.json`, `readback_ab_512_qb2_c0.json`). It is a tenth of
+a percent of the fold either way; it is not why the flag is on.
 
 **Accuracy: the coordinates cannot move, and they do not.** The confidence head runs after the
 sampler and its outputs are scores, so at one diffusion sample nothing it produces feeds back into

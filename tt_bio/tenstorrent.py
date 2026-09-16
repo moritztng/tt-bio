@@ -12387,13 +12387,16 @@ class ConfidenceHeadsDevice:
         self.wall.mark("same-chain select")
 
         # Which download shape is cheaper is a part property, and it inverts between the two.
-        # The result is three numbers per (i, j); a tiled read moves all 32 channels and both
-        # padded axes, 16.777 MB at 512 tokens against 2.097 MB for untilizing and slicing on
-        # the card first. On Wormhole those bytes are the cost and the narrow read wins, 17.500
-        # against 32.644 ms. On Blackhole they are not: a row-major readback is layout-bound at
-        # ~13 ms whatever its size (2.097 MB in 13.178 ms, 16.777 MB in 14.252 ms), so narrowing
-        # costs 14.508 ms against 4.750 ms for reading the tile whole and slicing on the host
-        # (perf/b2z2_confptm/download_shape.py, which asserts both return the same channels).
+        # The result is three numbers per (i, j), so untilizing and slicing on the card first
+        # moves 2.097 MB at 512 tokens where reading the tile whole moves 16.777 MB. On Wormhole
+        # those bytes are the cost and the narrow read wins, 17.500 against 32.644 ms. On
+        # Blackhole they are not: a row-major readback runs at a flat 159 MB/s there -- 0.524 MB
+        # through 8.389 MB, 256 to 1024 tokens, every rung within 2 MB/s of that -- against
+        # 1.8-3.9 GB/s tiled, so an 8x byte saving cannot cover an 11-23x rate penalty and the
+        # narrow read loses at every rung of the size ladder: 3.72 against 1.13 ms at 256 tokens,
+        # 14.40 against 4.88 at 512, 57.50 against 42.29 at 1024
+        # (perf/b2z2_confptm/download_shape.py, which asserts every variant returns the same
+        # channels).
         if is_wormhole():
             out = ttnn.to_layout(out, ttnn.ROW_MAJOR_LAYOUT)
             self.wall.mark("untilize")
