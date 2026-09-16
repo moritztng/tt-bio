@@ -1,0 +1,84 @@
+{
+  "recorded_utc": "2026-09-17T23:30:00+00:00",
+  "row": "c10-fixed-cost",
+  "source_base": "e6004abba460550a650ffa42a90e795ab3e5f20d",
+  "comparable_base": "5e1886b4fd1bea4211f30c295723c8175c72d63c",
+  "comparable_base_note": "c10-bare-baseline's 14.8813 s at 1350 MHz was measured on 5e1886b4f. The two commits since it only rewrote comment and docstring prose; capture.py checks that as ASTs with docstrings stripped and records the verdict, rather than asserting it.",
+  "question": "F, the part of the fold that does not scale with AICLK, measured directly by interleaving pinned clock arms inside one process and one device context.",
+  "prediction": "Identical model configuration in every arm: predicted model-cycle saving exactly zero. This row prices nothing and ships nothing. See prediction.json for the numeric predictions and the refutation criteria, recorded before any fold.",
+  "model": {
+    "model": "boltz2",
+    "sizes": [512, 298],
+    "sampling_steps": 200,
+    "recycling_steps": 3,
+    "diffusion_samples": 1,
+    "seed": 0,
+    "msa_rows": 35,
+    "templates": false,
+    "fast": false,
+    "trace": false,
+    "hoist": false,
+    "instrument": false
+  },
+  "warmup_folds": 1,
+  "folds_per_cell": 7,
+  "minimum_folds_per_cell": 6,
+  "clock": {
+    "arms_MHz": [1350, 1200, 1000, 800],
+    "warm_MHz": 1350,
+    "order": "alternating: 1350,1200,1000,800 on even reps and the reverse on odd reps, so no arm sits systematically early or late in the session",
+    "mechanism": "ARC FORCE_AICLK (0x33) through tt-kmd's SMC message queue, re-sent and re-verified before EVERY label, released in the finally block",
+    "settle": "the requested MHz must appear in sysfs and stay there for 200 ms before the timer starts, within a 5 s timeout",
+    "minimum_samples": 3,
+    "max_gap_ns": 10000000,
+    "errors_allowed": 0,
+    "all_during_samples_must_equal_that_folds_own_target": true,
+    "unheld_clock": "an arm the chip does not actually hold is rejected, never reported",
+    "800_is_an_arm": "scripts/aiclk_watch.sh logs AICLK-WATCH: qb2 CLAMPED-UNDER-LOAD for a busy chip under 1200 MHz, so this row trips the fleet's own guard on purpose. A pinned 800 MHz fold is a measurement; an unrequested one is an artifact, and the during-fold sampling plus the board power reading prove which this was."
+  },
+  "quiet": {
+    "all_chip_foreign_holders_allowed": 0,
+    "holder_max_gap_ns": 1000000000,
+    "lock_wait_s": 60,
+    "load_wait_s": 60,
+    "benchlock_maxload": 2.0,
+    "matcher_and_location": "unchanged shared benchlock",
+    "host_cpu_witness": {
+      "sampler": "perf/c10_fixed_cost/ambient.py, 250 ms, whole locked window",
+      "record_cpu_pct_at_or_above": 2.0,
+      "foreign_cpu_reject_pct": 20.0,
+      "foreign": "any process outside the run session (own=false)"
+    },
+    "co_tenancy": "STOP rather than measure anyway; never signal a holder"
+  },
+  "accuracy": {
+    "metric": "maximum independently superposed domain all-atom float64 Kabsch RMSD, split after residue 298; also report whole-chain all-atom",
+    "bars_A": {"512": 0.6, "298": 0.35},
+    "user_512_seed_floor_A": 1.84,
+    "archived_upstream_seed_spread_A": {
+      "298": {"mean": 0.80128, "min": 0.74099, "max": 0.84656},
+      "512": {"mean": 1.66454, "min": 0.9454, "max": 2.29123}
+    },
+    "same_seed_only": "A/A across clock arms: no transform changed, so no new float64 model reference is needed. A clock change must not move the structure; if it does, that is a finding and a STOP.",
+    "conventions": "the 512 bar and its 1.84 A user seed floor and the 298 bar with its own 0.741-0.847 A archived upstream seed pairs are each used only at their own size"
+  },
+  "kill": [
+    "wrong source/config or input hashes",
+    "wrong opened node, containment change or boot change",
+    "foreign device holder or quiet/lock timeout",
+    "clock read error, a clock other than that fold's own target, or a coverage gap",
+    "FORCE_AICLK refused, or a requested clock that did not settle before the timer started",
+    "nonfinite/missing/duplicate atoms or identity mismatch",
+    "any structural deviation between clock arms over the size bar",
+    "missing CIF or nonfinite confidence",
+    "foreign host CPU process at or above 20% of a core during an accepted fold"
+  ],
+  "refutation": [
+    "fitted F at or below 0 s: there is no clock-immune term and the two-parameter inverse-clock form is wrong",
+    "fitted F at or above the 298 aa fold time at 1350 MHz (9.680 s): a fixed cost larger than the whole smaller fold is not credible as a fixed cost",
+    "cell-median residual at an intermediate clock larger than max(A/A timing floor, 0.05 s): the fold is not T = F + C/f and F is not identified by this fit",
+    "any arm whose during-fold clock is not exactly its own requested target"
+  ],
+  "bare": "Production wheel, no Tracy/graph/observer/module timers/sum profiling, no trace, no hoist, no --fast, no MSA truncation, no tensor parallelism, no bfp8, no kernel change, no reduction of steps or recycles. Synchronize before the monotonic start and after predict_one including CIF writing: c10-bare-baseline's timer boundary, unchanged, because the comparison to 14.8813 s depends on it.",
+  "unmeasured": "No device-cycle census, per-op budget, roof, ceiling, upstream accuracy or cross-run speedup. F is the term that does not scale with AICLK; it is NOT shown to be host CPU work, and it includes any device time bound by a clock domain AICLK does not drive."
+}

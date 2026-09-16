@@ -1,0 +1,53 @@
+PASS  800 samples pass at target 800: got True want True
+PASS  800 samples REJECT at target 1350: got False want False
+PASS  1350 samples pass at target 1350: got True want True
+PASS  1350 samples REJECT at target 800: got False want False
+PASS  1000 samples pass at their own target: got True want True
+PASS  1200 samples pass at their own target: got True want True
+PASS  mid-fold clock move rejects: got False want False
+PASS  mid-fold move is visible as min != max: got True want True
+PASS  a 200 ms sampling gap rejects: got False want False
+PASS  a read error rejects: got False want False
+PASS  two samples reject (minimum is three): got False want False
+PASS  samples outside the fold interval are not counted: got 0 want 0
+PASS  power is carried through coverage: got 40.0 want 40.0 +-1e-09
+PASS  exact fit recovers F: got 3.0 want 3.0 +-1e-09
+PASS  exact fit recovers C: got 16000.0 want 16000.0 +-1e-06
+PASS  exact fit residual is zero: got 0.0 want 0.0 +-1e-09
+PASS  exact fit SE is zero, not None, with >2 clocks: got True want True
+PASS  two-clock fit recovers F: got 2.9999999999999964 want 3.0 +-1e-09
+PASS  two-clock fit refuses a fake SE: got None want None
+PASS  two-clock fit says why: got True want True
+PASS  one distinct clock raises: a fixed term needs two clocks
+PASS  closed form matches the fit on F: got 3.0000000000000053 want 3.0 +-1e-09
+PASS  closed form matches the fit on C: got 16000.0 want 16000.0 +-1e-06
+PASS  dF/dT at 1350 is the analytic 2.45455: got 2.454545454545454 want 2.454545454545 +-1e-09
+PASS  dF/dT at 800 is the analytic -1.45455: got -1.4545454545454544 want -1.454545454545 +-1e-09
+PASS  F uncertainty is amplified, not averaged: got 0.05706310845990987 want 0.05706310845989743 +-1e-12
+PASS  a bent sweep leaves a visible residual: got True want True
+PASS  demand reproduces the fold: got 14.87037037037037 want 14.87037037037037 +-1e-12
+PASS  F untouched allows 1350*(10-F) Mcycles: got 8775.0 want 8775.0 +-1e-09
+PASS  F untouched cut: got 6575.0 want 6575 +-1e-09
+PASS  F untouched cut pct: got 42.83387622149837 want 42.83387622149837 +-1e-09
+PASS  F cut to 1 s allows 12150 Mcycles: got 12150.0 want 12150.0 +-1e-09
+PASS  F cut to 1 s cut: got 3200.0 want 3200 +-1e-09
+PASS  cutting F alone does not reach the target here: got True want True
+PASS  an F above the target is called impossible, not a negative cycle budget: got True want True
+PASS  an F above the target is flagged unreachable: got False want False
+PASS  a cycle count already under the allowance is reported as met: got True want True
+PASS  a comment rewrite is equivalent: got True want True
+PASS  a docstring rewrite is equivalent: got True want True
+PASS  a dropped comment is equivalent: got True want True
+PASS  a one-token constant change is NOT equivalent: got False want False
+PASS  an operator change is NOT equivalent: got False want False
+PASS  a dropped statement is NOT equivalent: got False want False
+PASS  a docstring-only module still yields a fingerprint: got True want True
+PASS  four authorised arms: got [1350, 1200, 1000, 800] want [1350, 1200, 1000, 800]
+PASS  at least 6 accepted folds per cell required: got True want True
+PASS  predicted model cycles saved is zero: got 0 want 0
+PASS  the 800 MHz 512 aa prediction is recorded: got 22.7 want 22.7
+PASS  refutation criteria recorded before the run: got True want True
+PASS  bars are not transferred between sizes: got {'512': 0.6, '298': 0.35} want {'512': 0.6, '298': 0.35}
+
+
+50 passed, 0 failed
