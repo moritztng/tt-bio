@@ -36,6 +36,12 @@ WT="${GATE_WT:-/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge}"
 RUN="${GATE_OUT:-perf/ttx_a3/gate3}"
 CARD="${GATE_CARD:-0}"
 WORKER="${GATE_WORKER:-tt-quietbox2}"
+# What to relaunch is an input too. The gate now runs as one serial chain (serial_gate.sh) so
+# that two device lanes stop resetting this box, and the guard below has to match whatever it
+# actually launched -- a guard anchored on the driver argv stands down for a chain that never
+# started, and then nothing relaunches.
+CMD="${GATE_CMD:-perf/ttx_a3/gate_drive.sh}"
+DONE_MARK="${GATE_DONE_MARK:-GATE_DRIVER_DONE}"
 [ -d "$WT" ] || exit 0
 cd "$WT" || exit 0
 PROG=$RUN/progress
@@ -49,7 +55,7 @@ mkdir -p "$RUN" || exit 0
 # Attribution runs are launched by hand and are short; the gate is the only thing worth restarting
 # unattended.
 [ -f "$RUN/PAUSE" ] && exit 0
-grep -q GATE_DRIVER_DONE "$PROG" 2>/dev/null && exit 0
+grep -q "$DONE_MARK" "$PROG" 2>/dev/null && exit 0
 # ANCHORED argv match. A cheap early-out only; the flock above is what makes this safe. An unanchored `pgrep -f "bash perf/ttx_a3/gate_drive.sh"` also matches any
 # shell whose command line merely CONTAINS that text, which includes the `bash -c` wrapper an ssh
 # invocation of this very script runs under: the guard then reports a live driver, this exits, and
@@ -67,7 +73,7 @@ grep -q GATE_DRIVER_DONE "$PROG" 2>/dev/null && exit 0
 # match lets a sibling worktree's driver satisfy this guard and this run then never starts --
 # the same worktree-wide-reap defect that killed a sibling campaign's folds on 2026-09-16.
 dpid=""
-for _p in $(pgrep -f "^bash perf/ttx_a3/gate_drive\.sh$"); do
+for _p in $(pgrep -f "^bash ${CMD//./\\.}$"); do
   [ "$(readlink -f "/proc/$_p/cwd" 2>/dev/null)" = "$(readlink -f "$WT")" ] || continue
   dpid="$_p"; break
 done
@@ -100,5 +106,5 @@ printf '%s resume_after_boot relaunching (uptime %ss)\n' \
 setsid nohup env GATE_WT="$WT" GATE_OUT="$RUN" GATE_CARD="$CARD" GATE_WORKER="$WORKER" \
   GATE_SKIP_NEUT="${GATE_SKIP_NEUT:-0}" \
   GATE_HOLDER="${GATE_HOLDER:-worker:ttx-a3-sdpa-ship-remerge}" \
-  bash perf/ttx_a3/gate_drive.sh >> "$RUN/driver.log" 2>&1 < /dev/null 9>&- &
+  bash "$CMD" >> "$RUN/driver.log" 2>&1 < /dev/null 9>&- &
 exit 0
