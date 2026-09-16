@@ -118,3 +118,16 @@ transforms still need independent float64 controls. Compare a new stack as one
 stack, with its own paired baseline/A/A folds and both fixture sizes.
 
 Opaque generic calls can be inspected with the [opt-in identity observer](../c10_generic_identity/README.md). Its CPU controls preserve dispatch behavior; live binding and device validation are still required before using its records in a census.
+
+The [runtime DM calibration](../c10_dm_control/README.md) now has archived device
+evidence and a CPU replay. The [independent review](dm_control_review.json)
+verified all seven raw archives, the dense graph counts, six reducer tests and
+identical replay output. Its seven control intervals contain 591 samples at
+minimum=maximum 1350 MHz; all three preset DM separation checks pass. This
+validates those controls, not a model roofline, fold census or speedup.
+
+For sum-profiling captures, use that calibration's raw per-core/RISC reducer.
+This build disables C++ postprocessing in that mode, so the C++ report required
+by `import_profiler_cycles.py` is absent. The profiler also reused stale 32×32
+shape metadata for 120 graph-confirmed 8192×8192 add calls. A census needs an
+explicit join to actual operands before assigning per-call work.

@@ -1,0 +1,45 @@
+{
+  "artifact_commit": "ee11d5263ffc96cf25939967d3bdd38c1a0f96e3",
+  "scope": "Independent CPU replay of instrument calibration, no new device run or fold measurement",
+  "raw_archives_verified": [
+    "profile_log_device.csv.gz",
+    "tracy_ops_times.csv.gz",
+    "tracy_ops_data.csv.gz",
+    "new_zone_src_locations.log.gz",
+    "zone_src_locations.log.gz",
+    "tracy_profile_log_host.tracy",
+    "ops.csv"
+  ],
+  "raw_and_decompressed_sha256_verified": true,
+  "reducer_output_equals_published": true,
+  "unit_tests_passed": 6,
+  "dense_matrix_flops": 1099511627776,
+  "dense_modeled_bytes_both_counters": [
+    402653184,
+    402653184
+  ],
+  "during_interval_clock_samples": 591,
+  "clock_min_MHz": 1350,
+  "clock_max_MHz": 1350,
+  "max_clock_gap_ns": 1101781,
+  "rounds": [
+    {
+      "add_minus_matmul_read": 0.7817138871336564,
+      "matmul_minus_add_reserve": 0.3664850169161985,
+      "pass": true
+    },
+    {
+      "add_minus_matmul_read": 0.7819155768815714,
+      "matmul_minus_add_reserve": 0.36798066365991017,
+      "pass": true
+    },
+    {
+      "add_minus_matmul_read": 0.7824557726035645,
+      "matmul_minus_add_reserve": 0.37075297275727326,
+      "pass": true
+    }
+  ],
+  "cached_shape_mismatches": 120,
+  "model_cycles_saved": 0,
+  "verdict": "CALIBRATION_ACCEPTED_ONLY"
+}

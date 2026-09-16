@@ -1,0 +1,749 @@
+{
+  "scope": "Instrument calibration only; zero predicted model cycles saved.",
+  "requested_node": 0,
+  "requested_clock_MHz": 1350,
+  "host": "tt-quietbox2",
+  "pid": 33335,
+  "intervals": [
+    {
+      "case": "exact_dense_8192",
+      "reps": 1,
+      "start_monotonic_ns": 2010933185351,
+      "end_monotonic_ns": 2010951897397,
+      "clock": {
+        "samples": 17,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1065282,
+        "first_offset_ns": 914146,
+        "last_offset_ns": 817981,
+        "sample_span_fraction": 0.9074325170000116,
+        "errors": [],
+        "pass": true
+      }
+    },
+    {
+      "case": "stream_add",
+      "reps": 40,
+      "start_monotonic_ns": 2011027574413,
+      "end_monotonic_ns": 2011536432210,
+      "clock": {
+        "samples": 479,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1101781,
+        "first_offset_ns": 452935,
+        "last_offset_ns": 160723,
+        "sample_span_fraction": 0.9987940481532996,
+        "errors": [],
+        "pass": true
+      }
+    },
+    {
+      "case": "dense_matmul",
+      "reps": 40,
+      "start_monotonic_ns": 2011729410672,
+      "end_monotonic_ns": 2011739242289,
+      "clock": {
+        "samples": 9,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1064841,
+        "first_offset_ns": 425618,
+        "last_offset_ns": 911847,
+        "sample_span_fraction": 0.8639628659253101,
+        "errors": [],
+        "pass": true
+      }
+    },
+    {
+      "case": "stream_add",
+      "reps": 40,
+      "start_monotonic_ns": 2011789641506,
+      "end_monotonic_ns": 2011826053213,
+      "clock": {
+        "samples": 34,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1066689,
+        "first_offset_ns": 837594,
+        "last_offset_ns": 471025,
+        "sample_span_fraction": 0.9640604874690439,
+        "errors": [],
+        "pass": true
+      }
+    },
+    {
+      "case": "dense_matmul",
+      "reps": 40,
+      "start_monotonic_ns": 2011880159470,
+      "end_monotonic_ns": 2011889989673,
+      "clock": {
+        "samples": 9,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1070802,
+        "first_offset_ns": 734916,
+        "last_offset_ns": 560372,
+        "sample_span_fraction": 0.8682338503080761,
+        "errors": [],
+        "pass": true
+      }
+    },
+    {
+      "case": "stream_add",
+      "reps": 40,
+      "start_monotonic_ns": 2011944832653,
+      "end_monotonic_ns": 2011981134295,
+      "clock": {
+        "samples": 34,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1070591,
+        "first_offset_ns": 183512,
+        "last_offset_ns": 1064430,
+        "sample_span_fraction": 0.9656229875221622,
+        "errors": [],
+        "pass": true
+      }
+    },
+    {
+      "case": "dense_matmul",
+      "reps": 40,
+      "start_monotonic_ns": 2012040457811,
+      "end_monotonic_ns": 2012050289818,
+      "clock": {
+        "samples": 9,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1065397,
+        "first_offset_ns": 912543,
+        "last_offset_ns": 411761,
+        "sample_span_fraction": 0.8653068493543586,
+        "errors": [],
+        "pass": true
+      }
+    }
+  ],
+  "criterion": {
+    "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/criterion.json",
+    "sha256": "bbb7cd097290c9dd00980816beddb2a32e2ab641a259ecff50b84b0fb132c1e0",
+    "bytes": 1549
+  },
+  "before": {
+    "monotonic_ns": 2008911671506,
+    "utc_ns": 1789581388052681596,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [
+      {
+        "pid": 29351,
+        "nodes": [
+          "/dev/tenstorrent/3"
+        ],
+        "state": "R",
+        "utime_ticks": 25502,
+        "stime_ticks": 2909,
+        "starttime_ticks": 178552,
+        "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "3",
+          "TT_BIO_LEASE_CARDS": "3",
+          "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+        }
+      }
+    ],
+    "own_nodes": []
+  },
+  "runtime": {
+    "modules": {
+      "ttnn": {
+        "path": "/home/ttuser/tt-metal-k10/ttnn/ttnn/__init__.py",
+        "sha256": "71245145e8192624719f03b11a319c7e600e398c2ab411219d5e260c9ef32f1d",
+        "bytes": 14612
+      },
+      "tracy": {
+        "path": "/home/ttuser/tt-metal-k10/tools/tracy/__init__.py",
+        "sha256": "9a90e88f8bee5ec0aacbf94de49b4993f52562cbeeacde8d9f44db1fa5111e74",
+        "bytes": 5860
+      }
+    },
+    "shared_libraries": [
+      {
+        "path": "/home/ttuser/tt-metal-k10/build_Release/lib/_ttnncpp.so",
+        "sha256": "23401c0f45c246a0d1283f3fd0db67eb4ee4a430d52efe66cc21940720e16912",
+        "bytes": 33947712
+      },
+      {
+        "path": "/home/ttuser/tt-metal-k10/build_Release/lib/libdevice.so",
+        "sha256": "d9c468608e6ecdc831bcfe01aa442acc2ed424e884e9c0a30a01010108309954",
+        "bytes": 4774728
+      },
+      {
+        "path": "/home/ttuser/tt-metal-k10/build_Release/lib/libtracy.so.0.10.0",
+        "sha256": "e604eac19b2b0cea1b965164e135e4fe43e57bd74e7f7c2832fbc6cb59ff9d18",
+        "bytes": 436528
+      },
+      {
+        "path": "/home/ttuser/tt-metal-k10/build_Release/lib/libtt_metal.so",
+        "sha256": "3038e12f50b775a4ee561da77228bec0a9ccefa9a68077651b752d8d22c65500",
+        "bytes": 19265880
+      },
+      {
+        "path": "/home/ttuser/tt-metal-k10/build_Release/lib/libtt_stl.so",
+        "sha256": "178b247ebf96bebd2035d402340b2c53584129bfcbbbd63efe7ae5dd4cc3e8b9",
+        "bytes": 18912
+      },
+      {
+        "path": "/home/ttuser/tt-metal-k10/ttnn/ttnn/_ttnn.so",
+        "sha256": "e12967f52249a748c28c8886e1272177ce8c0799ff28fb922a567759a4cae762",
+        "bytes": 14179848
+      }
+    ],
+    "python": "/usr/bin/python3.12",
+    "flags": {
+      "LD_LIBRARY_PATH": "/home/ttuser/tt-metal-k10/build_Release/lib",
+      "TT_BIO_LEASE_CARDS": "0",
+      "TT_VISIBLE_DEVICES": "0",
+      "TT_METAL_DEVICE_PROFILER": "1",
+      "TT_BIO_AICLK": "1350",
+      "TT_METAL_PROFILER_TRACE_TRACKING": "1",
+      "TT_BIO_LEASE_HOLDER": "worker:c10-dm-control",
+      "TTNN_OP_PROFILER": "1",
+      "TT_METAL_PROFILER_SUM": "1",
+      "TT_METAL_HOME": "/home/ttuser/tt-metal-k10",
+      "PYTHONPATH": "/home/ttuser/.coworker/wt/c10-dm-control:/home/ttuser/tt-metal-k10/ttnn:/home/ttuser/tt-metal-k10:/home/ttuser/tt-metal-k10/tools",
+      "OMP_NUM_THREADS": "2",
+      "TT_METAL_RUNTIME_ROOT": "/home/ttuser/tt-metal-k10",
+      "TT_METAL_PROFILER_DIR": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy",
+      "TT_METAL_LOGGER_LEVEL": "FATAL",
+      "TT_METAL_CACHE": "/home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0",
+      "TT_MESH_GRAPH_DESC_PATH": "/home/ttuser/tt-metal-k10/tt_metal/fabric/mesh_graph_descriptors/p150_mesh_graph_descriptor.textproto"
+    }
+  },
+  "source_head": "1452925b033c6608726b731a81500bd3e19f7894",
+  "source_files": [
+    {
+      "path": "/home/ttuser/tt-metal-k10/tt_metal/hw/inc/api/dataflow/dataflow_api.h",
+      "sha256": "f3e050fdde4b2d72af237c4a0be36dffd8d1b4dd56ec5b1cab3135027cdf51f3",
+      "bytes": 136307
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/tt_metal/hostdevcommon/api/hostdevcommon/profiler_common.h",
+      "sha256": "c4d2df3c379f0b1d2740a008a91ea511ea1dd23fd3f23b89f1ed8acce08b10dc",
+      "bytes": 3185
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/tt_metal/tools/profiler/kernel_profiler.hpp",
+      "sha256": "bc09b610f39312a9d2fcd000d299e0162391d3e6054f78273ce036dc1c2f9823",
+      "bytes": 34805
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/tools/tracy/device_post_proc_config.py",
+      "sha256": "6394457f7facf9e0daefae8b71cb7b2c079ee46454a7ecf307e5a5cde78172e8",
+      "bytes": 20578
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/tools/tracy/process_device_log.py",
+      "sha256": "c28fee16749a35232b9d8c6aac0d048bf49082840a696facde84b0458bc9bac2",
+      "bytes": 34690
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/tools/tracy/process_ops_logs.py",
+      "sha256": "38475f3960063ecbd1bfde0ebe1580cafb409ca8a05891a74802fdd3b528e2a7",
+      "bytes": 112041
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/build_Release/CMakeCache.txt",
+      "sha256": "ddb5a295309333bc1edfa34b9c3bd1a68c689432cdbdf4ad6297fb55d2a90379",
+      "bytes": 130503
+    }
+  ],
+  "profiler_tools": [
+    {
+      "path": "/home/ttuser/tt-metal-k10/build_Release/tools/profiler/bin/capture-release",
+      "sha256": "03639d4afe5e9294ec7623f6a7327bc798ad4a297df891d2e322f9c1fa4ea516",
+      "bytes": 1732152
+    },
+    {
+      "path": "/home/ttuser/tt-metal-k10/build_Release/tools/profiler/bin/csvexport-release",
+      "sha256": "f79af294e68ddde77b61d42929c7af82d38dd8a05d68efdec5ec2d22e3e64dfd",
+      "bytes": 1982112
+    }
+  ],
+  "clock_source": {
+    "ref": "5c60137c2:tt_bio/aiclk.py",
+    "sha256": "f1c9c7bc50bf4162bc7e1ee098ea47bc49985f213b6889f69fe204401988e9f5"
+  },
+  "opened": {
+    "monotonic_ns": 2010167258139,
+    "utc_ns": 1789581389308268219,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [
+      {
+        "pid": 29351,
+        "nodes": [
+          "/dev/tenstorrent/3"
+        ],
+        "state": "R",
+        "utime_ticks": 25626,
+        "stime_ticks": 2910,
+        "starttime_ticks": 178552,
+        "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "3",
+          "TT_BIO_LEASE_CARDS": "3",
+          "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+        }
+      },
+      {
+        "pid": 33335,
+        "nodes": [
+          "/dev/tenstorrent/0"
+        ],
+        "state": "S",
+        "utime_ticks": 226,
+        "stime_ticks": 39,
+        "starttime_ticks": 200755,
+        "argv": "python3 -m tracy -o /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy --enable-sum-profiling -- perf/c10_dm_control/capture.py --out perf/c10_dm_control/out ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "0",
+          "TT_BIO_LEASE_CARDS": "0",
+          "TT_BIO_LEASE_HOLDER": "worker:c10-dm-control"
+        }
+      }
+    ],
+    "own_nodes": [
+      "/dev/tenstorrent/0"
+    ]
+  },
+  "clock_hold": {
+    "mhz": 1350,
+    "nodes": [
+      0
+    ],
+    "reasserts": 0
+  },
+  "holder_snapshots": [
+    {
+      "monotonic_ns": 2010897368146,
+      "utc_ns": 1789581390038377825,
+      "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+      "module_srcversion": "A10759A24565BC5BBE903C5",
+      "containment": "active",
+      "holders": [
+        {
+          "pid": 29351,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "R",
+          "utime_ticks": 25698,
+          "stime_ticks": 2912,
+          "starttime_ticks": 178552,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        },
+        {
+          "pid": 33335,
+          "nodes": [
+            "/dev/tenstorrent/0"
+          ],
+          "state": "S",
+          "utime_ticks": 238,
+          "stime_ticks": 48,
+          "starttime_ticks": 200755,
+          "argv": "python3 -m tracy -o /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy --enable-sum-profiling -- perf/c10_dm_control/capture.py --out perf/c10_dm_control/out ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "0",
+            "TT_BIO_LEASE_CARDS": "0",
+            "TT_BIO_LEASE_HOLDER": "worker:c10-dm-control"
+          }
+        }
+      ],
+      "own_nodes": [
+        "/dev/tenstorrent/0"
+      ]
+    },
+    {
+      "monotonic_ns": 2011001699036,
+      "utc_ns": 1789581390142708645,
+      "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+      "module_srcversion": "A10759A24565BC5BBE903C5",
+      "containment": "active",
+      "holders": [
+        {
+          "pid": 29351,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "R",
+          "utime_ticks": 25708,
+          "stime_ticks": 2912,
+          "starttime_ticks": 178552,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        },
+        {
+          "pid": 33335,
+          "nodes": [
+            "/dev/tenstorrent/0"
+          ],
+          "state": "S",
+          "utime_ticks": 248,
+          "stime_ticks": 49,
+          "starttime_ticks": 200755,
+          "argv": "python3 -m tracy -o /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy --enable-sum-profiling -- perf/c10_dm_control/capture.py --out perf/c10_dm_control/out ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "0",
+            "TT_BIO_LEASE_CARDS": "0",
+            "TT_BIO_LEASE_HOLDER": "worker:c10-dm-control"
+          }
+        }
+      ],
+      "own_nodes": [
+        "/dev/tenstorrent/0"
+      ]
+    },
+    {
+      "monotonic_ns": 2011703677289,
+      "utc_ns": 1789581390844686967,
+      "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+      "module_srcversion": "A10759A24565BC5BBE903C5",
+      "containment": "active",
+      "holders": [
+        {
+          "pid": 29351,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "R",
+          "utime_ticks": 25779,
+          "stime_ticks": 2912,
+          "starttime_ticks": 178552,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        },
+        {
+          "pid": 33335,
+          "nodes": [
+            "/dev/tenstorrent/0"
+          ],
+          "state": "S",
+          "utime_ticks": 325,
+          "stime_ticks": 49,
+          "starttime_ticks": 200755,
+          "argv": "python3 -m tracy -o /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy --enable-sum-profiling -- perf/c10_dm_control/capture.py --out perf/c10_dm_control/out ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "0",
+            "TT_BIO_LEASE_CARDS": "0",
+            "TT_BIO_LEASE_HOLDER": "worker:c10-dm-control"
+          }
+        }
+      ],
+      "own_nodes": [
+        "/dev/tenstorrent/0"
+      ]
+    },
+    {
+      "monotonic_ns": 2011763418632,
+      "utc_ns": 1789581390904427820,
+      "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+      "module_srcversion": "A10759A24565BC5BBE903C5",
+      "containment": "active",
+      "holders": [
+        {
+          "pid": 29351,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "R",
+          "utime_ticks": 25785,
+          "stime_ticks": 2912,
+          "starttime_ticks": 178552,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        },
+        {
+          "pid": 33335,
+          "nodes": [
+            "/dev/tenstorrent/0"
+          ],
+          "state": "S",
+          "utime_ticks": 329,
+          "stime_ticks": 49,
+          "starttime_ticks": 200755,
+          "argv": "python3 -m tracy -o /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy --enable-sum-profiling -- perf/c10_dm_control/capture.py --out perf/c10_dm_control/out ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "0",
+            "TT_BIO_LEASE_CARDS": "0",
+            "TT_BIO_LEASE_HOLDER": "worker:c10-dm-control"
+          }
+        }
+      ],
+      "own_nodes": [
+        "/dev/tenstorrent/0"
+      ]
+    },
+    {
+      "monotonic_ns": 2011854235942,
+      "utc_ns": 1789581390995245451,
+      "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+      "module_srcversion": "A10759A24565BC5BBE903C5",
+      "containment": "active",
+      "holders": [
+        {
+          "pid": 29351,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "R",
+          "utime_ticks": 25794,
+          "stime_ticks": 2912,
+          "starttime_ticks": 178552,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        },
+        {
+          "pid": 33335,
+          "nodes": [
+            "/dev/tenstorrent/0"
+          ],
+          "state": "S",
+          "utime_ticks": 336,
+          "stime_ticks": 50,
+          "starttime_ticks": 200755,
+          "argv": "python3 -m tracy -o /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy --enable-sum-profiling -- perf/c10_dm_control/capture.py --out perf/c10_dm_control/out ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "0",
+            "TT_BIO_LEASE_CARDS": "0",
+            "TT_BIO_LEASE_HOLDER": "worker:c10-dm-control"
+          }
+        }
+      ],
+      "own_nodes": [
+        "/dev/tenstorrent/0"
+      ]
+    },
+    {
+      "monotonic_ns": 2011919546460,
+      "utc_ns": 1789581391060555988,
+      "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+      "module_srcversion": "A10759A24565BC5BBE903C5",
+      "containment": "active",
+      "holders": [
+        {
+          "pid": 29351,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "R",
+          "utime_ticks": 25800,
+          "stime_ticks": 2912,
+          "starttime_ticks": 178552,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        },
+        {
+          "pid": 33335,
+          "nodes": [
+            "/dev/tenstorrent/0"
+          ],
+          "state": "S",
+          "utime_ticks": 340,
+          "stime_ticks": 50,
+          "starttime_ticks": 200755,
+          "argv": "python3 -m tracy -o /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy --enable-sum-profiling -- perf/c10_dm_control/capture.py --out perf/c10_dm_control/out ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "0",
+            "TT_BIO_LEASE_CARDS": "0",
+            "TT_BIO_LEASE_HOLDER": "worker:c10-dm-control"
+          }
+        }
+      ],
+      "own_nodes": [
+        "/dev/tenstorrent/0"
+      ]
+    },
+    {
+      "monotonic_ns": 2012014400607,
+      "utc_ns": 1789581391155410206,
+      "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+      "module_srcversion": "A10759A24565BC5BBE903C5",
+      "containment": "active",
+      "holders": [
+        {
+          "pid": 29351,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "R",
+          "utime_ticks": 25809,
+          "stime_ticks": 2912,
+          "starttime_ticks": 178552,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        },
+        {
+          "pid": 33335,
+          "nodes": [
+            "/dev/tenstorrent/0"
+          ],
+          "state": "S",
+          "utime_ticks": 348,
+          "stime_ticks": 50,
+          "starttime_ticks": 200755,
+          "argv": "python3 -m tracy -o /home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy --enable-sum-profiling -- perf/c10_dm_control/capture.py --out perf/c10_dm_control/out ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "0",
+            "TT_BIO_LEASE_CARDS": "0",
+            "TT_BIO_LEASE_HOLDER": "worker:c10-dm-control"
+          }
+        }
+      ],
+      "own_nodes": [
+        "/dev/tenstorrent/0"
+      ]
+    }
+  ],
+  "counter": {
+    "expected": {
+      "n": 8192,
+      "matrix_flops_2_per_FMA": 1099511627776,
+      "modeled_compulsory_bytes_v2": 402653184
+    },
+    "flops": {
+      "n_ops": 1,
+      "matmul_logical": 1099511627776,
+      "matmul_padded": 1099511627776,
+      "eltwise_logical": 0,
+      "logical": 1099511627776,
+      "eltwise_padded": 0,
+      "padded": 1099511627776,
+      "tile_pad_factor": 1.0
+    },
+    "traffic": {
+      "floor_MB": 402.653184,
+      "once_MB": 402.653184,
+      "real_MB": 402.653184,
+      "real_w_MB": 134.217728,
+      "real_r_MB": 268.435456,
+      "n_ops": 1,
+      "per_op": [
+        [
+          402653184,
+          "ttnn.matmul",
+          134217728,
+          268435456
+        ]
+      ],
+      "traffic_model_version": 2,
+      "terminal_read_removed_MB": 134.217728,
+      "assumed_read_MB": 0.0,
+      "opaque_buffer_assumed_read_MB": 0.0,
+      "unattributed_B": 0
+    },
+    "corrected_traffic": {
+      "floor_MB": 402.653184,
+      "once_MB": 402.653184,
+      "real_MB": 402.653184,
+      "real_w_MB": 134.217728,
+      "real_r_MB": 268.435456,
+      "phantom_read_MB": 0.0,
+      "traffic_model_version": 2,
+      "terminal_read_removed_MB": 134.217728,
+      "assumed_read_MB": 0.0,
+      "opaque_buffer_assumed_read_MB": 0.0,
+      "gate_saved_MB": 0.0,
+      "prealloc_MB": 0.0,
+      "n_ops": 1,
+      "per_op": [
+        [
+          402653184.0,
+          "ttnn.matmul",
+          134217728.0,
+          268435456.0
+        ]
+      ],
+      "by_op": [
+        402653184.0
+      ],
+      "unattributed_B": 0.0,
+      "op_names": [
+        "ttnn.matmul"
+      ]
+    },
+    "pass": true
+  },
+  "compute_configs": {
+    "exact_dense": "<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x79ca02333a50>",
+    "dm_dense": "<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x79ca01c7b6f0>"
+  },
+  "verdict": "CAPTURED_ANALYSIS_REQUIRED",
+  "sampler_exit": 0,
+  "clock_hold_final": {
+    "mhz": 1350,
+    "nodes": [
+      0
+    ],
+    "reasserts": 0
+  },
+  "clock_released": true,
+  "after": {
+    "monotonic_ns": 2013212477638,
+    "utc_ns": 1789581392353487176,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [
+      {
+        "pid": 29351,
+        "nodes": [
+          "/dev/tenstorrent/3"
+        ],
+        "state": "R",
+        "utime_ticks": 25928,
+        "stime_ticks": 2913,
+        "starttime_ticks": 178552,
+        "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "3",
+          "TT_BIO_LEASE_CARDS": "3",
+          "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+        }
+      }
+    ],
+    "own_nodes": []
+  }
+}
