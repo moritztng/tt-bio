@@ -157,3 +157,20 @@
 2026-09-16T16:24:27Z cen1088-off START card=3 loadavg=1.42
 2026-09-16T16:27:35Z cen1088-off rc=0 loadavg=1.02
 2026-09-16T16:27:35Z CEN1088_DONE
+2026-09-16T16:29:53Z resume_after_boot relaunching (uptime 654s)
+2026-09-16T16:29:53Z PHASE 1/5 correctness: pytest, the flag-off control, ux
+2026-09-16T16:29:53Z CARD=3 (UMD) resolves to /dev/tenstorrent/3
+2026-09-16T16:29:53Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T16:29:53Z capacity SKIPPED by GATE_SKIP_CAP
+2026-09-16T16:29:53Z size-ladder SKIPPED by GATE_SKIP_LADDER
+2026-09-16T16:29:53Z perf SKIPPED by GATE_SKIP_PERF
+2026-09-16T16:29:53Z parity PRECHECK card 3 free, 0 holders
+2026-09-16T16:29:53Z parity SKIPPED by GATE_SKIP_PARITY
+2026-09-16T16:29:53Z GATE_DRIVER_DONE
+2026-09-16T16:29:53Z PHASE 2/5 size ladder, in-regime: rf3 SKIPPED (p300c baseline stale vs 9 merged levers, needs --size-ladder-record; lever verdict taken directly in census_1088_pair.sh)
+2026-09-16T16:29:53Z PHASE 3/5 capacity, 15 cells (tests at the 1536 aa ceiling, in the lever's regime)
+2026-09-16T16:29:53Z CARD=3 (UMD) resolves to /dev/tenstorrent/3
+2026-09-16T16:29:53Z neut768/neut1024 SKIPPED-BANKED-ELSEWHERE: byte-identical off/on/off in gate4 on qb1
+2026-09-16T16:29:53Z capacity-boltz2 START loadavg=0.17
+2026-09-16T16:33:48Z capacity-boltz2 rc=0 loadavg=15.07
+2026-09-16T16:33:48Z capacity-esmfold2 START loadavg=15.07

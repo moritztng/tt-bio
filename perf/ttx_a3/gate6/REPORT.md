@@ -546,3 +546,37 @@ Three things follow, and they are what seven passes were missing:
    (`SDPA_WIDE_K`, `SDPA_Q_CHUNK_FITS`) and the third is not: `TRIMUL_TAIL_F1` reads identically
    in both arms, so its drift is another lever's record staleness. A stale-baseline refusal and a
    lever effect were superimposed at the same rung, and the off arm separates them.
+
+### The one arm that could still have changed the verdict: 1536 aa capacity, PASS
+
+`capacity-boltz2 rc=0` at 16:33:48Z, card 3, on the default-ON tree. The gate runs the target
+first, so the 1536 aa fold is the cell:
+
+    CAPACITY GATE -- 1536 tokens -- p300c / blackhole on tt-quietbox2:3
+      boltz2         PASS        1536  1536   8832    7.35G/23%    217.1    residency/-
+
+This is the only arm in the whole gate that tests a ceiling at a size where the route fires, which
+is the OOM-class risk a fused route carries: a route that needs more L1 or DRAM can pass every
+correctness check and still lower the largest structure a user can fold. It does not. 7.35 G at
+23 % of DRAM leaves the headroom the off-arm had.
+
+With this, every arm that can observe the lever has reported:
+
+| evidence | result |
+|---|---|
+| correctness, 6 pytest chunks + self-validating flag-off control | 0 attributable reds |
+| UX gate | PASS |
+| below-cap neutrality, rungs 256-1024 | `served=0, declined=0`, route never entered |
+| in-regime firing, rf3 1088 | `served=1088`, `rc=0`, off arm `resolved=False, served=0` |
+| in-regime capacity ceiling, boltz2 1536 aa | PASS, 7.35G/23% |
+| perf, 1536 aa (banked, gate5) | 1.1856x against a 1.21 % same-session A/A floor |
+| accuracy, 1536 aa (banked, gate5) | 1.007 A all-atom, seed change moves the same structure 36.6 A |
+
+**Verdict: GO.** The remaining gate reds are three record chores on main, each verified to
+reproduce with the flag off: rf3's stale p300c ladder baseline, p150a ladder and capacity cells
+that need a card type this host does not have, and two orphaned perf citations plus two tracked
+root directories. None of them is this lever.
+
+Not merged here. The workspace rule reserves merges for the orchestrator, and
+`tt-bio-sizeladder-p300c-refresh` set the precedent of leaving the merge alone even where its own
+brief said to commit to main.
