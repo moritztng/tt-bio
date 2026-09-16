@@ -24,7 +24,8 @@ wrong way for that argument (see `clock_sensitivity.py`, section A).
 | `TT_BIO_ATOM_L1` | 1.08461x WH step, bit-exact, flat in size | unrecorded | **L1 overflow at K = 294 (1152 aa)**, reproduced byte-identically on Boltz-2 and BoltzGen, at a size that folds today at shipped defaults. Crashing a size users get is a hard stop. |
 | `TT_BIO_ATOM_KEY_WINDOW` | 1.02744x BH fold | unrecorded | Computes the **wrong gather**: max abs 4.21875 against a float64 reference, 13 wrong windows. `TT_BIO_ATOM_SHIFT_GATHER` reads 0.0 on the same test and ships. |
 | `TT_BIO_ATOM_KV_PREPROJ` | 1.01566x WH step, on top of the defective key window | unrecorded | Marginal contribution on the cell measured zero within the floor, fold and step alike. |
-| fewer sampling steps or recycles | n/a | n/a | Doing less of the model's own work is a cheat, not a lever. |
+| the 200 -> 50 sampling-step cut | **1.2226x, 3.586 s**, measured paired and interleaved on qb2 card 3, 5 reps per arm, spread 1.06 %. Sublinear: 4.00x fewer steps for only 3.19x less sampler time | unrecorded | **This is the single largest measured ratio in the corpus and it is a cheat.** It does less of the model's own work. Recorded here only so nobody rediscovers it and mistakes it for a lever. |
+| fewer sampling steps or recycles generally | n/a | n/a | Doing less of the model's own work is a cheat, not a lever. |
 
 Two rows that look like dead ends and are not:
 
@@ -33,3 +34,17 @@ Two rows that look like dead ends and are not:
 * **`TT_BIO_UNFUSED_SILU`** is held on a measured Protenix-v2 CA-lDDT loss of 0.0509 and 0.0721,
   because it is a shared engine default. It is not held on bit-exactness, and that distinction
   matters if it is ever re-opened per-model — which `unified-solution-not-per-model-patches` forbids.
+
+
+## Three class ceilings, so a new proposal can be checked against them before it costs a chip
+
+| class | measured ceiling | source |
+|---|---|---|
+| the byte axis, end to end | delete **every instrumented byte** and the fold is still 15.7 s = **1.470x**; realistic 20-30 % deletion is **1.07-1.14x** | `b2x-baseline-attrib` |
+| any perfect dispatch lever | **1.050x** on the fold, **1.225x** only if every serial host byte goes too | `bioir-dispatch-graph`, `b2x-op-cost-curve` |
+| what the compute thread is actually waiting for | **57.0 %** of TRISC1's resident time is blocked on CB wait-front, 9.7 % on output room, **33.3 % computing** | `b2z-kernel-cycle-census` |
+
+All three were taken on older, larger cells at unrecorded clocks. They are class statements, not
+seconds. The first one is the direct answer to "were the byte levers under-priced": played
+perfectly, the whole class caps at 1.470x on the cell it was measured on, and reaching 10.0 s from a
+1350 MHz fold needs 1.4275x.

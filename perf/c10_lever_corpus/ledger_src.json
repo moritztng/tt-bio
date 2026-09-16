@@ -620,5 +620,69 @@
     "note": "Excluded twice over: it is a fold regression AND it is tensor parallelism, which Moritz ruled out on 2026-09-13.",
     "unpriced_reason": "the fold refused it and the row quotes a percentage, not a ratio: b_shard hands back 4.6 % of the trunk, slower in 7 of 7 reps against an A/A floor of 0.99863x",
     "absent_symbol": "b_shard"
+  },
+  {
+    "name": "TT_BIO_HEAD_PAD_TAIL, whole-fold census",
+    "flag": null,
+    "op_class": "layout / head padding, all 96 sites",
+    "deletes": "a head-axis pad round trip at 96 sites, 72 of them outside the diffusion step",
+    "ratio": null,
+    "unpriced_reason": "the census quotes 0.211 s on the Wormhole fold and a per-call replay ratio, not a fold ratio; its pass-1 fold reading of 0.9803x was noise on a 5.6 % spread",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Wormhole B0 whglx",
+    "clock": "unrecorded",
+    "accuracy_A": 0.3696,
+    "accuracy_note": "0.3696 A worst pseudo-domain at 512 aa. NOT bit-exact: padding K 768 -> 1024 interleaves zero lanes with real ones every 64 channels, 0.305 of one bf16 ULP at the site",
+    "status": "unmerged",
+    "absent_symbol": "TT_BIO_HEAD_PAD_TAIL",
+    "fold_seconds": "0.211 s on the Wormhole fold",
+    "evidence": [
+      {
+        "path": "state:b2z2/CONTEXT.md",
+        "quote": "`TT_BIO_HEAD_PAD_TAIL` is worth 0.211 s on the WH fold, and 72 of its 96 sites are outside the\ndiffusion step.**"
+      }
+    ],
+    "note": "The corpus's own words: anyone pricing this as a step-only lever is under-pricing it by roughly 4x. The step-scope row in this ledger is the under-priced one. Token DiT head width (16,48,64) replays at 1.10143x over 4800 calls/fold; trunk (16,24,32) at 1.00814x over 264; atom attention declines because head_dim is already a tile."
+  },
+  {
+    "name": "wave-1 shipped levers, on the fold",
+    "flag": "TT_BIO_FUSE_BIAS_STACKS",
+    "op_class": "mixed (bias stacking, relative-position gather, MSA ladder)",
+    "deletes": "host glue and MSA pad rows",
+    "ratio": null,
+    "unpriced_reason": "two paired readings, 1.00383x and 1.00814x, each inside its own arm spread. The corpus's own honest sentence is a bracket, not a number: the three shipped levers are worth somewhere between nothing and about 0.8 % on the fold, and the cell cannot tell which",
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Blackhole p300c qb2, A/A floor 1.00229x",
+    "clock": "unrecorded",
+    "accuracy_A": null,
+    "accuracy_note": "TT_BIO_FUSE_BIAS_STACKS is not bit-exact; the shipped default moved the cell digest",
+    "status": "shipped-on",
+    "evidence": [
+      {
+        "path": "state:b2z2/CONTEXT.md",
+        "quote": "| wave-1 shipping levers, on the fold | **1.00814x** | 1.2822x / 1.05738x | 20.054 -> 19.892 s, A/A floor exactly zero. **1.05738x was an op/phase number, not a fold number** |"
+      }
+    ],
+    "note": "The single clearest case in the corpus of an op/phase ratio being carried as a fold ratio: 1.05738x and 1.2822x were both quoted for this set before the fold A/B was run."
+  },
+  {
+    "name": "BEST-ARM-BH ladder (bias x msa x all)",
+    "flag": "TT_BIO_FUSE_BIAS_STACKS",
+    "op_class": "mixed stack (wave-1 levers, ladder arms)",
+    "contested": true,
+    "ratio": null,
+    "ratio_scope": "fold",
+    "cell": "boltz2 512 aa, Blackhole qb2 card 3, 4 reps paired and interleaved, A/A floor 1.00181",
+    "clock": "unrecorded",
+    "accuracy_A": null,
+    "status": "shipped-on",
+    "deletes": "the same sites as the wave-1 row above",
+    "evidence": [
+      {
+        "path": "state:b2z/CONTEXT.md",
+        "quote": "base 19.6525 ->\n  `bias` 19.530 (1.00875x) -> `msa` 18.763 (1.04648x) -> `all` 18.594 (**1.05738x**) ->"
+      }
+    ],
+    "note": "Refused: this ladder reads 1.05738x on a fold where b2z2/CONTEXT.md's correction table reads the same set at 1.00814x and calls 1.05738x an op/phase number. Two campaigns disagree by 4.9 pp on the same levers. The ledger carries both readings and arbitrates neither. The msa arm's win is also specific to a 35-row alignment."
   }
 ]

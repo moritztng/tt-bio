@@ -119,6 +119,32 @@ retire it.
 
 ---
 
+## 4b. `TT_BIO_HEAD_PAD_TAIL` was priced on the wrong ruler and is under-priced by ~4x
+
+**Predicted:** the ledger's step-scope row reads 1.02549x. The whole-fold census reads **0.211 s on
+a Wormhole fold with 72 of its 96 sites outside the diffusion step**, and the corpus says in its own
+words that pricing it as a step-only lever under-prices it by roughly 4x. Its pass-1 fold reading of
+0.9803x was noise on a 5.6 % spread and must not be quoted.
+
+**Mechanism.** The token DiT head width `(16,48,64)` replays at **1.10143x over 4800 calls/fold**;
+the trunk `(16,24,32)` at 1.00814x over 264; the atom attention declines because `head_dim` is
+already a tile. Two instruments sharing no measurement path agree to 2.2 % (4800 x 42.5 us =
+204.0 ms against the step A/B's 208.6 ms).
+
+**Accuracy:** 0.3696 A worst pseudo-domain at 512 aa, inside the 0.60 A bar with the 1.84 A seed
+floor beside it. **Not bit-exact** — padding K 768 -> 1024 interleaves zero lanes with real ones
+every 64 channels, 0.305 of one bf16 ULP at the site. It **cannot ship with `TT_BIO_DIT_FUSED_QKV`**:
+together they read 0.713 A, over the bar. Pick one.
+
+**Kill in one pass:** one interleaved Blackhole fold A/B at a pinned clock, n=10 paired (which
+resolves 1.0030x on a quiet box), with the 96-site census asserted per fold so a decline is visible.
+Inside its own A/A floor at n=10, retire it.
+
+**Why it was under-priced, and this one is not a clock argument either:** it was measured on the
+sampler step, and three quarters of its sites are not in the sampler.
+
+---
+
 ## 5. Route `_FP32_SOFTMAX_L1_GRID` — the largest measured win in the corpus, and not a C10 item
 
 **1.2655x / 1.2623x on a whole 512 aa fold**, two interleaved sessions agreeing to 0.25 %, ~20.1 s
@@ -133,6 +159,53 @@ is on `wk/roof-bh-envelopes-on-wh` @ `b9a88cd27`, release-gated, not merged, and
 
 Listed here because it is the largest unbanked measured result this project holds, not because it
 moves the 512 aa Boltz-2 cell. Never quote it as a Boltz-2 speedup.
+
+---
+
+---
+
+## Class ceilings the corpus already measured — read these before proposing anything
+
+These three bound most of what a shortlist can promise. All were taken on older, larger cells at
+unrecorded clocks, so treat them as class statements rather than as seconds.
+
+| class | measured ceiling | source |
+|---|---|---|
+| **the byte axis, end to end** | delete **every instrumented byte** and the fold is still 15.7 s = **1.470x**. A realistic 20-30 % deletion is **1.07-1.14x**, "which is where every lever landed" | `b2x-baseline-attrib` |
+| **any perfect dispatch lever** | **1.050x** on the fold. **1.225x** only if every serial host byte goes too | `bioir-dispatch-graph`, `b2x-op-cost-curve` |
+| **feeding the math thread** | TRISC1 is resident 32.1443 ms of a 36.3438 ms block and **18.3366 ms (57.0 %) of that is blocked on CB wait-front**, 9.7 % on output room, **33.3 % computing**. Not dispatch (gap 1.1 %), not parallelism (97.28 % occupancy), not DRAM, not compute | `b2z-kernel-cycle-census` |
+
+**What this does to item 1.** Cutting the clock-immune term 2.901 -> 1.0 s is 1.1536x on a
+1350 MHz fold. That is above the 1.050x pure-dispatch ceiling and inside the 1.225x ceiling, so the
+route needs the **host-byte** half and not only the dispatch half. Item 1's prediction does not
+exceed anything the corpus has measured, but it does require more than trace replay.
+
+**What this does to the byte route.** Reaching 10.0 s from a 14.275 s burst-clock fold needs
+**1.4275x**. The entire byte axis, played perfectly, measured **1.470x** on the cell it was taken
+on. So the byte route would have to realise ~97 % of its own theoretical maximum, against a
+corpus where realistic deletion landed at 1.07-1.14x. That is the quantitative form of the answer to
+this row's opening question, and it does not depend on the clock at all.
+
+**What the CB-wait number means for the shortlist.** The binding resource measured directly on the
+compute thread is neither bytes nor FLOPs; it is input-tile arrival. That is the same direction
+shortlist item 2 points in — the wide grid hurting the triangle product is a feed problem, not an
+occupancy one. Carry the standing caveat that a stall accumulator cannot discriminate producer from
+consumer, and that the 444.9 GB/s this census priced DRAM against was later shown to be a fitted
+asymptote above the 390.7 GB/s the part actually measures.
+
+## Minimum detectable difference on a quiet box, so nobody dismisses a real lever again
+
+From 28 committed folds at loadavg 1.92, paired standard deviation 0.083 s, 95 % confidence:
+
+    reps/arm     unpaired      paired, interleaved
+       3         1.0123x            1.0104x
+       6         1.0069x            1.0044x
+      10         1.0050x            1.0030x
+      20         1.0034x            1.0019x
+
+Interleaving is worth **1.6x of sensitivity at n=6**, so an unpaired arm is not a cheaper version of
+the same measurement. The often-repeated "anything under ~1.01x on the fold is not measurable" came
+from a session at loadavg 5-14 and describes a contended box, not the instrument.
 
 ---
 
