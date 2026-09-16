@@ -1,0 +1,307 @@
+{
+  "source_commit": "6eb4dd6fa5eceab34f72a5e7ad382b8607554390",
+  "scope": "CPU replay and source review of archived partial census; no parent device run",
+  "manifest_files_verified": 137,
+  "git_tree_blob_identities_verified": 138,
+  "source_original_hashes_verified": 7,
+  "calibration_replay_passed": true,
+  "census_and_smoke_tests_passed": 12,
+  "outputs_match_committed_manifest_after_replay": true,
+  "smoke": {
+    "verdict": "GO",
+    "float64_exact_checks": 16,
+    "on_off_exact_checks": 8,
+    "required_identity_gaps": []
+  },
+  "census_verdict": "STOP",
+  "fold_clock": {
+    "samples": 591386,
+    "min_MHz": 1350,
+    "max_MHz": 1350,
+    "max_gap_ns": 6987061,
+    "first_offset_ns": 758285,
+    "last_offset_ns": 76953,
+    "sample_span_fraction": 0.9999986761221779,
+    "errors": [],
+    "pass": true
+  },
+  "model_invocations": 1478,
+  "model_program_span_cycles": 161450686,
+  "class_leaders": [
+    {
+      "class": "MatmulDeviceOperation",
+      "calls": 512,
+      "span_cycles": 53004546
+    },
+    {
+      "class": "BinaryNgDeviceOperation",
+      "calls": 414,
+      "span_cycles": 25851252
+    },
+    {
+      "class": "TransposeDeviceOperation",
+      "calls": 76,
+      "span_cycles": 11150150
+    },
+    {
+      "class": "LayerNormDeviceOperation",
+      "calls": 155,
+      "span_cycles": 10806599
+    }
+  ],
+  "windows": [
+    {
+      "case": "MSALayer_0",
+      "invocations": 227,
+      "sum_cycles": 79518145,
+      "clock": {
+        "samples": 4326,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1132837,
+        "first_offset_ns": 622081,
+        "last_offset_ns": 535303,
+        "sample_span_fraction": 0.9997489323364877,
+        "errors": [],
+        "pass": true
+      },
+      "arithmetic_reconciles": true
+    },
+    {
+      "case": "PairformerLayer_0",
+      "invocations": 137,
+      "sum_cycles": 40820155,
+      "clock": {
+        "samples": 4205,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1130151,
+        "first_offset_ns": 198934,
+        "last_offset_ns": 946587,
+        "sample_span_fraction": 0.9997439015109921,
+        "errors": [],
+        "pass": true
+      },
+      "arithmetic_reconciles": true
+    },
+    {
+      "case": "DiffusionModule_0",
+      "invocations": 1096,
+      "sum_cycles": 28604465,
+      "clock": {
+        "samples": 3374,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1120051,
+        "first_offset_ns": 733151,
+        "last_offset_ns": 105744,
+        "sample_span_fraction": 0.9997662112898998,
+        "errors": [],
+        "pass": true
+      },
+      "arithmetic_reconciles": true
+    },
+    {
+      "case": "ConfidenceHeadsDevice_0",
+      "invocations": 18,
+      "sum_cycles": 12507921,
+      "clock": {
+        "samples": 2414,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1205872,
+        "first_offset_ns": 400302,
+        "last_offset_ns": 20806,
+        "sample_span_fraction": 0.999838582557462,
+        "errors": [],
+        "pass": true
+      },
+      "arithmetic_reconciles": true
+    },
+    {
+      "case": "stream_copy_0",
+      "invocations": 4,
+      "sum_cycles": 3643374,
+      "clock": {
+        "samples": 29,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1069776,
+        "first_offset_ns": 899729,
+        "last_offset_ns": 903618,
+        "sample_span_fraction": 0.9428477320461683,
+        "errors": [],
+        "pass": true
+      },
+      "arithmetic_reconciles": true
+    },
+    {
+      "case": "stream_add_0",
+      "invocations": 4,
+      "sum_cycles": 4843153,
+      "clock": {
+        "samples": 31,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1073473,
+        "first_offset_ns": 330463,
+        "last_offset_ns": 5326,
+        "sample_span_fraction": 0.989594503933177,
+        "errors": [],
+        "pass": true
+      },
+      "arithmetic_reconciles": true
+    },
+    {
+      "case": "dense_hifi4_0",
+      "invocations": 4,
+      "sum_cycles": 48689330,
+      "clock": {
+        "samples": 44,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1100976,
+        "first_offset_ns": 1096146,
+        "last_offset_ns": 544399,
+        "sample_span_fraction": 0.9656419436672761,
+        "errors": [],
+        "pass": true
+      },
+      "arithmetic_reconciles": true
+    },
+    {
+      "case": "stream_copy_1",
+      "invocations": 4,
+      "sum_cycles": 3637803,
+      "clock": {
+        "samples": 29,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1072491,
+        "first_offset_ns": 613030,
+        "last_offset_ns": 893453,
+        "sample_span_fraction": 0.9518570232367823,
+        "errors": [],
+        "pass": true
+      },
+      "arithmetic_reconciles": true
+    },
+    {
+      "case": "stream_add_1",
+      "invocations": 4,
+      "sum_cycles": 4859147,
+      "clock": {
+        "samples": 29,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1065072,
+        "first_offset_ns": 944932,
+        "last_offset_ns": 971111,
+        "sample_span_fraction": 0.9394785295267868,
+        "errors": [],
+        "pass": true
+      },
+      "arithmetic_reconciles": true
+    },
+    {
+      "case": "dense_hifi4_1",
+      "invocations": 4,
+      "sum_cycles": 48694899,
+      "clock": {
+        "samples": 45,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1105279,
+        "first_offset_ns": 589390,
+        "last_offset_ns": 456670,
+        "sample_span_fraction": 0.9781802072582026,
+        "errors": [],
+        "pass": true
+      },
+      "arithmetic_reconciles": true
+    },
+    {
+      "case": "stream_copy_2",
+      "invocations": 4,
+      "sum_cycles": 3633530,
+      "clock": {
+        "samples": 30,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1094889,
+        "first_offset_ns": 596824,
+        "last_offset_ns": 326466,
+        "sample_span_fraction": 0.9709977935090895,
+        "errors": [],
+        "pass": true
+      },
+      "arithmetic_reconciles": true
+    },
+    {
+      "case": "stream_add_2",
+      "invocations": 4,
+      "sum_cycles": 4853811,
+      "clock": {
+        "samples": 30,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1067481,
+        "first_offset_ns": 291118,
+        "last_offset_ns": 376437,
+        "sample_span_fraction": 0.9787976632535146,
+        "errors": [],
+        "pass": true
+      },
+      "arithmetic_reconciles": true
+    },
+    {
+      "case": "dense_hifi4_2",
+      "invocations": 4,
+      "sum_cycles": 48684670,
+      "clock": {
+        "samples": 45,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1067055,
+        "first_offset_ns": 298797,
+        "last_offset_ns": 852024,
+        "sample_span_fraction": 0.9759776939800257,
+        "errors": [],
+        "pass": true
+      },
+      "arithmetic_reconciles": true
+    }
+  ],
+  "arithmetic_scope": "Endpoint arithmetic only. Independent cross-core offset calibration, host conversion and instrument perturbation remain unmeasured. No cycles-to-fold-seconds conversion.",
+  "model_protocol": {
+    "fixture": "cdk2x2_512",
+    "msa_rows": 35,
+    "steps": 200,
+    "recycles": 3,
+    "samples": 1,
+    "seed": 0,
+    "templates": false
+  },
+  "raw_drain_ledger": {
+    "total_bytes": 80895977723,
+    "retained_bytes": 478607197,
+    "discarded_bytes": 80417370526
+  },
+  "resource_failure": "The archived owned-process status and size/hash ledger substantiate oversized report generation. Original oversized files were not retrieved or independently rehashed by parent.",
+  "unmeasured": [
+    "whole-fold cycle budget",
+    "default two-argument Pairformer window",
+    "matched model roofs and binding",
+    "profiler perturbation",
+    "paired 512/298 structure accuracy",
+    "model speedup or campaign ceiling"
+  ],
+  "acceptance": "Accept live smoke GO and partial measured-scope ranking. STOP is not a completed Phase 0 roofline or permission to price a fold optimization.",
+  "reproduce": [
+    "python3 perf/c10_burst_census/verify_calibration.py",
+    "python3 perf/c10_burst_census/reduce.py --dir perf/c10_burst_census/runs/smoke2 --table perf/c10_burst_census/runs/smoke2/TABLE.md --require-go",
+    "python3 perf/c10_burst_census/reduce_census.py",
+    "python3 -m unittest discover -s perf/c10_burst_census -p 'test_*.py' -v",
+    "python3 perf/c10_burst_census/verify_artifacts.py"
+  ]
+}

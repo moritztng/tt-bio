@@ -1,0 +1,210 @@
+{
+  "verdict": "STOP",
+  "scope": "retained disjoint windows only; full default model executed, never extrapolated",
+  "failures": [
+    "Automatic host report exceeded resource budget (61.8 GB CSV, at least 182 GB RSS); owned device-closed postprocessor stopped"
+  ],
+  "model_completed": true,
+  "other_chip_holder_pids": [
+    95744
+  ],
+  "fold_clock": {
+    "samples": 591386,
+    "min_MHz": 1350,
+    "max_MHz": 1350,
+    "max_gap_ns": 6987061,
+    "first_offset_ns": 758285,
+    "last_offset_ns": 76953,
+    "sample_span_fraction": 0.9999986761221779,
+    "errors": [],
+    "pass": true
+  },
+  "host_metadata_unparsed_messages": [],
+  "host_device_operations": 259634,
+  "model_invocations_measured": 1478,
+  "timebase": {
+    "raw": "per-RISC 44-bit WALL_CLOCK register markers, source retained",
+    "host_conversion": null,
+    "independent_cross_core_offset_calibration": null,
+    "scope": "program extrema and per-core durations in raw device cycles; no synchronized host elapsed time or CPU-gap interpretation"
+  },
+  "whole_fold_cycle_total": null,
+  "whole_fold_floor": null,
+  "whole_fold_cycles_above_roof": null,
+  "controls": [
+    {
+      "case": "stream_copy_0",
+      "clock": {
+        "samples": 29,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1069776,
+        "first_offset_ns": 899729,
+        "last_offset_ns": 903618,
+        "sample_span_fraction": 0.9428477320461683,
+        "errors": [],
+        "pass": true
+      },
+      "invocations": 4,
+      "program_span_cycles_sum": 3643374,
+      "timing_valid": true,
+      "modeled_bytes_per_cycle": 294.7108433007427,
+      "application": "specific control/fidelity/layout/instrument only; not an observed binding model roof"
+    },
+    {
+      "case": "stream_add_0",
+      "clock": {
+        "samples": 31,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1073473,
+        "first_offset_ns": 330463,
+        "last_offset_ns": 5326,
+        "sample_span_fraction": 0.989594503933177,
+        "errors": [],
+        "pass": true
+      },
+      "invocations": 4,
+      "program_span_cycles_sum": 4843153,
+      "timing_valid": true,
+      "modeled_bytes_per_cycle": 332.5545849986569,
+      "application": "specific control/fidelity/layout/instrument only; not an observed binding model roof"
+    },
+    {
+      "case": "dense_hifi4_0",
+      "clock": {
+        "samples": 44,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1100976,
+        "first_offset_ns": 1096146,
+        "last_offset_ns": 544399,
+        "sample_span_fraction": 0.9656419436672761,
+        "errors": [],
+        "pass": true
+      },
+      "invocations": 4,
+      "program_span_cycles_sum": 48689330,
+      "timing_valid": true,
+      "modeled_bytes_per_cycle": 33.07937767884668,
+      "matrix_flops_per_cycle": 90328.753981704,
+      "application": "specific control/fidelity/layout/instrument only; not an observed binding model roof"
+    },
+    {
+      "case": "stream_copy_1",
+      "clock": {
+        "samples": 29,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1072491,
+        "first_offset_ns": 613030,
+        "last_offset_ns": 893453,
+        "sample_span_fraction": 0.9518570232367823,
+        "errors": [],
+        "pass": true
+      },
+      "invocations": 4,
+      "program_span_cycles_sum": 3637803,
+      "timing_valid": true,
+      "modeled_bytes_per_cycle": 295.16216903444194,
+      "application": "specific control/fidelity/layout/instrument only; not an observed binding model roof"
+    },
+    {
+      "case": "stream_add_1",
+      "clock": {
+        "samples": 29,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1065072,
+        "first_offset_ns": 944932,
+        "last_offset_ns": 971111,
+        "sample_span_fraction": 0.9394785295267868,
+        "errors": [],
+        "pass": true
+      },
+      "invocations": 4,
+      "program_span_cycles_sum": 4859147,
+      "timing_valid": true,
+      "modeled_bytes_per_cycle": 331.4599735303336,
+      "application": "specific control/fidelity/layout/instrument only; not an observed binding model roof"
+    },
+    {
+      "case": "dense_hifi4_1",
+      "clock": {
+        "samples": 45,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1105279,
+        "first_offset_ns": 589390,
+        "last_offset_ns": 456670,
+        "sample_span_fraction": 0.9781802072582026,
+        "errors": [],
+        "pass": true
+      },
+      "invocations": 4,
+      "program_span_cycles_sum": 48694899,
+      "timing_valid": true,
+      "modeled_bytes_per_cycle": 33.07559455046821,
+      "matrix_flops_per_cycle": 90318.4235191452,
+      "application": "specific control/fidelity/layout/instrument only; not an observed binding model roof"
+    },
+    {
+      "case": "stream_copy_2",
+      "clock": {
+        "samples": 30,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1094889,
+        "first_offset_ns": 596824,
+        "last_offset_ns": 326466,
+        "sample_span_fraction": 0.9709977935090895,
+        "errors": [],
+        "pass": true
+      },
+      "invocations": 4,
+      "program_span_cycles_sum": 3633530,
+      "timing_valid": true,
+      "modeled_bytes_per_cycle": 295.5092772042614,
+      "application": "specific control/fidelity/layout/instrument only; not an observed binding model roof"
+    },
+    {
+      "case": "stream_add_2",
+      "clock": {
+        "samples": 30,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1067481,
+        "first_offset_ns": 291118,
+        "last_offset_ns": 376437,
+        "sample_span_fraction": 0.9787976632535146,
+        "errors": [],
+        "pass": true
+      },
+      "invocations": 4,
+      "program_span_cycles_sum": 4853811,
+      "timing_valid": true,
+      "modeled_bytes_per_cycle": 331.8243615171666,
+      "application": "specific control/fidelity/layout/instrument only; not an observed binding model roof"
+    },
+    {
+      "case": "dense_hifi4_2",
+      "clock": {
+        "samples": 45,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1067055,
+        "first_offset_ns": 298797,
+        "last_offset_ns": 852024,
+        "sample_span_fraction": 0.9759776939800257,
+        "errors": [],
+        "pass": true
+      },
+      "invocations": 4,
+      "program_span_cycles_sum": 48684670,
+      "timing_valid": true,
+      "modeled_bytes_per_cycle": 33.082543971233655,
+      "matrix_flops_per_cycle": 90337.40007078204,
+      "application": "specific control/fidelity/layout/instrument only; not an observed binding model roof"
+    }
+  ]
+}

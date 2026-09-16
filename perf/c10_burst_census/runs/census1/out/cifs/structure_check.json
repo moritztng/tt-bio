@@ -1,0 +1,6 @@
+{
+  "parser": "gemmi",
+  "CA_atoms": 512,
+  "finite_coordinates": true,
+  "accuracy_claim": "No model change; this is output completeness, not a paired accuracy or A/A experiment."
+}

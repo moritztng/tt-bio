@@ -1,0 +1,72 @@
+[
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/tracy/.logs/profile_log_device.csv",
+    "sha256": "810a0738f278bd470ecb90e016a4411b72b04bd07ee27bae94e08848995d8926",
+    "bytes": 651230,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/raw/profile_log_device.csv.gz",
+      "sha256": "a0b560b32b13f38ee3959808a8624abc6ff1cc120c7aad511140e0179a4e8c04",
+      "bytes": 37108
+    }
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/tracy/.logs/tracy_ops_times.csv",
+    "sha256": "a517a0c093386c62121534ed6d541cef274513b0ce4e7bba0700b3fc3d7e61b3",
+    "bytes": 96324362,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/raw/tracy_ops_times.csv.gz",
+      "sha256": "a0e378d7c281e487a1d5d67041700c8366b13059fed5f29921af75def68a415d",
+      "bytes": 7685161
+    }
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/tracy/.logs/tracy_ops_data.csv",
+    "sha256": "8ca8e7fa06528c6a8eed0ced18fee58b7ecc7a7cf3170b60203f4eab31435011",
+    "bytes": 18986,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/raw/tracy_ops_data.csv.gz",
+      "sha256": "2a506a3cffc6546f02a91ae5d8dfd5d5454235a40030839c978558f6fd1cafd2",
+      "bytes": 2283
+    }
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/tracy/.logs/new_zone_src_locations.log",
+    "sha256": "3238da58c6d2cf7026692a8788747bb44c8ec1360b62ac1447663534ae1c2157",
+    "bytes": 24187,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/raw/new_zone_src_locations.log.gz",
+      "sha256": "8f19aed0c1443f64b1bfbadc99d409df7748fd5004659d2a6ae0b568f54a9e1c",
+      "bytes": 715
+    }
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/tracy/.logs/zone_src_locations.log",
+    "sha256": "bf0cc84d13ab604731caa53bb4000a1d634a8abceca2f632db26db2655a41902",
+    "bytes": 4132,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/raw/zone_src_locations.log.gz",
+      "sha256": "044482620e333faf0b73a7c8bcf11d4619054d9e5e4326356af40cf52255bbc9",
+      "bytes": 547
+    }
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/tracy/.logs/tracy_profile_log_host.tracy",
+    "sha256": "7994f55f5bd36b6e7427d5150b444d887cd91c1c015646a978378181285ba93c",
+    "bytes": 17834466,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/raw/tracy_profile_log_host.tracy",
+      "sha256": "7994f55f5bd36b6e7427d5150b444d887cd91c1c015646a978378181285ba93c",
+      "bytes": 17834466
+    }
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/tracy/reports/2026_09_16_18_53_53/ops_perf_results_2026_09_16_18_53_53.csv",
+    "sha256": "2988abc689386e38d0f5a3eabea27be2762ffde7d4bd0e7590341764077f3010",
+    "bytes": 54965,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/smoke2/raw/ops.csv",
+      "sha256": "2988abc689386e38d0f5a3eabea27be2762ffde7d4bd0e7590341764077f3010",
+      "bytes": 54965
+    }
+  }
+]

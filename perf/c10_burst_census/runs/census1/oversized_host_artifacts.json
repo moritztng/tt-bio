@@ -1,0 +1,14 @@
+[
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/census1/tracy/.logs/tracy_profile_log_host.tracy",
+    "bytes": 2919007827,
+    "sha256": "6bd43e8a2895cbb4bf166b84e453e829193ac9cf94097dc9af24922beabd0ab9",
+    "retention": "Original retained in private worktree; not committed due artifact size. CPU census replay does not consume it."
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-burst-census/perf/c10_burst_census/runs/census1/tracy/.logs/tracy_ops_times.csv",
+    "bytes": 61753834686,
+    "sha256": "e9bff20fe78762a0a9d3f9b54c7274d797166b1f9308c400dd5b673936a610f8",
+    "retention": "Original retained in private worktree; not committed due artifact size. CPU census replay does not consume it."
+  }
+]
