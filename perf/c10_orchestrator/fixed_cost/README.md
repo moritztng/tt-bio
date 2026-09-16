@@ -57,3 +57,55 @@ still short. That row is `c10-fixed-cost`.
 
     python3 two_size_family.py                       # prints two_size_family.json
     python3 -m pytest test_two_size_family.py -q     # 5 known-answer controls
+
+## Update: the fixed cost was already measurable, and it is 3.95 s
+
+`b2z2-aiclk-default-decision` ran an A/B on commit `0df13ad9` that alternated a forced 800 MHz arm
+with an unforced ~1339 MHz arm in one process on one fixture, six non-warmup folds, and nobody ever
+solved it for the fixed term. Two clocks, two unknowns:
+
+    fixed term 3.952 s     work 14,418 Mcycles     worst residual 33 ms
+    leave-one-out: fixed 3.930 - 3.993 s, work 14,384 - 14,445 Mcycles
+    800 MHz arm 21.981 s median, ~1339 MHz arm 14.738 s median
+
+The residuals are inside the A/A timing floor the baseline later measured (55 ms at 512 aa). An
+independent clean session on the same commit, which is not in the fit, checks it: the solve
+predicts that session's 1339-to-1350 MHz gap to **11.5 ms** and its forced arm to 77 ms.
+
+The historical harness times `state.predict_one` with `perf_counter`, which is the same boundary
+`c10-bare-baseline` used, so the two are comparable.
+
+### What it means for the target
+
+Carrying that fixed term onto the current tree's measured 14.8813 s at 1350 MHz:
+
+| | |
+|---|---|
+| clock-immune fixed cost | **3.95 s, 26.6 % of the fold** |
+| work term | 14,755 Mcycles, +2.3 % against `0df13ad9` |
+| 10.0 s with the fixed cost untouched | a **44.7 %** cycle cut |
+| 10.0 s with the fixed cost cut to 2 s | a 26.8 % cycle cut |
+| 10.0 s with the fixed cost cut to 1 s | a **17.7 %** cycle cut |
+| cutting the fixed cost to 1 s and nothing else | **11.93 s** |
+
+A 44.7 % cycle cut is larger than the sum of every lever this project has ever landed. A 17.7 % cut
+on top of a host-side fix is an ordinary optimization campaign. That is the difference the fixed
+cost makes, and it is why `c10-fixed-cost` confirms it on the current tree with a quiet host before
+any kernel work starts.
+
+That +2.3 % work term is also worth a look on its own: `0df13ad9` read 14.554 s pinned where the
+current tree reads 14.8813 s, same fixture, same config, same timer boundary, both sessions clean.
+It is a cross-run comparison so it is a signal and not a verdict, but the direction is a regression
+and `5e1886b4f` enabling the above-cap fused SDPA route is the obvious suspect.
+
+### Limits
+
+- Every fold in the two-clock session had one foreign TT holder. It is in both arms, so the
+  comparison is controlled, but an additive per-fold holder cost inflates the fixed term.
+- Two clocks and two parameters leave no degrees of freedom. The within-arm scatter and the
+  independent cross-check are the evidence that the model fits, not a residual test.
+- Clock-immune is not host CPU. It includes clock-immune device and dispatch cost, and only a
+  device-side split separates them.
+
+    python3 two_clock_session.py                      # prints two_clock_session.json
+    python3 -m pytest test_two_clock_session.py -q    # 6 known-answer controls

@@ -1,0 +1,61 @@
+{
+  "scope": "CPU solve of a committed interleaved two-clock A/B. No device, no new timing.",
+  "inputs": {
+    "two_clock": "origin/wk/b2z2-aiclk-default-decision perf/b2z2_aiclk_pin/out/mainab_down800_qb2c1.json",
+    "pinned_cross_check": "origin/wk/b2z2-aiclk-default-decision perf/b2z2_aiclk_pin/out/mainab_qb2c1.json",
+    "commit": "0df13ad983e645722da958e176d22d96fa5067ee",
+    "fixture": "cdk2x2_512",
+    "steps": 200,
+    "recycles": 3,
+    "timer": "time.perf_counter around state.predict_one, the same boundary c10-bare-baseline used"
+  },
+  "measured": {
+    "fixed_s": 3.951619239690013,
+    "work_Mcycles": 14417.660203443147,
+    "n_folds": 6,
+    "arm_medians_s": {
+      "forced_800MHz": 21.981,
+      "unforced_1339MHz": 14.738
+    },
+    "worst_residual_s": 0.0332516456598384,
+    "leave_one_out_fixed_s": [
+      3.9297548726218197,
+      3.993095568283701
+    ],
+    "leave_one_out_work_Mcycles": [
+      14384.457025614867,
+      14445.17687937639
+    ],
+    "foreign_holder_in_every_fold": true
+  },
+  "cross_check_separate_clean_session": {
+    "forced_s": 14.553999999999998,
+    "forced_MHz": 1350.0,
+    "base_s": 14.65,
+    "base_MHz": 1339.4,
+    "measured_gap_s": 0.09600000000000186,
+    "predicted_gap_s": 0.08451943554410585,
+    "gap_error_s": 0.011480564455896014,
+    "predicted_forced_s": 14.631367538536788,
+    "forced_error_s": 0.07736753853678913,
+    "foreign_holders": 0
+  },
+  "applied_to_the_current_tree": {
+    "measured_512_s_at_1350": 14.8813252375,
+    "work_Mcycles_if_fixed_term_unchanged": 14755.103097043484,
+    "work_change_vs_0df13ad9_pct": 2.34048305230381,
+    "fixed_pct_of_fold": 26.55421594934423,
+    "ten_seconds": {
+      "fixed_untouched_cut_pct": 44.66108455687723,
+      "fixed_at_2s_cut_pct": 26.804984492693773,
+      "fixed_at_1s_cut_pct": 17.655607554280493,
+      "fold_s_if_fixed_term_cut_to_1s_alone": 11.929705997809988
+    }
+  },
+  "limits": [
+    "Every fold in the two-clock session had one foreign TT holder. It is present in both arms so the comparison is controlled, but an additive per-fold holder cost inflates the fixed term.",
+    "Commit 0df13ad9, not current main. The current tree's work term is higher; the fixed term is assumed unchanged and that assumption is exactly what c10-fixed-cost tests.",
+    "Two clocks and two parameters leave no degrees of freedom. The evidence that the model fits is the within-arm scatter and the independent cross-check, not a residual test.",
+    "Clock-immune is not the same as host CPU. It includes clock-immune device and dispatch cost, and only a device-side split can separate them."
+  ]
+}
