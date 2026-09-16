@@ -110,3 +110,55 @@ def test_counters_share_semantics_when_optional_corrections_are_off():
     for key in ("real_MB", "real_r_MB", "real_w_MB", "floor_MB", "once_MB",
                 "terminal_read_removed_MB", "assumed_read_MB", "per_op"):
         assert old[key] == new[key]
+
+
+def preallocated_gated_graph():
+    # One wide DRAM source, a destination reservation, one partial-read writer,
+    # then a clone consuming the written destination.
+    wide, dest = 512 * 512 * 512 * 2, 128 * 512 * 512 * 2
+    return [
+        node(0, "capture_start"),
+        node(1, "buffer", [2], size=wide, type="DRAM"),
+        node(2, "tensor", [8], shape="[1, 512, 512, 512]", size=wide),
+        node(3, "function_start", name="ttnn.allocate_tensor_on_device"),
+        node(4, "buffer", [6], size=dest, type="DRAM"),
+        node(5, "buffer_allocate", [4]),
+        node(6, "tensor", [8, 12], shape="[1, 128, 512, 512]", size=dest),
+        node(7, "function_end", [6], name="ttnn.allocate_tensor_on_device"),
+        node(8, "function_start", name="ttnn.generic_op"),
+        node(9, "function_start", name="GenericOpDeviceOperation"),
+        node(10, "function_end", [6], name="GenericOpDeviceOperation"),
+        node(11, "function_end", [6], name="ttnn.generic_op"),
+        node(12, "function_start", name="ttnn.clone"),
+        node(13, "buffer", [15], size=dest, type="DRAM"),
+        node(14, "buffer_allocate", [13]),
+        node(15, "tensor"),
+        node(16, "function_end", [15], name="ttnn.clone"),
+        node(17, "capture_end"),
+    ]
+
+
+def test_preallocated_write_is_charged_to_writer_and_later_consumer_reads():
+    nodes = preallocated_gated_graph()
+    result = CORRECTED.counts({"nodes": nodes}, gate=False)
+    wide, dest = 512 * 512 * 512 * 2, 128 * 512 * 512 * 2
+    assert result["by_op"] == [0, wide + dest, 2 * dest]
+    assert result["real_w_MB"] * 1e6 == 2 * dest
+    assert result["real_r_MB"] * 1e6 == wide + dest
+    assert result["assumed_read_MB"] == 0
+
+
+def test_gated_signature_preserves_half_read_and_preallocated_write():
+    nodes = preallocated_gated_graph()
+    # Graph tensor aliases preserve the positional destination and return nodes.
+    nodes[2]["connections"] = [8, 9]
+    nodes[6]["connections"] = [8, 9, 12]
+    nodes[4]["connections"].append(18)
+    nodes.insert(-1, node(18, "tensor", [9], shape="[1, 128, 512, 512]",
+                         size=128 * 512 * 512 * 2))
+    result = CORRECTED.counts({"nodes": nodes})
+    wide, dest = 512 * 512 * 512 * 2, 128 * 512 * 512 * 2
+    assert result["by_op"] == [0, wide // 2 + dest, 2 * dest]
+    assert result["gate_saved_MB"] * 1e6 == wide // 2
+    assert result["real_w_MB"] * 1e6 == 2 * dest
+    assert result["assumed_read_MB"] == 0
