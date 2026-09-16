@@ -203,3 +203,5 @@
 2026-09-16T17:39:31Z capacity-protenix-v2 START loadavg=0.95
 2026-09-16T17:51:30Z capacity-protenix-v2 rc=0 loadavg=4.16
 2026-09-16T17:51:30Z capacity-openfold3 START loadavg=4.16
+2026-09-16T18:02:36Z capacity-openfold3 rc=0 loadavg=2.24
+2026-09-16T18:02:36Z capacity-openbind START loadavg=2.24
