@@ -1,0 +1,4492 @@
+{
+  "schema_version": 1,
+  "measurement": "CPU replay and exact integer count validation only",
+  "clock": "CPU only; 1350 MHz target not measured",
+  "cycles": null,
+  "conventions": {
+    "matrix": "dense contractions: 2 FLOPs per multiply-accumulate (including initial add)",
+    "shape": "captured tensor logical shape; includes model-side bucketing, not original input work",
+    "tile32": "round effective M,N,K to 32; exact conditional arithmetic, not issued program work",
+    "sfpu": "symbolic evaluations only; no exp/sqrt/etc FLOP coefficients",
+    "instructions": "not counted; require compiled kernels and dynamic paths"
+  },
+  "aggregation": "Inventory occurrences only. Captures overlap. No cross-capture FLOP sum or fold total.",
+  "source_sha256": {
+    "perf/roof_budget/exec_flops.py": "699de392219e5487bdce0d0497c5d63034e966c2f80e73aee185632a6f2492a9",
+    "perf/b2x_difflayer/itemize.py": "96f4d6afd6faaac8ce8e15da4e2656963ab8c5f60223be8a2375015a47d9ce8b",
+    "perf/roof_budget/roof_budget_table.py": "dd5016c501303f476c8d7bc48b425fbcaadc530e797b9cbe693a26d76b3a3864",
+    "tt_bio/tenstorrent.py": "0cd13a1961a54f7d4c89504dbdecf148fef270adecf03ac383360908af6af41c",
+    "tt_bio/mm_generic.py": "a7426479c47f44a83623bfbfc15be24e8d6e9541c1f6b144819d3d9de5e22d51",
+    "tt_bio/triatt_qkv.py": "4c29e71d6d9b92f17bb46b2caa3f2951a49c2b3fc7b2fc187b9116f1cb840994",
+    "tt_bio/trimul_tail.py": "23c98ebf28a2678114a5be072b755fd5c9041d93bd1bf8bdde8b2bf3e8c80890",
+    "tt_bio/token_axis.py": "ffaef5c82ff6e4084db5bbd786049cfa0079f10de0093498fdc76419ff347ce5",
+    "tt_bio/sdpa_generic.py": "201010847b49fe12cb9bd73d5324e0a0bb5dd0b3733f7ea1d049e5b7728b0574",
+    "tt_bio/triatt_sdpa.py": "9203f5920d844d9bacdb63a1166e3286261ea31c028b02631e469b50a5614dbd",
+    "tt_bio/softmax_generic.py": "c6418376e5f2ee3610ac3f1df0a7e03423213086f8becf67d2bd32c9adff26d3",
+    "tt_bio/mm_dualnoc.py": "65707ffc60ed7458c575e3e752123d658ea415ef49ba040a97ce2e3c6a9f53ec",
+    "tt_bio/reblock_permute.py": "44e91eb8edcc8eb31f3c4a71bb52b5e6792551e77c4d7b63e0241f9cfdbc7565",
+    "tt_bio/kernels/reblock_permute/compute_reblock_permute.cpp": "de7e334bd00c814705ff06e48de9665bac894db4d908c00fae2f5b40ff331297",
+    "tt_bio/kernels/reblock_permute_gated/compute_reblock_permute_gated.cpp": "5bccec4d0765fe3b1f73028f66e138d44eae39aa1417836795d810a0ece79194",
+    "tt_bio/kernels/trimul_tail/compute.cpp": "d46299c3c61de4b7b3e7dc9009da72e8d2fee49a8926eabb28f847637ce6b6f8",
+    "tt_bio/kernels/triatt_sdpa/compute/sdpa.cpp": "8bc8582ee5d6445faad98501c87c83a6bb7756b56b9b41715af93c45c4ac89d4",
+    "tt_bio/kernels/triatt_sdpa/compute/compute_common.hpp": "3f2e3129420223796955dcd1448a7fc79907a792e5f55fbe20b7794432da91e0"
+  },
+  "fixture_provenance": {
+    "audited_production_revision": "71a306a8a",
+    "historical_capture_revision": "f072ae02f6de655e21a4d8f388522ae826cc4ca7",
+    "historical_capture_directory": "perf/roof_budget/captures",
+    "historical_control": "perf/roof_budget/control_matmul_8192.json",
+    "copied_control": {
+      "path": "perf/c10_flop_contract/control_8192.json",
+      "source_revision": "6bf1d227a3b6f2d0efc77246498028101643bacd",
+      "source_path": "perf/c10_roofline_reset/control/matmul_graph.json",
+      "sha256": "a0e4b7caaa694d399a9189cdd325f640f6f6623ef1b6aa5125bb193d309ddbd0"
+    },
+    "scope": "Raw graph only. CPU replay does not repeat or certify device timing. Historical graphs do not establish current-default coverage."
+  },
+  "captures": [
+    {
+      "path": "perf/roof_budget/captures/cap_AdaLN__1x140x32x128,1x140x32x128.json.gz",
+      "sha256": "6f3f0aeba33a40335dbab20ae5ff9a9b4946d456330a953ad11564349a7e84ce",
+      "function_starts": 40,
+      "function_ends": 40,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 11,
+      "classes": {
+        "ttnn.add_": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.linear": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": 293601280,
+          "matrix_tile32_subtotal": 293601280,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.to_memory_config": {
+          "occurrences": 5,
+          "statuses": {
+            "exact_convention": 5
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_AdaLN__1x512x768,1x512x768.json.gz",
+      "sha256": "6de80d52f701adc7ac3065083620db1f36e66bcdfd4e85956e24bdd416870b63",
+      "function_starts": 23,
+      "function_ends": 23,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 9,
+      "classes": {
+        "ttnn.add_": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.linear": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": 1207959552,
+          "matrix_tile32_subtotal": 1207959552,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.to_memory_config": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_AttentionPairBias__1x140x32x128,140x4x32x128.json.gz",
+      "sha256": "582b018e9ff3a9ea0a98c5a55639b697e5cc9b78d321fb8a390a7dec86024617",
+      "function_starts": 132,
+      "function_ends": 128,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 41,
+      "classes": {
+        "ttnn.Tensor.__getitem__": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.concat": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.experimental.nlp_concat_heads": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.experimental.nlp_create_qkv_heads": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.linear": {
+          "occurrences": 4,
+          "statuses": {
+            "exact_convention": 4
+          },
+          "matrix_shape_subtotal": 1614807040,
+          "matrix_tile32_subtotal": 1614807040,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.pad": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.reshape": {
+          "occurrences": 10,
+          "statuses": {
+            "exact_convention": 10
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.slice": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.squeeze": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_layout": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_memory_config": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.transformer.scaled_dot_product_attention": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_AttentionPairBias__1x512x384,1x512x512x128.json.gz",
+      "sha256": "38737ac01ce11d1cbcb9f12cdc46940d5e0ff6817dea61ae90a912baeb1bfd52",
+      "function_starts": 93,
+      "function_ends": 93,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 31,
+      "classes": {
+        "ttnn.Tensor.__getitem__": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.add_": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 11,
+          "statuses": {
+            "exact_convention": 11
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.experimental.nlp_create_qkv_heads": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.linear": {
+          "occurrences": 4,
+          "statuses": {
+            "exact_convention": 4
+          },
+          "matrix_shape_subtotal": 1979711488,
+          "matrix_tile32_subtotal": 3053453312,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.matmul": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": 536870912,
+          "matrix_tile32_subtotal": 536870912,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.permute": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.reshape": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.softmax": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.transpose": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.unsqueeze": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_AttentionPairBias__1x512x768,1x16x512x512.json.gz",
+      "sha256": "b4e7f0eee744dc9f29f3b49ceb4ec64ed771b98da8977defb77ad1a31710e706",
+      "function_starts": 57,
+      "function_ends": 57,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 17,
+      "classes": {
+        "ttnn.Tensor.__getitem__": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.experimental.nlp_create_qkv_heads": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.linear": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": 3623878656,
+          "matrix_tile32_subtotal": 3623878656,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.permute": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.reshape": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.transformer.scaled_dot_product_attention": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.unsqueeze": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_ConditionedTransitionBlock__1x140x32x128,1x140x32x128.json.gz",
+      "sha256": "b7c8b2c6b36fa3e1486abcdac04a71e2544cd678828eac014a350a55658f3377",
+      "function_starts": 71,
+      "function_ends": 71,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 23,
+      "classes": {
+        "ttnn.add_": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 4,
+          "statuses": {
+            "exact_convention": 4
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.linear": {
+          "occurrences": 7,
+          "statuses": {
+            "exact_convention": 7
+          },
+          "matrix_shape_subtotal": 1614807040,
+          "matrix_tile32_subtotal": 1614807040,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 4,
+          "statuses": {
+            "symbolic": 4
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.to_memory_config": {
+          "occurrences": 5,
+          "statuses": {
+            "exact_convention": 5
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_ConditionedTransitionBlock__1x512x768,1x512x768.json.gz",
+      "sha256": "6e827f3faaadf6dad1a2ce4cc0094d36f54f7dfa672c8affac1b32573e2d1a32",
+      "function_starts": 54,
+      "function_ends": 54,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 21,
+      "classes": {
+        "ttnn.add_": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.linear": {
+          "occurrences": 7,
+          "statuses": {
+            "exact_convention": 7
+          },
+          "matrix_shape_subtotal": 6643777536,
+          "matrix_tile32_subtotal": 6643777536,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 4,
+          "statuses": {
+            "symbolic": 4
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.to_memory_config": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_DiffusionModule__.json.gz",
+      "sha256": "62657a56eafc320ee9984d49bf4f3690b779bd14e79ea807fa975ed5c502c2e8",
+      "function_starts": 5149,
+      "function_ends": 5125,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 1702,
+      "classes": {
+        "ttnn.Tensor.__getitem__": {
+          "occurrences": 60,
+          "statuses": {
+            "exact_convention": 60
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.add": {
+          "occurrences": 66,
+          "statuses": {
+            "symbolic": 66
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.add_": {
+          "occurrences": 60,
+          "statuses": {
+            "symbolic": 60
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.concat": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.cos": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 392,
+          "statuses": {
+            "exact_convention": 392
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.experimental.nlp_concat_heads": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.experimental.nlp_create_qkv_heads": {
+          "occurrences": 30,
+          "statuses": {
+            "exact_convention": 30
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.from_device": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.from_torch": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 114,
+          "statuses": {
+            "symbolic": 114
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.linear": {
+          "occurrences": 379,
+          "statuses": {
+            "exact_convention": 379
+          },
+          "matrix_shape_subtotal": 316366848512,
+          "matrix_tile32_subtotal": 316446081024,
+          "legacy_matrix_disagreements": 1,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.matmul": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": 4110417920,
+          "matrix_tile32_subtotal": 4110417920,
+          "legacy_matrix_disagreements": 1,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply": {
+          "occurrences": 61,
+          "statuses": {
+            "symbolic": 61
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 152,
+          "statuses": {
+            "symbolic": 152
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.pad": {
+          "occurrences": 18,
+          "statuses": {
+            "exact_convention": 18
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.permute": {
+          "occurrences": 51,
+          "statuses": {
+            "exact_convention": 51
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.reshape": {
+          "occurrences": 88,
+          "statuses": {
+            "exact_convention": 88
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.slice": {
+          "occurrences": 60,
+          "statuses": {
+            "exact_convention": 60
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.squeeze": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_layout": {
+          "occurrences": 12,
+          "statuses": {
+            "exact_convention": 12
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_memory_config": {
+          "occurrences": 78,
+          "statuses": {
+            "exact_convention": 78
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_torch": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.transformer.scaled_dot_product_attention": {
+          "occurrences": 30,
+          "statuses": {
+            "symbolic": 30
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.unsqueeze": {
+          "occurrences": 26,
+          "statuses": {
+            "exact_convention": 26
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_DiffusionTransformerLayer__1x140x32x128,1x140x32x128.json.gz",
+      "sha256": "fb75e0e38ba8c15932ced66c8c6e24ff2c8d744595d79b06ced3c072141c46c9",
+      "function_starts": 261,
+      "function_ends": 257,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 79,
+      "classes": {
+        "ttnn.Tensor.__getitem__": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.add": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.add_": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.concat": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 7,
+          "statuses": {
+            "exact_convention": 7
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.experimental.nlp_concat_heads": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.experimental.nlp_create_qkv_heads": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 4,
+          "statuses": {
+            "symbolic": 4
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.linear": {
+          "occurrences": 14,
+          "statuses": {
+            "exact_convention": 14
+          },
+          "matrix_shape_subtotal": 3670016000,
+          "matrix_tile32_subtotal": 3670016000,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 5,
+          "statuses": {
+            "symbolic": 5
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.pad": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.reshape": {
+          "occurrences": 10,
+          "statuses": {
+            "exact_convention": 10
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.slice": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.squeeze": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_layout": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_memory_config": {
+          "occurrences": 11,
+          "statuses": {
+            "exact_convention": 11
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.transformer.scaled_dot_product_attention": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_DiffusionTransformerLayer__1x512x768,1x512x768.json.gz",
+      "sha256": "48744634e70f15e46759ce9d31e15bd18789a0ef1c6a75df4a3896a262bc4dbc",
+      "function_starts": 153,
+      "function_ends": 153,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 51,
+      "classes": {
+        "ttnn.Tensor.__getitem__": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.add": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.add_": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 14,
+          "statuses": {
+            "exact_convention": 14
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.experimental.nlp_create_qkv_heads": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 4,
+          "statuses": {
+            "symbolic": 4
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.linear": {
+          "occurrences": 13,
+          "statuses": {
+            "exact_convention": 13
+          },
+          "matrix_shape_subtotal": 12079595520,
+          "matrix_tile32_subtotal": 12079595520,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 5,
+          "statuses": {
+            "symbolic": 5
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.permute": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.reshape": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.to_memory_config": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.transformer.scaled_dot_product_attention": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.unsqueeze": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_DiffusionTransformer__1x140x32x128,1x140x32x128.json.gz",
+      "sha256": "be9ec4c6987e06b6ab3168870ac8de1f385034c0915ce661fd3152d0c57fcc53",
+      "function_starts": 633,
+      "function_ends": 621,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 198,
+      "classes": {
+        "ttnn.Tensor.__getitem__": {
+          "occurrences": 18,
+          "statuses": {
+            "exact_convention": 18
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.add": {
+          "occurrences": 6,
+          "statuses": {
+            "symbolic": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.add_": {
+          "occurrences": 6,
+          "statuses": {
+            "symbolic": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.concat": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 21,
+          "statuses": {
+            "exact_convention": 21
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.experimental.nlp_concat_heads": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.experimental.nlp_create_qkv_heads": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 6,
+          "statuses": {
+            "symbolic": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.linear": {
+          "occurrences": 27,
+          "statuses": {
+            "exact_convention": 27
+          },
+          "matrix_shape_subtotal": 8808038400,
+          "matrix_tile32_subtotal": 8808038400,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply": {
+          "occurrences": 6,
+          "statuses": {
+            "symbolic": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 15,
+          "statuses": {
+            "symbolic": 15
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.pad": {
+          "occurrences": 9,
+          "statuses": {
+            "exact_convention": 9
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.reshape": {
+          "occurrences": 30,
+          "statuses": {
+            "exact_convention": 30
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.slice": {
+          "occurrences": 18,
+          "statuses": {
+            "exact_convention": 18
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.squeeze": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_layout": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_memory_config": {
+          "occurrences": 15,
+          "statuses": {
+            "exact_convention": 15
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.transformer.scaled_dot_product_attention": {
+          "occurrences": 3,
+          "statuses": {
+            "symbolic": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_DiffusionTransformer__1x512x768,1x512x768.json.gz",
+      "sha256": "2b8d086915ca29e7fc6878ed99e509b65de256912bbdfa0586bbb83c6a299d63",
+      "function_starts": 3696,
+      "function_ends": 3696,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 1224,
+      "classes": {
+        "ttnn.Tensor.__getitem__": {
+          "occurrences": 24,
+          "statuses": {
+            "exact_convention": 24
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.add": {
+          "occurrences": 48,
+          "statuses": {
+            "symbolic": 48
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.add_": {
+          "occurrences": 48,
+          "statuses": {
+            "symbolic": 48
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 336,
+          "statuses": {
+            "exact_convention": 336
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.experimental.nlp_create_qkv_heads": {
+          "occurrences": 24,
+          "statuses": {
+            "exact_convention": 24
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 96,
+          "statuses": {
+            "symbolic": 96
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.linear": {
+          "occurrences": 312,
+          "statuses": {
+            "exact_convention": 312
+          },
+          "matrix_shape_subtotal": 289910292480,
+          "matrix_tile32_subtotal": 289910292480,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply": {
+          "occurrences": 48,
+          "statuses": {
+            "symbolic": 48
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 120,
+          "statuses": {
+            "symbolic": 120
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.permute": {
+          "occurrences": 48,
+          "statuses": {
+            "exact_convention": 48
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.reshape": {
+          "occurrences": 24,
+          "statuses": {
+            "exact_convention": 24
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.to_memory_config": {
+          "occurrences": 48,
+          "statuses": {
+            "exact_convention": 48
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.transformer.scaled_dot_product_attention": {
+          "occurrences": 24,
+          "statuses": {
+            "symbolic": 24
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.unsqueeze": {
+          "occurrences": 24,
+          "statuses": {
+            "exact_convention": 24
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_Diffusion__1x4480x3,1.json.gz",
+      "sha256": "0a4a2ecdd6e6c5ea10ae4a9ab948eee39b4a1e9ffae3216b1a2ba23276350152",
+      "function_starts": 5131,
+      "function_ends": 5107,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 1698,
+      "classes": {
+        "ttnn.Tensor.__getitem__": {
+          "occurrences": 60,
+          "statuses": {
+            "exact_convention": 60
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.add": {
+          "occurrences": 66,
+          "statuses": {
+            "symbolic": 66
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.add_": {
+          "occurrences": 60,
+          "statuses": {
+            "symbolic": 60
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.concat": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.cos": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 392,
+          "statuses": {
+            "exact_convention": 392
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.experimental.nlp_concat_heads": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.experimental.nlp_create_qkv_heads": {
+          "occurrences": 30,
+          "statuses": {
+            "exact_convention": 30
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 114,
+          "statuses": {
+            "symbolic": 114
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.linear": {
+          "occurrences": 379,
+          "statuses": {
+            "exact_convention": 379
+          },
+          "matrix_shape_subtotal": 316366848512,
+          "matrix_tile32_subtotal": 316446081024,
+          "legacy_matrix_disagreements": 1,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.matmul": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": 4110417920,
+          "matrix_tile32_subtotal": 4110417920,
+          "legacy_matrix_disagreements": 1,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply": {
+          "occurrences": 61,
+          "statuses": {
+            "symbolic": 61
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 152,
+          "statuses": {
+            "symbolic": 152
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.pad": {
+          "occurrences": 18,
+          "statuses": {
+            "exact_convention": 18
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.permute": {
+          "occurrences": 51,
+          "statuses": {
+            "exact_convention": 51
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.reshape": {
+          "occurrences": 88,
+          "statuses": {
+            "exact_convention": 88
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.slice": {
+          "occurrences": 60,
+          "statuses": {
+            "exact_convention": 60
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.squeeze": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_layout": {
+          "occurrences": 12,
+          "statuses": {
+            "exact_convention": 12
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_memory_config": {
+          "occurrences": 78,
+          "statuses": {
+            "exact_convention": 78
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.transformer.scaled_dot_product_attention": {
+          "occurrences": 30,
+          "statuses": {
+            "symbolic": 30
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.unsqueeze": {
+          "occurrences": 26,
+          "statuses": {
+            "exact_convention": 26
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_MSALayer__1x512x512x128,1x1024x512x64.json.gz",
+      "sha256": "78d3aacdb1e69f2664228407327fa6be0c9549d8c8787e34dfbdd77b2317db39",
+      "function_starts": 3530,
+      "function_ends": 3384,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 1064,
+      "classes": {
+        "ttnn.Tensor.__getitem__": {
+          "occurrences": 32,
+          "statuses": {
+            "exact_convention": 32
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.add_": {
+          "occurrences": 15,
+          "statuses": {
+            "symbolic": 15
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.allocate_tensor_on_device": {
+          "occurrences": 24,
+          "statuses": {
+            "exact_convention": 24
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.chunk": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.concat": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 356,
+          "statuses": {
+            "exact_convention": 356
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.generic_op": {
+          "occurrences": 14,
+          "statuses": {
+            "uncounted": 14
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "opaque kernel identity, operand roles, defines, runtime/compile args"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 105,
+          "statuses": {
+            "symbolic": 105
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.linear": {
+          "occurrences": 318,
+          "statuses": {
+            "exact_convention": 318
+          },
+          "matrix_shape_subtotal": 296889614336,
+          "matrix_tile32_subtotal": 298500227072,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.matmul": {
+          "occurrences": 11,
+          "statuses": {
+            "exact_convention": 11
+          },
+          "matrix_shape_subtotal": 755914244096,
+          "matrix_tile32_subtotal": 755914244096,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 110,
+          "statuses": {
+            "symbolic": 110
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.permute": {
+          "occurrences": 24,
+          "statuses": {
+            "exact_convention": 24
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.reshape": {
+          "occurrences": 12,
+          "statuses": {
+            "exact_convention": 12
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.slice": {
+          "occurrences": 32,
+          "statuses": {
+            "exact_convention": 32
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.softmax": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_layout": {
+          "occurrences": 4,
+          "statuses": {
+            "exact_convention": 4
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.unsqueeze": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "opaque kernel identity, operand roles, defines, runtime/compile args",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_OuterProductMean__1x1024x512x64,1024x1x1.json.gz",
+      "sha256": "bb6b93956f9d1c3bc1390e9e5905f35623674182a6af2aefe69d2ab571c2e91d",
+      "function_starts": 77,
+      "function_ends": 77,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 24,
+      "classes": {
+        "ttnn.deallocate": {
+          "occurrences": 5,
+          "statuses": {
+            "exact_convention": 5
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.linear": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": 73014444032,
+          "matrix_tile32_subtotal": 73014444032,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.matmul": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": 549755813888,
+          "matrix_tile32_subtotal": 549755813888,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.permute": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.reshape": {
+          "occurrences": 5,
+          "statuses": {
+            "exact_convention": 5
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.to_layout": {
+          "occurrences": 4,
+          "statuses": {
+            "exact_convention": 4
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_PairWeightedAveraging__1x1024x512x64,1x512x512x128.json.gz",
+      "sha256": "fcb785bbc24952a39c542158d2bb0a4323833b43ea43d7057ba9f543a89bc245",
+      "function_starts": 508,
+      "function_ends": 508,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 135,
+      "classes": {
+        "ttnn.Tensor.__getitem__": {
+          "occurrences": 32,
+          "statuses": {
+            "exact_convention": 32
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.add_": {
+          "occurrences": 7,
+          "statuses": {
+            "symbolic": 7
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 32,
+          "statuses": {
+            "exact_convention": 32
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.linear": {
+          "occurrences": 25,
+          "statuses": {
+            "exact_convention": 25
+          },
+          "matrix_shape_subtotal": 52076478464,
+          "matrix_tile32_subtotal": 53687091200,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.matmul": {
+          "occurrences": 8,
+          "statuses": {
+            "exact_convention": 8
+          },
+          "matrix_shape_subtotal": 137438953472,
+          "matrix_tile32_subtotal": 137438953472,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 8,
+          "statuses": {
+            "symbolic": 8
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.permute": {
+          "occurrences": 17,
+          "statuses": {
+            "exact_convention": 17
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.reshape": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.softmax": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_PairformerLayer__1x512x384,1x512x512x128.json.gz",
+      "sha256": "4311b6cb84aeb38349ab0975b12d4e22a68274bd4920a9d208bd64e2253592b6",
+      "function_starts": 1347,
+      "function_ends": 1265,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 410,
+      "classes": {
+        "ttnn.Tensor.__getitem__": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.add": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.add_": {
+          "occurrences": 9,
+          "statuses": {
+            "symbolic": 9
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.allocate_tensor_on_device": {
+          "occurrences": 24,
+          "statuses": {
+            "exact_convention": 24
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.chunk": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.concat": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 144,
+          "statuses": {
+            "exact_convention": 144
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.experimental.nlp_create_qkv_heads": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.generic_op": {
+          "occurrences": 14,
+          "statuses": {
+            "uncounted": 14
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "opaque kernel identity, operand roles, defines, runtime/compile args"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 41,
+          "statuses": {
+            "symbolic": 41
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.linear": {
+          "occurrences": 105,
+          "statuses": {
+            "exact_convention": 105
+          },
+          "matrix_shape_subtotal": 124050735104,
+          "matrix_tile32_subtotal": 125124476928,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.matmul": {
+          "occurrences": 4,
+          "statuses": {
+            "exact_convention": 4
+          },
+          "matrix_shape_subtotal": 69256347648,
+          "matrix_tile32_subtotal": 69256347648,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 40,
+          "statuses": {
+            "symbolic": 40
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.permute": {
+          "occurrences": 7,
+          "statuses": {
+            "exact_convention": 7
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.reshape": {
+          "occurrences": 5,
+          "statuses": {
+            "exact_convention": 5
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.slice": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.softmax": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_memory_config": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.transpose": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.unsqueeze": {
+          "occurrences": 5,
+          "statuses": {
+            "exact_convention": 5
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "opaque kernel identity, operand roles, defines, runtime/compile args",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_PairformerLayer__1x512x512x128.json.gz",
+      "sha256": "923ebd47aacea43efc8dd504913ac079695b191455627e2c77b0165e174d67db",
+      "function_starts": 1196,
+      "function_ends": 1114,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 356,
+      "classes": {
+        "ttnn.add_": {
+          "occurrences": 5,
+          "statuses": {
+            "symbolic": 5
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.allocate_tensor_on_device": {
+          "occurrences": 24,
+          "statuses": {
+            "exact_convention": 24
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.chunk": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.concat": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 127,
+          "statuses": {
+            "exact_convention": 127
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.generic_op": {
+          "occurrences": 14,
+          "statuses": {
+            "uncounted": 14
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "opaque kernel identity, operand roles, defines, runtime/compile args"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 38,
+          "statuses": {
+            "symbolic": 38
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.linear": {
+          "occurrences": 98,
+          "statuses": {
+            "exact_convention": 98
+          },
+          "matrix_shape_subtotal": 120259084288,
+          "matrix_tile32_subtotal": 120259084288,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.matmul": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": 68719476736,
+          "matrix_tile32_subtotal": 68719476736,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 36,
+          "statuses": {
+            "symbolic": 36
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.permute": {
+          "occurrences": 4,
+          "statuses": {
+            "exact_convention": 4
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.reshape": {
+          "occurrences": 4,
+          "statuses": {
+            "exact_convention": 4
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.unsqueeze": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "opaque kernel identity, operand roles, defines, runtime/compile args",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_Transition__1x1024x512x64.json.gz",
+      "sha256": "da8d7992f299353772260cb5928893255ca320a8dc9be411813d1aee0ffd5fdb",
+      "function_starts": 1739,
+      "function_ends": 1675,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 514,
+      "classes": {
+        "ttnn.chunk": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.concat": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 192,
+          "statuses": {
+            "exact_convention": 192
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 64,
+          "statuses": {
+            "symbolic": 64
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.linear": {
+          "occurrences": 192,
+          "statuses": {
+            "exact_convention": 192
+          },
+          "matrix_shape_subtotal": 51539607552,
+          "matrix_tile32_subtotal": 51539607552,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 64,
+          "statuses": {
+            "symbolic": 64
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_Transition__1x512x384.json.gz",
+      "sha256": "530b663c261132767fb748c5a02ae41e9be3558b9e1f57abe4954bce9676cf40",
+      "function_starts": 21,
+      "function_ends": 21,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 8,
+      "classes": {
+        "ttnn.deallocate": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.linear": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": 1811939328,
+          "matrix_tile32_subtotal": 1811939328,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_Transition__1x512x512x128.json.gz",
+      "sha256": "8221be949474369a61edb18f697ce5557a064bb369179f9c19cdd4da4d788e36",
+      "function_starts": 869,
+      "function_ends": 837,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 258,
+      "classes": {
+        "ttnn.chunk": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.concat": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 96,
+          "statuses": {
+            "exact_convention": 96
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 32,
+          "statuses": {
+            "symbolic": 32
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.linear": {
+          "occurrences": 96,
+          "statuses": {
+            "exact_convention": 96
+          },
+          "matrix_shape_subtotal": 103079215104,
+          "matrix_tile32_subtotal": 103079215104,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 32,
+          "statuses": {
+            "symbolic": 32
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_Transition__1x512x768.json.gz",
+      "sha256": "d7eabc2becbf6fc48e937333b6d6d21626261f175b2d723ad1b62a87c53396e6",
+      "function_starts": 21,
+      "function_ends": 21,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 8,
+      "classes": {
+        "ttnn.deallocate": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.linear": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": 3623878656,
+          "matrix_tile32_subtotal": 3623878656,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_TriangleAttention__1x512x512x128,1x1x1x512.json.gz",
+      "sha256": "46bef99365cd04871263f6db6ccfc51062a365135492309ed1faa2588d591cf4",
+      "function_starts": 96,
+      "function_ends": 81,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 26,
+      "classes": {
+        "ttnn.add": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.allocate_tensor_on_device": {
+          "occurrences": 7,
+          "statuses": {
+            "exact_convention": 7
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 7,
+          "statuses": {
+            "exact_convention": 7
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.generic_op": {
+          "occurrences": 3,
+          "statuses": {
+            "uncounted": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "opaque kernel identity, operand roles, defines, runtime/compile args"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.permute": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.reshape": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.unsqueeze": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "opaque kernel identity, operand roles, defines, runtime/compile args",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_TriangleAttention__1x512x512x128.json.gz",
+      "sha256": "cde939e3e04b8449847b6c9f515e906201876eec924b77d21c79da7986723c72",
+      "function_starts": 92,
+      "function_ends": 77,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 25,
+      "classes": {
+        "ttnn.allocate_tensor_on_device": {
+          "occurrences": 7,
+          "statuses": {
+            "exact_convention": 7
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 7,
+          "statuses": {
+            "exact_convention": 7
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.generic_op": {
+          "occurrences": 3,
+          "statuses": {
+            "uncounted": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "opaque kernel identity, operand roles, defines, runtime/compile args"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.permute": {
+          "occurrences": 3,
+          "statuses": {
+            "exact_convention": 3
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.reshape": {
+          "occurrences": 2,
+          "statuses": {
+            "exact_convention": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.unsqueeze": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "opaque kernel identity, operand roles, defines, runtime/compile args",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_TriangleMultiplication__1x512x512x128,1x512x512.json.gz",
+      "sha256": "88127f593d3b727c3b6eddc05ca66c45518acebb698c6703dc4c53aed83292f1",
+      "function_starts": 75,
+      "function_ends": 65,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 23,
+      "classes": {
+        "ttnn.allocate_tensor_on_device": {
+          "occurrences": 5,
+          "statuses": {
+            "exact_convention": 5
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.generic_op": {
+          "occurrences": 4,
+          "statuses": {
+            "uncounted": 4
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "opaque kernel identity, operand roles, defines, runtime/compile args"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.linear": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": 8589934592,
+          "matrix_tile32_subtotal": 8589934592,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.matmul": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": 34359738368,
+          "matrix_tile32_subtotal": 34359738368,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.to_memory_config": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.unsqueeze": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "opaque kernel identity, operand roles, defines, runtime/compile args",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/captures/cap_TriangleMultiplication__1x512x512x128.json.gz",
+      "sha256": "0658b0dbc4a673c303e76d0f555be5def1015a22e9986ff5a44a5c2fbbf72c8f",
+      "function_starts": 67,
+      "function_ends": 57,
+      "ownership": "unverified_legacy_spans",
+      "legacy_parser": "range",
+      "operations": 20,
+      "classes": {
+        "ttnn.allocate_tensor_on_device": {
+          "occurrences": 5,
+          "statuses": {
+            "exact_convention": 5
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.deallocate": {
+          "occurrences": 6,
+          "statuses": {
+            "exact_convention": 6
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.generic_op": {
+          "occurrences": 4,
+          "statuses": {
+            "uncounted": 4
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "opaque kernel identity, operand roles, defines, runtime/compile args"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.layer_norm": {
+          "occurrences": 2,
+          "statuses": {
+            "symbolic": 2
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.linear": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": 8589934592,
+          "matrix_tile32_subtotal": 8589934592,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.matmul": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": 34359738368,
+          "matrix_tile32_subtotal": 34359738368,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        },
+        "ttnn.multiply_": {
+          "occurrences": 1,
+          "statuses": {
+            "symbolic": 1
+          },
+          "matrix_shape_subtotal": null,
+          "matrix_tile32_subtotal": null,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "resolved output/alias roles, fusion attributes and reduction/SFPU lowering"
+          ],
+          "subtotal_scope": "candidate spans; ownership unverified"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "opaque kernel identity, operand roles, defines, runtime/compile args",
+        "resolved output/alias roles, fusion attributes and reduction/SFPU lowering",
+        "unbalanced/mismatched function spans: legacy ownership is not certified",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/roof_budget/control_matmul_8192.json",
+      "sha256": "8d0d893eb58f51a37b30fcf7d6e5dea818defe9656b85e7b659266e3ab5a0de7",
+      "function_starts": 3,
+      "function_ends": 3,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 1,
+      "classes": {
+        "ttnn.matmul": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": 1099511627776,
+          "matrix_tile32_subtotal": 1099511627776,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    },
+    {
+      "path": "perf/c10_flop_contract/control_8192.json",
+      "sha256": "a0e4b7caaa694d399a9189cdd325f640f6f6623ef1b6aa5125bb193d309ddbd0",
+      "function_starts": 3,
+      "function_ends": 3,
+      "ownership": "balanced_stack",
+      "legacy_parser": "stack",
+      "operations": 1,
+      "classes": {
+        "ttnn.matmul": {
+          "occurrences": 1,
+          "statuses": {
+            "exact_convention": 1
+          },
+          "matrix_shape_subtotal": 1099511627776,
+          "matrix_tile32_subtotal": 1099511627776,
+          "legacy_matrix_disagreements": 0,
+          "remaining": [
+            "bias/fused activation attributes and program schedule"
+          ],
+          "subtotal_scope": "within capture only"
+        }
+      },
+      "exact_total_allowed": false,
+      "exact_total_flops": null,
+      "blockers": [
+        "bias/fused activation attributes and program schedule",
+        "physical program padding/skipped tiles/redundant work not captured"
+      ],
+      "cycles": null
+    }
+  ],
+  "class_inventory": {
+    "ttnn.Tensor.__getitem__": {
+      "capture_occurrences": 242,
+      "statuses": {
+        "exact_convention": 242
+      }
+    },
+    "ttnn.add": {
+      "capture_occurrences": 193,
+      "statuses": {
+        "symbolic": 193
+      }
+    },
+    "ttnn.add_": {
+      "capture_occurrences": 220,
+      "statuses": {
+        "symbolic": 220
+      }
+    },
+    "ttnn.allocate_tensor_on_device": {
+      "capture_occurrences": 96,
+      "statuses": {
+        "exact_convention": 96
+      }
+    },
+    "ttnn.chunk": {
+      "capture_occurrences": 6,
+      "statuses": {
+        "exact_convention": 6
+      }
+    },
+    "ttnn.concat": {
+      "capture_occurrences": 23,
+      "statuses": {
+        "exact_convention": 23
+      }
+    },
+    "ttnn.cos": {
+      "capture_occurrences": 2,
+      "statuses": {
+        "symbolic": 2
+      }
+    },
+    "ttnn.deallocate": {
+      "capture_occurrences": 2178,
+      "statuses": {
+        "exact_convention": 2178
+      }
+    },
+    "ttnn.experimental.nlp_concat_heads": {
+      "capture_occurrences": 17,
+      "statuses": {
+        "exact_convention": 17
+      }
+    },
+    "ttnn.experimental.nlp_create_qkv_heads": {
+      "capture_occurrences": 93,
+      "statuses": {
+        "exact_convention": 93
+      }
+    },
+    "ttnn.from_device": {
+      "capture_occurrences": 1,
+      "statuses": {
+        "exact_convention": 1
+      }
+    },
+    "ttnn.from_torch": {
+      "capture_occurrences": 2,
+      "statuses": {
+        "exact_convention": 2
+      }
+    },
+    "ttnn.generic_op": {
+      "capture_occurrences": 56,
+      "statuses": {
+        "uncounted": 56
+      }
+    },
+    "ttnn.layer_norm": {
+      "capture_occurrences": 638,
+      "statuses": {
+        "symbolic": 638
+      }
+    },
+    "ttnn.linear": {
+      "capture_occurrences": 1998,
+      "statuses": {
+        "exact_convention": 1998
+      }
+    },
+    "ttnn.matmul": {
+      "capture_occurrences": 36,
+      "statuses": {
+        "exact_convention": 36
+      }
+    },
+    "ttnn.multiply": {
+      "capture_occurrences": 184,
+      "statuses": {
+        "symbolic": 184
+      }
+    },
+    "ttnn.multiply_": {
+      "capture_occurrences": 759,
+      "statuses": {
+        "symbolic": 759
+      }
+    },
+    "ttnn.pad": {
+      "capture_occurrences": 51,
+      "statuses": {
+        "exact_convention": 51
+      }
+    },
+    "ttnn.permute": {
+      "capture_occurrences": 218,
+      "statuses": {
+        "exact_convention": 218
+      }
+    },
+    "ttnn.reshape": {
+      "capture_occurrences": 286,
+      "statuses": {
+        "exact_convention": 286
+      }
+    },
+    "ttnn.slice": {
+      "capture_occurrences": 183,
+      "statuses": {
+        "exact_convention": 183
+      }
+    },
+    "ttnn.softmax": {
+      "capture_occurrences": 4,
+      "statuses": {
+        "symbolic": 4
+      }
+    },
+    "ttnn.squeeze": {
+      "capture_occurrences": 17,
+      "statuses": {
+        "exact_convention": 17
+      }
+    },
+    "ttnn.to_layout": {
+      "capture_occurrences": 42,
+      "statuses": {
+        "exact_convention": 42
+      }
+    },
+    "ttnn.to_memory_config": {
+      "capture_occurrences": 248,
+      "statuses": {
+        "exact_convention": 248
+      }
+    },
+    "ttnn.to_torch": {
+      "capture_occurrences": 1,
+      "statuses": {
+        "exact_convention": 1
+      }
+    },
+    "ttnn.transformer.scaled_dot_product_attention": {
+      "capture_occurrences": 91,
+      "statuses": {
+        "symbolic": 91
+      }
+    },
+    "ttnn.transpose": {
+      "capture_occurrences": 2,
+      "statuses": {
+        "exact_convention": 2
+      }
+    },
+    "ttnn.unsqueeze": {
+      "capture_occurrences": 91,
+      "statuses": {
+        "exact_convention": 91
+      }
+    }
+  },
+  "legacy_controls": [
+    {
+      "name": "rectangular_control",
+      "op": "ttnn.matmul",
+      "inputs": [
+        [
+          null,
+          [
+            64,
+            32
+          ]
+        ],
+        [
+          1,
+          [
+            32,
+            16
+          ]
+        ]
+      ],
+      "outputs": [
+        [
+          64,
+          16
+        ]
+      ],
+      "expected_matrix_shape_flops": 65536,
+      "legacy_shape_flops": 65536,
+      "legacy_padded": 131072,
+      "legacy_kind": "matmul",
+      "passed": true
+    },
+    {
+      "name": "square_M_equals_K_rhs_mistaken_for_activation",
+      "op": "ttnn.matmul",
+      "inputs": [
+        [
+          null,
+          [
+            32,
+            32
+          ]
+        ],
+        [
+          1,
+          [
+            32,
+            64
+          ]
+        ]
+      ],
+      "outputs": [
+        [
+          32,
+          64
+        ]
+      ],
+      "expected_matrix_shape_flops": 131072,
+      "legacy_shape_flops": 262144,
+      "legacy_padded": 262144,
+      "legacy_kind": "matmul",
+      "passed": false
+    },
+    {
+      "name": "broadcast_batch_missing_lhs_rows",
+      "op": "ttnn.matmul",
+      "inputs": [
+        [
+          null,
+          [
+            1,
+            3,
+            5
+          ]
+        ],
+        [
+          1,
+          [
+            7,
+            5,
+            11
+          ]
+        ]
+      ],
+      "outputs": [
+        [
+          7,
+          3,
+          11
+        ]
+      ],
+      "expected_matrix_shape_flops": 2310,
+      "legacy_shape_flops": 0,
+      "legacy_padded": 0,
+      "legacy_kind": "matmul-unresolved",
+      "passed": false
+    },
+    {
+      "name": "generic_rank2_output_is_not_another_weight",
+      "op": "ttnn.generic_op",
+      "inputs": [
+        [
+          null,
+          [
+            32,
+            32
+          ]
+        ],
+        [
+          1,
+          [
+            32,
+            32
+          ]
+        ],
+        [
+          2,
+          [
+            32,
+            32
+          ]
+        ]
+      ],
+      "outputs": [],
+      "expected_matrix_shape_flops": 65536,
+      "legacy_shape_flops": 196608,
+      "legacy_padded": 196608,
+      "legacy_kind": "matmul",
+      "passed": false
+    },
+    {
+      "name": "generic_sdpa_batch_one_is_not_layout",
+      "op": "ttnn.generic_op",
+      "inputs": [
+        [
+          0,
+          [
+            1,
+            2,
+            32,
+            64
+          ]
+        ],
+        [
+          1,
+          [
+            1,
+            2,
+            32,
+            64
+          ]
+        ],
+        [
+          2,
+          [
+            1,
+            2,
+            32,
+            64
+          ]
+        ],
+        [
+          3,
+          [
+            1,
+            2,
+            32,
+            32
+          ]
+        ],
+        [
+          4,
+          [
+            1,
+            2,
+            32,
+            64
+          ]
+        ]
+      ],
+      "outputs": [],
+      "expected_matrix_shape_flops": 524288,
+      "legacy_shape_flops": 0,
+      "legacy_padded": 0,
+      "legacy_kind": "layout",
+      "passed": false
+    }
+  ],
+  "verdict": "STOP",
+  "exact_whole_table_allowed": false,
+  "exact_whole_table_reason": "requires disjoint capture coverage plus complete arithmetic and program contracts"
+}

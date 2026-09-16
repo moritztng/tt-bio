@@ -1,0 +1,33 @@
+test_audited_loaded_matmul_wrapper_roles (perf.c10_generic_identity.test_observer.ObserverControls.test_audited_loaded_matmul_wrapper_roles) ... ok
+test_audited_reblock_roles_forward_back_and_gated (perf.c10_generic_identity.test_observer.ObserverControls.test_audited_reblock_roles_forward_back_and_gated) ... ok
+test_audited_sdpa_roles_plain_fused_and_gated (perf.c10_generic_identity.test_observer.ObserverControls.test_audited_sdpa_roles_plain_fused_and_gated) ... ok
+test_changed_source_same_path_size_and_mtime (perf.c10_generic_identity.test_observer.ObserverControls.test_changed_source_same_path_size_and_mtime) ... ok
+test_cross_thread_dispatch_is_visible_but_not_suppressed (perf.c10_generic_identity.test_observer.ObserverControls.test_cross_thread_dispatch_is_visible_but_not_suppressed) ... ok
+test_file_collision_never_overwrites_or_patches (perf.c10_generic_identity.test_observer.ObserverControls.test_file_collision_never_overwrites_or_patches) ... ok
+test_generator_not_consumed (perf.c10_generic_identity.test_observer.ObserverControls.test_generator_not_consumed) ... ok
+test_inline_source_identity (perf.c10_generic_identity.test_observer.ObserverControls.test_inline_source_identity) ... ok
+test_install_failure_never_patches (perf.c10_generic_identity.test_observer.ObserverControls.test_install_failure_never_patches) ... ok
+test_keyword_call_is_not_rewritten (perf.c10_generic_identity.test_observer.ObserverControls.test_keyword_call_is_not_rewritten) ... ok
+test_list_runtime_preserves_storage_order (perf.c10_generic_identity.test_observer.ObserverControls.test_list_runtime_preserves_storage_order) ... ok
+test_loaded_code_mismatch_keeps_roles_unknown (perf.c10_generic_identity.test_observer.ObserverControls.test_loaded_code_mismatch_keeps_roles_unknown) ... ok
+test_missing_metadata_source_and_binding_fields_explicit (perf.c10_generic_identity.test_observer.ObserverControls.test_missing_metadata_source_and_binding_fields_explicit) ... ok
+test_native_only_view_and_vector_exports (perf.c10_generic_identity.test_observer.ObserverControls.test_native_only_view_and_vector_exports) ... ok
+test_nested_contexts_call_original_once_and_restore_on_error (perf.c10_generic_identity.test_observer.ObserverControls.test_nested_contexts_call_original_once_and_restore_on_error) ... ok
+test_new_source_with_same_wrapper_name_not_trusted (perf.c10_generic_identity.test_observer.ObserverControls.test_new_source_with_same_wrapper_name_not_trusted) ... ok
+test_no_arbitrary_repr_or_getter (perf.c10_generic_identity.test_observer.ObserverControls.test_no_arbitrary_repr_or_getter) ... ok
+test_no_tensor_references_retained (perf.c10_generic_identity.test_observer.ObserverControls.test_no_tensor_references_retained) ... ok
+test_observer_failure_does_not_replace_original_exception (perf.c10_generic_identity.test_observer.ObserverControls.test_observer_failure_does_not_replace_original_exception) ... ok
+test_observer_failure_visible_after_call_and_restoration (perf.c10_generic_identity.test_observer.ObserverControls.test_observer_failure_visible_after_call_and_restoration) ... ok
+test_original_exception_object_preserved (perf.c10_generic_identity.test_observer.ObserverControls.test_original_exception_object_preserved) ... ok
+test_paired_arguments_call_count_and_return_identity (perf.c10_generic_identity.test_observer.ObserverControls.test_paired_arguments_call_count_and_return_identity) ... ok
+test_reused_descriptor_changed_runtime_and_common_args (perf.c10_generic_identity.test_observer.ObserverControls.test_reused_descriptor_changed_runtime_and_common_args) ... ok
+test_sink_failure_restores_and_preserves_dispatch (perf.c10_generic_identity.test_observer.ObserverControls.test_sink_failure_restores_and_preserves_dispatch) ... ok
+test_special_source_file_is_not_opened (perf.c10_generic_identity.test_observer.ObserverControls.test_special_source_file_is_not_opened) ... ok
+test_unknown_kernel_does_not_infer_roles_from_rank (perf.c10_generic_identity.test_observer.ObserverControls.test_unknown_kernel_does_not_infer_roles_from_rank) ... ok
+test_unsupported_descriptor_passthrough (perf.c10_generic_identity.test_observer.ObserverControls.test_unsupported_descriptor_passthrough) ... ok
+test_view_sparse_empty_and_unenumerable_entries (perf.c10_generic_identity.test_observer.ObserverControls.test_view_sparse_empty_and_unenumerable_entries) ... ok
+
+----------------------------------------------------------------------
+Ran 28 tests in 0.162s
+
+OK

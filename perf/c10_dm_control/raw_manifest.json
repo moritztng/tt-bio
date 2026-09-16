@@ -1,0 +1,72 @@
+[
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy/.logs/profile_log_device.csv",
+    "sha256": "d1401b995ddf0db002dfd6628f590c56d77a3b37aee446f6bceaf432bb39ff74",
+    "bytes": 107310109,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/raw/profile_log_device.csv.gz",
+      "sha256": "3943755467a5058d41cf833819bce12d1ae3d85cc1d77e1cff47fe5ebfa8bc6f",
+      "bytes": 7263256
+    }
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy/.logs/tracy_ops_times.csv",
+    "sha256": "10abfd64628e7ad9d2120605077599a6296eddb97f86ce7df94f48b7212bdc98",
+    "bytes": 224959639,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/raw/tracy_ops_times.csv.gz",
+      "sha256": "d13c3cf61a92bad1060a3c76ad3d25446641e6293138e78815699ee29ad63cd4",
+      "bytes": 15145150
+    }
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy/.logs/tracy_ops_data.csv",
+    "sha256": "50d01147101a4b366597a68839b6b03a8e643d730318a61ffe3023c3f6c982b8",
+    "bytes": 45251,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/raw/tracy_ops_data.csv.gz",
+      "sha256": "b402b316500b3e6ac2367f51c2309d80c774c22b228c40c9c811be2674896817",
+      "bytes": 5376
+    }
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy/.logs/new_zone_src_locations.log",
+    "sha256": "0352fc61d577bac5b5550537f2ff1099f8d76b23e6a41e6acc19f9beeb3f743d",
+    "bytes": 34225,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/raw/new_zone_src_locations.log.gz",
+      "sha256": "7fb031bc32a8b61df8d65bdc623db337633e3fb9f01c369063fa211e633c767e",
+      "bytes": 799
+    }
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy/.logs/zone_src_locations.log",
+    "sha256": "7d10076e1633972d12717d826f757bae57d0670ae8ec1ad0d9f3181e5a505de8",
+    "bytes": 4132,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/raw/zone_src_locations.log.gz",
+      "sha256": "512e50b079788f03b5702b305f40090799feaf51bff1eff526d9742855b39ddd",
+      "bytes": 543
+    }
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy/.logs/tracy_profile_log_host.tracy",
+    "sha256": "ad1fbf6fb33a682f4322f11f5103d39fe806845bb07d56ebd919f7454b402ac2",
+    "bytes": 33050506,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/raw/tracy_profile_log_host.tracy",
+      "sha256": "ad1fbf6fb33a682f4322f11f5103d39fe806845bb07d56ebd919f7454b402ac2",
+      "bytes": 33050506
+    }
+  },
+  {
+    "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/tracy/reports/2026_09_16_17_56_55/ops_perf_results_2026_09_16_17_56_55.csv",
+    "sha256": "5bd238c6df906d470d06380aba70f0f1936ea0db65f6391fdca257d073cbd067",
+    "bytes": 587614,
+    "archive": {
+      "path": "/home/ttuser/.coworker/wt/c10-dm-control/perf/c10_dm_control/raw/ops.csv",
+      "sha256": "5bd238c6df906d470d06380aba70f0f1936ea0db65f6391fdca257d073cbd067",
+      "bytes": 587614
+    }
+  }
+]

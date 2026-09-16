@@ -1,0 +1,118 @@
+{
+  "host": "tt-quietbox2",
+  "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+  "containment": "active",
+  "module_srcversion": "A10759A24565BC5BBE903C5",
+  "cpu_ticks_per_second": 100,
+  "snapshots": [
+    {
+      "host_monotonic_ns": 1764776966961,
+      "utc": "2026-09-16T17:52:23.917980+00:00",
+      "loadavg": [
+        3.14599609375,
+        2.0341796875,
+        1.40234375
+      ],
+      "holders": [
+        {
+          "pid": 26907,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "R",
+          "utime_ticks": 8845,
+          "stime_ticks": 4507,
+          "starttime_ticks": 171850,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        }
+      ],
+      "idle_card0_clock": {
+        "read_start_ns": 1764813143314,
+        "MHz": 800,
+        "read_end_ns": 1764813293992
+      }
+    },
+    {
+      "host_monotonic_ns": 1769813354065,
+      "utc": "2026-09-16T17:52:28.954366+00:00",
+      "loadavg": [
+        2.97412109375,
+        2.0166015625,
+        1.39990234375
+      ],
+      "holders": [
+        {
+          "pid": 26907,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "S",
+          "utime_ticks": 9308,
+          "stime_ticks": 4542,
+          "starttime_ticks": 171850,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        }
+      ],
+      "idle_card0_clock": {
+        "read_start_ns": 1769837320088,
+        "MHz": 800,
+        "read_end_ns": 1769837380647
+      }
+    },
+    {
+      "host_monotonic_ns": 1774837419156,
+      "utc": "2026-09-16T17:52:33.978431+00:00",
+      "loadavg": [
+        2.73583984375,
+        1.98291015625,
+        1.39208984375
+      ],
+      "holders": [
+        {
+          "pid": 26907,
+          "nodes": [
+            "/dev/tenstorrent/3"
+          ],
+          "state": "S",
+          "utime_ticks": 9308,
+          "stime_ticks": 4543,
+          "starttime_ticks": 171850,
+          "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+          "env": {
+            "TT_VISIBLE_DEVICES": "3",
+            "TT_BIO_LEASE_CARDS": "3",
+            "TT_BIO_LEASE_HOLDER": "worker:ttx-a3-sdpa-ship-remerge2"
+          }
+        }
+      ],
+      "idle_card0_clock": {
+        "read_start_ns": 1774860606842,
+        "MHz": 800,
+        "read_end_ns": 1774860675698
+      }
+    }
+  ],
+  "scope": "Read-only prerequisite audit. No device opened, model run, roof or floor measured.",
+  "clock_note": "Node 0 idle telemetry is not during-fold coverage and is not a performance measurement.",
+  "observer_pid": 29097,
+  "assigned_node_available": true,
+  "mapping": {
+    "tenstorrent!3": "/sys/devices/pci0000:00/0000:00:01.5/0000:04:00.0/tenstorrent/tenstorrent!3",
+    "tenstorrent!1": "/sys/devices/pci0000:00/0000:00:01.3/0000:02:00.0/tenstorrent/tenstorrent!1",
+    "tenstorrent!2": "/sys/devices/pci0000:00/0000:00:01.4/0000:03:00.0/tenstorrent/tenstorrent!2",
+    "tenstorrent!0": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0/tenstorrent/tenstorrent!0"
+  },
+  "quiet_board_available": false,
+  "verdict": "PREREQUISITE_UNAVAILABLE",
+  "probe_elapsed_ns": 10083925985
+}

@@ -1,0 +1,50 @@
+{
+  "scope": "Instrument calibration only; zero predicted model cycles saved.",
+  "dense": {
+    "n": 8192,
+    "matrix_flops_2_per_FMA": 1099511627776,
+    "modeled_compulsory_bytes_v2": 402653184
+  },
+  "control_order": [
+    "stream_add",
+    "dense_matmul",
+    "stream_add",
+    "dense_matmul",
+    "stream_add",
+    "dense_matmul"
+  ],
+  "reps_per_interval": 40,
+  "separation": {
+    "add_minus_matmul_ncrisc_noc_read_min": 0.4,
+    "matmul_minus_add_ncrisc_reserve_back_min": 0.2,
+    "require_each_round": true
+  },
+  "normalization": "Each op sum / its own core count / its raw kernel span. Separate RISC activity; never elapsed-time sums.",
+  "prior_ref": "4d80e855e7fc75a436d6506359459349bb002999",
+  "prior_ncrisc_fractions": {
+    "add_read": 0.8065,
+    "matmul_read": 0.0243,
+    "add_reserve": 0.0374,
+    "matmul_reserve": 0.4083
+  },
+  "basis": "Prior gaps 0.7822 and 0.3709, retained thresholds 0.40 and 0.20. Dataflow source wraps NoC-read barriers and CB reserve calls separately on NCRISC. These are historical signatures, not new clock-qualified performance measurements.",
+  "clock": {
+    "requested_MHz": 1350,
+    "observed_min_required": 1350,
+    "observed_max_required": 1350,
+    "poll_delay_s": 0.001,
+    "min_during_samples": 3,
+    "max_gap_ns": 10000000
+  },
+  "stops": [
+    "assigned node holder",
+    "benchlock timeout",
+    "wrong loaded paths",
+    "runtime zone missing",
+    "counter mismatch",
+    "separation failure",
+    "clock coverage gap",
+    "boot reset",
+    "unexpected own device open"
+  ]
+}
