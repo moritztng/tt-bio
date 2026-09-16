@@ -113,3 +113,90 @@ silence, so a wedge costs eight minutes instead of a 3600 s timeout.
 `ladder-rf3` (the 1088 rung, the only above-cap ladder cell), the other seven ladder models, 15
 capacity cells including 1536 aa, 20 `perf_regression` models under benchlock, and the 44-leg
 parity gate.
+
+---
+
+## 2026-09-16 13:50-14:25Z — the wedge is a kernel-module quarantine, and the card-0 verdict above is wrong
+
+Correction to the "Card 0 is dead at the PCIe link. This one is settled" section. The
+`0xffffffff` reads are produced by a non-upstream `tenstorrent` kernel module running on qb2, not
+by a board that failed on its own.
+
+**What the host is running.** The loaded module is not the DKMS one:
+
+    /sys/module/tenstorrent/srcversion   A10759A24565BC5BBE903C5
+    /lib/modules/.../dkms/tenstorrent.ko.zst (modinfo)   28CFF5A6678E4F2D87F6383
+
+`A10759A24565BC5BBE903C5` is `~/qb2-vendor-handoff/kmd-containment/tenstorrent.ko` (identical
+srcversion in `activation-guards/`), a hand-built module from the vendor-handoff work. It carries
+11 `quarantine` strings and a module parameter that the stock module does not have, and it is
+enabled:
+
+    /sys/module/tenstorrent/parameters/qb_endpoint_quarantine = Y
+    parm=qb_endpoint_quarantine:Isolate a confirmed absent endpoint behind a dedicated
+         upstream port; reboot to recover
+
+**What it did.** Two events, one per card, from `dmesg -T`:
+
+    13:02:06  tenstorrent 0000:01:00.0: QB quarantine: port 0000:00:01.1 COMMAND 0407 -> 0405
+    13:40:00  tenstorrent 0000:03:00.0: QB quarantine: port 0000:00:01.4 COMMAND 0407 -> 0405
+
+`0407 -> 0405` clears bit 1, Memory Space Enable, on the card's **upstream bridge port**. With
+MMIO to the card switched off at the bridge, every BAR and config read returns all-ones. That is
+the `Read 0xffffffff over PCIe ID 0` that `tt-smi` reported and that the section above read as a
+dead board. Card 0 (`01:00.0`) was quarantined at 13:02:06 and card 2 (`03:00.0`) at 13:40:00,
+nine seconds after `ladder-boltz2-att3` started on card 2. Cards 1 and 3 are untouched
+(`00:01.3` still reads `0407`).
+
+**Why the whole host went down, not one card.** UMD enumerates every Blackhole board before
+`TT_VISIBLE_DEVICES` filters anything, so one unreadable board takes out the device-open path for
+all four:
+
+| probe | result |
+|---|---|
+| `open_probe.sh 120 2` | hangs past 120 s, last line `Creating TopologyDiscovery for architecture: blackhole (topology_discovery.cpp:69)` |
+| `open_probe.sh 120 3` | throws out of `tt::umd::TopologyDiscovery::discover` |
+| `tt-smi -ls` | throws out of the same frame |
+
+The card-1 soak (`b2z2-aiclk-default-decision`) keeps folding at 14.6 s only because it opened
+card 1 at 12:42, before the first quarantine. Nothing can open a device on qb2 now.
+`open_probe.sh` is the instrument, added this pass: it times a bare `ttnn.open_device` per card
+under a hard timeout, which is the right measurement because the folds never reach model code.
+
+**Not the lever, and this is not an inference.** The wedged fold was a 256 aa fixture, and
+`py-spy` put it in `_open_device_locked` (`tenstorrent.py:4935`) inside `ttnn.open_device`, at
+100 % CPU, holding `/tmp/tt-bio-device-open.lock` for 12 minutes. 256 aa is below
+`_Q_SPLIT_MAX_S` = 1024, so `TT_BIO_SDPA_FUSED_LARGE_S` is unreachable by construction there, and
+the stack is in device bring-up before any model op runs. Every earlier wedge in the table above
+has the same cause. Those rows are void as evidence about this lever.
+
+The hung open also starved the card-1 co-tenant, which needs the same host-wide lock for each of
+its folds, so the chain was stopped rather than left to retry.
+
+**Restoring the bridge bit is necessary but not sufficient.** `setpci -s 00:01.1
+COMMAND=0002:0002` and the same for `00:01.4` put both ports back to `0407`, the state the host
+ran in for its first 77 minutes of uptime, with no new kernel complaint. The endpoints still do
+not answer:
+
+    01:00.0  VENDOR=ffff  DEVID=ffff  COMMAND=ffff
+    03:00.0  VENDOR=ffff  DEVID=ffff  COMMAND=ffff
+    02:00.0  COMMAND=0406   04:00.0  COMMAND=0406   (healthy)
+
+So the endpoints need a link re-establish, which is what the module means by "reboot to recover".
+Two readings of the underlying fault are still open and the evidence here does not separate them:
+either the endpoints dropped on their own and the guard isolated them, or the guard's isolation is
+what left them unresponsive. Card 2 opened in 7 s at 13:15 and folded four times cleanly before
+being quarantined at 13:40, which is at least not the profile of a board that was already gone.
+What is settled is the amplification: a per-card fault became a host-wide outage because the
+quarantine breaks topology discovery for every card.
+
+**Recovery, for whoever takes it.** Reboot qb2 with the stock module
+(`qb_endpoint_quarantine=N`, or the DKMS build `28CFF5A6678E4F2D87F6383`) so a single flaky
+endpoint cannot dark the box again. Reboot is allowed on qb2; power-off is not, and is not needed
+here. The card-1 soak runs until 16:18:14Z on its own, so a reboot after that costs no live
+measurement. `perf/ttx_a3/gate6/PAUSE` is in place and the `*/10` cron resume respects it — the
+next pass must delete PAUSE after the box is back, or the chain will not restart.
+
+**Gate state is unchanged by this pass.** Correctness and UX still recorded; the ladder, capacity,
+perf and parity arms are still owed and still need a device. `TT_BIO_SDPA_FUSED_LARGE_S` stays off
+on `main`.
