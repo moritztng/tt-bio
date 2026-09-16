@@ -20,14 +20,19 @@ set -u
 #   FAIL rung 256 warm-up: census fold exited 1: FileNotFoundError ... /dumps/pid10375.json
 # which reads exactly like a gate failure and was not one. A check-then-act guard cannot fix a race
 # it sits inside; the lock can, because it is held across the sleep and the launch.
-exec 9>"/tmp/ttx-a3-sdpa-ship-remerge.resume.${GATE_OUT##*/}.lock" || exit 0
+# The lock is keyed on the WORKTREE as well as the run dir. Two worktrees re-gating the same
+# lever would otherwise share one lock file, and the second one's tick would exit silently
+# forever at the flock below while looking exactly like "a driver is already running".
+exec 9>"/tmp/$(basename "${GATE_WT:-ttx-a3-sdpa-ship-remerge}").resume.${GATE_OUT##*/}.lock" || exit 0
 flock -n 9 || exit 0
 # Run dir, card and worker host are inputs, set by the crontab line that installs this. They were
 # constants naming gate3/card0/qb2, and when the re-gate moved to qb1 card 3 the relaunch would
 # have quietly resumed a DIFFERENT run on a DIFFERENT card than the one this pass started -- the
 # progress file it guards on and the progress file the driver writes would not have been the same
 # file, so the DONE check never fires and the gate restarts forever.
-WT=/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge
+# WT is an input for the same reason CARD/RUN/WORKER are: this gate has now run from three
+# worktrees, and a hardcoded path resumes another worker's tree on this worker's card grant.
+WT="${GATE_WT:-/home/ttuser/.coworker/wt/ttx-a3-sdpa-ship-remerge}"
 RUN="${GATE_OUT:-perf/ttx_a3/gate3}"
 CARD="${GATE_CARD:-0}"
 WORKER="${GATE_WORKER:-tt-quietbox2}"
@@ -58,7 +63,14 @@ grep -q GATE_DRIVER_DONE "$PROG" 2>/dev/null && exit 0
 # still to intervene -- and the intervention is SIGCONT, not a relaunch, because the arm's own
 # process is still there and killing it throws the arm away. One CONT restored it and the arm
 # recorded rc=124 within seconds.
-dpid=$(pgrep -f "^bash perf/ttx_a3/gate_drive\.sh$" | head -1)
+# Scoped to THIS worktree by cwd. The argv is identical from every worktree, so an unscoped
+# match lets a sibling worktree's driver satisfy this guard and this run then never starts --
+# the same worktree-wide-reap defect that killed a sibling campaign's folds on 2026-09-16.
+dpid=""
+for _p in $(pgrep -f "^bash perf/ttx_a3/gate_drive\.sh$"); do
+  [ "$(readlink -f "/proc/$_p/cwd" 2>/dev/null)" = "$(readlink -f "$WT")" ] || continue
+  dpid="$_p"; break
+done
 if [ -n "$dpid" ]; then
   case "$(ps -o stat= -p "$dpid" 2>/dev/null)" in
     T*) printf '%s resume_after_boot: driver %s was STOPPED, sending CONT\n' \
@@ -86,6 +98,7 @@ printf '%s resume_after_boot relaunching (uptime %ss)\n' \
 # recorded, and `lsof` showed pid 3947 holding this very lock. The flock must cover this script's
 # own check-and-launch and nothing beyond it.
 setsid nohup env GATE_WT="$WT" GATE_OUT="$RUN" GATE_CARD="$CARD" GATE_WORKER="$WORKER" \
-  GATE_SKIP_NEUT="${GATE_SKIP_NEUT:-0}" GATE_HOLDER=worker:ttx-a3-sdpa-ship-remerge \
+  GATE_SKIP_NEUT="${GATE_SKIP_NEUT:-0}" \
+  GATE_HOLDER="${GATE_HOLDER:-worker:ttx-a3-sdpa-ship-remerge}" \
   bash perf/ttx_a3/gate_drive.sh >> "$RUN/driver.log" 2>&1 < /dev/null 9>&- &
 exit 0
