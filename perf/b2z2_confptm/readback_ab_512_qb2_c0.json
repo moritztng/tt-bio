@@ -1,0 +1,124 @@
+{
+ "doc": "The per-arch readback dispatch, scored inside a real fold rather than on a synthetic tensor.\n\n`download_shape.py` timed the two candidate shapes on a tensor of the head's shape and found the\nranking inverts between the parts. This runs the same comparison where it ships: the two arms are\n`ConfidenceHeadsDevice.__call__`'s own branch, selected by monkeypatching the module's\n`is_wormhole` so one process folds both, interleaved, against one device open and one warm cache.\n\n  narrow   to_layout(ROW_MAJOR) + slice on the card, then download 4 channels.   (Wormhole ships)\n  tiled    download the tile whole, slice the 4 channels on the host.            (Blackhole ships)\n\nTwo readings per fold. The head's own stage wall gives the download stage in ms, which is what the\ndispatch is supposed to move; the head's return dict gives pae/pde/tm, which it must not move at\nall. The equality is the load-bearing one -- a readback shape that changed a number would be a bug,\nnot a lever -- so it is asserted on every fold and not just the first.\n",
+ "env": {
+  "started": "2026-09-16T05:24:31+0000",
+  "card": "0",
+  "host": "tt-quietbox2",
+  "size": 512,
+  "reps": 3,
+  "commit": "3b8cd3ad9",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-conf-readback-bh-fix/tt_bio/__init__.py",
+  "arch": "blackhole",
+  "loadavg_start": [
+   2.30419921875,
+   1.642578125,
+   1.28662109375
+  ],
+  "recycling_steps": 3,
+  "sampling_steps": 200
+ },
+ "folds": [
+  {
+   "rep": 0,
+   "arm": "narrow",
+   "wall_s": 21.4547,
+   "stages_median_ms": {
+    "z transpose": 2.81,
+    "heads": 5.89,
+    "same-chain select": 4.54,
+    "untilize": 0.64,
+    "download": 14.33
+   },
+   "loadavg": 2.21728515625
+  },
+  {
+   "rep": 0,
+   "arm": "tiled",
+   "wall_s": 21.6263,
+   "stages_median_ms": {
+    "z transpose": 3.22,
+    "heads": 6.59,
+    "same-chain select": 4.55,
+    "untilize": 0.01,
+    "download": 4.65
+   },
+   "loadavg": 2.6181640625
+  },
+  {
+   "rep": 1,
+   "arm": "tiled",
+   "wall_s": 21.193,
+   "stages_median_ms": {
+    "z transpose": 3.18,
+    "heads": 6.49,
+    "same-chain select": 4.54,
+    "untilize": 0.01,
+    "download": 4.75
+   },
+   "loadavg": 2.515625
+  },
+  {
+   "rep": 1,
+   "arm": "narrow",
+   "wall_s": 21.4708,
+   "stages_median_ms": {
+    "z transpose": 2.8,
+    "heads": 5.92,
+    "same-chain select": 4.64,
+    "untilize": 0.66,
+    "download": 14.35
+   },
+   "loadavg": 2.36865234375
+  },
+  {
+   "rep": 2,
+   "arm": "narrow",
+   "wall_s": 21.674,
+   "stages_median_ms": {
+    "z transpose": 3.2,
+    "heads": 6.62,
+    "same-chain select": 4.68,
+    "untilize": 0.68,
+    "download": 14.28
+   },
+   "loadavg": 2.24169921875
+  },
+  {
+   "rep": 2,
+   "arm": "tiled",
+   "wall_s": 20.8095,
+   "stages_median_ms": {
+    "z transpose": 3.18,
+    "heads": 6.63,
+    "same-chain select": 4.59,
+    "untilize": 0.01,
+    "download": 4.76
+   },
+   "loadavg": 2.7333984375
+  }
+ ],
+ "download_ms": {
+  "narrow": {
+   "median": 14.33,
+   "min": 14.28,
+   "max": 14.35,
+   "all": [
+    14.33,
+    14.35,
+    14.28
+   ]
+  },
+  "tiled": {
+   "median": 4.75,
+   "min": 4.65,
+   "max": 4.76,
+   "all": [
+    4.65,
+    4.75,
+    4.76
+   ]
+  }
+ },
+ "delta_ms": 9.58,
+ "head_output_identical": true
+}

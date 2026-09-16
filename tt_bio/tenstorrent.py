@@ -12386,13 +12386,23 @@ class ConfidenceHeadsDevice:
             ttnn.deallocate(arm)
         self.wall.mark("same-chain select")
 
-        # A tiled download moves all 32 channels and both padded axes. Untilizing on the card
-        # and slicing there instead costs one data-movement pass and takes 14.7 MB off the bus
-        # at 512 tokens -- the result is three numbers per (i, j), so that is what should cross.
-        out = ttnn.to_layout(out, ttnn.ROW_MAJOR_LAYOUT)
-        self.wall.mark("untilize")
-        out = ttnn.slice(out, [0, 0, 0, 0], [1, seq_len, seq_len, self.CH_KEEP])
-        t = torch.Tensor(ttnn.to_torch(out)).to(torch.float32)
+        # Which download shape is cheaper is a part property, and it inverts between the two.
+        # The result is three numbers per (i, j); a tiled read moves all 32 channels and both
+        # padded axes, 16.777 MB at 512 tokens against 2.097 MB for untilizing and slicing on
+        # the card first. On Wormhole those bytes are the cost and the narrow read wins, 17.500
+        # against 32.644 ms. On Blackhole they are not: a row-major readback is layout-bound at
+        # ~13 ms whatever its size (2.097 MB in 13.178 ms, 16.777 MB in 14.252 ms), so narrowing
+        # costs 14.508 ms against 4.750 ms for reading the tile whole and slicing on the host
+        # (perf/b2z2_confptm/download_shape.py, which asserts both return the same channels).
+        if is_wormhole():
+            out = ttnn.to_layout(out, ttnn.ROW_MAJOR_LAYOUT)
+            self.wall.mark("untilize")
+            out = ttnn.slice(out, [0, 0, 0, 0], [1, seq_len, seq_len, self.CH_KEEP])
+            t = torch.Tensor(ttnn.to_torch(out)).to(torch.float32)
+        else:
+            self.wall.mark("untilize")
+            t = torch.Tensor(ttnn.to_torch(out))
+            t = t[:, :seq_len, :seq_len, :self.CH_KEEP].to(torch.float32)
         ttnn.deallocate(out)
         self.wall.mark("download")
         return {"pae": t[..., self.CH_PAE].contiguous(),
