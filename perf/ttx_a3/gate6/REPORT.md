@@ -302,3 +302,88 @@ Phase 1 (6 pytest chunks, the self-validating flag-off control, ux) stays green 
 Phases 2-4 -- the ladder, capacity, perf and the 44-leg parity gate -- have never run to a verdict
 on this tree. The verdict remains **HOLD**, default off, for want of a measurement rather than
 because of one.
+
+
+## Pass 2026-09-16 15:07-15:55Z — the ladder arm is blind to this lever, and main is still red on p150a
+
+No device arm ran. Two sibling AICLK A/B campaigns were live on qb2 the whole pass
+(`b2z2-aiclk-default-decision`'s clock-forced soak on card 1 to 16:18:14Z, read from its own
+`until.txt` this pass, and a `pin_ab.py --knob force --reps 6` alternating A/B on card 2, 21
+minutes in at 15:12Z). A co-tenant device open contaminates a forced-clock alternating A/B, and a
+wedged open holds the host-wide `/tmp/tt-bio-device-open.lock` and starved this same soak at
+13:53Z today. So the timed PAUSE at `1789575614` was left in place rather than cleared.
+
+Everything below is tree-reading work that needed no card.
+
+### The brief's premise is wrong in two independent ways
+
+**One: the size-ladder blocker did not land.** `tt-bio-sizeladder-p300c-refresh` (`d78f23757`)
+refreshed the **p300c** records. The arm walks every *recorded* card, and `p150a` is the other one.
+On `origin/main` @ `71a306a8a`, with the flag at main's own default:
+
+| test | why it is red on main | fixable on qb2? |
+|---|---|---|
+| `test_size_ladder_gate::test_every_recorded_card_covers_every_rung_the_ladder_walks` | p150a has no cell at 896 or 1024 for boltz2, nesso1, openbind, opendde, openfold3 | no, needs a p150a card |
+| `test_capacity_gate::test_a_moved_ceiling_re_runs_the_capacity_gate` | 15 p150a cells are stale against `tt_bio/size_limits.CEILINGS` | no, needs a p150a card |
+| `test_capacity_gate::test_every_runnable_model_has_a_recorded_cell` | `p300c/opendde` and `p300c/opendde-abag` have no cell | **yes** |
+| `test_capacity_gate::test_this_file_does_not_break_the_files_that_run_after_it` | derived: its inner session is red only from the two rows above it | follows the others |
+| `test_repo_root_clean::test_repo_root_has_no_stray_directories` | `artifacts/` and `patches/` are tracked root dirs on main | main defect, other owner |
+| `test_perf_citations::test_cited_perf_artifact_exists` x2 | `tt_bio/tenstorrent.py` cites `perf/b2z2_layout/PER-SITE-TABLE.md` and `perf/b2z2_adaln_sdpa/chunks_wh_c12.json`, neither in the repo | main defect, other owner |
+
+All 7 reproduce on `origin/main` @ `71a306a8a`. Running
+`tests/test_size_ladder_gate.py tests/test_capacity_gate.py` on the detached main control and on
+the branch gives the *same* 4 failures and the same 151 passes, so the flag contributes none of
+them. This is pass one's blocker recurring on a different card type: "fully green" is unreachable
+for any branch, main included.
+
+**Two, and it reframes the arm the brief called decisive: the size ladder cannot see this lever.**
+`SIZE_LADDER_RUNGS` is `256,512,640,768,896,1024` (`scripts/release_gate.py:698`). The lever fires
+on `q_len > _Q_SPLIT_MAX_S`, and `_Q_SPLIT_MAX_S` is 1024 (`tt_bio/triatt_sdpa.py:88`). 1024 is not
+greater than 1024, so **no shared rung reaches the flag**. Enumerating every model's own ladder
+through `_size_ladder_model_rungs`, one cell in the 9-model campaign sits above the cap:
+
+    rf3   rungs=(256, 512, 640, 768, 896, 1024, 1088)   above-1024=[1088]
+
+That comes from `SIZE_LADDER_EXTRA_RUNGS = {"rf3": (1088,)}`. Every other model in the campaign is
+`above-1024=[]`. (`boltzgen` prints six rungs above 1024, but it is a `SIZE_LADDER_DESIGN` model
+walked on target residues rather than tokens, and it is not in this campaign's model list.)
+
+So phase 2 walked 9 models x ~6 rungs, of which **1 fold could discriminate the lever**, on a box
+that wedges roughly 1 fold in 6. That is the mechanism behind "five passes, zero measurements": the
+gate was structured so the decisive cell was reached last, and the box never survived that long.
+
+### The fix: front-load the in-regime arms
+
+`perf/ttx_a3/serial_gate.sh` reordered, 4 phases to 5. Nothing is dropped and no harness is
+rebuilt; only the order changes, and the driver's own header already states that phase order is
+chosen by verdict-information-per-minute.
+
+1. correctness (recorded green, re-logs fast)
+2. **size ladder, in-regime: rf3 alone** (the 1088 rung)
+3. capacity, 15 cells (tests at the 1536 aa ceiling, in regime)
+4. perf under benchlock, then the 44-leg parity gate
+5. size ladder, remaining 8 models (release-gate completeness, blind to the lever)
+
+Phases 1-4 now yield the lever's full verdict. Phase 5 can only ever reproduce main's own state.
+
+`splice-rf3` has four `START` lines and no recorded `rc=` (the one `rc=143` is `VOID-` prefixed,
+which `recorded_rc`'s `" $name rc="` pattern does not match), so rf3's three-attempt budget is
+intact and phase 2 starts it clean.
+
+### Verdict: HOLD, default stays off
+
+Not for want of infrastructure this time, and not for want of a measurement either. The gate
+condition "fully green" is unreachable from qb2 at all, because two of its blocking reds need a
+p150a card and qb2 is p300c. Three follow-ups, none of them this lever's work:
+
+1. Re-record the p150a size-ladder cells at 896 and 1024 for boltz2, nesso1, openbind, opendde,
+   openfold3, and re-record the 15 stale p150a capacity cells. Needs a host with a p150a card.
+2. `capacity_gate.py --models opendde,opendde-abag --record` on p300c. Runnable on qb2, and it is
+   the one blocking red this host can clear.
+3. Land or drop the two orphaned perf citations in `tt_bio/tenstorrent.py`, and move `artifacts/`
+   and `patches/` out of the repo root.
+
+The lever's own evidence is unchanged and still good: 1.1856x at 1536 aa, byte-identical CIFs at
+298/512/768/1024 aa, UX PASS, 0 of 7 pytest reds attributable. What is still owed is rf3/1088, the
+1536 aa capacity cell, the timed perf arm and the 44-leg parity gate, all four of which the
+reordering above puts first on the next idle box.
