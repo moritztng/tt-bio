@@ -124,10 +124,13 @@
 2026-09-16T13:15:28Z PHASE 2/4 size ladder: splice the new counter into every model, then check
 2026-09-16T13:15:30Z ladder-boltz2 START card=2 loadavg=0.09
 2026-09-16T13:26:29Z WEDGE-KILL boltz2-640-rep0 stale 516s, SIGINT 49270 49303 49304 49268  (dump boltz2-640-rep0-wedge-132629.txt)
-2026-09-16T13:26:50Z ladder-boltz2 rc=1 loadavg=1.15
+2026-09-16T13:26:50Z VOID-ladder-boltz2 rc=1 loadavg=1.15
 2026-09-16T13:26:50Z ladder-boltz2-att2 START card=2 loadavg=1.15
 2026-09-16T13:39:29Z WEDGE-KILL boltz2-768-rep0 stale 511s, SIGINT 57809 57842 57843 57807  (dump boltz2-768-rep0-wedge-133929.txt)
-2026-09-16T13:39:51Z ladder-boltz2-att2 rc=1 loadavg=1.06
+2026-09-16T13:39:51Z VOID-ladder-boltz2-att2 rc=1 loadavg=1.06
 2026-09-16T13:39:51Z ladder-boltz2-att3 START card=2 loadavg=1.06
 2026-09-16T13:53:40Z CHAIN STOP by worker: ttnn.open_device(card 2) hangs at 100% CPU holding /tmp/tt-bio-device-open.lock (py-spy: _open_device_locked tenstorrent.py:4935), 256 aa warm-up, 12 min. Below-cap fixture, so not the lever. Lock also starves the card-1 co-tenant soak.
 2026-09-16T14:05:27Z ROOT CAUSE: non-upstream tt-kmd (srcversion A10759A24565BC5BBE903C5 = qb2-vendor-handoff/kmd-containment) with qb_endpoint_quarantine=Y cleared Memory-Space-Enable on card 0 bridge port 00:01.1 at 13:02:06 and card 2 port 00:01.4 at 13:40:00. UMD TopologyDiscovery walks every board before TT_VISIBLE_DEVICES, so no device opens on qb2 at all. Bridge bit restored via setpci; endpoints still read ffff, so a reboot with the stock module is the fix. Card-1 soak ends 16:18:14Z. PAUSE stays until the box is back.
+2026-09-16T15:01Z REBOOT 14:12Z restored all four endpoints (1e52:b140, bridges 0407, 4 device nodes). Card 3 opens in 1.1s via tt_bio get_device, grid 11x10.
+2026-09-16T15:05:00Z VOIDED ladder-boltz2 + -att2 (were rc=1 on card 2 at 13:26/13:39Z, inside the kmd-quarantine window; both wedged at 640/768 aa, below _Q_SPLIT_MAX_S=1024 where the lever is unreachable, so infra not a lever verdict). Budget back to 3 attempts.
+2026-09-16T15:05:00Z TIMED HOLD to 1789575614 (16:20:14Z) = sibling b2z2-aiclk-default-decision until.txt + 120s. Its folds are 14.6s +-0.04 across loadavg 0.79-2.08 so ambient load does not move its forced-clock arm, but a wedged open holds /tmp/tt-bio-device-open.lock host-wide and starved it once already at 13:53Z. Card moved 2 -> 3.

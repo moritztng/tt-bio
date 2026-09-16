@@ -218,3 +218,87 @@ One note for the containment owner: the guard isolates one card and darks all fo
 enumerates every board before `TT_VISIBLE_DEVICES` filters and `TopologyDiscovery` then hangs or
 throws host-wide. Isolating a board without breaking discovery for its neighbours would keep the
 box usable.
+
+## Pass 2026-09-16 14:47-15:10Z — box recovered by a reboot, gate re-armed on card 3, held for a sibling
+
+qb2 rebooted at **14:12Z** (uptime 36 min at 14:48Z), before this pass started and not by this
+worker. That reboot is the recovery the previous pass's recipe called for, and it worked:
+
+| check | reading |
+|---|---|
+| PCI endpoints 01/02/03/04:00.0 | all `1e52 b140`, `COMMAND=0406` |
+| upstream bridges 00:01.1/.3/.4 | `0407` (Memory-Space-Enable set) |
+| device nodes | `/dev/tenstorrent/{0,1,2,3}` all present |
+| loaded tt-kmd | srcversion `28CFF5A6678E4F2D87F6383` = the **stock** build |
+| card 3 open via `tt_bio.get_device()` | **1.1 s**, `MeshDevice(1x1 grid)`, grid `(x=11,y=10)` |
+
+One correction to the previous pass's root cause: `qb_endpoint_quarantine` reads `Y` on the *stock*
+module too, so that parameter's presence is not what identifies the candidate build. The
+quarantine has not fired since the reboot.
+
+### `open_probe.sh` was not a valid health check, and said so on a healthy box
+
+The probe called bare `ttnn.open_device()`. A lone p300c chip is a CUSTOM topology to tt-metal and
+a bare per-chip open is a `TT_FATAL` for want of a mesh graph descriptor whatever the card's
+health:
+
+    TT_FATAL @ tt_cluster.cpp:273 ... Custom fabric mesh graph descriptor path must be specified
+
+So at 14:51Z it reported a hard failure on every card of a box whose cards were fine. It now opens
+through `tt_bio.tenstorrent.get_device()`, which calls `ensure_p300_mesh_descriptor()` and is also
+the exact frame the morning's wedges hit (`_open_device_locked`, `tenstorrent.py:4935`).
+
+Card 3 answers in 1.1 s. Card 2 does not: it stops after the ttnn config line, before any UMD
+`TopologyDiscovery` output, and never returns inside 200 s. That is the global-device-open-lock
+frame, not a card verdict, and it is not worth resolving because card 3 is proven and idle. The
+gate moves 2 -> 3.
+
+### Two ladder rows voided
+
+`ladder-boltz2` (13:26:50Z) and `ladder-boltz2-att2` (13:39:51Z) recorded `rc=1` on card 2 inside
+the quarantine window. Both wedged at 640 aa and 768 aa, below `_Q_SPLIT_MAX_S` = 1024 where
+`TT_BIO_SDPA_FUSED_LARGE_S` is unreachable by construction, so neither is evidence about the
+lever, and a device wedge is infra rather than a gate verdict. Both are now `VOID-` prefixed,
+which `recorded_rc`'s `" $name rc="` pattern does not match, so boltz2's ladder has its full
+three-attempt budget back. `splice-boltz2 rc=0` is untouched and will still be skipped.
+
+### Held until 16:20:14Z rather than started now
+
+The box is recovered but **not idle**: `b2z2-aiclk-default-decision` holds card 1 with an AICLK
+soak forced to 1350 MHz. Its own log says ambient load does not move its arm — folds of 14.605,
+14.646, 14.632 and 14.644 s across loadavg 0.79 to 2.08, the upper end of which was this pass's
+own probes. So host CPU contention is not the reason to wait.
+
+The reason to wait is the host-wide `/tmp/tt-bio-device-open.lock`. A wedged open holds it for as
+long as it spins, and one did starve this very soak's folds at 13:53Z. Folds on this box have been
+wedging at roughly one per six rungs all day, so starting a 9-model ladder campaign next to a
+live soak risks destroying a sibling's measurement rather than merely biasing it.
+
+`resume_after_boot.sh` now understands a **timed** PAUSE: a PAUSE file holding a unix epoch means
+stand down until then, then clear it and launch. An empty PAUSE is still an indefinite hold.
+`gate6/PAUSE` holds `1789575614` = 16:20:14Z, which is the sibling's own `until.txt` deadline plus
+120 s, read from that file rather than copied from a report. Its `* * * * *` cron line removes
+itself once the deadline passes. The `*/10` tick then starts the chain on card 3 unattended.
+
+Tested with negative controls before install, in a sandbox worktree with a fake `GATE_CMD`: a
+future epoch stands down and keeps PAUSE, an empty PAUSE stands down and keeps PAUSE, a past epoch
+clears PAUSE and launches, and no PAUSE launches. Then verified against the live gate6 PAUSE: the
+real cron tick exits 0, no `serial_gate.sh`/`gate_drive.sh`/`ladder_campaign.sh` process appears
+under an anchored `pgrep`, and PAUSE survives.
+
+### A corrupt object store, repaired
+
+Five zero-byte loose objects, written by the 14:12Z unclean halt while a commit was in flight, and
+one of them was the branch tip, so every `git` command in this worktree died with
+`fatal: bad object HEAD`. `origin/main`'s object graph was complete and only the tip commit
+`e88bbb261` was broken, and it was already pushed, so the repair was to delete the five empty
+files and fetch the branch back with the remote-tracking ref removed. Git's negotiation then sent
+a thin pack of just the missing objects instead of re-cloning 2.6 GB. `git fsck --connectivity-only`
+is clean and the tip is restored. Worth knowing for the next unclean halt on this box.
+
+### Still owed
+
+Phase 1 (6 pytest chunks, the self-validating flag-off control, ux) stays green and recorded.
+Phases 2-4 -- the ladder, capacity, perf and the 44-leg parity gate -- have never run to a verdict
+on this tree. The verdict remains **HOLD**, default off, for want of a measurement rather than
+because of one.

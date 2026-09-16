@@ -54,7 +54,21 @@ mkdir -p "$RUN" || exit 0
 # into attr_perf_model.sh and deleted, leaving this branch pointing at a file that no longer exists.
 # Attribution runs are launched by hand and are short; the gate is the only thing worth restarting
 # unattended.
-[ -f "$RUN/PAUSE" ] && exit 0
+# A PAUSE holding a unix epoch is a TIMED hold: stand down until then, then clear it here and
+# launch. An empty PAUSE is an indefinite hold, as before. The timed form exists because the
+# thing this gate waits on is usually a sibling campaign's exclusive window with a known end
+# (a soak's own `--until`), and a worker turn is far shorter than that window -- without it the
+# hold has to be lifted by hand, which means the box sits idle until someone happens to look.
+if [ -f "$RUN/PAUSE" ]; then
+  _until=$(tr -dc 0-9 < "$RUN/PAUSE" 2>/dev/null | head -c 20)
+  if [ -n "$_until" ] && [ "$(date +%s)" -ge "$_until" ]; then
+    printf '%s resume_after_boot: timed PAUSE (until %s) expired, clearing and launching\n' \
+           "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$_until" >> "$PROG"
+    rm -f "$RUN/PAUSE"
+  else
+    exit 0
+  fi
+fi
 grep -q "$DONE_MARK" "$PROG" 2>/dev/null && exit 0
 # ANCHORED argv match. A cheap early-out only; the flock above is what makes this safe. An unanchored `pgrep -f "bash perf/ttx_a3/gate_drive.sh"` also matches any
 # shell whose command line merely CONTAINS that text, which includes the `bash -c` wrapper an ssh
