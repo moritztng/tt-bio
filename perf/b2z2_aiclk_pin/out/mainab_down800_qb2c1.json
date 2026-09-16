@@ -1,0 +1,285 @@
+{
+ "env": {
+  "host": "tt-quietbox2",
+  "visible_devices": "1",
+  "device_node": 1,
+  "board_serial": "0000046131934103",
+  "fixture": "cdk2x2_512",
+  "knob": "force",
+  "forced_mhz": 800,
+  "tt_bio_file": "/home/ttuser/.coworker/wt/b2z2-aiclk-default-decision/tt_bio/__init__.py",
+  "started_utc": "2026-09-16T15:55:54Z",
+  "loadavg": [
+   0.82421875,
+   0.99169921875,
+   0.6513671875
+  ],
+  "steps": 200,
+  "recycles": 3,
+  "commit": "0df13ad983e645722da958e176d22d96fa5067ee",
+  "ttnn": "?",
+  "kmd": "2.11.0",
+  "fw_bundle": "19.11.0.0",
+  "power1_max_w": 125.0,
+  "same_board_holders_at_start": []
+ },
+ "flags": {
+  "TT_BIO_DEVICE_CONDITIONING": true,
+  "TT_BIO_DEVICE_ZINIT": true,
+  "TT_BIO_DEVICE_CONFIDENCE": true,
+  "TT_BIO_DEVICE_CONF_HEADS": true,
+  "TT_BIO_TRIATT_FUSED_QKVG": true,
+  "TT_BIO_TRIATT_FUSED_QKVGB": true,
+  "TT_BIO_TRIMUL_FUSED_GOUT": true,
+  "TT_BIO_SDPA_GRID_Q_CHUNK": true,
+  "TT_BIO_ATOM_SHIFT_GATHER": true,
+  "TT_BIO_ATOM_L1": "not in tree",
+  "TT_BIO_UNFUSED_SILU": false,
+  "TT_BIO_DIT_COND_HOIST": false,
+  "TT_BIO_TRANSITION_L1_ROWS": true,
+  "TT_BIO_TRIMUL_GP_BANK_SPLIT": true
+ },
+ "runs": [
+  {
+   "i": 0,
+   "warmup": true,
+   "arm": "force",
+   "fold_s": 22.352,
+   "foreign_tt": [
+    {
+     "pid": 9839,
+     "fds": 16,
+     "cmd": "/usr/bin/python3 /home/ttuser/.local/bin/tt-smi "
+    }
+   ],
+   "plddt": 0.845919,
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "reasserts": 0,
+   "loadavg1": 1.06,
+   "aiclk_mean": 800.0,
+   "aiclk_max": 800,
+   "aiclk_frac_boost": 0.0,
+   "aiclk_n": 95,
+   "power_w_mean": 49.2,
+   "aiclk_min": 800,
+   "aiclk_p10": 800,
+   "aiclk_frac_burst": 0.0,
+   "temp_c_max": 58.5
+  },
+  {
+   "i": 1,
+   "warmup": false,
+   "arm": "base",
+   "fold_s": 14.673,
+   "foreign_tt": [
+    {
+     "pid": 9839,
+     "fds": 16,
+     "cmd": "/usr/bin/python3 /home/ttuser/.local/bin/tt-smi "
+    }
+   ],
+   "plddt": 0.845919,
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "reasserts": 0,
+   "loadavg1": 1.05,
+   "aiclk_mean": 1340.6,
+   "aiclk_max": 1350,
+   "aiclk_frac_boost": 1.0,
+   "aiclk_n": 62,
+   "power_w_mean": 99.7,
+   "aiclk_min": 1318,
+   "aiclk_p10": 1325,
+   "aiclk_frac_burst": 1.0,
+   "temp_c_max": 63.6
+  },
+  {
+   "i": 2,
+   "warmup": false,
+   "arm": "force",
+   "fold_s": 21.981,
+   "foreign_tt": [
+    {
+     "pid": 9839,
+     "fds": 16,
+     "cmd": "/usr/bin/python3 /home/ttuser/.local/bin/tt-smi "
+    }
+   ],
+   "plddt": 0.845919,
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "reasserts": 0,
+   "loadavg1": 1.03,
+   "aiclk_mean": 800.0,
+   "aiclk_max": 800,
+   "aiclk_frac_boost": 0.0,
+   "aiclk_n": 89,
+   "power_w_mean": 50.4,
+   "aiclk_min": 800,
+   "aiclk_p10": 800,
+   "aiclk_frac_burst": 0.0,
+   "temp_c_max": 59.2
+  },
+  {
+   "i": 3,
+   "warmup": false,
+   "arm": "base",
+   "fold_s": 14.744,
+   "foreign_tt": [
+    {
+     "pid": 9839,
+     "fds": 16,
+     "cmd": "/usr/bin/python3 /home/ttuser/.local/bin/tt-smi "
+    }
+   ],
+   "plddt": 0.845919,
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "reasserts": 0,
+   "loadavg1": 1.1,
+   "aiclk_mean": 1338.1,
+   "aiclk_max": 1350,
+   "aiclk_frac_boost": 1.0,
+   "aiclk_n": 63,
+   "power_w_mean": 102.1,
+   "aiclk_min": 1312,
+   "aiclk_p10": 1318,
+   "aiclk_frac_burst": 1.0,
+   "temp_c_max": 63.9
+  },
+  {
+   "i": 4,
+   "warmup": false,
+   "arm": "force",
+   "fold_s": 21.994,
+   "foreign_tt": [
+    {
+     "pid": 9839,
+     "fds": 16,
+     "cmd": "/usr/bin/python3 /home/ttuser/.local/bin/tt-smi "
+    }
+   ],
+   "plddt": 0.846315,
+   "cif_sha256": "d0d795136fccd3faaf98aaf01dd04f63f9b7850b759ce9b77b01d61ef41b391f",
+   "reasserts": 0,
+   "loadavg1": 1.06,
+   "aiclk_mean": 800.0,
+   "aiclk_max": 800,
+   "aiclk_frac_boost": 0.0,
+   "aiclk_n": 92,
+   "power_w_mean": 50.6,
+   "aiclk_min": 800,
+   "aiclk_p10": 800,
+   "aiclk_frac_burst": 0.0,
+   "temp_c_max": 59.6
+  },
+  {
+   "i": 5,
+   "warmup": false,
+   "arm": "base",
+   "fold_s": 14.738,
+   "foreign_tt": [
+    {
+     "pid": 9839,
+     "fds": 16,
+     "cmd": "/usr/bin/python3 /home/ttuser/.local/bin/tt-smi "
+    }
+   ],
+   "plddt": 0.845919,
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "reasserts": 0,
+   "loadavg1": 1.05,
+   "aiclk_mean": 1338.6,
+   "aiclk_max": 1350,
+   "aiclk_frac_boost": 1.0,
+   "aiclk_n": 63,
+   "power_w_mean": 102.7,
+   "aiclk_min": 1312,
+   "aiclk_p10": 1318,
+   "aiclk_frac_burst": 1.0,
+   "temp_c_max": 63.9
+  },
+  {
+   "i": 6,
+   "warmup": false,
+   "arm": "force",
+   "fold_s": 21.946,
+   "foreign_tt": [
+    {
+     "pid": 9839,
+     "fds": 16,
+     "cmd": "/usr/bin/python3 /home/ttuser/.local/bin/tt-smi "
+    }
+   ],
+   "plddt": 0.862458,
+   "cif_sha256": "ec88582f09ac0d0181ea485a77cadc118177c6cd408fe9b5065faa9a3666b42f",
+   "reasserts": 0,
+   "loadavg1": 1.76,
+   "aiclk_mean": 800.0,
+   "aiclk_max": 800,
+   "aiclk_frac_boost": 0.0,
+   "aiclk_n": 93,
+   "power_w_mean": 50.2,
+   "aiclk_min": 800,
+   "aiclk_p10": 800,
+   "aiclk_frac_burst": 0.0,
+   "temp_c_max": 60.1
+  }
+ ],
+ "base": {
+  "n": 3,
+  "fold_s_sorted": [
+   14.673,
+   14.738,
+   14.744
+  ],
+  "median_fold_s": 14.738,
+  "mean_fold_s": 14.718,
+  "min_fold_s": 14.673,
+  "max_fold_s": 14.744,
+  "aiclk_mean": 1339.1,
+  "aiclk_min": 1312,
+  "aiclk_frac_burst": 1.0,
+  "power_w_mean": 101.5,
+  "reasserts_total": 0,
+  "temp_c_max": 63.9,
+  "digests": [
+   "45781db716ebf020"
+  ],
+  "plddt": [
+   0.845919
+  ]
+ },
+ "force": {
+  "n": 3,
+  "fold_s_sorted": [
+   21.946,
+   21.981,
+   21.994
+  ],
+  "median_fold_s": 21.981,
+  "mean_fold_s": 21.974,
+  "min_fold_s": 21.946,
+  "max_fold_s": 21.994,
+  "aiclk_mean": 800.0,
+  "aiclk_min": 800,
+  "aiclk_frac_burst": 0.0,
+  "power_w_mean": 50.4,
+  "reasserts_total": 0,
+  "temp_c_max": 60.1,
+  "digests": [
+   "45781db716ebf020",
+   "d0d795136fccd3fa",
+   "ec88582f09ac0d01"
+  ],
+  "plddt": [
+   0.845919,
+   0.846315,
+   0.862458
+  ]
+ },
+ "ratio_median": 0.6705,
+ "ratio_mean": 0.6698,
+ "aiclk_delta_mhz": -539.1,
+ "power_delta_w": -51.1,
+ "one_digest_across_arms": false,
+ "base_arm_self_bit_exact": true,
+ "cotenanted_folds": 6
+}

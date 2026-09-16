@@ -792,24 +792,23 @@ More on how these were measured, and what "same structure" means for each of the
 
 ### Card Clock
 
-A fold waits on the host hundreds of times, and a Blackhole card's clock governor drops back to
-800 MHz in those gaps, so a fold on an otherwise idle card runs at roughly three quarters of the
-clock it could. `TT_BIO_AICLK` holds the clock instead:
+`TT_BIO_AICLK=<MHz>` holds a Blackhole card's clock at one frequency for the life of the card
+instead of leaving it to the firmware governor:
 
 ```bash
 TT_BIO_AICLK=1350 tt-bio predict target.yaml   # 1350 MHz is the Blackhole burst clock
 ```
 
-Measured on a p300c, Boltz-2 at 512 residues, eight folds per arm: **18.99 s on the governor
-against 14.987 s held, so 1.267x faster**, and that is a floor — the control folds in the
-measurement were themselves boosted by the held folds next to them, and the first control fold from
-a cold governor took 21.130 s. The card does the same work either way; only the clock changes.
+It is off by default, and on current main it is worth nothing on an idle p300c, because the
+governor already boosts: **14.650 s on the governor against 14.554 s held at 1350 MHz, 1.0066x**,
+eight folds per arm on Boltz-2 at 512 residues, with the governor arm averaging 1339 MHz and never
+dropping below 1306. Frequency still sets the second, so the knob is there for a card whose clock
+does sag: the same fold held at the 800 MHz floor takes 21.994 s. Blackhole only, and the clock is
+handed back when the card closes.
 
-It is off by default because it costs about 30 W of extra card power while a fold is running, and
-because it drives the clock through an ARC message the kernel driver does not document. Blackhole
-only. The clock is handed back when the card closes.
-
-[`docs/card-clock.md`](docs/card-clock.md) has the measurement and the two knobs that do not work.
+An earlier measurement on an older tree found the governor sagging to 1021 MHz and 18.99 s, 1.267x
+behind the held arm. That sag does not reproduce on current main.
+[`docs/card-clock.md`](docs/card-clock.md) has both measurements and the two knobs that do not work.
 
 ### MSA Server Authentication
 

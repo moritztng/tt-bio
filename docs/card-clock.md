@@ -1,13 +1,40 @@
 # Holding the card clock
 
 A Boltz-2 fold at 512 residues blocks on the host around 200 times. Between those syncs the chip
-has nothing to do, the Blackhole clock governor sees an idle card and drops it to its 800 MHz
-floor, and the next burst of work starts from there. The card is not thermally or power limited
-while this happens; it is simply being asked to be idle several hundred times a second.
+has nothing to do, and a Blackhole card whose governor treats that as idle drops to its 800 MHz
+floor, so the next burst of work starts from there. The card is not thermally or power limited
+while this happens.
 
-`TT_BIO_AICLK=<MHz>` holds the clock for the life of the card instead. It is off by default.
+`TT_BIO_AICLK=<MHz>` holds the clock for the life of the card instead. It is off by default,
+because whether the governor sags at all turns out to depend on the tree and the box.
 
-## What it is worth
+## What it is worth on current main: 1.0066x, which is nothing
+
+qb2, p300c (board `...4103`, node 1), firmware 19.11.0.0, KMD 2.11.0, commit `0df13ad98`
+(= `origin/main` `71a306a8a` plus this flag), 2026-09-16 15:50Z. Same fixture and protocol as
+below, eight timed folds per arm, nothing else open on any of the four chips.
+
+| | median | folds (sorted) | AICLK mean | min | burst fraction | card power |
+|---|---|---|---|---|---|---|
+| governor | 14.650 s | 14.610 … 14.828 | 1339.2 MHz | 1306 | 1.00 | 100.5 W |
+| held at 1350 | 14.554 s | 14.523 … 14.578 | 1350.0 MHz | 1350 | 1.00 | 104.5 W |
+
+**1.0066x on the median**, 0.096 s, for 4 W. The governor reaches burst on its own and stays there
+for the whole fold, so there is no sag left to remove. Raw data
+`perf/b2z2_aiclk_pin/out/mainab_qb2c1.json`.
+
+The knob is not broken, the sag is gone: forcing the same fold *down* to the 800 MHz floor on the
+same tree takes **21.994 s** against 14.738 s on the governor, so frequency still sets the second
+and the instrument still moves it (`out/mainab_down800_qb2c1.json`). Every fold in both runs wrote
+digest `45781db716ebf020` and pLDDT 0.845919, the same structure the measurement below produced.
+
+Why the governor now holds burst where it used to sag is not established. Two candidates, neither
+tested: the levers that landed since keep the chip busy enough across host syncs that the governor
+never sees an idle card, or the governor's own behaviour changed with the day's firmware flash and
+rollback and the twelve host resets around it. The decision does not depend on which: on this tree
+the flag buys 0.1 s and stays off by default.
+
+## What it was worth on the older tree
 
 qb2, p300c (board `...4103`, node 1), Boltz-2 `cdk2x2` at 512 aa, 200 sampling steps, 3 recycles.
 Eight timed folds per arm plus one discarded warmup, arms alternating fold by fold inside one
