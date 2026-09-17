@@ -1,0 +1,6 @@
+benchlock: c12-compose-fold acquired after 2s, loadavg 2.80 2.67 3.22
+2026-09-17 21:55:47.937 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+Terminated
+benchlock: c12-compose-fold released, rc=143, loadavg 4.53 4.80 4.03
+run.sh: benchlock+fold exit 143
