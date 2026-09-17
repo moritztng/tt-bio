@@ -1,0 +1,133 @@
+{
+  "scope": "CPU consolidation of measured terms and recorded levers. No device, no new measurement, no lever approved.",
+  "measured": {
+    "F_s": 3.983,
+    "F_se_s": 0.1181,
+    "W_Mcyc": 14665.0,
+    "W_se_Mcyc": 121.1,
+    "W_s_at_pin": 10.862962962962962,
+    "fold_s": 14.845962962962963,
+    "pin_mhz": 1350.0
+  },
+  "requirement": {
+    "target_s": 10.0,
+    "must_remove_s": 4.845962962962963,
+    "frontier": "any (dF, dW) with dF + dW/1350 = 4.8460 s reaches the target",
+    "W_alone": {
+      "cut_Mcyc": 6542.05,
+      "cut_pct": 44.60995567678145
+    },
+    "F_alone": {
+      "required_F_s": -0.8629629629629623,
+      "possible": false,
+      "note": "F would have to be negative, so the target cannot be reached by removing host and DRAM-bound cost alone no matter how completely"
+    }
+  },
+  "levers": [
+    {
+      "item": "ttnn trace of the diffusion loop",
+      "fold_s": 0.0,
+      "evidence": "MEASURED on Blackhole at 1350 and 1000 MHz"
+    },
+    {
+      "item": "fuse the arithmetic-free elementwise traffic",
+      "fold_s": 0.69,
+      "evidence": "derived: traffic x a measured 1/3 return"
+    },
+    {
+      "item": "TT_BIO_HEAD_PAD_TAIL",
+      "fold_s": 0.21,
+      "evidence": "Wormhole, no recorded clock"
+    },
+    {
+      "item": "TT_BIO_DIT_FUSED_QKV",
+      "fold_s": 0.0,
+      "evidence": "excluded: jointly 0.713 A with HEAD_PAD_TAIL vs a 0.60 A bar"
+    },
+    {
+      "item": "TT_BIO_SDPA_GRID_Q_CHUNK sign",
+      "fold_s": 0.0,
+      "evidence": "unmeasured, anywhere from -0.46 to +0.21 s"
+    },
+    {
+      "item": "per-class grid sizing",
+      "fold_s": 0.0,
+      "evidence": "withdrawn as a cross-architecture transfer"
+    },
+    {
+      "item": "size-independent share of the work term",
+      "fold_s": 0.0,
+      "evidence": "failing its own discriminating test at 768 aa"
+    }
+  ],
+  "levers_total": {
+    "fold_s": 0.8999999999999999,
+    "Mcyc": 1214.9999999999998,
+    "pct_of_requirement": 18.572160102720094,
+    "note": "Perturbations stack strongly sub-additively on this fixture, so even this is an upper bound on what the stack would return, not a forecast."
+  },
+  "matmul_rate_axis": {
+    "matmul_TFLOP_per_fold": 219.05789943808,
+    "modelled_seconds": 11.019023348570673,
+    "achieved_TFLOPs": 19.879974160005293,
+    "cube_cluster_TFLOPs": {
+      "min": 104.93,
+      "median": 112.7112267137947,
+      "max": 114.19605867211541,
+      "spread_pct": 8.830704919580107,
+      "n": 6
+    },
+    "achieved_pct_of_cube": {
+      "vs_min": 18.94593935004793,
+      "vs_max": 17.40863423061344
+    },
+    "seconds_if_at_cube": {
+      "vs_min": 2.0876574805878203,
+      "vs_max": 1.9182614705385619
+    },
+    "saving_if_at_cube_s": {
+      "vs_min": 8.931365867982853,
+      "vs_max": 9.100761878032111
+    },
+    "rate_needed_for_target_TFLOPs": 35.486109928360065,
+    "pct_of_the_gap_to_close": 53.39615111134108,
+    "reading": "This is the ONLY axis the campaign has found with enough headroom to reach 10.0 s, and it is also the least trustworthy number in the corpus: the per-shape rates behind the modelled seconds were taken on pc's custom 130-core firmware, not on qb2's 110-core p300c. Not all of the gap is recoverable either -- the cube is 4096^3 and the fold's matmuls are not."
+  },
+  "fourth_clock_artifact": {
+    "outlier_TFLOPs": 67.59,
+    "quoted_by": [
+      "shape_rank/",
+      "grid_evidence/"
+    ],
+    "cluster": {
+      "roof_true/true_floor_512_qb2c2.json (qb2 card 2)": 104.93,
+      "c10_orchestrator/floor_mix/floor_mix.json": 108.54279824685312,
+      "roof_launch/launch_trace_qb2c1.json (qb2 card 1)": 112.40099491661344,
+      "roof_launch/shape_control_qb2c1.json (a)": 113.02145851097598,
+      "roof_launch/shape_control_qb2c1.json (b)": 113.72746035078254,
+      "roof_launch/launch_trace_qb2c1.json (b)": 114.19605867211541
+    },
+    "implied_clock_MHz": {
+      "roof_true/true_floor_512_qb2c2.json (qb2 card 2)": 869.5940150576574,
+      "c10_orchestrator/floor_mix/floor_mix.json": 840.64996917145,
+      "roof_launch/launch_trace_qb2c1.json (qb2 card 1)": 811.7944157673403,
+      "roof_launch/shape_control_qb2c1.json (a)": 807.3378383374753,
+      "roof_launch/shape_control_qb2c1.json (b)": 802.3260144784562,
+      "roof_launch/launch_trace_qb2c1.json (b)": 799.0337062506758
+    },
+    "implied_clock_vs_max_MHz": 799.0337062506758,
+    "clock_floor_MHz": 800.0,
+    "reading": "Four independent Blackhole cube measurements cluster within 8.8 % of each other at 104.93 to 114.20 TFLOP/s. One reads 67.59, and against the cluster maximum that implies a chip at 799 MHz -- the 800 MHz floor. It is the campaign's founding failure mode for the fourth time, found here from ratios alone with no new measurement.",
+    "what_survives": "Ratios taken WITHIN that session survive, because both sides were throttled together: triangle multiplication at 11.47 TFLOP/s is still 5.89x off its own session's cube. The absolute rates from it do not, and at burst clock they would be about 1.69x higher."
+  },
+  "verdict_material": [
+    "Removing 4.846 s needs either a 44.6 %% cut in device cycles or a mixture; F alone cannot do it at any completeness because F is only 3.983 s.",
+    "Every lever the campaign has ever numbered sums to 0.90 s, 18.6 % of the requirement, and that sum is an upper bound because perturbations stack sub-additively here.",
+    "The matmul rate axis is the only one with enough headroom, and the number that says so rests on shape rates measured on the wrong machine. Re-measuring it on qb2 at a recorded clock is c10-fold-census's single most valuable deliverable."
+  ],
+  "limits": [
+    "No lever here is approved, measured as a stack, or scored for accuracy.",
+    "matmul_floor_s is modelled, not measured: it is the floor artifact's own number and that artifact's arithmetic half is contaminated. The achieved rate inherits that.",
+    "The frontier is exact arithmetic on two measured terms. Everything scored against it is not, and the evidence class of each row is carried rather than flattened."
+  ]
+}
