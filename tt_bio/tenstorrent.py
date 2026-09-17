@@ -6884,6 +6884,118 @@ def _mm_block_for(w):
     return _MM_BLOCK.get(((int(w.shape[-2]) + 31) // 32, (int(w.shape[-1]) + 31) // 32))
 
 
+# A shape-routed program config for the `linear` class. `ttnn.linear(core_grid=...)` names no
+# program config, so ttnn derives one in `create_matmul_program_config`: it routes between the 1D
+# systolic and the 2D factory on a height/width ratio of 8 (`matmul_program_config.cpp:28`), then
+# picks the K block inside whichever factory it chose (`:361` on 1D, `in0_block_w = K/32 % 2 == 0 ?
+# 2 : 1`; `:539-541` on 2D, `k_tiles_per_core = 4` walked down to the first divisor of Kt). Neither
+# rule reads the shape's arithmetic intensity, and the routing threshold is a constant: the pair
+# transition's (16, M, 128) @ (128, 512) key has ratio 16.0 and gets 1D, while the SAME operands at
+# N=1024 have ratio 8.0 and get 2D -- and 2D measures faster on the N=512 key than any 1D config
+# does (42.25 against 39.06 and 33.55 TFLOP/s shipped).
+#
+# Two things are tabulated and only two: the FAMILY and `in0_block_w`. The drain block is always the
+# whole per-core block, because across three sizes and five keys every measured optimum had
+# out_block_h == per_core_M and out_block_w == per_core_N (`perf/c12_kblock/rescore.py` over the four
+# sweep artifacts), so the drain is derived from the live grid instead of stored -- which is what
+# keeps this config legal on a grid it was not measured on.
+#
+# Keyed on (mt_total, kt, nt), the way _MM_BLOCK is keyed on (kt, nt), and never set globally. The K
+# optimum is INTERIOR -- fc3 falls 33.19 -> 24.57 TFLOP/s going from in0_block_w 2 to 16 -- and it
+# MOVES with sequence length: fc2 wants 2 at 298 aa and 4 at 512 and 768, fc3 wants 4 at 298 and 2
+# above it, CTB wants 8 at 298 and 512 and 12 at 768. So `in0_block_w = Kt` is a regression, and so
+# is any single value shared across sizes.
+#
+# MEASURED on qb2 p300c, grid 11x10 = 110 cores, AICLK forced and sampled at 1350 MHz, arms
+# interleaved rep by rep with a per-session A/A arm. Ratios below are against the shipped call, from
+# `perf/c12_kblock/rescore.py`, each with the A/A floor of its own session. OFF BY DEFAULT: no fold
+# A/B has been scored against these yet, so the entries are op-level only.
+_LINEAR_KBLOCK = env_flag("TT_BIO_LINEAR_KBLOCK", False)
+
+_LINEAR_BLOCK = {
+    # (mt_total, kt, nt): (family, in0_block_w)          ratio / A/A floor of that session
+    (160, 4, 16): ("1d", 2),    # pair Transition fc2 @ 298 aa   1.1105x / 1.0527x  2D unmeasured
+    (256, 4, 16): ("2d", 4),    # pair Transition fc2 @ 512 aa   1.2593x / 0.9858x  2D beats 1D 1.1832x
+    (384, 4, 16): ("1d", 4),    # pair Transition fc2 @ 768 aa   1.2440x / 1.0721x  2D unmeasured
+    (160, 16, 4): ("1d", 4),    # pair Transition fc3 @ 298 aa   1.5053x / 1.0475x
+    (256, 16, 4): ("1d", 2),    # pair Transition fc3 @ 512 aa   1.2776x / benchlocked, no A/A arm
+    (384, 16, 4): ("1d", 2),    # pair Transition fc3 @ 768 aa   1.1313x / 1.0377x
+    (10, 24, 24): ("2d", 8),    # DiT s-projection  @ 298 aa     1.1025x / 1.0360x
+    (16, 24, 24): ("2d", 12),   # DiT s-projection  @ 512 aa     1.1091x / benchlocked, no A/A arm
+    (24, 24, 24): ("2d", 8),    # DiT s-projection  @ 768 aa     1.1078x / 1.0567x
+    (16, 24, 48): ("2d", 8),    # CTB               @ 512 aa     1.0649x / benchlocked, no A/A arm
+    (24, 24, 48): ("2d", 12),   # CTB               @ 768 aa     1.1202x / 1.0122x
+    # CTB @ 298 aa is DELIBERATELY ABSENT. Its best arm read 1.0551x against that session's own A/A
+    # floor of 1.0538x, so it is not a result and the site keeps today's call at that size. An entry
+    # here would be tuning to noise.
+    # fc1 shares fc2's key: the two are byte-identical operations and fc1 differs only by its fused
+    # silu, which `_linear_block_cfg` refuses. So fc1 picks the entry up only once
+    # TT_BIO_UNFUSED_SILU has split the epilogue out, at which point it IS fc2's measured op.
+}
+
+
+def _linear_block_subblocks(obh, obw):
+    """(out_subblock_h, out_subblock_w) inside the 4-tile dest budget at fp32_dest_acc_en=True."""
+    sh = max((h for h in range(min(4, obh), 0, -1) if obh % h == 0), default=1)
+    sw = max((w for w in range(min(4 // sh, obw), 0, -1) if obw % w == 0), default=1)
+    return sh, sw
+
+
+def _linear_block_cfg(a_shape, w_shape, activation, bias, core_grid):
+    """The measured block config for this exact shape, or None to keep today's call.
+
+    The single reader of the (mt_total, kt, nt) key. Returns None -- leaving the site byte-for-byte
+    as it is now -- for a shape the table does not name, for a fused activation or a bias (the table
+    was measured on the bare matmul, and an epilogue is a different op), for a shape that is not
+    tile-aligned, and for any grid on which the tabulated `in0_block_w` does not divide Kt.
+    """
+    if not _LINEAR_KBLOCK or activation is not None or bias is not None or core_grid is None:
+        return None
+    if len(a_shape) < 2 or len(w_shape) < 2:
+        return None
+    m, k, n = int(a_shape[-2]), int(a_shape[-1]), int(w_shape[-1])
+    if m % 32 or k % 32 or n % 32 or int(w_shape[-2]) != k:
+        return None
+    batch = 1
+    for d in a_shape[:-2]:
+        batch *= int(d)
+    entry = _LINEAR_BLOCK.get((batch * m // 32, k // 32, n // 32))
+    if entry is None:
+        return None
+    family, bw = entry
+    mt_total, kt, nt = batch * m // 32, k // 32, n // 32
+    if kt % bw:
+        return None
+    gx, gy = int(core_grid.x), int(core_grid.y)
+    if family == "1d":
+        pcm, pcn = -(-mt_total // (gx * gy)), nt
+    else:
+        pcm, pcn = -(-mt_total // gy), -(-nt // gx)
+    sh, sw = _linear_block_subblocks(pcm, pcn)
+    if family == "1d":
+        return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+            compute_with_storage_grid_size=(gx, gy), in0_block_w=bw, out_subblock_h=sh,
+            out_subblock_w=sw, out_block_h=pcm, out_block_w=pcn, per_core_M=pcm, per_core_N=pcn,
+            fuse_batch=True, fused_activation=None, mcast_in0=False)
+    return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=(gx, gy), in0_block_w=bw, out_subblock_h=sh,
+        out_subblock_w=sw, out_block_h=pcm, out_block_w=pcn, per_core_M=pcm, per_core_N=pcn,
+        transpose_mcast=False, fused_activation=None)
+
+
+def _linear_blocked(x, w, *, core_grid=None, activation=None, bias=None, **kw):
+    """`ttnn.linear` with the measured block config when the table names this shape.
+
+    Falls through to today's exact call otherwise, so the lever is inert at every site and every
+    size it was not measured at, and with the flag off it is inert everywhere.
+    """
+    cfg = _linear_block_cfg(tuple(x.shape), tuple(w.shape), activation, bias, core_grid)
+    if cfg is None:
+        return ttnn.linear(x, w, core_grid=core_grid, activation=activation, bias=bias, **kw)
+    return ttnn.linear(x, w, program_config=cfg, **kw)
+
+
+
 @lru_cache(maxsize=None)
 def _mm_core_coord(gx, gy):
     return ttnn.CoreCoord(gx, gy)
@@ -8156,7 +8268,7 @@ class AttentionPairBias(Module):
             o = ttnn.experimental.nlp_concat_heads(o)
             o = ttnn.squeeze(o, 1)
             o = ttnn.reshape(o, (B, K, W, D_S))
-        g = ttnn.linear(
+        g = _linear_blocked(
             s,
             self.g_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -8166,7 +8278,7 @@ class AttentionPairBias(Module):
             o = ttnn.typecast(o, ttnn.bfloat16)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=self.dtype)
         ttnn.deallocate(g)
-        x = ttnn.linear(
+        x = _linear_blocked(
             o, self.o_weight, compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
@@ -8208,7 +8320,7 @@ class Transition(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 memory_config=ttnn.L1_MEMORY_CONFIG,
             )
-            x_1 = ttnn.linear(
+            x_1 = _linear_blocked(
                 x_norm,
                 self.fc1_weight,
                 activation=None if _UNFUSED_SILU else "silu",
@@ -8219,7 +8331,7 @@ class Transition(Module):
             )
             if _UNFUSED_SILU:
                 x_1 = ttnn.silu(x_1, memory_config=ttnn.L1_MEMORY_CONFIG, output_tensor=x_1)
-            x_2 = ttnn.linear(
+            x_2 = _linear_blocked(
                 x_norm,
                 self.fc2_weight,
                 compute_kernel_config=self.compute_kernel_config,
@@ -8230,7 +8342,7 @@ class Transition(Module):
             ttnn.deallocate(x_norm)
             x = ttnn.multiply_(x_1, x_2)
             ttnn.deallocate(x_2)
-            x_dram = ttnn.linear(
+            x_dram = _linear_blocked(
                 x,
                 self.fc3_weight,
                 compute_kernel_config=self.compute_kernel_config,
@@ -9489,13 +9601,13 @@ class ConditionedTransitionBlock(Module):
         activation epilogue, where it is free, instead of at the multiply below."""
         s_terms, s_out = cond if cond is not None else (None, None)
         a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms)
-        a_swish = ttnn.linear(
+        a_swish = _linear_blocked(
             a,
             self.swish_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
-        gates = ttnn.linear(
+        gates = _linear_blocked(
             a,
             self.gates_weight,
             compute_kernel_config=self.compute_kernel_config,
@@ -9503,7 +9615,7 @@ class ConditionedTransitionBlock(Module):
         )
         a_swish = ttnn.multiply_(gates, a_swish, input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
         if self.a_to_b_gate:
-            a_b = ttnn.linear(
+            a_b = _linear_blocked(
                 a,
                 self.a_to_b_weight,
                 compute_kernel_config=self.compute_kernel_config,
