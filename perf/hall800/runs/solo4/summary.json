@@ -1,0 +1,54 @@
+{
+  "run": "solo4",
+  "cards": "0",
+  "n_cards": 1,
+  "reps_requested": 4,
+  "rc": 143,
+  "wall_s": 1306.0,
+  "folds_ok": 2,
+  "folds_seen": 2,
+  "runtime_s_per_fold": [
+    380.8,
+    222.2
+  ],
+  "cold_fold_s": 380.8,
+  "warm_folds": [
+    222.2
+  ],
+  "warm_mean_s": 222.2,
+  "warm_min_s": 222.2,
+  "warm_max_s": 222.2,
+  "warm_sigma_pct": null,
+  "clock": {
+    "0": {
+      "node": "0",
+      "force_status": "0x00",
+      "target": 1350,
+      "samples": 63453,
+      "errors": 0,
+      "min": 800,
+      "max": 1350,
+      "mean": 1350.0,
+      "frac_at_target": 1.0
+    }
+  },
+  "plddt": [
+    0.89784,
+    0.89784
+  ],
+  "ptm": [
+    0.79315,
+    0.79315
+  ],
+  "iptm": [
+    0.644198,
+    0.644198
+  ],
+  "errors": [],
+  "warm_mean_cycles": 299970000000,
+  "clock_mean_mhz": 1350.0,
+  "fold_s_per_card_slot": 222.2,
+  "folds_per_day_per_chip": 388.8,
+  "chips_for_20k_per_day": 51.44,
+  "chips_for_5k_per_day": 12.86
+}
