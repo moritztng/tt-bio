@@ -16,36 +16,49 @@
     "remainder_source": "c12-profiled-fold composed.json, device 13.2090 s of 14.8810 s in situ at a held during-sampled 1350 MHz"
   },
   "census_split_s": {
-    "host_today": 0.912,
+    "host_today": 0.561,
+    "mixed_upper_bound": 0.351,
     "moved_to_device_since": 2.09643,
     "device": 20.5401,
     "sum": 23.54853
   },
   "closure_first_cut": {
-    "host_leaves_s": 0.912,
+    "host_leaves_s": 0.561,
+    "mixed_leaf_upper_bound_s": 0.351,
     "host_inside_device_units_s": 0.3372,
-    "named_total_s": 1.2492,
+    "named_total_s": [
+      0.8982,
+      1.2492
+    ],
     "remainder_s": [
       1.6489,
       1.672
     ],
     "named_pct_of_remainder": [
-      74.7,
+      53.7,
       75.8
     ],
     "unnamed_s": [
       0.3997,
-      0.4228
-    ]
+      0.7738
+    ],
+    "note": "a range because the `predict_step` leaf is an upper bound: part of it is host z_init that the default-on device path deleted. The low end assumes all of that leaf moved, the high end assumes none of it did."
   },
   "reducible_first_cut": {
     "reducible_s": 0.05702,
     "bar_s": 0.849,
     "fraction_of_bar": 0.067,
     "shortfall_s": 0.792,
-    "generous_ceiling_s": 0.3283,
-    "generous_argument": "even crediting half of prepare and half of predict_step's unknown exclusive body, neither of which is priced, the total stays below the bar. Everything past that point is host torch whose only route is onto the device, which converts host seconds into device seconds rather than deleting them.",
-    "fold_if_all_named_host_deleted_s": 13.6318
+    "extreme_fraction_of_bar": 0.593,
+    "generous_ceiling_s": 0.1528,
+    "generous_argument": "crediting the CIF write in full and half of prepare, which is not priced. predict_step is deliberately NOT credited at half here: part of that leaf is host z_init the device path already deleted, so half of it is half of a number that is partly gone.",
+    "extreme_ceiling_s": 0.50379,
+    "extreme_argument": "the most the host can possibly give: the CIF write off the critical path, half of prepare, AND the whole predict_step leaf treated as reducible even though it is an upper bound that includes work already moved to the device. Still short of the bar. Everything past this point is host torch whose only route is onto the device, which converts host seconds into device seconds rather than deleting them.",
+    "fold_if_all_named_host_deleted_s": [
+      13.6318,
+      13.9828
+    ],
+    "extreme_shortfall_s": 0.3452
   },
   "rows": [
     {
@@ -112,11 +125,11 @@
       "item": "predict_step",
       "calls": 1,
       "excl_s": 0.351,
-      "class": "host",
-      "why": "Boltz2.predict_step's own exclusive body. The largest surviving host row and the one whose composition is unknown: the program-cache clear and the reset_static_cache module walk both live in Boltz2.forward under it.",
+      "class": "mixed",
+      "why": "NOT all host today, and the first cut had this wrong. `predict_step` is a thin wrapper that calls `Boltz2.forward` and copies dict entries, and the census patched `predict_step` but NOT `forward`, so this leaf is `forward`'s own body. At the census commit `_device_zinit()` was off, so that body BUILT z_init on the host: z_init_1 + z_init_2 + token_bonds + contact_conditioning and five adds over a [1,n,n,token_z] tensor that is 134 MB at 512 tokens, plus a torch.zeros_like of the same. `_device_zinit()` is ON by default today (tt_bio/boltz2.py:1198), so `z_init is None` and that whole path is skipped; what it costs now is inside PairAssemblyDevice, whose host body pass 2 measured at 0.0224 s. What survives in this leaf is the program-cache clear, the reset_static_cache module walk, s_init, pair_mask, the gate evaluations and the progress emissions. The census cannot split the two and neither can this row without its own capture, so the leaf is an upper bound.",
       "reducible_s": 0.0,
-      "reducible_frac": 0.0,
-      "reducible_argument": "unknown composition and the row will not guess it. It holds the program-cache clear, whose real cost is the program REBUILD and is pre-registered separately at 0.0 s in a 0.0-2.3 s band, and the reset_static_cache walk at 0.02 s. Both need the capture."
+      "reducible_frac": null,
+      "reducible_argument": null
     },
     {
       "item": "prepare",

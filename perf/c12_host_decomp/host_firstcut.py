@@ -52,6 +52,9 @@ HOST_INSIDE_DEVICE_UNITS = 0.3372
 #   host    -- host Python then, host Python now. Counted.
 #   moved   -- host Python then, on the device now. NOT counted: a port already deleted it.
 #   device  -- the leaf's exclusive time is a device call's. NOT counted.
+#   mixed   -- part of it moved and part of it did not, and the census cannot separate them
+#              because it did not patch below this leaf. Counted as an UPPER bound only, so
+#              every total below is a range and not a point.
 CLASS = {
     "predict_step/trunk":
         ("device", "TrunkModule, the resident trunk. 12.93 s of device time."),
@@ -80,9 +83,19 @@ CLASS = {
         ("moved", "the trunk-path RelativePositionEncoder, same device unit."),
 
     "predict_step":
-        ("host", "Boltz2.predict_step's own exclusive body. The largest surviving host row and "
-                 "the one whose composition is unknown: the program-cache clear and the "
-                 "reset_static_cache module walk both live in Boltz2.forward under it."),
+        ("mixed", "NOT all host today, and the first cut had this wrong. `predict_step` is a thin "
+                  "wrapper that calls `Boltz2.forward` and copies dict entries, and the census "
+                  "patched `predict_step` but NOT `forward`, so this leaf is `forward`'s own "
+                  "body. At the census commit `_device_zinit()` was off, so that body BUILT "
+                  "z_init on the host: z_init_1 + z_init_2 + token_bonds + contact_conditioning "
+                  "and five adds over a [1,n,n,token_z] tensor that is 134 MB at 512 tokens, plus "
+                  "a torch.zeros_like of the same. `_device_zinit()` is ON by default today "
+                  "(tt_bio/boltz2.py:1198), so `z_init is None` and that whole path is skipped; "
+                  "what it costs now is inside PairAssemblyDevice, whose host body pass 2 "
+                  "measured at 0.0224 s. What survives in this leaf is the program-cache clear, "
+                  "the reset_static_cache module walk, s_init, pair_mask, the gate evaluations "
+                  "and the progress emissions. The census cannot split the two and neither can "
+                  "this row without its own capture, so the leaf is an upper bound."),
     "prepare":
         ("host", "parse + MSA resolve + tokenize + featurize. Called ONCE per fold, in "
                  "tt_bio/worker.py:764, BEFORE predict_step, so it is outside the recycle loop."),
@@ -167,7 +180,7 @@ def scaling(tree_512):
     rows = []
     for path, v in sorted(tree_512.items(), key=lambda kv: -kv[1]["excl_s"]):
         klass, _ = CLASS[path]
-        if klass != "host":
+        if klass not in ("host", "mixed"):
             continue
         if path not in t128:
             rows.append({"item": path, "s_512": v["excl_s"], "s_128": None,
@@ -220,10 +233,12 @@ def main() -> int:
                      "reducible_argument": arg if klass == "host" else None})
 
     host = sum(r["excl_s"] for r in rows if r["class"] == "host")
+    mixed = sum(r["excl_s"] for r in rows if r["class"] == "mixed")
     moved = sum(r["excl_s"] for r in rows if r["class"] == "moved")
     device = sum(r["excl_s"] for r in rows if r["class"] == "device")
     reducible = sum(r["reducible_s"] for r in rows)
-    named = host + HOST_INSIDE_DEVICE_UNITS
+    named_lo = host + HOST_INSIDE_DEVICE_UNITS
+    named_hi = named_lo + mixed
 
     out = {
         "what": "FIRST CUT, no card. Not the row's table and carries no clock arm.",
@@ -239,35 +254,53 @@ def main() -> int:
             "remainder_source": "c12-profiled-fold composed.json, device 13.2090 s of 14.8810 s "
                                 "in situ at a held during-sampled 1350 MHz",
         },
-        "census_split_s": {"host_today": round(host, 5), "moved_to_device_since": round(moved, 5),
+        "census_split_s": {"host_today": round(host, 5),
+                           "mixed_upper_bound": round(mixed, 5),
+                           "moved_to_device_since": round(moved, 5),
                            "device": round(device, 5),
-                           "sum": round(host + moved + device, 5)},
+                           "sum": round(host + mixed + moved + device, 5)},
         "closure_first_cut": {
             "host_leaves_s": round(host, 5),
+            "mixed_leaf_upper_bound_s": round(mixed, 5),
             "host_inside_device_units_s": HOST_INSIDE_DEVICE_UNITS,
-            "named_total_s": round(named, 5),
+            "named_total_s": [round(named_lo, 5), round(named_hi, 5)],
             "remainder_s": list(REMAINDER),
-            "named_pct_of_remainder": [round(100 * named / REMAINDER[1], 1),
-                                       round(100 * named / REMAINDER[0], 1)],
-            "unnamed_s": [round(REMAINDER[0] - named, 4), round(REMAINDER[1] - named, 4)],
+            "named_pct_of_remainder": [round(100 * named_lo / REMAINDER[1], 1),
+                                       round(100 * named_hi / REMAINDER[0], 1)],
+            "unnamed_s": [round(REMAINDER[0] - named_hi, 4), round(REMAINDER[1] - named_lo, 4)],
+            "note": "a range because the `predict_step` leaf is an upper bound: part of it is "
+                    "host z_init that the default-on device path deleted. The low end assumes "
+                    "all of that leaf moved, the high end assumes none of it did.",
         },
         "reducible_first_cut": {
             "reducible_s": round(reducible, 5),
             "bar_s": REDUCIBLE_BAR,
             "fraction_of_bar": round(reducible / REDUCIBLE_BAR, 3),
             "shortfall_s": round(REDUCIBLE_BAR - reducible, 4),
-            "generous_ceiling_s": round(reducible + 0.5 * (
-                tree["prepare"]["excl_s"] + tree["predict_step"]["excl_s"]), 5),
-            "generous_argument": "even crediting half of prepare and half of predict_step's "
-                                 "unknown exclusive body, neither of which is priced, the total "
-                                 "stays below the bar. Everything past that point is host torch "
-                                 "whose only route is onto the device, which converts host "
-                                 "seconds into device seconds rather than deleting them.",
-            "fold_if_all_named_host_deleted_s": round(FOLD_TODAY - named, 4),
+            "extreme_fraction_of_bar": None,  # filled below, needs `mixed`
+            "generous_ceiling_s": round(reducible + 0.5 * tree["prepare"]["excl_s"], 5),
+            "generous_argument": "crediting the CIF write in full and half of prepare, which is "
+                                 "not priced. predict_step is deliberately NOT credited at half "
+                                 "here: part of that leaf is host z_init the device path already "
+                                 "deleted, so half of it is half of a number that is partly gone.",
+            "extreme_ceiling_s": round(reducible + 0.5 * tree["prepare"]["excl_s"]
+                                       + mixed, 5),
+            "extreme_argument": "the most the host can possibly give: the CIF write off the "
+                                "critical path, half of prepare, AND the whole predict_step leaf "
+                                "treated as reducible even though it is an upper bound that "
+                                "includes work already moved to the device. Still short of the "
+                                "bar. Everything past this point is host torch whose only route "
+                                "is onto the device, which converts host seconds into device "
+                                "seconds rather than deleting them.",
+            "fold_if_all_named_host_deleted_s": [round(FOLD_TODAY - named_hi, 4),
+                                                 round(FOLD_TODAY - named_lo, 4)],
         },
         "rows": rows,
         "scaling_first_cut": scaling(tree),
     }
+    r = out["reducible_first_cut"]
+    r["extreme_fraction_of_bar"] = round(r["extreme_ceiling_s"] / REDUCIBLE_BAR, 3)
+    r["extreme_shortfall_s"] = round(REDUCIBLE_BAR - r["extreme_ceiling_s"], 4)
     print(json.dumps(out, indent=2))
     return 0
 
