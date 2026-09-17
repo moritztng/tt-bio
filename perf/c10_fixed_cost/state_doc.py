@@ -1,6 +1,6 @@
 """Write ~/.coworker/state/c10-fixed-cost.md from analysis.json. Every number comes from the file."""
 from __future__ import annotations
-import json, sys
+import datetime, json, sys
 from pathlib import Path
 
 BASE512 = 14.8813   # c10-bare-baseline 512 aa median at 1350 MHz, bc66f7d6d
@@ -23,6 +23,14 @@ def main(analysis, runroot, out):
     u5, b5 = d5["F_untouched"], t5["demand_at_F_bounds"]
     x = a["cross_size"]
     run5 = json.loads((Path(runroot) / "512" / "result.json").read_text())
+    run2 = json.loads((Path(runroot) / "298" / "result.json").read_text())
+    def utc(ns):
+        return datetime.datetime.fromtimestamp(ns / 1e9, datetime.timezone.utc)
+    w0 = min(utc(r["started_utc_ns"]) for r in (run5, run2))
+    w1 = max(utc(r["finished_utc_ns"]) for r in (run5, run2))
+    window = (f"{w0:%Y-%m-%dT%H:%M:%SZ} and {w1:%H:%M:%SZ} on {w1:%Y-%m-%d}"
+              if w0.date() == w1.date() else
+              f"{w0:%Y-%m-%dT%H:%M:%SZ} and {w1:%Y-%m-%dT%H:%M:%SZ}")
     node = run5["assigned_node_sysfs"]
     nf = t5["accepted_folds"] + t2["accepted_folds"]
     tele = c5["1350"]["median_s"] - BASE512
@@ -41,7 +49,7 @@ errors and every sample/boundary gap inside the 10 ms limit. Board power tracked
 witnessed by physics and not only by a telemetry register. The 800 MHz arm was DELIBERATE:
 `scripts/aiclk_watch.sh` logs `AICLK-WATCH: qb2 CLAMPED-UNDER-LOAD` for a busy chip under 1200 MHz,
 so `state/aiclk-qb2.log` shows this row tripping the fleet's own guard on purpose on card 0 between
-about 23:21Z and 00:05Z on 2026-09-17/18. A pinned 800 MHz fold is a measurement; an unrequested one
+{window}. A pinned 800 MHz fold is a measurement; an unrequested one
 is an artifact, and the raw samples say which this was. Card 0 only, {node.get('tt_card_type')}, ASIC
 {node.get('tt_asic_id')}, firmware bundle {node.get('tt_fw_bundle_ver')}. FORCE_AICLK was released in the finally block and
 the release return was checked, status 0 at both sizes.
