@@ -1,5 +1,20 @@
 # The fold's device work grows slower than the target does
 
+> **STATUS 2026-09-17, read this first: the finding below is very likely about to be withdrawn.**
+> `c10-size-scaling` is measuring the discriminating leg right now and its in-flight data points at
+> the artifact. From its own `runs/ladder1`, with the 512 aa anchor passed (14.9016 s at 1350 MHz,
+> 22.3428 s at 800, W = 14,611.7 Mcycles against the 14,665.0 of record), the **512 → 768 aa leg
+> gives p_work = 1.83** against 0.63 on the 298 → 512 leg. The pre-registered prediction was 0.6–1.0
+> under this finding and 1.7–2.0 under the artifact. It landed at 1.83.
+>
+> That is **not yet the row's verdict**: 768 aa is incomplete (3 folds at 1350 MHz, 2 at 800), the
+> 640 aa leg has not run, and a two-clock solve cannot check the functional form the way
+> `c10-fixed-cost`'s four clocks did. The row owns the conclusion and will state it. But nothing
+> downstream should be built on the numbers below in the meantime, and the reading to expect is
+> that the size-independent term is 298 aa under-filling the grid, exactly as
+> [`../floor_vs_measured/`](../floor_vs_measured/) predicted it would be.
+
+
 `c10-fixed-cost` measured both terms of `T = F + W/f` at two sizes of the same `cdk2x2` fixture
 family, same 35-row A3M, same 200 steps and 3 recycles, four pinned and during-sampled clocks:
 
