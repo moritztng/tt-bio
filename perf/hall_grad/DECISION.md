@@ -53,20 +53,32 @@ Anchored on `perf/pxv1/v2_512_r{10,2}_pc0_a.json`: same tt-bio, ttnn 0.68.0, pc 
 at r2 give 3.733 s per trunk recycle and a 12.921 s residual, and the split refits the r2 point
 to the millisecond.
 
-Per gradient step at 512 aa / 3 recycles, backward multiplier 2.293x (input grads only, so a
+Per gradient step at 512 aa / 3 recycles, backward multiplier 2.261x (input grads only, so a
 weight matmul's backward is 1x forward; the trimul einsum and the attention products need both
 operands and cost 2x; per-block recompute adds the 1x):
 
 | subgraph | s/step @512 | s/step @800 | 410 steps @512 |
 |---|---|---|---|
-| confidence head only | 0.71 | 1.71 | — answers the wrong question |
-| **distogram -> last recycle** | **19.76** | **46.17** | **2.25 h** |
-| + one denoising step | 32.83 | 76.16 | 3.74 h |
-| full 200-step trajectory | 115.21 | 275.77 | 13.12 h, and a NO-GO |
+| confidence head only | 0.70 | 1.68 | — answers the wrong question |
+| **distogram -> last recycle** | **19.64** | **45.86** | **2.24 h** |
+| + one denoising step | 32.71 | 75.84 | 3.72 h |
+| full 200-step trajectory | 113.62 | 271.48 | 12.94 h, and a NO-GO |
 
 The confidence head alone gives `d(loss)/d(z_trunk, s_trunk, coords)`. The sequence enters 48
 blocks upstream, so nothing there can update a sequence. It should not be sold as gradient
 hallucination.
+
+The backward multiplier is FLOP-derived, and I checked it rather than trusting it. The weight
+coefficient is 68 per block, audited against every weight in `pairformer_stack.blocks.0`: six
+trimul projections x2 blocks = 24, five triangle-attention projections x2 = 20, and
+`pair_transition` is SwiGLU-gated (`linear_no_bias_a`, `linear_no_bias_b`, `linear_no_bias`) so
+it is three matmuls at a 4x expansion = 24. The model then reconciles against the anchor: 48
+blocks is 75.87 TFLOP per recycle against 3.733 s measured, i.e. **20.3 TFLOP/s achieved** —
+the right order for HiFi4 with `fp32_dest_acc` on an 11x10 grid, given our own C10 campaign
+closed this cell as matmul bandwidth-bound. Because it is a FLOP ratio on a bandwidth-bound
+workload, and the backward reads saved activations back, treat the multiplier as a **floor**. A
+realised figure above it makes the gradient path worse, not better, so the verdict below is
+robust to the gap.
 
 The full trajectory is a NO-GO on numerics, not on cost: 200 chained bf16 backward steps is the
 failure mode our own AF2-IG work root-caused, where chained error accumulates coherently per op
@@ -116,8 +128,8 @@ The forward-only routes are `_design_mcmc steps=1000` and `design_semigreedy ite
 In our measured wall-clock at 512 aa / 3 recycles with a distogram objective:
 
 - MCMC, 1000 x 11.20 s = **3.11 h/design**
-- gradient, 410 x 19.76 s = **2.25 h/design**
-- the gradient buys **1.38x** (1.36x at 800 aa)
+- gradient, 410 x 19.64 s = **2.24 h/design**
+- the gradient buys **1.39x** (1.37x at 800 aa)
 
 Forty engineer-days cannot be justified on 1.4x. Two qualifiers in the other direction, both
 real. The zeroth-order loop gets no batch speedup — `fold_many`'s docstring records the trunk at
@@ -147,7 +159,7 @@ should run today, but not yet gradient based") is accurate and needs no walking 
    ColabDesign both do? Or all 10? We are calling the full 200-step trajectory a NO-GO on chained
    bf16 numerics and would like to know whether that matches your experience.
 3. Do you need the gradient for **design quality or for throughput**? At ColabDesign's own default
-   step counts, MCMC/semigreedy is only 1.36-1.38x slower here, not 50x. If it is throughput, the
+   step counts, MCMC/semigreedy is only 1.37-1.39x slower here, not 50x. If it is throughput, the
    forward-only path ships in days. If it is quality on your objective, that is a real reason and
    the one we would build against.
 4. What **target length**? 800 aa is Blackhole-only; a 12 GiB Wormhole Galaxy chip cannot hold the

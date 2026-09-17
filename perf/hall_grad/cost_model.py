@@ -34,21 +34,41 @@ DRAM_WH = 2147483648 * 6                        # 12.88 GB (12 GiB)
 BF16 = 2
 
 
+# Weight-matmul coefficient, AUDITED against every weight in pairformer_stack.blocks.0 of
+# protenix-v2.pt rather than assumed (an earlier pass used 58 and was wrong on two counts):
+#   tri_mul_{out,in}   linear_{a_p,a_g,b_p,b_g,g,z}, 6 x (256,256)   -> 6 x 2 = 12 each, 24
+#   tri_att_{start,end} mha.linear_{q,k,v,g,o},      5 x (256,256)   -> 5 x 2 = 10 each, 20
+#   pair_transition    linear_no_bias_a (1024,256), linear_no_bias_b (1024,256),
+#                      linear_no_bias (256,1024) -- SwiGLU-GATED, so THREE matmuls at a 4x
+#                      expansion, not two                            -> 3 x 2 x 4 =       24
+#                                                                                  total  68
+# Neglected as measured-negligible at 512 aa: attention_pair_bias is on the single track
+# (5 x (384,384) = 0.76 GFLOP) plus linear_nobias_z (16,256) on the pair tensor (2.1 GFLOP),
+# and single_transition is 3 x (1536,384) = 1.8 GFLOP -- together 0.3% of the block.
+W_COEFF = 68
+ACT_COEFF = 12   # 2 trimuls x 2 (triangle einsum) + 2 triatts x 4 (qk and av products)
+
+
 def block_flops(n, c_z=C_Z):
     """Forward FLOPs of one PairformerLayer, split by what the backward costs.
 
-    weight terms (N^2 c_z^2): 2 trimuls x 12 + 2 triatts x 9 + transition 16 = 58
-      trimul    4 in-projections + gate + out-projection, each 2 N^2 c_z^2  -> 12
-      triatt    q,k,v,g (8) + out-projection (1)                            -> 9
-      transition c_z->4c_z->c_z, 2 x 2 x 4 N^2 c_z^2                        -> 16
-    activation terms (N^3 c_z): 2 trimuls x 2 (the triangle einsum) + 2 triatts x 4 (qk, av) = 12
-
-    Backward for INPUT gradients only needs dX = dY W^T for a weight term (1x forward,
+    Backward for INPUT gradients only needs dX = dY W^T for a weight term (1x forward, because
     dW is skipped), but both dA and dB for an activation-activation product (2x forward).
     """
-    weight = 58 * n * n * c_z * c_z
-    act = 12 * n ** 3 * c_z
+    weight = W_COEFF * n * n * c_z * c_z
+    act = ACT_COEFF * n ** 3 * c_z
     return weight, act
+
+
+def reconcile():
+    """Self-check the FLOP model against the measured per-recycle time.
+
+    If the implied achieved rate were absurd the model would be wrong and every per-step
+    number below with it. 48 pairformer blocks at 512 aa against the measured 3.733 s.
+    """
+    w, a = block_flops(N_ANCHOR)
+    per_recycle = N_PAIRFORMER * (w + a)
+    return per_recycle, per_recycle / PER_RECYCLE_S
 
 
 def backward_multiplier(n, c_z=C_Z):
@@ -113,6 +133,15 @@ if __name__ == "__main__":
     print(f"  per pairformer block       {PER_RECYCLE_S/N_PAIRFORMER*1e3:.1f} ms (upper bound)")
     print(f"  per diffusion step         {RESIDUAL_S/N_STEPS_DEFAULT*1e3:.1f} ms (upper bound)")
 
+    tf, rate = reconcile()
+    print(f"\n=== FLOP-model reconciliation (512 aa) ===")
+    print(f"  48 pairformer blocks       {tf/1e12:.2f} TFLOP per recycle")
+    print(f"  measured per recycle       {PER_RECYCLE_S:.3f} s")
+    print(f"  implied achieved rate      {rate/1e12:.1f} TFLOP/s")
+    print(f"  plausible: tt-bio runs Protenix at HiFi4 + fp32_dest_acc (4 passes through the")
+    print(f"  matrix unit) on an 11x10 grid, and our own C10 campaign closed the 512 aa cell as")
+    print(f"  matmul BANDWIDTH-bound, so a low-teens-percent compute utilisation is expected.")
+
     w, a = block_flops(n)
     m = backward_multiplier(n)
     print(f"\n=== backward multiplier at N={n} ===")
@@ -120,6 +149,10 @@ if __name__ == "__main__":
     print(f"  activation-prod FLOPs      {a/1e12:.3f} T  (backward 2x: both operands)")
     print(f"  backward / forward         {m:.3f}x")
     print(f"  with per-block recompute   {1+m:.3f}x")
+    print(f"  NOTE this is a FLOP ratio and therefore a FLOOR. The workload is bandwidth-bound,")
+    print(f"  and the backward moves more bytes per FLOP than the forward because it reads the")
+    print(f"  saved activations back. A realised multiplier above this makes the gradient path")
+    print(f"  worse, not better, so every verdict below is robust to the gap.")
 
     print(f"\n=== memory at N={n} (bf16) ===")
     print(f"  pair tensor [N,N,{C_Z}]      {gb(pair_bytes(n)):.3f} GB")
