@@ -126,9 +126,26 @@ CLASS = {
 # host torch to the card converts host seconds into device seconds instead of deleting them and
 # the campaign's device book is already counted at full value against the same 12.5 s target.
 REDUCIBLE = {
-    "write_result": (1.00, "irreducible WORK, reducible COST. The CIF write sits inside the "
-                           "timed region and nothing downstream in the fold consumes it, so it "
-                           "can come off the critical path in full."),
+    # This row credited this item at 1.00 for one pass and then audited it, because the one
+    # number a row credits is the one it should check hardest. The credit does not survive.
+    #
+    # `model_meta.timed_region` is "predict_one (featurize + fold + CIF write)". The 14.8810 s
+    # cell, the 12.5 s target and every fold second the campaign quotes are measured over a
+    # region that ENDS WITH THE FILE ON DISK. Deferring the write past the timer does not make
+    # the fold faster, it makes the timer stop earlier -- which is the campaign's own standing
+    # prohibition on buying a speedup by doing less of the work, not a lever. For a single fold
+    # measured to completion the wall until the CIF exists is unchanged by any amount of
+    # deferral, because nothing follows it to overlap with.
+    #
+    # It IS worth 0.0570 s in the pipelined multi-target case, where target N's write overlaps
+    # target N+1's fold. That is how JapanFold actually serves, so it is a real throughput win
+    # and it is recorded as one below. It is not a latency win against the 12.5 s cell, and this
+    # row's bar is the cell.
+    "write_result": (0.00, "irreducible against the campaign's own timed region, which ends with "
+                           "the file on disk. Deferring it stops the timer earlier rather than "
+                           "finishing sooner. Worth 0.0570 s of THROUGHPUT in a pipelined "
+                           "multi-target service, recorded separately, and nothing against the "
+                           "12.5 s latency cell."),
     "prepare": (0.00, "real work that runs once. The brief's candidate was feature prep "
                       "recomputed per recycle; that is refuted at source (one call, before "
                       "predict_step, outside the recycle loop), so there is no invariant to "
@@ -278,20 +295,27 @@ def main() -> int:
             "fraction_of_bar": round(reducible / REDUCIBLE_BAR, 3),
             "shortfall_s": round(REDUCIBLE_BAR - reducible, 4),
             "extreme_fraction_of_bar": None,  # filled below, needs `mixed`
+            "pipelined_service_only_s": tree["write_result"]["excl_s"],
+            "pipelined_service_only_argument":
+                "the CIF write, 0.0570 s. Real, and a THROUGHPUT win only: in a multi-target "
+                "service target N's write overlaps target N+1's fold, which is how JapanFold "
+                "serves. Against the 12.5 s latency cell it is worth nothing, because the timed "
+                "region ends with the file on disk and deferring the write stops the timer "
+                "earlier instead of finishing sooner.",
             "generous_ceiling_s": round(reducible + 0.5 * tree["prepare"]["excl_s"], 5),
-            "generous_argument": "crediting the CIF write in full and half of prepare, which is "
-                                 "not priced. predict_step is deliberately NOT credited at half "
-                                 "here: part of that leaf is host z_init the device path already "
-                                 "deleted, so half of it is half of a number that is partly gone.",
+            "generous_argument": "crediting half of prepare, which is not priced. Neither the "
+                                 "CIF write nor half of predict_step is credited: the write is "
+                                 "inside the timed region by definition, and half of "
+                                 "predict_step is half of a number that is partly gone to the "
+                                 "device already.",
             "extreme_ceiling_s": round(reducible + 0.5 * tree["prepare"]["excl_s"]
                                        + mixed, 5),
-            "extreme_argument": "the most the host can possibly give: the CIF write off the "
-                                "critical path, half of prepare, AND the whole predict_step leaf "
-                                "treated as reducible even though it is an upper bound that "
-                                "includes work already moved to the device. Still short of the "
-                                "bar. Everything past this point is host torch whose only route "
-                                "is onto the device, which converts host seconds into device "
-                                "seconds rather than deleting them.",
+            "extreme_argument": "the most the host can possibly give: half of prepare AND the "
+                                "whole predict_step leaf treated as reducible, even though that "
+                                "leaf is an upper bound including work already moved to the "
+                                "device. Still short of the bar. Everything past this point is "
+                                "host torch whose only route is onto the device, which converts "
+                                "host seconds into device seconds rather than deleting them.",
             "fold_if_all_named_host_deleted_s": [round(FOLD_TODAY - named_hi, 4),
                                                  round(FOLD_TODAY - named_lo, 4)],
         },

@@ -45,20 +45,22 @@
     "note": "a range because the `predict_step` leaf is an upper bound: part of it is host z_init that the default-on device path deleted. The low end assumes all of that leaf moved, the high end assumes none of it did."
   },
   "reducible_first_cut": {
-    "reducible_s": 0.05702,
+    "reducible_s": 0.0,
     "bar_s": 0.849,
-    "fraction_of_bar": 0.067,
-    "shortfall_s": 0.792,
-    "extreme_fraction_of_bar": 0.593,
-    "generous_ceiling_s": 0.1528,
-    "generous_argument": "crediting the CIF write in full and half of prepare, which is not priced. predict_step is deliberately NOT credited at half here: part of that leaf is host z_init the device path already deleted, so half of it is half of a number that is partly gone.",
-    "extreme_ceiling_s": 0.50379,
-    "extreme_argument": "the most the host can possibly give: the CIF write off the critical path, half of prepare, AND the whole predict_step leaf treated as reducible even though it is an upper bound that includes work already moved to the device. Still short of the bar. Everything past this point is host torch whose only route is onto the device, which converts host seconds into device seconds rather than deleting them.",
+    "fraction_of_bar": 0.0,
+    "shortfall_s": 0.849,
+    "extreme_fraction_of_bar": 0.526,
+    "pipelined_service_only_s": 0.05702,
+    "pipelined_service_only_argument": "the CIF write, 0.0570 s. Real, and a THROUGHPUT win only: in a multi-target service target N's write overlaps target N+1's fold, which is how JapanFold serves. Against the 12.5 s latency cell it is worth nothing, because the timed region ends with the file on disk and deferring the write stops the timer earlier instead of finishing sooner.",
+    "generous_ceiling_s": 0.09577,
+    "generous_argument": "crediting half of prepare, which is not priced. Neither the CIF write nor half of predict_step is credited: the write is inside the timed region by definition, and half of predict_step is half of a number that is partly gone to the device already.",
+    "extreme_ceiling_s": 0.44677,
+    "extreme_argument": "the most the host can possibly give: half of prepare AND the whole predict_step leaf treated as reducible, even though that leaf is an upper bound including work already moved to the device. Still short of the bar. Everything past this point is host torch whose only route is onto the device, which converts host seconds into device seconds rather than deleting them.",
     "fold_if_all_named_host_deleted_s": [
       13.6318,
       13.9828
     ],
-    "extreme_shortfall_s": 0.3452
+    "extreme_shortfall_s": 0.4022
   },
   "rows": [
     {
@@ -197,9 +199,9 @@
       "excl_s": 0.05702,
       "class": "host",
       "why": "CIF write + metrics, inside the timed region (model_meta.timed_region names it: featurize + fold + CIF write).",
-      "reducible_s": 0.05702,
-      "reducible_frac": 1.0,
-      "reducible_argument": "irreducible WORK, reducible COST. The CIF write sits inside the timed region and nothing downstream in the fold consumes it, so it can come off the critical path in full."
+      "reducible_s": 0.0,
+      "reducible_frac": 0.0,
+      "reducible_argument": "irreducible against the campaign's own timed region, which ends with the file on disk. Deferring it stops the timer earlier rather than finishing sooner. Worth 0.0570 s of THROUGHPUT in a pipelined multi-target service, recorded separately, and nothing against the 12.5 s latency cell."
     },
     {
       "item": "predict_step/input_embedder/atom_encoder",
