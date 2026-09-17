@@ -1,0 +1,29 @@
+{
+ "fold_s": 14.881,
+ "anchors": [
+  {
+   "label": "800 MHz anchor (the committed floor)",
+   "floor_s": 12.706201633707977,
+   "arith_s": 9.407581517409408,
+   "traffic_s": 3.298620116298568,
+   "host_ceiling_s": 2.1747983662920234,
+   "F_minus_host_s": 1.8082016337079767
+  },
+  {
+   "label": "1350 MHz anchor, cube+stream (central)",
+   "floor_s": 11.744271077154634,
+   "arith_s": 8.581034252071628,
+   "traffic_s": 3.1632368250830054,
+   "host_ceiling_s": 3.136728922845366,
+   "F_minus_host_s": 0.846271077154634
+  },
+  {
+   "label": "1350 MHz stream only, rates clock-immune",
+   "floor_s": 12.532910467400406,
+   "arith_s": 9.3696736423174,
+   "traffic_s": 3.1632368250830054,
+   "host_ceiling_s": 2.3480895325995945,
+   "F_minus_host_s": 1.6349104674004056
+  }
+ ]
+}
