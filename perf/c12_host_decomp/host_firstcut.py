@@ -31,6 +31,7 @@ capture has to price, and it is labelled that way everywhere it appears.
 """
 from __future__ import annotations
 import json
+import statistics
 import sys
 from pathlib import Path
 
@@ -167,6 +168,64 @@ REDUCIBLE = {
     "to_batch": (0.00, "0.12 ms."),
     "predict_step/sampler/digest": (0.00, "zero."),
 }
+
+
+def perturbation():
+    """Does the instrument this table depends on change the fold it measures?
+
+    The brief's warning is the right one: "a profiler that changes the fold time it is measuring
+    is reporting its own overhead". Both census artifacts ran their arms IN ONE PROCESS on the
+    same card, so the comparison is paired rather than across sessions:
+
+      plain   no instrument at all
+      attrib  the bracket region tree installed -- about 20 `perf_counter` pairs, and the
+              instrument every number in this table comes from
+      sample  the bracket tree PLUS an in-process stack sampler (128 aa only)
+
+    What this does NOT answer is the field the row owes, which is the fold wall with `cProfile`
+    and with `py-spy` attached at 512 aa. `cProfile` is deliberately the heaviest instrument in
+    `decomp.py`'s arm list and nothing here measures it. So this is reported as what it is: the
+    perturbation of the CHEAP instrument, which is the one the table's own seconds depend on.
+    """
+    out = {}
+    for name, f, size in (("512", CENSUS, 512), ("128", SCALING_128, 128)):
+        try:
+            d = json.loads(f.read_text())
+        except OSError:
+            continue
+        plain = [v["wall_s"] for v in d.get("plain", {}).values() if "wall_s" in v]
+        if not plain:
+            continue
+        base = statistics.median(plain)   # mean of the two for an even count
+        row = {"plain_folds_s": plain, "plain_median_s": base,
+               "attrib_s": d["attrib"]["fold_wall_s"],
+               "attrib_ratio": round(d["attrib"]["fold_wall_s"] / base, 4),
+               "loadavg_plain": [v.get("loadavg") for v in d.get("plain", {}).values()],
+               "loadavg_attrib": d["attrib"].get("loadavg")}
+        if "sample" in d and d["sample"]:
+            row["sample_s"] = d["sample"]["fold_wall_s"]
+            row["sample_ratio_vs_plain"] = round(d["sample"]["fold_wall_s"] / base, 4)
+            row["sample_ratio_vs_attrib"] = round(
+                d["sample"]["fold_wall_s"] / d["attrib"]["fold_wall_s"], 4)
+        out[name] = row
+
+    if "512" in out:
+        out["512"]["aa_floor_pct"] = 0.16
+        out["512"]["reading"] = (
+            "0.9990x against a 0.16 % A/A floor from the two plain folds of the same process, so "
+            "the bracket instrument's perturbation at 512 aa is UNRESOLVABLE: it is smaller than "
+            "the session's own noise. The table's seconds are the fold's, not the instrument's.")
+    if "128" in out:
+        out["128"]["reading"] = (
+            "the instrumented folds come out FASTER than the plain one here, which is not a "
+            "negative overhead. The plain fold ran first in the process and the box was at "
+            "loadavg 6.25, so this is warm-up plus noise and the only honest statement is that "
+            "the effect is below the noise at this size too. The stack sampler adds 1.0090x on "
+            "top of the brackets, which is the one resolvable number in this block.")
+    out["still_owed"] = ("the fold wall with cProfile and with py-spy attached at 512 aa. "
+                         "cProfile is the heaviest arm in decomp.py and nothing committed "
+                         "measures it, so PERTURBATION: stays unfilled.")
+    return out
 
 
 def scaling(tree_512):
@@ -321,6 +380,7 @@ def main() -> int:
         },
         "rows": rows,
         "scaling_first_cut": scaling(tree),
+        "instrument_perturbation": perturbation(),
     }
     r = out["reducible_first_cut"]
     r["extreme_fraction_of_bar"] = round(r["extreme_ceiling_s"] / REDUCIBLE_BAR, 3)

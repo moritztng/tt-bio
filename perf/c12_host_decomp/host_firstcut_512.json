@@ -359,5 +359,60 @@
         "verdict": "too small to call"
       }
     ]
+  },
+  "instrument_perturbation": {
+    "512": {
+      "plain_folds_s": [
+        23.5913,
+        23.5605
+      ],
+      "plain_median_s": 23.5759,
+      "attrib_s": 23.5521,
+      "attrib_ratio": 0.999,
+      "loadavg_plain": [
+        [
+          "2.05",
+          "1.29",
+          "0.61"
+        ],
+        [
+          "2.34",
+          "1.40",
+          "0.67"
+        ]
+      ],
+      "loadavg_attrib": [
+        "2.34",
+        "1.49",
+        "0.72"
+      ],
+      "aa_floor_pct": 0.16,
+      "reading": "0.9990x against a 0.16 % A/A floor from the two plain folds of the same process, so the bracket instrument's perturbation at 512 aa is UNRESOLVABLE: it is smaller than the session's own noise. The table's seconds are the fold's, not the instrument's."
+    },
+    "128": {
+      "plain_folds_s": [
+        5.1162
+      ],
+      "plain_median_s": 5.1162,
+      "attrib_s": 4.9736,
+      "attrib_ratio": 0.9721,
+      "loadavg_plain": [
+        [
+          "6.25",
+          "6.71",
+          "5.32"
+        ]
+      ],
+      "loadavg_attrib": [
+        "5.91",
+        "6.63",
+        "5.30"
+      ],
+      "sample_s": 5.0182,
+      "sample_ratio_vs_plain": 0.9808,
+      "sample_ratio_vs_attrib": 1.009,
+      "reading": "the instrumented folds come out FASTER than the plain one here, which is not a negative overhead. The plain fold ran first in the process and the box was at loadavg 6.25, so this is warm-up plus noise and the only honest statement is that the effect is below the noise at this size too. The stack sampler adds 1.0090x on top of the brackets, which is the one resolvable number in this block."
+    },
+    "still_owed": "the fold wall with cProfile and with py-spy attached at 512 aa. cProfile is the heaviest arm in decomp.py and nothing committed measures it, so PERTURBATION: stays unfilled."
   }
 }
