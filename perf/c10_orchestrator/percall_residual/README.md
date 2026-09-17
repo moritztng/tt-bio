@@ -1,5 +1,19 @@
 # The matmul gap is flat per call, not proportional to work — or the instrument added it
 
+>  **MEASURED 2026-09-17 — the prediction resolved to the REAL branch, not the instrument.**
+>
+> `c10-fold-census` measured the fold's own shapes on qb2 node 1 at a during-sampled 1350 MHz, 107
+> qualified intervals: the matmul class runs at **21.38 TFLOP/s**, which is **1.08× the modelled
+> 19.88** the residual was computed against. The class rate stayed near 20. That is branch one —
+> the per-call cost is **not** pc's harness, and the pc-to-qb2 carry that worried me did not bite on
+> this quantity.
+>
+> **I misread the in-flight data and said so in the state doc.** Reading its sweeps before it
+> reported, I saw the 768-family linears at 41–66 TFLOP/s and inferred the residual was collapsing.
+> It was not: the class's FLOPs sit in **thin small-K shapes**, so an unweighted glance at the fast
+> shapes says the opposite of the FLOP-weighted class. I recorded that reading as "not mine to
+> settle" and did not publish it, which is the only reason it did not become a wrong finding.
+
 [`../matmul_ceiling/`](../matmul_ceiling/) found the fold's matmuls running ~3.9× below what
 arithmetic intensity permits, and concluded that implementation binds rather than DRAM.
 "Implementation" is not a lever. This splits it, and the split is decidable from the shapes alone,

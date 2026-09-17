@@ -1,5 +1,23 @@
 # Bandwidth does not explain the fold's matmul rate
 
+>  **REFUTED 2026-09-17 by measurement. It is bandwidth after all.**
+>
+> `c10-fold-census` measured the fold's real shapes on qb2: **68 of 70 priced keys have the BYTE
+> roof binding**, and in seconds that is **10.2666 s of 10.5368 s — 97.4 %**. The matmul class runs
+> at **21.38 TFLOP/s**, not the 78.24 ceiling computed below.
+>
+> **Why this was wrong, specifically.** The ceiling here divides FLOPs by *compulsory* traffic,
+> `(M·K + K·N + M·N)` — the bytes a perfectly-reusing implementation would move. The fold's shapes
+> do not achieve that reuse: they are thin and small-K, so the bytes actually moved are far higher
+> and the real arithmetic intensity is far lower. "Not excluded by bandwidth" was true of the
+> *compulsory* byte count and false of the real one.
+>
+> The limits below already said 78.24 is "not excluded by bandwidth, NOT achievable". That hedge was
+> correct and it was not enough: a compulsory-traffic roofline is an upper bound loose enough to
+> point a campaign at the wrong axis, which is what it did. The sensitivity analysis showing the
+> result robust across every roof pair is also beside the point — the error was in the byte count,
+> not the roof.
+
 [`../frontier/`](../frontier/) established that the matmul class's achieved rate is the **only** axis
 with enough headroom to reach 10.0 s — and that the number saying so is modelled from per-shape
 rates measured on pc's 130-core firmware, not on qb2. Before spending a chip, one thing can be

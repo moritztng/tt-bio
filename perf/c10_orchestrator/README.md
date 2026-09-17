@@ -34,6 +34,26 @@ ignored, so the spin is inside native code; SIGKILL was required. The ARC stayed
 above-cap path is not implicated. This is a size users can ask for, and [`gate_coverage/`](gate_coverage/) shows the release gate could not have caught it: **every
 Boltz-2 target it folds above 117 aa runs 6 steps**, 33.3x shorter than the product's 200.
 
+## The answer
+
+**10.0 s does not exist on this fixture.** `c10-fold-census` measured the fold's own shapes on qb2
+at a during-sampled 1350 MHz across 107 qualified intervals and returned **STOP**: the matmul class
+runs at **21.38 TFLOP/s**, 17.5 % of the same-session dense cube and **1.08× the 19.88 this campaign
+had modelled**, against the **35.49** the target needs. The one axis with enough headroom does not
+deliver, because the class's FLOPs sit in thin small-K shapes whose arithmetic intensity is fixed by
+the shape.
+
+**The fold is bandwidth-bound where it matters**: 68 of 70 priced keys have the byte roof binding,
+**97.4 %** of the seconds above roof are above the *traffic* roof, and the elementwise classes run at
+**78.3 % of the measured DRAM roof** with `add_` on the pair representation **at** it (444.7 GB/s,
+100.40 %). That axis is already measured to cap at 1.487×.
+
+Three notes in this directory are corrected by that measurement rather than confirmed —
+[`matmul_ceiling/`](matmul_ceiling/) is refuted, [`arithmetic_free_traffic/`](arithmetic_free_traffic/)
+underpriced its own finding by 1.64–1.99×, and [`percall_residual/`](percall_residual/)'s
+pre-registered prediction resolved to the branch I had leaned away from. Each carries a banner
+saying so.
+
 ## Keeping this index honest
 
 This campaign's own story is numbers rotting: a 17.34 s cell that was a throttled clock, a 2.309 s

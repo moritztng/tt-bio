@@ -1,5 +1,20 @@
 # Half the fold's bytes move through ops that do none of its arithmetic
 
+>  **MEASURED 2026-09-17 — the direction was right and the cost was underpriced by 1.64–1.99×.**
+>
+> `c10-fold-census` measured the three classes named below on qb2 at a during-sampled 1350 MHz:
+> `multiply_`, `layer_norm` and `add_` move **1.432 TB in 4.1310 s / 5,576.9 Mcycles at
+> 346.7 GB/s**, which is **78.3 % of the measured DRAM roof**, with the large pair keys **at** it —
+> `add_` on `1x512x512x128` reads **444.7 GB/s, 100.40 % of roof**.
+>
+> The bracket below prices them at **2.074–2.523 s**, so it was **1.64–1.99× too low**. In the
+> census's words, "the 22 % spread between those two roofs was not the error that mattered" — I
+> treated a 22 % disagreement between two in-house roofs as the uncertainty when the real error was
+> nearly 2×, and both roofs underpriced the same way.
+>
+> The finding itself stands and is now measured rather than modelled: this traffic is real, it is
+> the fold's binding constraint, and it is larger than this note claimed.
+
 `c10-trace-lever` killed the ladder's largest item and [`../floor_vs_measured/`](../floor_vs_measured/)
 showed the clock-immune term `F` = 3.9830 s is not host overhead. That leaves bytes as the only
 known lever against 27 % of the fold — and the corpus's byte work was aimed at the compute ops

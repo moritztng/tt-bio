@@ -26,6 +26,7 @@
     ],
     "pinned clock": [
       "README.md",
+      "arithmetic_free_traffic/README.md",
       "cpu_prereq_review/README.md",
       "fit_reexam/README.md",
       "fixed_cost/README.md",
@@ -34,6 +35,7 @@
       "frontier/README.md",
       "ladder/README.md",
       "node1_anchor/README.md",
+      "percall_residual/README.md",
       "regression_check/README.md",
       "size_scaling/README.md"
     ]

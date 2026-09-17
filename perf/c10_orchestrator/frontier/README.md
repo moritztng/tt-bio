@@ -1,5 +1,20 @@
 # What 10.0 s would actually require
 
+>  **ANSWERED 2026-09-17: the axis does not deliver, and 10.0 s does not exist on this fixture.**
+>
+> This note named the matmul class's achieved rate as the only axis with enough headroom.
+> `c10-fold-census` measured it at the fold's real shapes on qb2 node 1, 107 qualified intervals at
+> a during-sampled 1350 MHz: **21.38 TFLOP/s**, 17.5 % of the same-session dense cube, and **1.08×
+> the 19.88 modelled here** — against the **35.49** the target needs. The modelled number survived a
+> matched-clock 110-core re-measure; what failed was the assumption that the gap to the cube was
+> reachable. The class's FLOPs sit in thin small-K shapes whose arithmetic intensity is set by the
+> shape.
+>
+> **97.4 % of the measured cycles above roof are above the TRAFFIC roof**, and that axis is already
+> measured to cap at 1.487×. So the fold is bandwidth-bound where it matters, the one large axis is
+> closed, and every other lever the campaign ever numbered sums to 0.90 s against a 4.846 s
+> requirement.
+
 `c10-fixed-cost` measured both terms of `T = F + W/f` at a pinned, during-sampled 1350 MHz, so the
 target stopped being a wall-clock wish and became a budget:
 
