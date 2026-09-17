@@ -121,6 +121,19 @@ zero. Someone should still confirm the trunk is device-bound rather than assume 
 trunk trace on the strength of the dispatch hypothesis would be building on a hypothesis this row
 refuted.
 
+## The 1 GiB region does not push a served size into OOM
+
+| fixture | 1 GiB region | no region |
+| --- | --- | --- |
+| 1024 aa | completes, rc 0, pLDDT 0.822942 | completes, rc 0 |
+| 1568 aa | `Buffer is not allocated` in `ttnn.reallocate`, rc 2 | same error, rc 2 |
+
+1568 aa is the largest committed fixture and it fails identically with and without the region, so
+the region is not what breaks it. That failure is reported here, not diagnosed; it belongs to
+whoever owns large-target support, not to this row. The repeated L1 circular-buffer `TT_THROW`
+lines at 1024 aa appear in both configurations and are the normal shape-routing fallback.
+`runs/oom1024_region`, `runs/oom1024_noregion`, `runs/oom1568`, `runs/oom1568_noregion`.
+
 ## CONTROL
 
 Every c10-bare-baseline and c10-fixed-cost control this row inherits is closed and was not redone;
