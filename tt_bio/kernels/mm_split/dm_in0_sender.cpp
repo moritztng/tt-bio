@@ -111,12 +111,14 @@ void kernel_main() {
 #endif  // FUSE_TERNARY
 
     const TensorShape2D in0_shape(M_tiles, K_tiles, padded_M_tiles, padded_K_tiles);
-    const TensorShape2D out_shape(M_tiles, N_tiles, padded_M_tiles, padded_N_tiles);
+    const TensorShape2D out_shape(
+        M_tiles, MM_OUT_N(N_tiles), padded_M_tiles, MM_OUT_N(padded_N_tiles));
     const TensorShape2D out0_shape(M_tiles, N_tiles_per_chunk, padded_M_tiles, N_tiles_per_chunk);
 
     constexpr uint32_t K_num_blocks = padded_K_tiles / K_block_tiles;
     constexpr uint32_t in0_block_num_tiles = M_block_tiles * K_block_tiles;
-    constexpr uint32_t out_block_num_tiles = M_block_tiles * N_block_tiles;
+    constexpr uint32_t out_N_block_tiles = MM_OUT_N(N_block_tiles);
+    constexpr uint32_t out_block_num_tiles = M_block_tiles * out_N_block_tiles;
 
     constexpr uint32_t cb_id_in0 = tt::CBIndex::c_0;
     constexpr uint32_t cb_id_out = tt::CBIndex::c_2;
@@ -214,25 +216,25 @@ void kernel_main() {
                         // write_block_sync_split is more generic (support multiple output tensors)
                         // But for N_chunks == 1 (non-split minimal_matmul), write_block_sync should be faster
                         if constexpr (N_chunks == 1) {
-                            write_block_sync<M_block_tiles, N_block_tiles>(
+                            write_block_sync<M_block_tiles, out_N_block_tiles>(
                                 std::get<0>(outputs_tuple),
                                 out_shape,
                                 out_read_ptr,
                                 out_tile_size,
                                 defer_write_m_tile,
                                 defer_write_m_tile_end,
-                                defer_write_n_tile,
-                                defer_write_n_tile_end);
+                                MM_OUT_N(defer_write_n_tile),
+                                MM_OUT_N(defer_write_n_tile_end));
                         } else {
-                            write_block_sync_split<M_block_tiles, N_block_tiles, N_chunks, N_tiles_per_chunk>(
+                            write_block_sync_split<M_block_tiles, out_N_block_tiles, N_chunks, N_tiles_per_chunk>(
                                 outputs_tuple,
                                 out0_shape,
                                 out_read_ptr,
                                 out_tile_size,
                                 defer_write_m_tile,
                                 defer_write_m_tile_end,
-                                defer_write_n_tile,
-                                defer_write_n_tile_end);
+                                MM_OUT_N(defer_write_n_tile),
+                                MM_OUT_N(defer_write_n_tile_end));
                         }
                         cb_pop_front(cb_id_out, out_block_num_tiles);
                     }
@@ -351,25 +353,25 @@ void kernel_main() {
                     // write_block_sync_granular_split is more generic (support multiple output tensors)
                     // But for N_chunks == 1 (non-split minimal_matmul), write_block_sync_granular should be faster
                     if constexpr (N_chunks == 1) {
-                        write_block_sync_granular<M_block_tiles, N_block_tiles>(
+                        write_block_sync_granular<M_block_tiles, out_N_block_tiles>(
                             std::get<0>(outputs_tuple),
                             out_shape,
                             cb_id_out,
                             out_tile_size,
                             m_tile,
                             m_tile_end,
-                            n_tile,
-                            n_tile_end);
+                            MM_OUT_N(n_tile),
+                            MM_OUT_N(n_tile_end));
                     } else {
-                        write_block_sync_granular_split<M_block_tiles, N_block_tiles, N_chunks, N_tiles_per_chunk>(
+                        write_block_sync_granular_split<M_block_tiles, out_N_block_tiles, N_chunks, N_tiles_per_chunk>(
                             outputs_tuple,
                             out0_shape,
                             cb_id_out,
                             out_tile_size,
                             m_tile,
                             m_tile_end,
-                            n_tile,
-                            n_tile_end);
+                            MM_OUT_N(n_tile),
+                            MM_OUT_N(n_tile_end));
                     }
                 }
             }

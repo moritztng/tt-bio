@@ -44,6 +44,16 @@
 #else
 #define MM_CHUNK_TILES(c, n_chunks, uniform) ((uint32_t)(uniform))
 #endif
+
+// The gated output stage packs one tile per (value, gate) pair, so every OUTPUT-side N quantity
+// halves while the in1 reads and the core split keep the pre-gate N. Tile-interleaved pairs make
+// the map exact: pre-gate tile t belongs to gated tile t >> 1, so a per-core range [2i, 2i+2)
+// becomes [i, i+1) with no remainder. Undefined here is the stock kernel's own expression.
+#ifdef MM_GATE
+#define MM_OUT_N(n) ((uint32_t)(n) >> 1)
+#else
+#define MM_OUT_N(n) ((uint32_t)(n))
+#endif
 // -----------------------------------------------------------------------------------------------
 
 namespace detail {

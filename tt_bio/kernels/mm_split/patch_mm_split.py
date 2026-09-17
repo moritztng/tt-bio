@@ -13,6 +13,15 @@ wheel's kernels byte for byte on the default path:
                LAST chunk carries that many N tiles instead, so two projections of different
                widths over one activation are two destinations of one matmul and the activation
                is read once. Addressing only: same tiles, same order, two buffers.
+  MM_GATE      the output stage gates the accumulated block instead of copying it: the N axis
+               carries tile-interleaved (value, gate) pairs and the epilogue packs
+               `p * sigmoid(g)`, so the op writes HALF the tiles it computes. That deletes the
+               DRAM round trip the separate `reblock_permute_gated` move pays for its operands.
+               Not bit-exact, and deliberately so -- `compute_reblock_permute_gated.cpp`'s header
+               is explicit that ttnn's sigmoid is only reproduced under a 16-bit DST, and the
+               in-projection runs `fp32_dest_acc_en=True`. Scored in Angstrom, not by digest.
+               Halving the write is a compile-time factor of two on the OUTPUT side only: the
+               weight, the in1 reads and the core split all stay on the pre-gate N.
   MM_DUAL_NOC  every second output tile goes out on the OTHER NOC. The writer RISC carries
                512 MiB on NOC_1 while the reader RISC carries 128 MiB on NOC_0, and
                `noc_async_write_tile` takes an explicit noc index, so half the drain can move
@@ -61,6 +70,16 @@ HELPER = r"""
     ((uint32_t)((c) + 1 == (n_chunks) ? (uint32_t)(MM_SPLIT_LAST_TILES) : (uint32_t)(uniform)))
 #else
 #define MM_CHUNK_TILES(c, n_chunks, uniform) ((uint32_t)(uniform))
+#endif
+
+// The gated output stage packs one tile per (value, gate) pair, so every OUTPUT-side N quantity
+// halves while the in1 reads and the core split keep the pre-gate N. Tile-interleaved pairs make
+// the map exact: pre-gate tile t belongs to gated tile t >> 1, so a per-core range [2i, 2i+2)
+// becomes [i, i+1) with no remainder. Undefined here is the stock kernel's own expression.
+#ifdef MM_GATE
+#define MM_OUT_N(n) ((uint32_t)(n) >> 1)
+#else
+#define MM_OUT_N(n) ((uint32_t)(n))
 #endif
 // -----------------------------------------------------------------------------------------------
 """
@@ -237,6 +256,174 @@ HPP_EDITS = [
 
 # A single counter for the whole kernel, so the alternation keeps striping across block
 # boundaries instead of restarting in phase on every block.
+# The OUTPUT half of both DM kernels, halved on the N axis under MM_GATE and the stock expression
+# without it. Both files carry byte-identical writer bodies, and either can be the output writer
+# depending on `transpose_core_grid`, so both get the same treatment. MM_GATE with FUSE_TERNARY is
+# not supported: `read_ternary_blocks_sync` reads `out_shape`, which is the post-gate shape here.
+OUT_EDITS = [
+    ("""    const TensorShape2D out_shape(M_tiles, N_tiles, padded_M_tiles, padded_N_tiles);""",
+     """    const TensorShape2D out_shape(
+        M_tiles, MM_OUT_N(N_tiles), padded_M_tiles, MM_OUT_N(padded_N_tiles));"""),
+    ("""    constexpr uint32_t out_block_num_tiles = M_block_tiles * N_block_tiles;""",
+     """    constexpr uint32_t out_N_block_tiles = MM_OUT_N(N_block_tiles);
+    constexpr uint32_t out_block_num_tiles = M_block_tiles * out_N_block_tiles;"""),
+    # deferred write, single destination
+    ("""                            write_block_sync<M_block_tiles, N_block_tiles>(
+                                std::get<0>(outputs_tuple),
+                                out_shape,
+                                out_read_ptr,
+                                out_tile_size,
+                                defer_write_m_tile,
+                                defer_write_m_tile_end,
+                                defer_write_n_tile,
+                                defer_write_n_tile_end);""",
+     """                            write_block_sync<M_block_tiles, out_N_block_tiles>(
+                                std::get<0>(outputs_tuple),
+                                out_shape,
+                                out_read_ptr,
+                                out_tile_size,
+                                defer_write_m_tile,
+                                defer_write_m_tile_end,
+                                MM_OUT_N(defer_write_n_tile),
+                                MM_OUT_N(defer_write_n_tile_end));"""),
+    # deferred write, split destinations
+    ("""                            write_block_sync_split<M_block_tiles, N_block_tiles, N_chunks, N_tiles_per_chunk>(
+                                outputs_tuple,
+                                out0_shape,
+                                out_read_ptr,
+                                out_tile_size,
+                                defer_write_m_tile,
+                                defer_write_m_tile_end,
+                                defer_write_n_tile,
+                                defer_write_n_tile_end);""",
+     """                            write_block_sync_split<M_block_tiles, out_N_block_tiles, N_chunks, N_tiles_per_chunk>(
+                                outputs_tuple,
+                                out0_shape,
+                                out_read_ptr,
+                                out_tile_size,
+                                defer_write_m_tile,
+                                defer_write_m_tile_end,
+                                MM_OUT_N(defer_write_n_tile),
+                                MM_OUT_N(defer_write_n_tile_end));"""),
+    # immediate write, single destination
+    ("""                        write_block_sync_granular<M_block_tiles, N_block_tiles>(
+                            std::get<0>(outputs_tuple),
+                            out_shape,
+                            cb_id_out,
+                            out_tile_size,
+                            m_tile,
+                            m_tile_end,
+                            n_tile,
+                            n_tile_end);""",
+     """                        write_block_sync_granular<M_block_tiles, out_N_block_tiles>(
+                            std::get<0>(outputs_tuple),
+                            out_shape,
+                            cb_id_out,
+                            out_tile_size,
+                            m_tile,
+                            m_tile_end,
+                            MM_OUT_N(n_tile),
+                            MM_OUT_N(n_tile_end));"""),
+    # immediate write, split destinations
+    ("""                        write_block_sync_granular_split<M_block_tiles, N_block_tiles, N_chunks, N_tiles_per_chunk>(
+                            outputs_tuple,
+                            out0_shape,
+                            cb_id_out,
+                            out_tile_size,
+                            m_tile,
+                            m_tile_end,
+                            n_tile,
+                            n_tile_end);""",
+     """                        write_block_sync_granular_split<M_block_tiles, out_N_block_tiles, N_chunks, N_tiles_per_chunk>(
+                            outputs_tuple,
+                            out0_shape,
+                            cb_id_out,
+                            out_tile_size,
+                            m_tile,
+                            m_tile_end,
+                            MM_OUT_N(n_tile),
+                            MM_OUT_N(n_tile_end));"""),
+]
+
+# The gate epilogue itself. `copy_block` is UNTOUCHED and keeps doing what it always did -- read the
+# fp32 accumulator, pack to bf16 -- only into a scratch CB instead of straight out. So the gate's
+# operands carry exactly today's bf16 mantissa, which is variant B of the pre-registration; gating
+# off the fp32 accumulator directly is variant A and is a different kernel, not a flag.
+GATE_BLOCK = r"""
+// --- tt-bio MM_GATE: the fused gate epilogue, see kernels/mm_split/patch_mm_split.py ------------
+// out[m, n/2] = p * sigmoid(g), over tile-interleaved (p, g) pairs on the N axis.
+//
+// This is stages 1-2 of `tt_bio/kernels/reblock_permute_gated/compute_reblock_permute_gated.cpp`
+// with its two CB round trips collapsed into DST. Its stage 3 (`transpose_wh`) is NOT here: this
+// arm writes the original [.., .., slice_c] layout and leaves the reblock to the plain move.
+//
+// THREE DEVIATIONS from the move it replaces, all documented rather than discovered:
+//   1. `calculate_sigmoid` branches on `fp32_dest_acc_en` at compile time and the in-projection
+//      runs it TRUE, so this takes the accurate branch where ttnn takes the cheap one -- a full
+//      bf16 ulp on 10.4 % of elements (measured over 3.28 M, perf/trimul_f2/e6_diag.py).
+//   2. sigmoid(g) stays in DST instead of being packed to bf16 before the multiply, so the
+//      product sees more mantissa than ttnn's. Costs nothing; a bf16-matched variant is one
+//      extra CB round trip and is named, not built.
+//   3. the packer breaks ties away from zero where ttnn breaks to even, 0.91 % of elements at a
+//      1.85 % tie rate.
+// All three push TOWARD float64, which is exactly why they are scored in Angstrom against a seed
+// floor and not argued from a reference. `c12-fused-eltwise-at-pin` failed while being more
+// accurate than what it replaced.
+void gate_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles) {
+    constexpr uint32_t P_DST = 0;
+    constexpr uint32_t G_DST = 1;
+    pack_reconfig_data_format(out_cb);
+    reconfig_data_format_srca(in_cb);
+
+    const uint32_t out_N_block_tiles = N_block_tiles >> 1;
+    uint32_t tile_id = 0;
+    for (uint32_t m = 0; m < M_block_tiles; m++) {
+        for (uint32_t n = 0; n < out_N_block_tiles; n++) {
+            tile_regs_acquire();
+            copy_tile_to_dst_init_short(in_cb);
+            copy_tile(in_cb, tile_id, P_DST);
+            copy_tile(in_cb, tile_id + 1, G_DST);
+            sigmoid_tile_init();
+            sigmoid_tile(G_DST);
+            mul_binary_tile_init();
+            mul_binary_tile(P_DST, G_DST, P_DST);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_tile(P_DST, out_cb);
+            tile_regs_release();
+            tile_id += 2;
+        }
+        cb_push_back(out_cb, out_N_block_tiles);
+    }
+}
+// -----------------------------------------------------------------------------------------------
+"""
+
+COMPUTE_EDITS = [
+    # the epilogue itself, ahead of kernel_main
+    ("""void kernel_main() {
+    constexpr uint32_t K_num_blocks = get_compile_time_arg_val(0);""",
+     GATE_BLOCK + """
+void kernel_main() {
+    constexpr uint32_t K_num_blocks = get_compile_time_arg_val(0);"""),
+    # c_7 is the scratch, the first index minimal_matmul leaves free (c_4..c_6 are bias/ternary).
+    ("""    constexpr uint32_t ternary_b_cb = tt::CBIndex::c_6;""",
+     """    constexpr uint32_t ternary_b_cb = tt::CBIndex::c_6;
+    constexpr uint32_t gate_cb = tt::CBIndex::c_7;"""),
+    # route the no-bias no-ternary output stage through the scratch CB and then the gate
+    ("""            copy_block(intermediate_cb, out_cb, M_block_tiles, N_block_tiles);""",
+     """#ifdef MM_GATE
+            cb_reserve_back(gate_cb, out_block_num_tiles);
+            copy_block(intermediate_cb, gate_cb, M_block_tiles, N_block_tiles);
+            cb_wait_front(gate_cb, out_block_num_tiles);
+            gate_block(gate_cb, out_cb, M_block_tiles, N_block_tiles);
+            cb_pop_front(gate_cb, out_block_num_tiles);
+#else
+            copy_block(intermediate_cb, out_cb, M_block_tiles, N_block_tiles);
+#endif"""),
+]
+
+
 HPP_COUNTER = ("""template <uint32_t M_block_tiles, uint32_t N_block_tiles, typename TensorAccessorType>
 void write_block_sync(""",
                """static uint32_t mm_write_seq = 0;
@@ -274,8 +461,11 @@ def main():
 
     for name in ("dm_in0_sender.cpp", "dm_in1_sender_out.cpp"):
         t = (src / name).read_text()
-        t = apply(t, CPP_EDITS, name)
+        t = apply(t, CPP_EDITS + OUT_EDITS, name)
         (OUT / name).write_text(t)
+
+    compute = apply((src / "compute.cpp").read_text(), COMPUTE_EDITS, "compute.cpp")
+    (OUT / "compute.cpp").write_text(compute)
 
     print("wrote", OUT, "from", src)
 

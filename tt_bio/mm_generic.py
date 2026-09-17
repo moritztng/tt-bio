@@ -120,7 +120,7 @@ def _cb(idx, core_grid, page_size, num_tiles, data_format):
 
 
 def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=None,
-          noc_mode=None, n_widths=None, compute_dir=None):
+          noc_mode=None, n_widths=None, compute_dir=None, gate=False):
     """The ProgramDescriptor for ``minimal_matmul(in0, in1) -> outs`` with block config ``cfg``.
 
     ``cfg`` is a 5-tuple ``(M_block, K_block, N_block, subblock_h, subblock_w)`` and a
@@ -145,6 +145,13 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     the core -- a gate, a channel move -- lives there and nowhere else, and generating it the way
     ``patch_mm_split.py`` generates the dataflow pair keeps the whole op on the shipped wheel.
     ``None`` is the wheel's own kernel, so every existing caller is byte-identical.
+
+    ``gate`` fuses the trimul gate into the output stage: the N axis carries tile-interleaved
+    (value, gate) pairs and the op writes ``p * sigmoid(g)``, so it emits HALF the tiles it
+    computes and ``outs`` is half as wide as ``in1``. It needs the patched compute kernel
+    (``compute_dir``) and sets ``MM_GATE`` for both, because the writer's own N geometry has to
+    halve with it -- the output stage pushes ``N_block_tiles / 2`` per row where the writer pops
+    ``N_block_tiles``, and a mismatch there writes plausible garbage rather than failing.
 
     ``noc_mode`` is for a DM kernel that issues transactions on the NOC it was NOT configured
     with. Under the default ``DM_DEDICATED_NOC`` the firmware only runs ``noc_local_state_init``
@@ -179,14 +186,24 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
 
     M_tiles, K_tiles, N_tiles = M // TILE_HW, K // TILE_HW, N // TILE_HW
     N_chunks = len(outs)
+    if gate:
+        # The gate consumes a (value, gate) tile pair and emits one tile, so every output-side N
+        # quantity is exactly half the contraction's. Both have to be even for the halving to be
+        # a shift rather than a rounding: N_block_tiles odd would split a pair across two blocks.
+        assert N_tiles % 2 == 0 and N_block_tiles % 2 == 0, (N_tiles, N_block_tiles)
+        defines = defines + [("MM_GATE", "1")]
+    out_N_tiles = N_tiles // 2 if gate else N_tiles
     if n_widths is None:
-        N_tiles_per_chunk = N_tiles // N_chunks
+        N_tiles_per_chunk = out_N_tiles // N_chunks
     else:
-        assert len(n_widths) == N_chunks and sum(n_widths) == N_tiles, (n_widths, N_tiles)
+        assert len(n_widths) == N_chunks and sum(n_widths) == out_N_tiles, (n_widths, out_N_tiles)
         assert len(set(n_widths[:-1])) <= 1, ("only the last chunk may differ", n_widths)
         N_tiles_per_chunk = n_widths[0]
         if n_widths[-1] != n_widths[0]:
             defines = defines + [("MM_SPLIT_LAST_TILES", str(int(n_widths[-1])))]
+    for o in outs:
+        assert int(o.padded_shape[-1]) // TILE_HW == N_tiles_per_chunk, (
+            "destination width must be the POST-gate width", o.padded_shape, N_tiles_per_chunk)
 
     in0_tile_size = tile_bytes(in0.dtype)
     in1_tile_size = tile_bytes(in1.dtype)
@@ -218,13 +235,20 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     in0_block = M_block_tiles * K_block_tiles
     in1_block = K_block_tiles * N_block_tiles
     out_block = M_block_tiles * N_block_tiles
+    # What leaves the core, which is half the accumulated block under the gate.
+    drain_block = M_block_tiles * (N_block_tiles // 2 if gate else N_block_tiles)
 
     cbs = [
         _cb(0, core_grid, in0_tile_size, in0_block * 2, in0.dtype),
         _cb(1, core_grid, in1_tile_size, in1_block * 2, in1.dtype),
-        _cb(2, core_grid, out_tile_size, out_block * 2, out.dtype),
+        _cb(2, core_grid, out_tile_size, drain_block * 2, out.dtype),
         _cb(3, core_grid, interm_tile_size, out_block, interm_fmt),
     ]
+    if gate:
+        # c_7 is the first index minimal_matmul leaves free (c_4 is bias, c_5/c_6 the ternary
+        # operands). Single-buffered and popped whole each block, which is what lets the out CB
+        # shrink by the same 16 tiles: the gate arm's L1 is within a tile of the stock op's.
+        cbs.append(_cb(7, core_grid, out_tile_size, out_block, out.dtype))
 
     # CreateSemaphore is called six times on the whole grid, so the ids are 0..5 in that order.
     sem_vals = [INVALID, INVALID, VALID, INVALID, INVALID, VALID]
@@ -352,18 +376,18 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
 
 
 def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None, n_widths=None,
-         compute_dir=None):
+         compute_dir=None, gate=False):
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     return (spec(in0), spec(in1), tuple(spec(o) for o in outs),
             cfg, tuple(str(c) for c in ckc),
             tuple(sorted(dict(defines).items())), str(kernel_dir), m_k, str(noc_mode),
-            None if n_widths is None else tuple(n_widths), str(compute_dir))
+            None if n_widths is None else tuple(n_widths), str(compute_dir), bool(gate))
 
 
 def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None,
-                           m_k=None, noc_mode=None, n_widths=None, compute_dir=None):
+                           m_k=None, noc_mode=None, n_widths=None, compute_dir=None, gate=False):
     """``minimal_matmul`` through ``generic_op``, descriptor cached per shape/config.
 
     ``compute_dir`` is part of the cache key, not just of the build: two arms of one A/B session
@@ -372,11 +396,12 @@ def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_
     """
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
-    key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k, noc_mode, n_widths, compute_dir)
+    key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k, noc_mode, n_widths,
+               compute_dir, gate)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = build(device, in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k,
-                                    noc_mode, n_widths, compute_dir)
+                                    noc_mode, n_widths, compute_dir, gate)
     addrs = (in0.buffer_address(), in1.buffer_address(),
              tuple(o.buffer_address() for o in outs))
     if addrs != entry["addrs"]:
