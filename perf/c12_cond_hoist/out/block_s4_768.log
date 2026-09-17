@@ -1,0 +1,13 @@
+2026-09-17 12:41:56.288 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-09-17 12:42:31.259 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2198016 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+  rep-1 base    pos0 fold 104.624s  load 14.42->17.46 sha=63212dda904fc7e4
+  rep-1 hoist   pos1 fold  36.213s  load 17.46->19.50 sha=744d5a88664f6368
+  rep-1 base    pos2 fold  33.444s  load 19.50->17.77 sha=63212dda904fc7e4
+  rep0  base    pos0 fold  32.957s  load 17.77->15.71 sha=63212dda904fc7e4
+  rep0  hoist   pos1 fold  33.087s  load 15.71->17.91 sha=744d5a88664f6368
+  rep0  base    pos2 fold  33.602s  load 17.91->20.48 sha=63212dda904fc7e4
+  rep1  base    pos0 fold  32.021s  load 20.48->17.15 sha=63212dda904fc7e4
+  rep1  hoist   pos1 fold  31.557s  load 17.15->12.51 sha=744d5a88664f6368
+  rep1  base    pos2 fold  38.396s  load 12.51->13.92 sha=63212dda904fc7e4
+  rep2  base    pos0 fold  36.583s  load 13.92->19.38 sha=63212dda904fc7e4

@@ -136,7 +136,11 @@ def main() -> int:
     work = Path(tempfile.mkdtemp(prefix="b2z2-hoist-"))
     struct_dir = work / "out"; struct_dir.mkdir(parents=True)
     msa_dir = work / "msa"; msa_dir.mkdir(parents=True)
-    for name in ("cdk2x2_512", "cdk2x2_298"):
+    # Seed exactly the sizes this run folds. One-size tuning is a standing defect class, so the
+    # size axis has to be reachable from the command line rather than from a hardcoded pair.
+    for size in sizes:
+        name = f"cdk2x2_{size}"
+        assert (AB.FIX / f"{name}.yaml").is_file(), f"no fixture {name}.yaml"
         AB._seed_msa(AB.FIX / f"{name}.yaml", (AB.FIX / f"{name}.a3m").read_text(), msa_dir)
 
     cfg = AB.build_cfg(msa_dir, struct_dir)
