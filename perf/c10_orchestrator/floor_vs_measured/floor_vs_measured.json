@@ -1,0 +1,92 @@
+{
+  "scope": "CPU comparison of a committed floor artifact against c10-fixed-cost's two measured terms. No device, no new fold, no new roof.",
+  "floor_artifact": "/home/moritz/.coworker/wt/c10-orchestrator/perf/roof_true/true_floor_512_qb2c2.json",
+  "measured": {
+    "F_s": 3.983,
+    "W_Mcyc": 14665.0,
+    "W_s_at_pin": 10.862962962962962,
+    "fold_s_at_pin": 14.845962962962963,
+    "pin_mhz": 1350.0
+  },
+  "two_terms": {
+    "clock_immune": {
+      "modelled_s": 4.223643280546267,
+      "measured_s": 3.983,
+      "delta_s": -0.24064328054626705,
+      "measured_pct_of_modelled": 94.3024714787196
+    },
+    "clock_scaled": {
+      "modelled_s": 10.807699106291253,
+      "measured_s": 10.862962962962962,
+      "delta_s": 0.05526385667170963,
+      "measured_pct_of_modelled": 100.5113378539521
+    },
+    "reading": "Both halves land close, which is structurally interesting and is NOT a validation: see provenance below, every input carries a different unrecorded clock and one was measured on a different machine."
+  },
+  "prize": {
+    "as_recorded_s": 2.308657613162305,
+    "identity": "prize_s = cell_of_record_s - floor_s",
+    "identity_holds": true,
+    "cell_of_record_s": 17.34,
+    "floor_s": 15.031342386837695,
+    "cell_clock_note": "the 17.34 s cell is what fold_s = 2.901 + 15355/AICLK returns at about 1063 MHz; it was never a slower code path",
+    "measured_fold_at_pinned_1350_s": 14.845962962962963,
+    "measured_minus_floor_s": -0.18537942387473194,
+    "prize_survives": false,
+    "verdict": "RETIRED. The fold at a pinned, recorded 1350 MHz is BELOW the floor the prize was measured against, so the 2.309 s was the clock and not headroom. Whatever the true floor is, the fold is not 2.309 s above it."
+  },
+  "provenance": [
+    {
+      "input": "stream_GBps",
+      "value": 424.7,
+      "problem": "a DRAM streaming roof with no recorded clock. Achievable bandwidth depends on how fast the dataflow RISCs issue NoC transactions, which AICLK does drive, so it is not automatically clock-clean either."
+    },
+    {
+      "input": "shape rates",
+      "value": "pc",
+      "problem": "measured on pc, NOT on qb2. pc's card runs custom 130-core firmware against qb2 p300c's 110 cores, so every per-shape achievable rate in the floor comes from a different machine with a different core count."
+    },
+    {
+      "input": "cell_scale",
+      "value": 0.7011,
+      "problem": "the profiled fold was 24.644 s and was scaled by 0.7011 to land on the 17.34 s cell of record, which is itself an unrecorded ~1063 MHz number."
+    },
+    {
+      "input": "dense_cube_TFLOPs",
+      "value": 104.93,
+      "problem": "no recorded clock. An arithmetic roof measured on a throttled chip inflates the arithmetic floor proportionally."
+    }
+  ],
+  "tension_with_size_scaling": {
+    "work_ratio_measured": 1.4096353115327682,
+    "by_flop_model": {
+      "FLOPs ~ N^1": {
+        "flop_ratio": 1.7181208053691275,
+        "required_rate_ratio_512_over_298": 1.2188406400666334,
+        "298_achieves_pct_of_512_rate": 82.04518024155566
+      },
+      "FLOPs ~ N^2": {
+        "flop_ratio": 2.9519391018422594,
+        "required_rate_ratio_512_over_298": 2.094115462127907,
+        "298_achieves_pct_of_512_rate": 47.752858812467935
+      },
+      "FLOPs ~ N^3": {
+        "flop_ratio": 5.071787987057841,
+        "required_rate_ratio_512_over_298": 3.5979433443271422,
+        "298_achieves_pct_of_512_rate": 27.79365610569423
+      }
+    },
+    "tile_arithmetic": "a 512x512 pair tensor is 16x16 = 256 tiles over a 110-core grid, about 2.3 tiles per core; at 298 aa it pads to 320 and becomes 10x10 = 100 tiles, under one tile per core. Severe under-fill at 298 is not speculative, it is what those tile counts mean.",
+    "reading": "Under an N^2 FLOP model the 298 aa fold would have to achieve about 48 % of 512 aa's rate for the arithmetic-roof picture and the measured work ratio to agree. That is a plausible amount of under-fill for a 100-tile tensor on 110 cores. So this is evidence AGAINST size_scaling's size-independent term being real work to delete, and it raises the prior that c10-size-scaling returns 'artifact'. It does not settle it: the same arithmetic-roof picture rests on shape rates measured on the wrong machine."
+  },
+  "hands_to_fold_census": [
+    "Re-measure both roofs on qb2 at a recorded 1350 MHz. The floor's arithmetic half comes from pc's 130-core firmware and cannot be carried to a 110-core p300c.",
+    "Report the traffic-bound and arithmetic-bound split of measured device time, because that split is what F and W are, and the model's version of it lands within 6 % and 0.5 % for reasons that may be structural or may be luck.",
+    "Do not quote floor_s = 15.031 s or prize_s = 2.309 s again without re-deriving them; the fold at a recorded clock is already below the first and the second is retired."
+  ],
+  "limits": [
+    "This compares a measurement to a model. Where they disagree the model is the suspect, and where they agree it may still be two errors cancelling.",
+    "Only 512 aa is compared: no 298 aa floor artifact exists, so the size axis of the floor model is untested.",
+    "Nothing here is a lever, no cycle is deleted, no accuracy is spent."
+  ]
+}

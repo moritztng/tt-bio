@@ -60,6 +60,13 @@ same as a larger one. That inflates `W(298)`, shrinks the measured ratio, and in
 confound and the finding are indistinguishable from two sizes, and **both sizes here are at or
 below 512.**
 
+[`../floor_vs_measured/`](../floor_vs_measured/) has since put a number on that worry, and it is
+not reassuring. If `W` is set by per-shape arithmetic roofs — and the floor artifact's
+arithmetic half lands within 0.5 % of the measured `W/f` — then `W` should scale the way the FLOPs
+do, and it does not. The two reconcile if 298 aa achieves only **48 % of 512 aa's rate** under an
+N^2 FLOP model, which is about what 100 tiles on a 110-core grid would do. So there is now direct
+counter-evidence, and the honest prior is that this finding may not survive.
+
 The discriminator is a size *above* 512, where under-fill cannot apply. `c10-size-scaling` runs
 384, 512, 640 and 768 aa from the committed `perf/size512/fixtures` ladder at two pinned clocks
 each. If `W` still grows sublinearly from 512 to 768, the size-independent term is real at 512 and
