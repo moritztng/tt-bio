@@ -1,3 +1,5 @@
 runs/trace_*.json
 runs/*.log
 runs/cif_*/
+runs/acc_arms/
+runs/seed_floor/
