@@ -1,0 +1,452 @@
+{
+ "table": [
+  {
+   "site": "trimul_in",
+   "calls": 560,
+   "ms": 1.492635,
+   "sec": 0.839204488,
+   "mc": 1132.9260588,
+   "tflops": 28.774397598877155,
+   "gbs": 269.89662098044255,
+   "cores": [
+    110
+   ],
+   "fid": [
+    "HiFi4"
+   ],
+   "gflop_call": 42.94967296,
+   "mb_call": 402.85714285714283
+  },
+  {
+   "site": "reblock_gated",
+   "calls": 1120,
+   "ms": 0.6447985,
+   "sec": 0.7225286080000001,
+   "mc": 975.4136208000001,
+   "tflops": 0.0,
+   "gbs": 312.25147967044853,
+   "cores": [
+    110
+   ],
+   "fid": [
+    "HiFi4"
+   ],
+   "gflop_call": 0.0,
+   "mb_call": 201.33928571428572
+  },
+  {
+   "site": "triatt_sdpa",
+   "calls": 560,
+   "ms": 1.2622300000000002,
+   "sec": 0.7066610959999999,
+   "mc": 953.9924795999999,
+   "tflops": 54.44291193839474,
+   "gbs": 214.33155152841732,
+   "cores": [
+    110
+   ],
+   "fid": [
+    "HiFi2"
+   ],
+   "gflop_call": 68.719476736,
+   "mb_call": 270.5357142857143
+  },
+  {
+   "site": "triatt_in",
+   "calls": 560,
+   "ms": 1.073331,
+   "sec": 0.601210296,
+   "mc": 811.6338996,
+   "tflops": 34.013013707793775,
+   "gbs": 328.4168630180252,
+   "cores": [
+    110
+   ],
+   "fid": [
+    "HiFi4"
+   ],
+   "gflop_call": 36.507222016,
+   "mb_call": 352.5
+  },
+  {
+   "site": "reblock_back",
+   "calls": 560,
+   "ms": 0.494081,
+   "sec": 0.27749865599999995,
+   "mc": 374.62318559999994,
+   "tflops": 0.0,
+   "gbs": 271.78886515715897,
+   "cores": [
+    110
+   ],
+   "fid": [
+    "HiFi2"
+   ],
+   "gflop_call": 0.0,
+   "mb_call": 134.28571428571428
+  },
+  {
+   "site": "triatt_out",
+   "calls": 560,
+   "ms": 0.40560050000000003,
+   "sec": 0.22718276,
+   "mc": 306.696726,
+   "tflops": 21.178313616477293,
+   "gbs": 165.539384549223,
+   "cores": [
+    110
+   ],
+   "fid": [
+    "HiFi4"
+   ],
+   "gflop_call": 8.589934592,
+   "mb_call": 67.14285714285714
+  }
+ ],
+ "legs": {
+  "pfl_prof2": [
+   {
+    "idx": 0,
+    "site": "trimul_in",
+    "ms": 1.505251,
+    "lo": 1.45362,
+    "hi": 1.541773,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 264
+   },
+   {
+    "idx": 1,
+    "site": "reblock_gated",
+    "ms": 0.642444,
+    "lo": 0.638087,
+    "hi": 0.644301,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 264
+   },
+   {
+    "idx": 2,
+    "site": "reblock_gated",
+    "ms": 0.646361,
+    "lo": 0.640604,
+    "hi": 0.64927,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 264
+   },
+   {
+    "idx": 3,
+    "site": "reblock_back",
+    "ms": 0.496713,
+    "lo": 0.489045,
+    "hi": 0.583193,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi2",
+    "calls_fold": 264
+   },
+   {
+    "idx": 4,
+    "site": "trimul_in",
+    "ms": 1.492884,
+    "lo": 1.459194,
+    "hi": 1.524721,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 264
+   },
+   {
+    "idx": 5,
+    "site": "reblock_gated",
+    "ms": 0.64393,
+    "lo": 0.640056,
+    "hi": 0.646153,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 264
+   },
+   {
+    "idx": 6,
+    "site": "reblock_gated",
+    "ms": 0.647779,
+    "lo": 0.64137,
+    "hi": 0.661438,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 264
+   },
+   {
+    "idx": 7,
+    "site": "reblock_back",
+    "ms": 0.494823,
+    "lo": 0.490041,
+    "hi": 0.615043,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi2",
+    "calls_fold": 264
+   },
+   {
+    "idx": 8,
+    "site": "triatt_in",
+    "ms": 1.075707,
+    "lo": 1.065334,
+    "hi": 1.079413,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 264
+   },
+   {
+    "idx": 9,
+    "site": "triatt_sdpa",
+    "ms": 1.262896,
+    "lo": 1.252302,
+    "hi": 1.264564,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi2",
+    "calls_fold": 264
+   },
+   {
+    "idx": 10,
+    "site": "triatt_out",
+    "ms": 0.39837,
+    "lo": 0.396494,
+    "hi": 0.399851,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 264
+   },
+   {
+    "idx": 11,
+    "site": "triatt_in",
+    "ms": 1.071504,
+    "lo": 1.064078,
+    "hi": 1.08385,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 264
+   },
+   {
+    "idx": 12,
+    "site": "triatt_sdpa",
+    "ms": 1.260853,
+    "lo": 1.253785,
+    "hi": 1.263079,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi2",
+    "calls_fold": 264
+   },
+   {
+    "idx": 13,
+    "site": "triatt_out",
+    "ms": 0.412831,
+    "lo": 0.408002,
+    "hi": 0.417484,
+    "reps": 13,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 264
+   }
+  ],
+  "msal_prof": [
+   {
+    "idx": 0,
+    "site": "trimul_in",
+    "ms": 1.488667,
+    "lo": 1.449226,
+    "hi": 1.531869,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 16
+   },
+   {
+    "idx": 1,
+    "site": "reblock_gated",
+    "ms": 0.643289,
+    "lo": 0.640049,
+    "hi": 0.647019,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 16
+   },
+   {
+    "idx": 2,
+    "site": "reblock_gated",
+    "ms": 0.645667,
+    "lo": 0.64222,
+    "hi": 0.650064,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 16
+   },
+   {
+    "idx": 3,
+    "site": "reblock_back",
+    "ms": 0.489983,
+    "lo": 0.486207,
+    "hi": 0.513321,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi2",
+    "calls_fold": 16
+   },
+   {
+    "idx": 4,
+    "site": "trimul_in",
+    "ms": 1.492386,
+    "lo": 1.467085,
+    "hi": 1.499391,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 16
+   },
+   {
+    "idx": 5,
+    "site": "reblock_gated",
+    "ms": 0.643915,
+    "lo": 0.640572,
+    "hi": 0.647007,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 16
+   },
+   {
+    "idx": 6,
+    "site": "reblock_gated",
+    "ms": 0.646686,
+    "lo": 0.642704,
+    "hi": 0.650259,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 16
+   },
+   {
+    "idx": 7,
+    "site": "reblock_back",
+    "ms": 0.493339,
+    "lo": 0.484351,
+    "hi": 0.597843,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi2",
+    "calls_fold": 16
+   },
+   {
+    "idx": 8,
+    "site": "triatt_in",
+    "ms": 1.073926,
+    "lo": 1.0663,
+    "hi": 1.083182,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 16
+   },
+   {
+    "idx": 9,
+    "site": "triatt_sdpa",
+    "ms": 1.261867,
+    "lo": 1.258539,
+    "hi": 1.2661,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi2",
+    "calls_fold": 16
+   },
+   {
+    "idx": 10,
+    "site": "triatt_out",
+    "ms": 0.398156,
+    "lo": 0.396547,
+    "hi": 0.399704,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 16
+   },
+   {
+    "idx": 11,
+    "site": "triatt_in",
+    "ms": 1.072736,
+    "lo": 1.061727,
+    "hi": 1.079974,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 16
+   },
+   {
+    "idx": 12,
+    "site": "triatt_sdpa",
+    "ms": 1.262593,
+    "lo": 1.255755,
+    "hi": 1.266241,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi2",
+    "calls_fold": 16
+   },
+   {
+    "idx": 13,
+    "site": "triatt_out",
+    "ms": 0.41595,
+    "lo": 0.411164,
+    "hi": 0.419085,
+    "reps": 11,
+    "cores": 110,
+    "avail": 110,
+    "fid": "HiFi4",
+    "calls_fold": 16
+   }
+  ]
+ },
+ "total_s": 3.374285904,
+ "total_mc": 4555.2859704,
+ "tflop_fold": 87.78913153024,
+ "agg_tflops": 26.017099329423033
+}
