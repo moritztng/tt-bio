@@ -23,6 +23,14 @@ THREE THINGS THIS FILE CHECKS.
   destination was RESERVED in L1 by `ttnn.allocate_tensor_on_device` is in neither set, fails
   `moves_dram`, and is charged nothing -- not even the DRAM it reads. Reported as a repair beside
   the published number, never folded into it.
+* the band. `c12-orchestrator` (9d16d1455, `perf/c12_orchestrator/replay_bias/`) measured that the
+  census's per-key prices carry two uncontrolled biases that push opposite ways: `replay.py`
+  allocates every operand AND every output `DRAM_MEMORY_CONFIG` while the fold runs many of these
+  ops L1-resident (byte ratio 2.23x on multiply_, 1.83x on linear, and the control classes the fold
+  really does run through DRAM agree at 1.00-1.03x), and the published `linear`/`matmul` seconds are
+  the `@grid110` arm while the fold passes no core_grid. So the 10.5368 s is not a point and the
+  closure below is stated as a band with THREE unknowns, of which only F is measured. The pinned
+  copy of that artifact is `replay_bias_9d16d1455.json` beside this file.
 * the arithmetic term's basis. Every generic_op matmul row is covered by a measured class, and for
   three of the four the rate comes from a NATIVE qb2 card-3 arm on the shipped kernel at the fold's
   own FLOP count (`perf/roof_triatt_rate/rate_ab_512_qb2c3.json`: ship_sdpa, ship_in, ship_out).
@@ -420,9 +428,82 @@ def main():
     print("  closure with it: 10.5368 + %.4f + %.4f = %.4f s against a %.3f s fold -> %+.4f s "
           "for ALL host time" % (natn + tm + rb, (allb - pb - G["B"]) / DRAM_ROOF, dev, FOLD_S,
                                  FOLD_S - dev))
+
     out["bracket_floor_s"] = brack
     out["native_join_s"] = {"raw": nat + tm + rb, "at_1350": natn + tm + rb,
                             "clock_ratio": rr, "closure_s": dev}
+
+    # --- the band: three unknowns, one measured ----------------------------------------------
+    # P (the 8 priced classes' true in-fold cost), G (generic_op) and H (exposed host) plus U
+    # (other unpriced device traffic) have to sum to the 14.881 s fold. The census's 10.5368 s is
+    # not P: `c12-orchestrator`'s replay_bias measured a DRAM-operand overprice on every class and
+    # a grid-110 underprice on linear+matmul, and they cancel in the aggregate. Byte-correcting
+    # each class by its own measured ratio brackets P from the replay side; the classes' own
+    # roofline floor brackets it from below; the fold identity brackets it from above.
+    rbrows = json.loads((HERE / "replay_bias_9d16d1455.json").read_text())["rows"]
+    pub = {"linear": 4.6604, "matmul": 1.479, "multiply_": 1.751, "layer_norm_w": 1.357 + 0.176,
+           "add_": 0.847, "add": 0.140, "multiply": 0.126}
+    print("\n=== the band: byte-correcting the census's replay prices ===")
+    print("  %-14s %8s %8s %9s %9s %9s" % ("class", "pub s", "byte x", "pub/ratio",
+                                           "bare s", "bare/ratio"))
+    plo = phi = 0.0
+    for r in sorted(rbrows, key=lambda r: -pub[r["class"]]):
+        c, br = r["class"], r["byte_ratio"]
+        plo += pub[c] / br
+        phi += r["bare_s"] / br
+        print("  %-14s %8.4f %8.4f %9.4f %9.4f %9.4f  (published arm: %s)"
+              % (c, pub[c], br, pub[c] / br, r["bare_s"], r["bare_s"] / br, r["published_arm"]))
+    print("  %-14s %8.4f %8s %9.4f %9.4f %9.4f" % ("TOTAL", sum(pub.values()), "", plo,
+                                                   sum(r["bare_s"] for r in rbrows), phi))
+    PRICED = {"ttnn.add", "ttnn.add_", "ttnn.layer_norm", "ttnn.linear", "ttnn.matmul",
+              "ttnn.multiply", "ttnn.multiply_"}
+    band = {}
+    for cor in (R["cube"], CUBE_MEAS):
+        R2 = TF.setup(PERF, A)
+        R2["eltwise_rate"] = R2["lo_rate"]
+        R2["stream"] = DRAM_ROOF
+        R2["RATES"] = TF.class_rates(R2["WG"], R2["roofs"], cor)
+        f = defaultdict(float)
+        for sig in TF.TOP:
+            calls = R2["by"][sig]["calls"]
+            J2 = TF.Join(R2, sig)
+            for i in range(len(J2.ops)):
+                nm = J2.ops[i]["name"]
+                (_B, _Fm, _Fe, t_tr, t_ar, *_r) = TF.op_terms(R2, J2, i)
+                f["priced" if nm in PRICED else
+                  ("generic" if nm == GENERIC else "other")] += calls * max(t_tr, t_ar)
+            f["other"] += calls * J2.unattributed / DRAM_ROOF
+        gnat = out["native_join_s"]["at_1350"]
+        devf = f["priced"] + gnat + f["other"]
+        band[cor / 1e12] = {"P_floor": f["priced"], "G_floor": f["generic"], "G_native": gnat,
+                            "U_floor": f["other"], "device_floor": devf,
+                            "H_ceiling": FOLD_S - devf,
+                            "P_ceiling_at_H0": FOLD_S - gnat - f["other"]}
+        print("\n  rates scaled to %.2f TFLOP/s:" % (cor / 1e12))
+        print("    P floor %.4f s / %.1f Mc | G native %.4f s (model floor %.4f) | U floor "
+              "%.4f s" % (f["priced"], f["priced"] * MHZ, gnat, f["generic"], f["other"]))
+        print("    device floor %.4f s -> H ceiling %.4f s / %.1f Mc ; P ceiling at H=0 is "
+              "%.4f s" % (devf, FOLD_S - devf, (FOLD_S - devf) * MHZ,
+                          FOLD_S - gnat - f["other"]))
+    lo = min(b["P_floor"] for b in band.values())
+    hi = max(b["P_ceiling_at_H0"] for b in band.values())
+    print("\n  P (8 priced classes, in-fold) is in [%.4f, %.4f] s / [%.1f, %.1f] Mc." % (
+        lo, hi, lo * MHZ, hi * MHZ))
+    print("  The published %.4f s is ABOVE that band's top by %.4f s even with ZERO host time."
+          % (sum(pub.values()), sum(pub.values()) - hi))
+    print("  Byte-corrected: %.4f s on the published arms (below P's own floor, so the ratio "
+          "over-corrects) and %.4f s on the bare arms (%.4f s above the H=0 ceiling, so the bare "
+          "arm is refuted too). NEITHER replay arm is a consistent in-fold price."
+          % (plo, phi, phi - hi))
+    print("  H ceiling across the band: %.4f - %.4f s / %.1f - %.1f Mc, against F = 3.9830 "
+          "+/- 0.1181 s." % (min(b["H_ceiling"] for b in band.values()),
+                             max(b["H_ceiling"] for b in band.values()),
+                             min(b["H_ceiling"] for b in band.values()) * MHZ,
+                             max(b["H_ceiling"] for b in band.values()) * MHZ))
+    out["band"] = {"P_byte_corrected_published_arms_s": plo,
+                   "P_byte_corrected_bare_arms_s": phi,
+                   "P_band_s": [lo, hi], "per_cube": band}
+    (HERE / "genop_audit.json").write_text(json.dumps(out, indent=1, default=float))
     (HERE / "genop_audit.json").write_text(json.dumps(out, indent=1, default=float))
     return 0
 
