@@ -11,25 +11,25 @@
   "ladder": [
     {
       "item": "ttnn trace of the diffusion loop",
-      "mechanism": "replay one captured graph per sampling step, removing the host's per-call dispatch for 219,200 of the fold's ~287,000 program-launching calls",
-      "fold_s": 3.02,
-      "evidence": "arithmetic on measured artifacts, not itself measured",
-      "basis": "3.952 s clock-immune term measured from an interleaved 800/1339 MHz A/B (33 ms worst residual), times the diffusion loop's 76 % share of launching calls",
-      "accuracy_spend": "none claimed: the code documents the replayed graph as bit-identical to the untraced forward, so a digest comparison settles it for free",
+      "mechanism": "replay one captured graph per sampling step, removing the host's per-call dispatch for 219,200 of the fold's ~287,000 program-launching calls -- which it does, and the fold does not get shorter",
+      "fold_s": 0.0,
+      "evidence": "measured on Blackhole at a recorded clock",
+      "basis": "REFUTED. Sized at 3.02 s from the clock-immune term times the diffusion loop's 76 % share of launching calls; c10-trace-lever then measured -0.0214 s at 512 aa and -0.0161 s at 298 aa at a pinned 1350 MHz, both inside their own A/A floors of 0.055 s and 0.043 s, and the null reproduces at 1000 MHz. The call arithmetic was right and the inference from it was wrong",
+      "accuracy_spend": "none, and it was free to check: one CIF digest per size across all 40 accepted folds, identical in both arms, max Kabsch RMSD 3.7e-15 A",
       "row": "c10-trace-lever",
-      "status": "queued",
-      "Mcycles": 4077.0
+      "status": "concluded NO-GO",
+      "Mcycles": 0.0
     },
     {
       "item": "cut the rest of the clock-immune term",
       "mechanism": "featurization, MSA handling, output writing and whatever dispatch the trace does not reach",
-      "fold_s": 0.93,
-      "evidence": "arithmetic on measured artifacts, not itself measured",
-      "basis": "the 3.952 s clock-immune term minus the 3.02 s the trace reaches",
+      "fold_s": null,
+      "evidence": "not measured anywhere",
+      "basis": "the WHOLE 3.9830 s clock-immune term is now unattributed, not 0.93 s of it: the trace reaches none of it. Two independent lines say it is not host dispatch -- the trace null, and F scaling at N^1.32 +- 0.07, 19 sigma from size-independent. A term that grows at N^1.3 and survives dispatch removal looks like DRAM-bound device time, which AICLK does not drive. No value can be quoted until something measures what it is made of",
       "accuracy_spend": "unknown, depends entirely on what it turns out to be",
-      "row": "c10-fixed-cost measures the term; no row attacks the remainder yet",
+      "row": "c10-fold-census owes the split; no row attacks it yet",
       "status": "unowned",
-      "Mcycles": 1255.5
+      "Mcycles": null
     },
     {
       "item": "per-class grid sizing, trimul and triangle attention",
@@ -94,25 +94,24 @@
     }
   ],
   "priced_total": {
-    "fold_s": 4.16,
-    "Mcycles": 5616.0,
+    "fold_s": 0.21,
+    "Mcycles": 283.5,
     "items": [
       "ttnn trace of the diffusion loop",
-      "cut the rest of the clock-immune term",
       "TT_BIO_HEAD_PAD_TAIL"
     ],
     "dropped_as_mutually_exclusive": [
       "TT_BIO_DIT_FUSED_QKV"
     ],
-    "naive_sum_including_excluded_s": 4.28,
-    "would_read_s": 10.7213252375,
-    "covers_pct_of_gap": 85.22275811579743
+    "naive_sum_including_excluded_s": 0.32999999999999996,
+    "would_read_s": 14.6713252375,
+    "covers_pct_of_gap": 4.3021103856532354
   },
   "honest_reading": [
     "Nothing in this table has been measured as a fold-level win yet. Cycles saved to date: zero. Accuracy spent to date: none.",
     "Two of the priced rows are DERIVED, meaning arithmetic over measured artifacts rather than a measured lever, and two are Wormhole numbers that have never run on Blackhole. Do not read the total as a forecast.",
     "The two Wormhole rows cannot both ship: jointly they are 0.713 A against a 0.60 A bar.",
     "Perturbations stack strongly sub-additively on this fixture, so a stack must be measured as a stack and never by summing individual readings. This total is an inventory, not a prediction.",
-    "If every priced row landed at its full value the fold would read 10.72 s, which is above the 10.0 s target. On present evidence the target needs either the clock-immune term to give up more than the trace reaches, or a device-work lever nobody has found yet."
+    "If every priced row landed at its full value the fold would read 14.67 s, which is above the 10.0 s target. On present evidence the target needs either the clock-immune term to give up something the trace demonstrably does not reach, or a device-work lever nobody has found. The one sized candidate left is the size-independent share of the work term, 3,301 to 8,220 Mcycles, which c10-size-scaling is measuring. nobody has found yet."
   ]
 }

@@ -7,16 +7,25 @@ consolidation over artifacts other rows measured. Nothing in this directory open
 fold, min = max = 1350 MHz across all 36 folds, 16 accepted per size, zero same-seed structural
 deviation (`c10-bare-baseline`, `bc66f7d6d`).
 
+**Where the fold's time actually is.** `c10-fixed-cost` measured both terms of `T = F + W/f` at
+four pinned clocks: **F = 3.9830 ± 0.1181 s is clock-immune** and **W = 14665.0 ± 121.1 Mcycles**
+scales with AICLK. Two things then happened to the campaign's reading of `F`. The one lever sized
+against it, a trace of the diffusion loop's host dispatch, was predicted at +3.04 s and **measured
+-0.0214 s — nothing**. And `F` turns out to be size-*dependent*, scaling at N^1.3, which host
+dispatch cannot do. So `F` is not collapsible overhead, and the byte axis is the only known lever
+against it.
+
 ## Findings
 
 | | |
 |---|---|
+| [`size_scaling/`](size_scaling/) | **The clock-scaled work grows at N^0.63, slower than the target does.** Work ratio 1.4096 ± 0.0131 against a token ratio of 1.718. Under a non-negative mixture that puts a rigorous floor of **3,301 Mcycles (22.5 % of W512)** under work that does not grow with the target at all, and the pair-tensor reading puts it at 8,220 (56.1 %) — against a deletion target of 6,542. `F` scales at N^1.32 ± 0.07, 19 σ from zero, which is how it is known not to be host dispatch. Could still be 298 aa under-filling the grid; `c10-size-scaling` settles that at 640 and 768 aa. |
 | [`fixed_cost/`](fixed_cost/) | **3.952 s of the fold is clock-immune**, 27 %, solved from an interleaved 800/1339 MHz A/B that was already in the corpus. Worst residual 33 ms; predicts an out-of-sample arm to 1.9 ms. A mean-clock label carries 0.364 s of error across sessions, which is larger than any lever on record, so old ratios cannot be clock-corrected by arithmetic. |
-| [`dispatch_hypothesis/`](dispatch_hypothesis/) | The fold issues 465,664 top-level ttnn calls, 8.49 µs of clock-immune cost each, while the device's own measured launch cost is 0.487 s, 12 % of the term. The diffusion loop is 219,200 device programs, **76 % of the launching calls**, so a trace of it reaches about **3.02 s**. |
+| [`dispatch_hypothesis/`](dispatch_hypothesis/) | **Refuted by measurement.** The fold issues 465,664 top-level ttnn calls and the diffusion loop is 219,200 device programs, 76 % of them, so a trace of it was sized at **3.02 s**. `c10-trace-lever` ran it: **-0.0214 s at 512 aa, inside a 0.055 s A/A floor**, byte-identical CIF. The call arithmetic was right and the inference from it was wrong. |
 | [`floor_mix/`](floor_mix/) | **The byte axis caps at 1.487x** of the floor: delete every byte and 12.706 s becomes 8.543 s. Independently reproduces the lever corpus's 1.470x. The headroom is in the elementwise tail, not the matmuls: `ttnn.linear` is the largest call class in the fold and its entire byte headroom is 0.140 s. |
 | [`shape_rank/`](shape_rank/) | **No giant is hiding.** 60 shapes, top 20 hold 31.5 %, none over 3.6 %. A lever has to hit a class across many shapes or remove per-call cost. |
-| [`ladder/`](ladder/) | Every candidate with an evidence class. **Priced total 4.16 s, which reads 10.72 s**, not 10.0 s. Two Wormhole rows are jointly 0.713 Å against a 0.60 Å bar and cannot both ship. |
-| [`remainder/`](remainder/) | Of the 0.93 s the trace cannot reach, about 0.612 s is named host work: feature preparation, the input embedder, relative-position encoding, CIF writing. A hypothesis, measured on the wrong CPU. |
+| [`ladder/`](ladder/) | Every candidate with an evidence class. Priced total was 4.16 s reading 10.72 s; **3.02 s of that was the diffusion trace, now measured at zero**, so the ladder's remaining priced value is about 0.2 s. Two Wormhole rows are jointly 0.713 Å against a 0.60 Å bar and cannot both ship. |
+| [`remainder/`](remainder/) | Of the 0.93 s the trace was thought not to reach, about 0.612 s is named host work: feature preparation, the input embedder, relative-position encoding, CIF writing. A hypothesis, measured on the wrong CPU, and now the trace reaches none of `F` at all, so the whole 3.98 s is unattributed rather than 0.93 s of it. |
 | [`fit_reexam/`](fit_reexam/) | The campaign's 37.6 % target came from the least-supported of four fits. Tested against an arm in none of them, it misses by 284 ms where the clean fit misses by 1.9 ms. |
 | [`grid_evidence/`](grid_evidence/) | The second-ranked lever's evidence is **Wormhole**, and on that same sweep the two classes move in opposite directions. **No Blackhole core sweep exists.** The 810 Mcycles was withdrawn as a cross-architecture transfer. |
 | [`regression_check/`](regression_check/) | The "+2.3 % regression" on main is not one. The above-cap fused SDPA route needs `q_len > 1024` and 512 aa has 512, so it cannot fire; the gap is smaller than the comparison's own 0.364 s error. |

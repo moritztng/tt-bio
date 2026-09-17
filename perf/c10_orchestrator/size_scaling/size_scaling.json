@@ -1,0 +1,168 @@
+{
+  "scope": "CPU re-reading of c10-fixed-cost's two-size measurement. No device, no new fold, no new timing. Every input is quoted and checked, not re-measured.",
+  "inputs": {
+    "512": {
+      "F_s": 3.983,
+      "F_se": 0.1181,
+      "W_Mcyc": 14665.0,
+      "W_se": 121.1,
+      "tokens": 512,
+      "padded": 512,
+      "atoms": 4116
+    },
+    "298": {
+      "F_s": 1.95,
+      "F_se": 0.0438,
+      "W_Mcyc": 10403.4,
+      "W_se": 44.9,
+      "tokens": 298,
+      "padded": 320,
+      "atoms": 2397
+    }
+  },
+  "pin_mhz": 1350.0,
+  "work_ratio": {
+    "value": 1.4096353115327682,
+    "se": 0.013134405743208713
+  },
+  "fixed_ratio": {
+    "value": 2.0425641025641026,
+    "se": 0.07597963731305413
+  },
+  "size_ratios": {
+    "tokens": 1.7181208053691275,
+    "padded32": 1.6,
+    "atoms": 1.7171464330413015
+  },
+  "scaling": {
+    "tokens": {
+      "r": 1.7181208053691275,
+      "p_work": {
+        "value": 0.634351947234159,
+        "se": 0.017215549248166054
+      },
+      "p_fixed": {
+        "value": 1.3195950505697838,
+        "se": 0.06872879763308445,
+        "sigma_from_zero": 19.200031078887392,
+        "sigma_from_one": 4.650089359572007
+      },
+      "size_independent_work_Mcyc": {
+        "1": {
+          "A": 4469.022429906542,
+          "pct_of_W512": 30.47407043918542,
+          "seconds_at_pin": 3.310386985115957
+        },
+        "2": {
+          "A": 8220.135165570553,
+          "pct_of_W512": 56.05274575909003,
+          "seconds_at_pin": 6.088989011533743
+        },
+        "3": {
+          "A": 9356.783620771643,
+          "pct_of_W512": 63.803502357801854,
+          "seconds_at_pin": 6.930950830201217
+        }
+      },
+      "pure_power_exponent": 0.634351947234159
+    },
+    "padded32": {
+      "r": 1.6,
+      "p_work": {
+        "value": 0.7304859053617283,
+        "se": 0.019824509302253178
+      },
+      "p_fixed": {
+        "value": 1.5195753547052673,
+        "se": 0.07914442161378647,
+        "sigma_from_zero": 19.200031078887392,
+        "sigma_from_one": 6.564901784748913
+      },
+      "size_independent_work_Mcyc": {
+        "1": {
+          "A": 3300.733333333331,
+          "pct_of_W512": 22.507557677008734,
+          "seconds_at_pin": 2.4449876543209856
+        },
+        "2": {
+          "A": 7671.605128205129,
+          "pct_of_W512": 52.31234318585155,
+          "seconds_at_pin": 5.682670465337133
+        },
+        "3": {
+          "A": 9026.914211886304,
+          "pct_of_W512": 61.554137142081856,
+          "seconds_at_pin": 6.68660311991578
+        }
+      },
+      "pure_power_exponent": 0.7304859053617283
+    },
+    "atoms": {
+      "r": 1.7171464330413015,
+      "p_work": {
+        "value": 0.6350175227782142,
+        "se": 0.01723361216829583
+      },
+      "p_fixed": {
+        "value": 1.3209795977403962,
+        "se": 0.06880090934816052,
+        "sigma_from_zero": 19.200031078887392,
+        "sigma_from_one": 4.665339466897293
+      },
+      "size_independent_work_Mcyc": {
+        "1": {
+          "A": 4460.959511343804,
+          "pct_of_W512": 30.419089746633507,
+          "seconds_at_pin": 3.304414452847262
+        },
+        "2": {
+          "A": 8216.3848224614,
+          "pct_of_W512": 56.027172331819976,
+          "seconds_at_pin": 6.086210979601036
+        },
+        "3": {
+          "A": 9354.562201960955,
+          "pct_of_W512": 63.78835459912004,
+          "seconds_at_pin": 6.929305334785893
+        }
+      },
+      "pure_power_exponent": 0.6350175227782142
+    }
+  },
+  "demand": {
+    "fold_s_at_pin": 14.845962962962963,
+    "clock_scaled_s_at_pin": 10.862962962962962,
+    "clock_immune_s": 3.983,
+    "allowed_W_Mcyc_at_target": 8122.949999999999,
+    "cut_Mcyc": 6542.050000000001,
+    "cut_pct": 44.60995567678146
+  },
+  "headline": {
+    "lower_bound_A_Mcyc": 3300.733333333331,
+    "lower_bound_pct_of_W512": 22.507557677008734,
+    "pair_reading_A_Mcyc": 8220.135165570553,
+    "pair_reading_pct_of_W512": 56.05274575909003,
+    "cut_needed_Mcyc": 6542.050000000001,
+    "lower_bound_covers_pct_of_cut": 50.45411351691489,
+    "pair_reading_covers_pct_of_cut": 125.65075420656449,
+    "A_per_call_cycles_pair_reading": 17652.503018422194,
+    "A_per_call_us_at_pin": 13.075928161794218
+  },
+  "corroboration": {
+    "claim": "p_fixed >> 0 says F is not size-independent, so it cannot be host dispatch.",
+    "independent_test": "c10-trace-lever removed the diffusion loop's host dispatch outright.",
+    "predicted_s": 3.04,
+    "measured_s": -0.0214,
+    "aa_floor_s": 0.055,
+    "inside_floor": true,
+    "reading": "Two independent lines agree that F is not collapsible host overhead."
+  },
+  "confound": "A grid under-fill at 298 aa would MANUFACTURE this result. 298 tokens pad to 320 and spread over 110 cores; a tensor small enough that each core holds its minimum tile takes the same time as a larger one, which inflates W298, shrinks the measured ratio and inflates A. The confound and the finding are indistinguishable from two sizes, and both sizes here are at or below 512. The discriminator is a size ABOVE 512 where under-fill cannot apply: if W still grows sublinearly from 512 to 768, the size-independent term is real at 512; if it grows near N**2, the sublinearity was a small-size artifact and there is nothing here to delete.",
+  "limits": [
+    "Two sizes give one constraint. p_work and p_fixed are single-exponent summaries of a mixture, not exponents of any one op class.",
+    "A is bounded, not measured. The p=1 row is a rigorous floor under a non-negative mixture; the p=2 and p=3 rows are readings, not bounds.",
+    "Both terms are per-fold totals. Nothing here attributes a cycle to an op, a class or a call, and the per-call figure is A divided by the call count, which assumes the cost is per-call rather than per-something-else. That assumption is untested here.",
+    "The 298 aa fixture's F and W carry c10-fixed-cost's own caveats, including that its clock sampler is heavier inside the timed window than the bare baseline's by up to 0.049 s at 512 aa, and that cost was not subtracted.",
+    "No accuracy claim, no roof, no floor comparison, no lever."
+  ]
+}

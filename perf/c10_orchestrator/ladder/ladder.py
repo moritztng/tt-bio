@@ -26,22 +26,30 @@ LADDER = [
     {
         "item": "ttnn trace of the diffusion loop",
         "mechanism": "replay one captured graph per sampling step, removing the host's per-call "
-                     "dispatch for 219,200 of the fold's ~287,000 program-launching calls",
-        "fold_s": 3.02, "evidence": DERIVED,
-        "basis": "3.952 s clock-immune term measured from an interleaved 800/1339 MHz A/B "
-                 "(33 ms worst residual), times the diffusion loop's 76 % share of launching calls",
-        "accuracy_spend": "none claimed: the code documents the replayed graph as bit-identical "
-                          "to the untraced forward, so a digest comparison settles it for free",
-        "row": "c10-trace-lever", "status": "queued",
+                     "dispatch for 219,200 of the fold's ~287,000 program-launching calls -- which it does, and the fold does not get shorter",
+        "fold_s": 0.0, "evidence": MEASURED_BH_CLOCKED,
+        "basis": "REFUTED. Sized at 3.02 s from the clock-immune term times the diffusion loop's "
+                 "76 % share of launching calls; c10-trace-lever then measured -0.0214 s at 512 aa "
+                 "and -0.0161 s at 298 aa at a pinned 1350 MHz, both inside their own A/A floors "
+                 "of 0.055 s and 0.043 s, and the null reproduces at 1000 MHz. The call arithmetic "
+                 "was right and the inference from it was wrong",
+        "accuracy_spend": "none, and it was free to check: one CIF digest per size across all 40 "
+                          "accepted folds, identical in both arms, max Kabsch RMSD 3.7e-15 A",
+        "row": "c10-trace-lever", "status": "concluded NO-GO",
     },
     {
         "item": "cut the rest of the clock-immune term",
         "mechanism": "featurization, MSA handling, output writing and whatever dispatch the trace "
                      "does not reach",
-        "fold_s": 0.93, "evidence": DERIVED,
-        "basis": "the 3.952 s clock-immune term minus the 3.02 s the trace reaches",
+        "fold_s": None, "evidence": UNMEASURED,
+        "basis": "the WHOLE 3.9830 s clock-immune term is now unattributed, not 0.93 s of it: the "
+                 "trace reaches none of it. Two independent lines say it is not host dispatch -- "
+                 "the trace null, and F scaling at N^1.32 +- 0.07, 19 sigma from size-independent. "
+                 "A term that grows at N^1.3 and survives dispatch removal looks like DRAM-bound "
+                 "device time, which AICLK does not drive. No value can be quoted until something "
+                 "measures what it is made of",
         "accuracy_spend": "unknown, depends entirely on what it turns out to be",
-        "row": "c10-fixed-cost measures the term; no row attacks the remainder yet",
+        "row": "c10-fold-census owes the split; no row attacks it yet",
         "status": "unowned",
     },
     {
@@ -150,7 +158,10 @@ def main():
             "inventory, not a prediction.",
             "If every priced row landed at its full value the fold would read %.2f s, which is "
             "above the 10.0 s target. On present evidence the target needs either the "
-            "clock-immune term to give up more than the trace reaches, or a device-work lever "
+            "clock-immune term to give up something the trace demonstrably does not reach, "
+            "or a device-work lever nobody has found. The one sized candidate left is the "
+            "size-independent share of the work term, 3,301 to 8,220 Mcycles, which "
+            "c10-size-scaling is measuring. "
             "nobody has found yet." % (BASELINE_S - total),
         ],
     }

@@ -8,17 +8,19 @@ and one transferred from Wormhole at an unrecorded clock are not the same kind o
 
 | candidate | worth | evidence | status |
 |---|---|---|---|
-| ttnn trace of the diffusion loop | 3.02 s / 4,077 Mcyc | derived from measured artifacts | queued |
-| the rest of the clock-immune term | 0.93 s / 1,256 Mcyc | derived from measured artifacts | **unowned** |
+| ttnn trace of the diffusion loop | **0.00 s** — sized at 3.02 s, measured −0.0214 s | Blackhole, pinned 1350 MHz | **concluded NO-GO** |
+| the whole clock-immune term | unknown, 3.98 s in play | not measured anywhere | **unowned** |
 | per-class grid sizing | withdrawn | transferred across architectures | queued |
 | `TT_BIO_SDPA_GRID_Q_CHUNK` sign | −0.46 to +0.21 s | not measured anywhere | queued |
 | `TT_BIO_HEAD_PAD_TAIL` | 0.21 s / 284 Mcyc | Wormhole, no clock | not rowed |
 | `TT_BIO_DIT_FUSED_QKV` | 0.12 s / 162 Mcyc | Wormhole, no clock | not rowed, **excluded** |
-| the byte axis, everything remaining | 1.487x ceiling | Blackhole, no clock | closed as a ceiling |
+| the byte axis, everything remaining | 1.487x ceiling | Blackhole, no clock | reopened: it is the only known lever against `F` |
+| size-independent share of the work term | 3,301 to 8,220 Mcyc / 2.45 to 6.09 s | bounded from two measured sizes | `c10-size-scaling` |
 
-**Priced total 4.16 s, so the fold would read 10.72 s.** The naive sum is 4.28 s, but
-`TT_BIO_DIT_FUSED_QKV` and `TT_BIO_HEAD_PAD_TAIL` are jointly 0.713 A against a 0.60 A bar and
-cannot both ship, so the cheaper one drops out.
+**Priced total 0.21 s, so the fold would read 14.67 s.** It was 4.16 s reading 10.72 s until
+`c10-trace-lever` reported: 3.02 s of that total was the diffusion trace, and the trace returns
+nothing. The naive sum is 0.33 s, but `TT_BIO_DIT_FUSED_QKV` and `TT_BIO_HEAD_PAD_TAIL` are jointly
+0.713 A against a 0.60 A bar and cannot both ship, so the cheaper one drops out.
 
 ## Read this before quoting the total
 
@@ -30,14 +32,22 @@ Accuracy spent to date: none. The total is an inventory of what is worth trying,
 - Perturbations stack strongly sub-additively on this fixture, so a stack has to be measured as a
   stack. Summing individual readings is exactly the error the campaign forbids.
 
-**And even at full value the ladder lands at 10.72 s, above the target.** That is the useful
-conclusion tonight: on present evidence 10.0 s needs either the clock-immune term to give up more
-than the diffusion trace reaches, or a device-work lever nobody has found. The byte axis cannot
-supply it — it caps at 1.487x of the floor and existing levers have already consumed an unknown
-part of that.
+**At full value the priced rows land at 14.67 s.** The ladder is effectively empty, and that is
+the honest state of the campaign: every candidate that had a number attached either measured to
+zero, was withdrawn as a cross-architecture transfer, or is a sub-quarter-second Wormhole reading.
 
-The largest single unowned item is the **0.93 s** of clock-immune cost the trace does not reach:
-featurization, MSA handling, output writing and whatever dispatch sits outside the diffusion loop.
+What replaced them is one sized candidate and one reopened axis, both pointing at the same two
+terms of `T = F + W/f` that `c10-fixed-cost` finally separated:
+
+- **The size-independent share of the work term, 3,301 to 8,220 Mcycles.** The clock-scaled work
+  grows at N^0.63, slower than the target does, which bounds a term that does not grow with the
+  target at all. That is between half of the campaign's whole deletion target and more than all of
+  it, and nothing has ever attacked it. It could still be 298 aa under-filling the grid;
+  `c10-size-scaling` settles that at 640 and 768 aa. See [`../size_scaling/`](../size_scaling/).
+- **The byte axis, against `F` rather than against kernel time.** `F` is 3.98 s, 27 % of the fold,
+  and two independent lines now say it is not host overhead: the trace null, and `F` scaling at
+  N^1.32 ± 0.07. A term that grows at N^1.3 and survives dispatch removal looks like DRAM-bound
+  device time, and bytes are the only lever against that.
 `c10-fixed-cost` is measuring the term; nothing is attacking the remainder.
 
     python3 ladder.py                      # prints ladder.json
