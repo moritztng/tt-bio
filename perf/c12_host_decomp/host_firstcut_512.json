@@ -55,7 +55,15 @@
     "generous_ceiling_s": 0.09577,
     "generous_argument": "crediting half of prepare, which is not priced. Neither the CIF write nor half of predict_step is credited: the write is inside the timed region by definition, and half of predict_step is half of a number that is partly gone to the device already.",
     "extreme_ceiling_s": 0.44677,
-    "extreme_argument": "the most the host can possibly give: half of prepare AND the whole predict_step leaf treated as reducible, even though that leaf is an upper bound including work already moved to the device. Still short of the bar. Everything past this point is host torch whose only route is onto the device, which converts host seconds into device seconds rather than deleting them.",
+    "extreme_argument": "half of prepare AND the whole pre-port predict_step leaf credited. This is NOT a bound on what the host can give: the leaf's value today is unknown in BOTH directions. See UNNAMED_IS_THE_ANSWER.",
+    "UNNAMED_IS_THE_ANSWER": {
+      "claim": "every host item this row can NAME is irreducible or device-only, and the whole reducibility question collapses onto the 0.3997-0.7738 s that no named item accounts for. That block is Boltz2.forward's own body, and the pre-registered program-cache clear (0.0-2.3 s band) is the candidate that could occupy most of it.",
+      "why_the_mixed_leaf_is_not_an_upper_bound": "a port does not only subtract. perf/b2z2_hostzero's two committed trees differ by device-conditioning alone: turning it ON deleted diffusion_cond's 1.0665 s of children and RAISED `predict_step` exclusive from 0.46468 s to 0.72257 s, because the port adds the host glue that builds and uploads the device module's inputs. Net host win, but the leaf GREW 1.55x. Those two are Wormhole Galaxy at 40 s folds so the seconds do not transfer, and `rel_pos` survives in both, which dates them to device_zinit OFF. Today on qb2 both ports are on: zinit removes the host z_init build from that leaf and conditioning adds upload glue to it. The sign of the net is unknown.",
+      "hard_ceiling_that_does_not_depend_on_any_of_it": "c12-profiled-fold measured the device term in situ, so ALL exposed host time is 1.6489-1.6720 s however the leaf splits. Subtracting the 0.5610 s of identified pure-host leaves and the 0.3372 s of host inside the device units leaves at most 0.7738 s unnamed.",
+      "worst_case_s": 0.8696,
+      "worst_case_argument": "half of prepare (0.0958 s) plus ALL 0.7738 s of unnamed time credited as reducible is 0.8696 s, which would just clear the 0.8490 s bar. Nobody should bank that -- it assumes every unnamed second is deletable glue -- but it means this row must NOT claim the host cannot reach the bar. It claims something narrower and better supported: nothing the row can name reaches it, and one unmeasured item decides the rest.",
+      "what_settles_it": "one A/B on TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE inside a fold-repeating process, plus brackets inside Boltz2.forward. That is the first thing the capture should run, ahead of the two-clock arms."
+    },
     "fold_if_all_named_host_deleted_s": [
       13.6318,
       13.9828
