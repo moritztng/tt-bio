@@ -970,9 +970,12 @@ def main():
 
     # Torch reference model (unpatched). Real ESMFold2 weights, no CPU ESMC (we
     # inject shared LM states instead).
+    from tt_bio.weights import hf_revision
     repo = args.esmfold2_repo or checkpoint_repo(args.checkpoint)
-    print(f"loading torch reference model ({args.checkpoint} -> {repo}) ...", flush=True)
-    ref_model = ESMFold2Model.from_pretrained(repo, load_esmc=False).eval()
+    revision = hf_revision(repo)
+    print(f"loading torch reference model ({args.checkpoint} -> {repo}"
+          f"{f' @ {revision}' if revision else ''}) ...", flush=True)
+    ref_model = ESMFold2Model.from_pretrained(repo, load_esmc=False, revision=revision).eval()
     ckpt = checkpoint_identity(repo, ref_model.config)
     print(f"checkpoint: {ckpt['version']}, msa_encoder={ckpt['msa_encoder']}", flush=True)
 
@@ -982,7 +985,7 @@ def main():
 
     # ttnn model: same weights, every submodule swapped to ttnn.
     print(f"loading ttnn model (fast={args.fast}) ...", flush=True)
-    tt_model = ESMFold2Model.from_pretrained(repo, load_esmc=False).eval()
+    tt_model = ESMFold2Model.from_pretrained(repo, load_esmc=False, revision=revision).eval()
     patch_esmfold2(tt_model, esmc_repo=args.esmc_repo)
     tt_model._esmc = esmc  # reuse the already-loaded ESMC (LM states are passed in anyway)
 

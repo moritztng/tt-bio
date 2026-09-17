@@ -545,7 +545,9 @@ def run_esmfold2(args) -> dict:
     load_t0 = time.perf_counter()
     mod = importlib.import_module(args.esm_module)
     ESMFold2Model = getattr(mod, "ESMFold2Model")
-    model = ESMFold2Model.from_pretrained(args.esm_repo).cuda().eval()
+    from tt_bio.weights import hf_revision
+    model = ESMFold2Model.from_pretrained(
+        args.esm_repo, revision=hf_revision(args.esm_repo)).cuda().eval()
     load_s = time.perf_counter() - load_t0
 
     # set_kernel_backend picks the fast path: None is the reference implementation,

@@ -115,10 +115,13 @@ def main():
     print(f"=== {args.protein} (L={len(seq)}): {args.samples} samples, loops={args.loops} "
           f"steps={args.steps}, seed={args.seed} ===", flush=True)
 
+    from tt_bio.weights import hf_revision
+
     esmc = _ESMCAdapter(args.esmc_repo, persistent=True)
     esmc.preload()
     print("loading ttnn model ...", flush=True)
-    model = ESMFold2Model.from_pretrained(args.esmfold2_repo, load_esmc=False).eval()
+    model = ESMFold2Model.from_pretrained(
+        args.esmfold2_repo, load_esmc=False, revision=hf_revision(args.esmfold2_repo)).eval()
     patch_esmfold2(model, esmc_repo=args.esmc_repo)
     model._esmc = esmc
 
