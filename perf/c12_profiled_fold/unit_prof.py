@@ -221,8 +221,26 @@ def phase_probe(ttnn, dev, reps=20):
             "bytes": 3 * n * n * 2}
 
 
+def all_shapes(args, kw):
+    """Every tensor shape reachable from a call's arguments, flattened.
+
+    Recording only `[shp(x) for x in args]` is what held `align_quality` at 0.32: `generic_op`
+    passes its tensors in a LIST (`ttnn.generic_op([in0, in1, out], pd)`), so the only positional
+    argument has no `.shape` at all, and most tt-bio call sites pass operands as keyword arguments.
+    Both were invisible. This walks one level of list/tuple nesting and both arg kinds.
+    """
+    out = []
+    for x in list(args) + list(kw.values()):
+        s = shp(x)
+        if s is not None:
+            out.append(s)
+        elif isinstance(x, (list, tuple)):
+            out.extend(s2 for s2 in (shp(y) for y in x) if s2 is not None)
+    return out
+
+
 def install_ops(ttnn, rec):
-    """Record the python-level ttnn call sequence, in order, with operand shapes."""
+    """Record the python-level ttnn call sequence, in order, with every operand shape."""
     undo = []
     for nm in TTNN_OPS:
         f = getattr(ttnn, nm, None)
@@ -231,8 +249,7 @@ def install_ops(ttnn, rec):
 
         def mk(nm, f):
             def w(*args, **kw):
-                rec.append((nm, [shp(x) for x in args],
-                            [shp(v) for v in kw.values() if hasattr(v, "shape")]))
+                rec.append((nm, all_shapes(args, kw), []))
                 return f(*args, **kw)
             return w
         setattr(ttnn, nm, mk(nm, f))

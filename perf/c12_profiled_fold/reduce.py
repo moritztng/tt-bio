@@ -170,10 +170,17 @@ def fnum(r, k):
         return 0.0
 
 
-def dim(r, slot, ax):
-    v = str(r.get("%s_%s_PAD[LOGICAL]" % (slot, ax), "") or "")
+def dim(r, slot, ax, logical=False):
+    """One axis of an operand. The column format is `padded[logical]`; pick which one.
+
+    The harness records ttnn LOGICAL shapes, so an alignment that compares against the padded
+    figure mismatches every operand that is not already tile-aligned.
+    """
+    v = str(r.get("%s_%s_PAD[LOGICAL]" % (slot, ax), "") or "").strip()
+    if logical and "[" in v:
+        v = v[v.index("[") + 1:]
     n = ""
-    for c in v.strip():
+    for c in v:
         if c.isdigit():
             n += c
         else:
@@ -181,8 +188,8 @@ def dim(r, slot, ax):
     return int(n) if n else 0
 
 
-def rshape(r, slot):
-    t = tuple(dim(r, slot, a) for a in "WZYX")
+def rshape(r, slot, logical=False):
+    t = tuple(dim(r, slot, a, logical) for a in "WZYX")
     return t if (t[2] and t[3]) else None
 
 
@@ -248,13 +255,18 @@ def align(opseq, rows):
     names, credited, k = [], 0, 0
     for r in rows:
         want = rshape(r, "INPUT_0")
+        wantl = rshape(r, "INPUT_0", logical=True) or want or ()
         hit = None
         j = k
         while j < len(opseq) and j < k + 64:
             nm, ins, kwins = opseq[j]
             shapes = [norm(x) for x in (ins or []) if x] + [norm(x) for x in (kwins or []) if x]
+            if want is None and nm in ("deallocate", "reshape", "unsqueeze", "squeeze"):
+                j += 1
+                continue
             if want is not None and any(
-                    s is not None and tuple(s[-2:]) == tuple(want[-2:]) for s in shapes):
+                    s is not None and (tuple(s[-2:]) == tuple(want[-2:])
+                                       or tuple(s[-2:]) == tuple(wantl[-2:])) for s in shapes):
                 hit = nm
                 k = j + 1
                 break
