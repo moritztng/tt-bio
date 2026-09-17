@@ -1,0 +1,228 @@
+{
+ "clock_mhz": 1350,
+ "grid": [
+  11,
+  10
+ ],
+ "part": "p300c Blackhole",
+ "source": "perf/c12_genop_rate/headroom.json @ 4ed84475d (in situ, during-sampled)",
+ "sizes": {
+  "298": {
+   "seq": 320,
+   "H": 320,
+   "batch": 1,
+   "grid": [
+    11,
+    10
+   ],
+   "large_seq": false,
+   "row_norm": false,
+   "chunk": 32,
+   "n_pairs": 4,
+   "group": 1,
+   "slice_c": 32,
+   "channel_loop_iters": 4,
+   "gp_width": 128,
+   "gated_serves": false,
+   "gated_calls_per_trimul": 0,
+   "plain_fwd_serves": true,
+   "plain_fwd_calls_per_trimul": 4,
+   "back_serves": false,
+   "back_calls_per_trimul": 0,
+   "branch": "four-way-split + plain move",
+   "seq_aa": 298,
+   "mm": {
+    "M_tiles": 3200,
+    "K_tiles": 4,
+    "N_tiles": 4,
+    "transpose": true,
+    "in0_axis_cores": 11,
+    "in1_axis_cores": 10,
+    "M_tiles_per_core": 291,
+    "N_tiles_per_core": 1,
+    "N_cores_with_real_output": 4,
+    "K_blocks": 1,
+    "reblock_groups": 100,
+    "groups_per_M_core_max": 10,
+    "groups_per_M_core_min": 9
+   },
+   "bytes": {
+    "Z_bytes": 6553600,
+    "today_inproj_Z": 5,
+    "today_gated_Z": 6,
+    "today_Z": 11,
+    "fused_Z": 3,
+    "deleted_Z": 8,
+    "today_MB": 72.0896,
+    "fused_MB": 19.6608
+   }
+  },
+  "512": {
+   "seq": 512,
+   "H": 512,
+   "batch": 1,
+   "grid": [
+    11,
+    10
+   ],
+   "large_seq": true,
+   "row_norm": false,
+   "chunk": 32,
+   "n_pairs": 4,
+   "group": 4,
+   "slice_c": 128,
+   "channel_loop_iters": 1,
+   "gp_width": 512,
+   "gated_serves": true,
+   "gated_calls_per_trimul": 2,
+   "plain_fwd_serves": false,
+   "plain_fwd_calls_per_trimul": 0,
+   "back_serves": true,
+   "back_calls_per_trimul": 1,
+   "branch": "gated-move",
+   "seq_aa": 512,
+   "mm": {
+    "M_tiles": 8192,
+    "K_tiles": 4,
+    "N_tiles": 16,
+    "transpose": true,
+    "in0_axis_cores": 11,
+    "in1_axis_cores": 10,
+    "M_tiles_per_core": 745,
+    "N_tiles_per_core": 2,
+    "N_cores_with_real_output": 8,
+    "K_blocks": 1,
+    "reblock_groups": 256,
+    "groups_per_M_core_max": 24,
+    "groups_per_M_core_min": 23
+   },
+   "bytes": {
+    "Z_bytes": 67108864,
+    "today_inproj_Z": 5,
+    "today_gated_Z": 6,
+    "today_Z": 11,
+    "fused_Z": 3,
+    "deleted_Z": 8,
+    "today_MB": 738.197504,
+    "fused_MB": 201.326592
+   }
+  },
+  "768": {
+   "seq": 768,
+   "H": 768,
+   "batch": 1,
+   "grid": [
+    11,
+    10
+   ],
+   "large_seq": true,
+   "row_norm": false,
+   "chunk": 32,
+   "n_pairs": 4,
+   "group": 4,
+   "slice_c": 128,
+   "channel_loop_iters": 1,
+   "gp_width": 512,
+   "gated_serves": true,
+   "gated_calls_per_trimul": 2,
+   "plain_fwd_serves": false,
+   "plain_fwd_calls_per_trimul": 0,
+   "back_serves": true,
+   "back_calls_per_trimul": 1,
+   "branch": "gated-move",
+   "seq_aa": 768,
+   "mm": {
+    "M_tiles": 18432,
+    "K_tiles": 4,
+    "N_tiles": 16,
+    "transpose": true,
+    "in0_axis_cores": 11,
+    "in1_axis_cores": 10,
+    "M_tiles_per_core": 1676,
+    "N_tiles_per_core": 2,
+    "N_cores_with_real_output": 8,
+    "K_blocks": 1,
+    "reblock_groups": 576,
+    "groups_per_M_core_max": 53,
+    "groups_per_M_core_min": 52
+   },
+   "bytes": {
+    "Z_bytes": 150994944,
+    "today_inproj_Z": 5,
+    "today_gated_Z": 6,
+    "today_Z": 11,
+    "fused_Z": 3,
+    "deleted_Z": 8,
+    "today_MB": 1660.944384,
+    "fused_MB": 452.984832
+   }
+  }
+ },
+ "site_512": {
+  "reblock_gated": {
+   "calls": 1120,
+   "ms": 0.6447985,
+   "sec": 0.7225286080000001,
+   "Mc": 975.4136208000001,
+   "floor_ms": 0.5119112736878615,
+   "pct_roof": 79.3908909043463
+  },
+  "reblock_back": {
+   "calls": 560,
+   "ms": 0.494081,
+   "sec": 0.27749865599999995,
+   "Mc": 374.62318559999994,
+   "floor_ms": 0.34142552355944283,
+   "pct_roof": 69.103147775252
+  },
+  "trimul_in": {
+   "calls": 560,
+   "ms": 1.492635,
+   "sec": 0.839204488,
+   "Mc": 1132.9260588,
+   "arith_ms": 0.3778009374855174,
+   "floor_ms": 0.9245650889699019
+  }
+ },
+ "fused": {
+  "replaces": [
+   "trimul_in",
+   "reblock_gated"
+  ],
+  "today_ms_per_call": 2.782232,
+  "today_fold_s": 1.5617330960000002,
+  "today_fold_Mc": 2108.3396796,
+  "floor_ms_per_call": 0.5118789995322004,
+  "bw_1r1w_GBs": 393.3089503261313,
+  "eff_gated": 0.7939089090434631,
+  "eff_inproj": 0.619418068697238,
+  "predicted": {
+   "optimistic": {
+    "ms_per_call": 0.6447578477849998,
+    "fold_s": 0.36106439475959984,
+    "fold_Mc": 487.43693292545976,
+    "saved_s": 1.2006687012404003,
+    "saved_Mc": 1620.9027466745404
+   },
+   "central": {
+    "ms_per_call": 0.8263869354163108,
+    "fold_s": 0.46277668383313403,
+    "fold_Mc": 624.748523174731,
+    "saved_s": 1.0989564121668662,
+    "saved_Mc": 1483.5911564252694
+   },
+   "pessimistic": {
+    "ms_per_call": 1.1206322625723446,
+    "fold_s": 0.627554067040513,
+    "fold_Mc": 847.1979905046925,
+    "saved_s": 0.9341790289594872,
+    "saved_Mc": 1261.1416890953078
+   }
+  }
+ },
+ "untouched": {
+  "reblock_back_s": 0.27749865599999995,
+  "reblock_back_Mc": 374.62318559999994,
+  "why": "its producer is ttnn.matmul (tenstorrent.py:6573), not a tt-bio generic_op, so there is no wheel route to its writer"
+ }
+}

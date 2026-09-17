@@ -1,0 +1,192 @@
+# c12-reblock-delete: pre-registration, written before the first arm
+
+Clock: every number below is at **1350 MHz**, forced and sampled during the fold. The in-situ
+source table is `perf/c12_genop_rate/headroom.json` @ `4ed84475d`. Part: qb2 p300c Blackhole,
+11x10 = 110 cores. Reproduce with `python3 perf/c12_reblock_delete/sites.py` (CPU only).
+
+## What the two sites actually are
+
+    site            calls   ms/call   fold s    Mc   floor ms   % of own roof
+    reblock_gated    1120    0.6448   0.7225   975.4   0.5119      79.39
+    reblock_back      560    0.4941   0.2775   374.6   0.3414      69.10
+
+Executed graph, not a census label: 14 `generic_op` programs per PairformerLayer / MSALayer,
+264 + 16 layer invocations, 3,920 calls total, identified by `COMPUTE KERNEL SOURCE`
+(`perf/c12_genop_rate/insitu_sites.py`). Per trimul call that is **1 in-projection matmul,
+2 gated moves, 1 back move**, and 560 trimul calls reproduces 1120 and 560 exactly.
+
+Shapes at 512 aa, from the channel-loop plan (`sites.py`): chunk 32, group 4, `slice_c` 128, one
+channel-loop iteration, fused projection 512 channels wide.
+
+  * `reblock_gated` issues `[1,512,512,512] -> [1,128,512,512]` twice, reading a 128-channel value
+    slice and a 128-channel gate slice out of the fused projection.
+  * `reblock_back` issues `[1,128,512,512] -> [1,512,512,128]` once.
+
+**The "zero FLOP" label is half wrong and the brief is right to correct it.**
+`compute_reblock_permute_gated.cpp:5` computes `out = transpose_wh(p * sigmoid(g))`; only
+`reblock_back` is arithmetic-free. So on 0.7225 s nothing is being deleted - the sigmoid and the
+multiply still have to run. What is deleted is a DRAM round trip.
+
+## Mechanism: the producer's writer, not the move's reader
+
+`file:line`, all of it:
+
+  * The gated move's input is written by `_in_proj_matmul` (`tt_bio/tenstorrent.py:5653`), which
+    routes to `mm_dualnoc.in_proj` (`tt_bio/mm_dualnoc.py:71`) and thence to
+    `mm_generic.build` (`tt_bio/mm_generic.py:122`). Its two **dataflow kernels are tt-bio's own**
+    (`tt_bio/kernels/mm_split/dm_in0_sender.cpp`, `dm_in1_sender_out.cpp`), generated from the
+    wheel's `minimal_matmul` kernels by `tt_bio/kernels/mm_split/patch_mm_split.py`. The output
+    writer is therefore already ours.
+  * The gated move itself is `_transform_chunk_gated` (`:6161`) -> `reblock_permute_gated`
+    (`tt_bio/reblock_permute.py:785`).
+  * The back move's input is written by `ttnn.matmul` (`tt_bio/tenstorrent.py:6572`) under
+    `_triangle_mul_program_config`. That writer is **not ours**.
+
+**The lever.** Have the in-projection write `a` and `b` directly, gated and reblocked, and the two
+`reblock_permute_gated` programs cease to exist. Three pieces, each already written somewhere in
+the tree:
+
+1. *Gating must be core-local.* `mm_generic.build:207` gives each core `N_tiles_per_core = 2` of
+   the 16 output channel-tiles. Under the shipped role order `(p_a, g_a, p_b, g_b)`
+   (`tenstorrent.py:5891`) each role is 4 consecutive tiles, so core 0 holds two `p_a` tiles and
+   no gate - **no core holds a (p, g) pair**. Re-laying the fused weight as tile-interleaved
+   `(p t0, g t0, p t1, g t1, ...)` puts exactly one value tile and its gate tile on each of the
+   8 N-cores that carry real output. The weight is laid out once at load and every consumer reads
+   its order from `gp_roles()` alone, which is the mechanism `TRIMUL_GP_BANK_SPLIT` (`:5890`)
+   already uses, so this costs nothing at runtime.
+2. *The arithmetic is already written.* `compute_reblock_permute_gated.cpp` is the sigmoid, the
+   SFPU multiply and the `transpose_wh`, in that order, with its rounding points documented.
+3. *The scatter is already written.* `reblock_permute`'s writer assembles a destination tile from
+   a group of `GROUP_TILES = 32` source tiles sharing one j-tile (`reblock_permute.py:38`). The
+   matmul's M assignment has to change from contiguous runs to those groups: at 512 aa there are
+   **256 groups over 11 M-axis cores, 23-24 each, a 3.1 % imbalance**, and groups taken I-major
+   keep each core's activation range contiguous, so `in0` is still read once and multicast once.
+
+**Predicted rate, not a call count.** Per trimul call, in units of `Z = H*H*slice_c*2 =
+67.1089 MB`:
+
+    today   in-projection   read in0 1 Z, write the fused projection 4 Z          5 Z
+            gated move x2   read p 1 Z + g 1 Z, write 1 Z, twice                  6 Z
+            total                                                                11 Z = 738.2 MB
+    fused   read in0 1 Z, write a 1 Z, write b 1 Z                                3 Z = 201.3 MB
+
+8 Z per trimul deleted. The fused op's traffic floor is **0.5119 ms/call** at the measured
+393.3 GB/s 1r1w roof - numerically the same floor `reblock_gated` already runs against, because
+both move 3 Z. Arithmetic intensity rises from 106.6 to ~160 FLOP/byte against a measured
+260.9 FLOP/byte machine balance, so the op stays traffic-bound, but the margin over the matmul's
+own 0.3778 ms of arithmetic falls from 2.04x to 1.36x and the gate's SFPU work now has to hide
+under a smaller traffic time. That is the risk the band below brackets.
+
+## PREDICTED, before the first arm
+
+Today: `trimul_in` 0.8392 s + `reblock_gated` 0.7225 s = **1.5617 s / 2108.3 Mc** at 1350 MHz.
+
+    arm           ms/call   fold s   fold Mc   saves s   saves Mc   assumption
+    optimistic     0.6448   0.3611     487.4    1.2007     1620.9   hits reblock_gated's 79.4 %
+    central        0.8264   0.4628     624.7    1.0990     1483.6   hits trimul_in's 61.9 %
+    pessimistic    1.1206   0.6276     847.2    0.9342     1261.1   gate stops hiding
+
+**Central prediction: 1.0990 s / 1483.6 Mc off the 512 aa fold.** This is larger than the brief's
+1.0000 s because it also eats part of `trimul_in`, and it leaves `reblock_back`'s 0.2775 s /
+374.6 Mc untouched. 1.0000 s remains the upper bound for *deleting the two reblock sites*; it is
+not this lever's ceiling and it is not its target.
+
+**KILL CRITERIA.**
+
+  * Arm 1, op level, before any fold arm: kill if the fused op's in-situ time exceeds
+    **1.1206 ms/call**, the pessimistic edge. No tuning pass to rescue it.
+  * Arm 2, fold level: kill if the interleaved benchlocked 512 aa delta is under **0.550 s
+    (742.5 Mc)**, half the central prediction.
+  * Any delta under 3x the session's own A/A floor is not a result and is reported as such.
+
+## BUILD: the wheel, and that is why this route was chosen
+
+`patch_mm_split.py` already generates tt-bio's dataflow kernels from the wheel's own
+`minimal_matmul` sources by exact-match patching, and `ttnn.generic_op` JIT-compiles them against
+the shipped wheel. `MM_DUAL_NOC` shipped that way. The one extension needed is a **patched compute
+kernel**: `mm_generic.py:258` pins `compute_src` to the wheel's own `compute.cpp` ("never patched"),
+so hosting the gate epilogue needs that path to become overridable the same way `kernel_dir`
+already overrides the dataflow pair. That is a tt-bio change, not a tt-metal one.
+
+**So no tt-metal source build, and the 1.115x wheel-vs-source cross-build control is not owed.**
+If the epilogue ever does need a source build, that control comes first: `c12-genericop-rate`
+measured 1.115x on a 2048 cube, stable to 1.7 % over three sessions, and missed its own
+pre-registered band because of the build rather than the part.
+
+`reblock_back` has **no wheel route**: its producer is `ttnn.matmul`, whose writer lives in
+`MatmulDeviceOperation`. Re-hosting that matmul in `mm_generic` first is a larger build than the
+0.2775 s it would unlock, so this row prices it and does not build it.
+
+## SIZES: this is a 512/768 aa lever and it is worth nothing at 298 aa
+
+From `sites.py`, on the 11x10 grid:
+
+    aa    H  path  chunk group slice_c iters  gated/tri  plainfwd/tri  back/tri  branch
+    298  320  L1      32     1      32     4          0             4         0  four-way-split + plain move
+    512  512  DRAM    32     4     128     1          2             0         1  gated-move
+    768  768  DRAM    32     4     128     1          2             0         1  gated-move
+
+298 aa takes the **L1** channel-loop path (`TRIANGLE_MULT_L1_MAX_SEQ = 352`, `tenstorrent.py:580`),
+and both `eligible_gated` and `__call__`'s own `gated` condition require a DRAM channel-loop
+memory config. So **`reblock_gated` serves zero calls at 298 aa** and `reblock_back` serves zero
+(`eligible_back` is DRAM-only, `reblock_permute.py:579`). The lever is worth **0.0000 s** there.
+That is not a gap in the lever, it is a free negative control: 298 aa must come out bit-exact,
+because the fused kernel takes no call at that size.
+
+768 aa is structurally identical to 512 aa: chunk 32, group 4, `slice_c` 128, one iteration.
+Same two gated calls and one back call per trimul. Its call count still has to be read off an
+executed graph on the measurement arm - the 512 aa counts above are measured, the 768 aa ones are
+derived from the plan.
+
+## ACCURACY: pre-registered, and this lever is not bit-exact
+
+`compute_reblock_permute_gated.cpp:11-27` is explicit that its bit-exactness against ttnn depends
+on running a **16-bit DST** (`fp32_dest_acc_en=False`): `calculate_sigmoid` branches on that flag
+at compile time, and the accurate branch is a full bf16 ulp from ttnn's on **10.4 % of elements**,
+measured over 3.28 M. The in-projection matmul runs under `fp32_dest_acc_en=True` (`_MM_DEFAULT`
+is what `determine_default_block_sizes` returns under it, `tenstorrent.py:5656`), and the flag is
+per kernel, not per stage. Packing the product from an fp32 DST is wrong a third way: the packer
+breaks ties away from zero where ttnn breaks to even, **0.91 % of elements at a 1.85 % tie rate**.
+
+So the fused epilogue will move the digest, on roughly 11 % of gate elements at 1 ulp, 560 trimuls
+deep. That is allowed - the standing bar is accuracy against the seed floor - but it has to be
+scored, not argued:
+
+  * Å deviation of the final structure at 512 and 768 aa, against a seed-scatter floor measured on
+    **this row's own fixture and metric**, with an A/A control in the same session. `1.84 A` is the
+    wrong bar and is not quoted here: `c12-fused-eltwise-at-pin` measured 5.35-9.90 A of all-atom
+    seed scatter on its own fixture.
+  * plDDT beside it, which carries no frame and so is not confounded by basin choice.
+  * 298 aa as the negative control: the kernel takes no call there, so anything but bit-exact at
+    298 aa means the change leaked outside its gate.
+  * Read `c12-fused-eltwise-at-pin` as the warning it is: transforms that were *more* accurate than
+    what they replaced against a float64 reference still failed, because a one-ULP touch of a
+    conditioning path feeding 200 diffusion steps saturates. A trunk reblock is not that path.
+    Check rather than assume.
+
+A bit-exact variant exists if it is ever wanted: call the cheap sigmoid explicitly instead of
+letting `calculate_sigmoid` pick on the flag. It is kernel surgery for a property that is not the
+bar, so it is named and not built.
+
+## What this row must not be sold as
+
+The whole device-side book is silu 0.2843 s + cond-hoist 0.2415 s + this row's 1.0000 s upper
+bound. 12.5 s needs 2.3810 s. This row is the larger half of the only surviving route to 12.5 s
+and it is not a route to 10.0 s, which four independent derivations put outside the current op set.
+
+## Refuted already, do not spend an arm on it
+
+`TRIMUL_INPROJ_ROWBLOCK` (`tenstorrent.py:5846`, ships **off**) is the *neighbouring* lever and it
+is **measured to lose**. `_gated_rowblocked` (`:6218`) projects one row block into L1 and lets the
+gated move read it there, deleting the same 8 Z per trimul - and at R = 64 on the 512 aa cell it
+adds 29 device ops and costs **+0.907 ms**, giving back a third of the mask-after-move win.
+R = 128 collides with the gated kernel's circular buffers on the 110-core grid and R = 256 is a
+flat L1 OOM.
+
+It is a different lever from this one and its loss does not price this one. It keeps the separate
+`generic_op` move and only changes where that move's **reader** gets its bytes, so the move's own
+0.7225 s survives and its call count rises by `H/R`. This row deletes the move. But its cost
+breakdown is the sharpest warning available: dispatch was at most two thirds of the +0.907 ms, the
+rest being L1 traffic no DRAM byte counter sees. A fused epilogue pays that same on-chip staging
+traffic inside one program instead of across two, which is the reason the pessimistic arm above
+exists.
