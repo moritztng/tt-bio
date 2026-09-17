@@ -1,0 +1,1711 @@
+{
+  "pid": 52651,
+  "host": "tt-quietbox2",
+  "node": "1",
+  "size": 298,
+  "reps": 3,
+  "rows": [
+    {
+      "label": "cold",
+      "arm": "A",
+      "start_monotonic_ns": 2675869346727,
+      "end_monotonic_ns": 2688233341343,
+      "elapsed_s": 12.363994616,
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 2675847581243,
+        "utc_ns": 1789615093451703531,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 380,
+            "stime_ticks": 102,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2688233345972,
+        "utc_ns": 1789615105837468341,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 1549,
+            "stime_ticks": 180,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {},
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "samples": 11622,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1244805,
+        "first_offset_ns": 102739,
+        "last_offset_ns": 703581,
+        "sample_span_fraction": 0.9999347848308704,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 101,
+        "max_gap_ns": 130965865,
+        "bad": [],
+        "other_node_holder_pids": [],
+        "passed": true
+      }
+    },
+    {
+      "label": "A0",
+      "arm": "A",
+      "start_monotonic_ns": 2688451165164,
+      "end_monotonic_ns": 2698106538808,
+      "elapsed_s": 9.655373644,
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 2688428304876,
+        "utc_ns": 1789615106032427474,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 1552,
+            "stime_ticks": 180,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2698106543327,
+        "utc_ns": 1789615115710665605,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 2612,
+            "stime_ticks": 221,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {},
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "samples": 9087,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 4048690,
+        "first_offset_ns": 152912,
+        "last_offset_ns": 283515,
+        "sample_span_fraction": 0.9999547995741965,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 78,
+        "max_gap_ns": 128585582,
+        "bad": [],
+        "other_node_holder_pids": [],
+        "passed": true
+      },
+      "structure_vs_A0": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "B0",
+      "arm": "B",
+      "start_monotonic_ns": 2698343668572,
+      "end_monotonic_ns": 2707824803550,
+      "elapsed_s": 9.481134978,
+      "plddt": 0.910938,
+      "before": {
+        "monotonic_ns": 2698320040692,
+        "utc_ns": 1789615115924163221,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 2616,
+            "stime_ticks": 221,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2707824806485,
+        "utc_ns": 1789615125428928824,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 3656,
+            "stime_ticks": 264,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {
+        "9395": 9612,
+        "9403": 9612
+      },
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif_sha256": "5a7ecfef73b65a91291441889685d3e09447c74120f598f28e9c23e5df2e6cec",
+      "clock": {
+        "samples": 8925,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1241808,
+        "first_offset_ns": 591255,
+        "last_offset_ns": 293579,
+        "sample_span_fraction": 0.9999066742534461,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 78,
+        "max_gap_ns": 133360401,
+        "bad": [],
+        "other_node_holder_pids": [],
+        "passed": true
+      },
+      "structure_vs_A0": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 0.3327302758964933,
+        "domain_all_atom_A": [
+          0.3327302758964933
+        ],
+        "max_domain_all_atom_A": 0.3327302758964933,
+        "cif_byte_exact": false
+      }
+    },
+    {
+      "label": "C0",
+      "arm": "C",
+      "start_monotonic_ns": 2708074899967,
+      "end_monotonic_ns": 2718965049958,
+      "elapsed_s": 10.890149991,
+      "plddt": 0.910912,
+      "before": {
+        "monotonic_ns": 2708051377047,
+        "utc_ns": 1789615125655499586,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 3661,
+            "stime_ticks": 264,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2718965053866,
+        "utc_ns": 1789615136569176635,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 4729,
+            "stime_ticks": 305,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {
+        "10282": 16,
+        "10712": 200,
+        "10797": 200
+      },
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif_sha256": "78f60dd505eee54336ac29b66c3b1cf6545a15a18df6a8fdbb8bf5b08019ca18",
+      "clock": {
+        "samples": 10198,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1180420,
+        "first_offset_ns": 356457,
+        "last_offset_ns": 414385,
+        "sample_span_fraction": 0.9999292165855717,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 88,
+        "max_gap_ns": 142625670,
+        "bad": [],
+        "other_node_holder_pids": [],
+        "passed": true
+      },
+      "structure_vs_A0": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 0.3648485175196527,
+        "domain_all_atom_A": [
+          0.3648485175196527
+        ],
+        "max_domain_all_atom_A": 0.3648485175196527,
+        "cif_byte_exact": false
+      }
+    },
+    {
+      "label": "D0",
+      "arm": "D",
+      "start_monotonic_ns": 2719228147278,
+      "end_monotonic_ns": 2728776685580,
+      "elapsed_s": 9.548538302,
+      "plddt": 0.908496,
+      "before": {
+        "monotonic_ns": 2719204213237,
+        "utc_ns": 1789615136808335755,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 4735,
+            "stime_ticks": 306,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2728776689208,
+        "utc_ns": 1789615146380811496,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 5779,
+            "stime_ticks": 355,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {
+        "10282": 16,
+        "9395": 9612,
+        "9403": 9612,
+        "10712": 200,
+        "10797": 200
+      },
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif_sha256": "faacd7b15a407ee5afa5811b62c71cd2b89e5925bb64c85b10fc3953577d87b4",
+      "clock": {
+        "samples": 8970,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 4057456,
+        "first_offset_ns": 111549,
+        "last_offset_ns": 1037429,
+        "sample_span_fraction": 0.9998796697501062,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 78,
+        "max_gap_ns": 129301593,
+        "bad": [],
+        "other_node_holder_pids": [],
+        "passed": true
+      },
+      "structure_vs_A0": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 0.19484249890446195,
+        "domain_all_atom_A": [
+          0.19484249890446195
+        ],
+        "max_domain_all_atom_A": 0.19484249890446195,
+        "cif_byte_exact": false
+      }
+    },
+    {
+      "label": "A1",
+      "arm": "A",
+      "start_monotonic_ns": 2729052636973,
+      "end_monotonic_ns": 2738716884888,
+      "elapsed_s": 9.664247915,
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 2729028495190,
+        "utc_ns": 1789615146632617959,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 5786,
+            "stime_ticks": 356,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2738716888716,
+        "utc_ns": 1789615156321011014,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 6844,
+            "stime_ticks": 401,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {},
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "samples": 9099,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1158609,
+        "first_offset_ns": 1060845,
+        "last_offset_ns": 133872,
+        "sample_span_fraction": 0.9998763776539563,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 79,
+        "max_gap_ns": 132033919,
+        "bad": [],
+        "other_node_holder_pids": [],
+        "passed": true
+      },
+      "structure_vs_A0": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "B1",
+      "arm": "B",
+      "start_monotonic_ns": 2739007006638,
+      "end_monotonic_ns": 2748508348159,
+      "elapsed_s": 9.501341521,
+      "plddt": 0.910938,
+      "before": {
+        "monotonic_ns": 2738981800785,
+        "utc_ns": 1789615156585923695,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 6852,
+            "stime_ticks": 402,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2748508351456,
+        "utc_ns": 1789615166112473744,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 7893,
+            "stime_ticks": 447,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {
+        "9395": 9612,
+        "9403": 9612
+      },
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif_sha256": "5a7ecfef73b65a91291441889685d3e09447c74120f598f28e9c23e5df2e6cec",
+      "clock": {
+        "samples": 8946,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1137579,
+        "first_offset_ns": 71765,
+        "last_offset_ns": 644615,
+        "sample_span_fraction": 0.9999246022260734,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 78,
+        "max_gap_ns": 131732258,
+        "bad": [],
+        "other_node_holder_pids": [],
+        "passed": true
+      },
+      "structure_vs_A0": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 0.3327302758964933,
+        "domain_all_atom_A": [
+          0.3327302758964933
+        ],
+        "max_domain_all_atom_A": 0.3327302758964933,
+        "cif_byte_exact": false
+      }
+    },
+    {
+      "label": "C1",
+      "arm": "C",
+      "start_monotonic_ns": 2748805769330,
+      "end_monotonic_ns": 2758466463663,
+      "elapsed_s": 9.660694333,
+      "plddt": 0.910912,
+      "before": {
+        "monotonic_ns": 2748780909046,
+        "utc_ns": 1789615166385031585,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 7902,
+            "stime_ticks": 448,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2758466466659,
+        "utc_ns": 1789615176070589028,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 8960,
+            "stime_ticks": 491,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {
+        "10282": 16,
+        "10712": 200,
+        "10797": 200
+      },
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif_sha256": "78f60dd505eee54336ac29b66c3b1cf6545a15a18df6a8fdbb8bf5b08019ca18",
+      "clock": {
+        "samples": 9094,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1153943,
+        "first_offset_ns": 421774,
+        "last_offset_ns": 786479,
+        "sample_span_fraction": 0.9998749310392864,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 79,
+        "max_gap_ns": 133479144,
+        "bad": [],
+        "other_node_holder_pids": [],
+        "passed": true
+      },
+      "structure_vs_A0": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 0.3648485175196527,
+        "domain_all_atom_A": [
+          0.3648485175196527
+        ],
+        "max_domain_all_atom_A": 0.3648485175196527,
+        "cif_byte_exact": false
+      }
+    },
+    {
+      "label": "D1",
+      "arm": "D",
+      "start_monotonic_ns": 2758774196393,
+      "end_monotonic_ns": 2768293534151,
+      "elapsed_s": 9.519337758,
+      "plddt": 0.908496,
+      "before": {
+        "monotonic_ns": 2758751892767,
+        "utc_ns": 1789615176356015326,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 8970,
+            "stime_ticks": 492,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2768293537978,
+        "utc_ns": 1789615185897660347,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 10011,
+            "stime_ticks": 540,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {
+        "10282": 16,
+        "9395": 9612,
+        "9403": 9612,
+        "10712": 200,
+        "10797": 200
+      },
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif_sha256": "faacd7b15a407ee5afa5811b62c71cd2b89e5925bb64c85b10fc3953577d87b4",
+      "clock": {
+        "samples": 8956,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1277393,
+        "first_offset_ns": 103327,
+        "last_offset_ns": 297210,
+        "sample_span_fraction": 0.9999579238587618,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 77,
+        "max_gap_ns": 131191061,
+        "bad": [],
+        "other_node_holder_pids": [],
+        "passed": true
+      },
+      "structure_vs_A0": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 0.19484249890446195,
+        "domain_all_atom_A": [
+          0.19484249890446195
+        ],
+        "max_domain_all_atom_A": 0.19484249890446195,
+        "cif_byte_exact": false
+      }
+    },
+    {
+      "label": "A2",
+      "arm": "A",
+      "start_monotonic_ns": 2768792128387,
+      "end_monotonic_ns": 2778480673130,
+      "elapsed_s": 9.688544743,
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 2768767258850,
+        "utc_ns": 1789615186371381299,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 10040,
+            "stime_ticks": 541,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2778480676477,
+        "utc_ns": 1789615196084798845,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 11100,
+            "stime_ticks": 586,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {},
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "samples": 9118,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1208067,
+        "first_offset_ns": 1065695,
+        "last_offset_ns": 280681,
+        "sample_span_fraction": 0.9998610342382974,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 79,
+        "max_gap_ns": 131842140,
+        "bad": [],
+        "other_node_holder_pids": [],
+        "passed": true
+      },
+      "structure_vs_A0": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "B2",
+      "arm": "B",
+      "start_monotonic_ns": 2778812802599,
+      "end_monotonic_ns": 2788286111100,
+      "elapsed_s": 9.473308501,
+      "plddt": 0.910938,
+      "before": {
+        "monotonic_ns": 2778788009966,
+        "utc_ns": 1789615196392132495,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 11113,
+            "stime_ticks": 587,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2788286114637,
+        "utc_ns": 1789615205890236916,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 12155,
+            "stime_ticks": 627,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {
+        "9395": 9612,
+        "9403": 9612
+      },
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif_sha256": "5a7ecfef73b65a91291441889685d3e09447c74120f598f28e9c23e5df2e6cec",
+      "clock": {
+        "samples": 8919,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1160858,
+        "first_offset_ns": 68989,
+        "last_offset_ns": 409044,
+        "sample_span_fraction": 0.9999495389599157,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 77,
+        "max_gap_ns": 130261368,
+        "bad": [],
+        "other_node_holder_pids": [],
+        "passed": true
+      },
+      "structure_vs_A0": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 0.3327302758964933,
+        "domain_all_atom_A": [
+          0.3327302758964933
+        ],
+        "max_domain_all_atom_A": 0.3327302758964933,
+        "cif_byte_exact": false
+      }
+    },
+    {
+      "label": "C2",
+      "arm": "C",
+      "start_monotonic_ns": 2788632257942,
+      "end_monotonic_ns": 2798296671426,
+      "elapsed_s": 9.664413484,
+      "plddt": 0.910912,
+      "before": {
+        "monotonic_ns": 2788607016949,
+        "utc_ns": 1789615206211139498,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 12168,
+            "stime_ticks": 628,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2798296674893,
+        "utc_ns": 1789615215900797181,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 13225,
+            "stime_ticks": 673,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {
+        "10282": 16,
+        "10712": 200,
+        "10797": 200
+      },
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif_sha256": "78f60dd505eee54336ac29b66c3b1cf6545a15a18df6a8fdbb8bf5b08019ca18",
+      "clock": {
+        "samples": 9091,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1135098,
+        "first_offset_ns": 948963,
+        "last_offset_ns": 225588,
+        "sample_span_fraction": 0.99987846639613,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 79,
+        "max_gap_ns": 130851090,
+        "bad": [],
+        "other_node_holder_pids": [],
+        "passed": true
+      },
+      "structure_vs_A0": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 0.3648485175196527,
+        "domain_all_atom_A": [
+          0.3648485175196527
+        ],
+        "max_domain_all_atom_A": 0.3648485175196527,
+        "cif_byte_exact": false
+      }
+    },
+    {
+      "label": "D2",
+      "arm": "D",
+      "start_monotonic_ns": 2798652165107,
+      "end_monotonic_ns": 2808143001659,
+      "elapsed_s": 9.490836552,
+      "plddt": 0.908496,
+      "before": {
+        "monotonic_ns": 2798628496512,
+        "utc_ns": 1789615216232619341,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 13240,
+            "stime_ticks": 674,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2808143005907,
+        "utc_ns": 1789615225747128195,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 52651,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 14285,
+            "stime_ticks": 713,
+            "starttime_ticks": 267144,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {
+        "10282": 16,
+        "9395": 9612,
+        "9403": 9612,
+        "10712": 200,
+        "10797": 200
+      },
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif_sha256": "faacd7b15a407ee5afa5811b62c71cd2b89e5925bb64c85b10fc3953577d87b4",
+      "clock": {
+        "samples": 8931,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1128128,
+        "first_offset_ns": 371470,
+        "last_offset_ns": 739037,
+        "sample_span_fraction": 0.9998829916631778,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 77,
+        "max_gap_ns": 130857232,
+        "bad": [],
+        "other_node_holder_pids": [],
+        "passed": true
+      },
+      "structure_vs_A0": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 0.19484249890446195,
+        "domain_all_atom_A": [
+          0.19484249890446195
+        ],
+        "max_domain_all_atom_A": 0.19484249890446195,
+        "cif_byte_exact": false
+      }
+    }
+  ],
+  "errors": [],
+  "arms": {
+    "note": "Runtime line numbers, taken from runs/census512/site_census.json, not from the AST. Only 5 live sites on the Boltz-2 512 aa default path are bare of BOTH core_grid and program_config; everything else already carries one of the two. Arms split them by call weight so a null result cannot hide a cancellation.",
+    "sites": {
+      "9395": "AdaLN.s_terms s_scale linear, 9612 calls; source carries a commented-out core_grid marked CAUSES ACCURACY ISSUE",
+      "9403": "AdaLN.s_terms s_bias linear, 9612 calls",
+      "10712": "Diffusion atom-to-token matmul, 200 calls",
+      "10797": "Diffusion a_to_q matmul, 200 calls",
+      "10282": "OuterProductMean z_rows matmul, 16 calls"
+    },
+    "arms": [
+      {
+        "name": "A",
+        "lines": [],
+        "what": "untouched default; also this node's anchor"
+      },
+      {
+        "name": "B",
+        "lines": [
+          9395,
+          9403
+        ],
+        "what": "AdaLN pair, 19224 of the 19428 eligible calls"
+      },
+      {
+        "name": "C",
+        "lines": [
+          10712,
+          10797,
+          10282
+        ],
+        "what": "the other three, 416 calls"
+      },
+      {
+        "name": "D",
+        "lines": [
+          9395,
+          9403,
+          10712,
+          10797,
+          10282
+        ],
+        "what": "all five"
+      }
+    ]
+  },
+  "arms_digest": {
+    "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/arms_ab.json",
+    "sha256": "bcfd9041f6e84b98683611a9456867af6a0c8eee10cc8c5fb7d5866c49aed246",
+    "bytes": 1062
+  },
+  "criterion": {
+    "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/criterion.json",
+    "sha256": "7f21ac678ea35343c13ba47b8f108113ecbd7bfc822b060cea17a192059470a7",
+    "bytes": 3633
+  },
+  "source_commit": "22c43bc2d0b360ae9c7594c01fc9db119f77e267",
+  "source_base": "e6004abba460550a650ffa42a90e795ab3e5f20d",
+  "dirty_status": "?? perf/c10_core_grid/capture.py\n?? perf/c10_core_grid/run.sh\n?? perf/c10_core_grid/runs/ab512/\n?? perf/c10_core_grid/runs/census512/cifs/\n?? perf/c10_core_grid/runs/census512/clock.jsonl.gz\n?? perf/c10_core_grid/runs/census512/dirty.patch\n?? perf/c10_core_grid/runs/census512/holders.jsonl.gz\n?? perf/c10_core_grid/runs/census512/result.json\n?? perf/c10_core_grid/summarise.py\n?? perf/c10_core_grid/tmp/\n",
+  "production_diff": "",
+  "started_utc_ns": 1789615089110633034,
+  "completed": true,
+  "before": {
+    "monotonic_ns": 2671506525385,
+    "utc_ns": 1789615089110647633,
+    "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [],
+    "own_nodes": []
+  },
+  "dirty_diff": "",
+  "environment": {
+    "PYTHONPATH": "/home/ttuser/.coworker/wt/c10-core-grid",
+    "OMP_NUM_THREADS": "2",
+    "C10_NODE": "1",
+    "TT_VISIBLE_DEVICES": "1",
+    "TT_BIO_LEASE_CARDS": "1",
+    "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+  },
+  "ttnn_version": "0.68.0",
+  "ttnn_path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/__init__.py",
+  "tt_bio_path": "/home/ttuser/.coworker/wt/c10-core-grid/tt_bio/tenstorrent.py",
+  "core_grid_main": {
+    "x": 11,
+    "y": 10
+  },
+  "assigned_node_sysfs": {
+    "resolved": "/sys/devices/pci0000:00/0000:00:01.3/0000:02:00.0/tenstorrent/tenstorrent!1",
+    "device": "/sys/devices/pci0000:00/0000:00:01.3/0000:02:00.0",
+    "tt_asic_id": "380F6B89681D36A4",
+    "tt_card_type": "p300c",
+    "tt_fw_bundle_ver": "19.15.0.0",
+    "tt_m3app_fw_ver": "0.31.0.0",
+    "tt_serial": "0000046131934103"
+  },
+  "inputs": [
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/size512/fixtures/cdk2x2_298.yaml",
+      "sha256": "d1c5084cae5c21dbc9de0e1ebbbc7a41b19d3949d74b036d401965225d5279c7",
+      "bytes": 599
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/size512/fixtures/cdk2x2_298.a3m",
+      "sha256": "e6eff96ae8bc7d823a25263aca56bb8af3c83e2e1cd7257e60d642a9e6a49c41",
+      "bytes": 12783
+    }
+  ],
+  "opened": {
+    "monotonic_ns": 2675616334513,
+    "utc_ns": 1789615093220457453,
+    "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [
+      {
+        "pid": 52651,
+        "nodes": [
+          "/dev/tenstorrent/1"
+        ],
+        "state": "S",
+        "utime_ticks": 380,
+        "stime_ticks": 102,
+        "starttime_ticks": 267144,
+        "argv": "python3 perf/c10_core_grid/capture_ab.py --size 298 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298 --arms perf/c10_core_grid/arms_ab.json --reps 3 ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "1",
+          "TT_BIO_LEASE_CARDS": "1",
+          "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+        }
+      }
+    ],
+    "own_nodes": [
+      "/dev/tenstorrent/1"
+    ]
+  },
+  "model_meta": {
+    "hardware": "blackhole",
+    "grid": [
+      11,
+      10
+    ],
+    "recycling_steps": 3,
+    "load_s": 2.53,
+    "n_msa": 35,
+    "msa_dir": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298/msa",
+    "diffusion_samples": 1,
+    "job_cfg": {
+      "model": "boltz2",
+      "fast": false,
+      "output_format": "cif",
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0,
+      "trace": false,
+      "msa_dir": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298/msa",
+      "struct_dir": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/tmp/ttbase-boltz2-04vyzhb1/out",
+      "use_msa_server": true,
+      "msa_db_path": null,
+      "use_envdb": false,
+      "msa_endpoint": null,
+      "single_sequence": false,
+      "msa_server_url": "https://api.colabfold.com",
+      "msa_pairing_strategy": "greedy",
+      "msa_server_username": null,
+      "msa_server_password": null,
+      "api_key_value": null,
+      "max_msa_seqs": 8192,
+      "write_pae": false,
+      "write_pde": false,
+      "write_embeddings": false,
+      "method": null,
+      "template_structures": "/home/ttuser/.boltz/of3_template_structures",
+      "conf_ckpt": "/home/ttuser/.boltz/boltz2_conf.ckpt",
+      "aff_ckpt": "/home/ttuser/.boltz/boltz2_aff.ckpt",
+      "mol_dir": "/home/ttuser/.boltz/mols",
+      "conf_kwargs": {
+        "predict_args": {
+          "recycling_steps": 3,
+          "sampling_steps": 200,
+          "diffusion_samples": 1,
+          "max_parallel_samples": null
+        },
+        "diffusion_process_args": {
+          "step_scale": 1.5,
+          "gamma_0": 0.8,
+          "gamma_min": 1.0,
+          "noise_scale": 1.003,
+          "rho": 7,
+          "sigma_min": 0.0001,
+          "sigma_max": 160.0,
+          "sigma_data": 16.0,
+          "P_mean": -1.2,
+          "P_std": 1.5,
+          "coordinate_augmentation": true,
+          "alignment_reverse_diff": true,
+          "synchronize_sigmas": true
+        },
+        "pairformer_args": {
+          "num_blocks": 64,
+          "num_heads": 16,
+          "dropout": 0.0,
+          "v2": true
+        },
+        "msa_args": {
+          "subsample_msa": true,
+          "num_subsampled_msa": 1024,
+          "use_paired_feature": true,
+          "msa_s": 64,
+          "msa_blocks": 4,
+          "msa_dropout": 0.15,
+          "z_dropout": 0.25,
+          "pairwise_head_width": 32,
+          "pairwise_num_heads": 4,
+          "activation_checkpointing": true
+        },
+        "steering_args": {
+          "fk_steering": false,
+          "physical_guidance_update": false,
+          "contact_guidance_update": true,
+          "num_particles": 3,
+          "fk_lambda": 4.0,
+          "fk_resampling_interval": 3,
+          "num_gd_steps": 20
+        },
+        "use_kernels": true,
+        "use_tenstorrent": true,
+        "trace": false,
+        "diffusion_trace": false
+      },
+      "aff_kwargs": {
+        "predict_args": {
+          "recycling_steps": 5,
+          "sampling_steps": 200,
+          "diffusion_samples": 5,
+          "max_parallel_samples": 1
+        },
+        "diffusion_process_args": {
+          "step_scale": 1.5,
+          "gamma_0": 0.8,
+          "gamma_min": 1.0,
+          "noise_scale": 1.003,
+          "rho": 7,
+          "sigma_min": 0.0001,
+          "sigma_max": 160.0,
+          "sigma_data": 16.0,
+          "P_mean": -1.2,
+          "P_std": 1.5,
+          "coordinate_augmentation": true,
+          "alignment_reverse_diff": true,
+          "synchronize_sigmas": true
+        },
+        "pairformer_args": {
+          "num_blocks": 64,
+          "num_heads": 16,
+          "dropout": 0.0,
+          "v2": true
+        },
+        "msa_args": {
+          "subsample_msa": true,
+          "num_subsampled_msa": 1024,
+          "use_paired_feature": true,
+          "msa_s": 64,
+          "msa_blocks": 4,
+          "msa_dropout": 0.15,
+          "z_dropout": 0.25,
+          "pairwise_head_width": 32,
+          "pairwise_num_heads": 4,
+          "activation_checkpointing": true
+        },
+        "steering_args": {
+          "fk_steering": false,
+          "physical_guidance_update": false,
+          "contact_guidance_update": false,
+          "num_particles": 3,
+          "fk_lambda": 4.0,
+          "fk_resampling_interval": 3,
+          "num_gd_steps": 20
+        },
+        "affinity_mw_correction": false,
+        "use_tenstorrent": true,
+        "trace": false,
+        "diffusion_trace": false
+      },
+      "use_potentials": false
+    },
+    "struct_dir": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/tmp/ttbase-boltz2-04vyzhb1/out",
+    "timed_region": "predict_one (featurize + fold + CIF write)",
+    "phase_times": null,
+    "assigned_node_sysfs": {
+      "resolved": "/sys/devices/pci0000:00/0000:00:01.3/0000:02:00.0/tenstorrent/tenstorrent!1",
+      "device": "/sys/devices/pci0000:00/0000:00:01.3/0000:02:00.0",
+      "tt_asic_id": "380F6B89681D36A4",
+      "tt_card_type": "p300c",
+      "tt_fw_bundle_ver": "19.15.0.0",
+      "tt_m3app_fw_ver": "0.31.0.0",
+      "tt_serial": "0000046131934103"
+    }
+  },
+  "model_predict_args": {
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "diffusion_samples": 1,
+    "max_parallel_samples": null
+  },
+  "acquisition_sources": [
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/ambient.py",
+      "sha256": "56fefb64f05793d20d8d73033a58501ea1c29f6567ee973196d726fcf090076e",
+      "bytes": 1798
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/arm.py",
+      "sha256": "2eae5b5107475755f827f8563189423dc92ca0d73004f5f35aa921913a69a8fc",
+      "bytes": 2975
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/audit_accuracy.py",
+      "sha256": "ea5e820a97b86a63edcbf14f30fe5f5c93880728b9e5bd5650f270da620c08c1",
+      "bytes": 4310
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/audit_prerequisites.py",
+      "sha256": "452221b86bb2fa3939215844f617e8a24349d9b765a3a61e4f3db096cc0184ac",
+      "bytes": 3342
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/capture.py",
+      "sha256": "729fa462cd7d19782e9339354c43a561cdaca5764f5c066d151f349f8301d15a",
+      "bytes": 11847
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/capture_ab.py",
+      "sha256": "d4f96e6c892ab3a56c87b50edd780b22cb7dc73475788ad280754d6e6161b0da",
+      "bytes": 13496
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/control.py",
+      "sha256": "cb0394ca480059971c642ae6a36dffead5803705e9092e51a3c13aaaae47186f",
+      "bytes": 4463
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/force_aiclk.py",
+      "sha256": "f8cad754361c724498de52f4e21164705e0667caa710c317076da0312dfb314d",
+      "bytes": 2572
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/reduce.py",
+      "sha256": "a8754c80dbc9553c8877f8be5db59795dd39acfd5a63dc0358dd02ac2274fcf8",
+      "bytes": 10043
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/sites.py",
+      "sha256": "6002db2048e22c9cab0d4620e500b3d756abc1cdb557001224386dc1e66755e7",
+      "bytes": 1852
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/summarise.py",
+      "sha256": "8b8329e6fa47a58f599f4230506c01d72e8e1554811875df5d0eb42377fdb478",
+      "bytes": 2178
+    }
+  ],
+  "sdpa_cap": 1024,
+  "force_response": [
+    0,
+    0
+  ],
+  "site_census": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/ab298/site_census.json",
+  "release_response": [
+    0,
+    0
+  ],
+  "sampler_returncode": 0,
+  "after": {
+    "monotonic_ns": 2808688756694,
+    "utc_ns": 1789615226292879292,
+    "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [],
+    "own_nodes": []
+  },
+  "co_tenants": [],
+  "finished_utc_ns": 1789615226619030971
+}

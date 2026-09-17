@@ -1,0 +1,106 @@
+[
+ {
+  "run": "perf/c10_core_grid/runs/ab512",
+  "size": 512,
+  "node": "1",
+  "MHz": 1350,
+  "completed": true,
+  "errors": [],
+  "reps": 3,
+  "A_spread_s": 0.027132262000000296,
+  "arms": {
+   "A": {
+    "n": 3,
+    "median_s": 14.9114,
+    "min_s": 14.9068,
+    "max_s": 14.934,
+    "delta_s": 0.0,
+    "delta_Mcycles": -0.0,
+    "injected": 0,
+    "refused": 0,
+    "cifs": [
+     "bb7f0e1af7e2"
+    ],
+    "rmsd_vs_A0_A": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "plddt": [
+     0.8459,
+     0.8459,
+     0.8459
+    ]
+   },
+   "B": {
+    "n": 3,
+    "median_s": 14.7668,
+    "min_s": 14.7267,
+    "max_s": 14.7754,
+    "delta_s": -0.1446,
+    "delta_Mcycles": 195.2,
+    "injected": 19224,
+    "refused": 0,
+    "cifs": [
+     "28b123c4b088"
+    ],
+    "rmsd_vs_A0_A": [
+     0.2822,
+     0.2822,
+     0.2822
+    ],
+    "plddt": [
+     0.8438,
+     0.8438,
+     0.8438
+    ]
+   },
+   "C": {
+    "n": 3,
+    "median_s": 14.8978,
+    "min_s": 14.761,
+    "max_s": 16.1147,
+    "delta_s": -0.0136,
+    "delta_Mcycles": 18.4,
+    "injected": 416,
+    "refused": 0,
+    "cifs": [
+     "ffd1d4dd6b6d"
+    ],
+    "rmsd_vs_A0_A": [
+     0.593,
+     0.593,
+     0.593
+    ],
+    "plddt": [
+     0.8456,
+     0.8456,
+     0.8456
+    ]
+   },
+   "D": {
+    "n": 3,
+    "median_s": 14.7555,
+    "min_s": 14.7201,
+    "max_s": 14.9045,
+    "delta_s": -0.1559,
+    "delta_Mcycles": 210.5,
+    "injected": 19640,
+    "refused": 0,
+    "cifs": [
+     "67980c1a2ec3"
+    ],
+    "rmsd_vs_A0_A": [
+     0.2917,
+     0.2917,
+     0.2917
+    ],
+    "plddt": [
+     0.8449,
+     0.8449,
+     0.8449
+    ]
+   }
+  }
+ }
+]
