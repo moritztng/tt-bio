@@ -29,6 +29,39 @@ if ! [ -r "/sys/class/tenstorrent/tenstorrent!${NODE}/tt_aiclk" ]; then
   exit 1
 fi
 
+# Two guards, both added after pass 3 lost its whole turn on this box. Neither is optional and
+# both are cheap relative to a capture.
+#
+# 1. The sibling chip. A p300c's two chips share one board power budget, so a fold on the sibling
+#    moves this node's timing while never touching benchlock's lock file: benchlock's contract is
+#    mutual exclusion among benchlock CALLERS, and a job that never asks for the lock is
+#    structurally invisible to it. `pair_idle.py` is c12-orchestrator's tool and is READ FROM ITS
+#    BRANCH rather than copied here, so the two rows cannot drift apart.
+# 2. Whether this chip can run a program at all. On 2026-09-17 node 2 accepted the 32x32 bf16 add
+#    that tt_bio's own bring-up probe issues and never completed it, and because that probe runs
+#    inline in the capture process there was no deadline on it: twelve minutes, no fold, no rows.
+#    `dispatch_probe.py` runs the same test in a child under a timeout, so a wedged chip costs the
+#    timeout instead of the pass.
+PAIR_IDLE="$ROOT/perf/c12_orchestrator/pair_guard/pair_idle.py"
+if ! [ -r "$PAIR_IDLE" ]; then
+  PAIR_IDLE="$(mktemp -t pair_idle.XXXXXX.py)"
+  if ! git -C "$ROOT" show origin/wk/c12-orchestrator:perf/c12_orchestrator/pair_guard/pair_idle.py \
+       > "$PAIR_IDLE" 2>/dev/null; then
+    echo "run.sh: cannot reach pair_idle.py on wk/c12-orchestrator. Fetch it, do not skip it." >&2
+    exit 1
+  fi
+fi
+if ! "$PY" "$PAIR_IDLE" --card "$NODE"; then
+  echo "run.sh: sibling chip of node ${NODE} is busy -- a p300c pair is ONE timing resource." >&2
+  echo "run.sh: wait it out or DEFER. Refusing to measure and explain it afterwards." >&2
+  exit 75
+fi
+
+if ! "$PY" "$HERE/dispatch_probe.py" --node "$NODE" --timeout "${PROBE_TIMEOUT_S:-240}"; then
+  echo "run.sh: node ${NODE} did not dispatch a 32x32 add. It needs a reset; not measuring." >&2
+  exit 1
+fi
+
 for size in "${SIZES[@]}"; do
   out="$HERE/runs/$NAME/$size"
   mkdir -p "$HERE/runs/$NAME"
