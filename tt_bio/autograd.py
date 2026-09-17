@@ -28,7 +28,7 @@ import ttnn
 __all__ = [
     "Tensor", "precise_config", "no_grad",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "sigmoid", "reshape",
-    "triangle_attention",
+    "triangle_attention", "permute", "pair_contract", "checkpoint",
 ]
 
 
@@ -167,18 +167,43 @@ def _sum_leading(t, out_shape):
     return ttnn.reshape(summed, [int(d) for d in out_shape])
 
 
-def matmul(a: Tensor, b: Tensor, *, config=None) -> Tensor:
-    """``a @ b``. Backward is the two transposed products, which is a matmul's own shape."""
+def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool = False,
+           config=None) -> Tensor:
+    """``op(a) @ op(b)`` where op is transpose-or-not on the last two dims.
+
+    The four backward cases are tt-train's, worked out in ttnn_fixed/matmuls.cpp:54-79. The
+    part worth restating is why a transposed operand does not simply get a transposed
+    gradient: if the forward used A^T, then dA_effective is the gradient of the transposed
+    operand and dA is its transpose, so the product has to be re-associated rather than
+    post-transposed. Writing `ttnn.transpose` on the result instead is the classic way to
+    get a silently wrong gradient on a non-square operand, and a shape check will not catch
+    it when both dims are equal, which for a pair tensor they always are.
+    """
     cfg = config or precise_config()
-    out_v = ttnn.matmul(a.value, b.value, compute_kernel_config=cfg)
+    out_v = ttnn.matmul(a.value, b.value, transpose_a=transpose_a, transpose_b=transpose_b,
+                        compute_kernel_config=cfg)
 
     def make(out):
         def bw():
             g = out.grad
             if a.requires_grad:
-                a.add_grad(ttnn.matmul(g, b.value, transpose_b=True, compute_kernel_config=cfg))
+                if not transpose_a:
+                    # dA = g @ op(b)^T
+                    a.add_grad(ttnn.matmul(g, b.value, transpose_b=not transpose_b,
+                                           compute_kernel_config=cfg))
+                else:
+                    # A entered as A^T, so dA = (dA_eff)^T = op(b) @ g^T
+                    a.add_grad(ttnn.matmul(b.value, g, transpose_a=transpose_b,
+                                           transpose_b=True, compute_kernel_config=cfg))
             if b.requires_grad:
-                b.add_grad(ttnn.matmul(a.value, g, transpose_a=True, compute_kernel_config=cfg))
+                if not transpose_b:
+                    # dB = op(a)^T @ g
+                    b.add_grad(ttnn.matmul(a.value, g, transpose_a=not transpose_a,
+                                           compute_kernel_config=cfg))
+                else:
+                    # B entered as B^T, so dB = (dB_eff)^T = g^T @ op(a)
+                    b.add_grad(ttnn.matmul(g, a.value, transpose_a=True,
+                                           transpose_b=transpose_a, compute_kernel_config=cfg))
         return bw
 
     return _tape(out_v, [a, b], make)
@@ -457,3 +482,80 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
         return bw
 
     return _tape(out_v, parents, make)
+
+
+def permute(x: Tensor, dims: Sequence[int]) -> Tensor:
+    """Permute axes. The backward is the inverse permutation, so no kernel work but a real
+    data movement, which is why the trimul contraction below pays for two of them."""
+    dims = [int(d) for d in dims]
+    inv = [0] * len(dims)
+    for i, d in enumerate(dims):
+        inv[d] = i
+    out_v = ttnn.permute(x.value, dims)
+
+    def make(out):
+        def bw():
+            x.add_grad(ttnn.permute(out.grad, inv))
+        return bw
+
+    return _tape(out_v, [x], make)
+
+
+def pair_contract(a: Tensor, b: Tensor, *, incoming: bool = False, config=None) -> Tensor:
+    """TriangleMultiplication's contraction, composed from `permute` and `matmul`.
+
+    Outgoing is ``out[i,j,c] = sum_k a[i,k,c] * b[j,k,c]``, incoming is
+    ``out[i,j,c] = sum_k a[k,i,c] * b[k,j,c]``. Both are one per-channel matmul once the
+    channel axis is moved to the front, so this needs no new differentiated op at all: the
+    tape's own `permute` and `matmul` with transpose flags cover it, and its gradient is
+    therefore already verified by their gradchecks rather than needing its own.
+
+    Inputs are ``[N, N, C]``, which is tt-bio's pair layout.
+    """
+    ap = permute(a, (2, 0, 1))
+    bp = permute(b, (2, 0, 1))
+    if incoming:
+        # sum over the FIRST index: A_c^T @ B_c
+        prod = matmul(ap, bp, transpose_a=True, config=config)
+    else:
+        # sum over the SECOND index: A_c @ B_c^T
+        prod = matmul(ap, bp, transpose_b=True, config=config)
+    return permute(prod, (1, 2, 0))
+
+
+def checkpoint(fn, *inputs: Tensor) -> Tensor:
+    """Run ``fn`` untaped, and re-run it taped inside its own backward.
+
+    Trades one extra forward for dropping every intermediate ``fn`` produced. The
+    feasibility study called per-block checkpointing mandatory for a 48-block trunk; the
+    measurement is sharper than that. ONE pairformer block at 512 aa with c_z=256 exhausts
+    all 34.23 GB without it (perf/hallgrad/e2e_distogram.py at --n 512 dies in
+    bank_manager.cpp:439 with 34.0 GB allocated and 0.03 GB free), because a tape retains
+    both every op's saved intermediate AND a gradient per op. So checkpointing is not an
+    optimisation that buys depth, it is what makes a single block fit.
+
+    Only the ``inputs`` named here receive gradients. Anything ``fn`` closes over -- weights,
+    typically -- does not, which is right for hallucination, where the design variable is the
+    input and the weights are frozen. A training use would have to pass the weights in too.
+    """
+    with no_grad():
+        produced = fn(*inputs)
+    out_value = produced.value if isinstance(produced, Tensor) else produced
+
+    def make(out):
+        def bw():
+            # Re-run the segment on fresh tape nodes over the same input VALUES, then
+            # backprop through that inner tape and forward the results to the real inputs.
+            inner = [Tensor(t.value, requires_grad=t.requires_grad) for t in inputs]
+            y = fn(*inner)
+            if y.node is None:
+                raise RuntimeError("checkpoint(fn): the recomputed segment built no tape; "
+                                   "fn must use taped ops and at least one input must "
+                                   "require a gradient")
+            y.backward(seed=out.grad)
+            for src, dup in zip(inputs, inner):
+                if dup.grad is not None:
+                    src.add_grad(dup.grad)
+        return bw
+
+    return _tape(out_value, list(inputs), make)

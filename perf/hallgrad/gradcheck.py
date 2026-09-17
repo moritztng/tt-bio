@@ -196,6 +196,34 @@ def case_triatt_gated(rng):
     return d
 
 
+def case_mm_tb(rng, m=64, k=96, n=128):
+    """a @ b^T on NON-SQUARE operands. Square shapes hide a wrong re-association."""
+    return {"a": rng.standard_normal((m, k)) , "b": rng.standard_normal((n, k))}
+
+
+def case_mm_ta(rng, m=96, k=64, n=128):
+    """a^T @ b, also non-square."""
+    return {"a": rng.standard_normal((k, m)), "b": rng.standard_normal((k, n))}
+
+
+def case_permute(rng, n=32, c=64):
+    """A pair-shaped permute into channel-major and back."""
+    return {"x": rng.standard_normal((n, n, c))}
+
+
+def case_paircontract(rng, n=32, c=48):
+    """TriangleMultiplication's outgoing contraction, composed from permute and matmul."""
+    return {"a": rng.standard_normal((n, n, c)) * 0.3,
+            "b": rng.standard_normal((n, n, c)) * 0.3}
+
+
+def case_paircontract_in(rng, n=32, c=48):
+    """The incoming variant, which contracts the OTHER index. A wrong axis here is the
+    single most likely trimul defect and it is invisible on a symmetric input."""
+    return {"a": rng.standard_normal((n, n, c)) * 0.3,
+            "b": rng.standard_normal((n, n, c)) * 0.3}
+
+
 def torch_forward(name, t):
     if name == "linear":
         return t["x"] @ t["w"] + t["b"]
@@ -214,6 +242,16 @@ def torch_forward(name, t):
         s = t["q"] @ t["k"].transpose(-2, -1) * TRIATT_SCALE + t["bias"]
         o = torch.softmax(s, dim=-1) @ t["v"]
         return o * torch.sigmoid(t["g"]) if name == "triatt_gated" else o
+    if name == "mm_tb":
+        return t["a"] @ t["b"].transpose(-2, -1)
+    if name == "mm_ta":
+        return t["a"].transpose(-2, -1) @ t["b"]
+    if name == "permute":
+        return t["x"].permute(2, 0, 1)
+    if name == "paircontract":
+        return torch.einsum("ikc,jkc->ijc", t["a"], t["b"])
+    if name == "paircontract_in":
+        return torch.einsum("kic,kjc->ijc", t["a"], t["b"])
     raise KeyError(name)
 
 
@@ -233,6 +271,16 @@ def tt_forward(name, ag, t):
         o = ag.triangle_attention(t["q"], t["k"], t["v"], t["bias"],
                                   scale=TRIATT_SCALE, **kw)
         return ag.mul(o, ag.sigmoid(t["g"])) if name == "triatt_gated" else o
+    if name == "mm_tb":
+        return ag.matmul(t["a"], t["b"], transpose_b=True)
+    if name == "mm_ta":
+        return ag.matmul(t["a"], t["b"], transpose_a=True)
+    if name == "permute":
+        return ag.permute(t["x"], (2, 0, 1))
+    if name == "paircontract":
+        return ag.pair_contract(t["a"], t["b"])
+    if name == "paircontract_in":
+        return ag.pair_contract(t["a"], t["b"], incoming=True)
     raise KeyError(name)
 
 
@@ -241,6 +289,8 @@ CASES = {
     "layernorm": case_layernorm, "softmax": case_softmax,
     "triatt": case_triatt, "triatt_chunked": case_triatt_chunked,
     "triatt_gated": case_triatt_gated,
+    "mm_tb": case_mm_tb, "mm_ta": case_mm_ta, "permute": case_permute,
+    "paircontract": case_paircontract, "paircontract_in": case_paircontract_in,
 }
 
 
