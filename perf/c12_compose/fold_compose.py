@@ -97,6 +97,8 @@ def main() -> int:
     ap.add_argument("--recycles", type=int, default=AB.RECYCLING_STEPS)
     ap.add_argument("--cold-reps", type=int, default=1,
                     help="discarded full-arm-list passes before the timed reps")
+    ap.add_argument("--palindrome", action="store_true",
+                    help="reverse the interior arms on odd reps, so a within-rep drift cancels")
     args = ap.parse_args()
     arms = [a for a in args.arms.split(",") if a]
 
@@ -260,8 +262,17 @@ def main() -> int:
                                                  metrics.get("confidence_score", 0))), 6),
                 "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
 
+    # A fixed arm order inside a rep aliases any within-rep drift into the arm effect: base sits
+    # at both ends and averages the drift out, but silu/hoist/both sit at one position each and do
+    # not. Reversing the interior on odd reps gives every interior arm both an early and a late
+    # slot across the session, so a linear drift cancels for them too. Position is still recorded
+    # per fold, so the balance is checkable rather than asserted.
+    def order(rep):
+        return arms if (not args.palindrome or rep % 2 == 0) else \
+            [arms[0]] + list(reversed(arms[1:-1])) + [arms[-1]]
+
     for rep in range(-args.cold_reps, args.reps):
-        for pos, arm in enumerate(arms):
+        for pos, arm in enumerate(order(rep)):
             r = fold(arm, rep, pos)
             out["runs"].append(r)
             print(f"  rep{rep:<3d} {arm:6s} pos{pos} fold {r['fold_s']:7.3f}s  "
@@ -306,8 +317,12 @@ def summarise(runs, arms, args):
             "spread_pct": round(100 * (max(v) - min(v)) / med, 2) if med else None,
         }
 
-    # The A/A floor: base at position 0 against base at its later position, same configuration,
-    # same arm list, same session. A composed delta inside this is not a result.
+    s["paired"] = paired(warm, order)
+
+    # The median-of-medians A/A floor is KEPT but is no longer the floor a verdict is read against.
+    # It understates the session's own noise because taking medians first cancels the within-rep
+    # swings the floor exists to measure: on session s2 it read 0.1080 s where the paired A/A 95 %
+    # CI was +/-0.79 s, a 7x understatement. `s["paired"]["aa"]` is the number an effect must clear.
     p0 = [r["fold_s"] for r in warm if r["arm"] == "base" and r["pos"] == 0]
     pn = [r["fold_s"] for r in warm if r["arm"] == "base" and r["pos"] != 0]
     if p0 and pn:
@@ -368,6 +383,91 @@ def summarise(runs, arms, args):
     return s
 
 
+# two-sided 95 % t critical values; df -> t. Beyond the table the normal value is close enough
+# (t(120) = 1.980 against z = 1.960) and is used.
+_T95 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365, 8: 2.306,
+        9: 2.262, 10: 2.228, 12: 2.179, 14: 2.145, 16: 2.120, 18: 2.101, 20: 2.086,
+        25: 2.060, 30: 2.042, 35: 2.030, 40: 2.021, 45: 2.014, 50: 2.009, 60: 2.000,
+        80: 1.990, 100: 1.984, 120: 1.980}
+
+
+def _t95(df):
+    if df < 1:
+        return float("inf")
+    return _T95.get(df) or next((v for k, v in sorted(_T95.items()) if k >= df), 1.960)
+
+
+def paired(warm, order):
+    """Every arm differenced against its OWN rep's base mean, pooled across reps with a CI.
+
+    This is the statistic that carries the session's power, and the reason it replaces the
+    difference of two medians is measured rather than argued: session s2's medians said
+    base 14.8235 s, both -0.0135 s, A/A floor 0.1080 s -- a clean-looking NO-GO -- while the same
+    session's paired A/A arm had a 95 % CI of +/-0.79 s, so every lever arm sat inside its own
+    control and the session could not resolve its pre-registered 0.4977 s at all.
+
+    Two estimates are reported and a verdict needs both to agree in sign:
+
+      mean  paired mean with a t-based 95 % CI. Unbiased, and the interval is the honest width of
+            what the session can see.
+      min   the per-arm minimum against the base minimum. Contention noise on this box is
+            one-sided -- a co-tenant can only ever make a fold slower, never faster -- so the floor
+            of each arm's distribution is the least contaminated fold it achieved. It has no clean
+            interval, so it is a cross-check on the sign and not a headline.
+    """
+    reps = sorted({r["rep"] for r in warm})
+    interior = [a for a in order if a != "base"]
+    acc = {a: [] for a in interior}
+    aa, rows = [], []
+    for rp in reps:
+        g = [r for r in warm if r["rep"] == rp]
+        b = sorted([r for r in g if r["arm"] == "base"], key=lambda r: r["pos"])
+        if len(b) != 2:
+            continue
+        bm = (b[0]["fold_s"] + b[1]["fold_s"]) / 2
+        row = {"rep": rp, "base_first": b[0]["fold_s"], "base_last": b[1]["fold_s"],
+               "base_mean": round(bm, 4), "aa": round(b[0]["fold_s"] - b[1]["fold_s"], 4)}
+        aa.append(b[0]["fold_s"] - b[1]["fold_s"])
+        for a in interior:
+            v = [r for r in g if r["arm"] == a]
+            if len(v) == 1:
+                acc[a].append(bm - v[0]["fold_s"])
+                row[a] = round(bm - v[0]["fold_s"], 4)
+        rows.append(row)
+
+    def stat(v, name):
+        if len(v) < 2:
+            return {"n": len(v), "mean_s": round(v[0], 4) if v else None}
+        m = st.mean(v); sd = st.stdev(v); se = sd / len(v) ** 0.5; t = _t95(len(v) - 1)
+        return {"n": len(v), "mean_s": round(m, 4), "sd_s": round(sd, 4), "se_s": round(se, 4),
+                "t95": t, "ci95_half_width_s": round(t * se, 4),
+                "ci95_s": [round(m - t * se, 4), round(m + t * se, 4)],
+                "resolved": bool(abs(m) > t * se)}
+
+    bmin = min(r["fold_s"] for r in warm if r["arm"] == "base")
+    out = {"n_reps": len(rows), "per_rep": rows,
+           "aa": stat(aa, "aa"),
+           "arms": {a: dict(stat(acc[a], a),
+                            min_fold_s=round(min(r["fold_s"] for r in warm if r["arm"] == a), 4),
+                            delta_min_s=round(bmin - min(r["fold_s"] for r in warm
+                                                         if r["arm"] == a), 4))
+                    for a in interior},
+           "base_min_fold_s": round(bmin, 4)}
+    if all(a in out["arms"] for a in ("silu", "hoist", "both")):
+        d = {a: out["arms"][a]["mean_s"] for a in ("silu", "hoist", "both")}
+        ssum = d["silu"] + d["hoist"]
+        # The composed arm minus the sum of the two singles, differenced PER REP so the comparison
+        # carries its own interval instead of being arithmetic on three point estimates.
+        inter = [acc["both"][i] - acc["silu"][i] - acc["hoist"][i] for i in range(len(acc["both"]))]
+        out["subadditivity"] = {
+            "sum_of_singles_s": round(ssum, 4), "both_s": round(d["both"], 4),
+            "fraction_of_sum": round(d["both"] / ssum, 4) if ssum else None,
+            "interaction": stat(inter, "interaction"),
+            "below_larger_single": bool(d["both"] < max(d["silu"], d["hoist"])),
+            "larger_single_s": round(max(d["silu"], d["hoist"]), 4)}
+    return out
+
+
 def report(s, args):
     print(f"\n  base {s['base_median_fold_s']:.4f}s  "
           f"clock {s['clock']['min']}-{s['clock']['max']} MHz "
@@ -377,7 +477,25 @@ def report(s, args):
               f"{r['delta_s_vs_base']:+8.4f}s  {r['delta_Mcycles']:+8.1f}Mc  "
               f"{r['ratio_vs_base']}x  spread {r['spread_pct']}%")
     if "aa_floor" in s:
-        print(f"  A/A floor {s['aa_floor']['delta_s']:.4f}s  {s['aa_floor']['ratio']}x")
+        print(f"  A/A floor (medians, UNDERSTATES) {s['aa_floor']['delta_s']:.4f}s  "
+              f"{s['aa_floor']['ratio']}x")
+    p = s.get("paired")
+    if p:
+        print(f"\n  PAIRED, each arm against its own rep's base mean, n={p['n_reps']} reps")
+        a = p["aa"]
+        print(f"  {'A/A':6s} {a['mean_s']:+8.4f}s  sd {a['sd_s']:.4f}  "
+              f"95% CI +/-{a['ci95_half_width_s']:.4f}s  <- the floor an effect must clear")
+        for k, v in p["arms"].items():
+            print(f"  {k:6s} {v['mean_s']:+8.4f}s  sd {v['sd_s']:.4f}  "
+                  f"95% CI [{v['ci95_s'][0]:+.4f},{v['ci95_s'][1]:+.4f}]  "
+                  f"resolved={v['resolved']}   min-based {v['delta_min_s']:+.4f}s")
+        sb = p.get("subadditivity")
+        if sb:
+            i = sb["interaction"]
+            print(f"  SUBADDITIVITY paired: both {sb['both_s']:+.4f}s vs singles sum "
+                  f"{sb['sum_of_singles_s']:+.4f}s = {sb['fraction_of_sum']} of it; "
+                  f"interaction {i['mean_s']:+.4f}s 95% CI +/-{i['ci95_half_width_s']:.4f}s "
+                  f"(resolved={i['resolved']})")
     if "subadditivity" in s:
         sb = s["subadditivity"]
         print(f"  SUBADDITIVITY  both {sb['both_delta_s']:+.4f}s against silu+hoist "
