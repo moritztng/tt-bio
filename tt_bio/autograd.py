@@ -109,7 +109,7 @@ class Tensor:
         self.grad = ttnn.ones_like(self.value) if seed is None else seed
         for t in order:
             if t.node is not None:
-                t.node.fn()
+                t.node.fn(t.grad)
 
 
 def _reverse_topo(root: Tensor) -> list:
@@ -150,7 +150,14 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
     needs = _GRAD_ENABLED and any(p.requires_grad for p in parents)
     out = Tensor(out_value, requires_grad=needs)
     if needs:
-        out.node = _Node(make_fn(out), list(parents))
+        # `make_fn` takes no arguments and the closure it returns takes the output gradient,
+        # so no backward closure ever captures `out`. That matters for more than style: a
+        # closure that reads `out.grad` makes the cycle out -> node -> fn -> out, which
+        # CPython's refcounting cannot collect, so every intermediate of every step stays
+        # resident until the cyclic collector happens to run. Measured: the hallucination
+        # loop died of OOM at step 2 at 256 aa and inside 410 steps at 128 aa, on a 34.23 GB
+        # card, with a per-step tape that fits several times over.
+        out.node = _Node(make_fn(), list(parents))
     return out
 
 
@@ -183,9 +190,8 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
     out_v = ttnn.matmul(a.value, b.value, transpose_a=transpose_a, transpose_b=transpose_b,
                         compute_kernel_config=cfg)
 
-    def make(out):
-        def bw():
-            g = out.grad
+    def make():
+        def bw(g):
             if a.requires_grad:
                 if not transpose_a:
                     # dA = g @ op(b)^T
@@ -228,9 +234,8 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, config=None) -> 
                         compute_kernel_config=cfg)
     parents = [p for p in (x, w, b) if p is not None]
 
-    def make(out):
-        def bw():
-            g = out.grad
+    def make():
+        def bw(g):
             if x.requires_grad:
                 x.add_grad(ttnn.matmul(g, w.value, transpose_b=True, compute_kernel_config=cfg))
             if w.requires_grad:
@@ -274,9 +279,8 @@ def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor]
     parents = [p for p in (x, gamma, beta) if p is not None]
     width = float(int(xv.shape[-1]))
 
-    def make(out):
-        def bw():
-            g = out.grad
+    def make():
+        def bw(g):
             if gamma is not None and gamma.requires_grad:
                 gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
             if beta is not None and beta.requires_grad:
@@ -300,9 +304,8 @@ def softmax(x: Tensor, dim: int = -1, *, config=None) -> Tensor:
     cfg = config or precise_config()
     y = ttnn.softmax(x.value, dim=dim, compute_kernel_config=cfg)
 
-    def make(out):
-        def bw():
-            g = out.grad
+    def make():
+        def bw(g):
             inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
             x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
         return bw
@@ -314,9 +317,8 @@ def mul(a: Tensor, b: Tensor) -> Tensor:
     """Elementwise product. Same shapes only; broadcasting would need a reducing backward."""
     out_v = ttnn.multiply(a.value, b.value)
 
-    def make(out):
-        def bw():
-            g = out.grad
+    def make():
+        def bw(g):
             if a.requires_grad:
                 a.add_grad(ttnn.multiply(g, b.value))
             if b.requires_grad:
@@ -330,9 +332,8 @@ def add(a: Tensor, b: Tensor) -> Tensor:
     """Elementwise sum. Both gradients are the incoming one, which is why fan-in must sum."""
     out_v = ttnn.add(a.value, b.value)
 
-    def make(out):
-        def bw():
-            g = out.grad
+    def make():
+        def bw(g):
             if a.requires_grad:
                 a.add_grad(g)
             if b.requires_grad:
@@ -346,9 +347,9 @@ def sigmoid(x: Tensor) -> Tensor:
     """Sigmoid. Backward ``y * (1 - y)``, computed from the retained output."""
     y = ttnn.sigmoid(x.value)
 
-    def make(out):
-        def bw():
-            x.add_grad(ttnn.multiply(out.grad, ttnn.multiply(y, ttnn.rsub(y, 1.0))))
+    def make():
+        def bw(g):
+            x.add_grad(ttnn.multiply(g, ttnn.multiply(y, ttnn.rsub(y, 1.0))))
         return bw
 
     return _tape(y, [x], make)
@@ -359,9 +360,9 @@ def reshape(x: Tensor, shape: Sequence[int]) -> Tensor:
     src = [int(d) for d in x.value.shape]
     out_v = ttnn.reshape(x.value, [int(d) for d in shape])
 
-    def make(out):
-        def bw():
-            x.add_grad(ttnn.reshape(out.grad, src))
+    def make():
+        def bw(g):
+            x.add_grad(ttnn.reshape(g, src))
         return bw
 
     return _tape(out_v, [x], make)
@@ -428,9 +429,8 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
     out_v = out_blocks[0] if len(out_blocks) == 1 else ttnn.concat(out_blocks, dim=0)
     parents = [p for p in (q, k, v, bias) if p is not None]
 
-    def make(out):
-        def bw():
-            g = out.grad
+    def make():
+        def bw(g):
             dq_blocks, dk_blocks, dv_blocks, dbias_rows = [], [], [], None
             for b0 in range(0, B, cB):
                 b1 = min(b0 + cB, B)
@@ -493,9 +493,9 @@ def permute(x: Tensor, dims: Sequence[int]) -> Tensor:
         inv[d] = i
     out_v = ttnn.permute(x.value, dims)
 
-    def make(out):
-        def bw():
-            x.add_grad(ttnn.permute(out.grad, inv))
+    def make():
+        def bw(g):
+            x.add_grad(ttnn.permute(g, inv))
         return bw
 
     return _tape(out_v, [x], make)
@@ -542,8 +542,8 @@ def checkpoint(fn, *inputs: Tensor) -> Tensor:
         produced = fn(*inputs)
     out_value = produced.value if isinstance(produced, Tensor) else produced
 
-    def make(out):
-        def bw():
+    def make():
+        def bw(g):
             # Re-run the segment on fresh tape nodes over the same input VALUES, then
             # backprop through that inner tape and forward the results to the real inputs.
             inner = [Tensor(t.value, requires_grad=t.requires_grad) for t in inputs]
@@ -552,7 +552,7 @@ def checkpoint(fn, *inputs: Tensor) -> Tensor:
                 raise RuntimeError("checkpoint(fn): the recomputed segment built no tape; "
                                    "fn must use taped ops and at least one input must "
                                    "require a gradient")
-            y.backward(seed=out.grad)
+            y.backward(seed=g)
             for src, dup in zip(inputs, inner):
                 if dup.grad is not None:
                     src.add_grad(dup.grad)

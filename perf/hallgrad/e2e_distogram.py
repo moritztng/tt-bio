@@ -196,10 +196,9 @@ def _expand(ag, ttnn, x, n, rows):
     out_v = ttnn.repeat(shaped.value, reps)
     axis = 1 if rows else 0
 
-    def make(out):
-        def bw():
-            g = ttnn.sum(out.grad, dim=axis, keepdim=True)
-            shaped.add_grad(g)
+    def make():
+        def bw(g):
+            shaped.add_grad(ttnn.sum(g, dim=axis, keepdim=True))
         return bw
     return ag._tape(out_v, [shaped], make)
 
