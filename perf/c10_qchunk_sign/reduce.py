@@ -21,6 +21,41 @@ def boot_median(values,n=20000,seed=0):
             'excludes_zero':bool(np.percentile(draws,2.5)>0 or np.percentile(draws,97.5)<0),
             'positive':int((a>0).sum()),'negative':int((a<0).sum())}
 
+def pair_up(timed):
+    """Split the timed sequence into adjacent CROSS pairs (the lever) and adjacent SAME-arm pairs
+    (the A/A floor). Only adjacent folds are paired, so no pair spans a rejected fold's gap."""
+    cross=[];same=[]
+    for x,y in zip(timed,timed[1:]):
+        if not (x.get('accepted') and y.get('accepted')):continue
+        if x['arm']!=y['arm']:
+            off,on=(y,x) if y['arm']=='off' else (x,y)
+            cross.append({'labels':[x['label'],y['label']],'off_minus_on_s':off['elapsed_s']-on['elapsed_s'],'ratio_off_over_on':off['elapsed_s']/on['elapsed_s']})
+        else:
+            same.append({'labels':[x['label'],y['label']],'arm':x['arm'],'delta_s':y['elapsed_s']-x['elapsed_s'],'abs_delta_s':abs(y['elapsed_s']-x['elapsed_s'])})
+    return cross,same
+
+
+def abba_reps(timed,reps):
+    """mean(off) - mean(on) inside each `on off off on` rep. The lever sits at positions 1 and 4,
+    so this contrast is exactly zero under any linear drift across the rep."""
+    out=[]
+    for i in range(reps):
+        block=[r for r in timed if r['label'].startswith(f'R{i}_')]
+        if len(block)!=4 or not all(r.get('accepted') for r in block):continue
+        on=[r['elapsed_s'] for r in block if r['arm']=='on'];off=[r['elapsed_s'] for r in block if r['arm']=='off']
+        if len(on)!=2 or len(off)!=2:continue
+        out.append({'rep':i,'on_mean_s':statistics.mean(on),'off_mean_s':statistics.mean(off),'off_minus_on_s':statistics.mean(off)-statistics.mean(on)})
+    return out
+
+
+def census_verdict(census):
+    """The census is the proof that the arm switch reached the device: the rule must move a site
+    with the flag ON, move nothing with it OFF, and both arms must have made the same calls."""
+    return (bool(census) and not census.get('off',{}).get('sites_moved')
+            and bool(census.get('on',{}).get('sites_moved'))
+            and census.get('on',{}).get('calls')==census.get('off',{}).get('calls'))
+
+
 def reduce(root):
     root=Path(root);criterion=json.loads((HERE/'criterion.json').read_text())
     result={'verdict':'GO','flag':criterion['flag'],'targets':{},
@@ -69,22 +104,8 @@ def reduce(root):
             if rr['accepted']:accepted.append(rr)
         timed=[r for r in records if not r['census']]
         usable=all(r['accepted'] for r in timed) and len(timed)==4*criterion['reps']
-        # ---- the paired statistic, from adjacent folds only
-        cross=[];same=[]
-        for x,y in zip(timed,timed[1:]):
-            if not (x['accepted'] and y['accepted']):continue
-            if x['arm']!=y['arm']:
-                off,on=(y,x) if y['arm']=='off' else (x,y)
-                cross.append({'labels':[x['label'],y['label']],'off_minus_on_s':off['elapsed_s']-on['elapsed_s'],'ratio_off_over_on':off['elapsed_s']/on['elapsed_s']})
-            else:
-                same.append({'labels':[x['label'],y['label']],'arm':x['arm'],'delta_s':y['elapsed_s']-x['elapsed_s'],'abs_delta_s':abs(y['elapsed_s']-x['elapsed_s'])})
-        # ---- drift-immune ABBA rep contrast: mean(off) - mean(on) inside each `on off off on` rep
-        reps=[]
-        for i in range(criterion['reps']):
-            block=[r for r in timed if r['label'].startswith(f'R{i}_')]
-            if len(block)!=4 or not all(r['accepted'] for r in block):continue
-            on=[r['elapsed_s'] for r in block if r['arm']=='on'];off=[r['elapsed_s'] for r in block if r['arm']=='off']
-            reps.append({'rep':i,'on_mean_s':statistics.mean(on),'off_mean_s':statistics.mean(off),'off_minus_on_s':statistics.mean(off)-statistics.mean(on)})
+        cross,same=pair_up(timed)
+        reps=abba_reps(timed,criterion['reps'])
         stats={'adjacent_cross_pairs':boot_median([c['off_minus_on_s'] for c in cross]),
                'adjacent_cross_ratio':boot_median([c['ratio_off_over_on']-1.0 for c in cross]),
                'abba_rep_contrast':boot_median([r['off_minus_on_s'] for r in reps]),
@@ -110,8 +131,7 @@ def reduce(root):
                 'plddt_by_arm':{a:sorted({r['plddt'] for r in accepted if r['arm']==a}) for a in ('on','off')}}
         parity['passes_bar']=parity['max_cross_arm_domain_A'] is not None and parity['max_cross_arm_domain_A']<=bar
         census=run.get('census_summary',{})
-        census_ok=(bool(census) and not census.get('off',{}).get('sites_moved') and bool(census.get('on',{}).get('sites_moved'))
-                   and census.get('on',{}).get('calls')==census.get('off',{}).get('calls'))
+        census_ok=census_verdict(census)
         ok=(run.get('completed',False) and usable and len(cross)>=criterion['minimum_cross_pairs']
             and len(same)>=criterion['minimum_AA_pairs'] and parity['passes_bar'] and census_ok)
         out={'verdict':'GO' if ok else 'STOP','accepted_folds':len(accepted),'timed_folds':len(timed),
