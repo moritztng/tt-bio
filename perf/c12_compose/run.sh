@@ -22,6 +22,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 OUT="$HERE/out"; mkdir -p "$OUT"
 CARD="${CARD:-2}"
+# The interpreter both singles were measured on: torch 2.14.0+cu130, ttnn 0.68.0. A different
+# wheel would make the composed number incomparable with the 0.2134 s and 0.2843 s it is read
+# against.
+PY="${PY:-/home/ttuser/scratch/i14venv/bin/python3}"
 MAXLOAD="${MAXLOAD:-3.0}"
 
 load=$(awk '{print $1}' /proc/loadavg)
@@ -52,7 +56,7 @@ cd "$REPO" || exit 1
 TT_VISIBLE_DEVICES="$CARD" TT_BIO_LEASE_CARDS="$CARD" \
   TT_BIO_LEASE_HOLDER=worker:c12-compose-fold \
   "$HOME/.coworker/scripts/benchlock.sh" c12-compose-fold -- \
-  python3 "$HERE/fold_compose.py" --out "$OUT/${TAG}.json" --cifs "$OUT/${TAG}_cifs" "$@" \
+  "$PY" "$HERE/fold_compose.py" --out "$OUT/${TAG}.json" --cifs "$OUT/${TAG}_cifs" "$@" \
   2>&1 | tee "$LOG"
 rc=${PIPESTATUS[0]}
 echo "run.sh: benchlock+fold exit $rc" | tee -a "$LOG"

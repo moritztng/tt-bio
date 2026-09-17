@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata as _md
 import json
 import os
 import shutil
@@ -127,6 +128,7 @@ def main() -> int:
     out = {"doc": __doc__, "env": {
         "host": socket.gethostname(), "card_node": node, "grid": [g.x, g.y],
         "arch": str(dev.arch()), "torch": torch.__version__,
+        "ttnn": _md.version("ttnn"), "python": sys.executable,
         "tt_visible_devices": os.environ.get("TT_VISIBLE_DEVICES"),
         "tt_bio_lease_cards": os.environ.get("TT_BIO_LEASE_CARDS"),
         "tt_bio_file": _TB.__file__,
@@ -184,45 +186,33 @@ def main() -> int:
 
     _tn.silu = _counted_silu
 
-    # --- the one-time conditioning build, paid and walled before any timed rep -----------------
-    # Lazily this lands in whichever fold first takes the hoisted path. On this branch __init__
-    # builds it when the flag is on at construction, but the A/B selects its arm AFTER model load,
-    # so it is still None here. Force it now and record what it cost.
+    # --- the one-time conditioning build, walled so it is a number and not a difference ------
+    # `_cond_weights()` concatenates the 24 layers' conditioning projections once per PROCESS and
+    # caches them on the module. Lazily it lands in whichever fold first takes the hoisted path:
+    # `c12-cond-hoist-block-timing` session 1 paid it inside a TIMED arm and that fold's block read
+    # 5.3617 s against 3.0156 s for the later hoist folds. Here the cold rep's hoist arm pays it,
+    # and `cond_build_n` on every warm fold is the witness that it was not rebuilt -- a rebuild
+    # inside a timed arm would otherwise look like the lever getting worse.
+    #
+    # A walk over `state.model.__dict__` to pre-build it was tried and found 0 of them (the layer
+    # stack is not reachable that way), so the build is witnessed rather than hoisted out by hand.
     build = {"n": 0, "s": 0.0}
-    dts = []
-    seen_ids = set()
+    dtc = T.DiffusionTransformer
+    assert hasattr(dtc, "_cond_weights"), "no _cond_weights to wall"
+    _cw = dtc._cond_weights
 
-    def walk(m, depth=0):
-        if id(m) in seen_ids or depth > 14:
-            return
-        seen_ids.add(id(m))
-        if type(m).__name__ == "DiffusionTransformer" and not getattr(m, "atom_level", True):
-            dts.append(m)
-        for v in list(getattr(m, "__dict__", {}).values()):
-            if hasattr(v, "__dict__") and not isinstance(v, (str, bytes)):
-                walk(v, depth + 1)
-            elif isinstance(v, (list, tuple)):
-                for e in v:
-                    if hasattr(e, "__dict__"):
-                        walk(e, depth + 1)
+    def _timed_cw(self):
+        if self._cond_w is not None:
+            return _cw(self)
+        ttnn.synchronize_device(dev)
+        t = time.perf_counter()
+        r = _cw(self)
+        ttnn.synchronize_device(dev)
+        build["n"] += 1
+        build["s"] += time.perf_counter() - t
+        return r
 
-    walk(state.model)
-    prev = getattr(T, "_B2_DIT_COND_HOIST")
-    setattr(T, "_B2_DIT_COND_HOIST", True)
-    for m in dts:
-        if getattr(m, "_cond_w", None) is None:
-            ttnn.synchronize_device(dev)
-            t = time.perf_counter()
-            m._cond_weights()
-            ttnn.synchronize_device(dev)
-            build["n"] += 1
-            build["s"] += time.perf_counter() - t
-    setattr(T, "_B2_DIT_COND_HOIST", prev)
-    out["cond_weights_prebuild"] = {"token_level_dts_found": len(dts), "built": build["n"],
-                                    "s": round(build["s"], 4)}
-    print(f"  _cond_weights prebuilt on {build['n']}/{len(dts)} token-level DiffusionTransformers, "
-          f"{build['s']:.4f}s, outside every timed rep", flush=True)
-    dump()
+    dtc._cond_weights = _timed_cw
 
     cifdir = args.cifs or (work / "cifs")
     cifdir.mkdir(parents=True, exist_ok=True)
@@ -283,6 +273,14 @@ def main() -> int:
             dump()
     clk.release()
 
+    built = [r for r in out["runs"] if r["cond_build_n"]]
+    out["cond_weights_build"] = {
+        "total_s": round(build["s"], 4), "n": build["n"],
+        "paid_in": [(r["rep"], r["arm"], r["cond_build_n"]) for r in built],
+        "all_in_cold_reps": all(r["cold"] for r in built)}
+    print(f"  _cond_weights() built {build['n']}x for {build['s']:.4f}s, in "
+          f"{[(r['rep'], r['arm']) for r in built]} "
+          f"(all cold: {out['cond_weights_build']['all_in_cold_reps']})", flush=True)
     out["summary"] = summarise(out["runs"], arms, args)
     dump()
     report(out["summary"], args)

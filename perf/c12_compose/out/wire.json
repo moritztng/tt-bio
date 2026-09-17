@@ -1,0 +1,474 @@
+{
+ "doc": "The composed fold A/B for the campaign's two GO levers: TT_BIO_DIT_COND_HOIST + TT_BIO_UNFUSED_SILU.\n\nBoth levers concluded GO at the op/block level with a fold owed. `c12-cond-hoist-block-timing` read\n+0.2134 s on a wall around the token-level DiffusionTransformer; `c12-unfused-silu-bh` read\n+0.2843 s from each executed shape's own measured price times its own executed call count. Neither\nnumber is a fold number. This harness takes one.\n\nFour arms plus an A/A, because the standing bar approves a STACK as a stack and never by summing\nindividual readings, so the composed value has to be measured against the two singles in the SAME\nsession:\n\n    base   hoist=0 silu=0   the shipped default\n    silu   hoist=0 silu=1\n    hoist  hoist=1 silu=0\n    both   hoist=1 silu=1\n    base   again, second position in the same rep -> the session's own A/A floor\n\nBoth flags are module-level globals read at CALL time (`tt_bio.tenstorrent._B2_DIT_COND_HOIST` and\n`._UNFUSED_SILU`), so an arm is selected by setting the attribute per fold inside one process, one\ndevice open, one program cache and one model load. Pinning either env var is refused: a pinned value\nis baked in at import and would serve every arm.\n\nThree things this harness does because they have already cost this campaign a session:\n\n1. The cold rep runs the FULL arm list and is discarded. `c12-cond-hoist-block-timing` paid\n   +2.3461 s of first-call kernel JIT inside a timed arm, 4.7x the whole effect being measured, and\n   the silu row's cold fold read 92.514 s. `both` gets its own cold pass too: its JIT set is the\n   union of the two levers' paths, not either one's.\n2. `_cond_weights()` is forced BEFORE the first timed rep and walled, so its one-time 0.34-0.57 s\n   concatenation is a recorded number outside the timing rather than a tax on whichever arm\n   happened to touch it first. `cond_build_n` per fold proves it was not rebuilt.\n3. Per-arm witnesses, because a flag set is not a lever fired. `hoist_norms` counts hoisted\n   token-level stacks at the site that decides to take one; `silu_calls` counts the standalone\n   in-place `ttnn.silu` that only exists on the unfused path (tenstorrent.py:8221 is the file's only\n   `ttnn.silu` call). An arm whose witness is absent is VOID and its timing may not be reasoned\n   about.\n\n    fold_compose.py --out <json> --reps 5 --arms base,silu,hoist,both,base --size 512\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "card_node": 2,
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.14.0+cu130",
+  "ttnn": "0.68.0",
+  "python": "/home/ttuser/scratch/i14venv/bin/python3",
+  "tt_visible_devices": "2",
+  "tt_bio_lease_cards": "2",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/c12-compose-fold/tt_bio/__init__.py",
+  "commit": "d035e8ac92561b740178932160343be283e61b77",
+  "started_utc": "2026-09-17T14:14:39Z",
+  "loadavg_at_start": [
+   10.73876953125,
+   10.45458984375,
+   9.625
+  ],
+  "clock_forced_mhz": 1350,
+  "protocol": {
+   "arms": [
+    "base",
+    "silu",
+    "hoist",
+    "both",
+    "base"
+   ],
+   "reps": 1,
+   "cold_reps": 1,
+   "size": "512",
+   "seed": 0,
+   "recycling_steps": 1,
+   "sampling_steps": 20
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "rep": -1,
+   "pos": 0,
+   "cold": true,
+   "fold_s": 79.83,
+   "aiclk": {
+    "n": 37825,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 10.04,
+   "load1": 9.15,
+   "hoist": false,
+   "silu": false,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "55a35ce84480d259",
+   "plddt": 0.882035,
+   "started_utc": "2026-09-17T14:16:04Z"
+  },
+  {
+   "arm": "silu",
+   "rep": -1,
+   "pos": 1,
+   "cold": true,
+   "fold_s": 7.062,
+   "aiclk": {
+    "n": 3373,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 9.15,
+   "load1": 8.8,
+   "hoist": false,
+   "silu": true,
+   "hoist_norms": 0,
+   "silu_calls": 1768,
+   "silu_shapes": {
+    "[1, 64, 512, 256]": 8,
+    "[1, 47, 512, 512]": 1440,
+    "[1, 42, 512, 512]": 144,
+    "[1, 512, 1536]": 176
+   },
+   "cond_build_n": 0,
+   "sha256": "71996734b14c9519",
+   "plddt": 0.882687,
+   "started_utc": "2026-09-17T14:16:11Z"
+  },
+  {
+   "arm": "hoist",
+   "rep": -1,
+   "pos": 2,
+   "cold": true,
+   "fold_s": 8.532,
+   "aiclk": {
+    "n": 4081,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 8.8,
+   "load1": 8.33,
+   "hoist": true,
+   "silu": false,
+   "hoist_norms": 20,
+   "silu_calls": 0,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "a8ceab7440b9a964",
+   "plddt": 0.881654,
+   "started_utc": "2026-09-17T14:16:19Z"
+  },
+  {
+   "arm": "both",
+   "rep": -1,
+   "pos": 3,
+   "cold": true,
+   "fold_s": 6.521,
+   "aiclk": {
+    "n": 3122,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 8.33,
+   "load1": 7.99,
+   "hoist": true,
+   "silu": true,
+   "hoist_norms": 20,
+   "silu_calls": 1768,
+   "silu_shapes": {
+    "[1, 64, 512, 256]": 8,
+    "[1, 47, 512, 512]": 1440,
+    "[1, 42, 512, 512]": 144,
+    "[1, 512, 1536]": 176
+   },
+   "cond_build_n": 0,
+   "sha256": "9626208b7f0996d2",
+   "plddt": 0.88162,
+   "started_utc": "2026-09-17T14:16:26Z"
+  },
+  {
+   "arm": "base",
+   "rep": -1,
+   "pos": 4,
+   "cold": true,
+   "fold_s": 6.631,
+   "aiclk": {
+    "n": 3202,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 7.99,
+   "load1": 7.59,
+   "hoist": false,
+   "silu": false,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "55a35ce84480d259",
+   "plddt": 0.882035,
+   "started_utc": "2026-09-17T14:16:32Z"
+  },
+  {
+   "arm": "base",
+   "rep": 0,
+   "pos": 0,
+   "cold": false,
+   "fold_s": 6.558,
+   "aiclk": {
+    "n": 3176,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 7.59,
+   "load1": 7.23,
+   "hoist": false,
+   "silu": false,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "55a35ce84480d259",
+   "plddt": 0.882035,
+   "started_utc": "2026-09-17T14:16:39Z"
+  },
+  {
+   "arm": "silu",
+   "rep": 0,
+   "pos": 1,
+   "cold": false,
+   "fold_s": 6.316,
+   "aiclk": {
+    "n": 3052,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 7.23,
+   "load1": 6.89,
+   "hoist": false,
+   "silu": true,
+   "hoist_norms": 0,
+   "silu_calls": 1768,
+   "silu_shapes": {
+    "[1, 64, 512, 256]": 8,
+    "[1, 47, 512, 512]": 1440,
+    "[1, 42, 512, 512]": 144,
+    "[1, 512, 1536]": 176
+   },
+   "cond_build_n": 0,
+   "sha256": "71996734b14c9519",
+   "plddt": 0.882687,
+   "started_utc": "2026-09-17T14:16:45Z"
+  },
+  {
+   "arm": "hoist",
+   "rep": 0,
+   "pos": 2,
+   "cold": false,
+   "fold_s": 6.495,
+   "aiclk": {
+    "n": 3143,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 6.89,
+   "load1": 7.6,
+   "hoist": true,
+   "silu": false,
+   "hoist_norms": 20,
+   "silu_calls": 0,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "a8ceab7440b9a964",
+   "plddt": 0.881654,
+   "started_utc": "2026-09-17T14:16:52Z"
+  },
+  {
+   "arm": "both",
+   "rep": 0,
+   "pos": 3,
+   "cold": false,
+   "fold_s": 6.358,
+   "aiclk": {
+    "n": 3077,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 7.6,
+   "load1": 7.23,
+   "hoist": true,
+   "silu": true,
+   "hoist_norms": 20,
+   "silu_calls": 1768,
+   "silu_shapes": {
+    "[1, 64, 512, 256]": 8,
+    "[1, 47, 512, 512]": 1440,
+    "[1, 42, 512, 512]": 144,
+    "[1, 512, 1536]": 176
+   },
+   "cond_build_n": 0,
+   "sha256": "9626208b7f0996d2",
+   "plddt": 0.88162,
+   "started_utc": "2026-09-17T14:16:58Z"
+  },
+  {
+   "arm": "base",
+   "rep": 0,
+   "pos": 4,
+   "cold": false,
+   "fold_s": 6.532,
+   "aiclk": {
+    "n": 3165,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 7.23,
+   "load1": 6.89,
+   "hoist": false,
+   "silu": false,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "55a35ce84480d259",
+   "plddt": 0.882035,
+   "started_utc": "2026-09-17T14:17:05Z"
+  }
+ ],
+ "model_load_s": 4.301,
+ "cond_weights_prebuild": {
+  "token_level_dts_found": 0,
+  "built": 0,
+  "s": 0.0
+ },
+ "summary": {
+  "n_warm_folds": 5,
+  "base_median_fold_s": 6.545,
+  "arms": {
+   "base": {
+    "n": 2,
+    "reps_s": [
+     6.558,
+     6.532
+    ],
+    "median_fold_s": 6.545,
+    "delta_s_vs_base": 0.0,
+    "delta_Mcycles": 0.0,
+    "ratio_vs_base": 1.0,
+    "spread_pct": 0.4
+   },
+   "silu": {
+    "n": 1,
+    "reps_s": [
+     6.316
+    ],
+    "median_fold_s": 6.316,
+    "delta_s_vs_base": 0.229,
+    "delta_Mcycles": 309.2,
+    "ratio_vs_base": 1.03626,
+    "spread_pct": 0.0
+   },
+   "hoist": {
+    "n": 1,
+    "reps_s": [
+     6.495
+    ],
+    "median_fold_s": 6.495,
+    "delta_s_vs_base": 0.05,
+    "delta_Mcycles": 67.5,
+    "ratio_vs_base": 1.0077,
+    "spread_pct": 0.0
+   },
+   "both": {
+    "n": 1,
+    "reps_s": [
+     6.358
+    ],
+    "median_fold_s": 6.358,
+    "delta_s_vs_base": 0.187,
+    "delta_Mcycles": 252.5,
+    "ratio_vs_base": 1.02941,
+    "spread_pct": 0.0
+   }
+  },
+  "aa_floor": {
+   "pos0_median_s": 6.558,
+   "posN_median_s": 6.532,
+   "delta_s": 0.026,
+   "ratio": 1.00398,
+   "worst_pairwise_delta_s": 0.026
+  },
+  "subadditivity": {
+   "silu_delta_s": 0.229,
+   "hoist_delta_s": 0.05,
+   "both_delta_s": 0.187,
+   "sum_of_singles_s": 0.279,
+   "composed_minus_sum_s": -0.092,
+   "fraction_of_sum": 0.6703,
+   "larger_single_s": 0.229,
+   "below_larger_single": true
+  },
+  "witness": {
+   "base": {
+    "hoist_norms": [
+     0
+    ],
+    "silu_calls": [
+     0
+    ],
+    "silu_shapes": [],
+    "cond_rebuilt": [
+     0
+    ],
+    "digests": [
+     "55a35ce84480d259"
+    ],
+    "plddt": [
+     0.882035
+    ],
+    "void": []
+   },
+   "silu": {
+    "hoist_norms": [
+     0
+    ],
+    "silu_calls": [
+     1768
+    ],
+    "silu_shapes": [
+     "[1, 42, 512, 512]",
+     "[1, 47, 512, 512]",
+     "[1, 512, 1536]",
+     "[1, 64, 512, 256]"
+    ],
+    "cond_rebuilt": [
+     0
+    ],
+    "digests": [
+     "71996734b14c9519"
+    ],
+    "plddt": [
+     0.882687
+    ],
+    "void": []
+   },
+   "hoist": {
+    "hoist_norms": [
+     20
+    ],
+    "silu_calls": [
+     0
+    ],
+    "silu_shapes": [],
+    "cond_rebuilt": [
+     0
+    ],
+    "digests": [
+     "a8ceab7440b9a964"
+    ],
+    "plddt": [
+     0.881654
+    ],
+    "void": []
+   },
+   "both": {
+    "hoist_norms": [
+     20
+    ],
+    "silu_calls": [
+     1768
+    ],
+    "silu_shapes": [
+     "[1, 42, 512, 512]",
+     "[1, 47, 512, 512]",
+     "[1, 512, 1536]",
+     "[1, 64, 512, 256]"
+    ],
+    "cond_rebuilt": [
+     0
+    ],
+    "digests": [
+     "9626208b7f0996d2"
+    ],
+    "plddt": [
+     0.88162
+    ],
+    "void": []
+   }
+  },
+  "clock": {
+   "min": 1350,
+   "max": 1350,
+   "samples": 15613
+  },
+  "load": {
+   "min": 6.89,
+   "max": 7.6
+  }
+ }
+}
