@@ -266,6 +266,23 @@ while the gate leg asks for the tt-bio target id (`trpcage_no_msa`). `SeedSpec` 
 reproduces the committed reference-vs-reference floor exactly (R 0.374 against the committed
 0.3736), which is what confirms these are the runs the provenance describes.
 
+**`protenix-9ncy-msa` reference generated 2026-09-17, the last BLOCKED-REGEN leg.** This one
+really had no reference: no ByteDance Protenix run for 9ncy existed anywhere, and the leg had
+been flagged BLOCKED-REGEN across v0.7.0 and v0.9.0. It could not be generated the way the other
+protenix legs were, because every protenix reference path lets Protenix search its own MSA
+against protenix-server.com, while the device folds three per-chain alignments out of the AbAg-XM
+campaign cache. A searching reference would compare two different inputs, so its numerator would
+mean nothing. `scripts/protenix_ref_json_from_yaml.py` pins each chain's `unpairedMsaPath` to the
+fixture's own committed a3m, which makes `runner/msa_search.py::need_msa_search` false and holds
+the input alignment identical byte for byte on both sides. All five seeds ran on a rented RTX 3090
+(protenix 2.0.0 @ `c3bfc365`, torch 2.6.0+cu124, n_cycle=10 / n_step=200 / n_sample=5, bf16,
+~131 s forward per seed) against the same checkpoint revision `tt_bio/weights.py` registers, and
+the five CIFs are in the `parity-fixtures-latest` asset. `--verify-fixtures` goes from
+`INCOMPLETE — 1 of 22` to `fixtures OK — 22`. The reference's own inter-seed floor is
+R = 1.016 Å all-atom RMSD over the 10 seed pairs, which is the leg's denominator. The scored
+device numerator X is still owed: it needs a device fold, and the pass that generated the
+reference held no card lease.
+
 **Three envelope legs are collapsed, found during the v0.5.0 release run (2026-07-27).** For
 `opendde-trpcage-nomsa`, `opendde-prot-prod` and `protenix-v2-ubq-msa` the published fixture's
 `ref_fp32` and `ref_bf16` structures are BYTE-IDENTICAL, so the envelope denominator

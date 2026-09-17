@@ -9,8 +9,13 @@ sampling_steps=200, diffusion_samples=5, N_cycle=10, examples/prot.yaml sequence
 with a torch LayerNorm and forces the torch triangle kernels (no cuequivariance /
 deepspeed CUDA extensions), so it runs on a box with no NVIDIA GPU.
 
-One seed per invocation:
-  refenv312/bin/python protenix_ref_predict.py <seed> <out_dir>
+One seed per invocation, optionally against another target's json:
+  refenv312/bin/python protenix_ref_predict.py <seed> <out_dir> [<input_json>]
+
+A third argument folds a different target at the same settings. The 9ncy AbAg leg uses
+it with a json from scripts/protenix_ref_json_from_yaml.py, which pins a per-chain
+unpairedMsaPath instead of letting Protenix search its own MSA -- that is the only way a
+multimer reference can read the same alignment bytes the device folds.
 
 Dumps the Protenix prediction tree under <out_dir>/raw and writes a
 REF_PREDICT_DONE marker to <out_dir>/REF_PREDICT_DONE when the seed finishes.
@@ -51,13 +56,14 @@ from runner.batch_inference import inference_jsons
 
 SEED = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 OUT = sys.argv[2] if len(sys.argv) > 2 else f"/home/ttuser/pharma_protenix_run/ref_seed{SEED}"
+JSON = sys.argv[3] if len(sys.argv) > 3 else "/home/ttuser/pharma_protenix_run/prot_7roa.json"
 RAW = os.path.join(OUT, "raw")
 os.makedirs(OUT, exist_ok=True)
-print(f"=== protenix-v2 reference predict: seed={SEED} out={OUT} ===", flush=True)
-print("settings: use_msa=True(server) N_step=200 N_sample=5 N_cycle=10 "
-      "trimul=torch triatt=torch dtype=bf16 target=7ROA(117res)", flush=True)
+print(f"=== protenix-v2 reference predict: seed={SEED} out={OUT} json={JSON} ===", flush=True)
+print("settings: use_msa=True N_step=200 N_sample=5 N_cycle=10 "
+      "trimul=torch triatt=torch dtype=bf16", flush=True)
 inference_jsons(
-    json_file="/home/ttuser/pharma_protenix_run/prot_7roa.json",
+    json_file=JSON,
     out_dir=RAW,
     use_msa=True,
     seeds=[SEED],

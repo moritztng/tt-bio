@@ -1,0 +1,15 @@
+[
+  {
+    "id": "9ncy",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 1,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.8861553072929382,
+    "iptm": 0.8885683417320251,
+    "plddt": 93.20816040039062,
+    "ranking_score": 0.8880857825279236,
+    "selected_sample_idx": 0
+  }
+]
