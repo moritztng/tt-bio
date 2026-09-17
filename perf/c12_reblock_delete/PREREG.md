@@ -183,6 +183,47 @@ pre-registered band because of the build rather than the part.
 `MatmulDeviceOperation`. Re-hosting that matmul in `mm_generic` first is a larger build than the
 0.2775 s it would unlock, so this row prices it and does not build it.
 
+## The build recipe, with the anchor verified rather than guessed
+
+`copy_block` is the patch site, and its body is **byte-identical between the `v0.68.0` tag the
+wheel ships and today's `v0.72.0-dev` HEAD** - same sha256 `711c592ec386c9d1`, while the file
+around it differs by 118 lines. So `patch_mm_split.py`'s exact-match style survives four minor
+versions here, which is the robustness the generator needs. The anchor is:
+
+    void copy_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles) {
+
+and the call site is `copy_block(intermediate_cb, out_cb, M_block_tiles, N_block_tiles);` in
+`kernel_main`, under `#ifndef FUSE_TERNARY` / `#ifndef FUSE_BIAS`. The in-projection at 512 aa has
+no bias on boltz2, so that is the branch it takes.
+
+**Variant B, the default, is two passes and leaves `copy_block` untouched.** `out_cb` is bf16 and
+`intermediate_cb` is fp32, so the unmodified `copy_block` IS the bf16 rounding step. Run it into a
+scratch bf16 CB, then a new `gate_block(scratch_cb, out_cb, M_block_tiles, N_block_tiles)` that
+walks `n` in steps of two over the tile-interleaved `(p, g)` pairs: copy `p` to DST 0, copy `g` to
+DST 1, `sigmoid_tile(1)`, `mul_binary_tile(0, 1, 0)`, pack DST 0 to `out_cb`, and push
+`N_block_tiles / 2` per row. That is `compute_reblock_permute_gated.cpp` stages 1-2 with the two
+CB round trips collapsed into DST, and it reproduces today's operand precision exactly.
+
+The scratch CB is `M_block_tiles * N_block_tiles` bf16 tiles. At the in-projection's
+`N_tiles_per_core = 2` the effective out block is 8 x 2 = 16 tiles, so **33 kB per core**, not the
+131 kB a full 8 x 8 block would cost.
+
+Five edits, and all five are needed together or the op writes plausible garbage:
+
+1. `patch_mm_split.py` gains a `MM_GATE` arm emitting `compute.cpp` into `tt_bio/kernels/mm_split/`.
+2. `mm_generic.build` adds the scratch CB when `MM_GATE` is in `defines`.
+3. `mm_dualnoc.in_proj` passes `compute_dir=KERNEL_DIR` - a one-line change, because the
+   `compute_dir` parameter landed this pass.
+4. The writer's `N_block_tiles` compile-time arg and the destination tensor's N both halve, since
+   the gate halves the tiles pushed per row while `write_block_sync_granular` pops
+   `N_block_tiles`.
+5. `_gp_fused_order` emits the tile-interleaved column order, and `gp_off` follows it, so the
+   weight, the bias and every consumer keep reading their order from one place.
+
+Not written this pass, deliberately: pc has no ttnn wheel, so none of it can be compiled or run
+here, and a blind kernel that is half right costs the measurement arm more than it saves. The
+recipe above is anchor-verified and mechanical; the arm that has a card writes it.
+
 ## SIZES: this is a 512/768 aa lever and it is worth nothing at 298 aa
 
 From `sites.py`, on the 11x10 grid:
