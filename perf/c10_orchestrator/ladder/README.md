@@ -15,7 +15,7 @@ and one transferred from Wormhole at an unrecorded clock are not the same kind o
 | `TT_BIO_HEAD_PAD_TAIL` | 0.21 s / 284 Mcyc | Wormhole, no clock | not rowed |
 | `TT_BIO_DIT_FUSED_QKV` | 0.12 s / 162 Mcyc | Wormhole, no clock | not rowed, **excluded** |
 | the byte axis, everything remaining | 1.487x ceiling | Blackhole, no clock | reopened: it is the only known lever against `F` |
-| size-independent share of the work term | 3,301 to 8,220 Mcyc / 2.45 to 6.09 s | bounded from two measured sizes | `c10-size-scaling`, now carrying counter-evidence |
+| size-independent share of the work term | **refuted** | measured at 768 aa on Blackhole, pinned clock | `c10-size-scaling` concluded **STOP** |
 | fuse the arithmetic-free elementwise traffic | **0.69 s / 932 Mcyc** | derived from two roofs plus a measured fusion return | **unowned** |
 
 **Priced total 0.90 s, so the fold would read 13.98 s** — 18.4 % of the gap. It was 4.16 s reading 10.72 s until
@@ -41,11 +41,11 @@ replaced it is a third of a well-understood fusion rather than anything that clo
 
 The live items all point at the same two terms of `T = F + W/f` that `c10-fixed-cost` separated:
 
-- **The size-independent share of the work term, 3,301 to 8,220 Mcycles.** The clock-scaled work
-  grows at N^0.63, slower than the target does, which bounds a term that does not grow with the
-  target at all. That is between half of the campaign's whole deletion target and more than all of
-  it, and nothing has ever attacked it. It could still be 298 aa under-filling the grid;
-  `c10-size-scaling` settles that at 640 and 768 aa. See [`../size_scaling/`](../size_scaling/).
+- ~~**The size-independent share of the work term, 3,301 to 8,220 Mcycles.**~~ **Refuted.**
+  `c10-size-scaling` measured 512 → 768 aa and found the work grows at **N^1.827 ± 0.030**, with a
+  *negative* mixture floor. The 298 → 512 sublinearity was 298 aa under-filling a 110-core grid.
+  See [`../size_scaling/`](../size_scaling/), withdrawn. **The deletion target has to come from
+  kernels**, and on 512 → 768 both terms scale near N², which points at the pair representation.
 - **The byte axis, against `F` rather than against kernel time.** `F` is 3.98 s, 27 % of the fold,
   and two independent lines say it is not host overhead: the trace null, and `F` scaling at
   N^1.32 ± 0.07. A term that grows at N^1.3 and survives dispatch removal looks like DRAM-bound

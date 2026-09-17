@@ -41,7 +41,8 @@ LEVERS = [
     ("TT_BIO_SDPA_GRID_Q_CHUNK sign", 0.00, "unmeasured, anywhere from -0.46 to +0.21 s"),
     ("per-class grid sizing", 0.00, "withdrawn as a cross-architecture transfer"),
     ("size-independent share of the work term", 0.00,
-     "failing its own discriminating test at 768 aa"),
+     "REFUTED: c10-size-scaling measured N^1.827 +- 0.030 on 512 -> 768 aa, 4.2 sigma into the "
+     "artifact range, with a negative mixture floor"),
 ]
 
 

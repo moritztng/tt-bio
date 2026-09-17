@@ -15,13 +15,23 @@ against it, a trace of the diffusion loop's host dispatch, was predicted at +3.0
 dispatch cannot do. So `F` is not collapsible overhead, and the byte axis is the only known lever
 against it.
 
-**Where this is heading, on evidence in flight.** `c10-size-scaling`'s 512 → 768 aa leg puts both
-terms near N²: `p_work` = 1.83 and `p_fixed` = 1.91, against 0.63 and 1.32 on the 298 → 512 leg. If
-that holds, the sublinearity was 298 aa under-filling a 110-core grid, and the fold at 512 aa is
-dominated in *both* terms by the N² pair representation — which is also where
+**Settled 2026-09-17.** `c10-size-scaling` returned **STOP**: on 512 → 768 aa the work grows at
+**N^1.827 ± 0.030**, 4.2 σ above its pre-registered artifact threshold, and the non-negative-mixture
+floor there is *negative*. The sublinearity seen from 298 → 512 was **298 aa under-filling a
+110-core grid**. So the fold at 512 aa is dominated in *both* terms by the **N² pair
+representation** (`p_work` 1.83, `p_fixed` 1.91) — which is also where
 [`arithmetic_free_traffic/`](arithmetic_free_traffic/) found 31 % of the fold's bytes moving through
-ops that compute nothing. Two independent lines converging on the same tensors is the most useful
-thing this campaign has to hand Phase 2.
+ops that compute nothing. Two independent lines on the same tensors is what this campaign hands
+Phase 2, and the 6,542 Mcycle deletion target has to come from kernels.
+
+**A hard failure worth knowing about, found in passing.** `c10-size-scaling`'s sixth 768 aa fold
+**wedged the chip**, nondeterministically — the same size, seed and configuration had completed five
+times first. The signature is not the 0 %-CPU futex wedge the fleet's recovery notes describe: the
+host sat at 101 % CPU in state R for over ten minutes while **board power sat at 22 W against the
+46 W an 800 MHz fold draws**, i.e. a host busy-polling a device that had stopped. SIGTERM was
+ignored, so the spin is inside native code; SIGKILL was required. The ARC stayed alive throughout.
+768 aa is below the 1024 padded-token SDPA cap and the route counters read [0, 0], so the fused
+above-cap path is not implicated. This is a size users can ask for.
 
 ## Findings
 
@@ -30,7 +40,7 @@ thing this campaign has to hand Phase 2.
 | [`frontier/`](frontier/) | **What 10.0 s requires: remove 4.846 s.** Cycles alone means −44.6 %; **`F` alone is impossible at any completeness** (it would have to be −0.86 s). Every lever the campaign has ever numbered sums to **0.90 s, 18.6 %** of that. The only axis big enough is the matmul class's achieved **19.88 TFLOP/s against a 104.93–114.20 cube** — 53 % of that gap would do it, and the number rests on rates measured on pc's 130-core firmware. Also finds a **fourth clock artifact**: the 67.59 TFLOP/s "same-session cube" implies **799 MHz**. |
 | [`arithmetic_free_traffic/`](arithmetic_free_traffic/) | **Half the fold's bytes move through ops that do 0.049 % of its arithmetic** — 201,744 calls, 1.401 TB. Roof-free: both capture artifacts agree on the call total exactly and the byte total to 3 ppm. Concentrated in three classes, not a tail: `multiply_`, `layer_norm` and `add_` move **30.8 % of all fold bytes** and compute nothing. Traffic 2.07–2.52 s; realistic prize **0.69–0.84 s** at the one-third return this project has measured for that fusion. Also finds the **third byte-counting defect** of the campaign: the census's own `B = calls × tiles × 2048` identity holds at median exactly 1.000 over 50 shapes and two shapes break it, under-counting 155.8 GB (5.45 %) — correcting it raises the headline to 51.6 %, so the published figures are conservative. |
 | [`floor_vs_measured/`](floor_vs_measured/) | **The 2.309 s prize was the clock, and it is retired.** `prize_s = 17.34 − 15.031` and 17.34 s is the ~1063 MHz reading; the same fixture at a pinned 1350 MHz is 14.846 s, **0.185 s below that floor**. The floor's traffic/arithmetic split also lands within 5.7 % and 0.5 % of the measured `F` and `W/f` — interesting, not a validation: its shape rates were measured on **pc's 130-core firmware**, not on qb2. |
-| [`size_scaling/`](size_scaling/) | **Likely about to be withdrawn — see its status banner.** Read from the two measured sizes, the clock-scaled work grows at N^0.63, slower than the target does. Work ratio 1.4096 ± 0.0131 against a token ratio of 1.718. Under a non-negative mixture that puts a rigorous floor of **3,301 Mcycles (22.5 % of W512)** under work that does not grow with the target at all, and the pair-tensor reading puts it at 8,220 (56.1 %) — against a deletion target of 6,542. `F` scales at N^1.32 ± 0.07, 19 σ from zero, which is how it is known not to be host dispatch. Could still be 298 aa under-filling the grid, and [`floor_vs_measured/`](floor_vs_measured/) now gives that a number: under an N^2 FLOP model 298 aa need only achieve 48 % of 512 aa's rate to explain the whole thing, which is what 100 tiles on 110 cores would do. `c10-size-scaling`'s in-flight 512 → 768 leg gives **p_work = 1.83**, the artifact range, against 0.63 on 298 → 512. Not yet its verdict; 768 aa is incomplete and 640 aa has not run. |
+| [`size_scaling/`](size_scaling/) | **WITHDRAWN — refuted by `c10-size-scaling`.** Read from the two measured sizes, the clock-scaled work grows at N^0.63, slower than the target does. Work ratio 1.4096 ± 0.0131 against a token ratio of 1.718. Under a non-negative mixture that puts a rigorous floor of **3,301 Mcycles (22.5 % of W512)** under work that does not grow with the target at all, and the pair-tensor reading puts it at 8,220 (56.1 %) — against a deletion target of 6,542. `F` scales at N^1.32 ± 0.07, 19 σ from zero, which is how it is known not to be host dispatch. Could still be 298 aa under-filling the grid, and [`floor_vs_measured/`](floor_vs_measured/) now gives that a number: under an N^2 FLOP model 298 aa need only achieve 48 % of 512 aa's rate to explain the whole thing, which is what 100 tiles on 110 cores would do. It was: **p_work = 1.827 ± 0.030** on 512 → 768, 4.2 σ into the artifact range, with a negative mixture floor. 384 → 512 and 512 → 640 remain unmeasured. |
 | [`fixed_cost/`](fixed_cost/) | **3.952 s of the fold is clock-immune**, 27 %, solved from an interleaved 800/1339 MHz A/B that was already in the corpus. Worst residual 33 ms; predicts an out-of-sample arm to 1.9 ms. A mean-clock label carries 0.364 s of error across sessions, which is larger than any lever on record, so old ratios cannot be clock-corrected by arithmetic. |
 | [`dispatch_hypothesis/`](dispatch_hypothesis/) | **Refuted by measurement.** The fold issues 465,664 top-level ttnn calls and the diffusion loop is 219,200 device programs, 76 % of them, so a trace of it was sized at **3.02 s**. `c10-trace-lever` ran it: **-0.0214 s at 512 aa, inside a 0.055 s A/A floor**, byte-identical CIF. The call arithmetic was right and the inference from it was wrong. |
 | [`floor_mix/`](floor_mix/) | **The byte axis caps at 1.487x** of the floor: delete every byte and 12.706 s becomes 8.543 s. Independently reproduces the lever corpus's 1.470x. The headroom is in the elementwise tail, not the matmuls: `ttnn.linear` is the largest call class in the fold and its entire byte headroom is 0.140 s. |

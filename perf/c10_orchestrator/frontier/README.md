@@ -22,7 +22,7 @@ Any `(ΔF, ΔW)` with `ΔF + ΔW/1350 = 4.846 s` reaches it. Two corners bound t
 | `TT_BIO_DIT_FUSED_QKV` | 0.00 | excluded — jointly 0.713 Å with the row above vs a 0.60 Å bar |
 | `TT_BIO_SDPA_GRID_Q_CHUNK` sign | 0.00 | unmeasured, −0.46 to +0.21 s |
 | per-class grid sizing | 0.00 | withdrawn as a cross-architecture transfer |
-| size-independent share of the work term | 0.00 | failing its own discriminating test at 768 aa |
+| size-independent share of the work term | 0.00 | **refuted** — N^1.827 ± 0.030 on 512 → 768 aa |
 
 **0.90 s, 18.6 % of the requirement** — and that is an upper bound, because perturbations stack
 strongly sub-additively on this fixture.

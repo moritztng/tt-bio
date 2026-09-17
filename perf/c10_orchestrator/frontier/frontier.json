@@ -57,7 +57,7 @@
     {
       "item": "size-independent share of the work term",
       "fold_s": 0.0,
-      "evidence": "failing its own discriminating test at 768 aa"
+      "evidence": "REFUTED: c10-size-scaling measured N^1.827 +- 0.030 on 512 -> 768 aa, 4.2 sigma into the artifact range, with a negative mixture floor"
     }
   ],
   "levers_total": {

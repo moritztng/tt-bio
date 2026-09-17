@@ -1,18 +1,33 @@
-# The fold's device work grows slower than the target does
+# REFUTED: the fold's device work does not grow slower than the target
 
-> **STATUS 2026-09-17, read this first: the finding below is very likely about to be withdrawn.**
-> `c10-size-scaling` is measuring the discriminating leg right now and its in-flight data points at
-> the artifact. From its own `runs/ladder1`, with the 512 aa anchor passed (14.9016 s at 1350 MHz,
-> 22.3428 s at 800, W = 14,611.7 Mcycles against the 14,665.0 of record), the **512 → 768 aa leg
-> gives p_work = 1.83** against 0.63 on the 298 → 512 leg. The pre-registered prediction was 0.6–1.0
-> under this finding and 1.7–2.0 under the artifact. It landed at 1.83.
+> # WITHDRAWN 2026-09-17 — the finding below is refuted. Do not build on it.
 >
-> That is **not yet the row's verdict**: 768 aa is incomplete (3 folds at 1350 MHz, 2 at 800), the
-> 640 aa leg has not run, and a two-clock solve cannot check the functional form the way
-> `c10-fixed-cost`'s four clocks did. The row owns the conclusion and will state it. But nothing
-> downstream should be built on the numbers below in the meantime, and the reading to expect is
-> that the size-independent term is 298 aa under-filling the grid, exactly as
-> [`../floor_vs_measured/`](../floor_vs_measured/) predicted it would be.
+> `c10-size-scaling` measured the pre-registered discriminating leg and returned **VERDICT: STOP**.
+> On 512 → 768 aa the device's clock-scaled work grows at **N^1.827 ± 0.030** — 4.2 σ above the 1.7
+> threshold registered in advance as the artifact's signature, and far outside the 0.6–1.0 this
+> finding predicted. Work at 768 aa is 30,651 ± 276 Mcycles against a predicted 19,000–20,000.
+> A distribution-free min/max envelope, using no variance estimate at all, puts p in
+> [1.6954, 1.8815] — entirely above 1.0, so the finding's whole predicted range is excluded by both
+> methods.
+>
+> **The non-negative-mixture floor over that leg is negative, −17,468 Mcycles**, so no
+> size-independent term is implied there at all. Over 512 → 768 the fold's work grows
+> *super*-linearly: 2.0977× the work for 1.5000× the tokens.
+>
+> The sublinearity at 298 → 512 was **298 aa under-filling a 110-core grid**, exactly as
+> [`../floor_vs_measured/`](../floor_vs_measured/) predicted from the arithmetic-roof side a pass
+> earlier. The campaign's 6,542 Mcycle deletion target has to come from kernels.
+>
+> Two caveats the measuring row states itself and this note carries rather than hides: the 768 aa
+> cells hold 3 and 2 folds against its own pre-registered minimum of 4, because the sixth fold
+> wedged the chip; and **384 → 512 and 512 → 640 are unmeasured**, so the exponent's *shape* across
+> the ladder is unknown and a reason other than grid fill is not formally excluded.
+>
+> The method below is sound and the arithmetic is correct. What was wrong was reading a two-point
+> ratio, both of whose points sat at or below 512 aa, as evidence about 512 aa. Kept for the
+> record, and because the controls that guard it now guard a refuted claim usefully: the staleness
+> test `test_work_still_grows_strictly_SLOWER_than_the_target` still passes on the 298 → 512 data,
+> which is the point — that data was never wrong, the inference from it was.
 
 
 `c10-fixed-cost` measured both terms of `T = F + W/f` at two sizes of the same `cdk2x2` fixture

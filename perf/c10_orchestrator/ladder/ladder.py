@@ -175,10 +175,11 @@ def main():
             "If every priced row landed at its full value the fold would read %.2f s, which is "
             "above the 10.0 s target. On present evidence the target needs either the "
             "clock-immune term to give up something the trace demonstrably does not reach, "
-            "or a device-work lever nobody has found. The one sized candidate left is the "
-            "size-independent share of the work term, 3,301 to 8,220 Mcycles, which "
-            "c10-size-scaling is measuring. "
-            "nobody has found yet." % (BASELINE_S - total),
+            "or a device-work lever nobody has found. The one sized candidate that was left, the "
+            "size-independent share of the work term, was REFUTED by c10-size-scaling: on "
+            "512 -> 768 aa the work grows at N^1.827 +- 0.030 and the mixture floor there is "
+            "negative, so the 298 -> 512 sublinearity was 298 aa under-filling a 110-core grid. "
+            "The deletion target has to come from kernels." % (BASELINE_S - total),
         ],
     }
     json.dump(out, sys.stdout, indent=2)
