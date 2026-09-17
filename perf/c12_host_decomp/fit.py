@@ -40,7 +40,15 @@ F_HI, F_LO = 1350.0, 800.0
 # 2.3 s of work that is not host work.
 # Source: perf/c12_profiled_fold/runs/composed.json on wk/c12-profiled-fold @ a63d6d8e3.
 NONDEVICE_REMAINDER = {512: (1.6489, 1.6720), 298: (None, None)}
-REDUCIBLE_BAR_S = 1.0100      # what 12.5 s needs from host once every device lever lands (pass 23)
+# What 12.5 s needs from host once every device lever lands. Pass 23's 1.0100 s was an
+# arithmetic slip -- it re-priced the matmul core pin and added the difference to the residual,
+# but that lever was never in the three-lever device book the residual is computed from -- and it
+# is RETRACTED. The device book is silu 0.2843 + cond-hoist 0.2415 + reblock-delete 1.0062 =
+# 1.5320 s, 12.5 s needs 2.3810 s, so the host owes 0.8490 s. It is a BAND because
+# c12-reblock-delete's own prediction is a band, so the bar is reported against every arm.
+REDUCIBLE_BAR_S = 0.8490
+REDUCIBLE_BAR_BAND_S = {"reblock_optimistic": 0.6545, "reblock_central_6Z": 0.7562,
+                        "reblock_central_5Z": 0.8490, "reblock_pessimistic": 0.9210}
 
 
 # The regions whose exclusive seconds are host Python by construction: featurisation, the batch
@@ -125,6 +133,55 @@ def closure(item_F, fold_F, F_reference, size=None, host_F=None):
         out["pct_of_remainder"] = [100.0 * target / hi, 100.0 * target / lo]
         out["over_remainder"] = target > hi
         out["reducible_bar_s"] = REDUCIBLE_BAR_S
+        out["reducible_bar_band_s"] = REDUCIBLE_BAR_BAND_S
+        out["bar_pct_of_remainder"] = {k: [100.0 * v / hi, 100.0 * v / lo]
+                                       for k, v in REDUCIBLE_BAR_BAND_S.items()}
+    return out
+
+
+def cache_rebuild(rows, clocks=(int(F_HI), int(F_LO))):
+    """Price the program-cache REBUILD: `bare` (clear ON, production) against `keepcache`.
+
+    `tt_bio/boltz2.py:5385` clears and re-enables the device program cache on EVERY
+    `Boltz2.forward` unless `TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE` is set. The clear call is
+    microseconds (the `cacheclear` arm times it directly); what it can cost is the rebuild of
+    every program the fold then uses, which a profiler books inside whichever device call touches
+    each program first and which therefore appears in no per-op view and in no region tree. Only
+    this A/B prices it, and only inside one warm process where both arms share a built cache.
+
+    Reported against the session's own A/A floor -- the `bare` rep spread at the same clock. A
+    delta smaller than that floor is not a result.
+    """
+    out = {}
+    for c in clocks:
+        b = [x["elapsed_s"] for x in rows if x["arm"] == "bare" and x["clock_MHz"] == c
+             and x["valid"]]
+        k = [x["elapsed_s"] for x in rows if x["arm"] == "keepcache" and x["clock_MHz"] == c
+             and x["valid"]]
+        wit = [x.get("keep_flag_queries") for x in rows if x["arm"] == "keepcache"
+               and x["clock_MHz"] == c and x["valid"]]
+        if not (b and k):
+            out[str(c)] = {"error": "need both bare and keepcache at this clock"}
+            continue
+        # The floor is the WIDER of the two arms' own spreads, not `bare`'s alone. Taking only
+        # the reference arm's spread called a -0.4154 s delta "resolved" at 800 MHz against a
+        # 0.0465 s floor while the keepcache arm's own reps spanned 0.9486 s -- i.e. the effect
+        # was smaller than the noise of the arm that was supposed to show it. A one-rep arm has
+        # no spread at all, so it reports a floor of 0 and can resolve anything: that is flagged
+        # rather than believed.
+        aa = max(band(b), band(k))
+        d = st.median(b) - st.median(k)
+        thin = min(len(b), len(k)) < 2
+        out[str(c)] = {
+            "bare_s": st.median(b), "keepcache_s": st.median(k), "reps": [len(b), len(k)],
+            "rebuild_s": d, "aa_floor_s": aa, "bare_band_s": band(b),
+            "keepcache_band_s": band(k), "thin_reps": thin,
+            "resolved": bool(abs(d) > aa and not thin),
+            "witness_all_true": bool(wit) and all(q and all(q) for q in wit),
+            "verdict": ("UNRESOLVED -- one arm has a single rep, so it has no spread to be "
+                        "scored against" if thin else
+                        "rebuild priced" if abs(d) > aa else
+                        "UNRESOLVED -- smaller than this session's own A/A floor")}
     return out
 
 
@@ -168,6 +225,10 @@ def _cli(paths):
                                size=size,
                                host_F=sum(v["F_s"] for k, v in leaves.items()
                                           if k in HOST_ITEMS or k.startswith("prepare/"))),
+            "cache_rebuild": cache_rebuild(r["rows"]),
+            "aa_floor_s": {str(c): band(bare[c]) for c in (int(F_HI), int(F_LO))},
+            "cif_digests": sorted({d for x in r["rows"] if x["valid"]
+                                   for d in (x.get("cif") or {}).values()}),
             "perturbation": {
                 arm: {str(c): st.median([x["elapsed_s"] for x in r["rows"] if x["arm"] == arm
                                          and x["clock_MHz"] == c and x["valid"]] or [float("nan")])
