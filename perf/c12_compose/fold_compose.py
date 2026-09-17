@@ -63,10 +63,16 @@ import clk  # noqa: E402
 
 FLAGS = {"hoist": ("TT_BIO_DIT_COND_HOIST", "_B2_DIT_COND_HOIST"),
          "silu": ("TT_BIO_UNFUSED_SILU", "_UNFUSED_SILU")}
-# arm -> (hoist, silu). `default` touches neither attribute: it measures the SHIPPED default rather
-# than a value this driver sets, which is the only arm that can say what the default does.
-ARMS = {"base": (False, False), "silu": (False, True),
-        "hoist": (True, False), "both": (True, True), "default": None}
+# The eltwise lever lives on `tt_bio.eltwise_fusion`, not on `tenstorrent`, and it is TWO flags
+# gating two sites of one mechanism (AdaLN's gated conditioning write-back and the attention gate's
+# residual add). They are set and scored together because that is how the owning row priced them.
+EFLAGS = {"cond_muladd": ("TT_BIO_FUSE_COND_MULADD", "FUSE_COND_MULADD"),
+          "attn_gate_add": ("TT_BIO_FUSE_ATTN_GATE_ADD", "FUSE_ATTN_GATE_ADD")}
+# arm -> (hoist, silu, eltwise). `default` touches no attribute: it measures the SHIPPED default
+# rather than a value this driver sets, which is the only arm that can say what the default does.
+ARMS = {"base": (False, False, False), "silu": (False, True, False),
+        "hoist": (True, False, False), "both": (True, True, False),
+        "eltwise": (False, False, True), "all3": (True, True, True), "default": None}
 
 
 def check(arms, T):
@@ -82,6 +88,17 @@ def check(arms, T):
         assert hasattr(T, attr), f"this checkout has no tt_bio.tenstorrent.{attr}"
         assert getattr(T, attr) is False, f"{attr} does not ship off; base would not be the default"
     assert hasattr(T, "DiffusionTransformer"), "no DiffusionTransformer to gate"
+    if any(ARMS[a] is not None and ARMS[a][2] for a in arms):
+        import tt_bio.eltwise_fusion as EF
+        for name, (env, attr) in EFLAGS.items():
+            assert env not in os.environ, f"{env} may not be pinned; the arm is set per fold"
+            assert hasattr(EF, attr), f"this checkout has no tt_bio.eltwise_fusion.{attr}"
+            assert getattr(EF, attr) is False, (
+                f"{attr} does not ship off; base would not be the default")
+        # The fusion helper the lever routes through must itself be live, or both arms run the
+        # unfused chain and the lever scores as a null for a reason that is not the lever.
+        assert EF.FUSE_MASK_ADD is True, "FUSE_MASK_ADD off: mask_add would not fuse on either arm"
+        assert hasattr(T, "mask_add"), "tenstorrent.py does not import mask_add"
 
 
 def main() -> int:
@@ -167,7 +184,7 @@ def main() -> int:
     # Both counters are on paths that fire O(10^3) times per fold, so their Python cost is ~ms
     # against a 15 s fold. ttnn.linear is deliberately NOT wrapped: it is called 108,608 times per
     # fold and a wrapper there would cost 0.1-0.2 s, which is 40 % of the effect being measured.
-    fired = {"hoist": 0, "silu": 0}
+    fired = {"hoist": 0, "silu": 0, "eltwise": 0}
     silu_shapes: dict[str, int] = {}
     _dt_call = T.DiffusionTransformer.__call__
 
@@ -187,6 +204,17 @@ def main() -> int:
         return _silu(x, *a, **kw)
 
     _tn.silu = _counted_silu
+
+    # `mask_add` is reached from tenstorrent.py ONLY on the two fused branches, so counting it
+    # counts exactly the eltwise lever's firings -- 0 on every arm that has it off.
+    import tt_bio.eltwise_fusion as EF
+    _mask_add = T.mask_add
+
+    def _counted_mask_add(*a, **kw):
+        fired["eltwise"] += 1
+        return _mask_add(*a, **kw)
+
+    T.mask_add = _counted_mask_add
 
     # --- the one-time conditioning build, walled so it is a number and not a difference ------
     # `_cond_weights()` concatenates the 24 layers' conditioning projections once per PROCESS and
@@ -224,7 +252,9 @@ def main() -> int:
         if want is not None:
             setattr(T, "_B2_DIT_COND_HOIST", want[0])
             setattr(T, "_UNFUSED_SILU", want[1])
-        fired["hoist"] = fired["silu"] = 0
+            for _n, (_e, _at) in EFLAGS.items():
+                setattr(EF, _at, want[2])
+        fired["hoist"] = fired["silu"] = fired["eltwise"] = 0
         silu_shapes.clear()
         rebuilt = build["n"]
         cfg["seed"] = args.seed
@@ -255,6 +285,8 @@ def main() -> int:
                 "hoist": bool(getattr(T, "_B2_DIT_COND_HOIST")),
                 "silu": bool(getattr(T, "_UNFUSED_SILU")),
                 "hoist_norms": fired["hoist"], "silu_calls": fired["silu"],
+                "eltwise_calls": fired["eltwise"],
+                "eltwise": bool(getattr(EF, "FUSE_COND_MULADD")),
                 "silu_shapes": dict(silu_shapes),
                 "cond_build_n": build["n"] - rebuilt,
                 "sha256": hashlib.sha256(dst.read_bytes()).hexdigest()[:16],
@@ -279,6 +311,7 @@ def main() -> int:
                   f"clk {r['aiclk']['min']}-{r['aiclk']['max']} (n={r['aiclk']['n']})  "
                   f"load {r['load0']:5.2f}->{r['load1']:5.2f}  "
                   f"hoist_norms={r['hoist_norms']:<4d} silu={r['silu_calls']:<5d} "
+                  f"elt={r['eltwise_calls']:<5d} "
                   f"sha={r['sha256']} plddt={r['plddt']}"
                   + ("  [COLD, discarded]" if r["cold"] else ""), flush=True)
             dump()
@@ -336,7 +369,7 @@ def summarise(runs, arms, args):
 
     # SUBADDITIVITY, measured in this session and never inferred: the composed delta against the
     # sum of the two singles taken in the same arm list.
-    if all(a in s["arms"] for a in ("silu", "hoist", "both")):
+    if all(a in s["arms"] for a in ("silu", "hoist", "both")):  # noqa: median-based, see paired()
         d_s = s["arms"]["silu"]["delta_s_vs_base"]
         d_h = s["arms"]["hoist"]["delta_s_vs_base"]
         d_b = s["arms"]["both"]["delta_s_vs_base"]
@@ -355,6 +388,7 @@ def summarise(runs, arms, args):
         rs = [r for r in warm if r["arm"] == a]
         w[a] = {"hoist_norms": sorted({r["hoist_norms"] for r in rs}),
                 "silu_calls": sorted({r["silu_calls"] for r in rs}),
+                "eltwise_calls": sorted({r.get("eltwise_calls", 0) for r in rs}),
                 "silu_shapes": sorted({k for r in rs for k in r["silu_shapes"]}),
                 "cond_rebuilt": sorted({r["cond_build_n"] for r in rs}),
                 "digests": sorted({r["sha256"] for r in rs}),
@@ -373,6 +407,10 @@ def summarise(runs, arms, args):
                 bad.append("silu flag set, no standalone ttnn.silu")
             if not want[1] and w[a]["silu_calls"] != [0]:
                 bad.append(f"silu flag off, silu_calls {w[a]['silu_calls']}")
+            if want[2] and w[a]["eltwise_calls"] == [0]:
+                bad.append("eltwise flags set, no mask_add reached")
+            if not want[2] and w[a]["eltwise_calls"] != [0]:
+                bad.append(f"eltwise flags off, mask_add {w[a]['eltwise_calls']}")
             w[a]["void"] = bad
     s["witness"] = w
     s["clock"] = {"min": min(r["aiclk"]["min"] for r in warm),
@@ -453,18 +491,31 @@ def paired(warm, order):
                                                          if r["arm"] == a), 4))
                     for a in interior},
            "base_min_fold_s": round(bmin, 4)}
-    if all(a in out["arms"] for a in ("silu", "hoist", "both")):
-        d = {a: out["arms"][a]["mean_s"] for a in ("silu", "hoist", "both")}
-        ssum = d["silu"] + d["hoist"]
-        # The composed arm minus the sum of the two singles, differenced PER REP so the comparison
-        # carries its own interval instead of being arithmetic on three point estimates.
-        inter = [acc["both"][i] - acc["silu"][i] - acc["hoist"][i] for i in range(len(acc["both"]))]
-        out["subadditivity"] = {
-            "sum_of_singles_s": round(ssum, 4), "both_s": round(d["both"], 4),
-            "fraction_of_sum": round(d["both"] / ssum, 4) if ssum else None,
-            "interaction": stat(inter, "interaction"),
-            "below_larger_single": bool(d["both"] < max(d["silu"], d["hoist"])),
-            "larger_single_s": round(max(d["silu"], d["hoist"]), 4)}
+    def subadd(singles, composed):
+        """Composed arm against the sum of its own singles, differenced PER REP.
+
+        Per-rep is the point: it gives the interaction its own interval instead of doing
+        arithmetic on point estimates that each carry a CI nobody propagated.
+        """
+        if composed not in out["arms"] or any(a not in out["arms"] for a in singles):
+            return None
+        d = {a: out["arms"][a]["mean_s"] for a in (*singles, composed)}
+        ssum = sum(d[a] for a in singles)
+        n = min(len(acc[a]) for a in (*singles, composed))
+        inter = [acc[composed][i] - sum(acc[a][i] for a in singles) for i in range(n)]
+        return {"singles": list(singles), "composed_arm": composed,
+                "single_deltas_s": {a: round(d[a], 4) for a in singles},
+                "sum_of_singles_s": round(ssum, 4), "both_s": round(d[composed], 4),
+                "fraction_of_sum": round(d[composed] / ssum, 4) if ssum else None,
+                "interaction": stat(inter, "interaction"),
+                "below_larger_single": bool(d[composed] < max(d[a] for a in singles)),
+                "larger_single_s": round(max(d[a] for a in singles), 4)}
+
+    for key, singles, composed in (("subadditivity", ("silu", "hoist"), "both"),
+                                   ("subadditivity3", ("silu", "hoist", "eltwise"), "all3")):
+        v = subadd(singles, composed)
+        if v is not None:
+            out[key] = v
     return out
 
 
@@ -489,10 +540,13 @@ def report(s, args):
             print(f"  {k:6s} {v['mean_s']:+8.4f}s  sd {v['sd_s']:.4f}  "
                   f"95% CI [{v['ci95_s'][0]:+.4f},{v['ci95_s'][1]:+.4f}]  "
                   f"resolved={v['resolved']}   min-based {v['delta_min_s']:+.4f}s")
-        sb = p.get("subadditivity")
-        if sb:
+        for key in ("subadditivity", "subadditivity3"):
+            sb = p.get(key)
+            if not sb:
+                continue
             i = sb["interaction"]
-            print(f"  SUBADDITIVITY paired: both {sb['both_s']:+.4f}s vs singles sum "
+            print(f"  SUBADDITIVITY paired [{'+'.join(sb['singles'])} -> {sb['composed_arm']}]: "
+                  f"{sb['both_s']:+.4f}s vs singles sum "
                   f"{sb['sum_of_singles_s']:+.4f}s = {sb['fraction_of_sum']} of it; "
                   f"interaction {i['mean_s']:+.4f}s 95% CI +/-{i['ci95_half_width_s']:.4f}s "
                   f"(resolved={i['resolved']})")
@@ -504,7 +558,8 @@ def report(s, args):
         print(f"  below the larger single ({sb['larger_single_s']:.4f}s)? "
               f"{sb['below_larger_single']}")
     for a, r in s["witness"].items():
-        print(f"  witness {a:6s} hoist_norms={r['hoist_norms']} silu_calls={r['silu_calls']} "
+        print(f"  witness {a:7s} hoist_norms={r['hoist_norms']} silu_calls={r['silu_calls']} "
+              f"eltwise_calls={r['eltwise_calls']} "
               f"rebuilt={r['cond_rebuilt']} digests={r['digests']} "
               + (f"VOID: {r['void']}" if r.get("void") else ""))
 

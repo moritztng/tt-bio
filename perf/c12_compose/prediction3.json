@@ -1,0 +1,72 @@
+{
+ "registered_utc": "2026-09-17T23:45:00Z",
+ "session": "s6",
+ "row": "c12-compose-fold",
+ "what": "Three-lever composed fold at 512 aa: TT_BIO_UNFUSED_SILU + TT_BIO_DIT_COND_HOIST + (TT_BIO_FUSE_COND_MULADD and TT_BIO_FUSE_ATTN_GATE_ADD together as one lever).",
+ "why_a_new_digest": "prediction.json is sha256-pinned to a TWO-lever stack. A three-lever claim does not get to reuse it.",
+ "arms": [
+  "base",
+  "silu",
+  "hoist",
+  "eltwise",
+  "all3",
+  "base"
+ ],
+ "protocol": {
+  "reps": 12,
+  "palindrome": true,
+  "cold_reps": 1,
+  "size": "512",
+  "seed": 0,
+  "card": 3,
+  "sibling": 2,
+  "clock_mhz": 1350,
+  "estimator": "paired per-rep against that rep's own mean of base at pos0 and posN, t-based 95% CI; min-based cross-check on sign only"
+ },
+ "inputs_measured_not_assumed": {
+  "both_pooled_s": 0.5756,
+  "both_pooled_se_s": 0.0621,
+  "both_pooled_ci95_s": [
+   0.4539,
+   0.6974
+  ],
+  "basis": "inverse-variance pool of s3 (31 reps) and s5 (10 reps), both recovered with resummarise.py; silu +0.3342 se 0.0561, hoist +0.2880 se 0.0811",
+  "eltwise_predicted_s": 0.1321,
+  "eltwise_basis": "c12-fused-eltwise-at-pin's op-level prediction, 178.3 Mc DRAM-real, of which 0.0953 s is built and op-verified. NEVER measured at the fold."
+ },
+ "PREDICTED": {
+  "additive_ceiling_s": 0.7077,
+  "additive_ceiling_mcycles": 955.4,
+  "ceiling_arithmetic": "0.5756 (pooled both, MEASURED) + 0.1321 (eltwise, PREDICTED) = 0.7077 s; x 1350 MHz = 955.4 Mcycles. This is a CEILING, not a prediction.",
+  "expect_less_than_additive": true,
+  "all3_band_s": [
+   0.55,
+   0.7
+  ],
+  "all3_point_s": 0.64,
+  "fraction_of_sum_band": [
+   0.72,
+   0.95
+  ],
+  "why_more_subadditive_than_the_two_lever_stack": "The two-lever stack measured 0.9148 of its own singles. eltwise's larger site is AdaLN's gated conditioning write-back, and cond-hoist works the same conditioning path -- the eltwise row flagged the overlap itself ('may be pricing the same bytes twice'). So the three-lever fraction should sit at or below the two-lever 0.9148, not above it.",
+  "eltwise_single_band_s": [
+   0.03,
+   0.2
+  ],
+  "eltwise_marginal_band_s": [
+   0.0,
+   0.15
+  ],
+  "marginal_definition": "all3 minus both, per rep. This is what eltwise is worth ON TOP of a stack that already ships, and it is the number that decides whether eltwise is worth landing at all."
+ },
+ "KILL_CRITERIA": [
+  "Any arm whose witness is 0 is VOID and its timing is not reasoned about. eltwise_calls must be >0 on eltwise and all3 and exactly 0 on base, silu and hoist.",
+  "A composed delta inside this session's own paired A/A 95% CI is not a result.",
+  "all3 below the LARGER single means the levers interact and the stack is not approvable as a stack.",
+  "If the all3 marginal (all3 - both) resolves BELOW zero, eltwise is a regression on top of the shipping stack and must be recommended against, whatever its op-level number said.",
+  "If the eltwise arm's marginal does not resolve at all, the honest report is that this session cannot price eltwise -- not that eltwise is worth its op-level 0.1321 s.",
+  "Margin: the composed delta must exceed 3x the paired A/A CI half-width. Read across sessions only if stated as such."
+ ],
+ "accuracy_plan": "The three-lever stack's own deviation on cdk2x2_298 against that fixture's own seed floor, plus per-arm plDDT at 512 aa which is exact because each arm is bit-identical across its reps. Never by summing the individual levers.",
+ "not_in_this_stack": "TT_BIO_LINEAR_KBLOCK stays off (concluded at ~0.035 s, below its own 0.10 s kill criterion, and _LINEAR_BLOCK is not keyed on operand placement)."
+}
