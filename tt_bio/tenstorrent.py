@@ -1410,8 +1410,16 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 # changes is the grouping of the launches and the order of one bf16 rounding.
 # Measured integrated over a whole step (perf/roof_difftx): 15.0004 -> 13.2218 ms on a Blackhole
 # p150a, 1.1345x, against a 0.27 % A/A floor -- and 1.0122x on Wormhole, where the concatenation
-# gain and the slice tax cancel. Default OFF: release-gated until a qb2 fold-level A/B and the
-# structure arm have run. Read at CALL time, not import time, so an interleaved A/B can flip it.
+# gain and the slice tax cancel. On a qb2 p300c at 1350 MHz, walling this block directly
+# (perf/c12_cond_hoist) reads 1.071x and 1.085x across two sessions: 0.213-0.257 s of a 14.9 s fold,
+# against a block A/A floor of 0.033-0.041 s. The FOLD cannot see that. Its A/A on a shared box is
+# 0.8-1.5 s and three fold-only sessions disagreed in sign, so measure this at the block.
+# The structure arm has run and is favourable on every cell (512 aa CA-lDDT 0.93755 -> 0.93935,
+# 298 aa CA-RMSD 0.77143 -> 0.76557 A), against a 0.60 A kill bar with a 1.84 A seed floor beside it.
+# Default OFF, now gated on two things: a benchlocked fold arm on a quiet box, and moving
+# `_cond_weights()` to model load. That build costs 0.5687 s once per process, so at 0.213-0.257 s
+# saved per fold a process that folds once is 0.31-0.36 s WORSE off and break-even is 2.2-2.7 folds.
+# Read at CALL time, not import time, so an interleaved A/B can flip it.
 _B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", False)
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
