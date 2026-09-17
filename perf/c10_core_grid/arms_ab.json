@@ -1,0 +1,16 @@
+{
+  "note": "Runtime line numbers, taken from runs/census512/site_census.json, not from the AST. Only 5 live sites on the Boltz-2 512 aa default path are bare of BOTH core_grid and program_config; everything else already carries one of the two. Arms split them by call weight so a null result cannot hide a cancellation.",
+  "sites": {
+    "9395": "AdaLN.s_terms s_scale linear, 9612 calls; source carries a commented-out core_grid marked CAUSES ACCURACY ISSUE",
+    "9403": "AdaLN.s_terms s_bias linear, 9612 calls",
+    "10712": "Diffusion atom-to-token matmul, 200 calls",
+    "10797": "Diffusion a_to_q matmul, 200 calls",
+    "10282": "OuterProductMean z_rows matmul, 16 calls"
+  },
+  "arms": [
+    {"name": "A", "lines": [], "what": "untouched default; also this node's anchor"},
+    {"name": "B", "lines": [9395, 9403], "what": "AdaLN pair, 19224 of the 19428 eligible calls"},
+    {"name": "C", "lines": [10712, 10797, 10282], "what": "the other three, 416 calls"},
+    {"name": "D", "lines": [9395, 9403, 10712, 10797, 10282], "what": "all five"}
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "recorded_utc": "2026-09-17T03:25:00+00:00",
+  "source_base": "e6004abba460550a650ffa42a90e795ab3e5f20d",
+  "prediction": "see prediction.json, written before the first fold",
+  "model": {
+    "model": "boltz2",
+    "sizes": [
+      512,
+      298
+    ],
+    "sampling_steps": 200,
+    "recycling_steps": 3,
+    "diffusion_samples": 1,
+    "seed": 0,
+    "msa_rows": 35,
+    "templates": false,
+    "fast": false,
+    "trace": false,
+    "hoist": false,
+    "instrument": false
+  },
+  "warmup_folds": 1,
+  "pairs": 4,
+  "minimum_pairs": 3,
+  "clock": {
+    "target_MHz": 1350,
+    "minimum_samples": 3,
+    "max_gap_ns": 10000000,
+    "errors_allowed": 0,
+    "all_during_samples_must_equal_target": true,
+    "below_1200": "clock artifact; reject timing, never call regression"
+  },
+  "quiet": {
+    "all_chip_foreign_holders_allowed": 0,
+    "holder_max_gap_ns": 1000000000,
+    "lock_wait_s": 60,
+    "load_wait_s": 60,
+    "benchlock_maxload": 2.0,
+    "matcher_and_location": "unchanged shared benchlock",
+    "host_cpu_witness": {
+      "sampler": "perf/c10_bare_baseline/ambient.py, 250 ms, whole locked window",
+      "record_cpu_pct_at_or_above": 2.0,
+      "foreign_cpu_reject_pct": 20.0,
+      "foreign": "any process outside the run session (own=false)",
+      "added": "2026-09-16, after run baseline1 was excluded for an overlapping git pack the device-holder census could not see",
+      "older_runs": "runs without ambient.jsonl reduce to recorded=false and are not rejected on this criterion"
+    },
+    "co_tenancy": "a sibling worker may hold a DIFFERENT card. Refused only on the assigned node. Co-tenants are recorded per label and carried equally by both interleaved arms; a contended session is reported as contended, never as a regression."
+  },
+  "accuracy": {
+    "metric": "maximum independently superposed domain all-atom float64 Kabsch RMSD, split after residue 298; also report whole-chain all-atom",
+    "bars_A": {
+      "512": 0.6,
+      "298": 0.35
+    },
+    "user_512_seed_floor_A": 1.84,
+    "archived_upstream_seed_spread_A": {
+      "298": {
+        "mean": 0.80128,
+        "min": 0.74099,
+        "max": 0.84656
+      },
+      "512": {
+        "mean": 1.66454,
+        "min": 0.9454,
+        "max": 2.29123
+      }
+    },
+    "digest": "record, not automatic kill",
+    "same_seed_AA_is_not_upstream_accuracy": true,
+    "ab_rule": "arm B structure is scored against the A0 reference and REPORTED against the size bar with the seed floor beside it. It is not an automatic kill: this campaign's rule is accuracy, not bit-exactness."
+  },
+  "kill": [
+    "wrong source/config or input hashes",
+    "wrong opened node, containment change or boot change",
+    "foreign device holder or quiet/lock timeout",
+    "clock read error, wrong clock or coverage gap",
+    "nonfinite/missing/duplicate atoms or identity mismatch",
+    "same-seed structural deviation over size bar",
+    "missing CIF or nonfinite confidence",
+    "foreign host CPU process at or above 20% of a core during an accepted fold"
+  ],
+  "bare": "Production wheel, no Tracy/graph/observer/module timers/sum profiling. Synchronize before monotonic start and after predict_one including CIF writing.",
+  "unmeasured": "No device-cycle census, per-op budget, CPU removable cost, ceiling, upstream accuracy, or cross-run speedup.",
+  "recorded_utc_host_cpu_witness": "2026-09-16T22:55:56.077107+00:00",
+  "node": "1 (ASIC 380F6B89681D36A4, p300c, fw 19.15.0.0). Every campaign number of record is node 0.",
+  "arms": "interleaved within one warmed device context; arm A is the untouched default and is also this node's anchor"
+}
