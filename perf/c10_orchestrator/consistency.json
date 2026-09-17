@@ -1,0 +1,52 @@
+{
+  "scope": "CPU cross-check of the C10 artifact tree. Reads the READMEs; changes nothing.",
+  "docs_checked": 16,
+  "numbers_of_record": {
+    "F at 512 aa": [
+      "README.md",
+      "arithmetic_free_traffic/README.md",
+      "floor_vs_measured/README.md",
+      "frontier/README.md",
+      "size_scaling/README.md"
+    ],
+    "W at 512 aa": [
+      "README.md",
+      "frontier/README.md",
+      "size_scaling/README.md"
+    ],
+    "baseline at 512 aa": [
+      "README.md",
+      "dispatch_hypothesis/README.md",
+      "fixed_cost/README.md",
+      "ladder/README.md",
+      "regression_check/README.md"
+    ],
+    "pinned clock": [
+      "README.md",
+      "cpu_prereq_review/README.md",
+      "fit_reexam/README.md",
+      "fixed_cost/README.md",
+      "floor_mix/README.md",
+      "floor_vs_measured/README.md",
+      "frontier/README.md",
+      "ladder/README.md",
+      "regression_check/README.md",
+      "size_scaling/README.md"
+    ]
+  },
+  "retired_numbers_tracked": {
+    "15.031": "the roofline floor: its arithmetic half came from pc's 130-core firmware and the fold already reads below it at a recorded clock",
+    "2.309": "the 'remaining prize': it was cell_of_record minus floor, and the cell was a ~1063 MHz reading",
+    "67.59": "a dense-cube rate that implies 799 MHz against the four-measurement cluster",
+    "3,301": "the size-independent work term's lower bound, refuted by c10-size-scaling",
+    "8,220": "the size-independent work term's pair reading, refuted by c10-size-scaling"
+  },
+  "problems": [],
+  "retirement_far_from_its_number": [],
+  "clean": true,
+  "limits": [
+    "Textual, not semantic: it checks that a retired number appears beside its retirement, not that the surrounding prose is correct.",
+    "Document-scoped. A retirement stated anywhere in the file counts, because a reader sees the whole file; distance over 60 lines is reported separately rather than failed.",
+    "It cannot see a number that is wrong but was never on this list. The list is the campaign's memory and has to be extended by hand when something else is retired."
+  ]
+}

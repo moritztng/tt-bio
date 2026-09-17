@@ -33,6 +33,14 @@ motivation for looking at these two classes. It is not a prize: a trimul is not 
 shapes and its bandwidth needs differ, and not all of the gap is recoverable. Both sessions ran at
 loadavg 4.6 to 6.2 with no recorded clock, like everything else in this corpus.
 
+> **2026-09-17: that session was throttled, and the absolute rates above are artifacts.**
+> [`../frontier/`](../frontier/) found four independent Blackhole dense-cube measurements clustering
+> at **104.93–114.20 TFLOP/s**. Against the cluster maximum, 67.59 implies a chip at **799 MHz** —
+> the clock floor. **The ratios survive**, because both sides of each one were throttled together,
+> so triangle multiplication really is 5.89x off its own session's cube. The absolute TFLOP/s do
+> not, and at burst clock they would be roughly 1.69x higher. Do not carry 67.59, 29.86 or 11.47
+> out of this table as Blackhole rates.
+
 ## So the row should be scoped differently
 
 Not "recover a third of the 2.742 s the two classes hold above their roofs" — that number inherits

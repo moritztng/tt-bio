@@ -34,6 +34,22 @@ ignored, so the spin is inside native code; SIGKILL was required. The ARC stayed
 above-cap path is not implicated. This is a size users can ask for, and [`gate_coverage/`](gate_coverage/) shows the release gate could not have caught it: **every
 Boltz-2 target it folds above 117 aa runs 6 steps**, 33.3x shorter than the product's 200.
 
+## Keeping this index honest
+
+This campaign's own story is numbers rotting: a 17.34 s cell that was a throttled clock, a 2.309 s
+prize that was the same, a 15.031 s floor built on rates from the wrong machine, a 67.59 TFLOP/s
+cube that implies 799 MHz, a size-independent work term that was grid under-fill. Every one was
+quoted in good faith after it had stopped being true.
+
+`consistency.py` checks all 16 READMEs for two things: the numbers of record agree wherever they
+are quoted, and **no retired number appears without its retirement somewhere in the same
+document**. It found `grid_evidence/` still presenting 67.59 TFLOP/s as a Blackhole rate, which is
+now corrected there. Scope is the document, not the paragraph — paragraph scoping flagged nine
+places, seven of them honest, and a checker that cries wolf gets switched off.
+
+    python3 consistency.py                      # 16 READMEs, 5 retired numbers tracked
+    python3 -m pytest test_consistency.py -q    # 13 controls
+
 ## Findings
 
 | | |
