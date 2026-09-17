@@ -88,7 +88,16 @@ GENOP_FLOOR_S = 2.169320
 LEVERS = [
     ("silu",          0.2843, "executed-graph",  "GO op-level, accuracy clean, fold owed"),
     ("cond-hoist",    0.2415, "block-level A/B", "GO block-level, fold owed"),
-    ("reblock-delete",1.0000, "in-situ measured","PRICED, UNBUILT, needs source build + accuracy"),
+    # c12-reblock-delete's no-card half concluded 2026-09-17 with a pre-registered band. It attacks
+    # trimul_in 0.8392 + reblock_gated 0.7225 = 1.5617 s (NOT just the 1.0000 s of reblocks), by
+    # fusing the gate+reblock into the producing matmul's own writer: 11 Z -> 3 Z per call, 8 Z of
+    # 67.1089 MB deleted. Route is the shipped WHEEL, so the 1.115x wheel-vs-source control is not
+    # owed. Band: optimistic 1.2007, central 1.0990 on the audit's 6 Z, central 1.0062 on the
+    # kernel's own 5 Z addressing (the row disclosed the audit overbooks the in-projection and that
+    # its central arm is therefore optimistic), pessimistic 0.9342. 1.0062 is carried as central.
+    # reblock_back's 0.2775 s has NO wheel route (its producer is ttnn.matmul inside
+    # MatmulDeviceOperation) and is excluded.
+    ("reblock-delete",1.0062, "in-situ + predicted","PRICED, UNBUILT, wheel route, band 0.9342-1.2007"),
     ("matmul-class",  0.1352, "in-situ cap",     "<= this for ALL matmul levers; 64/110 pin is "
                                                  "0.0584 s of it, not 0.2150 s"),
     ("kblock",        0.0350, "production A/B",  "concluded BELOW its own kill criterion, off"),
@@ -205,13 +214,33 @@ def main():
         print(f"    vs {t:5.1f} s (needs {need:.4f} s): bankable {100*bank/need:5.1f} %, "
               f"best case {100*(bank+build)/need:5.1f} %, "
               f"short {need-bank-build:+.4f} s")
+    # The host residual: what host must supply once the THREE MAIN device levers land. This is the
+    # figure `c12-host-decomp` reports against, and pass 23 stated it wrong (1.0100 s / 60.4-61.3 %)
+    # by adding the matmul re-pricing delta to a book that never contained the matmul lever. The
+    # matmul class is not in this three-lever book, so re-pricing it cannot move the residual.
+    main3 = sum(s for n, s, _, _ in LEVERS if n in ("silu", "cond-hoist", "reblock-delete"))
+    print(f"\n  HOST RESIDUAL for 12.5 s, once the three main device levers land")
+    print(f"    device book (silu + cond-hoist + reblock-delete) {main3:7.4f} s")
+    res = 12.5
+    need125 = FOLD_S - res
+    hr = need125 - main3
+    print(f"    host must supply {need125:.4f} - {main3:.4f} = {hr:7.4f} s"
+          f"  = {100*hr/host_hi:.1f} - {100*hr/host_lo:.1f} % of non-device time")
+    print(f"    across reblock-delete's own band:")
+    for lbl, v in (("optimistic", 1.2007), ("central 6Z", 1.0990),
+                   ("central 5Z", 1.0062), ("pessimistic", 0.9342)):
+        b = 0.2843 + 0.2415 + v
+        r = need125 - b
+        print(f"      {lbl:12s} reblock {v:.4f} -> book {b:.4f} -> host {r:7.4f} s"
+              f" = {100*r/host_hi:.1f}-{100*r/host_lo:.1f} %")
+
     print(f"\n  and with 100 % of non-device time deleted on top of the absurd best case:")
     for t in TARGETS:
         landed = FOLD_S - bank - build - host_hi
         print(f"    fold {landed:.4f} s vs {t:5.1f} s -> "
               f"{'REACHES' if landed <= t else f'MISSES by {landed-t:.4f} s'}")
     line("=")
-    print("VERDICT: 12.5 s turns entirely on reblock-delete landing near its 1.0000 s price.")
+    print("VERDICT: 12.5 s turns on reblock-delete landing in its band AND host-decomp finding\n         39-56 % of all non-device time reducible (50.8-51.5 % at the central 5Z arm).")
     print("         10.0 s misses even when every named lever lands in full AND all")
     print("         non-device time is deleted -- the fourth independent derivation.")
 
