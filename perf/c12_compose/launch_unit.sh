@@ -8,10 +8,20 @@
 # the problem. A transient user unit is owned by the user manager, which lingers, so no ssh login
 # coming or going can take it down.
 #
+# The working directory is the REPO ROOT, not the caller's cwd, so every path in the command
+# must be absolute. A relative ./run.sh exited 127 before it opened anything (session s6,
+# 23:32:35Z) and cost the only clean board pair of that pass: a sibling row took the card in
+# the two minutes it took to notice. So the wrapper checks it rather than documenting it.
+#
 #   launch_unit.sh <unit-name> <logfile> <cmd...>
 set -u
 UNIT="${1:?unit}"; LOG="${2:?log}"; shift 2
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+case "$1" in
+  /*) : ;;
+  *) echo "launch_unit.sh: the command must be an ABSOLUTE path -- the unit runs in the repo" >&2
+     echo "launch_unit.sh: root, not your cwd. Got: $1" >&2; exit 2 ;;
+esac
 systemctl --user reset-failed "$UNIT" 2>/dev/null || true
 systemd-run --user --unit="$UNIT" --collect \
   --working-directory=/home/ttuser/.coworker/wt/c12-compose-fold \
