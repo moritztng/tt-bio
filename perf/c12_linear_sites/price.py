@@ -202,6 +202,35 @@ def main() -> int:
     print("  slice tax with ttnn slices: %.4f s; with a gated consumer kernel (precedent "
           "reader_reblock_permute_gated.cpp): 0" % (2 * inst * LAUNCH_US * 1e-6))
 
+    # TT_BIO_DIT_COND_HOIST (tenstorrent.py:1415, :9707) is this axis's biggest lever and it is
+    # already written and default OFF. Priced the same way: it fuses the AdaLN set (96 projections
+    # per step) AND the cross-frame output-projection set (48 per step) into two matmuls, and
+    # deletes 48 parameter-free layer_norms per step, which the census prices as its own key.
+    ad = [e for e in out if e["owner"] == "AdaLN"][0]
+    r_cap, how_cap = rate_at(fam, (1, 512, 768), 24 * 4 * 768)
+    ad_new = ad["flop"] / (r_cap * 1e12)
+    xf0 = [e for e in xf if e["n"] == 48][0]
+    xf0_flop = sum((xf0["calls"] / xf0["n"]) * cen[m["key"]]["TFLOP"] * 1e12
+                   / cen[m["key"]]["calls"] for m in xf0["members"])
+    xf0_new = xf0_flop / (rate_at(fam, (1, 512, 768), 24 * 2 * 768)[0] * 1e12)
+    ln = json.loads((HERE / "census_budget_sweep2.json").read_text())
+    lnk = [k for k in ln["keys"] if k["key"] == "layer_norm|out=1x512x768|K=None"][0]
+    slices = ad["linear_calls"] + xf0["calls"]
+    tax = slices * max(LAUNCH_US * 1e-6, 2 * 512 * 768 * 2 / (DRAM_GBs * 1e9))
+    gross = (ad["fold_s"] - ad_new) + (xf0["fold_s"] - xf0_new) + lnk["fold_s"]
+    print("\n== TT_BIO_DIT_COND_HOIST, already built and default off, priced here ==")
+    print("  AdaLN block   %.4f -> %.4f s  (+%.4f s / %.1f Mc)  rate %s"
+          % (ad["fold_s"], ad_new, ad["fold_s"] - ad_new,
+             (ad["fold_s"] - ad_new) * CLOCK_MHZ, how_cap))
+    print("  output block  %.4f -> %.4f s  (+%.4f s / %.1f Mc)"
+          % (xf0["fold_s"], xf0_new, xf0["fold_s"] - xf0_new,
+             (xf0["fold_s"] - xf0_new) * CLOCK_MHZ))
+    print("  layer_norm 1x512x768, %.0f calls at %.2f us: +%.4f s / %.1f Mc (NOT in the linear "
+          "class)" % (lnk["calls"], lnk["us_per_call"], lnk["fold_s"], lnk["Mcycles"]))
+    print("  slice tax %.0f slices: -%.4f s / %.1f Mc" % (slices, tax, tax * CLOCK_MHZ))
+    print("  NET %+.4f s / %+.1f Mc; inside the linear class alone %+.4f s"
+          % (gross - tax, (gross - tax) * CLOCK_MHZ, gross - lnk["fold_s"] - tax))
+
     json.dump(out, open(HERE / "priced_512.json", "w"), indent=1, default=float)
     return 0
 
