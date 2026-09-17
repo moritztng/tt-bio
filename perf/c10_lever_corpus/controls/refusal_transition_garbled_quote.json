@@ -1,0 +1,14 @@
+[
+  {
+    "name": "TT_BIO_SDPA_GRID_Q_CHUNK",
+    "reasons": [
+      "CONTESTED: two disagreeing readings on record; this row is not priced here"
+    ]
+  },
+  {
+    "name": "Transition row-chunk widening (Blackhole)",
+    "reasons": [
+      "quote not found verbatim in state:roof-transition-chunk-bh-ship.md: 'Folds are 1.023-1.035x faster at 512 aa, bit-exact at 298/512/768/1024'"
+    ]
+  }
+]
