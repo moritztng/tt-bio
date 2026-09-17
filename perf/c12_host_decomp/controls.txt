@@ -43,10 +43,10 @@ PASS cov/thin: got False want False tol 0.0
 PASS cov/gap: got False want False tol 0.0
 PASS regions/outer-calls: got 1 want 1 tol 0.0
 PASS regions/inner-calls: got 2 want 2 tol 0.0
-PASS regions/outer-excl: got 0.05011 want 0.05 tol 0.02
-PASS regions/inner-incl: got 0.04012 want 0.04 tol 0.02
-PASS regions/exclusive-partition: got 0.09023 want 0.09023 tol 2e-05
-PASS regions/unattributed: got 5.391999996745556e-06 want 0.0 tol 0.01
+PASS regions/outer-excl: got 0.05006 want 0.05 tol 0.02
+PASS regions/inner-incl: got 0.04011 want 0.04 tol 0.02
+PASS regions/exclusive-partition: got 0.09017 want 0.09018 tol 2e-05
+PASS regions/unattributed: got -9.799995466519551e-08 want 0.0 tol 0.01
 PASS regions/unpatched: got 'outer' want 'outer' tol 0.0
 PASS neg/relabelled-clock-verdict: got 'IMPOSSIBLE' want 'IMPOSSIBLE' tol 0.0
 PASS neg/relabelled-clock-exceeds-fast-arm: got True want True tol 0.0

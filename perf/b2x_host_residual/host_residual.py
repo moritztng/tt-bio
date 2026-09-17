@@ -205,6 +205,11 @@ class StackSampler(threading.Thread):
                 self.site[(r, site)] += 1
                 self.region[r] += 1
                 self.total += 1
+            # Drop the frame BEFORE sleeping. A retained frame object keeps its locals alive,
+            # and at 512 aa those locals are ttnn tensors holding device L1/DRAM buffers, so a
+            # sampler that holds one across its own sleep delays the free by up to a period and
+            # can push a later static-CB allocation into a clash. Costs nothing to measure.
+            fr = None
             nxt += self.period
             d = nxt - time.perf_counter()
             if d > 0:

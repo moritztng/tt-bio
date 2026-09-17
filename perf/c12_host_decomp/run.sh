@@ -33,12 +33,21 @@ for size in "${SIZES[@]}"; do
   out="$HERE/runs/$NAME/$size"
   mkdir -p "$HERE/runs/$NAME"
   echo "=== $size aa -> $out (node $NODE, clocks $CLOCKS, arms $ARMS, reps $REPS) ==="
+  # One size failing must not cost the other size or the table: decomp.py saves every row as
+  # it lands, so a partial result.json is still evidence and fit.py reads only valid rows.
+  rc=0
   TT_VISIBLE_DEVICES="$NODE" TT_BIO_LEASE_CARDS="$NODE" \
   TT_BIO_LEASE_HOLDER=worker:c12-host-decomp \
   ~/.coworker/scripts/benchlock.sh c12-host-decomp -- \
     "$PY" "$HERE/decomp.py" --size "$size" --node "$NODE" --out "$out" \
       --clocks "$CLOCKS" --reps "$REPS" --arms "$ARMS" \
-    2>&1 | tee "$HERE/runs/$NAME/launch_$size.log"
+    > >(tee "$HERE/runs/$NAME/launch_$size.log") 2>&1 || rc=$?
+  wait
+  if [ "$rc" = 75 ]; then
+    echo "run.sh: benchlock busy (75) on $size aa -- NOT measured, retry later." >&2
+  elif [ "$rc" != 0 ]; then
+    echo "run.sh: $size aa capture exited $rc -- keeping whatever rows landed." >&2
+  fi
 done
 
 "$PY" "$HERE/fit.py" "$HERE"/runs/"$NAME"/*/result.json > "$HERE/runs/$NAME/table.json"

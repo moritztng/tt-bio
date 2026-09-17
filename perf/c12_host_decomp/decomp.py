@@ -41,6 +41,16 @@ from evidence import (coverage, digest, holders, own_nodes, snapshot, validate_s
 from force_aiclk import FORCE_AICLK, smc
 
 # `c10-fixed-cost`'s fitted clock-immune term, the number this row has to close against.
+class Fatal(RuntimeError):
+    """An integrity failure: the capture cannot continue and no row from it is trustworthy.
+
+    Everything else that can go wrong in one label -- an instrument breaking, a device
+    exception, a clock arm the governor did not hold -- costs that label only. It is recorded
+    with valid=False and an error, the arm loop moves on, and `fit.py` reads only valid rows.
+    Losing 30 folds because arm 5 of 36 threw is not a stricter protocol, just a lost pass.
+    """
+
+
 F_REFERENCE = {512: 3.9830, 298: 1.9500}
 WORK_REFERENCE = {512: 14665.0, 298: 10403.4}          # Mcycles
 ARMS = ("bare", "regions", "cprofile", "sample", "pyspy", "cacheclear")
@@ -314,11 +324,11 @@ def main() -> int:
             before = snapshot()
             validate_snapshot(before, a.node, True)
             if dict(state.model.predict_args) != expected:
-                raise RuntimeError("model config changed between labels")
+                raise Fatal("model config changed between labels")
             if job_cfg["seed"] != 0:
-                raise RuntimeError("seed changed between labels")
+                raise Fatal("seed changed between labels")
             if before["boot_id"] != result["before"]["boot_id"]:
-                raise RuntimeError("boot changed")
+                raise Fatal("boot changed")
             force = list(smc(fd, FORCE_AICLK, clock))
             if force[0] != 0:
                 raise RuntimeError(f"FORCE_AICLK({clock}) failed: {force}")
@@ -417,7 +427,7 @@ def main() -> int:
             row["after"] = snapshot()
             validate_snapshot(row["after"], a.node, True)
             if row["after"]["boot_id"] != result["before"]["boot_id"]:
-                raise RuntimeError("boot changed")
+                raise Fatal("boot changed")
             if row["above_cap_sdpa_counts"] != [0, 0]:
                 raise RuntimeError("above-cap SDPA route unexpectedly reached")
             time.sleep(0.15)
@@ -447,8 +457,21 @@ def main() -> int:
             order = clocks if rep % 2 == 0 else list(reversed(clocks))
             for clock in order:
                 for arm in arms:
-                    one(f"{arm}_c{clock}_r{rep}", arm, clock, rep)
+                    label = f"{arm}_c{clock}_r{rep}"
+                    try:
+                        one(label, arm, clock, rep)
+                    except Fatal:
+                        raise
+                    except Exception as e:
+                        result["errors"].append(f"{label}: {e!r}")
+                        result["rows"].append(dict(label=label, arm=arm, clock_MHz=clock,
+                                                   rep=rep, valid=False, error=repr(e)))
+                        save()
+                        traceback.print_exc()
+                        print(json.dumps({"label": label, "arm": arm, "clock": clock,
+                                          "SKIPPED": type(e).__name__}), flush=True)
         result["completed"] = True
+        result["labels_skipped"] = [r["label"] for r in result["rows"] if r.get("error")]
     except BaseException as e:
         result["errors"].append(repr(e))
         traceback.print_exc()
@@ -486,7 +509,7 @@ def main() -> int:
             if result.get("release_response", [None])[0] != 0:
                 raise RuntimeError("clock release not confirmed")
             if result["after"]["boot_id"] != result["before"]["boot_id"]:
-                raise RuntimeError("boot changed")
+                raise Fatal("boot changed")
         except BaseException as e:
             result["errors"].append("snapshot: " + repr(e))
             result["completed"] = False
