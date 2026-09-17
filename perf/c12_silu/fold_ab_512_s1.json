@@ -1,0 +1,322 @@
+{
+ "doc": "What TT_BIO_UNFUSED_SILU is worth in FOLD SECONDS (c12-unfused-silu-bh).\n\nThe op-level A/B already decided the lever at the op level: the epilogue costs 0.0882 ms/call and\nthe standalone in-place silu costs 0.0400, so unfusing is worth 0.4339 s/fold at 8,960 calls. This\nharness asks the only question that outranks that: does the fold move by it.\n\nArms alternate INSIDE one process on one device open with the shipped arm run twice per rep, either\nside of the test arm, so the session's own A/A floor falls out of the same data and box drift lands\nin the floor rather than in the ratio. Both contention detectors from\nperf/roof_transition_chunk_bh/foldab.py are reused unchanged, including the saturation check -- a\ntight A/A floor means \"no jitter\", not \"not saturated\", and a host-bound session hides a real\ndevice-side saving without moving the floor.\n\nThe clock is FORCED for the whole session and sampled at 500 Hz in a subprocess, per-fold. On\nBlackhole the AICLK sets the fold time, so an unforced arm pair measures the governor.\n\nEach arm's first CIF is archived, so the paired accuracy read comes out of the same process, same\nseed and same MSA as the timing. An unpaired RMSD carries the full seed floor; a paired one does not.\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "card_node": 2,
+  "clock_forced_mhz": 1350,
+  "tt_visible_devices": "2",
+  "commit": "9fb9275a3f9cfd3e84a2ded2115828d2db6191b5",
+  "started_utc": "2026-09-17T13:18:21Z",
+  "loadavg_start": [
+   11.0458984375,
+   11.93017578125,
+   12.888671875
+  ],
+  "cotenancy": "v0.9.0 release gate on qb2 nodes 0+1: release_gate.py --model size-ladder (node 0) and full_parity_gate.py CARD=1 (node 1); board 4103. C12 on board 410D node 2.",
+  "protocol": {
+   "sampling_steps": 200,
+   "recycling_steps": 3,
+   "seed": 0,
+   "reps": 4,
+   "warm": 1
+  },
+  "loadavg_now": [
+   20.88671875,
+   15.857421875,
+   14.25927734375
+  ]
+ },
+ "folds": [
+  {
+   "size": 512,
+   "arm": "ship",
+   "slot": "warm",
+   "rep": 0,
+   "timed": false,
+   "loadavg": 12.32,
+   "unfused_silu": false,
+   "wall_s": 92.514,
+   "digest": "47b41b3048019cd6",
+   "cif": "512_ship_warm_r0.cif",
+   "aiclk": {
+    "n": 41608,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   }
+  },
+  {
+   "size": 512,
+   "arm": "silu",
+   "slot": "warm",
+   "rep": 0,
+   "timed": false,
+   "loadavg": 18.14,
+   "unfused_silu": true,
+   "wall_s": 15.038,
+   "digest": "b6d76f5e326929ca",
+   "cif": "512_silu_warm_r0.cif",
+   "aiclk": {
+    "n": 7112,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   }
+  },
+  {
+   "size": 512,
+   "arm": "ship",
+   "slot": "shipA",
+   "rep": 0,
+   "timed": true,
+   "loadavg": 18.03,
+   "unfused_silu": false,
+   "wall_s": 15.537,
+   "digest": "47b41b3048019cd6",
+   "cif": "512_ship_shipA_r0.cif",
+   "aiclk": {
+    "n": 7349,
+    "min": 1306,
+    "max": 1350,
+    "mean": 1346.5
+   }
+  },
+  {
+   "size": 512,
+   "arm": "silu",
+   "slot": "test",
+   "rep": 0,
+   "timed": true,
+   "loadavg": 17.67,
+   "unfused_silu": true,
+   "wall_s": 15.853,
+   "digest": "b6d76f5e326929ca",
+   "cif": "512_silu_test_r0.cif",
+   "aiclk": {
+    "n": 7417,
+    "min": 1312,
+    "max": 1350,
+    "mean": 1339.5
+   }
+  },
+  {
+   "size": 512,
+   "arm": "ship",
+   "slot": "shipB",
+   "rep": 0,
+   "timed": true,
+   "loadavg": 17.07,
+   "unfused_silu": false,
+   "wall_s": 16.159,
+   "digest": "47b41b3048019cd6",
+   "cif": "512_ship_shipB_r0.cif",
+   "aiclk": {
+    "n": 7662,
+    "min": 1306,
+    "max": 1350,
+    "mean": 1342.8
+   }
+  },
+  {
+   "size": 512,
+   "arm": "ship",
+   "slot": "shipA",
+   "rep": 1,
+   "timed": true,
+   "loadavg": 15.66,
+   "unfused_silu": false,
+   "wall_s": 15.711,
+   "digest": "47b41b3048019cd6",
+   "cif": "512_ship_shipA_r1.cif",
+   "aiclk": {
+    "n": 7454,
+    "min": 1306,
+    "max": 1350,
+    "mean": 1342.1
+   }
+  },
+  {
+   "size": 512,
+   "arm": "silu",
+   "slot": "test",
+   "rep": 1,
+   "timed": true,
+   "loadavg": 13.57,
+   "unfused_silu": true,
+   "wall_s": 15.441,
+   "digest": "b6d76f5e326929ca",
+   "cif": "512_silu_test_r1.cif",
+   "aiclk": {
+    "n": 7308,
+    "min": 1306,
+    "max": 1350,
+    "mean": 1341.1
+   }
+  },
+  {
+   "size": 512,
+   "arm": "ship",
+   "slot": "shipB",
+   "rep": 1,
+   "timed": true,
+   "loadavg": 11.75,
+   "unfused_silu": false,
+   "wall_s": 15.173,
+   "digest": "47b41b3048019cd6",
+   "cif": "512_ship_shipB_r1.cif",
+   "aiclk": {
+    "n": 7279,
+    "min": 1312,
+    "max": 1350,
+    "mean": 1343.5
+   }
+  },
+  {
+   "size": 512,
+   "arm": "ship",
+   "slot": "shipA",
+   "rep": 2,
+   "timed": true,
+   "loadavg": 10.85,
+   "unfused_silu": false,
+   "wall_s": 16.688,
+   "digest": "47b41b3048019cd6",
+   "cif": "512_ship_shipA_r2.cif",
+   "aiclk": {
+    "n": 7601,
+    "min": 1312,
+    "max": 1350,
+    "mean": 1342.6
+   }
+  },
+  {
+   "size": 512,
+   "arm": "silu",
+   "slot": "test",
+   "rep": 2,
+   "timed": true,
+   "loadavg": 12.68,
+   "unfused_silu": true,
+   "wall_s": 16.674,
+   "digest": "b6d76f5e326929ca",
+   "cif": "512_silu_test_r2.cif",
+   "aiclk": {
+    "n": 7464,
+    "min": 1306,
+    "max": 1350,
+    "mean": 1341.7
+   }
+  },
+  {
+   "size": 512,
+   "arm": "ship",
+   "slot": "shipB",
+   "rep": 2,
+   "timed": true,
+   "loadavg": 14.44,
+   "unfused_silu": false,
+   "wall_s": 16.583,
+   "digest": "47b41b3048019cd6",
+   "cif": "512_ship_shipB_r2.cif",
+   "aiclk": {
+    "n": 7345,
+    "min": 1306,
+    "max": 1350,
+    "mean": 1342.1
+   }
+  },
+  {
+   "size": 512,
+   "arm": "ship",
+   "slot": "shipA",
+   "rep": 3,
+   "timed": true,
+   "loadavg": 15.56,
+   "unfused_silu": false,
+   "wall_s": 17.054,
+   "digest": "47b41b3048019cd6",
+   "cif": "512_ship_shipA_r3.cif",
+   "aiclk": {
+    "n": 7617,
+    "min": 1306,
+    "max": 1350,
+    "mean": 1341.1
+   }
+  },
+  {
+   "size": 512,
+   "arm": "silu",
+   "slot": "test",
+   "rep": 3,
+   "timed": true,
+   "loadavg": 17.61,
+   "unfused_silu": true,
+   "wall_s": 20.47,
+   "digest": "b6d76f5e326929ca",
+   "cif": "512_silu_test_r3.cif",
+   "aiclk": {
+    "n": 8996,
+    "min": 1306,
+    "max": 1350,
+    "mean": 1343.4
+   }
+  },
+  {
+   "size": 512,
+   "arm": "ship",
+   "slot": "shipB",
+   "rep": 3,
+   "timed": true,
+   "loadavg": 20.53,
+   "unfused_silu": false,
+   "wall_s": 19.998,
+   "digest": "47b41b3048019cd6",
+   "cif": "512_ship_shipB_r3.cif",
+   "aiclk": {
+    "n": 8844,
+    "min": 1306,
+    "max": 1350,
+    "mean": 1343.1
+   }
+  }
+ ],
+ "legs": {
+  "512": {
+   "ship_median_s": 16.371,
+   "arm_median_s": 16.264,
+   "shipA_median_s": 16.2,
+   "shipB_median_s": 16.371,
+   "fold_seconds_saved": 0.107,
+   "ratio": 1.0066,
+   "aa_floor_pct": 1.048,
+   "aa_floor_s": 0.171,
+   "n": {
+    "shipA": 4,
+    "shipB": 4,
+    "test": 4
+   },
+   "aiclk_min": 1306,
+   "aiclk_max": 1350,
+   "digest_ship": [
+    "47b41b3048019cd6"
+   ],
+   "digest_silu": [
+    "b6d76f5e326929ca"
+   ],
+   "bit_exact_within_arm": true,
+   "loadavg_span": [
+    10.85,
+    20.53
+   ],
+   "quiet_ship_median_s": 14.881,
+   "saturation_x": 1.1,
+   "verdict": "BLOCKED-ON-CONTENTION"
+  }
+ },
+ "model_load_s": 6.03
+}
