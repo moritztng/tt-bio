@@ -1,0 +1,59 @@
+{
+ "row": "c12-compose-fold",
+ "what": "Pre-registered before the first timed arm: the composed 512 aa fold delta of TT_BIO_DIT_COND_HOIST + TT_BIO_UNFUSED_SILU, both flags off on main, measured as one interleaved session on qb2 card 2 at a forced and during-sampled 1350 MHz.",
+ "written_utc": "2026-09-17T14:20:00Z",
+ "branch_point": "02372c2d22e4 (origin/wk/c12-cond-hoist-block-timing)",
+ "clock_mhz": 1350,
+ "basis": {
+  "base_fold_s": 14.881,
+  "base_fold_note": "campaign quiet-box median at a pinned, during-sampled 1350 MHz",
+  "aa_floor_s_expected": 0.055,
+  "aa_floor_note": "campaign quiet-box fold A/A floor; the session measures its own and the verdict is read against that one, not this",
+  "singles": {
+   "silu_delta_s": 0.2843,
+   "silu_delta_Mcycles": 383.8,
+   "silu_source": "c12-unfused-silu-bh, each executed shape's own measured price x its own executed call count at 512 aa",
+   "hoist_delta_s": 0.2134,
+   "hoist_delta_Mcycles": 288.1,
+   "hoist_source": "c12-cond-hoist-block-timing session 1, wall around the token-level DiffusionTransformer (session 2 read 0.2532 s; the branch's own comment carries 0.2415 s at 512 aa, so the single itself has a 0.213-0.253 s spread and the ceiling below uses the low end the row concluded on)"
+  }
+ },
+ "predicted": {
+  "ceiling_delta_s": 0.4977,
+  "ceiling_delta_Mcycles": 671.9,
+  "ceiling_fold_s": 14.3833,
+  "ceiling_ratio": 1.03459,
+  "ceiling_note": "pure additivity: no interaction, and every second of device time saved reaches the fold. This is a CEILING, not the prediction.",
+  "central_delta_s": 0.420,
+  "central_delta_Mcycles": 567.0,
+  "central_fold_s": 14.461,
+  "central_ratio": 1.02905,
+  "central_construction": [
+   "0.4977 s  sum of the two singles",
+   "-0.0125 s op-level double-count bound. The pass-18 disjointness audit: silu fires in Transition.swiglu fc1, cond-hoist deletes 9,600 DiT layer_norm calls and its own linear-class contribution is -0.0039 s, so the shared term is bounded at 0.0125 s.",
+   "-0.0649 s half the fold-average host-overlap haircut. Exposed host time F = 3.983 s of 14.881 s = 26.76 %; charging the full fraction would assume both regions overlap host work at the fold average, and both sit in device-bound regions (the diffusion sampler and the pair transitions), so half is the midpoint between no attenuation and fold-average attenuation. This term is a stated placeholder, not a measurement: it exists so that a measured 0.485 s reads as 'no attenuation' rather than as 'beat the prediction'.",
+   "= 0.4203 s, rounded to 0.420 s"
+  ],
+  "band_low_delta_s": 0.2843,
+  "band_high_delta_s": 0.4977,
+  "expected_fraction_of_sum": [0.84, 0.97],
+  "expected_subadditivity_s": [0.0125, 0.0777],
+  "how_much_less_than_additive": "0.0777 s less at the central, i.e. 15.6 % of the sum. At least 0.0125 s less, because that is the only interaction anything has measured; more than 0.0777 s less only if a region that measures as device time does not reach the fold."
+ },
+ "kill_criteria": {
+  "a": "composed delta inside the session's OWN A/A floor is not a result, whatever its sign",
+  "b": "composed delta below the larger single (0.2843 s) means the two levers interact and the stack is NOT approvable as a stack",
+  "c": "any arm whose witness is absent (hoist_norms 0 on a hoist arm, silu_calls 0 on a silu arm, or either nonzero on base) is VOID; its timing may not be reasoned about",
+  "d": "any warm fold whose sampled AICLK minimum is below 1200 MHz makes the session an artifact, not a regression"
+ },
+ "go_criteria": "composed delta >= 0.2843 s AND >= 3x the session's own A/A floor AND the stack's own accuracy inside the 0.60 A reject bar on cdk2x2_298 with the same-session seed floor quoted beside it and a 0.0000 A A/A control.",
+ "not_in_this_stack": {
+  "TT_BIO_LINEAR_KBLOCK": "left OFF deliberately. It concluded at ~0.035 s, below its own 0.10 s kill criterion, and _LINEAR_BLOCK is keyed on (mt_total, kt, nt) and not on operand placement, so with every `a` operand forced to L1 its two DRAM keys inverted to 0.9416x and 0.9545x. 7 % of the stack for that risk is not worth taking."
+ },
+ "instrument": {
+  "fold": "perf/c12_compose/fold_compose.py --arms base,silu,hoist,both,base --reps 5, one process, one device open, one model load, cold rep over the full arm list discarded, _cond_weights() forced and walled before the first timed rep",
+  "accuracy": "perf/c12_compose/acc_stack.py --size 298 --arms base,both --seeds 0,1, with the base-vs-base same-seed A/A control",
+  "clock": "perf/c12_compose/clk.py, ARC message 0x33 through tt-kmd IOCTL 17, sampled at 500 Hz in a SUBPROCESS for the duration of every fold"
+ },
+ "nothing_flips": "Release-gated, branch-only. Both flags stay env_flag(..., False). Only Moritz approves a default."
+}
