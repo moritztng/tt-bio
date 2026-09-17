@@ -25,13 +25,19 @@ STATUS vocabulary, and the distinction that matters:
 FOLD_OF_RECORD = 14.881   # c10-bare-baseline quiet-box median, pinned during-sampled 1350 MHz
 
 BOOK = [
-    dict(name="compose stack (silu+cond-hoist)", s=0.6118, status="FOLD",
-         src="c12-compose-fold s3, 31 of 48 reps; two independent recoveries agreeing to the digit. "
-             "CI [+0.4127,+0.8109], A/A -0.1114 unresolved, sub-additive 0.915 of its own singles",
+    dict(name="compose stack (silu+cond-hoist)", s=0.5756, status="FOLD",
+         src="c12-compose-fold s3 (31 reps) and s5 (10 reps), TWO INDEPENDENT SESSIONS pooled by "
+             "inverse variance: +0.5756 s, se 0.0621, CI [+0.4539,+0.6974], a 9.3-sigma effect. "
+             "Sessions consistent (z=+0.48); both A/A controls unresolved and straddling zero "
+             "(-0.1114, +0.1236); pooled composed / pooled A/A floor 3.57x, so the pre-registered "
+             "3x margin clause is MET on pooled data where s3 alone gave 2.87-2.98x. Both sessions "
+             "host-spin wedged mid-run, neither truncation conditioned on a timing. See "
+             "../compose_recovered/pool.py",
          acc="CLEAR: cdk2x2_298 worst 0.38302 A = 0.477x its own 0.80218 A seed floor, A/A 0.0000 A, "
              "HOLD band not PASS; 512 aa inside the seed floor on both metrics at all 5 seeds",
-         owes="margin only -- 2.87-2.98x its session A/A floor against a pre-registered 3x, which "
-              "the rep-31 truncation caused; s5 (48 reps) is buying it"),
+         owes="nothing measurable -- margin settled by pooling two sessions (3.57x). What it owes "
+              "is a DEFAULT FLIP, which is ask 8879 with Moritz, and cond-hoist's 28-line eager-"
+              "build merge first (see ../landing/LANDING.md)"),
     dict(name="reblock-delete", s=1.0062, status="PRED", band=(0.9342, 1.2007),
          src="c12-reblock-delete PREREG.md line 79 corrected central (1.0062, not the 1.0990 "
              "headline); 771 insertions incl. a 479-line mm_split/compute.cpp; NEVER EXECUTED",
