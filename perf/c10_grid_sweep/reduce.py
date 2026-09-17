@@ -71,6 +71,31 @@ def main():
                 s = entry["win_us_per_call"] * 1e-6 * info["calls"]
                 entry["fold_win_s"] = s
                 entry["fold_win_Mcycles"] = s * MHZ
+        # Amdahl fit t(c) = A/c + B over the scored ladder. B is the core-INDEPENDENT part of
+        # the per-call cost: the part no number of cores removes. That is the whole mechanism
+        # question, so it gets a fit rather than an eyeball on two endpoints
+        # (`c10-two-points-cannot-measure-a-scaling-exponent`).
+        pts = [(v["cores"], v["min_us"]) for k, v in entry["points"].items()
+               if not k.endswith("#AA")]
+        if len(pts) >= 3:
+            xs = [1.0 / c for c, _t in pts]
+            ys = [t for _c, t in pts]
+            n = len(xs)
+            mx, my = sum(xs) / n, sum(ys) / n
+            sxx = sum((x - mx) ** 2 for x in xs)
+            sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+            A = sxy / sxx
+            B = my - A * mx
+            pred = [A * x + B for x in xs]
+            ss_res = sum((y - p) ** 2 for y, p in zip(ys, pred))
+            ss_tot = sum((y - my) ** 2 for y in ys)
+            t110 = entry["points"]["11x10"]["min_us"]
+            entry["amdahl"] = {
+                "A_us_cores": A, "B_us_fixed": B, "r2": 1 - ss_res / ss_tot,
+                "fixed_share_of_110_pct": 100 * B / t110,
+                "parallel_part_at_110_us": A / 110.0,
+                "headroom_to_infinite_cores_us": t110 - B,
+                "headroom_to_infinite_cores_x": t110 / B if B > 0 else None}
         curves[arm] = entry
 
     # fold-level total over the matmul arms whose call counts are real census counts
@@ -78,6 +103,24 @@ def main():
     total_s = sum(v.get("fold_win_s", 0.0) for v in mm.values())
     tri = {k: curves[k] for k in ("trimul", "triatt") if k in curves}
     tri_s = sum(v.get("fold_win_s", 0.0) for v in tri.values())
+
+    # What the withdrawn Wormhole transfer would have cost if it had been applied here. The
+    # ledger's 810 Mcycle entry said trimul wants 32 cores. On Blackhole both tri classes want
+    # the full grid, so the transfer has the wrong sign and this is the size of the error.
+    transfer = {}
+    for target in ("8x4", "9x8"):
+        loss = 0.0
+        detail = {}
+        for arm in ("trimul", "triatt"):
+            e = curves.get(arm)
+            if not e or target not in e["points"]:
+                continue
+            d_us = e["points"][target]["min_us"] - e["points"]["11x10"]["min_us"]
+            s_ = d_us * 1e-6 * e["calls_per_fold"]
+            detail[arm] = {"delta_us_per_call": d_us, "fold_s": s_, "Mcycles": s_ * MHZ}
+            loss += s_
+        transfer[target] = {"per_arm": detail, "fold_s": loss, "Mcycles": loss * MHZ,
+                            "cores": int(target.split("x")[0]) * int(target.split("x")[1])}
 
     aa_floors = {k: v["AA_floor_pct"] for k, v in curves.items() if "AA_floor_pct" in v}
     out = {
@@ -92,6 +135,7 @@ def main():
         "AA_floor_pct": aa_floors,
         "AA_floor_worst_pct": max(aa_floors.values()) if aa_floors else None,
         "curves": curves,
+        "wormhole_transfer_cost": transfer,
         "fold_level": {
             "matmul_arms_win_s": total_s, "matmul_arms_win_Mcycles": total_s * MHZ,
             "tri_units_win_s": tri_s, "tri_units_win_Mcycles": tri_s * MHZ,
@@ -131,9 +175,22 @@ def main():
             continue
         print(f"{arm:<14}{p['issue_us']:>15.2f}{p['min_us']:>14.2f}"
               f"{('YES' if p['issue_us'] >= 0.9 * p['min_us'] else 'no'):>13}")
+    print()
+    print(f"{'arm':<14}{'A (us*cores)':>14}{'B fixed us':>12}{'r2':>8}{'B/t110 %':>10}"
+          f"{'t110 us':>10}{'inf-core us':>12}")
+    for arm, e in curves.items():
+        m = e.get("amdahl")
+        if not m:
+            continue
+        print(f"{arm:<14}{m['A_us_cores']:>14.1f}{m['B_us_fixed']:>12.2f}{m['r2']:>8.4f}"
+              f"{m['fixed_share_of_110_pct']:>10.1f}"
+              f"{e['points']['11x10']['min_us']:>10.2f}{m['B_us_fixed']:>12.2f}")
     print(f"\nmatmul arms, summed at each arm's own optimum: {total_s:.4f} s / "
           f"{total_s*MHZ:.1f} Mcycles of the 512 aa fold")
     print(f"tri units:  {tri_s:.4f} s / {tri_s*MHZ:.1f} Mcycles")
+    for k, v in transfer.items():
+        print(f"applying the withdrawn Wormhole optimum {k} ({v['cores']} cores) to both tri "
+              f"classes would COST {v['fold_s']:.4f} s / {v['Mcycles']:.1f} Mcycles")
     return 0
 
 

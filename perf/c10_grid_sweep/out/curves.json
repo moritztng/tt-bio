@@ -173,7 +173,16 @@
    "scaling_16_to_110_x": 6.115481594876661,
    "ideal_16_to_110_x": 6.875,
    "occupancy_efficiency": 0.8895245956184233,
-   "ratio_110_over_72": 0.6426875196402135
+   "ratio_110_over_72": 0.6426875196402135,
+   "amdahl": {
+    "A_us_cores": 107244.01774568706,
+    "B_us_fixed": 159.83642652644448,
+    "r2": 0.9964918667951195,
+    "fixed_share_of_110_pct": 14.455604933431811,
+    "parallel_part_at_110_us": 974.9456158698823,
+    "headroom_to_infinite_cores_us": 945.8691268730338,
+    "headroom_to_infinite_cores_x": 6.917731942765515
+   }
   },
   "mm_768_1536": {
    "family": "768-family linear",
@@ -299,7 +308,16 @@
    "occupancy_efficiency": 0.42968370800002037,
    "ratio_110_over_72": 0.9324886588420247,
    "fold_win_s": 0.0,
-   "fold_win_Mcycles": 0.0
+   "fold_win_Mcycles": 0.0,
+   "amdahl": {
+    "A_us_cores": 839.6806225683843,
+    "B_us_fixed": 12.550372078651343,
+    "r2": 0.9915684074205299,
+    "fixed_share_of_110_pct": 55.99160194769029,
+    "parallel_part_at_110_us": 7.63346020516713,
+    "headroom_to_infinite_cores_us": 9.86436806465877,
+    "headroom_to_infinite_cores_x": 1.7859821209156366
+   }
   },
   "mm_768_768": {
    "family": "768-family linear",
@@ -425,7 +443,16 @@
    "occupancy_efficiency": 0.3491912174045833,
    "ratio_110_over_72": 1.0000619373360802,
    "fold_win_s": 3.378345599817756e-05,
-   "fold_win_Mcycles": 0.045607665597539704
+   "fold_win_Mcycles": 0.045607665597539704,
+   "amdahl": {
+    "A_us_cores": 397.0133729260569,
+    "B_us_fixed": 9.419731805732342,
+    "r2": 0.9848664500770867,
+    "fixed_share_of_110_pct": 64.58500375738986,
+    "parallel_part_at_110_us": 3.609212481145972,
+    "headroom_to_infinite_cores_us": 5.165282141339745,
+    "headroom_to_infinite_cores_x": 1.5483470493497948
+   }
   },
   "mm_1536_768": {
    "family": "768-family linear",
@@ -551,7 +578,16 @@
    "occupancy_efficiency": 0.3998707442631718,
    "ratio_110_over_72": 0.9990695985872634,
    "fold_win_s": 0.0,
-   "fold_win_Mcycles": 0.0
+   "fold_win_Mcycles": 0.0,
+   "amdahl": {
+    "A_us_cores": 812.2737125231959,
+    "B_us_fixed": 13.18437261168145,
+    "r2": 0.9861001063528463,
+    "fixed_share_of_110_pct": 55.439801301453436,
+    "parallel_part_at_110_us": 7.384306477483599,
+    "headroom_to_infinite_cores_us": 10.59704850126868,
+    "headroom_to_infinite_cores_x": 1.803758268473057
+   }
   },
   "mm_768_3072": {
    "family": "768-family linear",
@@ -677,7 +713,16 @@
    "occupancy_efficiency": 0.5124030821917155,
    "ratio_110_over_72": 0.8792568219310587,
    "fold_win_s": 0.0,
-   "fold_win_Mcycles": 0.0
+   "fold_win_Mcycles": 0.0,
+   "amdahl": {
+    "A_us_cores": 1739.4006989182799,
+    "B_us_fixed": 18.835107907327043,
+    "r2": 0.9953803150572705,
+    "fixed_share_of_110_pct": 51.215693158490616,
+    "parallel_part_at_110_us": 15.812733626529818,
+    "headroom_to_infinite_cores_us": 17.940940107956976,
+    "headroom_to_infinite_cores_x": 1.9525265369452847
+   }
   },
   "mm_pair_qk": {
    "family": "16-head pair matmul",
@@ -803,7 +848,16 @@
    "occupancy_efficiency": 0.23251435152581307,
    "ratio_110_over_72": 0.9196509908562215,
    "fold_win_s": 0.0,
-   "fold_win_Mcycles": 0.0
+   "fold_win_Mcycles": 0.0,
+   "amdahl": {
+    "A_us_cores": 714.8351665861393,
+    "B_us_fixed": 59.25822365967962,
+    "r2": 0.9850112912347647,
+    "fixed_share_of_110_pct": 91.06830183760309,
+    "parallel_part_at_110_us": 6.498501514419448,
+    "headroom_to_infinite_cores_us": 5.81186380648554,
+    "headroom_to_infinite_cores_x": 1.0980769157014074
+   }
   },
   "mm_pair_av": {
    "family": "16-head pair matmul",
@@ -929,7 +983,16 @@
    "occupancy_efficiency": 0.15571849494213455,
    "ratio_110_over_72": 0.99037206631698,
    "fold_win_s": 0.02735962003321267,
-   "fold_win_Mcycles": 36.9354870448371
+   "fold_win_Mcycles": 36.9354870448371,
+   "amdahl": {
+    "A_us_cores": 101.77694621455821,
+    "B_us_fixed": 84.73256731214248,
+    "r2": 0.39147907135570437,
+    "fixed_share_of_110_pct": 96.85308020401143,
+    "parallel_part_at_110_us": 0.9252449655868928,
+    "headroom_to_infinite_cores_us": 2.753103906224254,
+    "headroom_to_infinite_cores_x": 1.0324916852345831
+   }
   },
   "trimul": {
    "family": "shipped TriangleMultiplication unit",
@@ -1055,7 +1118,16 @@
    "occupancy_efficiency": 0.3178592986290613,
    "ratio_110_over_72": 0.8874753797991862,
    "fold_win_s": 0.0,
-   "fold_win_Mcycles": 0.0
+   "fold_win_Mcycles": 0.0,
+   "amdahl": {
+    "A_us_cores": 133981.8252927393,
+    "B_us_fixed": 5057.312800694683,
+    "r2": 0.9946713545143044,
+    "fixed_share_of_110_pct": 81.70522874172366,
+    "parallel_part_at_110_us": 1218.0165935703571,
+    "headroom_to_infinite_cores_us": 1132.3924098264542,
+    "headroom_to_infinite_cores_x": 1.2239118785911178
+   }
   },
   "triatt": {
    "family": "shipped TriangleAttention unit",
@@ -1181,7 +1253,52 @@
    "occupancy_efficiency": 0.566328209282507,
    "ratio_110_over_72": 0.7874077622237967,
    "fold_win_s": 0.0,
-   "fold_win_Mcycles": 0.0
+   "fold_win_Mcycles": 0.0,
+   "amdahl": {
+    "A_us_cores": 202239.7795148793,
+    "B_us_fixed": 1894.9730285451515,
+    "r2": 0.9976291296962837,
+    "fixed_share_of_110_pct": 50.278217128355394,
+    "parallel_part_at_110_us": 1838.5434501352665,
+    "headroom_to_infinite_cores_us": 1874.0011650056458,
+    "headroom_to_infinite_cores_x": 1.988932896023535
+   }
+  }
+ },
+ "wormhole_transfer_cost": {
+  "8x4": {
+   "per_arm": {
+    "trimul": {
+     "delta_us_per_call": 2771.0741052798858,
+     "fold_s": 1.4631271275877795,
+     "Mcycles": 1975.2216222435025
+    },
+    "triatt": {
+     "delta_us_per_call": 4205.652129023234,
+     "fold_s": 2.2205843241242675,
+     "Mcycles": 2997.788837567761
+    }
+   },
+   "fold_s": 3.683711451712047,
+   "Mcycles": 4973.010459811264,
+   "cores": 32
+  },
+  "9x8": {
+   "per_arm": {
+    "trimul": {
+     "delta_us_per_call": 784.8040000010915,
+     "fold_s": 0.4143765120005763,
+     "Mcycles": 559.408291200778
+    },
+    "triatt": {
+     "delta_us_per_call": 1017.5854193573377,
+     "fold_s": 0.5372851014206742,
+     "Mcycles": 725.3348869179101
+    }
+   },
+   "fold_s": 0.9516616134212506,
+   "Mcycles": 1284.7431781186883,
+   "cores": 72
   }
  },
  "fold_level": {
