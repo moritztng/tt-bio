@@ -101,6 +101,15 @@ def main() -> int:
                     fp32_dest_acc_en=True, packer_l1_acc=True)
     kc_lofi = kcls(math_fidelity=ttnn.MathFidelity.LoFi, math_approx_mode=False,
                    fp32_dest_acc_en=False, packer_l1_acc=True)
+    # scripts/profiling/roofline_bh.py:32 -- the config the campaign's published roofs use, and
+    # the one the b2z 2048^3 instrument proof ran at. HiFi4 + fp32_dest_acc_en=True is a different
+    # arm and lands 1.43x off the proof, which is a config difference, not a sick part.
+    def kc_fid(fid):
+        return kcls(math_fidelity=fid, math_approx_mode=False,
+                    fp32_dest_acc_en=False, packer_l1_acc=False)
+    kc_r_hifi4 = kc_fid(ttnn.MathFidelity.HiFi4)
+    kc_r_hifi2 = kc_fid(ttnn.MathFidelity.HiFi2)
+    kc_r_lofi = kc_fid(ttnn.MathFidelity.LoFi)
 
     BW_ADD = 3 * 8192 * 8192 * 2          # 2R + 1W, bytes
     BW_CLO = 2 * 8192 * 6144 * 2          # 1R + 1W, bytes
@@ -119,6 +128,19 @@ def main() -> int:
                                               memory_config=DRAM), "flop", _f(4096, 4096, 4096)),
         ("cube2048", lambda: ttnn.matmul(c2, c2b, compute_kernel_config=kc_hifi4,
                                          memory_config=DRAM), "flop", _f(2048, 2048, 2048)),
+        # the known-answer control at the config the proof used: no compute_kernel_config at all
+        ("cube2048_dflt", lambda: ttnn.matmul(c2, c2b, memory_config=DRAM),
+         "flop", _f(2048, 2048, 2048)),
+        ("cube2048_dflt_aa", lambda: ttnn.matmul(c2, c2b, memory_config=DRAM),
+         "flop", _f(2048, 2048, 2048)),
+        # the three fidelities on the published-roof config, so each site is scored against the
+        # FPU roof of the fidelity it actually runs at (sdpa and reblock_back run HiFi2)
+        ("cube4096_r_hifi4", lambda: ttnn.matmul(c4, c4b, compute_kernel_config=kc_r_hifi4,
+                                                 memory_config=DRAM), "flop", _f(4096, 4096, 4096)),
+        ("cube4096_r_hifi2", lambda: ttnn.matmul(c4, c4b, compute_kernel_config=kc_r_hifi2,
+                                                 memory_config=DRAM), "flop", _f(4096, 4096, 4096)),
+        ("cube4096_r_lofi", lambda: ttnn.matmul(c4, c4b, compute_kernel_config=kc_r_lofi,
+                                                memory_config=DRAM), "flop", _f(4096, 4096, 4096)),
     ]
 
     # warm every arm once before any timing, then interleave rep by rep

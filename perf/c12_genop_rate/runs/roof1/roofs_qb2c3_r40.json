@@ -1,0 +1,151 @@
+{
+ "meta": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "cores": 110,
+  "card": "3",
+  "arch": "Arch.BLACKHOLE",
+  "reps": 40,
+  "warm": 5,
+  "loadavg": [
+   6.54638671875,
+   5.4072265625,
+   6.57666015625
+  ]
+ },
+ "rows": [
+  {
+   "arm": "bw_add8192",
+   "kind": "bytes",
+   "min_ms": 0.9240969993697945,
+   "median_ms": 0.9387555001012515,
+   "spread_pct": 8.243290506573915,
+   "reps": 40,
+   "GBs": 435.7261026435504,
+   "TFLOPs": null
+  },
+  {
+   "arm": "bw_add8192_aa",
+   "kind": "bytes",
+   "min_ms": 0.9211819997290149,
+   "median_ms": 0.9368424998683622,
+   "spread_pct": 9.757246658124174,
+   "reps": 40,
+   "GBs": 437.1049196775978,
+   "TFLOPs": null
+  },
+  {
+   "arm": "bw_clone",
+   "kind": "bytes",
+   "min_ms": 0.5118789995322004,
+   "median_ms": 0.5202100001042709,
+   "spread_pct": 4.02243527465287,
+   "reps": 40,
+   "GBs": 393.3089503261313,
+   "TFLOPs": null
+  },
+  {
+   "arm": "bw_clone_aa",
+   "kind": "bytes",
+   "min_ms": 0.5136319996381644,
+   "median_ms": 0.5189529993003816,
+   "spread_pct": 92.54680395601864,
+   "reps": 40,
+   "GBs": 391.96660671809286,
+   "TFLOPs": null
+  },
+  {
+   "arm": "cube4096",
+   "kind": "flop",
+   "min_ms": 1.2089629999536555,
+   "median_ms": 1.2127549989600084,
+   "spread_pct": 65.43814827121552,
+   "reps": 40,
+   "GBs": null,
+   "TFLOPs": 113.68334140686571
+  },
+  {
+   "arm": "cube4096_aa",
+   "kind": "flop",
+   "min_ms": 1.2079099997208687,
+   "median_ms": 1.2118080003347131,
+   "spread_pct": 65.49693279046409,
+   "reps": 40,
+   "GBs": null,
+   "TFLOPs": 113.78244530118985
+  },
+  {
+   "arm": "cube4096_lofi",
+   "kind": "flop",
+   "min_ms": 0.6511960000352701,
+   "median_ms": 0.6544364996443619,
+   "spread_pct": 53.67017011708478,
+   "reps": 40,
+   "GBs": null,
+   "TFLOPs": 211.05620038292008
+  },
+  {
+   "arm": "cube2048",
+   "kind": "flop",
+   "min_ms": 0.2153510013158666,
+   "median_ms": 0.21861799996258924,
+   "spread_pct": 364.48077554218577,
+   "reps": 40,
+   "GBs": null,
+   "TFLOPs": 79.77612864126593
+  },
+  {
+   "arm": "cube2048_dflt",
+   "kind": "flop",
+   "min_ms": 0.16946399955486413,
+   "median_ms": 0.1726099999359576,
+   "spread_pct": 490.2038204337673,
+   "reps": 40,
+   "GBs": null,
+   "TFLOPs": 101.3776921890599
+  },
+  {
+   "arm": "cube2048_dflt_aa",
+   "kind": "flop",
+   "min_ms": 0.16902300012588967,
+   "median_ms": 0.17209400084539084,
+   "spread_pct": 491.4709830440847,
+   "reps": 40,
+   "GBs": null,
+   "TFLOPs": 101.6421976370334
+  },
+  {
+   "arm": "cube4096_r_hifi4",
+   "kind": "flop",
+   "min_ms": 1.6873869990376988,
+   "median_ms": 1.691084499725548,
+   "spread_pct": 148.32685108636886,
+   "reps": 40,
+   "GBs": null,
+   "TFLOPs": 81.45075999185732
+  },
+  {
+   "arm": "cube4096_r_hifi2",
+   "kind": "flop",
+   "min_ms": 1.2190620000183117,
+   "median_ms": 1.2228289997437969,
+   "spread_pct": 64.05687311880514,
+   "reps": 40,
+   "GBs": null,
+   "TFLOPs": 112.74156152019792
+  },
+  {
+   "arm": "cube4096_r_lofi",
+   "kind": "flop",
+   "min_ms": 1.0323450005671475,
+   "median_ms": 1.0364169993408723,
+   "spread_pct": 93.75073230822358,
+   "reps": 40,
+   "GBs": null,
+   "TFLOPs": 133.1327738270579
+  }
+ ]
+}
