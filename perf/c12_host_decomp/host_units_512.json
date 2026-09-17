@@ -1,0 +1,82 @@
+{
+  "rows": [
+    {
+      "unit": "DiffusionModule",
+      "calls": 200,
+      "dev_ms": 20.33434,
+      "bare_ms": 21.2251,
+      "host_ms": 0.8907600000000002,
+      "host_s": 0.17815200000000003,
+      "dev_s": 4.0669,
+      "in_kernel_pct_bare": 95.80327065596865,
+      "profiled_ms": 37.0991,
+      "src": "/tmp/pfbare/dm.json"
+    },
+    {
+      "unit": "PairConditioningDevice",
+      "calls": 1,
+      "dev_ms": 21.28959,
+      "bare_ms": 130.582,
+      "host_ms": 109.29240999999999,
+      "host_s": 0.10929240999999999,
+      "dev_s": 0.0213,
+      "in_kernel_pct_bare": 16.303617650212125,
+      "profiled_ms": 145.1129,
+      "src": "/tmp/pfbare/stage.json"
+    },
+    {
+      "unit": "PairAssemblyDevice",
+      "calls": 2,
+      "dev_ms": 26.58147,
+      "bare_ms": 37.7646,
+      "host_ms": 11.183130000000002,
+      "host_s": 0.022366260000000002,
+      "dev_s": 0.0532,
+      "in_kernel_pct_bare": 70.38726744093674,
+      "profiled_ms": 39.0184,
+      "src": "/tmp/pfbare/stage.json"
+    },
+    {
+      "unit": "PairformerLayer",
+      "calls": 264,
+      "dev_ms": 30.65493,
+      "bare_ms": 30.7369,
+      "host_ms": 0.08196999999999832,
+      "host_s": 0.02164007999999956,
+      "dev_s": 8.0929,
+      "in_kernel_pct_bare": 99.73331728313526,
+      "profiled_ms": 30.8584,
+      "src": "/tmp/pfbare/cov1.json"
+    },
+    {
+      "unit": "MSALayer",
+      "calls": 16,
+      "dev_ms": 59.17096,
+      "bare_ms": 59.4596,
+      "host_ms": 0.2886400000000009,
+      "host_s": 0.004618240000000015,
+      "dev_s": 0.9467,
+      "in_kernel_pct_bare": 99.51456114740093,
+      "profiled_ms": 59.6022,
+      "src": "/tmp/pfbare/cov1.json"
+    },
+    {
+      "unit": "RelPosGather",
+      "calls": 2,
+      "dev_ms": 13.99937,
+      "bare_ms": 14.5534,
+      "host_ms": 0.5540299999999991,
+      "host_s": 0.0011080599999999982,
+      "dev_s": 0.028,
+      "in_kernel_pct_bare": 96.19312325642119,
+      "profiled_ms": 14.5531,
+      "src": "/tmp/pfbare/stage.json"
+    }
+  ],
+  "host_named_s": 0.3371770499999996,
+  "remainder_s": 1.672,
+  "host_unnamed_s": 1.3348229500000004,
+  "fold_s": 14.881,
+  "missing_bare": [],
+  "source": "c12-profiled-fold runs/composed.json + *_bare/unit.json"
+}
