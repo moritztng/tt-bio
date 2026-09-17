@@ -1,0 +1,80 @@
+=== SITES: charged bytes vs a first-principles count on the executed shape ===
+site            calls  chargedMB   repairMB    firstMB chg/1st mix    what
+trimul_in         560    402.817      0.000    402.735  1.0002 2R+1W  x[1T] + w[128x640] -> xw+gate[5T]
+reblock_gated    1120    201.327      0.000    201.327  1.0000 2R+1W  xw[2T] -> gated[1T]
+triatt_sdpa       560    270.533      0.000    270.533  1.0000 3R+1W  q,k,v[3T] + bias[T/32] -> out[1T]
+triatt_in         560    352.461      0.000    352.391  1.0002 2R+1W  x[1T] + w[128x544] -> q|k|v|g[4T] + bias[T/32]
+triatt_out        560     67.125     33.554    134.250  0.5000 2R+1W  gated[1T] + w[128x128] -> out[1T]
+reblock_back      560    134.218      0.000    134.218  1.0000 1R+1W  x[1T] -> y[1T]
+
+=== the out-proj A/B: 280 DRAM destinations and 280 L1 destinations ===
+charged W 0.5000 T-units/call = 280.0 full writes over 560 calls -> 280 DRAM destinations
+repair_B  0.5000 T-units/call = 280.0 dropped reads          -> 280 L1 destinations
+one per layer (264 Pairformer + 16 MSA = 280), i.e. one of the two directions.
+  pfl_prof2   idx10 0.398370 ms   idx13 0.412831 ms   delta +0.014461 ms  (+3.63 %)
+  msal_prof   idx10 0.398156 ms   idx13 0.415950 ms   delta +0.017794 ms  (+4.47 %)
+  mean       idx10 0.398263   idx13 0.414390   measured gap 0.016127 ms
+  a DRAM-BYTES floor predicts 0.154016 ms for 67.1 MB at 435.73 GB/s.
+  measured / predicted = 10.47 %.  The write costs the same wherever it lands, so the
+  floor that fits this site is MOVED bytes, not DRAM bytes. Both legs agree independently.
+
+=== the third floor term: packer tile passes over the SDPA score matrix ===
+score matrix 2048 x 16x16 tiles x 1 k chunk = 524288 tiles; 110 cores -> 4766.3 tiles/core
+3 full-size PACK passes/chunk: compute_common.hpp:1899 QK^T write, :1990 mask add, :2016 sub-exp
+  at  52.8 ns/tile (clock-scaled     ): 0.7552 ms/call = 59.8 % of the op's 1.2622 ms
+  at  71.3 ns/tile (Wormhole-measured): 1.0195 ms/call = 80.8 % of the op's 1.2622 ms
+  traffic floor 0.6209 ms (49.2 %), arithmetic floor 0.6095 ms (48.3 %).
+  The packer term is the LARGEST of the three at both ends of the band and is the one term
+  the campaign's max(traffic, arithmetic) floor does not carry.
+
+=== reblock_back: a same-part width ablation splits the cost ===
+host tt-quietbox2 dev 3 grid 11x10  back/512/128 DRAM->DRAM: bf16 0.83470 ms, fp32 1.48126 ms, ratio 1.7746, spread 0.0006
+t(w) = a + b*w  ->  byte term 0.64656 ms (77.5 %), width-INDEPENDENT term 0.18814 ms (22.5 %)
+standalone 0.83470 ms runs 1.689x the in-fold 0.49408 ms, so the TIME does not transfer -- the FRACTION is
+in fold: DRAM floor 0.34143 ms, so the non-byte residual is at most 30.9 % (0.15266 ms).
+transaction term is 22.5-30.9 % of the site = 0.11136-0.15266 ms/call = 0.0624-0.0855 s of fold,
+i.e. 72-99 % of the site's whole 0.0863 s slack.
+the gather is 64 transactions per output tile whatever the kernel structure (reader_reblock_permute_back.cpp:30) -> 19065 32-byte L1->L1 reads/core/call
+that prices the transaction at 5.84-8.01 ns = 7.9-10.8 cycles at 1350 MHz.
+
+=== DEFICIT: the four sites, corrected ===
+site            calls  ms/call roof GB/s  MB/call   trafms  floorms   %roof    GB/s  was %roof
+trimul_in         560   1.4926    435.73  402.735   0.9243   0.9243  61.92%   269.8   61.94%
+reblock_gated    1120   0.6448    435.73  201.327   0.4620   0.4620  71.66%   312.2   79.39%
+triatt_sdpa       560   1.2622    435.73  270.533   0.6209   0.6209  49.19%   214.3   49.19%
+triatt_in         560   1.0733    435.73  352.391   0.8087   0.8087  75.35%   328.3   75.37%
+triatt_out        560   0.4056    435.73  134.250   0.3081   0.3081  75.96%   331.0   37.99%
+reblock_back      560   0.4941    393.31  134.218   0.3413   0.3413  69.07%   271.7   69.10%
+
+the four sites: in situ 1.8126 s / 2446.9 Mc
+floor as the brief states it   1.0782 s -> slack 0.7343 s / 991.3 Mc
+floor with the byte model fixed 1.1642 s -> slack 0.6483 s / 875.2 Mc   (-0.0860 s was artifact)
+  + the packer term at the clock-scaled      end: floor 1.2394 s -> slack 0.5731 s / 773.7 Mc
+  + the packer term at the Wormhole-measured end: floor 1.3875 s -> slack 0.4251 s / 573.9 Mc
+
+=== MECHANISM at the two minimal_matmul sites: one rate, and no roof to score it against ===
+  triatt_in    352.391 MB/call in 1.0733 ms = 328.3 GB/s = 75.35 % of bw_add8192
+  triatt_out   134.250 MB/call in 0.4056 ms = 331.0 GB/s = 75.96 % of bw_add8192
+  2.62x apart in bytes, 1 output buffer vs 5, and 0.8 % apart in rate. Both a per-call
+  fixed cost and a multi-destination page cost are refuted by that pair.
+  bw_add8192 is ttnn.add on a big DRAM tensor (roofs.py:119): unicast, page-sized, no
+  relay. minimal_matmul's in0 is a DAISY-CHAIN RELAY -- dm_in0_sender.cpp:275-296 is a
+  per-block semaphore wait, a whole-block unicast to the next core, a Blackhole-only
+  noc_async_writes_flushed() and a remote semaphore set, once per k block per hop.
+  Every cube arm in this session is ARITHMETIC-bound (cube4096 113.68 TFLOP/s at 83.3
+  GB/s, cube2048_dflt 101.38 TFLOP/s at 148.5 GB/s), so the session measured NO streaming
+  roof for a block-relayed matmul dataflow. 1.32x against an eltwise roof is not a
+  measured deficit: it is a missing roof. Same defect class as the dense-cube roof that
+  self-refuted c12-matmul-key-attribution's 78.24 TFLOP/s ceiling, byte side instead of
+  FLOP side.
+
+=== the existence-proof efficiency, re-derived ===
+corrected per-site % of its OWN matching roof: triatt_out 75.96%, triatt_in 75.35%, reblock_gated 71.66%, reblock_back 69.07%, trimul_in 61.92%, triatt_sdpa 49.19%
+best is triatt_out at 75.96 %, with triatt_in at 75.35 % -- the SAME kernel (minimal_matmul) at two
+shapes 2.62x apart in bytes, streaming 331.0 and 328.3 GB/s. That is a rate, not a per-call
+cost, and it refutes the brief's leading hypothesis for triatt_out.
+the brief's 79.39 % (reblock_gated) is retired: that site is 2R+1W and was roofed 1R+1W.
+  prize at f = 0.7596 [the corrected best any of the six reaches]: 1.8126 s -> 1.5326 s, 0.2799 s / 377.9 Mc
+  prize at f = 0.7939 [the brief's stated ceiling, now refuted]: 1.8126 s -> 1.4665 s, 0.3461 s / 467.2 Mc
+  with the packer term at the Wormhole-measured end, f = 0.7596 needs 1.8265 s against 1.8126 s
+  in situ: the four sites are ALREADY at or past that efficiency, prize -0.0139 s.
