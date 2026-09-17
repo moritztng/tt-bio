@@ -1,0 +1,201 @@
+{
+ "clock_MHz": 1350.0,
+ "tail_s": 1.56726,
+ "leads": [
+  {
+   "lead": "L1 diffusion+atom head-major qkv/out",
+   "kind": "delete",
+   "s_per_fold": 0.31376,
+   "Mcycles": 423.6,
+   "programs_per_fold": 7464.0,
+   "transpose_s_alongside_not_claimed": 0.0,
+   "note": "head_dim is a whole number of tiles in PADDED form at every one of these signatures (64 = 2 tiles on the token transformer, 32 = 1 tile on the atom blocks and the trunk remainder), which is the precondition tt_bio/triatt_qkv.py's transcription needs: output tile (i, n) of the qkv matmul already IS tile (batch, head, row) of q, k or v, so only the destination address changes and no element moves inside a tile. That lever is built, shipped default-on for tri-attention (TRIATT_HEAD_MAJOR_QKV/TAIL = True), bit-exact by torch.equal at six sizes, and measured in-fold at 512 aa: TriAtt body 19719.8 -> 16716.5 ms, 1.1797x. The diffusion side never got it.",
+   "signatures": [
+    {
+     "op": "NlpCreateHeadsDeviceOperation",
+     "s": 0.2047,
+     "progs": 4800.0,
+     "cores": 16,
+     "pct_of_roof": 37.51
+    },
+    {
+     "op": "NlpCreateHeadsDeviceOperation",
+     "s": 0.09016,
+     "progs": 1200.0,
+     "cores": 110,
+     "pct_of_roof": 93.14
+    },
+    {
+     "op": "NlpCreateHeadsDeviceOperation",
+     "s": 0.00581,
+     "progs": 264.0,
+     "cores": 16,
+     "pct_of_roof": 36.35
+    },
+    {
+     "op": "NLPConcatHeadsDeviceOperation",
+     "s": 0.01309,
+     "progs": 1200.0,
+     "cores": 110,
+     "pct_of_roof": 53.45
+    }
+   ]
+  },
+  {
+   "lead": "L2 diffusion head-48 merge",
+   "kind": "delete-with-cost",
+   "s_per_fold": 0.13539,
+   "Mcycles": 182.8,
+   "programs_per_fold": 9600.0,
+   "transpose_s_alongside_not_claimed": 0.0547,
+   "note": "The token transformer's head_dim is 48 (768/16), so merging heads back needs 16 pad channels per head dropped and elements DO move inside tiles -- nlp_concat_heads cannot be used at all here and the tile-id re-point of L1 does not transcribe. The out projection could absorb it as a 16-way batched matmul accumulating over heads with zeroed weight rows on the pad lanes, which moves no element but grows that matmul's K from 768 to 1024, +33 % FLOP on a 0.0716 s matmul = +0.0236 s back. Net is the lead minus that.",
+   "signatures": [
+    {
+     "op": "ReshapeViewDeviceOperation",
+     "s": 0.10483,
+     "progs": 4800.0,
+     "cores": 110,
+     "pct_of_roof": 21.36
+    },
+    {
+     "op": "SliceDeviceOperation",
+     "s": 0.03056,
+     "progs": 4800.0,
+     "cores": 110,
+     "pct_of_roof": 83.76
+    }
+   ]
+  },
+  {
+   "lead": "L3 pair Transition 11-way chunk and concat",
+   "kind": "stop",
+   "s_per_fold": 0.15038,
+   "Mcycles": 203.0,
+   "programs_per_fold": 3360.0,
+   "transpose_s_alongside_not_claimed": 0.0,
+   "note": "tenstorrent.py:8483 `ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)` with H=512 and an executed chunk height of 47 gives 11 chunks, 10 of 47 rows and one of 42 -- which is what the executed graph shows, settling the 47-vs-16 dispute on the fold's own dispatch. The traffic is BYTE-NEUTRAL in the chunk count: every element is read once and written once whatever the height, so chunk-height tuning cannot move one byte of this and is not a lever. Both ops already run at 92.8 % and 99.3 % of their mix-matched roof. Deleting the traffic needs a zero-copy dim-1 slice and a write-into-preallocated concat; ttnn offers neither.",
+   "signatures": [
+    {
+     "op": "SliceDeviceOperation",
+     "s": 0.09453,
+     "progs": 2800.0,
+     "cores": 110,
+     "pct_of_roof": 92.78
+    },
+    {
+     "op": "SliceDeviceOperation",
+     "s": 0.00961,
+     "progs": 280.0,
+     "cores": 110,
+     "pct_of_roof": 81.6
+    },
+    {
+     "op": "ConcatDeviceOperation",
+     "s": 0.04624,
+     "progs": 280.0,
+     "cores": 110,
+     "pct_of_roof": 103.32
+    }
+   ]
+  },
+  {
+   "lead": "L4 OuterProductMean layout round-trip",
+   "kind": "named-not-opened",
+   "s_per_fold": 0.13298,
+   "Mcycles": 179.5,
+   "programs_per_fold": 48.0,
+   "transpose_s_alongside_not_claimed": 0.0455,
+   "note": "MSALayer's outer product writes [16384, 16384] and the consumer wants [524288, 512]. That reshape is not expressible as a tile relabelling, so ttnn falls back to untilize -> row-major reshape -> tilize and a transpose, four passes over the same 268.4 M bf16 elements (536.9 MB). All three ops in this screen's classes run at 85-95 % of their roof, so there is no rate to win, only deletion -- and deletion means a custom outer-product kernel that writes the consumer's axis order. 16 calls per fold.",
+   "signatures": [
+    {
+     "op": "UntilizeDeviceOperation",
+     "s": 0.0453,
+     "progs": 16.0,
+     "cores": 100,
+     "pct_of_roof": 96.42
+    },
+    {
+     "op": "ReshapeViewDeviceOperation",
+     "s": 0.04892,
+     "progs": 16.0,
+     "cores": 110,
+     "pct_of_roof": 89.3
+    },
+    {
+     "op": "TilizeDeviceOperation",
+     "s": 0.03876,
+     "progs": 16.0,
+     "cores": 110,
+     "pct_of_roof": 112.71
+    }
+   ]
+  },
+  {
+   "lead": "L6 diffusion SDPA",
+   "kind": "blocked",
+   "s_per_fold": 0.43348,
+   "Mcycles": 585.2,
+   "programs_per_fold": 6000.0,
+   "transpose_s_alongside_not_claimed": 0.0,
+   "note": "The biggest single item in the tail and the one with no mechanism this screen can name. Traffic-bound with margin: 50.1 FLOP per charged DRAM byte against a 260.9 FLOP/byte balance, and 5.506 TFLOP over the fold is 0.0484 s at the 113.68 TFLOP/s HiFi2 roof against 0.4335 s measured, so arithmetic is 11.2 % of it. The q_chunk is NOT mis-set: the executed program_config reads q_chunk 128 / k_chunk 256 at the token site and 32 / 128 at the atom site, which is exactly what tenstorrent.py:1167 `_grid_q_chunk` specifies for work=16 on a 110-core grid, and the rule carries its own measured sweep (128 is the best rung at 95.60 us against 140.40 at 32 and 182.70 at 512). The only mechanism left that CPU evidence can name is the [1,16,512,512] bias, 44.5 % of the token site's traffic, in bfp8: 0.792x the bytes, so ~0.077 s (104 Mcycles) if the rate holds. That is a dtype change on an attention bias and it needs an Angstrom reading against the seed-scatter floor, which needs a card. BLOCKED, not STOP -- and the prize is 0.077 s.",
+   "signatures": [
+    {
+     "op": "SDPAOperation",
+     "s": 0.37106,
+     "progs": 4800.0,
+     "cores": 110,
+     "pct_of_roof": 56.03
+    },
+    {
+     "op": "SDPAOperation",
+     "s": 0.06242,
+     "progs": 1200.0,
+     "cores": 110,
+     "pct_of_roof": 70.84
+    }
+   ]
+  },
+  {
+   "lead": "L5 Embeddings gather",
+   "kind": "stop",
+   "s_per_fold": 0.05713,
+   "Mcycles": 77.1,
+   "programs_per_fold": 18.0,
+   "transpose_s_alongside_not_claimed": 0.0,
+   "note": "21.5 GB/s, 5.5 % of the copy roof -- the worst rate in the tail. It is also a known hardware floor, not a defect of ours: ttnn gather/scatter on Blackhole are per-element-rate limited at ~10-14 cycles/element and no dtype, layout, index or sub_core_grids change moves them (measured 2026-07-28 on p150a, and a bfp8 arm at half the bytes came out 0.1 % apart, which is the proof it is not bandwidth). 0.0571 s over 18 programs.",
+   "signatures": [
+    {
+     "op": "EmbeddingsDeviceOperation",
+     "s": 0.02463,
+     "progs": 8.0,
+     "cores": 110,
+     "pct_of_roof": 5.63
+    },
+    {
+     "op": "EmbeddingsDeviceOperation",
+     "s": 0.01301,
+     "progs": 4.0,
+     "cores": 110,
+     "pct_of_roof": 5.33
+    },
+    {
+     "op": "EmbeddingsDeviceOperation",
+     "s": 0.01299,
+     "progs": 4.0,
+     "cores": 110,
+     "pct_of_roof": 5.34
+    },
+    {
+     "op": "EmbeddingsDeviceOperation",
+     "s": 0.0065,
+     "progs": 2.0,
+     "cores": 110,
+     "pct_of_roof": 5.33
+    }
+   ]
+  }
+ ],
+ "leads_total_s": 1.22312,
+ "unaccounted_s": 0.34414,
+ "delete_kind_s": 0.31376
+}
