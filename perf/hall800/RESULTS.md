@@ -44,6 +44,43 @@ the 800 ladder `(800, 160, 32, 256)`. Worth measuring; not yet measured.
 
 For anyone choosing target sizes: 768 tokens is a better length for this model than 800.
 
+## The recycle dial, and why it is the customer's call
+
+The fold is trunk-bound, so the chip count is almost linear in `n_cycle`. Derived from the warm
+fold's own per-recycle timestamps (9 steady recycles, mean 18.22 s, min 17, max 19; the tenth is
+24 s because it also runs the trunk-output head):
+
+| n_cycle | fold s | chips for 20k/day |
+|---|---|---|
+| 10 (upstream default, what we serve) | 222.2 | 51.4 |
+| 8 | 185.8 | 43.0 |
+| 6 | 149.3 | 34.6 |
+| 5 | 131.1 | 30.3 |
+| 3 | 94.6 | 21.9 |
+| 1 | 58.2 | 13.5 |
+
+This is not a lever we get to pull. 10 is Protenix-v2's own `N_cycle` from the checkpoint
+(`main.py:2671`), and serving fewer recycles to make the number look better is doing less of the
+model's own work. The table is here because the largest single term in the capacity answer is a
+config value the caller owns.
+
+Stage-sum arithmetic checks to 227 s against the reported 222.2 s; the 5 s gap is the log's
+1-second timestamp resolution across ~14 stage boundaries, so per-recycle figures carry ~±1 s.
+
+## Host cores are a co-requirement, not a footnote
+
+`dp-throughput-host-core-ceiling` measured Boltz-2 512 aa DP on a Wormhole Galaxy at widths 1-32:
+per-fold host cost is flat at ~1.85-1.9 cores before the shipped thread-cap/OMP-parking lever and
+~1.35-1.49 after it, and it does not fall as width grows. Applied to 51.4 chips that is **69-98 host
+cores**, and a host short of that stretches the folds themselves rather than merely scaling
+sub-linearly (41.43 s to 103.01 s at width 32 on a 32-core box). qb2's 16 cores ceil at 8.4-11.9
+concurrent folds against only 4 chips, so a 1-vs-2-chip test here is not host-limited and should
+come out linear.
+
+Labelled as transferred, not measured here: that is Boltz-2 at 512 aa on Wormhole, and Protenix-v2
+runs 10 recycles against Boltz-2's 3, so this fold may cost more host cores per fold rather than
+fewer. Measuring cores/fold belongs to the scaling arm.
+
 ## The wedge
 
 The third identical fold stopped emitting at `trunk 8/10` and spun at 118 % CPU in state R with the
