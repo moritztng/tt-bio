@@ -81,6 +81,15 @@ def main() -> int:
             q["in_tiles"] = it
 
     ladder = defaultdict(float)
+    # An op with no launch_arm falls out of the ladder here, and until 2026-09-17 it fell out
+    # SILENTLY. `ttnn.generic_op` -- the fused trimul and SDPA kernel, 3,920 calls, 0.9127 TB, the
+    # largest s_floor of any op in the 512 aa fold -- has no LAUNCH_ARM entry, so it never reached
+    # fold_shapes.json, so c10-fold-census never priced it and never listed it as refused either.
+    # That produced a false sentence in a concluded row ("the 52 refused launch keys: generic_op,
+    # permute, ..." -- generic_op is not among them) and left the fold's second-largest block
+    # unaccounted. The ladder itself is unchanged; what is added is that the drop is now counted,
+    # printed and written to the output, so the next op without an arm is loud instead of invisible.
+    unladdered = defaultdict(lambda: defaultdict(float))
     for sig in TF.TOP:
         calls = by[sig]["calls"]
         J = TF.Join(R, sig)
@@ -89,6 +98,10 @@ def main() -> int:
             arm = TF.launch_arm(name, J.ins[i])
             rows = TF.op_shape_rows(R["EF"], name, J.ins[i], J.outs[i])
             if TF.launch_key(arm, name, J.ins[i], J.outs[i], rows) is None:
+                u = unladdered[name]
+                u["calls"] += calls
+                u["B"] += calls * TF.op_terms(R, J, i)[0]
+                u["arm_is_none"] += calls if arm is None else 0
                 continue
             ladder[(arm, TF.launch_shape(name, J.ins[i], J.outs[i]),
                     rows[0][2] if rows else None)] += calls
@@ -98,6 +111,15 @@ def main() -> int:
     print("launch-ladder keys: %d shapes, %d of %d calls"
           % (len(shapes), sum(e["calls"] for e in shapes),
              sum(e["calls"] for e in per_name.values())))
+    if unladdered:
+        ul = sorted(unladdered.items(), key=lambda kv: -kv[1]["B"])
+        print("NOT IN THE LADDER -- these ops are priced by NO launch key. A census built on "
+              "fold_shapes.json cannot see them, and must list them as refused or price them "
+              "another way:")
+        for name, u in ul:
+            print("  %-52s %9d calls  %8.4f TB%s"
+                  % (name.replace("ttnn.", ""), u["calls"], u["B"] / 1e12,
+                     "  <-- no LAUNCH_ARM entry" if u["arm_is_none"] else ""))
 
     tot_calls = sum(e["calls"] for e in per_name.values())
     tot_s = sum(e["s_floor"] for e in per_name.values())
@@ -112,7 +134,9 @@ def main() -> int:
     shp = sorted(per_shape.items(), key=lambda kv: -kv[1]["calls"])[:60]
     out = {"total_calls": tot_calls, "total_floor_s": tot_s,
            "by_op": {k: dict(v) for k, v in rows},
-           "top_shapes": {k: dict(v) for k, v in shp}}
+           "top_shapes": {k: dict(v) for k, v in shp},
+           "unladdered": {k: dict(v) for k, v in
+                          sorted(unladdered.items(), key=lambda kv: -kv[1]["B"])}}
     a.out.write_text(json.dumps(out, indent=1, default=float))
     return 0
 
