@@ -1,0 +1,44 @@
+{
+  "recorded_utc": "2026-09-17T00:00:00+00:00",
+  "recorded_before": "any fold of this row; the harness digests this file into every result.json and refuses to run if the digest is absent",
+  "anchor": {
+    "fold_1350_MHz_s": {"512": 14.8813, "298": 9.6801},
+    "fold_source": "c10-bare-baseline bc66f7d6d, 16 accepted folds per size, during-sampled min = max = 1350 MHz",
+    "A_A_floor_s": {"512": 0.055, "298": 0.043},
+    "clock_immune_F_s": {"512": 3.9830, "298": 1.9500},
+    "F_source": "c10-fixed-cost c4e6725bd, four pinned clocks, 28 accepted folds per size, measured on THIS tree (e6004abba is the merge-base of both branches and the production diff between them is empty). F bounds 3.665-4.244 s at 512 aa and 1.831-2.014 s at 298 aa.",
+    "F_rescale_note": "the parent orchestrator's reach note used F = 3.952 s. The dependency has since measured 3.9830 s on this exact tree, so the reach is rescaled by 3.9830/3.952 = 1.0079 and the central number moves from 3.02 s to 3.04 s. That is inside the F bound's own width and changes nothing qualitative."
+  },
+  "call_accounting": {
+    "top_level_ttnn_calls_per_512_aa_fold": 465664,
+    "program_launching_calls_per_512_aa_fold": 287000,
+    "device_programs_in_one_diffusion_step": 1096,
+    "device_programs_in_the_200_step_loop": 219200,
+    "diffusion_share_of_launching_calls": 0.7638,
+    "clock_immune_cost_per_launching_call_us": 13.878,
+    "source": "perf/c10_orchestrator/dispatch_hypothesis/trace_reach.py at 07c9db537, burst census 6eb4dd6fa",
+    "caveats_carried_forward": "the 1096 came from a profiled run; the two counts come from different instruments on different trees; per-call cost is assumed uniform when it plainly is not. The last one favours the diffusion loop, since the small ops live there."
+  },
+  "predicted_delta_s": {
+    "512": {"central": 3.04, "range": [1.5, 3.6], "predicted_fold_after_s": 11.84},
+    "298": {"central": 1.48, "range": [0.7, 1.8], "predicted_fold_after_s": 8.20}
+  },
+  "predicted_delta_Mcycles_at_1350": {
+    "512": {"central": 4104, "range": [2025, 4860]},
+    "298": {"central": 1998, "range": [945, 2430]}
+  },
+  "predicted_delta_is_clock_immune": "the gain is host dispatch, so it should be the SAME NUMBER OF SECONDS at 1350 and at 1000 MHz, not the same fraction. If instead the gain scales with 1/f it is clock-scaled device work and the lever is not attacking dispatch. This is the only reason the 1000 MHz block exists.",
+  "predicted_298_reasoning": "the diffusion loop's program COUNT per step may or may not be size independent: `large = seq_len > SEQ_LEN_MORE_CHUNKING` routes 512 aa through more chunking than 298 aa, so 298 aa should issue fewer programs per step. The central 1.48 s assumes the diffusion loop is the same 76.4 % share of launching calls at 298 aa that it is at 512 aa, applied to that size's own F of 1.9500 s. An equal gain in SECONDS at both sizes would instead say the program count per step is size independent and per-call dispatch dominates.",
+  "predicted_upper_bound": "the gain cannot exceed that size's whole clock-immune term, 3.9830 s at 512 aa and 1.9500 s at 298 aa, unless trace replay also removes clock-scaled device time, which would mean the untraced fold was dispatch starved with the device idle waiting on the host. That is a distinguishable outcome, not a nuisance: it would show up as a gain that shrinks in seconds at the lower clock.",
+  "predicted_residual": "forward_traced still issues about 6 host calls per step (two from_torch stagings, two copy_host_to_device_tensor, one execute_trace, one to_torch) against about 1096 today, plus a one-off capture of two warmup steps and one recorded step, which costs roughly 3 steps of untraced dispatch, about 0.05 s. So a perfect dispatch-only lever would leave about 0.05-0.10 s of the 3.04 s behind.",
+  "predicted_parity": "byte-identical CIF between the traced and untraced arms at both sizes. The code documents the replayed graph as the exact captured program with new input buffer contents. If the digests differ, that contradicts the code's own claim and is a finding; the fallback is the 0.60 A bar at 512 aa with its 1.84 A user seed floor and the 0.35 A bar at 298 aa with its 0.741-0.847 A archived upstream seed pairs.",
+  "predicted_model_cycles_deleted": 0,
+  "why_zero": "both arms run the identical 200-step, 3-recycle, 1-sample, seed-0 configuration and the identical device program. Trace replay changes WHO issues the program, not what the program is. Any measured gain is host dispatch removed, never model work skipped.",
+  "kill_criteria": [
+    "a median gain at 512 aa at 1350 MHz at or inside 0.055 s, the A/A adjacent-pair floor c10-bare-baseline recorded: NO-GO, retired in one pass",
+    "capture raises, hangs, or the diffusion loop turns out not to be shape stable: VERDICT STOP with the exact failure point, which is a full pass",
+    "a traced fold that does not run exactly 200 score-model calls: the arm is not the lever and the row stops"
+  ],
+  "what_a_small_result_means": "a gain far below 3.0 s is as informative as one near it. It would say the clock-immune term is NOT mostly per-call dispatch, and it redirects the campaign to featurization, MSA handling and output writing.",
+  "predicted_region_cost": "reserving 1 GiB of trace region is held constant across both arms, so it cannot contaminate the delta. Its own cost is bounded separately by comparing this row's untraced 1350 MHz cell against c10-fixed-cost's 3.9830 s tree at the same clock (14.9306 s) and c10-bare-baseline's 14.8813 s. Predicted: inside the between-session repeatability, because the region is DRAM that the fold does not otherwise need at 512 aa."
+}
