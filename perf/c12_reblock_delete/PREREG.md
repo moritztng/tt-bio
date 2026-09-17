@@ -329,6 +329,58 @@ A bit-exact variant exists if it is ever wanted: call the cheap sigmoid explicit
 letting `calculate_sigmoid` pick on the flag. It is kernel surgery for a property that is not the
 bar, so it is named and not built.
 
+## The measurement protocol, hardened against a defect my pass-1 version had
+
+Pass 1 said "every timed run goes through `benchlock`". That is **not sufficient on this part**, and
+the gap is big enough to destroy this lever's read.
+
+`benchlock` mutually excludes other `benchlock` callers. It cannot see a job that never asks for
+the lock, and a p300c's two chips share one board power budget, so an uninstrumented fold on the
+sibling chip moves a locked-in timing read on this one. Measured, not theorised:
+`c12-compose-fold` held the lock on qb2 card 2 for a whole pass with `foreign_folds = 0` at every
+check and still read **0.63x its own A/A floor**, because `hall-capacity-800aa` was folding on
+card 3 the entire time. When the worker was killed the lock passed to the sibling immediately -
+the lock was never contended, only the power rail was.
+
+Why that is fatal here rather than merely untidy: the kill bar is **0.550 s against a 13.2 s
+device term, 4.2 %**. A contamination that reads 0.63x of an A/A floor is an order of magnitude
+larger than the effect being resolved, so a single sibling-loaded rep can flip this lever's
+verdict in either direction.
+
+So the measurement arm owes, on top of `benchlock`:
+
+  * `ps`/`fuser` on **both** `/dev/tenstorrent/*` nodes of the board pair, before AND after every
+    rep, not just on the pinned chip and not just once (that second point is the separate temporal
+    gap - one-shot checks are blind to contention that arrives mid-run).
+  * A rep whose sibling was loaded is **void**, not a data point. Record how many reps were voided;
+    a session that voids most of them is a session to re-run, not to report.
+  * Prefer holding the **whole board pair**, since dispatch granularity on a lone p300c is a board
+    pair anyway.
+  * On `benchlock` refusal (exit 75), DEFER rather than wait - a wait loop holds the card lease
+    too.
+
+## Why this row cannot finish where it is dispatched, and what should run instead
+
+The row's brief says to "take a card only for the arm that needs one". That instruction is
+**unenforceable by construction**: `worker.sh` creates `state/leases/<host>-<card>.json` at launch
+and removes it only in `cleanup()` on exit, so there is no in-pass release path. A lease is an
+allocation made from the `#DISPATCH` line, not an observation of device use - brief prose shapes
+what a worker does, never what it holds. This row is dispatched `host=pc card=cpu` and therefore
+takes no qb2 lease at all, which is the correct shape for the analysis half and the reason it has
+never stalled the release chain.
+
+It is also the reason the measurement cannot happen here. The fix is not to flip this line - it is
+a **second row**:
+
+    #DISPATCH: host=qb2 card=any repo=tt-bio maxit=140 tier=opus5   (or pin the board pair)
+
+carrying: build the five edits in the recipe above, arm 1a first with variant B, interleaved rep by
+rep in one session against that session's own A/A floor, both chips of the pair checked per rep,
+clock pinned and sampled during each run, kill at 1.1206 ms/call on the op arm and 0.300 s on
+arm 1a's fold arm. Arm 1b only if 1a clears. Accuracy as pre-registered: Angstrom at 512 and
+768 aa against a seed floor measured on this fixture with an A/A control, plDDT beside it, and
+298 aa as the negative control where the kernel takes no call.
+
 ## What this row must not be sold as
 
 The whole device-side book is silu 0.2843 s + cond-hoist 0.2415 s + this row's 1.0000 s upper
