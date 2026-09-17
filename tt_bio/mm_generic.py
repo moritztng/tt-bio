@@ -371,6 +371,14 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
             compile_time_args=[K_blocks, M_block_tiles, K_block_tiles, N_block_tiles,
                                M_blocks_per_core, N_blocks_per_core, subblock_h, subblock_w],
             runtime_args=rt["compute"],
+            # The four dm_kernel descriptors above take `defines`; this one did not, so a define
+            # reached the dataflow half of the program and not the compute half. Harmless while
+            # every define was a dataflow-only switch, fatal for MM_GATE, which has to halve the
+            # output on BOTH sides: compute kept the stock copy_block pushing M*N tiles into an out
+            # CB that build() had already shrunk to the gated drain, while the writer popped the
+            # halved count. Watcher dump #21 read cb[2] rcv 256 (4 blocks x 64 pushed) against
+            # ack 192 (6 pops x 32) with the CB exactly full, which is that mismatch to the tile.
+            defines=defines,
             config=ttnn.ComputeConfigDescriptor(
                 math_fidelity=math_fidelity, math_approx_mode=math_approx_mode,
                 fp32_dest_acc_en=fp32_dest_acc_en, dst_full_sync_en=dst_full_sync_en)),
