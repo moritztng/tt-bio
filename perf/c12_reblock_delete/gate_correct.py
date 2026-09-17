@@ -10,7 +10,7 @@ Three arms on one x and one w:
   ref_mm   the shipped `minimal_matmul` in role-major column order, gated afterwards by the same
            `ttnn.multiply_(p, g, SIGMOID)` the four-way-split branch uses. This is today's answer.
   gate     the fused op: tile-interleaved weight, MM_GATE compute kernel, two destinations.
-  torch    float32 on the host, the reference both are scored against.
+  torch    float64 on the host, the reference both arms are scored against.
 """
 import argparse, json, os, sys
 from pathlib import Path
@@ -69,8 +69,12 @@ def main():
     w_major = (torch.randn(a.k, N) * 0.1).bfloat16()
     w_inter = permute_w(w_major, src, dst, C)
 
-    # ---- host reference, float32 --------------------------------------------------------------
-    acc = (x_t.float().reshape(M, a.k) @ w_major.float()).reshape(1, a.h, a.h, N)
+    # ---- host reference, float64 --------------------------------------------------------------
+    # float64 rather than float32 because the gated arm COMPUTES sigmoid(g)*p rather than moving
+    # it, and the standing hard stop is "verify against a float64 reference, never against another
+    # approximation". At ~1e-16 it is twelve orders tighter than the bf16 result it scores, so a
+    # small systematic bias is distinguishable from bf16 rounding rather than buried in it.
+    acc = (x_t.double().reshape(M, a.k) @ w_major.double()).reshape(1, a.h, a.h, N)
     col = {b: i for i, b in enumerate(src)}
 
     def gather(role):
@@ -126,6 +130,7 @@ def main():
         got_b = ttnn.to_torch(outs[1]).float()
 
         def score(name, got, ref):
+            got = got.double()
             d = (got - ref).abs()
             den = ref.abs().mean().item()
             g, r = got.flatten(), ref.flatten()

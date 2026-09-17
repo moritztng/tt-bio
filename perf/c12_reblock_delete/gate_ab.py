@@ -153,6 +153,21 @@ def main():
         ttnn.synchronize_device(dev)
 
         reps = []
+
+        def dump():
+            """Write the session as it stands. Called after EVERY rep, because this box wedged
+            four jobs in one day and a corpse with per-rep JSON is still a result: compose-fold's
+            s3 host-spin wedged at rep 31 of 48 and lost nothing, only because it dumped per fold.
+            Accumulating in memory and writing after the loop loses the clocks, the void flags and
+            the guard output, and recovering those from printed text is lossy."""
+            if not a.out:
+                return
+            res["reps"] = reps
+            res["complete"] = len(reps) == a.reps
+            Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+            Path(a.out).write_text(json.dumps(res, indent=2))
+
+        dump()
         for i in range(a.reps):
             busy0, g0 = sibling_busy(a.card)
             c0 = aiclk(a.card)
@@ -173,8 +188,10 @@ def main():
             print(f"rep {i}: ref {t_a*1e3:.4f} ms  gate {t_b*1e3:.4f} ms  "
                   f"A/A |{abs(t_a-t_a2)*1e3:.4f}| ms  clk {clk}  "
                   f"{'VOID (sibling busy)' if void else 'ok'}", flush=True)
+            dump()
 
         res["reps"] = reps
+        res["complete"] = True
         good = [r for r in reps if not r["void"]]
         res["void_count"] = len(reps) - len(good)
         if not good:
