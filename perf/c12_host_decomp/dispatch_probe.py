@@ -58,6 +58,51 @@ print("PROBE " + json.dumps(t))
 """
 
 
+
+def upstream_port_state(node) -> dict:
+    """Read the bus-master bit of this chip's UPSTREAM PCIe port. Costs about a millisecond.
+
+    Why this is now the FIRST check and not a footnote. The "host-spin wedge" that has cost this
+    campaign several passes has a mechanical cause, measured on qb2 on 2026-09-17: the kernel's
+    containment handler clears bus-mastering on the upstream port ("QB quarantine: port
+    0000:00:01.4 COMMAND 0407 -> 0405; reboot required"). A chip whose port cannot master the bus
+    still OPENS -- the device node is there, `fuser` shows a holder, benchlock is happy -- and then
+    the first DMA completion never arrives, so the host polls it forever at 100 % CPU with
+    `syscr +0`. That is the entire wedge signature, and every instrument built for it (a 60 s
+    dispatch probe, a minutes-long forward-progress check) is slower and less specific than
+    reading one config-space register.
+
+    The bit is MEMORY SPACE ENABLE, bit 1, and getting that wrong is the easy mistake: the
+    quarantine goes 0x0407 -> 0x0405, and both values still carry bit 2 (Bus Master Enable), so a
+    bus-master test passes a quarantined port. 0x0407 = I/O + memory + bus master; 0x0405 drops
+    memory. With memory-space decoding off, the port stops forwarding MMIO to the endpoint, so
+    every register read the driver makes returns nothing: ARC telemetry reads fail with ENODATA
+    and a completion-queue poll never advances. Checked both bits here and named separately.
+
+    Note that `tt_aiclk.exists()` does NOT catch this state -- the sysfs file is still there and
+    only READING it fails with ENODATA -- which is why an existence check let a quarantined chip
+    through three passes of this row.
+    """
+    out = {"node": str(node)}
+    try:
+        dev = Path(f"/sys/class/tenstorrent/tenstorrent!{node}/device").resolve()
+        port = dev.parent
+        out["endpoint"], out["port"] = dev.name, port.name
+        cmd = int.from_bytes((port / "config").read_bytes()[4:6], "little")
+    except OSError as e:
+        out.update(error=repr(e), bus_master=None, ok=False)
+        return out
+    out["port_COMMAND"] = f"0x{cmd:04x}"
+    out["memory_space"] = bool(cmd & 0x2)
+    out["bus_master"] = bool(cmd & 0x4)
+    out["ok"] = out["memory_space"] and out["bus_master"]
+    if not out["ok"]:
+        missing = [n for n, b in (("MEMORY SPACE", 0x2), ("BUS MASTER", 0x4)) if not cmd & b]
+        out["verdict"] = (f"upstream port has {' and '.join(missing)} CLEARED -- this chip is "
+                          "quarantined and needs a REBOOT, not a reset. An open will succeed and "
+                          "then host-spin forever, because MMIO to the endpoint goes nowhere.")
+    return out
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--node", required=True)
@@ -66,9 +111,21 @@ def main() -> int:
     a = ap.parse_args()
 
     root = Path(__file__).resolve().parents[2]
+    port = upstream_port_state(a.node)
+    print(json.dumps(port, indent=2), flush=True)
+    if not port["ok"]:
+        print(f"dispatch_probe: node {a.node} upstream port cannot master the bus "
+              f"({port.get('port_COMMAND')}) -- REBOOT required, refusing to open it",
+              file=sys.stderr)
+        return 3
     clk = Path(f"/sys/class/tenstorrent/tenstorrent!{a.node}/tt_aiclk")
-    if not clk.exists():
-        print(f"dispatch_probe: node {a.node} has no {clk} -- not on the bus", file=sys.stderr)
+    try:
+        int(clk.read_text())
+    except OSError as e:
+        # Existence is not readability: a quarantined or ARC-dead chip keeps the sysfs file and
+        # fails the READ with ENODATA, so `clk.exists()` passed this through for three passes.
+        print(f"dispatch_probe: node {a.node} cannot read {clk}: {e!r} -- not measurable",
+              file=sys.stderr)
         return 2
 
     env = dict(os.environ)

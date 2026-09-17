@@ -24,8 +24,12 @@ if ! "$PY" -c "import torch, ttnn" >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! [ -r "/sys/class/tenstorrent/tenstorrent!${NODE}/tt_aiclk" ]; then
-  echo "run.sh: node ${NODE} has no readable tt_aiclk -- that card is not on the bus. Refusing." >&2
+# Existence is not readability. A quarantined or ARC-dead chip KEEPS this sysfs file and fails
+# only the READ, with ENODATA, so `[ -r ... ]` passed a dead chip through on 2026-09-17 and the
+# capture then host-spun on it. Read the value.
+if ! cat "/sys/class/tenstorrent/tenstorrent!${NODE}/tt_aiclk" >/dev/null 2>&1; then
+  echo "run.sh: node ${NODE} tt_aiclk exists but cannot be READ -- ARC dead or chip quarantined." >&2
+  echo "run.sh: that state needs a REBOOT, not a reset. Refusing." >&2
   exit 1
 fi
 
