@@ -36,12 +36,25 @@ sys.path.insert(0, str(ROOT))
 
 import census as C                                                            # noqa: E402
 import control                                                                # noqa: E402
+import node_control as N                                                      # noqa: E402
 from force_aiclk import FORCE_AICLK, smc                                       # noqa: E402
 
 TARGET_MHZ = 1350
 LOOP_TARGET_S = 0.030          # aim each timed loop at 30 ms: long enough to amortise a sync
 MAX_REPS = 64
 LIVE_OUTPUTS = 4               # bound the live footprint while keeping the enqueue depth
+
+
+def board_power_W(node):
+    """Board power, the discriminator between a progressing fold and a wedged chip. CPU% and a
+    live sampler thread both keep looking healthy through a Tensix-level wedge; a chip drawing
+    22 W where it should draw 46 to 77 W is the tell (c10-size-scaling, 2026-09-17)."""
+    root = Path("/sys/class/tenstorrent/tenstorrent!%d" % node)
+    try:
+        hw = next((root / "device").glob("hwmon/hwmon*"))
+        return int((hw / "power1_input").read_text()) / 1e6
+    except (OSError, StopIteration, ValueError) as e:                         # noqa: BLE001
+        return repr(e)
 
 
 def git(*args):
@@ -203,7 +216,7 @@ def main() -> int:
     specs, refused = C.build_arms(shapes)
 
     pre = control.snapshot()
-    control.validate_snapshot(pre)
+    N.validate(pre, a.node)
     preflight = {
         "host": os.uname().nodename, "node": a.node, "pid": os.getpid(),
         "git_rev": git("rev-parse", "HEAD").strip(),
@@ -214,6 +227,9 @@ def main() -> int:
         "cube_control": cube, "byte_identity": {k: v for k, v in identity.items()
                                                 if k != "rows"},
         "arms": len(specs), "refused": refused, "pre_snapshot": pre,
+        "node_identity_pre": N.identity(a.node),
+        "node_identity_all": {n: N.identity(n) for n in range(4)},
+        "board_power_W_pre": board_power_W(a.node),
     }
     for entry in preflight["imports"]:
         got = control.digest(HERE / entry["file"])["sha256"]
@@ -253,8 +269,8 @@ def main() -> int:
         if result["force_response"][0] != 0:
             raise RuntimeError("FORCE_AICLK(%d) refused: %s" % (TARGET_MHZ,
                                                                 result["force_response"]))
-        sampler = subprocess.Popen([sys.executable, str(HERE / "control.py"),
-                                    str(out / "clock.jsonl"), str(os.getpid())],
+        sampler = subprocess.Popen([sys.executable, str(HERE / "node_control.py"),
+                                    str(out / "clock.jsonl"), str(a.node), str(os.getpid())],
                                    stdin=subprocess.PIPE,
                                    stdout=(out / "sampler.log").open("w"),
                                    stderr=subprocess.STDOUT)
@@ -266,7 +282,7 @@ def main() -> int:
         from tt_bio import af2                                                 # noqa: PLC0415
 
         dev = TT.get_device()
-        control.validate_snapshot(control.snapshot(opened=True), opened=True)
+        N.validate(control.snapshot(), a.node, opened=True)
         kc = af2.compute_kernel_config()
         grid = TT.CORE_GRID_MAIN
         cc = dev.compute_with_storage_grid_size()
@@ -313,10 +329,11 @@ def main() -> int:
                 row["TFLOPs"] = (spec["flops_per_call"] / r["s_per_call"] / 1e12
                                  if spec["flops_per_call"] else None)
                 row["GBs"] = spec["min_bytes_per_call"] / r["s_per_call"] / 1e9
+                row["board_power_W"] = board_power_W(a.node)
                 result["rows"].append(row)
-                print("%-44s %9.4f ms  %8.2f TFLOP/s %8.1f GB/s  reps=%d"
+                print("%-44s %9.4f ms  %8.2f TFLOP/s %8.1f GB/s  reps=%-3d %s W"
                       % (label, r["s_per_call"] * 1e3, row["TFLOPs"] or 0, row["GBs"],
-                         r["reps"]), flush=True)
+                         r["reps"], row["board_power_W"]), flush=True)
             if i % 8 == 0:
                 (out / "replay.partial.json").write_text(json.dumps(result, indent=1) + "\n")
     finally:
@@ -337,6 +354,8 @@ def main() -> int:
             sampler.wait(timeout=30)
         os.close(fd)
         result["post_snapshot"] = control.snapshot()
+        result["node_identity_post"] = N.identity(a.node)
+        result["board_power_W_post"] = board_power_W(a.node)
         samples = [json.loads(x) for x in (out / "clock.jsonl").read_text().splitlines() if x]
         holders = [json.loads(x) for x in (out / "holders.jsonl").read_text().splitlines()
                    if x] if (out / "holders.jsonl").exists() else []
@@ -350,8 +369,8 @@ def main() -> int:
         result["clock_min_MHz"] = min((s["MHz"] for s in samples if "MHz" in s), default=None)
         result["clock_max_MHz"] = max((s["MHz"] for s in samples if "MHz" in s), default=None)
         result["clock_read_errors"] = sum(1 for s in samples if "error" in s)
-        result["foreign_holders"] = [h for h in holders
-                                     if any(x["pid"] != os.getpid() for x in h.get("holders", []))]
+        result["holder_observations"] = len(holders)
+        result["foreign_holders"] = N.foreign_holders(holders, a.node, os.getpid())
         (out / "replay.json").write_text(json.dumps(result, indent=1) + "\n")
         for name in ("clock.jsonl", "holders.jsonl"):
             p = out / name
