@@ -4,3 +4,4 @@ runs/*/out/
 runs/*/in/
 runs/*/*.jsonl
 runs/*/*.log
+runs/*/.census-*/
