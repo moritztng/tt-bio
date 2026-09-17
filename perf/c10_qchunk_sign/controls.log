@@ -1,0 +1,20 @@
+ok   schedule warms one census fold per arm: ['on', 'off']
+ok   every rep is on off off on: {('on', 'off', 'off', 'on')}
+ok   arms are balanced over the timed sequence: [16, 16]
+ok   8 reps give 16 cross pairs: 16
+ok   8 reps give 15 same-arm A/A pairs: 15
+ok   off slower by 1.000 s reads +1.000: 1.0
+ok   off FASTER by 1.000 s reads -1.000 (a live regression is visible): -1.0
+ok   a true A/A reads 0 and does not exclude zero: (0.0, False)
+ok   a pure linear ramp leaves the ABBA rep contrast at 0: 0.0
+ok   the same ramp in a BLOCKED order fakes a 0.160 s lever out of pure drift: 0.16
+ok   a census with one site moved ON and none OFF passes: True
+ok   a census that moves nothing with the flag ON is refused: False
+ok   a census that moves a site with the flag OFF is refused: False
+ok   arms that did not make the same calls are refused: False
+ok   a rejected fold drops its own two pairs (one cross, one A/A) and its whole rep, never bridging the gap: (15, 14, 7)
+ok   512 aa token_dit: the rule takes 256 -> 128, 32 -> 64 units on 110 cores: (256, 128, 32, 64)
+ok   298 aa token_dit: q pads to 320, 256 does not divide it, the rule takes 64, 32 -> 80 units: (320, 256, 64, 80)
+ok   the atom site has one tile of queries, so the rule provably cannot move it at either size: [False, False]
+
+18 pass, 0 fail

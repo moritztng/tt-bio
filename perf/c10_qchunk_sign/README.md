@@ -91,11 +91,21 @@ rule replayed on CPU. The timer, clock, holder, geometry and host-CPU controls c
 
 ## Reproduce
 
+`run.sh` sets its own environment. The three steps after it need the tt-bio venv and this
+directory on `PYTHONPATH`, otherwise they stop at `ModuleNotFoundError: numpy`:
+
     bash perf/c10_qchunk_sign/run.sh <name>
+
+    export PATH=/home/ttuser/tt-bio-dev/env/bin:$PATH
+    export PYTHONPATH=$PWD/perf/c10_qchunk_sign
     python3 perf/c10_qchunk_sign/reduce.py perf/c10_qchunk_sign/runs/<name> \
         --out perf/c10_qchunk_sign/runs/<name>/analysis.json
     python3 perf/c10_qchunk_sign/summary.py perf/c10_qchunk_sign/runs/<name>/analysis.json
-    python3 perf/c10_qchunk_sign/controls.py
+    python3 perf/c10_qchunk_sign/controls.py | tee perf/c10_qchunk_sign/controls.log
+
+Only the first step needs a card. The other three are CPU-only and rerun against the committed
+`runs/qsign1/`: the reducer rebuilds `analysis.json` byte-identically and `controls.py` reprints
+the 18 lines in `controls.log`.
 
 The reducer exits non-zero unless every criterion in `criterion.json` holds. `prediction.json` was
 written before the first fold; it got the sign right at both sizes, the 512 aa magnitude right
