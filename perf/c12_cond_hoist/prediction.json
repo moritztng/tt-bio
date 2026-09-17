@@ -1,0 +1,63 @@
+{
+ "row": "c12-cond-hoist-block-timing",
+ "lever": "TT_BIO_DIT_COND_HOIST",
+ "registered_utc": "2026-09-17T12:05:00Z",
+ "registered_before": "any timed arm of this row",
+ "source_of_prices": {
+  "census": "c12-linear-fusion-census, call census of the 512 aa boltz2 fold at 1350 MHz",
+  "per_step_base": "perf/roof_difftx, 15.0004 ms per sampling step on a Blackhole p150a",
+  "fold_base": "14.881 s, 512 aa cdk2x2, p300c at 1350 MHz",
+  "aa_fold_floor": "0.055 s"
+ },
+ "mechanism": {
+  "deleted_per_step": {"layer_norm_1x512x768": 48},
+  "reshaped_per_step": {"conditioning_projections": 144},
+  "all_inside": "tt_bio.tenstorrent.DiffusionTransformer, token level only (atom_level=False)",
+  "census_terms_s_per_fold": {
+   "adaln_projections": 0.1048,
+   "output_projections": 0.0524,
+   "deleted_layer_norms_9600_at_15.46us": 0.1485,
+   "added_slices_28800_at_5.5968us_launch_floor": -0.1612,
+   "net": 0.1445,
+   "of_which_linear_class": -0.0039
+  },
+  "claim": "the win is the deleted layer_norms, not the concatenated projections"
+ },
+ "predicted_block": {
+  "primary_quantity": "block seconds per fold, hoist vs base, summed over the 200 token-level DiffusionTransformer calls",
+  "delta_s_per_fold": 0.1445,
+  "delta_ms_per_call": 0.7225,
+  "n_calls_per_fold": 200,
+  "ratio_formula": "block_ratio = median(block_s base) / median(block_s hoist)",
+  "ratio_if_base_block_is_15.0004ms_per_call": 1.0506,
+  "ratio_caveat": "the block wall inserts two ttnn.synchronize_device calls per block, which adds the same constant to both arms. That inflates the denominator, so any measured ratio is an ATTENUATED version of the true one. The pre-registered invariant is therefore the DELTA in seconds, not the ratio.",
+  "why": "48 deleted layer_norms and 144 regrouped projections all live inside the token-level DiffusionTransformer call, so a wall around that call sees the whole mechanism and none of the trunk, the atom encoder/decoder, the confidence head or the host-side write."
+ },
+ "predicted_fold": {
+  "base_s": 14.881,
+  "hoist_s": 14.737,
+  "delta_s": 0.1445,
+  "ratio": 1.00971,
+  "admissible_because": "0.1445 s is 2.6x the 0.055 s A/A fold floor",
+  "unit": "the SESSION is the independent unit; a rep-level CI from one session understated by ~2.2x in b2z2-cond-hoist-ship"
+ },
+ "kill_criteria": {
+  "a": "block ratio sits inside 1.000 +/- its own interleaved A/A on DiffusionTransformer -> NO-GO",
+  "b": "block moves but composes to < 0.10 s of fold once the block share of the fold is priced -> NO-GO (parent standing bar)"
+ },
+ "go_criteria": "a block win composing to >= 0.10 s of fold, reproduced across >= 2 sessions, with the A/A control in the SAME arm list as the lever",
+ "witness_required": {
+  "hoist_norms": "200 on every hoist arm, 0 on every base arm",
+  "block_n": "200 token-level DiffusionTransformer calls per fold, every arm"
+ },
+ "accuracy": {
+  "status": "already measured favourable by b2z2-cond-hoist-ship, not re-spent here",
+  "512aa_copy1_CA_lDDT": [0.93755, 0.93935],
+  "512aa_copy2_CA_RMSD_A": [1.20583, 1.16756],
+  "512aa_copy2_lDDT": [0.91580, 0.91665],
+  "298aa_CA_RMSD_A": [0.77143, 0.76557],
+  "298aa_lDDT": [0.96658, 0.96772],
+  "kill_bar_512aa_A": 0.60,
+  "seed_scatter_floor_512aa_A": 1.84
+ }
+}
