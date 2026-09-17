@@ -1,0 +1,575 @@
+{
+ "target_MHz": 1350,
+ "node": 3,
+ "census": {
+  "linear": {
+   "calls": 108608,
+   "published_s": 4.6604,
+   "arm": "grid110",
+   "bare_s": 10.7316,
+   "grid110_s": 4.6613,
+   "byte_x": 1.83
+  },
+  "matmul": {
+   "calls": 1432,
+   "published_s": 1.479,
+   "arm": "grid110",
+   "bare_s": 2.1174,
+   "grid110_s": 1.4814,
+   "byte_x": 1.47
+  },
+  "multiply_": {
+   "calls": 42720,
+   "published_s": 1.751,
+   "arm": "bare",
+   "bare_s": 1.7511,
+   "grid110_s": null,
+   "byte_x": 2.23
+  },
+  "layer_norm": {
+   "calls": 35304,
+   "published_s": 1.533,
+   "arm": "bare",
+   "bare_s": 1.5326,
+   "grid110_s": null,
+   "byte_x": 1.22,
+   "note": "published as layer_norm 1.357 + layer_norm_w 0.176"
+  },
+  "add_": {
+   "calls": 14616,
+   "published_s": 0.8473,
+   "arm": "bare",
+   "bare_s": 0.8473,
+   "grid110_s": null,
+   "byte_x": 1.32
+  },
+  "add": {
+   "calls": 13728,
+   "published_s": 0.1403,
+   "arm": "bare",
+   "bare_s": 0.1403,
+   "grid110_s": null,
+   "byte_x": 1.03
+  },
+  "multiply": {
+   "calls": 12464,
+   "published_s": 0.1256,
+   "arm": "bare",
+   "bare_s": 0.1256,
+   "grid110_s": null,
+   "byte_x": 1.0
+  }
+ },
+ "fold_s_of_record": 14.881,
+ "spine": {
+  "legs": [
+   {
+    "arm": "plain",
+    "fold_s": 17.3118,
+    "clock": {
+     "n": 15017,
+     "min": 1350,
+     "max": 1350,
+     "read_errors": 0,
+     "max_gap_ms": 10.96,
+     "n_gaps_over": 1,
+     "uncovered_s": 0.001,
+     "uncovered_frac": 5.5e-05,
+     "target": 1350,
+     "node": 3,
+     "held": true,
+     "covered": true,
+     "ok": true
+    }
+   },
+   {
+    "arm": "bracket",
+    "fold_s": 20.4148,
+    "clock": {
+     "n": 17847,
+     "min": 1350,
+     "max": 1350,
+     "read_errors": 0,
+     "max_gap_ms": 17.66,
+     "n_gaps_over": 2,
+     "uncovered_s": 0.0082,
+     "uncovered_frac": 0.000401,
+     "target": 1350,
+     "node": 3,
+     "held": true,
+     "covered": true,
+     "ok": true
+    }
+   },
+   {
+    "arm": "plain",
+    "fold_s": 17.7308,
+    "clock": {
+     "n": 15396,
+     "min": 1350,
+     "max": 1350,
+     "read_errors": 0,
+     "max_gap_ms": 10.0,
+     "n_gaps_over": 1,
+     "uncovered_s": 0.0,
+     "uncovered_frac": 0.0,
+     "target": 1350,
+     "node": 3,
+     "held": true,
+     "covered": true,
+     "ok": true
+    }
+   }
+  ],
+  "calls_per_fold": {
+   "AdaLN": 12000,
+   "AttentionPairBias": 6264,
+   "DiffusionTransformerLayer": 6000,
+   "ConditionedTransitionBlock": 6000,
+   "Transition": 960,
+   "DiffusionTransformer": 600,
+   "TriangleMultiplication": 560,
+   "TriangleAttention": 560,
+   "PairformerLayer": 280,
+   "DiffusionModule": 200,
+   "Diffusion": 200,
+   "MSALayer": 16,
+   "PairWeightedAveraging": 16,
+   "OuterProductMean": 16,
+   "Pairformer": 5,
+   "MSA": 4,
+   "PairAssemblyDevice": 2,
+   "RelPosGather": 2,
+   "PairformerModule": 1,
+   "PairConditioningDevice": 1,
+   "ConfidenceHeadsDevice": 1
+  },
+  "root_incl_s": 13.9205,
+  "roots": [
+   {
+    "cls": "Pairformer",
+    "calls": 4,
+    "incl_s": 7.70634
+   },
+   {
+    "cls": "DiffusionModule",
+    "calls": 200,
+    "incl_s": 5.02941
+   },
+   {
+    "cls": "MSA",
+    "calls": 4,
+    "incl_s": 0.67225
+   },
+   {
+    "cls": "PairformerModule",
+    "calls": 1,
+    "incl_s": 0.26092
+   },
+   {
+    "cls": "PairConditioningDevice",
+    "calls": 1,
+    "incl_s": 0.14794
+   },
+   {
+    "cls": "PairAssemblyDevice",
+    "calls": 2,
+    "incl_s": 0.08053
+   },
+   {
+    "cls": "ConfidenceHeadsDevice",
+    "calls": 1,
+    "incl_s": 0.02307
+   }
+  ],
+  "fold_s_plain_qualified": [
+   17.3118,
+   17.7308
+  ],
+  "fold_s_plain_median": 17.5213,
+  "aa_floor_s": 0.419,
+  "bracket_cost_ratio": 1.16514,
+  "warm_fold_s": 107.9097,
+  "env": {
+   "started": "2026-09-17T13:22:54+0000",
+   "t_start": 1789651374.8281953,
+   "phase": "counts",
+   "unit": null,
+   "reps": 3,
+   "size": 512,
+   "visible": "3",
+   "lease": "3",
+   "commit": "eab845ad1",
+   "profiler": "0",
+   "ttnn": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+   "metal_home": "/home/ttuser/tt-metal-b2z",
+   "loadavg": [
+    "17.58",
+    "14.55",
+    "13.78"
+   ],
+   "hardware": "blackhole",
+   "grid": [
+    11,
+    10
+   ],
+   "card_type": "p300c",
+   "load_s": 6.2,
+   "t_end": 1789651548.1294694
+  },
+  "tree": [
+   {
+    "path": "Pairformer",
+    "cls": "Pairformer",
+    "calls": 4,
+    "incl_s": 7.70634,
+    "excl_s": 0.0022,
+    "median_ms": 1968.03891,
+    "min_ms": 1801.84552,
+    "max_ms": 1969.44813
+   },
+   {
+    "path": "Pairformer/PairformerLayer",
+    "cls": "PairformerLayer",
+    "calls": 256,
+    "incl_s": 7.70414,
+    "excl_s": 0.1838,
+    "median_ms": 30.32055,
+    "min_ms": 3.00313,
+    "max_ms": 56.05828
+   },
+   {
+    "path": "Pairformer/PairformerLayer/Transition",
+    "cls": "Transition",
+    "calls": 512,
+    "incl_s": 5.79035,
+    "excl_s": 5.79035,
+    "median_ms": 0.74136,
+    "min_ms": 0.0502,
+    "max_ms": 49.68118
+   },
+   {
+    "path": "DiffusionModule",
+    "cls": "DiffusionModule",
+    "calls": 200,
+    "incl_s": 5.02941,
+    "excl_s": 1.25754,
+    "median_ms": 22.58375,
+    "min_ms": 21.34938,
+    "max_ms": 309.51256
+   },
+   {
+    "path": "DiffusionModule/Diffusion",
+    "cls": "Diffusion",
+    "calls": 200,
+    "incl_s": 3.77187,
+    "excl_s": 0.18929,
+    "median_ms": 16.53731,
+    "min_ms": 13.8127,
+    "max_ms": 68.33258
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer",
+    "cls": "DiffusionTransformer",
+    "calls": 600,
+    "incl_s": 3.53639,
+    "excl_s": 0.02432,
+    "median_ms": 3.33804,
+    "min_ms": 1.74801,
+    "max_ms": 29.77822
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer",
+    "cls": "DiffusionTransformerLayer",
+    "calls": 6000,
+    "incl_s": 3.51206,
+    "excl_s": 0.4483,
+    "median_ms": 0.5164,
+    "min_ms": 0.33169,
+    "max_ms": 17.96464
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AttentionPairBias",
+    "cls": "AttentionPairBias",
+    "calls": 6000,
+    "incl_s": 1.47067,
+    "excl_s": 1.47067,
+    "median_ms": 0.1668,
+    "min_ms": 0.10113,
+    "max_ms": 11.27356
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock",
+    "cls": "ConditionedTransitionBlock",
+    "calls": 6000,
+    "incl_s": 1.11974,
+    "excl_s": 0.65757,
+    "median_ms": 0.15907,
+    "min_ms": 0.12742,
+    "max_ms": 3.67022
+   },
+   {
+    "path": "MSA",
+    "cls": "MSA",
+    "calls": 4,
+    "incl_s": 0.67225,
+    "excl_s": 0.00168,
+    "median_ms": 207.41779,
+    "min_ms": 50.13853,
+    "max_ms": 207.5225
+   },
+   {
+    "path": "MSA/MSALayer",
+    "cls": "MSALayer",
+    "calls": 16,
+    "incl_s": 0.67057,
+    "excl_s": 0.00779,
+    "median_ms": 52.12604,
+    "min_ms": 3.86628,
+    "max_ms": 56.80039
+   },
+   {
+    "path": "Pairformer/PairformerLayer/AttentionPairBias",
+    "cls": "AttentionPairBias",
+    "calls": 256,
+    "incl_s": 0.62823,
+    "excl_s": 0.62823,
+    "median_ms": 1.92878,
+    "min_ms": 0.28587,
+    "max_ms": 32.68988
+   },
+   {
+    "path": "Pairformer/PairformerLayer/TriangleMultiplication",
+    "cls": "TriangleMultiplication",
+    "calls": 512,
+    "incl_s": 0.57393,
+    "excl_s": 0.57393,
+    "median_ms": 1.00463,
+    "min_ms": 0.39844,
+    "max_ms": 20.42945
+   },
+   {
+    "path": "Pairformer/PairformerLayer/TriangleAttention",
+    "cls": "TriangleAttention",
+    "calls": 512,
+    "incl_s": 0.52783,
+    "excl_s": 0.52783,
+    "median_ms": 0.79207,
+    "min_ms": 0.50022,
+    "max_ms": 27.31677
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/AdaLN",
+    "cls": "AdaLN",
+    "calls": 6000,
+    "incl_s": 0.47335,
+    "excl_s": 0.47335,
+    "median_ms": 0.06164,
+    "min_ms": 0.04626,
+    "max_ms": 3.85217
+   },
+   {
+    "path": "DiffusionModule/Diffusion/DiffusionTransformer/DiffusionTransformerLayer/ConditionedTransitionBlock/AdaLN",
+    "cls": "AdaLN",
+    "calls": 6000,
+    "incl_s": 0.46218,
+    "excl_s": 0.46218,
+    "median_ms": 0.06587,
+    "min_ms": 0.05152,
+    "max_ms": 3.43267
+   },
+   {
+    "path": "MSA/MSALayer/PairformerLayer",
+    "cls": "PairformerLayer",
+    "calls": 16,
+    "incl_s": 0.31504,
+    "excl_s": 0.01344,
+    "median_ms": 27.022,
+    "min_ms": 2.54088,
+    "max_ms": 28.20752
+   },
+   {
+    "path": "MSA/MSALayer/PairWeightedAveraging",
+    "cls": "PairWeightedAveraging",
+    "calls": 16,
+    "incl_s": 0.30063,
+    "excl_s": 0.30063,
+    "median_ms": 22.94262,
+    "min_ms": 0.96287,
+    "max_ms": 27.16635
+   },
+   {
+    "path": "PairformerModule",
+    "cls": "PairformerModule",
+    "calls": 1,
+    "incl_s": 0.26092,
+    "excl_s": 0.22818,
+    "median_ms": 260.92295,
+    "min_ms": 260.92295,
+    "max_ms": 260.92295
+   },
+   {
+    "path": "MSA/MSALayer/PairformerLayer/Transition",
+    "cls": "Transition",
+    "calls": 16,
+    "incl_s": 0.20555,
+    "excl_s": 0.20555,
+    "median_ms": 10.46571,
+    "min_ms": 0.63973,
+    "max_ms": 23.62464
+   },
+   {
+    "path": "PairConditioningDevice",
+    "cls": "PairConditioningDevice",
+    "calls": 1,
+    "incl_s": 0.14794,
+    "excl_s": 0.14794,
+    "median_ms": 147.93967,
+    "min_ms": 147.93967,
+    "max_ms": 147.93967
+   },
+   {
+    "path": "PairAssemblyDevice",
+    "cls": "PairAssemblyDevice",
+    "calls": 2,
+    "incl_s": 0.08053,
+    "excl_s": 0.07014,
+    "median_ms": 41.76694,
+    "min_ms": 38.75866,
+    "max_ms": 41.76694
+   },
+   {
+    "path": "MSA/MSALayer/PairformerLayer/TriangleMultiplication",
+    "cls": "TriangleMultiplication",
+    "calls": 32,
+    "incl_s": 0.04921,
+    "excl_s": 0.04921,
+    "median_ms": 0.93426,
+    "min_ms": 0.37606,
+    "max_ms": 5.89205
+   },
+   {
+    "path": "MSA/MSALayer/PairformerLayer/TriangleAttention",
+    "cls": "TriangleAttention",
+    "calls": 32,
+    "incl_s": 0.04683,
+    "excl_s": 0.04683,
+    "median_ms": 0.94879,
+    "min_ms": 0.50461,
+    "max_ms": 5.44525
+   },
+   {
+    "path": "DiffusionModule/Diffusion/Transition",
+    "cls": "Transition",
+    "calls": 400,
+    "incl_s": 0.04619,
+    "excl_s": 0.04619,
+    "median_ms": 0.10686,
+    "min_ms": 0.04611,
+    "max_ms": 2.72027
+   },
+   {
+    "path": "PairformerModule/Pairformer",
+    "cls": "Pairformer",
+    "calls": 1,
+    "incl_s": 0.03275,
+    "excl_s": 9e-05,
+    "median_ms": 32.74648,
+    "min_ms": 32.74648,
+    "max_ms": 32.74648
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer",
+    "cls": "PairformerLayer",
+    "calls": 8,
+    "incl_s": 0.03265,
+    "excl_s": 0.00131,
+    "median_ms": 3.82069,
+    "min_ms": 3.72363,
+    "max_ms": 5.88182
+   },
+   {
+    "path": "MSA/MSALayer/OuterProductMean",
+    "cls": "OuterProductMean",
+    "calls": 16,
+    "incl_s": 0.03194,
+    "excl_s": 0.03194,
+    "median_ms": 1.52374,
+    "min_ms": 0.22923,
+    "max_ms": 5.25383
+   },
+   {
+    "path": "ConfidenceHeadsDevice",
+    "cls": "ConfidenceHeadsDevice",
+    "calls": 1,
+    "incl_s": 0.02307,
+    "excl_s": 0.02307,
+    "median_ms": 23.06744,
+    "min_ms": 23.06744,
+    "max_ms": 23.06744
+   },
+   {
+    "path": "MSA/MSALayer/Transition",
+    "cls": "Transition",
+    "calls": 16,
+    "incl_s": 0.01517,
+    "excl_s": 0.01517,
+    "median_ms": 0.51845,
+    "min_ms": 0.08116,
+    "max_ms": 4.09229
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleAttention",
+    "cls": "TriangleAttention",
+    "calls": 16,
+    "incl_s": 0.01142,
+    "excl_s": 0.01142,
+    "median_ms": 0.66811,
+    "min_ms": 0.60677,
+    "max_ms": 1.29779
+   },
+   {
+    "path": "PairAssemblyDevice/RelPosGather",
+    "cls": "RelPosGather",
+    "calls": 2,
+    "incl_s": 0.01039,
+    "excl_s": 0.01039,
+    "median_ms": 7.43751,
+    "min_ms": 2.95234,
+    "max_ms": 7.43751
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/TriangleMultiplication",
+    "cls": "TriangleMultiplication",
+    "calls": 16,
+    "incl_s": 0.00903,
+    "excl_s": 0.00903,
+    "median_ms": 0.51187,
+    "min_ms": 0.4403,
+    "max_ms": 1.17471
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/Transition",
+    "cls": "Transition",
+    "calls": 16,
+    "incl_s": 0.00722,
+    "excl_s": 0.00722,
+    "median_ms": 0.77583,
+    "min_ms": 0.07725,
+    "max_ms": 0.89705
+   },
+   {
+    "path": "PairformerModule/Pairformer/PairformerLayer/AttentionPairBias",
+    "cls": "AttentionPairBias",
+    "calls": 8,
+    "incl_s": 0.00368,
+    "excl_s": 0.00368,
+    "median_ms": 0.44544,
+    "min_ms": 0.41933,
+    "max_ms": 0.53615
+   }
+  ],
+  "notes": []
+ },
+ "units": []
+}

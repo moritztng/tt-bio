@@ -1,0 +1,30 @@
+{
+ "env": {
+  "started": "2026-09-17T13:17:57+0000",
+  "t_start": 1789651077.2379286,
+  "phase": "probe",
+  "unit": null,
+  "reps": 3,
+  "size": 512,
+  "visible": "3,2",
+  "lease": "2,3",
+  "commit": "eab845ad1",
+  "profiler": "0",
+  "ttnn": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+  "metal_home": "/home/ttuser/tt-metal-b2z",
+  "loadavg": [
+   "10.77",
+   "11.92",
+   "12.91"
+  ],
+  "t_end": 1789651081.1078706
+ },
+ "probe": {
+  "n": 2048,
+  "reps": 20,
+  "solo_synced_ms": 0.1758,
+  "back_to_back_ms": 0.152,
+  "flops": 17179869184,
+  "bytes": 25165824
+ }
+}

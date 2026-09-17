@@ -33,7 +33,16 @@ import statistics as st
 from collections import Counter, defaultdict
 from pathlib import Path
 
+# A sample gap is the SAMPLER being descheduled, not the clock moving. On a box carrying the
+# release gate on the neighbouring board, a 1 kHz sysfs sampler slips past 10 ms a few times in a
+# 20 s fold, and discarding the leg for that throws away an interval whose clock was read 15,000
+# times and never left the target. So the gate splits the two claims it was conflating: the clock
+# must read the target on every sample with no read error (unchanged, load-bearing), and the
+# sampler must have COVERED the interval -- no single gap over GAP_MAX_MS and at most
+# UNCOVERED_MAX of the interval left unobserved.
 GAP_MS = 10.0
+GAP_MAX_MS = 60.0
+UNCOVERED_MAX = 0.005
 
 # The c10-fold-census published replay prices this row is asked to check, in seconds per fold, and
 # which replay arm each one came from. Source: workstreams/c12-profiled-fold.txt drift table of
@@ -62,9 +71,14 @@ GENERIC_FLOOR_S = 4.0841           # ttnn.generic_op traffic floor, priced by no
 
 
 def load_clock(path: Path):
-    if not path.is_file():
+    gz = path.with_suffix(path.suffix + ".gz")
+    if not path.is_file() and gz.is_file():
+        text = gzip.open(gz, "rt").read()
+    elif path.is_file():
+        text = path.read_text()
+    else:
         return None
-    lines = [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+    lines = [json.loads(l) for l in text.splitlines() if l.strip()]
     if not lines:
         return None
     return {"hdr": lines[0], "samples": lines[1:]}
@@ -83,14 +97,24 @@ def qualify(clock, t0, t1, target, node):
     ints = [x for x in v if isinstance(x, int)]
     ts = [r["t"] for r in s]
     gaps = [1e3 * (b - a) for a, b in zip(ts, ts[1:])]
+    uncov = sum(g - GAP_MS for g in gaps if g > GAP_MS) / 1e3
     out = {"n": len(s), "min": min(ints) if ints else None, "max": max(ints) if ints else None,
            "read_errors": len(errs), "max_gap_ms": round(max(gaps), 2) if gaps else None,
+           "n_gaps_over": sum(1 for g in gaps if g > GAP_MS),
+           "uncovered_s": round(uncov, 4),
+           "uncovered_frac": round(uncov / max(t1 - t0, 1e-9), 6),
            "target": target, "node": node}
-    out["ok"] = bool(ints) and not errs and out["min"] == out["max"] == target \
-        and out["max_gap_ms"] is not None and out["max_gap_ms"] <= GAP_MS
-    if not out["ok"]:
-        out["why"] = ("clock did not hold %d (min %s max %s, %d read errors, max gap %s ms)"
-                      % (target, out["min"], out["max"], len(errs), out["max_gap_ms"]))
+    out["held"] = bool(ints) and not errs and out["min"] == out["max"] == target
+    out["covered"] = (out["max_gap_ms"] is not None and out["max_gap_ms"] <= GAP_MAX_MS
+                      and out["uncovered_frac"] <= UNCOVERED_MAX)
+    out["ok"] = out["held"] and out["covered"]
+    if not out["held"]:
+        out["why"] = ("clock did not hold %d (min %s max %s, %d read errors)"
+                      % (target, out["min"], out["max"], len(errs)))
+    elif not out["covered"]:
+        out["why"] = ("clock held %d but the sampler covered only %.4f%% of the interval "
+                      "(worst gap %s ms)" % (target, 100 * (1 - out["uncovered_frac"]),
+                                             out["max_gap_ms"]))
     return out
 
 
@@ -116,7 +140,15 @@ def spine(run: Path, target: int, node: int):
         notes = pick["tree"]["notes"]
     else:
         notes = ["no bracket leg qualified on the clock"]
+    per_class: Counter = Counter()
+    for r in rows:
+        per_class[r["cls"]] += r["calls"]
+    roots = [r for r in rows if "/" not in r["path"]]
     return {"legs": legs,
+            "calls_per_fold": dict(per_class.most_common()),
+            "root_incl_s": round(sum(r["incl_s"] for r in roots), 4),
+            "roots": [{"cls": r["cls"], "calls": r["calls"], "incl_s": r["incl_s"]}
+                      for r in sorted(roots, key=lambda r: -r["incl_s"])],
             "fold_s_plain_qualified": [round(x, 4) for x in plain],
             "fold_s_plain_median": round(st.median(plain), 4) if plain else None,
             "aa_floor_s": round(max(plain) - min(plain), 4) if len(plain) > 1 else None,
@@ -288,6 +320,12 @@ def main() -> int:
         for r in sp["tree"][:30]:
             print("%-58s %7d %10.4f %10.4f %10.4f"
                   % (r["path"][-58:], r["calls"], r["incl_s"], r["excl_s"], r["median_ms"]))
+        print("\nROOTS (no instrumented ancestor) sum %.4f s of the bracketed fold" % sp["root_incl_s"])
+        for r in sp["roots"]:
+            print("  %-26s %6d calls %9.4f s" % (r["cls"], r["calls"], r["incl_s"]))
+        print("\nCALLS PER FOLD, per class, summed over every path it appears on")
+        for k, v in sp["calls_per_fold"].items():
+            print("  %-28s %7d" % (k, v))
         for n in sp["notes"]:
             print("  note:", n)
     for u in out["units"]:
