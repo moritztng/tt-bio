@@ -38,10 +38,46 @@ pair-assembly stages, and the program-cache clear that runs on every forward.
 
 ## Running it
 
-    bash perf/c12_host_decomp/controls.py          # no device needed
+`run.sh` is the entry point. Do not call `decomp.py` directly: the guards below live in `run.sh`,
+and without them a dead chip costs a whole pass rather than a minute.
+
+    perf/c12_host_decomp/controls.py               # no device needed
+    perf/c12_host_decomp/dispatch_probe.py --node <n>   # optional, run.sh does it for you
     bash perf/c12_host_decomp/run.sh <name> <node> 512 298
 
-`run.sh` refuses a node whose `tt_aiclk` is unreadable, wraps every timed run in `benchlock.sh`,
-and writes `runs/<name>/table.json`. No production code is changed: every patch is a timing
-wrapper installed in the capture process, and `decomp.py` refuses to run if the production diff
-against `criterion.json`'s base is non-empty.
+`run.sh` refuses to measure unless four things hold, in this order, before it takes `benchlock` or
+opens anything:
+
+| check | why | on failure |
+|---|---|---|
+| `tt_aiclk` readable on the node | a card that is off the bus | exit 1 |
+| `pair_idle.py --card <n>` | a p300c's two chips share one board power budget, so a fold on the sibling moves this node's timing while never touching the lock file. `benchlock` cannot see it: its contract is mutual exclusion among `benchlock` callers | exit 75, retry later |
+| `dispatch_probe.py --node <n>` | whether the chip can run a program at all, in a child under a timeout. tt_bio's own bring-up probe is the right test but runs inline in the process that then holds the device, so it has no deadline | exit 1, the node needs a reset |
+| `benchlock.sh` | the box-wide timed-run mutex | exit 75 |
+
+`pair_idle.py` is read out of `origin/wk/c12-orchestrator` rather than copied, so this row and the
+orchestrator's cannot drift apart. `PROBE_TIMEOUT_S` defaults to 240.
+
+No production code is changed: every patch is a timing wrapper installed in the capture process,
+and `decomp.py` refuses to run if the production diff against `criterion.json`'s base is non-empty.
+It also refuses if the load it cannot account for exceeds 1.0 — every foreign device holder is
+priced off its own `/proc` ticks and the remainder is what gates, because an absolute load average
+becomes unpassable rather than stricter once a wedged holder parks a core on the box.
+
+## What it closes against
+
+The measured non-device remainder, **1.6489-1.6720 s**, not F. `c12-profiled-fold` measured the
+device term in situ at 13.2090 s of 14.8810 s, and F = 3.9830 s exceeds that remainder by 2.31 s
+of clock-immune device cost. Closing this table against F would mean padding it with 2.3 s of work
+that is not host work. `fit.py` carries both, with the remainder primary.
+
+## First cut, and what it still owes
+
+`host_firstcut.py` combines two committed on-card measurements into a first cut with no device:
+`b2x_host_residual`'s closed 128 aa and 512 aa host trees from this same card, classified leaf by
+leaf into host-today, moved-to-device-since, device, and mixed. It is not this row's table, carries
+no clock arm, and says so. What it found: every host item that can be named is 0.0000 s reducible
+against the 0.8490 s bar, and the whole question collapses onto 0.3997-0.7738 s inside
+`Boltz2.forward`'s own body, which no committed instrument has ever bracketed. So run the
+`TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE` A/B and the `forward` brackets FIRST, ahead of the two-clock
+arms.
