@@ -161,6 +161,41 @@ def case_softmax(rng, m=64, k=128):
     return {"x": rng.standard_normal((m, k)) * 2.0}
 
 
+TRIATT = dict(B=8, H=2, N=64, d=32)
+TRIATT_SCALE = TRIATT["d"] ** -0.5
+# chunk the leading axis to 2 of 8 and the query axis to 16 of 64, so the check exercises
+# 4 leading blocks x 4 query blocks = 16 recomputed score blocks and both accumulations.
+TRIATT_CHUNK = dict(chunk=2, q_chunk=16)
+
+
+def case_triatt(rng):
+    """Triangle attention with the scores materialised: the maths, before the chunking."""
+    c = TRIATT
+    return {
+        "q": rng.standard_normal((c["B"], c["H"], c["N"], c["d"])),
+        "k": rng.standard_normal((c["B"], c["H"], c["N"], c["d"])),
+        "v": rng.standard_normal((c["B"], c["H"], c["N"], c["d"])),
+        "bias": rng.standard_normal((1, c["H"], c["N"], c["N"])) * 0.5,
+    }
+
+
+def case_triatt_chunked(rng):
+    """The same maths with a chunked-recompute backward. Must agree with the above."""
+    return case_triatt(rng)
+
+
+def case_triatt_gated(rng):
+    """Attention then the sigmoid gate, which is how the block actually ends.
+
+    Composing the new op with `mul` and `sigmoid` from the tape is the point: if the gate
+    had to be folded into the attention op, the tape would not be composing.
+    """
+    d = case_triatt(rng)
+    c = TRIATT
+    d["g"] = rng.standard_normal((c["B"], c["H"], c["N"], c["d"]))
+    return d
+
+
 def torch_forward(name, t):
     if name == "linear":
         return t["x"] @ t["w"] + t["b"]
@@ -175,6 +210,10 @@ def torch_forward(name, t):
         return xc * torch.rsqrt(var + 1e-6) * t["gamma"] + t["beta"]
     if name == "softmax":
         return torch.softmax(t["x"], dim=-1)
+    if name in ("triatt", "triatt_chunked", "triatt_gated"):
+        s = t["q"] @ t["k"].transpose(-2, -1) * TRIATT_SCALE + t["bias"]
+        o = torch.softmax(s, dim=-1) @ t["v"]
+        return o * torch.sigmoid(t["g"]) if name == "triatt_gated" else o
     raise KeyError(name)
 
 
@@ -189,18 +228,29 @@ def tt_forward(name, ag, t):
         return ag.layer_norm(t["x"], t["gamma"], t["beta"])
     if name == "softmax":
         return ag.softmax(t["x"], dim=-1)
+    if name in ("triatt", "triatt_chunked", "triatt_gated"):
+        kw = TRIATT_CHUNK if name != "triatt" else {}
+        o = ag.triangle_attention(t["q"], t["k"], t["v"], t["bias"],
+                                  scale=TRIATT_SCALE, **kw)
+        return ag.mul(o, ag.sigmoid(t["g"])) if name == "triatt_gated" else o
     raise KeyError(name)
 
 
 CASES = {
     "linear": case_linear, "chain": case_chain, "fanin": case_fanin,
     "layernorm": case_layernorm, "softmax": case_softmax,
+    "triatt": case_triatt, "triatt_chunked": case_triatt_chunked,
+    "triatt_gated": case_triatt_gated,
 }
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--cases", default="linear,chain,fanin,layernorm,softmax")
+    ap.add_argument("--cases",
+                    default="linear,chain,fanin,layernorm,softmax,triatt,triatt_chunked,"
+                            "triatt_gated")
+    ap.add_argument("--chunk-invariance", action="store_true",
+                    help="difference two chunkings of the attention backward against each other")
     ap.add_argument("--dtype", default="bfloat16", choices=["bfloat16", "float32"])
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--break-layernorm-axis", action="store_true",
@@ -287,6 +337,38 @@ def main():
                 failures.append(f"{name}/{k}: rel_l2={m['rel_l2']:.3e} cos={m['cos']:.6f}")
             print(f"{name:<10} {k:<7} {m['rel_l2']:>10.2e} {m['max_abs']:>10.2e} "
                   f"{m['max_rel']:>10.2e} {m['cos']:>10.6f}  {'PASS' if ok else 'FAIL'}")
+
+    if args.chunk_invariance:
+        print()
+        print("# chunk invariance: the SAME inputs, two chunkings of the attention backward.")
+        print("# A chunked recompute that drops or double-counts a block shows up here and")
+        print("# nowhere else, because the arms are compared to each other, not to a reference.")
+        rng2 = np.random.default_rng([args.seed, 991])
+        raw = case_triatt(rng2)
+        rounded = {kk: torch.from_numpy(vv).to(torch_dt).to(torch.float64)
+                   for kk, vv in raw.items()}
+        wt2 = torch.from_numpy(rng2.standard_normal(
+            (TRIATT["B"], TRIATT["H"], TRIATT["N"], TRIATT["d"]))).to(torch_dt)
+        arms = {}
+        for label, kw in (("whole", {}), ("chunked", TRIATT_CHUNK)):
+            tt_t = {kk: ag.Tensor(
+                ttnn.from_torch(vv.to(torch_dt), dtype=dt, layout=ttnn.TILE_LAYOUT,
+                                device=device), requires_grad=True)
+                for kk, vv in rounded.items()}
+            o = ag.triangle_attention(tt_t["q"], tt_t["k"], tt_t["v"], tt_t["bias"],
+                                      scale=TRIATT_SCALE, **kw)
+            o.backward(seed=ttnn.from_torch(wt2, dtype=dt, layout=ttnn.TILE_LAYOUT,
+                                            device=device))
+            arms[label] = {kk: ttnn.to_torch(tt_t[kk].grad).to(torch.float64).numpy()
+                           for kk in raw}
+        print(f"{'param':<10} {'rel_l2':>10} {'max_abs':>10} {'cos':>10}  verdict")
+        for kk in raw:
+            m = metrics(arms["chunked"][kk], arms["whole"][kk])
+            ok = m["rel_l2"] <= REL_L2_BAR and m["cos"] >= COS_BAR
+            if not ok:
+                failures.append(f"chunk-invariance/{kk}: rel_l2={m['rel_l2']:.3e}")
+            print(f"{kk:<10} {m['rel_l2']:>10.2e} {m['max_abs']:>10.2e} "
+                  f"{m['cos']:>10.6f}  {'PASS' if ok else 'FAIL'}")
 
     print()
     if failures:

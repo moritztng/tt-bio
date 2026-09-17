@@ -28,6 +28,7 @@ import ttnn
 __all__ = [
     "Tensor", "precise_config", "no_grad",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "sigmoid", "reshape",
+    "triangle_attention",
 ]
 
 
@@ -339,3 +340,120 @@ def reshape(x: Tensor, shape: Sequence[int]) -> Tensor:
         return bw
 
     return _tape(out_v, [x], make)
+
+
+def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] = None,
+                       *, scale: Optional[float] = None, chunk: Optional[int] = None,
+                       q_chunk: Optional[int] = None, config=None) -> Tensor:
+    """Triangle attention with a chunked-recompute backward that never holds the scores.
+
+    ``q``/``k``/``v`` are ``[B, H, N, d]`` head-major and ``bias`` is ``[1, H, N, N]``,
+    broadcast over B. This is the shape tt-bio's ``TriangleAttention`` produces: for a pair
+    tensor ``[S, S, c]`` the leading axis B is S, so triangle attention is S independent
+    attention problems rather than one big one.
+
+    That leading axis is why this needs no log-sum-exp bookkeeping. A flash kernel chunks
+    KEYS, so each block sees a partial softmax denominator and has to carry running row
+    statistics to rescale. Here the only reason to chunk is to keep the score tensor out of
+    DRAM, and chunking the leading axis and the QUERY axis while keeping every key does
+    that, so each chunk's softmax is already exact and complete. The retained set is q, k,
+    v and bias; scores and probabilities are recomputed in the backward and freed per chunk.
+
+    The object being avoided is concrete: at 800 aa with 8 heads the full
+    ``[S, H, S, S]`` bf16 score tensor is 8.19 GB. One leading-axis chunk of 1 is 10.24 MB.
+
+    ``chunk`` bounds the leading axis, ``q_chunk`` the query axis; both default to the whole
+    extent, which materialises the scores and is only appropriate at small N. Gradients are
+    invariant to both, which ``perf/hallgrad/gradcheck.py --cases triatt_chunked`` checks by
+    differencing two chunkings rather than trusting one.
+    """
+    cfg = config or precise_config()
+    qs = [int(d) for d in q.value.shape]
+    ks = [int(d) for d in k.value.shape]
+    if len(qs) != 4 or len(ks) != 4:
+        raise ValueError(f"expected [B, H, N, d] q and k, got {qs} and {ks}")
+    B, H, n_q, head_dim = qs
+    n_k = ks[2]
+    if scale is None:
+        scale = head_dim ** -0.5
+    cB = B if chunk is None else min(int(chunk), B)
+    cQ = n_q if q_chunk is None else min(int(q_chunk), n_q)
+
+    def _scores(qb, b0, b1, i0, i1):
+        """Recompute one score block and its softmax. The only place the scores exist."""
+        s = ttnn.matmul(qb, k.value[b0:b1], transpose_b=True, compute_kernel_config=cfg)
+        s = ttnn.multiply(s, scale)
+        if bias is not None:
+            # bias is [1, H, n_q, n_k] and broadcasts over the leading axis, so the row
+            # slice follows the query chunk and the leading slice is dropped.
+            s = ttnn.add(s, bias.value[:, :, i0:i1, :])
+        return ttnn.softmax(s, dim=-1, compute_kernel_config=cfg)
+
+    out_blocks = []
+    for b0 in range(0, B, cB):
+        b1 = min(b0 + cB, B)
+        row_blocks = []
+        for i0 in range(0, n_q, cQ):
+            i1 = min(i0 + cQ, n_q)
+            p = _scores(q.value[b0:b1, :, i0:i1, :], b0, b1, i0, i1)
+            row_blocks.append(ttnn.matmul(p, v.value[b0:b1], compute_kernel_config=cfg))
+            ttnn.deallocate(p)
+        out_blocks.append(row_blocks[0] if len(row_blocks) == 1
+                          else ttnn.concat(row_blocks, dim=2))
+    out_v = out_blocks[0] if len(out_blocks) == 1 else ttnn.concat(out_blocks, dim=0)
+    parents = [p for p in (q, k, v, bias) if p is not None]
+
+    def make(out):
+        def bw():
+            g = out.grad
+            dq_blocks, dk_blocks, dv_blocks, dbias_rows = [], [], [], None
+            for b0 in range(0, B, cB):
+                b1 = min(b0 + cB, B)
+                dk_acc = dv_acc = None
+                dq_rows, dbias_acc = [], []
+                for i0 in range(0, n_q, cQ):
+                    i1 = min(i0 + cQ, n_q)
+                    # Recompute, rather than retain. This is the whole memory argument:
+                    # one forward matmul plus one softmax per block, traded against the
+                    # 8.19 GB the retained scores would cost at 800 aa.
+                    p = _scores(q.value[b0:b1, :, i0:i1, :], b0, b1, i0, i1)
+                    go = g[b0:b1, :, i0:i1, :]
+                    # dV = P^T @ dO, summed over the query chunks that share these keys.
+                    dv_part = ttnn.matmul(p, go, transpose_a=True, compute_kernel_config=cfg)
+                    dv_acc = dv_part if dv_acc is None else ttnn.add(dv_acc, dv_part)
+                    # dS = P * (dP - rowsum(dP * P)), the softmax backward on the block.
+                    dp = ttnn.matmul(go, v.value[b0:b1], transpose_b=True,
+                                     compute_kernel_config=cfg)
+                    inner = ttnn.sum(ttnn.multiply(dp, p), dim=-1, keepdim=True)
+                    ds = ttnn.multiply(p, ttnn.subtract(dp, inner))
+                    ttnn.deallocate(p)
+                    if bias is not None:
+                        # dBias is dS summed over the leading axis, since bias broadcast over it.
+                        dbias_acc.append(ttnn.sum(ds, dim=0, keepdim=True))
+                    dq_rows.append(ttnn.multiply(
+                        ttnn.matmul(ds, k.value[b0:b1], compute_kernel_config=cfg), scale))
+                    dk_part = ttnn.multiply(
+                        ttnn.matmul(ds, q.value[b0:b1, :, i0:i1, :], transpose_a=True,
+                                    compute_kernel_config=cfg), scale)
+                    dk_acc = dk_part if dk_acc is None else ttnn.add(dk_acc, dk_part)
+                    ttnn.deallocate(ds)
+                dq_blocks.append(dq_rows[0] if len(dq_rows) == 1
+                                 else ttnn.concat(dq_rows, dim=2))
+                dk_blocks.append(dk_acc)
+                dv_blocks.append(dv_acc)
+                if bias is not None:
+                    rows = dbias_acc[0] if len(dbias_acc) == 1 else ttnn.concat(dbias_acc, dim=2)
+                    dbias_rows = rows if dbias_rows is None else ttnn.add(dbias_rows, rows)
+            def cat0(blocks):
+                return blocks[0] if len(blocks) == 1 else ttnn.concat(blocks, dim=0)
+            if q.requires_grad:
+                q.add_grad(cat0(dq_blocks))
+            if k.requires_grad:
+                k.add_grad(cat0(dk_blocks))
+            if v.requires_grad:
+                v.add_grad(cat0(dv_blocks))
+            if bias is not None and bias.requires_grad:
+                bias.add_grad(dbias_rows)
+        return bw
+
+    return _tape(out_v, parents, make)
