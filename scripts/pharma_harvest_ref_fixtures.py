@@ -15,6 +15,7 @@ metadata that makes the fixture reproducible and machine-checkable:
   docs/implementation-parity-data/ref-fixtures/<model>/<target>/<settings-tag>/
       meta.json          reference impl + version + commit, exact command, settings, date
       msa.a3m            the exact MSA fed to the reference (only when the model uses one)
+      msa/<hash>.a3m     per-chain alignments instead, for a multimer leg (see msa_source)
       seed<N>/
           results.json
           structures/<id>.cif
@@ -71,7 +72,13 @@ class FixtureSpec:
     command: str                 # exact (or reconstructed) command that produced the reference output
     settings: dict
     seeds: list
-    msa_source: str = ""         # path to the exact MSA used; "" when the model uses no MSA
+    # Path to the exact MSA the reference read. A FILE is copied to <fixture>/msa.a3m
+    # (single-chain legs). A DIRECTORY is a multimer leg: every <seq_hash>.a3m in it is
+    # copied to <fixture>/msa/, the layout full_parity_gate._stage_msa reads back to stage
+    # the device side. Pointing a multimer leg at the fixture's own msa/ dir is how an
+    # already-committed alignment set is re-harvested: same bytes in and out, no copy.
+    # "" when the model uses no MSA.
+    msa_source: str = ""
     msa_note: str = ""
     provenance_note: str = ""
     date: str = field(default_factory=lambda: date.today().isoformat())
@@ -528,6 +535,78 @@ SPECS = [
             "legs exactly. CPU was infeasible at L585 (multi-hour/seed), hence vast.ai GPU."
         ),
     ),
+    FixtureSpec(
+        model="protenix-v2",
+        target="9ncy",
+        settings_tag="msa-campaign_200step_5sample_10cycle_bf16",
+        reference_impl="official ByteDance Protenix (torch, GPU via vast.ai RTX3090)",
+        reference_version="protenix 2.0.0 (model protenix-v2, 464M params)",
+        reference_commit="bytedance/Protenix c3bfc365b3e1341a11935eddfe7bfdc308092147",
+        command=(
+            "python scripts/protenix_ref_predict.py <seed> <out_dir> /root/work/prot_9ncy.json  "
+            "(calls runner.batch_inference.inference_jsons: use_msa=True but NO search -- the "
+            "json pins a per-chain unpairedMsaPath, so runner/msa_search.py::need_msa_search is "
+            "False and Protenix reads the leg's own a3m files; seeds=[<seed>], n_cycle=10, "
+            "n_step=200, n_sample=5, dtype=bf16, model_name=protenix-v2, trimul_kernel=torch, "
+            "triatt_kernel=torch, use_template=False; CUDA FusedLayerNorm stubbed by torch "
+            "LayerNorm, triangle kernels forced to torch -- the SAME torch kernels as the CPU "
+            "reference for the other protenix legs, only the execution device differs. The json "
+            "comes from scripts/protenix_ref_json_from_yaml.py examples/abag_xm/9ncy.yaml 9ncy)"
+        ),
+        settings={
+            "use_msa": True,
+            "msa_source": "AbAg-XM campaign per-chain cache (offline ColabFold DB), not a server search",
+            "recycling_cycles": 10, "diffusion_steps": 200, "diffusion_samples": 5,
+            "selection": "confidence-selected best-of-5 by ranking_score",
+            "dtype": "bf16", "trimul_kernel": "torch", "triatt_kernel": "torch",
+            "target": "examples/abag_xm/9ncy.yaml (PDB 9NCY, antibody-antigen complex, "
+                      "chains A 65 / H 228 / L 212 res, 505 tokens)",
+            "rationale": ("the only multi-chain protenix-v2 parity leg, and a 505-token target "
+                          "inside the former [385,506] crash band where the AbAg-XM campaign "
+                          "median (509) sits. Same production settings as the 7ROA/ubiquitin/HSA "
+                          "protenix legs (n_cycle=10, n_step=200, n_sample=5, bf16) so the "
+                          "protenix legs differ only in target. The MSA cannot come from "
+                          "protenix-server.com like the single-chain legs: the device folds three "
+                          "per-chain alignments out of the campaign cache, so the reference is "
+                          "pointed at those same files."),
+        },
+        seeds=[
+            SeedSpec(n, f"/home/moritz/.coworker/artifacts/tt-bio-protenix-9ncy-ref-fixture/"
+                        f"ref_protenix_seed{n}", "9ncy")
+            for n in range(5)
+        ],
+        msa_source=str(FIXTURE_ROOT / "protenix-v2" / "9ncy"
+                       / "msa-campaign_200step_5sample_10cycle_bf16" / "msa"),
+        msa_note=(
+            "Three per-chain a3m files from the AbAg-XM campaign cache, keyed by "
+            "tt_bio.cache.seq_hash: 0fe6bd6436bef889 (chain A, 65 res, 5171 rows), "
+            "bbdd01a9f931ca87 (chain H, 228 res, 12708 rows), b6e0ae668b173a0c (chain L, "
+            "212 res, 11098 rows). They were already committed for the device side; the "
+            "reference reads the SAME files through per-chain unpairedMsaPath entries, and "
+            "protenix_ref_json_from_yaml.py verifies each a3m's query row against the yaml "
+            "sequence before the fold. Unpaired only, no paired block, which is what the "
+            "device assembles (block-diagonal, tt_bio/protenix_data.py). So X measures port "
+            "fidelity with the input alignment held identical byte for byte."
+        ),
+        provenance_note=(
+            "Harvested from a 2026-09-17 vast.ai RTX3090 reference run (instance 51278268, "
+            "$0.149/hr, US). Pinned protenix 2.0.0 / commit "
+            "c3bfc365b3e1341a11935eddfe7bfdc308092147, torch 2.6.0+cu124 (the pytorch "
+            "2.6.0-cuda12.4 image, the same torch the HSA reference ran), n_cycle=10 / "
+            "n_step=200 / n_sample=5 / bf16, trimul_kernel=torch, triatt_kernel=torch, "
+            "FusedLayerNorm stubbed by torch LayerNorm. Checkpoint protenix-v2.pt from the "
+            "hub mirror TMF001/protenix-v2-weights at revision "
+            "0b3bf48266effd548f3d399e8e76a87def9e9ec4, sha256 "
+            "8f931f9774a396b67033d0e58628e1834f4a1448165e04254b40a780b0c0d599 -- byte "
+            "identical to the copy tt-bio folds on qb2, so reference and device read the same "
+            "weights. CCD data cache components.v20240608.cif (sha256 7240b17369ccfbbcc86e2d02"
+            "dc8c9db59f46c32e0420f58889c6c121c60bfef0) + components.cif.rdkit_mol.pkl (sha256 "
+            "2d6caced2d26c62015115a1d0a50f4106755a300e0c2a2d2b5c101c9038dcbcd) pushed from pc, "
+            "the same 2026-07-09 vintage the 7ROA/ubiquitin protenix legs used, so unlike the "
+            "HSA leg this fixture carries no CCD-vintage caveat. CPU is infeasible at 505 "
+            "tokens with 5 samples x 200 steps x 10 cycles, hence vast.ai GPU."
+        ),
+    ),
 ]
 
 
@@ -591,7 +670,18 @@ def harvest(spec: FixtureSpec, skip_missing: bool = False) -> None:
 
     if spec.msa_source:
         msa_src = Path(spec.msa_source)
-        if msa_src.exists():
+        if msa_src.is_dir():
+            a3ms = sorted(msa_src.glob("*.a3m"))
+            if not a3ms:
+                print(f"WARNING: msa_source dir holds no *.a3m, skipped: {msa_src}")
+            dst_dir = base / "msa"
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            for a3m in a3ms:
+                dst = dst_dir / a3m.name
+                if dst.resolve() == a3m.resolve():
+                    continue          # already the committed copy; nothing to do
+                shutil.copy2(a3m, dst)
+        elif msa_src.exists():
             shutil.copy2(msa_src, base / "msa.a3m")
         else:
             print(f"WARNING: msa_source not found, skipped: {msa_src}")
