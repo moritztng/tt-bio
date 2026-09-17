@@ -1,0 +1,44 @@
+2026-09-17 22:16:48.093 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  s0_base        45.263s  clk 1350-1350  plddt=0.864082  sha=47b41b3048019cd6
+  s0_silu        14.926s  clk 1350-1350  plddt=0.847425  sha=b6d76f5e326929ca
+  s0_hoist       16.056s  clk 1350-1350  plddt=0.864325  sha=bea76f6f8a86c6c8
+  s0_both        15.164s  clk 1350-1350  plddt=0.846441  sha=4a1d995cf7fb8fbb
+  s1_base        15.508s  clk 1350-1350  plddt=0.861222  sha=3601a117884744c5
+  s1_silu        15.452s  clk 1350-1350  plddt=0.864449  sha=9bad077af4028074
+  s1_hoist       14.972s  clk 1350-1350  plddt=0.863871  sha=a920ad100fd1d5be
+  s1_both        14.248s  clk 1350-1350  plddt=0.861933  sha=e5e7ef3966f61d58
+  s2_base        14.682s  clk 1350-1350  plddt=0.852344  sha=207261551eb00a75
+  s2_silu        14.437s  clk 1350-1350  plddt=0.856863  sha=e35bcad0868bafe1
+  s2_hoist       14.770s  clk 1350-1350  plddt=0.8526  sha=dd276f93d3bcadb7
+  s2_both        14.208s  clk 1350-1350  plddt=0.853734  sha=85bc227f88ec65dd
+  s3_base        14.773s  clk 1350-1350  plddt=0.874473  sha=a453b86214572723
+  s3_silu        14.441s  clk 1350-1350  plddt=0.875475  sha=b68e24ccd4acf6bb
+  s3_hoist       15.004s  clk 1350-1350  plddt=0.873721  sha=afb8937182ae13ff
+  s3_both        14.232s  clk 1350-1350  plddt=0.873261  sha=777a1f982712cd6c
+  s4_base        14.799s  clk 1350-1350  plddt=0.853913  sha=7d248c8cacfc9b99
+  s4_silu        14.570s  clk 1350-1350  plddt=0.869358  sha=2c9e01a6e465555b
+  s4_hoist       14.805s  clk 1350-1350  plddt=0.843315  sha=7c0d5feebe120e41
+  s4_both        14.254s  clk 1350-1350  plddt=0.858259  sha=ef58dae44c7398e2
+  s0_base_aa     15.532s  clk 1350-1350  plddt=0.864082  sha=47b41b3048019cd6
+
+  STACK paired effect, per seed (all-atom / CA / dplDDT):
+    s0   12.4113 /  12.1830 A / -0.017641
+    s1    1.3703 /   1.3263 A / +0.000711
+    s2    0.4525 /   0.3893 A / +0.001390
+    s3    0.2589 /   0.1933 A / -0.001212
+    s4   10.7116 /  10.5358 A / +0.004346
+  seed floor, base against base at another seed:
+    base s0 vs base s1       5.3502 /   5.2146 A
+    base s0 vs base s2       9.8967 /   9.7200 A
+    base s0 vs base s3      11.1043 /  10.9215 A
+    base s0 vs base s4      15.7059 /  15.5113 A
+    base s1 vs base s2       7.9541 /   7.8156 A
+    base s1 vs base s3      10.9151 /  10.6938 A
+    base s1 vs base s4      15.0138 /  14.8068 A
+    base s2 vs base s3      17.4479 /  17.1575 A
+    base s2 vs base s4       9.1618 /   9.0249 A
+    base s3 vs base s4      21.9058 /  21.6125 A
+  A/A control: 0.0000 A all-atom, digests identical=True
+
+  worst stack 12.4113 A against the 0.35/0.6 bar -> REJECT, 2.32x the seed floor
