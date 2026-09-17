@@ -733,6 +733,347 @@
      "n_per_call": 0.33
     }
    }
+  },
+  {
+   "unit": "dtl_prof",
+   "reps": 20,
+   "clock": {
+    "n": 41,
+    "min": 1350,
+    "max": 1350,
+    "read_errors": 0,
+    "max_gap_ms": 4.38,
+    "n_gaps_over": 0,
+    "uncovered_s": 0.0,
+    "uncovered_frac": 0.0,
+    "target": 1350,
+    "node": 3,
+    "held": true,
+    "covered": true,
+    "ok": true
+   },
+   "window": {
+    "fence_runs": 2,
+    "fence_rows": 6,
+    "fence_rows_expected": 6,
+    "window": [
+     2119,
+     2939
+    ],
+    "n_rows": 820
+   },
+   "rep_control": {
+    "divisible": true,
+    "reps": 20,
+    "rows": 820,
+    "identical_histograms": true,
+    "per_rep_ms": [
+     0.7217,
+     0.724,
+     0.7286,
+     0.7237,
+     0.7235,
+     0.7234,
+     0.7212,
+     0.7257,
+     0.7256,
+     0.7252,
+     0.7222,
+     0.7253,
+     0.7256,
+     0.723,
+     0.724,
+     0.7252,
+     0.7238,
+     0.7247,
+     0.7268,
+     0.7214
+    ],
+    "spread_pct": 1.014,
+    "ok": true
+   },
+   "synced_wall_ms_per_call": 1.5109,
+   "device_ms_per_call": 0.72423,
+   "programs_per_call": 41.0,
+   "align_quality": 0.1756,
+   "by_op_code": {
+    "MatmulDeviceOperation": {
+     "ms_per_call": 0.25384,
+     "n_per_call": 9.0
+    },
+    "BinaryNgDeviceOperation": {
+     "ms_per_call": 0.13,
+     "n_per_call": 11.0
+    },
+    "NlpCreateHeadsDeviceOperation": {
+     "ms_per_call": 0.07522,
+     "n_per_call": 1.0
+    },
+    "PadDeviceOperation": {
+     "ms_per_call": 0.0719,
+     "n_per_call": 3.0
+    },
+    "SDPAOperation": {
+     "ms_per_call": 0.05118,
+     "n_per_call": 1.0
+    },
+    "SliceDeviceOperation": {
+     "ms_per_call": 0.04608,
+     "n_per_call": 6.0
+    },
+    "ConcatDeviceOperation": {
+     "ms_per_call": 0.02325,
+     "n_per_call": 1.0
+    },
+    "LayerNormDeviceOperation": {
+     "ms_per_call": 0.01967,
+     "n_per_call": 2.0
+    },
+    "CopyDeviceOperation": {
+     "ms_per_call": 0.01884,
+     "n_per_call": 4.0
+    },
+    "TilizeDeviceOperation": {
+     "ms_per_call": 0.01191,
+     "n_per_call": 1.0
+    },
+    "UntilizeDeviceOperation": {
+     "ms_per_call": 0.01127,
+     "n_per_call": 1.0
+    },
+    "NLPConcatHeadsDeviceOperation": {
+     "ms_per_call": 0.01107,
+     "n_per_call": 1.0
+    }
+   },
+   "by_class": {
+    "?": {
+     "ms_per_call": 0.57912,
+     "n_per_call": 32.75
+    },
+    "linear": {
+     "ms_per_call": 0.05295,
+     "n_per_call": 1.95
+    },
+    "reshape": {
+     "ms_per_call": 0.04597,
+     "n_per_call": 1.95
+    },
+    "deallocate": {
+     "ms_per_call": 0.011,
+     "n_per_call": 0.8
+    },
+    "multiply_": {
+     "ms_per_call": 0.00771,
+     "n_per_call": 0.45
+    },
+    "pad": {
+     "ms_per_call": 0.00682,
+     "n_per_call": 0.4
+    },
+    "slice": {
+     "ms_per_call": 0.0066,
+     "n_per_call": 1.05
+    },
+    "squeeze": {
+     "ms_per_call": 0.00463,
+     "n_per_call": 0.55
+    },
+    "to_layout": {
+     "ms_per_call": 0.00461,
+     "n_per_call": 0.4
+    },
+    "multiply": {
+     "ms_per_call": 0.00379,
+     "n_per_call": 0.55
+    },
+    "add_": {
+     "ms_per_call": 0.0006,
+     "n_per_call": 0.05
+    },
+    "layer_norm": {
+     "ms_per_call": 0.00021,
+     "n_per_call": 0.05
+    },
+    "add": {
+     "ms_per_call": 0.00021,
+     "n_per_call": 0.05
+    }
+   }
+  },
+  {
+   "unit": "dif_prof",
+   "reps": 3,
+   "clock": {
+    "n": 423,
+    "min": 1350,
+    "max": 1350,
+    "read_errors": 0,
+    "max_gap_ms": 4.83,
+    "n_gaps_over": 0,
+    "uncovered_s": 0.0,
+    "uncovered_frac": 0.0,
+    "target": 1350,
+    "node": 3,
+    "held": true,
+    "covered": true,
+    "ok": true
+   },
+   "window": {
+    "fence_runs": 2,
+    "fence_rows": 6,
+    "fence_rows_expected": 6,
+    "window": [
+     7387,
+     10675
+    ],
+    "n_rows": 3288
+   },
+   "rep_control": {
+    "divisible": true,
+    "reps": 3,
+    "rows": 3288,
+    "identical_histograms": true,
+    "per_rep_ms": [
+     20.29,
+     20.2961,
+     20.3209
+    ],
+    "spread_pct": 0.152,
+    "ok": true
+   },
+   "synced_wall_ms_per_call": 36.7973,
+   "device_ms_per_call": 20.30231,
+   "programs_per_call": 1096.0,
+   "align_quality": 0.378,
+   "by_op_code": {
+    "MatmulDeviceOperation": {
+     "ms_per_call": 9.01478,
+     "n_per_call": 381.0
+    },
+    "BinaryNgDeviceOperation": {
+     "ms_per_call": 3.75729,
+     "n_per_call": 339.0
+    },
+    "SDPAOperation": {
+     "ms_per_call": 2.1659,
+     "n_per_call": 30.0
+    },
+    "LayerNormDeviceOperation": {
+     "ms_per_call": 1.769,
+     "n_per_call": 114.0
+    },
+    "NlpCreateHeadsDeviceOperation": {
+     "ms_per_call": 1.47128,
+     "n_per_call": 30.0
+    },
+    "ReshapeViewDeviceOperation": {
+     "ms_per_call": 0.5252,
+     "n_per_call": 24.0
+    },
+    "PadDeviceOperation": {
+     "ms_per_call": 0.43027,
+     "n_per_call": 18.0
+    },
+    "SliceDeviceOperation": {
+     "ms_per_call": 0.42922,
+     "n_per_call": 60.0
+    },
+    "TransposeDeviceOperation": {
+     "ms_per_call": 0.28047,
+     "n_per_call": 51.0
+    },
+    "ConcatDeviceOperation": {
+     "ms_per_call": 0.13821,
+     "n_per_call": 6.0
+    },
+    "CopyDeviceOperation": {
+     "ms_per_call": 0.11336,
+     "n_per_call": 24.0
+    },
+    "TilizeDeviceOperation": {
+     "ms_per_call": 0.07223,
+     "n_per_call": 6.0
+    },
+    "UntilizeDeviceOperation": {
+     "ms_per_call": 0.06728,
+     "n_per_call": 6.0
+    },
+    "NLPConcatHeadsDeviceOperation": {
+     "ms_per_call": 0.06559,
+     "n_per_call": 6.0
+    },
+    "UnaryNgDeviceOperation": {
+     "ms_per_call": 0.00222,
+     "n_per_call": 1.0
+    }
+   },
+   "by_class": {
+    "deallocate": {
+     "ms_per_call": 4.57193,
+     "n_per_call": 232.0
+    },
+    "linear": {
+     "ms_per_call": 4.2248,
+     "n_per_call": 246.33
+    },
+    "?": {
+     "ms_per_call": 4.19917,
+     "n_per_call": 226.67
+    },
+    "multiply_": {
+     "ms_per_call": 1.57981,
+     "n_per_call": 79.33
+    },
+    "layer_norm": {
+     "ms_per_call": 1.53112,
+     "n_per_call": 90.33
+    },
+    "add": {
+     "ms_per_call": 0.98938,
+     "n_per_call": 48.67
+    },
+    "unsqueeze": {
+     "ms_per_call": 0.82163,
+     "n_per_call": 22.67
+    },
+    "multiply": {
+     "ms_per_call": 0.7103,
+     "n_per_call": 49.33
+    },
+    "slice": {
+     "ms_per_call": 0.50882,
+     "n_per_call": 23.67
+    },
+    "add_": {
+     "ms_per_call": 0.50525,
+     "n_per_call": 26.0
+    },
+    "reshape": {
+     "ms_per_call": 0.31202,
+     "n_per_call": 16.67
+    },
+    "permute": {
+     "ms_per_call": 0.23302,
+     "n_per_call": 27.67
+    },
+    "squeeze": {
+     "ms_per_call": 0.09412,
+     "n_per_call": 5.0
+    },
+    "pad": {
+     "ms_per_call": 0.01138,
+     "n_per_call": 0.67
+    },
+    "to_layout": {
+     "ms_per_call": 0.00779,
+     "n_per_call": 0.67
+    },
+    "matmul": {
+     "ms_per_call": 0.00179,
+     "n_per_call": 0.33
+    }
+   }
   }
  ]
 }

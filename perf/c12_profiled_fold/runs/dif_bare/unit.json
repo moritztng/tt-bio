@@ -1,0 +1,88 @@
+{
+ "env": {
+  "started": "2026-09-17T13:46:44+0000",
+  "t_start": 1789652804.8221257,
+  "phase": "unit",
+  "unit": "Diffusion",
+  "reps": 3,
+  "size": 512,
+  "visible": "3,2",
+  "lease": "2,3",
+  "commit": "9d7d02e6a",
+  "profiler": "0",
+  "ttnn": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+  "metal_home": "/home/ttuser/tt-metal-b2z",
+  "loadavg": [
+   "5.82",
+   "9.69",
+   "11.72"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c",
+  "load_s": 3.82,
+  "stacks_truncated": 3,
+  "keep_blocks": 2,
+  "t_end": 1789652830.1109579
+ },
+ "precursor_s": 17.802,
+ "unit_calls_in_precursor": {
+  "Diffusion": 2
+ },
+ "signature_matches_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   4480,
+   3
+  ],
+  [
+   1
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  "list",
+  "list",
+  "list",
+  "_AtomShiftGather",
+  [
+   1,
+   4480,
+   512
+  ],
+  [
+   1,
+   4480,
+   512
+  ]
+ ],
+ "t_region0": 1789652829.9762485,
+ "synced_wall_ms_per_call": 20.6703,
+ "t_region1": 1789652830.1109536,
+ "fence": {
+  "op": "ttnn.exp",
+  "n": 3,
+  "dim": 32
+ }
+}

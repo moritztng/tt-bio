@@ -1,0 +1,4 @@
+node2 FORCE_AICLK(1350) status=0x00 ret=0
+node3 FORCE_AICLK(1350) status=0x00 ret=0
+node2 released
+node3 released

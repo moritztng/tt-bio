@@ -1,0 +1,110 @@
+{
+ "env": {
+  "started": "2026-09-17T13:47:16+0000",
+  "t_start": 1789652836.379656,
+  "phase": "unit",
+  "unit": "Diffusion",
+  "reps": 3,
+  "size": 512,
+  "visible": "3,2",
+  "lease": "2,3",
+  "commit": "9d7d02e6a",
+  "profiler": "1",
+  "ttnn": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+  "metal_home": "/home/ttuser/tt-metal-b2z",
+  "loadavg": [
+   "7.04",
+   "9.58",
+   "11.61"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c",
+  "load_s": 5.58,
+  "stacks_truncated": 3,
+  "keep_blocks": 2,
+  "t_end": 1789652873.8543186
+ },
+ "precursor_s": 28.43,
+ "unit_calls_in_precursor": {
+  "Diffusion": 2
+ },
+ "signature_matches_in_precursor": 2,
+ "arg_shapes": [
+  [
+   1,
+   4480,
+   3
+  ],
+  [
+   1
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  [
+   1,
+   4480,
+   128
+  ],
+  "list",
+  "list",
+  "list",
+  "_AtomShiftGather",
+  [
+   1,
+   4480,
+   512
+  ],
+  [
+   1,
+   4480,
+   512
+  ]
+ ],
+ "ops_patched": 63,
+ "t_region0": 1789652873.3673065,
+ "synced_wall_ms_per_call": 36.7973,
+ "t_region1": 1789652873.8409896,
+ "op_seq_len": 8964,
+ "op_seq_path": "/home/ttuser/.coworker/wt/c12-profiled-fold/perf/c12_profiled_fold/runs/dif_prof/unit.opseq.json",
+ "op_seq_counts": {
+  "deallocate": 2352,
+  "linear": 2274,
+  "multiply_": 912,
+  "layer_norm": 684,
+  "reshape": 528,
+  "add": 396,
+  "multiply": 366,
+  "add_": 360,
+  "slice": 360,
+  "permute": 306,
+  "unsqueeze": 156,
+  "pad": 108,
+  "to_layout": 72,
+  "concat": 36,
+  "squeeze": 36,
+  "matmul": 12,
+  "exp": 6
+ },
+ "fence": {
+  "op": "ttnn.exp",
+  "n": 3,
+  "dim": 32
+ }
+}
