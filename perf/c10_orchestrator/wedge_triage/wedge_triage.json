@@ -1,0 +1,238 @@
+{
+  "scope": "CPU cross-reference of a committed op census against two knowledge-base memories. No device, no fold, no hang reproduced, no root cause claimed.",
+  "census": "/home/moritz/.coworker/wt/c10-orchestrator/perf/roof_launch/op_census_512.json",
+  "wedge": {
+    "size_aa": 768,
+    "steps": 200,
+    "folds_before": 5,
+    "signature": "101 % CPU state R, 22 W board power against 46 W, SIGTERM ignored, ARC alive"
+  },
+  "known_class": {
+    "memories": [
+      "blackhole-sub-tile-last-axis-slice-of-large-dram-tensor-wedges",
+      "blackhole-ttnn-reshape-hang-second-sighting"
+    ],
+    "mechanism": "a sub-tile last-axis slice/chunk of a large TILE-layout DRAM tensor hangs on Blackhole and returns fine on Wormhole; piece width decides, not row width. Unfixed upstream.",
+    "prior_sightings": 2
+  },
+  "family_ops_in_the_fold": [
+    {
+      "shape": "ttnn.Tensor.__getitem__|out=|in=",
+      "op": "ttnn.Tensor.__getitem__",
+      "calls": 12776.0,
+      "GB": 0.0,
+      "tiles_per_call": 0
+    },
+    {
+      "shape": "ttnn.slice|out=1x16x512x64|in=1x16x512x64,1x16x512x64",
+      "op": "ttnn.slice",
+      "calls": 4800.0,
+      "GB": 10.0663296,
+      "tiles_per_call": 1536
+    },
+    {
+      "shape": "ttnn.permute|out=1x16x48x512|in=1x16x512x48",
+      "op": "ttnn.permute",
+      "calls": 4800.0,
+      "GB": 15.0994944,
+      "tiles_per_call": 1024
+    },
+    {
+      "shape": "ttnn.permute|out=1x1x512x768|in=1x1x768x512,1x1x512x768,1x768x512",
+      "op": "ttnn.permute",
+      "calls": 4800.0,
+      "GB": 7.5497472,
+      "tiles_per_call": 1536
+    },
+    {
+      "shape": "ttnn.reshape|out=|in=140x4x128x32",
+      "op": "ttnn.reshape",
+      "calls": 3600.0,
+      "GB": 0.0,
+      "tiles_per_call": 2240
+    },
+    {
+      "shape": "ttnn.slice|out=1x129x32x128|in=1x129x32x128,1x144x32x128",
+      "op": "ttnn.slice",
+      "calls": 2800.0,
+      "GB": 6.2619648,
+      "tiles_per_call": 1608
+    },
+    {
+      "shape": "ttnn.reshape|out=1x768x512|in=1x16x48x512,16x48x512",
+      "op": "ttnn.reshape",
+      "calls": 2400.0,
+      "GB": 1.8874368,
+      "tiles_per_call": 1408
+    },
+    {
+      "shape": "ttnn.reshape|out=1x768x512|in=16x48x512,1x16x48x512",
+      "op": "ttnn.reshape",
+      "calls": 2400.0,
+      "GB": 1.8874368,
+      "tiles_per_call": 1408
+    },
+    {
+      "shape": "ttnn.slice|out=1x129x32x128|in=1x144x32x128,1x129x32x128",
+      "op": "ttnn.slice",
+      "calls": 2000.0,
+      "GB": 4.472832,
+      "tiles_per_call": 1608
+    },
+    {
+      "shape": "ttnn.reshape|out=|in=1x140x32x128",
+      "op": "ttnn.reshape",
+      "calls": 1600.0,
+      "GB": 0.0,
+      "tiles_per_call": 560
+    },
+    {
+      "shape": "ttnn.slice|out=1x1x4128x128|in=1x1x4128x128,1x1x4480x128",
+      "op": "ttnn.slice",
+      "calls": 1200.0,
+      "GB": 2.6443776,
+      "tiles_per_call": 1592
+    },
+    {
+      "shape": "ttnn.to_layout|out=1x1x4128x128|in=1x1x4128x128",
+      "op": "ttnn.to_layout",
+      "calls": 1200.0,
+      "GB": 2.5362432,
+      "tiles_per_call": 1032
+    },
+    {
+      "shape": "ttnn.pad|out=1x1x4608x128|in=1x1x4128x128",
+      "op": "ttnn.pad",
+      "calls": 1200.0,
+      "GB": 2.6836992,
+      "tiles_per_call": 1092
+    },
+    {
+      "shape": "ttnn.to_layout|out=1x1x4608x128|in=1x1x4608x128",
+      "op": "ttnn.to_layout",
+      "calls": 1200.0,
+      "GB": 2.8311552,
+      "tiles_per_call": 1152
+    },
+    {
+      "shape": "ttnn.reshape|out=|in=1x1x4608x128",
+      "op": "ttnn.reshape",
+      "calls": 1200.0,
+      "GB": 0.0,
+      "tiles_per_call": 576
+    },
+    {
+      "shape": "ttnn.concat|out=1x129x128x128|in=1x129x32x128,1x129x32x128,1x129x32x128,1x129x32x128",
+      "op": "ttnn.concat",
+      "calls": 1200.0,
+      "GB": 10.1449728,
+      "tiles_per_call": 4128
+    },
+    {
+      "shape": "ttnn.pad|out=1x140x128x128|in=1x140x128x128,1x129x128x128",
+      "op": "ttnn.pad",
+      "calls": 1200.0,
+      "GB": 10.5775104,
+      "tiles_per_call": 6544
+    }
+  ],
+  "sub_tile_last_axis_candidates": [
+    {
+      "shape": "ttnn.permute|out=1x16x48x512|in=1x16x512x48",
+      "op": "ttnn.permute",
+      "calls": 4800.0,
+      "GB": 15.0994944,
+      "tiles_per_call": 1024,
+      "sub_tile_last_axis_extents": [
+        48
+      ]
+    }
+  ],
+  "non_tile_multiple_axes_anywhere": {
+    "4": [
+      "ttnn.allocate_tensor_on_device",
+      "ttnn.reshape"
+    ],
+    "16": [
+      "ttnn.experimental.nlp_create_qkv_heads",
+      "ttnn.layer_norm",
+      "ttnn.linear",
+      "ttnn.multiply_",
+      "ttnn.permute",
+      "ttnn.reshape",
+      "ttnn.slice",
+      "ttnn.transformer.scaled_dot_product_attention"
+    ],
+    "48": [
+      "ttnn.permute",
+      "ttnn.reshape"
+    ],
+    "129": [
+      "ttnn.concat",
+      "ttnn.pad",
+      "ttnn.slice"
+    ],
+    "140": [
+      "ttnn.add",
+      "ttnn.add_",
+      "ttnn.layer_norm",
+      "ttnn.linear",
+      "ttnn.multiply",
+      "ttnn.multiply_",
+      "ttnn.pad",
+      "ttnn.reshape",
+      "ttnn.to_memory_config"
+    ],
+    "144": [
+      "ttnn.slice"
+    ]
+  },
+  "second_sighting_shape_is_in_this_fold": {
+    "shape": "1x768x512",
+    "calls_per_512aa_fold": 9600.0,
+    "rows": [
+      {
+        "shape": "ttnn.permute|out=1x1x512x768|in=1x1x768x512,1x1x512x768,1x768x512",
+        "op": "ttnn.permute",
+        "calls": 4800.0,
+        "GB": 7.5497472,
+        "tiles_per_call": 1536
+      },
+      {
+        "shape": "ttnn.reshape|out=1x768x512|in=1x16x48x512,16x48x512",
+        "op": "ttnn.reshape",
+        "calls": 2400.0,
+        "GB": 1.8874368,
+        "tiles_per_call": 1408
+      },
+      {
+        "shape": "ttnn.reshape|out=1x768x512|in=16x48x512,1x16x48x512",
+        "op": "ttnn.reshape",
+        "calls": 2400.0,
+        "GB": 1.8874368,
+        "tiles_per_call": 1408
+      }
+    ],
+    "clean_512aa_folds_in_this_campaign": {
+      "c10-bare-baseline": 16,
+      "c10-fixed-cost": 28,
+      "c10-trace-lever": 20,
+      "c10-size-scaling": 10
+    },
+    "clean_total": 74,
+    "executions_without_a_hang": 710400.0,
+    "reading": "The exact reshape the second sighting names, [1,768,512], runs 9600 times in every 512 aa fold, and this campaign has completed at least 74 such folds with zero hangs -- on the order of 0.7 million executions. So the SHAPE ALONE is not the trigger. That is new information for that memory's open item, which left 'same root cause?' unconfirmed: it weakens shape-alone and strengthens shape-plus-context, meaning layout, DRAM residency or allocator state."
+  },
+  "verdict": "NOT MATCHED to the known class on this evidence, and not excluded either. The pattern's defining feature is a sub-tile last-axis extent on a large TILE-layout DRAM tensor, and the recorded 512 aa shapes contain 1 such shape: ttnn.permute with last-axis [48] (4800 calls). That is the per-head channel width, 768/16 = 48, which is not a tile multiple though it is above one tile -- the known class is about widths BELOW a tile, so this is adjacent rather than matching. The stronger point is the campaign's own counter-evidence: the shape the second sighting names runs millions of times here without hanging.",
+  "for_the_next_worker_with_a_chip": [
+    "The census is 512 aa. The wedge was at 768 aa, where every token-scaled extent changes, so a 768 aa census is the first thing to capture -- the trigger shape may simply not exist at 512 aa. That is the single most useful next step and it needs a chip.",
+    "Rank by the candidate list here rather than by the whole fold: 18 family shapes, of which the largest by traffic are the ones worth a per-op repro.",
+    "Do not reproduce this on a card another row is using, and remember SIGTERM was ignored: budget for a SIGKILL and a reset, and read the standing rule about killing a chip holder.",
+    "If it does turn out to be the same class, the two prior sightings and this one should be filed upstream together, which is what the second-sighting memory already asked for."
+  ],
+  "limits": [
+    "Nothing here was run. This is a shape cross-reference against a census taken at a different size from the failure.",
+    "The census records 60 shapes covering 87 % of calls but only 32 % of bytes, so a trigger shape outside that table would be invisible to this check.",
+    "One hang in six folds is not a rate, and a shape that appears in a fold that hung is not thereby the cause."
+  ]
+}
