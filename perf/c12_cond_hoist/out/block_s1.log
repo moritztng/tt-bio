@@ -1,0 +1,23 @@
+2026-09-17 12:00:45.915 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  rep-1 base    pos0 fold  88.378s  load 16.51->14.34 sha=47b41b3048019cd6
+  rep0  base    pos0 fold  17.625s  load 14.34->15.54 sha=47b41b3048019cd6
+  rep0  hoist   pos1 fold  19.750s  load 15.54->19.15 sha=bea76f6f8a86c6c8
+  rep0  base    pos2 fold  17.144s  load 19.15->21.34 sha=47b41b3048019cd6
+  rep1  base    pos0 fold  17.837s  load 21.34->23.88 sha=47b41b3048019cd6
+  rep1  hoist   pos1 fold  17.257s  load 23.88->24.70 sha=bea76f6f8a86c6c8
+  rep1  base    pos2 fold  14.979s  load 24.70->19.95 sha=47b41b3048019cd6
+  rep2  base    pos0 fold  15.151s  load 19.95->16.06 sha=47b41b3048019cd6
+  rep2  hoist   pos1 fold  14.882s  load 16.06->14.03 sha=bea76f6f8a86c6c8
+  rep2  base    pos2 fold  16.677s  load 14.03->13.50 sha=47b41b3048019cd6
+  rep3  base    pos0 fold  18.920s  load 13.50->15.08 sha=47b41b3048019cd6
+  rep3  hoist   pos1 fold  16.650s  load 15.08->14.09 sha=bea76f6f8a86c6c8
+  rep3  base    pos2 fold  17.762s  load 14.09->15.27 sha=47b41b3048019cd6
+  rep4  base    pos0 fold  18.824s  load 15.27->17.24 sha=47b41b3048019cd6
+  rep4  hoist   pos1 fold  17.257s  load 17.24->18.11 sha=bea76f6f8a86c6c8
+  rep4  base    pos2 fold  20.353s  load 18.11->19.51 sha=47b41b3048019cd6
+base     n=10 fold 17.694s 1.00000x  block 3.2165s 1.0x  spread 30.37%
+hoist    n=5 fold 17.257s 1.02529x  block 3.0197s 1.06517x  spread 28.21%
+A/A floor (base pos0 / base pos-last): 1.04042x
+A/A floor BLOCK (base pos0 / base pos-last): 0.99436x  delta -0.0182s
+{"block_n": [200], "atom_block_n": [400], "hoist_norms_by_arm": {"base": [0], "hoist": [200]}}

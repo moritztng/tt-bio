@@ -172,6 +172,7 @@ def main() -> int:
         for p in struct_dir.glob("*"):
             p.unlink() if p.is_file() else shutil.rmtree(p)
         ttnn.synchronize_device(dev)
+        started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         # Load at both ends of the fold, not once at the start. qb2 is shared and a co-tenant
         # that starts mid-fold is exactly the case a single reading misses -- the same blind spot
         # benchlock's acquire-time check has. A bracket is only usable if BOTH ends were quiet.
@@ -187,6 +188,7 @@ def main() -> int:
         shutil.copy2(cifs[0], keep / cifs[0].name)
         body = (keep / cifs[0].name).read_bytes()
         return {"arm": arm, "seed": seed, "target": target.stem, "fold_s": round(wall, 3),
+                "started_utc": started,
                 "load0": round(load0, 2), "load1": round(load1, 2),
                 "sha256": hashlib.sha256(body).hexdigest()[:16],
                 "cond_hoist": bool(getattr(T, ATTR_HOIST)), "hoist_norms": fired["h"],
@@ -254,22 +256,50 @@ def timing(args, out, dump, fold, T, ttnn, dev):
 
         block.__call__ = timed
 
+    # `_cond_weights()` concatenates the 24 layers' conditioning projections once per PROCESS and
+    # caches them on the module, so whichever fold calls it first pays for all of them. Session 1
+    # measured that fold's block at 5.3617 s against 3.0156 s for the later hoist folds. Wall the
+    # build itself so the one-time cost is a number rather than a difference of differences.
+    build = {"n": 0, "s": 0.0}
+    dtc = getattr(T, "DiffusionTransformer", None)
+    if dtc is not None and hasattr(dtc, "_cond_weights"):
+        _cw = dtc._cond_weights
+
+        def timed_cw(self):
+            if self._cond_w is not None:
+                return _cw(self)
+            ttnn.synchronize_device(dev)
+            t = time.perf_counter()
+            r = _cw(self)
+            ttnn.synchronize_device(dev)
+            build["n"] += 1
+            build["s"] += time.perf_counter() - t
+            return r
+
+        dtc._cond_weights = timed_cw
+
     size = args.sizes.split(",")[0]
     target = AB.FIX / f"cdk2x2_{size}.yaml"
     arms = args.timing_arms.split(",")
     out["timing"] = {"arms": arms, "reps": args.timing_reps, "seed": args.timing_seed,
-                     "block_timed": layer is not None}
+                     "block_timed": block is not None}
     cif = Path(tempfile.mkdtemp(prefix="b2z2-hoist-timing-"))
 
-    for rep in range(-1, args.timing_reps):                # rep -1 is the cold fold, discarded
-        for pos, arm in enumerate(arms if rep >= 0 else arms[:1]):
+    # rep -1 is the cold pass, discarded. It runs the FULL arm list so every arm's one-time costs
+    # (kernel JIT, program cache, and the hoist arm's cached `_cond_weights()` concatenation) are
+    # paid outside the timed reps.
+    for rep in range(-1, args.timing_reps):
+        for pos, arm in enumerate(arms):
             wall["n"] = 0
             wall["s"] = 0.0
             wall["atom_n"] = 0
+            build["n"] = 0
+            build["s"] = 0.0
             r = fold(arm, args.timing_seed, target, cif / f"{rep}_{pos}_{arm}")
             r.update(rep=rep, pos=pos, cold=rep < 0,
                      block_s=round(wall["s"], 4), block_n=wall["n"],
-                     atom_block_n=wall["atom_n"])
+                     atom_block_n=wall["atom_n"],
+                     cond_build_s=round(build["s"], 4), cond_build_n=build["n"])
             out["runs"].append(r)
             print(f"  rep{rep:<2d} {arm:7s} pos{pos} fold {r['fold_s']:7.3f}s  "
                   f"load {r['load0']:5.2f}->{r['load1']:5.2f} sha={r['sha256']}", flush=True)
@@ -316,6 +346,14 @@ def timing(args, out, dump, fold, T, ttnn, dev):
         print(f"A/A floor BLOCK (base pos0 / base pos-last): "
               f"{summary['aa_floor_block']:.5f}x  "
               f"delta {summary['aa_floor_block_delta_s']:+.4f}s", flush=True)
+    built = [r for r in out["runs"] if r.get("cond_build_n")]
+    if built:
+        summary["cond_weights_build"] = {
+            "paid_in": [(r["rep"], r["arm"]) for r in built],
+            "s": [r["cond_build_s"] for r in built]}
+        print(f"_cond_weights() built {len(built)}x, "
+              f"{[r['cond_build_s'] for r in built]}s, in "
+              f"{[(r['rep'], r['arm']) for r in built]}", flush=True)
     summary["block_witness"] = {
         "block_n": sorted({r["block_n"] for r in warm}),
         "atom_block_n": sorted({r.get("atom_block_n", 0) for r in warm}),
