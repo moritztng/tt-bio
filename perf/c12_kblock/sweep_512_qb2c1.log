@@ -1,0 +1,119 @@
+benchlock: c12-kblock-unlock acquired after 0s, loadavg 0.14 0.66 0.54
+2026-09-17 10:32:48.756 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+tt_bio from /home/ttuser/.coworker/wt/c12-kblock-unlock/tt_bio/tenstorrent.py
+grid 11x10 = 110 cores | nodes [1] | clock forced 1350 on [1] | aiclk now 1350 MHz
+ROOFS {"clk_compute": {"n": 13, "min": 1350, "max": 1350, "mean": 1350.0}, "compute_TFLOPs": 115.12, "clk_dram": {"n": 1, "min": 1350, "max": 1350, "mean": 1350.0}, "dram_rw_GBs": 392.8}
+
+=== pair_tr_fc1  a[1, 16, 512, 128] @ w[128, 512]  mt_total=256 kt=4 nt=16  act=silu  L1->L1
+    census 8960 calls, 0.5836 s, 787.8 Mc | Transition.swiglu fc1 tenstorrent.py:8211
+    ttnn v0.68.0 would derive: {'family': '1d', 'in0_block_w': 2, 'per_core_M': 3, 'per_core_N': 16, 'narrow_ratio': 16.0}
+    clock during this key: {'n': 16, 'min': 1350, 'max': 1350, 'mean': 1350.0}
+    prod                         0.1200 ms     8.94 TF/s     88.4 GB/s  maxabs 0.0012
+    1d_bw1_obh3_obw16            0.1197 ms     8.97 TF/s     88.7 GB/s  maxabs 0.0012  1.0027x  +0.0015 s fold
+    1d_bw1_obh3_obw8             0.1232 ms     8.71 TF/s     86.2 GB/s  maxabs 0.0012  0.9744x  -0.0154 s fold
+    1d_bw1_obh1_obw16            0.1352 ms     7.94 TF/s     78.6 GB/s  maxabs 0.0012  0.8882x  -0.0735 s fold
+    1d_bw1_obh1_obw8             0.1521 ms     7.06 TF/s     69.8 GB/s  maxabs 0.0012  0.7894x  -0.1557 s fold
+    1d_bw2_obh3_obw16            0.1193 ms     9.00 TF/s     89.0 GB/s  maxabs 0.0011  1.0060x  +0.0035 s fold
+    1d_bw2_obh3_obw8             0.1215 ms     8.84 TF/s     87.4 GB/s  maxabs 0.0011  0.9884x  -0.0069 s fold
+    1d_bw2_obh1_obw16            0.1328 ms     8.08 TF/s     79.9 GB/s  maxabs 0.0011  0.9038x  -0.0621 s fold
+    1d_bw2_obh1_obw8             0.1425 ms     7.54 TF/s     74.5 GB/s  maxabs 0.0011  0.8426x  -0.1090 s fold
+    1d_bw4_obh3_obw16            0.1197 ms     8.97 TF/s     88.7 GB/s  maxabs 0.0010  1.0032x  +0.0018 s fold
+    1d_bw4_obh3_obw8             0.1213 ms     8.86 TF/s     87.6 GB/s  maxabs 0.0010  0.9900x  -0.0059 s fold
+    1d_bw4_obh1_obw16            0.1324 ms     8.11 TF/s     80.2 GB/s  maxabs 0.0010  0.9067x  -0.0601 s fold
+    1d_bw4_obh1_obw8             0.1394 ms     7.70 TF/s     76.2 GB/s  maxabs 0.0010  0.8611x  -0.0941 s fold
+    BEST 1d_bw2_obh3_obw16  1.0060x vs prod  +0.0035 s / +4.7 Mc of fold
+
+=== pair_tr_fc2  a[1, 16, 512, 128] @ w[128, 512]  mt_total=256 kt=4 nt=16  act=None  L1->L1
+    census 8960 calls, 0.5836 s, 787.8 Mc | Transition.swiglu fc2 tenstorrent.py:8222
+    ttnn v0.68.0 would derive: {'family': '1d', 'in0_block_w': 2, 'per_core_M': 3, 'per_core_N': 16, 'narrow_ratio': 16.0}
+    clock during this key: {'n': 3, 'min': 1350, 'max': 1350, 'mean': 1350.0}
+    prod                         0.0314 ms    34.21 TF/s    338.2 GB/s  maxabs 0.0021
+    1d_bw1_obh3_obw16            0.0311 ms    34.49 TF/s    341.1 GB/s  maxabs 0.0021  1.0084x  +0.0048 s fold
+    1d_bw1_obh3_obw8             0.0340 ms    31.62 TF/s    312.7 GB/s  maxabs 0.0021  0.9244x  -0.0477 s fold
+    1d_bw1_obh1_obw16            0.0460 ms    23.35 TF/s    230.8 GB/s  maxabs 0.0021  0.6825x  -0.2715 s fold
+    1d_bw1_obh1_obw8             0.0595 ms    18.06 TF/s    178.6 GB/s  maxabs 0.0021  0.5280x  -0.5218 s fold
+    1d_bw2_obh3_obw16            0.0289 ms    37.16 TF/s    367.4 GB/s  maxabs 0.0021  1.0862x  +0.0463 s fold
+    1d_bw2_obh3_obw8             0.0304 ms    35.36 TF/s    349.6 GB/s  maxabs 0.0021  1.0337x  +0.0190 s fold
+    1d_bw2_obh1_obw16            0.0401 ms    26.74 TF/s    264.4 GB/s  maxabs 0.0021  0.7818x  -0.1629 s fold
+    1d_bw2_obh1_obw8             0.0482 ms    22.30 TF/s    220.4 GB/s  maxabs 0.0021  0.6518x  -0.3118 s fold
+    1d_bw4_obh3_obw16            0.0265 ms    40.47 TF/s    400.2 GB/s  maxabs 0.0019  1.1831x  +0.0903 s fold
+    1d_bw4_obh3_obw8             0.0292 ms    36.80 TF/s    363.9 GB/s  maxabs 0.0019  1.0758x  +0.0411 s fold
+    1d_bw4_obh1_obw16            0.0384 ms    27.93 TF/s    276.2 GB/s  maxabs 0.0019  0.8166x  -0.1311 s fold
+    1d_bw4_obh1_obw8             0.0442 ms    24.29 TF/s    240.1 GB/s  maxabs 0.0019  0.7099x  -0.2384 s fold
+    BEST 1d_bw4_obh3_obw16  1.1831x vs prod  +0.0903 s / +121.9 Mc of fold
+
+=== pair_tr_fc3  a[1, 16, 512, 512] @ w[512, 128]  mt_total=256 kt=16 nt=4  act=None  L1->DRAM
+    census 8960 calls, 0.7920 s, 1069.3 Mc | Transition.swiglu fc3 tenstorrent.py:8233
+    ttnn v0.68.0 would derive: {'family': '1d', 'in0_block_w': 2, 'per_core_M': 3, 'per_core_N': 4, 'narrow_ratio': 64.0}
+    clock during this key: {'n': 4, 'min': 1350, 'max': 1350, 'mean': 1350.0}
+    prod                         0.0413 ms    25.98 TF/s    256.9 GB/s  maxabs 0.0037
+    1d_bw1_obh3_obw4             0.0412 ms    26.03 TF/s    257.4 GB/s  maxabs 0.0037  1.0022x  +0.0017 s fold
+    1d_bw1_obh1_obw4             0.0835 ms    12.87 TF/s    127.2 GB/s  maxabs 0.0037  0.4953x  -0.8071 s fold
+    1d_bw2_obh3_obw4             0.0324 ms    33.19 TF/s    328.2 GB/s  maxabs 0.0037  1.2777x  +0.1721 s fold
+    1d_bw2_obh1_obw4             0.0573 ms    18.73 TF/s    185.2 GB/s  maxabs 0.0037  0.7212x  -0.3062 s fold
+    1d_bw4_obh3_obw4             0.0333 ms    32.21 TF/s    318.5 GB/s  maxabs 0.0037  1.2399x  +0.1533 s fold
+    1d_bw4_obh1_obw4             0.0470 ms    22.84 TF/s    225.8 GB/s  maxabs 0.0037  0.8791x  -0.1089 s fold
+    1d_bw8_obh3_obw4             0.0382 ms    28.08 TF/s    277.7 GB/s  maxabs 0.0037  1.0810x  +0.0594 s fold
+    1d_bw8_obh1_obw4             0.0433 ms    24.82 TF/s    245.4 GB/s  maxabs 0.0037  0.9553x  -0.0371 s fold
+    1d_bw16_obh3_obw4            0.0437 ms    24.57 TF/s    242.9 GB/s  maxabs 0.0037  0.9458x  -0.0453 s fold
+    1d_bw16_obh1_obw4            0.0458 ms    23.43 TF/s    231.6 GB/s  maxabs 0.0037  0.9018x  -0.0862 s fold
+    BEST 1d_bw2_obh3_obw4  1.2777x vs prod  +0.1721 s / +232.4 Mc of fold
+
+=== dit_s_768x768  a[1, 512, 768] @ w[768, 768]  mt_total=16 kt=24 nt=24  act=None  DRAM->DRAM
+    census 38600 calls, 0.5658 s, 763.9 Mc | six DiT sites, AdaLN :9395/:9403 + AttentionPairBias :8159/:8169 + DiT :9610/:9519
+    ttnn v0.68.0 would derive: {'family': '2d', 'in0_block_w': 4, 'per_core_M': 2, 'per_core_N': 3, 'narrow_ratio': 1.5}
+    clock during this key: {'n': 2, 'min': 1350, 'max': 1350, 'mean': 1350.0}
+    prod                         0.0203 ms    29.70 TF/s    135.3 GB/s  maxabs 0.0040
+    2d_bw1_obh2_obw3             0.0288 ms    20.98 TF/s     95.6 GB/s  maxabs 0.0045  0.7066x  -0.2349 s fold
+    2d_bw1_obh1_obw3             0.0455 ms    13.28 TF/s     60.5 GB/s  maxabs 0.0045  0.4472x  -0.6995 s fold
+    2d_bw2_obh2_obw3             0.0221 ms    27.29 TF/s    124.3 GB/s  maxabs 0.0045  0.9188x  -0.0500 s fold
+    2d_bw2_obh1_obw3             0.0330 ms    18.31 TF/s     83.4 GB/s  maxabs 0.0045  0.6165x  -0.3520 s fold
+    2d_bw4_obh2_obw3             0.0198 ms    30.44 TF/s    138.7 GB/s  maxabs 0.0040  1.0249x  +0.0137 s fold
+    2d_bw4_obh1_obw3             0.0274 ms    22.08 TF/s    100.6 GB/s  maxabs 0.0040  0.7435x  -0.1951 s fold
+    2d_bw8_obh2_obw3             0.0189 ms    32.03 TF/s    146.0 GB/s  maxabs 0.0040  1.0785x  +0.0412 s fold
+    2d_bw8_obh1_obw3             0.0252 ms    23.97 TF/s    109.3 GB/s  maxabs 0.0040  0.8073x  -0.1351 s fold
+    2d_bw12_obh2_obw3            0.0183 ms    32.93 TF/s    150.1 GB/s  maxabs 0.0040  1.1088x  +0.0555 s fold
+    2d_bw12_obh1_obw3            0.0252 ms    23.95 TF/s    109.1 GB/s  maxabs 0.0040  0.8063x  -0.1359 s fold
+    2d_bw24_obh2_obw3            0.0205 ms    29.42 TF/s    134.1 GB/s  maxabs 0.0040  0.9907x  -0.0053 s fold
+    2d_bw24_obh1_obw3            0.0274 ms    22.02 TF/s    100.4 GB/s  maxabs 0.0040  0.7415x  -0.1972 s fold
+    BEST 2d_bw12_obh2_obw3  1.1088x vs prod  +0.0555 s / +75.0 Mc of fold
+
+=== ctb_768x1536  a[1, 512, 768] @ w[768, 1536]  mt_total=16 kt=24 nt=48  act=None  DRAM->DRAM
+    census 15200 calls, 0.3418 s, 461.5 Mc | ConditionedTransitionBlock :9492/:9498/:9506
+    ttnn v0.68.0 would derive: {'family': '2d', 'in0_block_w': 4, 'per_core_M': 2, 'per_core_N': 5, 'narrow_ratio': 3.0}
+    clock during this key: {'n': 3, 'min': 1350, 'max': 1350, 'mean': 1350.0}
+    prod                         0.0289 ms    41.82 TF/s    163.4 GB/s  maxabs 0.0046
+    2d_bw1_obh2_obw5             0.0358 ms    33.73 TF/s    131.8 GB/s  maxabs 0.0046  0.8065x  -0.0820 s fold
+    2d_bw1_obh1_obw5             0.0563 ms    21.47 TF/s     83.9 GB/s  maxabs 0.0046  0.5133x  -0.3240 s fold
+    2d_bw2_obh2_obw5             0.0307 ms    39.41 TF/s    153.9 GB/s  maxabs 0.0046  0.9423x  -0.0209 s fold
+    2d_bw2_obh1_obw5             0.0427 ms    28.30 TF/s    110.5 GB/s  maxabs 0.0046  0.6766x  -0.1634 s fold
+    2d_bw4_obh2_obw5             0.0278 ms    43.51 TF/s    170.0 GB/s  maxabs 0.0046  1.0404x  +0.0133 s fold
+    2d_bw4_obh1_obw5             0.0361 ms    33.48 TF/s    130.8 GB/s  maxabs 0.0046  0.8006x  -0.0851 s fold
+    2d_bw8_obh2_obw5             0.0271 ms    44.54 TF/s    174.0 GB/s  maxabs 0.0043  1.0651x  +0.0209 s fold
+    2d_bw8_obh1_obw5             0.0349 ms    34.63 TF/s    135.3 GB/s  maxabs 0.0043  0.8281x  -0.0710 s fold
+    2d_bw12_obh2_obw5            0.0272 ms    44.44 TF/s    173.6 GB/s  maxabs 0.0043  1.0628x  +0.0202 s fold
+    2d_bw12_obh1_obw5            0.0350 ms    34.47 TF/s    134.7 GB/s  maxabs 0.0043  0.8243x  -0.0729 s fold
+    2d_bw24_obh2_obw5            0.0308 ms    39.24 TF/s    153.3 GB/s  maxabs 0.0040  0.9382x  -0.0225 s fold
+    2d_bw24_obh1_obw5            0.0395 ms    30.58 TF/s    119.5 GB/s  maxabs 0.0040  0.7312x  -0.1256 s fold
+    BEST 2d_bw8_obh2_obw5  1.0651x vs prod  +0.0209 s / +28.2 Mc of fold
+
+=== trimul_p_out  a[1, 512, 512, 128] @ w[128, 128]  mt_total=8192 kt=4 nt=4  act=None  DRAM->DRAM
+    census 560 calls, 0.5276 s, 712.3 Mc | trimul p_out :6789 via _pair_proj_linear -- already carries our tuned config; the L1 destination production prefers needs its own rung ladder, so this row is the DRAM fallback
+    ttnn v0.68.0 would derive: {'family': '1d', 'in0_block_w': 2, 'per_core_M': 75, 'per_core_N': 4, 'narrow_ratio': 2048.0}
+2026-09-17 10:32:52.329 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2277888 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+    1d_bw1_obh75_obw4          SKIP RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::except
+2026-09-17 10:32:53.029 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2601472 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+    1d_bw2_obh75_obw4          SKIP RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::except
+2026-09-17 10:32:53.728 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2601472 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+    1d_bw4_obh75_obw4          SKIP RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::except
+    clock during this key: {'n': 25, 'min': 1350, 'max': 1350, 'mean': 1350.0}
+    prod                         0.9473 ms     9.07 TF/s    141.7 GB/s  maxabs 0.0022
+    1d_bw1_obh25_obw4            0.5485 ms    15.66 TF/s    244.8 GB/s  maxabs 0.0022  1.7272x  +0.2221 s fold
+    1d_bw2_obh25_obw4            0.4961 ms    17.32 TF/s    270.6 GB/s  maxabs 0.0022  1.9097x  +0.2513 s fold
+    1d_bw4_obh25_obw4            0.4651 ms    18.47 TF/s    288.6 GB/s  maxabs 0.0020  2.0366x  +0.2685 s fold
+    BEST 1d_bw4_obh25_obw4  2.0366x vs prod  +0.2685 s / +362.6 Mc of fold
+
+wrote perf/c12_kblock/sweep_512_qb2c1.json
+TOTAL pre-registered fold seconds from the K block alone: +0.6108 s
+benchlock: c12-kblock-unlock released, rc=0, loadavg 0.35 0.69 0.55
