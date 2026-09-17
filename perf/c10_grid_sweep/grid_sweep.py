@@ -237,6 +237,7 @@ def main():
     build_units()
     R = {}
     for name, arm in ARMS.items():
+        arm["fn"](*AA_GRID)          # JIT compile, discarded -- sizing on it gave R=4 for trimul
         ttnn.synchronize_device(dev)
         t0 = time.perf_counter()
         arm["fn"](*AA_GRID)
