@@ -1,0 +1,199 @@
+{
+  "scope": "CPU comparison of two committed artifacts. No device, no fold, no new timing.",
+  "shapes": [
+    {
+      "shape": "ttnn.linear|out=1x512x3072|in=1x512x768,768x3072,3072",
+      "calls": 3000.0,
+      "flops_per_call": 2415919104,
+      "roof_us": 23.024102773277423,
+      "model_us": 55.79875999797876,
+      "residual_us": 32.77465722470134
+    },
+    {
+      "shape": "ttnn.linear|out=1x512x3072|in=1x512x768,3072,768x3072",
+      "calls": 1800.0,
+      "flops_per_call": 2415919104,
+      "roof_us": 23.024102773277423,
+      "model_us": 55.79875999797875,
+      "residual_us": 32.77465722470133
+    },
+    {
+      "shape": "ttnn.linear|out=1x512x1536|in=768x1536,1x512x768",
+      "calls": 4000.0,
+      "flops_per_call": 1811939328,
+      "roof_us": 17.268077079958065,
+      "model_us": 34.910256075877385,
+      "residual_us": 17.64217899591932
+    },
+    {
+      "shape": "ttnn.linear|out=1x512x1536|in=1x512x768,768x1536",
+      "calls": 11200.0,
+      "flops_per_call": 1207959552,
+      "roof_us": 11.512051386638712,
+      "model_us": 34.910256075877385,
+      "residual_us": 23.398204689238675
+    },
+    {
+      "shape": "ttnn.linear|out=1x512x768|in=1x512x1536,1536x768",
+      "calls": 4800.0,
+      "flops_per_call": 1207959552,
+      "roof_us": 11.512051386638712,
+      "model_us": 51.06944902501423,
+      "residual_us": 39.55739763837552
+    },
+    {
+      "shape": "ttnn.linear|out=1x16x512x512|in=1x16x512x128,128x512",
+      "calls": 8448.0,
+      "flops_per_call": 1073741824,
+      "roof_us": 24.998427125029437,
+      "model_us": 34.18893681231369,
+      "residual_us": 9.190509687284255
+    },
+    {
+      "shape": "ttnn.linear|out=1x16x512x128|in=1x16x512x512,512x128",
+      "calls": 8448.0,
+      "flops_per_call": 1073741824,
+      "roof_us": 24.998427125029437,
+      "model_us": 43.79917600358575,
+      "residual_us": 18.800748878556313
+    },
+    {
+      "shape": "ttnn.linear|out=1x512x768|in=768x768,1x512x768",
+      "calls": 9200.0,
+      "flops_per_call": 905969664,
+      "roof_us": 8.634038539979032,
+      "model_us": 28.854702900547277,
+      "residual_us": 20.220664360568243
+    },
+    {
+      "shape": "ttnn.linear|out=1x512x768|in=768,768x768,1x512x768",
+      "calls": 4200.0,
+      "flops_per_call": 905969664,
+      "roof_us": 8.634038539979032,
+      "model_us": 28.854702900547245,
+      "residual_us": 20.220664360568215
+    },
+    {
+      "shape": "ttnn.linear|out=1x512x768|in=768x768,768,1x512x768",
+      "calls": 1800.0,
+      "flops_per_call": 905969664,
+      "roof_us": 8.634038539979032,
+      "model_us": 28.854702900547245,
+      "residual_us": 20.220664360568215
+    },
+    {
+      "shape": "ttnn.linear|out=1x512x768|in=1x512x768,768x768",
+      "calls": 10200.0,
+      "flops_per_call": 603979776,
+      "roof_us": 6.481073699081706,
+      "model_us": 28.85470290054728,
+      "residual_us": 22.373629201465576
+    },
+    {
+      "shape": "ttnn.linear|out=1x512x768|in=1x512x768,768,768x768",
+      "calls": 6600.0,
+      "flops_per_call": 603979776,
+      "roof_us": 6.481073699081706,
+      "model_us": 28.85470290054726,
+      "residual_us": 22.373629201465555
+    },
+    {
+      "shape": "ttnn.linear|out=1x512x768|in=1x512x768,768x768,768",
+      "calls": 3800.0,
+      "flops_per_call": 603979776,
+      "roof_us": 6.481073699081706,
+      "model_us": 28.854702900547245,
+      "residual_us": 22.37362920146554
+    },
+    {
+      "shape": "ttnn.linear|out=1x512x768|in=768,1x512x768,768x768",
+      "calls": 1600.0,
+      "flops_per_call": 603979776,
+      "roof_us": 6.481073699081706,
+      "model_us": 28.854702900547245,
+      "residual_us": 22.37362920146554
+    },
+    {
+      "shape": "ttnn.linear|out=1x16x512x512|in=128x512,1x16x512x128",
+      "calls": 9472.0,
+      "flops_per_call": 16777216,
+      "roof_us": 0.6944007534730398,
+      "model_us": 34.18893681231358,
+      "residual_us": 33.49453605884054
+    },
+    {
+      "shape": "ttnn.linear|out=1x140x32x256|in=128x256,1x140x32x128",
+      "calls": 2400.0,
+      "flops_per_call": 8388608,
+      "roof_us": 0.38577819637391103,
+      "model_us": 8.255653402401695,
+      "residual_us": 7.869875206027784
+    },
+    {
+      "shape": "ttnn.linear|out=1x140x32x128|in=128x128,1x140x32x128",
+      "calls": 1600.0,
+      "flops_per_call": 4194304,
+      "roof_us": 0.2314669178243466,
+      "model_us": 5.478050388509538,
+      "residual_us": 5.2465834706851915
+    },
+    {
+      "shape": "ttnn.linear|out=1x16x512x256|in=64x256,1x16x512x64",
+      "calls": 2048.0,
+      "flops_per_call": 2097152,
+      "roof_us": 0.17360018836825994,
+      "model_us": 3.350482328876004,
+      "residual_us": 3.176882140507744
+    }
+  ],
+  "lever_arm": {
+    "flops_per_call_min": 2097152,
+    "flops_per_call_max": 2415919104,
+    "range_x": 1152.0
+  },
+  "residual_us": {
+    "all": {
+      "n": 18,
+      "median": 21.29714678101689,
+      "mean": 20.782374505689162,
+      "sd": 9.677733675387246,
+      "min": 3.176882140507744,
+      "max": 39.55739763837552,
+      "range_x": 12.451641543130483
+    },
+    "excluding_tiny_shapes": {
+      "n": 15,
+      "cutoff_MFLOP": 10.0,
+      "median": 22.37362920146554,
+      "sd": 7.422533234471598,
+      "min": 9.190509687284255,
+      "max": 39.55739763837552,
+      "range_x": 4.304157112538174
+    }
+  },
+  "total": {
+    "residual_s": 2.0713900249839736,
+    "roofline_s": 1.0695005823120671,
+    "modelled_s": 3.1408906072960403,
+    "residual_share_pct": 65.94912984783038
+  },
+  "reading": "Across a 1152x range in FLOPs per call the residual spans only 12x, and 3x of that is the three smallest shapes. Excluding those, the residual is 22.4 us median with a 7.4 us spread. A rate deficit would have made the residual track the 1152x FLOP range; it does not. **The gap is dominated by a roughly FIXED per-call cost of about 22 us**, and over the recorded shapes it is 2.071 s of a modelled 3.141 s -- 66 % of their time.",
+  "launch_does_not_explain_it": {
+    "device_launch_floor_s": 0.487,
+    "programs": 287000,
+    "us_per_program": 1.6968641114982577,
+    "residual_over_launch_x": 13.185280453430412
+  },
+  "ALTERNATIVE_the_instrument_added_it": "The modelled us/call comes from per-shape rates measured ON PC, whose card runs custom 130-core firmware. If pc's harness carried its own fixed per-measurement overhead of tens of microseconds, the entire residual is a property of that instrument and not of the fold. Nothing here can separate those, and this artifact does NOT claim a real per-call cost on qb2. It makes a prediction instead.",
+  "PREDICTED_for_the_measuring_row": [
+    "If the per-call cost is REAL, re-measuring these shapes on qb2 reproduces a residual that is flat in FLOPs at roughly 20 us, and the matmul class's achieved rate stays near 20 TFLOP/s with about two thirds of its time outside the roofline.",
+    "If it was PC's INSTRUMENT, the qb2 residual collapses -- large shapes land near their roofline time and the achieved rate rises toward the structural ceiling on the big shapes while staying low only on the genuinely DRAM-bound 16-head pair matmuls.",
+    "These differ by more than 3x on the achieved rate, so even a coarse measurement separates them. Report the residual per shape, not just the class rate, because the class rate alone cannot distinguish the two."
+  ],
+  "limits": [
+    "Both inputs are modelled. This compares a roofline computed here against a floor computed elsewhere; neither is a measurement of the fold on qb2.",
+    "18 recorded shapes, 86 % of the class's calls but 29 % of its modelled floor. The residual is NOT extrapolated to the remainder.",
+    "The three shapes under 10 MFLOP per call are excluded from the headline spread because their roofline time is under 1 us, so any fixed cost swamps them by construction. They are kept in the table and in the all-shapes statistics.",
+    "A flat residual is consistent with several mechanisms -- program setup, CB and semaphore configuration, kernel prologue -- and this does not distinguish among them."
+  ]
+}
