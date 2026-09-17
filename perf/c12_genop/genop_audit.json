@@ -1,0 +1,189 @@
+{
+ "roofs": {
+  "dram_GBps": 442.877,
+  "cube_TFLOPs": 122.29
+ },
+ "generic_op": {
+  "B": 912691691520.0,
+  "F": 87789131530240.0,
+  "s_tr": 2.149026822510006,
+  "s_ar": 3.376183238784186,
+  "s_fl": 4.0840893153558815,
+  "calls": 3920.0,
+  "repair_B": 18790481920.0
+ },
+ "modes_TB": {
+  "published": 0.0,
+  "+L1": 0.0,
+  "+PRE": 1.06301554688,
+  "+GATE": 0.0,
+  "corrected": 0.91269169152
+ },
+ "fold_modes_TB": {
+  "published": 2.944947683328,
+  "+L1": 2.988329893888,
+  "+PRE": 2.947095166976,
+  "+GATE": 2.944947683328,
+  "corrected": 2.858944004096
+ },
+ "l1_prealloc_hole_TB": {
+  "ttnn.generic_op": 0.01879048192
+ },
+ "floor_at_measured_roof_s": 12.532928664458804,
+ "fold_bytes_TB": 2.858934829056,
+ "priced_bytes_TB": 1.493805318144,
+ "live_address_overlap": {},
+ "sites": [
+  {
+   "owner": "TriangleMultiplication",
+   "site": "in-proj",
+   "src": "tt_bio/mm_dualnoc.py:123 (in_proj), via tt_bio/tenstorrent.py:5665 (_in_proj_matmul) -> tt_bio/mm_generic.py:372",
+   "what": "x[1,N,N,128] @ w[128,640], split=[512,128] -> xw[1,N,N,512] + gate[1,N,N,128]",
+   "rows": [
+    [
+     1,
+     262144,
+     128,
+     640,
+     42949672960
+    ]
+   ],
+   "calls": 560.0,
+   "B": 225577533440.0,
+   "W": 187904819200.0,
+   "R": 37672714240.0,
+   "repair_B": 0.0,
+   "F": 24051816857600.0,
+   "s_tr": 0.5311455932187428,
+   "s_ar": 1.5270576860261604,
+   "s_fl": 1.5270576860261604,
+   "outs_seen": 0.0
+  },
+  {
+   "owner": "TriangleAttention",
+   "site": "fused SDPA",
+   "src": "tt_bio/sdpa_generic.py:590 (sdpa)",
+   "what": "q,k,v,mask -> out[N,4,N,32]",
+   "rows": [
+    [
+     2048,
+     512,
+     32,
+     512,
+     34359738368
+    ],
+    [
+     2048,
+     512,
+     512,
+     32,
+     34359738368
+    ]
+   ],
+   "calls": 560.0,
+   "B": 151498260480.0,
+   "W": 37580963840.0,
+   "R": 113917296640.0,
+   "repair_B": 0.0,
+   "F": 38482906972160.0,
+   "s_tr": 0.3567182963974571,
+   "s_ar": 0.849625233810207,
+   "s_fl": 0.849625233810207,
+   "outs_seen": 0.0
+  },
+  {
+   "owner": "TriangleAttention",
+   "site": "in-proj",
+   "src": "tt_bio/triatt_qkv.py:420 (qkvgb_heads) -> tt_bio/mm_generic.py:372",
+   "what": "x[N,N,128] @ w[128,544], five N chunks -> q|k|v|g[N,4,N,32] + bias[N,N,4]",
+   "rows": [
+    [
+     1,
+     262144,
+     128,
+     544,
+     36507222016
+    ]
+   ],
+   "calls": 560.0,
+   "B": 197378048000.0,
+   "W": 159719096320.0,
+   "R": 37658951680.0,
+   "repair_B": 0.0,
+   "F": 20444044328960.0,
+   "s_tr": 0.46474699317165064,
+   "s_ar": 0.7237949494942838,
+   "s_fl": 0.7237949494942838,
+   "outs_seen": 0.0
+  },
+  {
+   "owner": "TriangleMultiplication",
+   "site": "reblock-gated",
+   "src": "tt_bio/reblock_permute.py:823 (reblock_permute_gated)",
+   "what": "two disjoint channel halves of xw -> [1,128,N,N]",
+   "rows": [],
+   "calls": 1120.0,
+   "B": 225485783040.0,
+   "W": 75161927680.0,
+   "R": 150323855360.0,
+   "repair_B": 0.0,
+   "F": 0.0,
+   "s_tr": 0.5309295574287731,
+   "s_ar": 0.0,
+   "s_fl": 0.5309295574287731,
+   "outs_seen": 0.0
+  },
+  {
+   "owner": "TriangleAttention",
+   "site": "out-proj",
+   "src": "tt_bio/triatt_qkv.py:321 (out_proj) -> tt_bio/mm_generic.py:372",
+   "what": "gated[N,4,N,32] @ w[128,128] -> [N,N,128]; memory_config picks L1 or DRAM",
+   "rows": [
+    [
+     1,
+     262144,
+     128,
+     128,
+     8589934592
+    ]
+   ],
+   "calls": 560.0,
+   "B": 37590138880.0,
+   "W": 18790481920.0,
+   "R": 18799656960.0,
+   "repair_B": 18790481920.0,
+   "F": 4810363371520.0,
+   "s_tr": 0.08850986315045915,
+   "s_ar": 0.2757053694535334,
+   "s_fl": 0.2757053694535334,
+   "outs_seen": 0.0
+  },
+  {
+   "owner": "TriangleMultiplication",
+   "site": "reblock-back",
+   "src": "tt_bio/reblock_permute.py:563 (reblock_permute_back)",
+   "what": "[1,128,N,N] -> [1,N,N,128]",
+   "rows": [],
+   "calls": 560.0,
+   "B": 75161927680.0,
+   "W": 37580963840.0,
+   "R": 37580963840.0,
+   "repair_B": 0.0,
+   "F": 0.0,
+   "s_tr": 0.1769765191429244,
+   "s_ar": 0.0,
+   "s_fl": 0.1769765191429244,
+   "outs_seen": 0.0
+  }
+ ],
+ "bracket_floor_s": {
+  "104.93": 12.532928664458804,
+  "122.29": 11.331587791588253
+ },
+ "native_join_s": {
+  "raw": 4.022542002562063,
+  "at_1350": 3.8215918127319615,
+  "clock_ratio": 0.8875852338445754,
+  "closure_s": 15.37997979176903
+ }
+}
