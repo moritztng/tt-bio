@@ -15,6 +15,15 @@ ARMS="${ARMS:-bare,regions,cacheclear,cprofile,sample,pyspy}"
 REPS="${REPS:-3}"
 CLOCKS="${CLOCKS:-1350,800}"
 
+# Not `python3`: a non-interactive ssh shell does not source the venv carrying torch + ttnn
+# 0.68.0, so a bare python3 dies on `import torch` after benchlock has already been taken.
+# Resolve the interpreter explicitly and prove it imports before spending a lock on it.
+PY="${PY:-/home/ttuser/tt-bio-dev/env/bin/python3}"
+if ! "$PY" -c "import torch, ttnn" >/dev/null 2>&1; then
+  echo "run.sh: $PY cannot import torch+ttnn. Set PY=<venv>/bin/python3. Refusing." >&2
+  exit 1
+fi
+
 if ! [ -r "/sys/class/tenstorrent/tenstorrent!${NODE}/tt_aiclk" ]; then
   echo "run.sh: node ${NODE} has no readable tt_aiclk -- that card is not on the bus. Refusing." >&2
   exit 1
@@ -22,14 +31,15 @@ fi
 
 for size in "${SIZES[@]}"; do
   out="$HERE/runs/$NAME/$size"
+  mkdir -p "$HERE/runs/$NAME"
   echo "=== $size aa -> $out (node $NODE, clocks $CLOCKS, arms $ARMS, reps $REPS) ==="
   TT_VISIBLE_DEVICES="$NODE" TT_BIO_LEASE_CARDS="$NODE" \
   TT_BIO_LEASE_HOLDER=worker:c12-host-decomp \
   ~/.coworker/scripts/benchlock.sh c12-host-decomp -- \
-    python3 "$HERE/decomp.py" --size "$size" --node "$NODE" --out "$out" \
+    "$PY" "$HERE/decomp.py" --size "$size" --node "$NODE" --out "$out" \
       --clocks "$CLOCKS" --reps "$REPS" --arms "$ARMS" \
     2>&1 | tee "$HERE/runs/$NAME/launch_$size.log"
 done
 
-python3 "$HERE/fit.py" "$HERE"/runs/"$NAME"/*/result.json > "$HERE/runs/$NAME/table.json"
+"$PY" "$HERE/fit.py" "$HERE"/runs/"$NAME"/*/result.json > "$HERE/runs/$NAME/table.json"
 echo "table: $HERE/runs/$NAME/table.json"

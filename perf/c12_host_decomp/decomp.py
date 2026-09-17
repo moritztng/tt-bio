@@ -35,7 +35,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path[:0] = [str(ROOT), str(HERE), str(ROOT / "scripts/gpu_vs_tt"),
-                str(ROOT / "perf/b2x_host_residual")]
+                str(ROOT / "perf/b2x_host_residual"), str(ROOT / "perf/other512")]
 from evidence import (coverage, digest, holders, own_nodes, snapshot, validate_snapshot,
                       write_json)
 from force_aiclk import FORCE_AICLK, smc
