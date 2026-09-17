@@ -120,3 +120,58 @@ def test_a_fold_whose_movers_carry_real_flops_breaks_the_headline(tmp_path, monk
     _fake(tmp_path, monkeypatch, c["by_op"])
     monkeypatch.setattr(A, "F_MEASURED_S", 0.5)
     assert A.analyse()["cost_bracket_s"]["F_inside_bracket"] is False
+
+
+# --- the census's own byte identity, and the shapes that break it -----------------------------
+def test_the_census_byte_identity_holds_exactly_where_it_holds_at_all():
+    """B == calls * tiles * 2048 is the census's own identity. If its median over the conforming
+    shapes ever drifts off 1.0, the hole detection below is measuring something else."""
+    h = A.analyse()["byte_counter_holes"]
+    assert h["shapes_conforming"] >= 40
+    assert h["median_ratio"] == pytest.approx(1.0, abs=1e-6)
+
+
+def test_exactly_the_two_named_shapes_are_real_holes():
+    h = A.analyse()["byte_counter_holes"]
+    assert len(h["real_holes"]) == 2
+    assert any("multiply_" in s and "1x16x512x512" in s for s in h["real_holes"])
+    assert any("layer_norm" in s for s in h["real_holes"])
+    # allocation and metadata-only reshapes must NOT be counted as holes
+    assert all(not any(d in s for d in A.DEFENSIBLE_ZERO) for s in h["real_holes"])
+
+
+def test_the_correction_moves_the_headline_up_so_the_published_figure_is_conservative():
+    r = A.analyse()
+    h = r["byte_counter_holes"]
+    assert h["corrected_zero_arith_pct_of_bytes"] > r["zero_arithmetic"]["byte_moving"]["pct_of_bytes"]
+    assert h["corrected_big3_pct_of_bytes"] > r["headline_candidate"]["pct_of_fold_bytes"]
+    assert 4.0 < h["correction_pct_of_fold_bytes"] < 7.0
+
+
+def test_a_conforming_shape_zeroed_out_is_detected_as_a_new_hole(tmp_path, monkeypatch):
+    c, f = A.load()
+    shapes = dict(c["top_shapes"])
+    victim = next(k for k, v in shapes.items()
+                  if v["B"] > 0 and v["in_tiles"] + v["out_tiles"] > 0
+                  and not any(d in k for d in A.DEFENSIBLE_ZERO))
+    shapes[victim] = dict(shapes[victim], B=0)
+    pc, pf = tmp_path / "c.json", tmp_path / "f.json"
+    pc.write_text(json.dumps(dict(c, top_shapes=shapes)))
+    pf.write_text(json.dumps(f))
+    monkeypatch.setattr(A, "CENSUS", pc)
+    monkeypatch.setattr(A, "FLOOR", pf)
+    assert victim in A.analyse()["byte_counter_holes"]["real_holes"]
+
+
+def test_a_census_with_no_holes_reports_no_correction(tmp_path, monkeypatch):
+    c, f = A.load()
+    shapes = {k: (dict(v, B=v["calls"] * (v["in_tiles"] + v["out_tiles"]) * A.TILE_B)
+                  if v["in_tiles"] + v["out_tiles"] > 0 else v)
+              for k, v in c["top_shapes"].items()}
+    pc, pf = tmp_path / "c.json", tmp_path / "f.json"
+    pc.write_text(json.dumps(dict(c, top_shapes=shapes)))
+    pf.write_text(json.dumps(f))
+    monkeypatch.setattr(A, "CENSUS", pc)
+    monkeypatch.setattr(A, "FLOOR", pf)
+    h = A.analyse()["byte_counter_holes"]
+    assert h["real_holes"] == [] and h["correction_GB"] == 0.0

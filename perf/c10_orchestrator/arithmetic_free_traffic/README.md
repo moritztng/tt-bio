@@ -44,6 +44,32 @@ promoted to the full figure.
 
 For scale: the ladder's entire priced total is 0.21 s against a 4.881 s gap.
 
+## The census under-counts its own bytes, and the correction goes our way
+
+The census carries an internal identity: `B == calls × (in_tiles + out_tiles) × 2048`. Across the
+**50 recorded shapes that have both tiles and bytes it holds at a median of exactly 1.000.** Seven
+shapes record nonzero tiles against exactly zero bytes.
+
+Five of those are semantics rather than a hole — an allocation moves nothing, and a metadata-only
+`reshape` or `unsqueeze` moves nothing on device. Two are not:
+
+| shape | calls | tiles/call | bytes the identity implies |
+|---|---|---|---|
+| `ttnn.multiply_` on `1x16x512x512` | 8,960 | 8,192 | 150.3 GB |
+| `ttnn.layer_norm` on `1x140x32x128` | 2,400 | 1,120 | 5.5 GB |
+
+An in-place multiply over the 16-head pair tensor must read two operands and write one, and the
+same op class records bytes correctly at other shapes. Together that is **155.8 GB, 5.45 % of the
+fold's recorded traffic**, and **both are in-place elementwise or normalisation ops**, so both land
+in the class this directory is about. Correcting them moves the headline from 49.0 % to **51.6 %**
+of bytes and the three-class concentration from 30.8 % to **34.4 %** — the published figures are
+the conservative ones.
+
+This is the **third** byte-counting defect the campaign has found, after `c10-roofline-reset`'s
+known-answer overcount of exactly one output tensor (1.3333x) and the recorded dedupe-on-tensor-id
+error. Any row that counts bytes should run this identity against its own capture first; it is two
+lines and it caught this one.
+
 ## Why the cost is a bracket
 
 The two in-house roofs put this class at 3.299 s and 4.012 s. The measured `F` = 3.9830 ± 0.1181 s
@@ -66,4 +92,4 @@ axis is not finding a lever. And "zero arithmetic" is a *model* statement: a `la
 SFPU work the census does not price.
 
     python3 arithmetic_free_traffic.py                      # writes the JSON
-    python3 -m pytest test_arithmetic_free_traffic.py -q    # 13 controls
+    python3 -m pytest test_arithmetic_free_traffic.py -q    # 18 controls

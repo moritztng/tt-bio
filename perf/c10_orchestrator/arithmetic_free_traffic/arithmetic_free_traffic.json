@@ -123,6 +123,73 @@
     ],
     "why_not_the_full_amount": "These are in-place elementwise and normalisation ops over the pair and single representations -- pure DRAM round trips. The shape that a producer's epilogue can absorb. But this project has measured that class of fusion before and it returns about a third of what it deletes, so the prize is a third of the traffic, not all of it."
   },
+  "byte_counter_holes": {
+    "identity": "B == calls * (in_tiles + out_tiles) * 2048",
+    "shapes_conforming": 50,
+    "median_ratio": 1.0,
+    "shapes_with_tiles_but_zero_bytes": [
+      {
+        "shape": "ttnn.multiply_|out=|in=1x16x512x512,1x16x512x512",
+        "calls": 8960.0,
+        "tiles_per_call": 8192,
+        "implied_GB": 150.32385536,
+        "defensible": false
+      },
+      {
+        "shape": "ttnn.unsqueeze|out=|in=1x512x3072",
+        "calls": 4800.0,
+        "tiles_per_call": 1536,
+        "implied_GB": 15.0994944,
+        "defensible": true
+      },
+      {
+        "shape": "ttnn.reshape|out=|in=140x4x128x32",
+        "calls": 3600.0,
+        "tiles_per_call": 2240,
+        "implied_GB": 16.515072,
+        "defensible": true
+      },
+      {
+        "shape": "ttnn.allocate_tensor_on_device|out=512x4x512x32|in=",
+        "calls": 2800.0,
+        "tiles_per_call": 32768,
+        "implied_GB": 187.9048192,
+        "defensible": true
+      },
+      {
+        "shape": "ttnn.layer_norm|out=1x140x32x128|in=1x140x32x128",
+        "calls": 2400.0,
+        "tiles_per_call": 1120,
+        "implied_GB": 5.505024,
+        "defensible": false
+      },
+      {
+        "shape": "ttnn.reshape|out=|in=1x140x32x128",
+        "calls": 1600.0,
+        "tiles_per_call": 560,
+        "implied_GB": 1.835008,
+        "defensible": true
+      },
+      {
+        "shape": "ttnn.reshape|out=|in=1x1x4608x128",
+        "calls": 1200.0,
+        "tiles_per_call": 576,
+        "implied_GB": 1.4155776,
+        "defensible": true
+      }
+    ],
+    "defensible_note": "an allocation moves nothing and a metadata-only reshape or unsqueeze moves nothing on device, so those zeros are semantics, not a hole",
+    "real_holes": [
+      "ttnn.multiply_|out=|in=1x16x512x512,1x16x512x512",
+      "ttnn.layer_norm|out=1x140x32x128|in=1x140x32x128"
+    ],
+    "correction_GB": 155.82887936,
+    "correction_pct_of_fold_bytes": 5.45059221974128,
+    "direction": "Both real holes are in-place elementwise or normalisation ops, so they belong to the zero-arithmetic class. Correcting them RAISES this directory's headline, which means the published figure is the conservative one.",
+    "corrected_zero_arith_pct_of_bytes": 51.63764040299995,
+    "corrected_big3_pct_of_bytes": 34.39192775797239,
+    "third_defect": "This is the third byte-counting defect this campaign has found, after c10-roofline-reset's known-answer overcount of exactly one output tensor (1.3333x) and the recorded dedupe-on-tensor-id error. Any row that counts bytes should check this identity against its own capture first."
+  },
   "what_is_new_here": [
     "The axis is against F, the clock-immune term, not against kernel time. It does not compete with arithmetic and it does not shrink when the clock rises, which is why it was mis-ranked while every ratio in the corpus was a wall-time ratio at an unrecorded clock.",
     "The concentration is three op classes, not a long tail: multiply_, layer_norm and add_ move 31 % of the fold's entire byte traffic and compute essentially none of it.",

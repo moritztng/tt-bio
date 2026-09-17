@@ -23,6 +23,10 @@ F_SE_S = 0.1181
 # perf/c10_orchestrator/shape_rank/: this project has measured that folding an elementwise epilogue
 # into its producing matmul returns about a third of the traffic it deletes, not all of it.
 FUSION_RETURN = 1.0 / 3.0
+TILE_B = 32 * 32 * 2         # a bf16 tile, which is the unit the census counts in
+# Shapes whose recorded zero bytes are SEMANTICALLY correct rather than a counting hole: an
+# allocation moves nothing, and a metadata-only reshape or unsqueeze moves nothing on device.
+DEFENSIBLE_ZERO = ("allocate_tensor_on_device", "reshape", "unsqueeze", "squeeze")
 
 
 def load():
@@ -128,6 +132,49 @@ def analyse():
                                    "traffic, not all of it.",
     }
 
+    # --- the census's own identity, and the seven shapes that break it ------------------------
+    # For every recorded shape carrying both tiles and bytes, B == calls * tiles * TILE_B. That
+    # identity is the census's own, it holds at a median of exactly 1.000, and seven shapes record
+    # nonzero tiles against exactly zero bytes.
+    shapes = census["top_shapes"]
+    conform, holes = [], []
+    for k, v in shapes.items():
+        tiles = v["in_tiles"] + v["out_tiles"]
+        if tiles <= 0:
+            continue
+        implied = v["calls"] * tiles * TILE_B
+        if v["B"] > 0:
+            conform.append(v["B"] / implied)
+        else:
+            holes.append({"shape": k, "calls": v["calls"], "tiles_per_call": tiles,
+                          "implied_GB": implied / 1e9,
+                          "defensible": any(d in k for d in DEFENSIBLE_ZERO)})
+    conform.sort()
+    med = conform[len(conform) // 2] if conform else None
+    real = [h for h in holes if not h["defensible"]]
+    correction_B = sum(h["implied_GB"] for h in real) * 1e9
+    out["byte_counter_holes"] = {
+        "identity": "B == calls * (in_tiles + out_tiles) * 2048",
+        "shapes_conforming": len(conform),
+        "median_ratio": med,
+        "shapes_with_tiles_but_zero_bytes": holes,
+        "defensible_note": "an allocation moves nothing and a metadata-only reshape or unsqueeze "
+                           "moves nothing on device, so those zeros are semantics, not a hole",
+        "real_holes": [h["shape"] for h in real],
+        "correction_GB": correction_B / 1e9,
+        "correction_pct_of_fold_bytes": 100.0 * correction_B / tot_B,
+        "direction": "Both real holes are in-place elementwise or normalisation ops, so they belong "
+                     "to the zero-arithmetic class. Correcting them RAISES this directory's "
+                     "headline, which means the published figure is the conservative one.",
+        "corrected_zero_arith_pct_of_bytes":
+            100.0 * (m["TB"] * 1e12 + correction_B) / (tot_B + correction_B),
+        "corrected_big3_pct_of_bytes": None,   # filled below once big3 is known
+        "third_defect": "This is the third byte-counting defect this campaign has found, after "
+                        "c10-roofline-reset's known-answer overcount of exactly one output tensor "
+                        "(1.3333x) and the recorded dedupe-on-tensor-id error. Any row that counts "
+                        "bytes should check this identity against its own capture first.",
+    }
+
     out["what_is_new_here"] = [
         "The axis is against F, the clock-immune term, not against kernel time. It does not "
         "compete with arithmetic and it does not shrink when the clock rises, which is why it was "
@@ -143,6 +190,9 @@ def analyse():
         "known axis, not a new axis.",
         "Nothing here is a lever or a measurement of one. No cycle deleted, no accuracy spent.",
     ]
+    out["byte_counter_holes"]["corrected_big3_pct_of_bytes"] = 100.0 * (
+        b3_B + correction_B) / (tot_B + correction_B)
+
     out["limits"] = [
         "'Zero arithmetic' is a MODEL statement -- an op the census prices with no arithmetic term "
         "-- not a hardware statement. A layer_norm does real SFPU work the model does not price.",
