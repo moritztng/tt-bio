@@ -170,6 +170,26 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   most 0.362 of 100 at 512 residues, 0.185 at 298. 16.537 s against 17.285 s, 8 paired folds an arm
   interleaved ABBA on one card under benchlock, all 8 pairs positive against a 1.00104x A/A floor.
 
+- **Boltz-2 folds 1.0543x faster at 512 residues on Blackhole, byte for byte the same structure.**
+  A triangle multiplication's channel move was followed by three eltwise passes over its result: a
+  chunk and two sigmoid gates. Those now happen inside the move
+  (`TT_BIO_REBLOCK_PERMUTE_GATED`, on by default), which reads the wide fused projection once
+  instead of writing a full-width intermediate for three consumers to re-read. The fused pair was
+  a measured LOSS when it first landed, +0.373 s a fold, and the reason was coverage rather than
+  the kernel: the eligibility test required no pair mask, and Boltz-2 always passes one, so only
+  64 of its 560 moves a fold could ever reach it and none of those were in the Pairformer.
+  Applying the mask after the channel move instead of before
+  (`TT_BIO_TRIMUL_MASK_AFTER_MOVE`, on by default) opens the path to a masked trimul, and the
+  same kernel then reads 1.2981x and 1.3329x per triangle multiplication at 512 residues.
+  Measured as a stack and not by summing: four arms of five folds each at 512 aa, 200 sampling
+  steps, 3 recycles on one Blackhole card, baseline 24.083 s against 22.843 s with both on, and a
+  baseline-repeat arm reading 0.9988x for an A/A floor of 0.125 %. It permutes and masks, it does
+  no new arithmetic, so the bar is equality and it clears it: all twenty folds across all four
+  arms wrote one CIF digest, `4f3995a69be5d610`, at one pLDDT, 0.849627, and the kernel itself is
+  hash-equal against a negative control at both slice widths on ones and on random input
+  (`perf/b2x_trimul/`, `perf/odde512/screen3.json`). Each triangle multiplication opts in
+  separately, so a model whose shapes the fused reader cannot address keeps the separate ops.
+
 - **Boltz-2 folds 1.0229x faster at 512 residues on Blackhole, byte for byte the same structure.**
   A triangle multiplication projects its gates and values in one matmul, and the channel move that
   consumes it reads a value slice and its gate slice back to back. Ordered by role those two reads
