@@ -131,3 +131,13 @@ Reduced verdict: **GO**
 
 - F(512 aa) = 3.9830 s, F(298 aa) = 1.9500 s, difference 2.0330 s +-0.1260: **F is size DEPENDENT within 2 standard errors**
 - work term 14665.0 Mcycles at 512 aa against 10403.4 at 298 aa: a work ratio of **1.410**
+
+## What it settles
+
+At 512 aa the 10.0 s target needs a 44.6 % cut of the 14665.0 Mcycle work term with F left alone, or 17.1 % with F brought to 1.0 s. Bringing F to 1.0 s while deleting no device cycle at all lands at 11.8630 s, so F alone does not get there.
+
+The work ratio is 1.410, below the 1.6 the campaign's low branch assumed and well below the 2.5 at which cutting F would have been sufficient on its own. So the answer is neither: the 10.0 s target is not a host problem and not a kernel problem, it needs both levers, and they are comparable in size. F is also size dependent rather than a host constant, 3.9830 s at 512 aa against 1.9500 s at 298 aa, which is what featurization and CIF writing scaling with the target look like.
+
+F is not shown to be removable host CPU work. Host CPU inside the timed window tracks the clock instead of staying flat, which is a thread waiting on the device, so part of F may be device time in a clock domain AICLK does not drive. Splitting F into host, dispatch and non-AICLK device time is not in this row.
+
+The 298 aa fixture already folds in 9.6563 s and is not the constraint.

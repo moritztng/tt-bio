@@ -78,6 +78,32 @@ def main(path):
         print(f"- work term {f(x['C_Mcycles'][hi],1)} Mcycles at {hi} aa against {f(x['C_Mcycles'][lo],1)} at {lo} aa: "
               f"a work ratio of **{f(x['work_cycle_ratio'],3)}**")
 
+        # what the row was opened to settle: host problem, kernel problem, or both
+        d = a["targets"][hi]["demand"]
+        u, c1 = d["F_untouched"], d["F_cut_to_1s"]
+        print(f"""
+## What it settles
+
+At {hi} aa the {d['target_s']} s target needs a {f(u['cycle_cut_pct'],1)} % cut of the \
+{f(x['C_Mcycles'][hi],1)} Mcycle work term with F left alone, or {f(c1['cycle_cut_pct'],1)} % with F \
+brought to {c1['assumed_F_s']} s. Bringing F to {c1['assumed_F_s']} s while deleting no device cycle at \
+all lands at {f(d['F_alone_at_current_cycles_s'],4)} s, so F alone does not get there.
+
+The work ratio is {f(x['work_cycle_ratio'],3)}, below the 1.6 the campaign's low branch assumed and \
+well below the 2.5 at which cutting F would have been sufficient on its own. So the answer is \
+neither: the {d['target_s']} s target is not a host problem and not a kernel problem, it needs both \
+levers, and they are comparable in size. F is also size dependent rather than a host constant, \
+{f(x['F_s'][hi],4)} s at {hi} aa against {f(x['F_s'][lo],4)} s at {lo} aa, which is what \
+featurization and CIF writing scaling with the target look like.
+
+F is not shown to be removable host CPU work. Host CPU inside the timed window tracks the clock \
+instead of staying flat, which is a thread waiting on the device, so part of F may be device time \
+in a clock domain AICLK does not drive. Splitting F into host, dispatch and non-AICLK device time \
+is not in this row.
+
+The {lo} aa fixture already folds in {f(a['targets'][lo]['demand']['seconds_now'],4)} s and is not \
+the constraint.""")
+
 
 if __name__ == "__main__":
     main(sys.argv[1])
