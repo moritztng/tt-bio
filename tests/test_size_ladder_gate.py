@@ -25,13 +25,33 @@ import pytest
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
+def _workdir_off_the_repo(mod, tmp):
+    """Point a loaded release_gate at scratch, because run_size_ladder deletes its workdir.
+
+    `run_size_ladder(keep=False, ...)` ends in `shutil.rmtree(SIZE_LADDER_WORKDIR)`
+    (scripts/release_gate.py), and that global is the REAL perf/sizegate/work. Seven tests in
+    this file call it with keep=False and patch only baseline_path, so running this file wiped
+    the scratch tree of whatever size-ladder arm was folding on a card at the time. The folds
+    are faked here; the teardown is not.
+
+    That is the disappearance the comment above
+    test_a_fold_whose_log_vanished_reports_the_fold_not_the_error_path records as unexplained:
+    protenix-v2 crashed at rung 256 twice on 2026-09-10, and it happened again at 18:21Z on
+    2026-09-17 during the v0.9.0 release gate, mid-opendde, while this file ran on the host.
+    Patching it in the fixtures covers every test in the file, present and future, rather than
+    seven call sites that the eighth forgets.
+    """
+    mod.SIZE_LADDER_WORKDIR = tmp / "work"
+    return mod
+
+
 @pytest.fixture(scope="module")
-def rg():
+def rg(tmp_path_factory):
     spec = importlib.util.spec_from_file_location(
         "release_gate_under_test", REPO_ROOT / "scripts" / "release_gate.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    return mod
+    return _workdir_off_the_repo(mod, tmp_path_factory.mktemp("sizegate_rg"))
 
 
 FIRING = {"resolved": "True", "served": 10, "declined": 0, "frac": 1.0, "how": "stats"}
@@ -529,7 +549,7 @@ def test_nesso1_folds_through_affinity_not_predict(rg):
 # opendde and it took a three-arm bisect to re-establish that 256/512/640 had been fine.
 
 @pytest.fixture
-def rg_fresh():
+def rg_fresh(tmp_path):
     """Own module instance. The `rg` fixture is module-scoped and the `_check` helper above
     permanently rebinds `_size_ladder_measure_model` on it, so a test that needs the real one
     has to load its own copy."""
@@ -537,7 +557,7 @@ def rg_fresh():
         "release_gate_partial_rungs", REPO_ROOT / "scripts" / "release_gate.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    return mod
+    return _workdir_off_the_repo(mod, tmp_path)
 
 
 def _ok_fold(runtime):
@@ -1107,3 +1127,17 @@ def test_a_readable_fold_log_still_comes_through_verbatim(rg_fresh, tmp_path):
     log.write_text("some chatter\n✗ protenix-v2: out of memory\ncensus table\n")
     assert rg_fresh._fold_log_text(log) == log.read_text()
     assert rg_fresh._fold_error(rg_fresh._fold_log_text(log)) == "✗ protenix-v2: out of memory"
+
+
+def test_no_fixture_hands_a_test_the_real_scratch_tree(rg, rg_fresh):
+    """The guard on _workdir_off_the_repo: a workdir under the repo is some arm's live tree.
+
+    Without it this file deletes perf/sizegate/work every time it runs, and the only symptom is
+    a release gate two hours into a card losing the logs of the rungs it already scored.
+    """
+    real = REPO_ROOT / "perf" / "sizegate" / "work"
+    for name, mod in (("rg", rg), ("rg_fresh", rg_fresh)):
+        wd = pathlib.Path(mod.SIZE_LADDER_WORKDIR)
+        assert wd != real, f"{name} still points at the real scratch tree: {wd}"
+        assert REPO_ROOT not in wd.parents, (
+            f"{name} points inside the repo at {wd}; run_size_ladder(keep=False) rmtrees it")
