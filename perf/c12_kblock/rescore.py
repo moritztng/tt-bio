@@ -20,16 +20,23 @@ def rescore(path):
     d = json.load(open(path))
     R = d["roofs"]
     l1 = R.get("l1_rw_GBs", L1_ROOF_CROSS_SESSION)
+    # The clone probe is not just a lower bound, it is unstable under host load: the same card at
+    # the same forced clock read 564.1, 581.7 and 33.6 GB/s in three sessions of one afternoon. It
+    # is reported for the record and never used to refuse an arm.
     out = []
     for r in d["shapes"]:
         all_dram = r["amc"] == "DRAM" and r["omc"] == "DRAM"
-        roof = R["dram_rw_GBs"] if all_dram else l1
+        # Only the DRAM roof may refuse. The L1 figure comes from ttnn.clone and is a lower bound on
+        # L1 bandwidth, so refusing an arm above it throws away correct, fast arms.
+        roof = R["dram_rw_GBs"] if all_dram else None
         prod = r["arms"].get("prod", {}).get("ms")
         cand = {}
         for k, v in r["arms"].items():
             if k in ("prod", "prod_aa") or prod is None:
                 continue
-            if v["TFLOPs"] > 1.05 * R["compute_TFLOPs"] or v["GBs"] > 1.05 * roof:
+            if v["TFLOPs"] > 1.05 * R["compute_TFLOPs"]:
+                continue
+            if roof is not None and v["GBs"] > 1.05 * roof:
                 continue
             cand[k] = v
         if not cand:
@@ -38,7 +45,8 @@ def rescore(path):
         aa = r.get("aa_ratio")
         x = round(prod / cand[best]["ms"], 4)
         was = r["best"]["arm"] if r.get("best") else None
-        out.append({"key": r["key"], "tokens": r.get("tokens", 512), "roof_GBs": roof,
+        out.append({"key": r["key"], "tokens": r.get("tokens", 512),
+                    "roof_GBs": roof if roof is not None else "L1: probe does not bind",
                     "best": best, "x": x, "aa": aa, "was": was,
                     "was_x": r["best"]["x_vs_prod"] if r.get("best") else None,
                     "TFLOPs": cand[best]["TFLOPs"], "GBs": cand[best]["GBs"],
@@ -52,7 +60,14 @@ for path in sys.argv[1:]:
           % (d["roofs"]["compute_TFLOPs"], d["roofs"]["dram_rw_GBs"],
              d["roofs"].get("l1_rw_GBs", "%.1f (cross-session)" % L1_ROOF_CROSS_SESSION)))
     for r in rows:
-        moved = "" if r["was"] == r["best"] else "   <- WAS %s %.4fx" % (r["was"], r["was_x"])
+        if r["was"] == r["best"]:
+            moved = ""
+        elif r["was"] is None:
+            # The run recorded NO best at all: its own gate refused every arm. That is the failure
+            # this script exists to undo, so say so rather than printing a diff against nothing.
+            moved = "   <- run recorded NO best (its gate refused every arm)"
+        else:
+            moved = "   <- WAS %s %.4fx" % (r["was"], r["was_x"])
         print("  %-16s tok=%-4d %-22s %.4fx  %6.2f TF/s %7.1f GB/s  aa=%-7s %s%s"
               % (r["key"], r["tokens"], r["best"], r["x"], r["TFLOPs"], r["GBs"],
                  r["aa"], "RESULT" if r["result"] else "inside floor", moved))

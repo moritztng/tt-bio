@@ -6912,46 +6912,47 @@ def _mm_block_for(w):
 # A/B has been scored against these yet, so the entries are op-level only.
 _LINEAR_KBLOCK = env_flag("TT_BIO_LINEAR_KBLOCK", False)
 
+# (mt_total, kt, nt) -> (family, in0_block_w, out_block_h_divisor). out_block_h is
+# per_core_M // divisor and must divide it exactly, so the drain is expressed relative to the live
+# grid rather than stored absolutely. A divisor of 1 is the whole per-core block.
+#
+# The drain divisor exists because the full drain is NOT always right and is not always LEGAL. At
+# the fold's real pair shape (mt_total 752) per_core_M is 76 on the 2D factory, and every arm with
+# out_block_h = 76 failed to build at all -- `TT_THROW @ program.cpp:1043`, an L1 overflow -- while
+# out_block_h = 38 was the optimum (perf/c12_kblock/xfam_fc2b47_512_qb2c3.json). An earlier reading
+# of this table concluded the drain was always full; that was true only of shapes with a small
+# mt_total, which is what the sweep had been given.
+#
+# VERDICT, and it is why this stays off: measured at the shapes the fold ACTUALLY issues, this lever
+# is worth about +0.035 s of a 15.4 s fold, against this campaign's own "below 0.10 s is not worth
+# landing" bar. The entries below are kept because they are measured and because the flag is a
+# cheap way to re-check the class, NOT because they are a pending win.
 _LINEAR_BLOCK = {
-    # (mt_total, kt, nt): (family, in0_block_w)          ratio / A/A floor of that session
-    (160, 4, 16): ("2d", 4),    # pair Transition fc2 @ 298 aa   PENDING / sweep 1.4128x
-    (256, 4, 16): ("2d", 4),    # pair Transition fc2 @ 512 aa   1.2434x / 0.9605x  2D beats 1D here
-    (384, 4, 16): ("2d", 4),    # pair Transition fc2 @ 768 aa   PENDING / sweep 1.3139x
-    (160, 16, 4): ("1d", 4),    # pair Transition fc3 @ 298 aa   1.4241x / 0.9918x
-    (256, 16, 4): ("1d", 2),    # pair Transition fc3 @ 512 aa   1.1852x / 1.0029x
-    (384, 16, 4): ("1d", 2),    # pair Transition fc3 @ 768 aa   1.1544x / 1.0067x
-    (16, 24, 24): ("2d", 12),   # DiT s-projection  @ 512 aa     1.0627x / 1.0185x  MARGINAL
-    (24, 24, 24): ("2d", 8),    # DiT s-projection  @ 768 aa     1.0306x / 0.9906x  MARGINAL
-    # Every ratio above is measured through THIS function on device (perf/c12_kblock/lever_ab.py,
-    # the *_qb2c* json/log pairs), not from the standalone sweep, because the sweep overstates this
-    # class uniformly and at two keys it inverted the sign. Three entries were removed on that
-    # evidence rather than kept on a sweep number:
-    #
-    #   DiT @ 298 aa, was ("2d", 8) on the sweep's 1.1025x -> production path reads 0.8925x against
-    #     an A/A floor of 1.0260x. A measured REGRESSION of 11 %, which is exactly what a one-size
-    #     tuning does at the size it was not tuned at. 298 aa keeps today's call.
-    #   CTB @ 512 aa, was ("2d", 8) on 1.0649x -> 0.9935x against a 1.0085x floor: inside it.
-    #   CTB @ 768 aa, was ("2d", 12) on 1.1202x -> 1.0176x against a 1.0367x floor: inside it.
-    #     So CTB has no entry at any size and the three CTB sites are inert.
-    #
-    # fc2 takes the 2D factory at ALL THREE sizes and ttnn routes it to 1D at all three: its
-    # height/width ratio is 16.0 at every size because both height and width scale with nothing
-    # (mt_total moves with the tokens, nt is fixed at 16), so the ratio-8 rule mis-routes it
-    # uniformly rather than at one size. Cross-family sweep: 1.4128x at 298 aa against the best 1D
-    # config's 1.1495x, 1.3139x at 768 aa (perf/c12_kblock/xfam_fc2_{320,768}_qb2c2.json). Those two
-    # are marked PENDING because only the 512 aa 2D entry has been through lever_ab on device, and
-    # the sweep overstates.
-    #
-    # The two DiT entries that survive are marked MARGINAL deliberately: they clear their floors by
-    # only 4.3 and 4.0 points while the same key inverted at 298 aa, so they are the first thing to
-    # re-check if the fold A/B underdelivers. fc2 and fc3 clear theirs at all three sizes and carry
-    # 0.0480 s and 0.1238 s of the 0.2052 s predicted, against DiT's 0.0334 s.
-    # CTB @ 298 aa is DELIBERATELY ABSENT. Its best arm read 1.0551x against that session's own A/A
-    # floor of 1.0538x, so it is not a result and the site keeps today's call at that size. An entry
-    # here would be tuning to noise.
-    # fc1 shares fc2's key: the two are byte-identical operations and fc1 differs only by its fused
-    # silu, which `_linear_block_cfg` refuses. So fc1 picks the entry up only once
-    # TT_BIO_UNFUSED_SILU has split the epilogue out, at which point it IS fc2's measured op.
+    # Pair Transition fc2, the b=47 row block -- 2800 calls/fold, and the ONLY pair key that
+    # survived measurement at its real shape. 1.1236x against an A/A floor of 1.0305x,
+    # 52.69 TFLOP/s and 516.8 GB/s (perf/c12_kblock/xfam_fc2b47_512_qb2c3.json).
+    (752, 4, 16): ("2d", 4, 2),
+    # DiT s-projection. These two DO fire in the fold -- the witness in fold_ab_kblock.py counts
+    # 9600 hits per fold on the 512 aa key -- and they are the only entries that ever did.
+    # 1.0627x / A/A 1.0185x at 512 aa, 1.0360x / 1.0076x at 768 aa, measured through
+    # `_linear_blocked` itself (perf/c12_kblock/lever_ab_{512,768}_qb2c*.json). Both MARGINAL.
+    (16, 24, 24): ("2d", 12, 1),
+    (24, 24, 24): ("2d", 8, 1),
+    # DELIBERATELY ABSENT, each on a measurement:
+    #   pair fc3 at its real shape (752, 16, 4) -- best arm 1.0113x against a 1.0248x A/A floor, so
+    #     no result. Its headline 1.2776x was measured at (256, 16, 4), a shape the fold never
+    #     issues, and it does not survive the correction. fc3 was the largest single line in the
+    #     prediction at +0.1238 s and it is now zero.
+    #   every (160|256|384, 4|16, 16|4) key -- those came from reading the census's shape string
+    #     `1x16x512x512 K=128` as b=16, giving mt_total 256. The firing witness proved NO call in
+    #     the fold has that key: the pair tensor is row-blocked into ten chunks of 47 plus one of 42
+    #     (10*47 + 42 = 512), so the real keys are mt_total 752 and 672. Six entries sat in this
+    #     table unable to fire.
+    #   CTB at every size -- 0.9935x at 512 aa and 1.0176x at 768 aa, both inside their own floors.
+    #   DiT at 298 aa -- a measured 11 % REGRESSION (0.8925x against a 1.0260x floor).
+    #   the b=42 tail blocks (672, ...) and every 298/768 aa real key -- simply unmeasured.
+    # fc1 shares fc2's key and is refused by the activation guard, so it picks an entry up only once
+    # TT_BIO_UNFUSED_SILU has split its epilogue out, at which point it IS fc2's measured op.
 }
 
 
@@ -6983,7 +6984,7 @@ def _linear_block_cfg(a_shape, w_shape, activation, bias, core_grid):
     entry = _LINEAR_BLOCK.get((batch * m // 32, k // 32, n // 32))
     if entry is None:
         return None
-    family, bw = entry
+    family, bw, obh_div = entry
     mt_total, kt, nt = batch * m // 32, k // 32, n // 32
     if kt % bw:
         return None
@@ -6992,15 +6993,18 @@ def _linear_block_cfg(a_shape, w_shape, activation, bias, core_grid):
         pcm, pcn = -(-mt_total // (gx * gy)), nt
     else:
         pcm, pcn = -(-mt_total // gy), -(-nt // gx)
-    sh, sw = _linear_block_subblocks(pcm, pcn)
+    if obh_div < 1 or pcm % obh_div:
+        return None      # this grid cannot express the measured drain, so keep today's call
+    obh = pcm // obh_div
+    sh, sw = _linear_block_subblocks(obh, pcn)
     if family == "1d":
         return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
             compute_with_storage_grid_size=(gx, gy), in0_block_w=bw, out_subblock_h=sh,
-            out_subblock_w=sw, out_block_h=pcm, out_block_w=pcn, per_core_M=pcm, per_core_N=pcn,
+            out_subblock_w=sw, out_block_h=obh, out_block_w=pcn, per_core_M=pcm, per_core_N=pcn,
             fuse_batch=True, fused_activation=None, mcast_in0=False)
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy), in0_block_w=bw, out_subblock_h=sh,
-        out_subblock_w=sw, out_block_h=pcm, out_block_w=pcn, per_core_M=pcm, per_core_N=pcn,
+        out_subblock_w=sw, out_block_h=obh, out_block_w=pcn, per_core_M=pcm, per_core_N=pcn,
         transpose_mcast=False, fused_activation=None)
 
 

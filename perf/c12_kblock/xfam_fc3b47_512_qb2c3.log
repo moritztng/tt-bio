@@ -1,0 +1,43 @@
+2026-09-17 12:57:07.213 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+tt_bio from /home/ttuser/.coworker/wt/c12-kblock-unlock/tt_bio/tenstorrent.py
+grid 11x10 = 110 cores | nodes [3] | clock forced 1350 on [3] | aiclk now 1350 MHz
+ROOFS {"clk_compute": {"n": 15, "min": 1350, "max": 1350, "mean": 1350.0}, "compute_TFLOPs": 109.96, "clk_dram": {"n": 165, "min": 1350, "max": 1350, "mean": 1350.0}, "dram_rw_GBs": 381.6, "clk_l1": {"n": 156, "min": 1350, "max": 1350, "mean": 1350.0}, "l1_rw_GBs": 584.6}
+   byte roof applied: 381.6 GB/s to all-DRAM keys, 584.6 GB/s to keys with an L1 operand
+
+=== pair_tr_fc3_b47  a[1, 47, 512, 512] @ w[512, 128]  mt_total=752 kt=16 nt=4  act=None  L1->DRAM
+    census 0 calls, 0.0000 s, 0.0 Mc | Transition.swiglu fc3 tenstorrent.py:8345, the b=47 row block -- 2800 calls/fold
+    ttnn v0.68.0 would derive: {'family': '1d', 'in0_block_w': 2, 'per_core_M': 7, 'per_core_N': 4, 'narrow_ratio': 188.0}
+2026-09-17 12:57:20.602 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=3,y=9)] grow to 1839616 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+    2d_bw4_obh76_obw1          SKIP RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::except
+2026-09-17 12:57:22.193 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=3,y=9)] grow to 3101184 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+    2d_bw8_obh76_obw1          SKIP RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::except
+2026-09-17 12:57:22.919 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=3,y=9)] grow to 1622528 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+    2d_bw8_obh38_obw1          SKIP RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::except
+2026-09-17 12:57:23.624 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=3,y=9)] grow to 3101184 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+    2d_bw16_obh76_obw1         SKIP RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::except
+2026-09-17 12:57:24.369 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=3,y=9)] grow to 1622528 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+    2d_bw16_obh38_obw1         SKIP RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::except
+    clock during this key: {'n': 14, 'min': 1350, 'max': 1350, 'mean': 1350.0}
+    prod                         0.0750 ms    42.05 TF/s    412.4 GB/s  maxabs 0.0038
+    prod_aa                      0.0732 ms    43.09 TF/s    422.6 GB/s  maxabs 0.0038  1.0248x
+    1d_bw1_obh7_obw4             0.0742 ms    42.52 TF/s    417.0 GB/s  maxabs 0.0038  1.0113x
+    1d_bw1_obh1_obw4             0.2183 ms    14.45 TF/s    141.7 GB/s  maxabs 0.0038  0.3437x
+    1d_bw2_obh7_obw4             0.0871 ms    36.20 TF/s    355.0 GB/s  maxabs 0.0038  0.8608x
+    1d_bw2_obh1_obw4             0.1453 ms    21.71 TF/s    212.9 GB/s  maxabs 0.0038  0.5162x
+    1d_bw4_obh7_obw4             0.0979 ms    32.22 TF/s    316.0 GB/s  maxabs 0.0038  0.7662x
+    1d_bw4_obh1_obw4             0.1155 ms    27.31 TF/s    267.9 GB/s  maxabs 0.0038  0.6496x
+    1d_bw8_obh7_obw4             0.1062 ms    29.71 TF/s    291.3 GB/s  maxabs 0.0038  0.7065x
+    1d_bw8_obh1_obw4             0.1045 ms    30.17 TF/s    295.9 GB/s  maxabs 0.0038  0.7176x
+    1d_bw16_obh7_obw4            0.1256 ms    25.10 TF/s    246.2 GB/s  maxabs 0.0038  0.5971x
+    1d_bw16_obh1_obw4            0.1076 ms    29.30 TF/s    287.4 GB/s  maxabs 0.0038  0.6969x
+    2d_bw1_obh76_obw1            0.1199 ms    26.31 TF/s    258.0 GB/s  maxabs 0.0038  0.6257x
+    2d_bw1_obh38_obw1            0.1313 ms    24.02 TF/s    235.6 GB/s  maxabs 0.0038  0.5712x
+    2d_bw2_obh76_obw1            0.1177 ms    26.79 TF/s    262.7 GB/s  maxabs 0.0038  0.6371x
+    2d_bw2_obh38_obw1            0.1200 ms    26.29 TF/s    257.8 GB/s  maxabs 0.0038  0.6252x
+    2d_bw4_obh38_obw1            0.1081 ms    29.17 TF/s    286.1 GB/s  maxabs 0.0038  0.6938x
+    BEST 1d_bw1_obh7_obw4  1.0113x vs prod  (no census counts at this size)  [A/A floor 1.0248x]
+    ^ NOT A RESULT: this key's best arm is inside its own A/A floor
+
+wrote perf/c12_kblock/xfam_fc3b47_512_qb2c3.json
+TOTAL pre-registered fold seconds from the K block alone: +0.0000 s

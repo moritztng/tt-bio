@@ -1,0 +1,283 @@
+{
+ "doc": "Boltz-2 fold A/B for TT_BIO_LINEAR_KBLOCK: the shape-routed matmul block config.\n\nThe lever names a measured `program_config` at eight `linear` sites instead of letting ttnn derive\none. Op-level it is worth 1.1565-1.2434x on fc2, 1.1595-1.3878x on fc3 and 1.0360-1.0627x on the DiT\nprojection, measured through `_linear_blocked` itself (`perf/c12_kblock/lever_ab_*.json`). Predicted\nat 512 aa from those rates against the census call counts: +0.2052 s / 277.0 Mc. An op-level ratio is\nNOT a fold-level second -- two C10 rows pre-registered 3.04 s and 4.908 s and delivered -0.0214 s\nand 0.156 s -- so this harness exists to score that prediction rather than to confirm it.\n\nArms in ONE process so both share a program cache and a model load:\n\n    off     `_LINEAR_KBLOCK = False` -- today's path, `ttnn.linear(core_grid=...)`\n    on      `_LINEAR_KBLOCK = True`  -- the table's config where it names the shape\n\nSwitching in-process is legal here because the lever changes `program_config`, which is part of the\nmatmul op's program-cache key: the two arms cannot be served each other's compiled program. That is\nthe trap `perf/b2z_levers/fold_ab.py` documents for its own levers, and it is the reason this one\nneeds no environment export.\n\nWITNESS, and it is not optional. A fold A/B against a lever that never fired measures noise and\nreads like a null result, so `_linear_block_cfg` is wrapped here to count hits and misses per\n(mt_total, kt, nt). The run FAILS if the `on` arm recorded no hits, and the per-key hit counts are\nwritten to the json so the measured seconds can be divided by the calls that actually took the\nconfig rather than by the census's expectation of them.\n\nThe default order is off/off/on: the repeated `off` arm IS the A/A floor, and a ratio inside that\nfloor is not a result. --reps interleaves off/on instead, which is what the headline number wants.\n\n    fold_ab_kblock.py --out <json> --cifdir <dir> [--reps N] [--sizes 512,298,768] [--warmup]\n\nMust run under `~/.coworker/scripts/benchlock.sh` (exit 75 = retry later, never measure anyway) and\nwith the AICLK forced and sampled: a fold second is meaningless without the clock it was taken at.\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/c12-kblock-unlock/tt_bio/__init__.py",
+  "tt_visible_devices": "3",
+  "commit": "9be79020793adc847f81aad947e2267281aa4920",
+  "started_utc": "2026-09-17T12:47:56Z",
+  "loadavg": [
+   11.07666015625,
+   15.04052734375,
+   14.646484375
+  ],
+  "clock_forced_MHz": 1350,
+  "clock_forced_nodes": [
+   3
+  ],
+  "table": {
+   "160,4,16": [
+    "2d",
+    4
+   ],
+   "256,4,16": [
+    "2d",
+    4
+   ],
+   "384,4,16": [
+    "2d",
+    4
+   ],
+   "160,16,4": [
+    "1d",
+    4
+   ],
+   "256,16,4": [
+    "1d",
+    2
+   ],
+   "384,16,4": [
+    "1d",
+    2
+   ],
+   "16,24,24": [
+    "2d",
+    12
+   ],
+   "24,24,24": [
+    "2d",
+    8
+   ]
+  },
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "seed": 0,
+   "order": [
+    "off",
+    "on",
+    "off",
+    "on",
+    "off",
+    "on"
+   ]
+  },
+  "predicted_s_at_512": 0.2052,
+  "predicted_Mc_at_512": 277.0
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "target": "cdk2x2_512",
+   "fold_s": 107.776,
+   "clock": {
+    "n": 47838,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "sha256": "45781db716ebf020",
+   "cif": "perf/c12_kblock/cif_screen_512/512_warm_off/cdk2x2_512.cif",
+   "hits": {},
+   "misses": {},
+   "plddt": 0.845919,
+   "warmup": true
+  },
+  {
+   "arm": "on",
+   "target": "cdk2x2_512",
+   "fold_s": 16.829,
+   "clock": {
+    "n": 7502,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "sha256": "e4b5c6a7e11a83c0",
+   "cif": "perf/c12_kblock/cif_screen_512/512_warm_on/cdk2x2_512.cif",
+   "hits": {
+    "16,24,24": 9600
+   },
+   "misses": {
+    "1024,2,8": 32,
+    "1024,8,2": 16,
+    "752,4,16": 5600,
+    "752,16,4": 2800,
+    "672,4,16": 560,
+    "672,16,4": 280,
+    "16,12,12": 528,
+    "16,12,48": 528,
+    "16,48,12": 264,
+    "140,4,4": 2400,
+    "140,4,8": 3600,
+    "16,24,48": 15200,
+    "16,48,24": 400
+   },
+   "plddt": 0.84661,
+   "warmup": true
+  },
+  {
+   "arm": "off",
+   "target": "cdk2x2_512",
+   "fold_s": 15.451,
+   "clock": {
+    "n": 7230,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "sha256": "45781db716ebf020",
+   "cif": "perf/c12_kblock/cif_screen_512/512_off_0/cdk2x2_512.cif",
+   "hits": {},
+   "misses": {},
+   "plddt": 0.845919
+  },
+  {
+   "arm": "on",
+   "target": "cdk2x2_512",
+   "fold_s": 15.0,
+   "clock": {
+    "n": 7266,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "sha256": "e4b5c6a7e11a83c0",
+   "cif": "perf/c12_kblock/cif_screen_512/512_on_0/cdk2x2_512.cif",
+   "hits": {
+    "16,24,24": 9600
+   },
+   "misses": {
+    "1024,2,8": 32,
+    "1024,8,2": 16,
+    "752,4,16": 5600,
+    "752,16,4": 2800,
+    "672,4,16": 560,
+    "672,16,4": 280,
+    "16,12,12": 528,
+    "16,12,48": 528,
+    "16,48,12": 264,
+    "140,4,4": 2400,
+    "140,4,8": 3600,
+    "16,24,48": 15200,
+    "16,48,24": 400
+   },
+   "plddt": 0.84661
+  },
+  {
+   "arm": "off",
+   "target": "cdk2x2_512",
+   "fold_s": 15.441,
+   "clock": {
+    "n": 7308,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "sha256": "45781db716ebf020",
+   "cif": "perf/c12_kblock/cif_screen_512/512_off_1/cdk2x2_512.cif",
+   "hits": {},
+   "misses": {},
+   "plddt": 0.845919
+  },
+  {
+   "arm": "on",
+   "target": "cdk2x2_512",
+   "fold_s": 15.292,
+   "clock": {
+    "n": 7315,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "sha256": "e4b5c6a7e11a83c0",
+   "cif": "perf/c12_kblock/cif_screen_512/512_on_1/cdk2x2_512.cif",
+   "hits": {
+    "16,24,24": 9600
+   },
+   "misses": {
+    "1024,2,8": 32,
+    "1024,8,2": 16,
+    "752,4,16": 5600,
+    "752,16,4": 2800,
+    "672,4,16": 560,
+    "672,16,4": 280,
+    "16,12,12": 528,
+    "16,12,48": 528,
+    "16,48,12": 264,
+    "140,4,4": 2400,
+    "140,4,8": 3600,
+    "16,24,48": 15200,
+    "16,48,24": 400
+   },
+   "plddt": 0.84661
+  },
+  {
+   "arm": "off",
+   "target": "cdk2x2_512",
+   "fold_s": 17.088,
+   "clock": {
+    "n": 7737,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "sha256": "45781db716ebf020",
+   "cif": "perf/c12_kblock/cif_screen_512/512_off_2/cdk2x2_512.cif",
+   "hits": {},
+   "misses": {},
+   "plddt": 0.845919
+  },
+  {
+   "arm": "on",
+   "target": "cdk2x2_512",
+   "fold_s": 16.008,
+   "clock": {
+    "n": 7172,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "sha256": "e4b5c6a7e11a83c0",
+   "cif": "perf/c12_kblock/cif_screen_512/512_on_2/cdk2x2_512.cif",
+   "hits": {
+    "16,24,24": 9600
+   },
+   "misses": {
+    "1024,2,8": 32,
+    "1024,8,2": 16,
+    "752,4,16": 5600,
+    "752,16,4": 2800,
+    "672,4,16": 560,
+    "672,16,4": 280,
+    "16,12,12": 528,
+    "16,12,48": 528,
+    "16,48,12": 264,
+    "140,4,4": 2400,
+    "140,4,8": 3600,
+    "16,24,48": 15200,
+    "16,48,24": 400
+   },
+   "plddt": 0.84661
+  }
+ ],
+ "model_load_s": 4.675,
+ "result": {
+  "512": {
+   "size": "512",
+   "off_s": 15.451,
+   "on_s": 15.292,
+   "delta_s": 0.159,
+   "x": 1.0104,
+   "aa_spread": 1.1066640761608704,
+   "table_hits_on_arm": 28800,
+   "digest_moved": true
+  }
+ }
+}

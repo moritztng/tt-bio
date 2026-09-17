@@ -20,22 +20,24 @@ NC = 110
 # (mt_total, kt, nt) -> the shape a fold actually presents, so the key is exercised through the
 # same arithmetic the call site goes through rather than being handed to the dict directly.
 SHAPES = {
-    (160, 4, 16): ((1, 16, 320, 128), (128, 512)),
-    (256, 4, 16): ((1, 16, 512, 128), (128, 512)),
-    (384, 4, 16): ((1, 16, 768, 128), (128, 512)),
-    (160, 16, 4): ((1, 16, 320, 512), (512, 128)),
-    (256, 16, 4): ((1, 16, 512, 512), (512, 128)),
-    (384, 16, 4): ((1, 16, 768, 512), (512, 128)),
+    (752, 4, 16): ((1, 47, 512, 128), (128, 512)),
     (16, 24, 24): ((1, 512, 768), (768, 768)),
     (24, 24, 24): ((1, 768, 768), (768, 768)),
 }
-# Shapes the table must NOT name, each removed on a measurement rather than an opinion: DiT at
-# 298 aa reads 0.8925x through the production path (a regression), CTB reads 0.9935x at 512 aa and
-# 1.0176x at 768 aa, both inside their own A/A floors. If an entry for one of these reappears, this
-# test fails rather than the fold quietly getting slower at one size.
+# Shapes the table must NOT name, each removed on a measurement rather than an opinion. The six
+# (160|256|384, 4|16, 16|4) keys are the ones the firing witness proved the fold never issues -- the
+# pair tensor is row-blocked into ten chunks of 47 plus one of 42, so mt_total is 752 or 672 and
+# never 256. If any of these reappears, this test fails rather than the lever quietly going dead or
+# a size quietly getting slower.
 ABSENT = {
+    (256, 4, 16): ((1, 16, 512, 128), (128, 512)),
+    (160, 4, 16): ((1, 16, 320, 128), (128, 512)),
+    (384, 4, 16): ((1, 16, 768, 128), (128, 512)),
+    (256, 16, 4): ((1, 16, 512, 512), (512, 128)),
+    (160, 16, 4): ((1, 16, 320, 512), (512, 128)),
+    (384, 16, 4): ((1, 16, 768, 512), (512, 128)),
+    (752, 16, 4): ((1, 47, 512, 512), (512, 128)),
     (10, 24, 24): ((1, 320, 768), (768, 768)),
-    (10, 24, 48): ((1, 320, 768), (768, 1536)),
     (16, 24, 48): ((1, 512, 768), (768, 1536)),
     (24, 24, 48): ((1, 768, 768), (768, 1536)),
 }
@@ -58,7 +60,7 @@ assert set(SHAPES) == set(TB._LINEAR_BLOCK), (
     "test shapes and table keys disagree: %s" % (set(SHAPES) ^ set(TB._LINEAR_BLOCK),))
 
 for key, (a, w) in SHAPES.items():
-    fam, bw = TB._LINEAR_BLOCK[key]
+    fam, bw, obh_div = TB._LINEAR_BLOCK[key]
     c = cfg(a, w)
     if c is None:
         fail.append(f"{key}: table names it but no config was built")
@@ -72,12 +74,14 @@ for key, (a, w) in SHAPES.items():
         "in0_block_w": (int(c.in0_block_w), bw),
         "per_core_M": (int(c.per_core_M), pcm),
         "per_core_N": (int(c.per_core_N), pcn),
-        "out_block_h == per_core_M": (int(c.out_block_h), pcm),
+        "out_block_h == per_core_M // %d" % obh_div: (int(c.out_block_h), pcm // obh_div),
         "out_block_w == per_core_N": (int(c.out_block_w), pcn),
     }
     bad = {k: v for k, v in checks.items() if v[0] != v[1]}
     for k, (g, e) in bad.items():
         fail.append(f"{key}: {k} got {g}, expected {e}")
+    if pcm % obh_div:
+        fail.append(f"{key}: drain divisor {obh_div} does not divide per_core_M {pcm}")
     sub = int(c.out_subblock_h) * int(c.out_subblock_w)
     if sub > 4:
         fail.append(f"{key}: out_subblock {c.out_subblock_h}x{c.out_subblock_w} = {sub} > 4 dest tiles")
@@ -94,14 +98,14 @@ for key, (a, w) in ABSENT.items():
 print("  %d removed keys still absent and inert" % len(ABSENT))
 
 # --- negative controls: each must REFUSE, and each is a distinct guard -------------------------
-a512, w512 = SHAPES[(256, 4, 16)]
+a512, w512 = SHAPES[(752, 4, 16)]
 neg = {
     "fused activation": cfg(a512, w512, act="silu"),
     "bias present": cfg(a512, w512, bias=object()),
     "no core_grid": cfg(a512, w512, grid=None),
-    "shape not in table": cfg((1, 16, 448, 128), (128, 512)),
-    "not tile aligned": cfg((1, 16, 500, 128), (128, 512)),
-    "inner dims disagree": cfg((1, 16, 512, 128), (256, 512)),
+    "shape not in table": cfg((1, 47, 448, 128), (128, 512)),
+    "not tile aligned": cfg((1, 47, 500, 128), (128, 512)),
+    "inner dims disagree": cfg((1, 47, 512, 128), (256, 512)),
     "1-D operand": cfg((128,), (128, 512)),
 }
 for name, got in neg.items():
@@ -111,13 +115,22 @@ for name, got in neg.items():
 
 # The controls have to be able to fail, or they prove nothing. Corrupt one entry so the tabulated
 # in0_block_w no longer divides Kt and confirm the divisibility guard is what refuses it.
-TB._LINEAR_BLOCK[(256, 4, 16)] = ("2d", 3)
+TB._LINEAR_BLOCK[(752, 4, 16)] = ("2d", 3, 2)
 if cfg(a512, w512) is not None:
     fail.append("divisibility guard did not fire on in0_block_w=3 with Kt=4")
-TB._LINEAR_BLOCK[(256, 4, 16)] = ("2d", 4)
+TB._LINEAR_BLOCK[(752, 4, 16)] = ("2d", 4, 2)
 if cfg(a512, w512) is None:
     fail.append("restoring the entry did not restore the config -- the guard is stuck on")
 print("  divisibility guard fires on bw=3 / Kt=4, and releases when restored")
+
+# The drain divisor must also be able to refuse: 3 does not divide per_core_M = 76 at this key.
+TB._LINEAR_BLOCK[(752, 4, 16)] = ("2d", 4, 3)
+if cfg(a512, w512) is not None:
+    fail.append("drain-divisor guard did not fire on 3 against per_core_M=76")
+TB._LINEAR_BLOCK[(752, 4, 16)] = ("2d", 4, 2)
+if cfg(a512, w512) is None:
+    fail.append("restoring the drain divisor did not restore the config")
+print("  drain-divisor guard fires on 3 / per_core_M=76, and releases when restored")
 
 print("\n%s" % ("FAIL:\n  " + "\n  ".join(fail) if fail else "all checks passed"))
 sys.exit(1 if fail else 0)

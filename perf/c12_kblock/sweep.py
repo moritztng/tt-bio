@@ -64,6 +64,21 @@ SHAPES = [
     ("trimul_p_out", (1, 512, 512, 128), (128, 128), "DRAM", "DRAM", None, 560, 0.5276, 712.3,
      "trimul p_out :6789 via _pair_proj_linear -- already carries our tuned config; the L1 "
      "destination production prefers needs its own rung ladder, so this row is the DRAM fallback"),
+    # THE FOLD'S ACTUAL PAIR-TRANSITION SHAPES, from the firing witness in fold_ab_kblock.py
+    # (perf/c12_kblock/fold_screen_512_qb2c3.json). The census describes this key as
+    # `1x16x512x512 K=128`, which gives mt_total = 256 -- and NO call in the fold has that key. The
+    # pair tensor is row-blocked into 10 chunks of 47 plus one of 42 (10*47 + 42 = 512), so the
+    # shapes issued are b=47 (mt_total 752, 5600 fc1+fc2 and 2800 fc3 calls per fold) and b=42
+    # (mt_total 672, 560 and 280). mt_total is exactly what per_core_M and therefore the drain block
+    # derive from, so a config swept at b=16 is tuned for a shape the fold never asks for.
+    ("pair_tr_fc2_b47", (1, 47, 512, 128), (128, 512), "L1", "L1", None, 0, 0.0, 0.0,
+     "Transition.swiglu fc2 tenstorrent.py:8334, the b=47 row block -- 2800 calls/fold"),
+    ("pair_tr_fc3_b47", (1, 47, 512, 512), (512, 128), "L1", "DRAM", None, 0, 0.0, 0.0,
+     "Transition.swiglu fc3 tenstorrent.py:8345, the b=47 row block -- 2800 calls/fold"),
+    ("pair_tr_fc2_b42", (1, 42, 512, 128), (128, 512), "L1", "L1", None, 0, 0.0, 0.0,
+     "Transition.swiglu fc2, the b=42 tail row block -- 280 calls/fold"),
+    ("pair_tr_fc3_b42", (1, 42, 512, 512), (512, 128), "L1", "DRAM", None, 0, 0.0, 0.0,
+     "Transition.swiglu fc3, the b=42 tail row block -- 280 calls/fold"),
     ("pair_tr_fc12_n1024", (1, 16, 512, 128), (128, 1024), "L1", "L1", None, 0, 0.0, 0.0,
      "NOT a production call. fc1+fc2 of Transition.swiglu widened to one N=1024 matmul, the second "
      "measured N at fixed (b, M, K) that c12-linear-fusion-census could not get. --fusion pairs it "
@@ -79,7 +94,11 @@ MC = {"L1": L1, "DRAM": DRAM}
 # a one-size tuning would get wrong.
 TOK_AXES = {"pair_tr_fc1": (2,), "pair_tr_fc2": (2,), "pair_tr_fc3": (2,),
             "pair_tr_fc12_n1024": (2,), "dit_s_768x768": (1,), "ctb_768x1536": (1,),
-            "trimul_p_out": (1, 2)}
+            "trimul_p_out": (1, 2),
+            # The row-blocked keys: axis 2 is the token axis, axis 1 is the ROW BLOCK and does not
+            # move with sequence length -- the number of blocks does, not their height.
+            "pair_tr_fc2_b47": (2,), "pair_tr_fc3_b47": (2,),
+            "pair_tr_fc2_b42": (2,), "pair_tr_fc3_b42": (2,)}
 
 
 def at_tokens(key, a_shape, tok):
@@ -165,15 +184,22 @@ def roofs(dev, ckc, node):
 
 
 def byte_roof(R, amc, omc):
-    """The bandwidth roof that applies to THIS key's operand placement.
+    """The bandwidth figure that applies to THIS key's operand placement, and whether it may REFUSE.
 
     `c12-linear-fusion-census` closed by pointing out that 1.9591 s of the class was priced against
-    the measured DRAM roof while the fold runs those keys L1-resident, so the roof did not apply. The
-    same mistake in the other direction breaks the unfit check, hence the split.
+    the measured DRAM roof while the fold runs those keys L1-resident, so that roof did not apply.
+    The split below fixes that. But an L1 figure from `ttnn.clone` is a LOWER BOUND on L1 bandwidth,
+    not a roof: a measured `ttnn.slice` moved bytes at about 1056 GB/s against a 581.7 GB/s clone
+    probe. Using it to refuse an arm emptied the candidate set on the b=47 fc2 sweep and deleted
+    every result in the run, which is the third time an uncalibrated gate has eaten this campaign's
+    own measurement. So DRAM keys may be refused against the DRAM roof and L1 keys may NOT be
+    refused at all -- the probe only annotates them.
     """
     if not R:
-        return None
-    return R["dram_rw_GBs"] if (amc == "DRAM" and omc == "DRAM") else R["l1_rw_GBs"]
+        return None, False
+    if amc == "DRAM" and omc == "DRAM":
+        return R["dram_rw_GBs"], True
+    return R.get("l1_rw_GBs"), False
 
 
 def timed_one(dev, fn, pipe=4, reps=5):
@@ -512,7 +538,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=None)
     ap.add_argument("--only", default=None)
-    ap.add_argument("--skip", default="trimul_p_out,pair_tr_fc12_n1024",
+    ap.add_argument("--skip", default="trimul_p_out,pair_tr_fc12_n1024,pair_tr_fc1,pair_tr_fc2,pair_tr_fc3",
                     help="comma-separated keys to skip. Both defaults are non-production calls: "
                          "trimul_p_out's shipped path already names a config via _pair_proj_linear "
                          "so its ratio here is double counting, and pair_tr_fc12_n1024 belongs to "
@@ -689,11 +715,16 @@ def main():
             rms = (yt - ref).pow(2).mean().sqrt().item()
             tf = gflop / ms
             gbs = gb / (ms / 1e3)
-            br = byte_roof(R, amc, omc)
-            unfit = bool(R) and (tf > 1.05 * R["compute_TFLOPs"] or gbs > 1.05 * br)
+            br, br_binds = byte_roof(R, amc, omc)
+            over_probe = bool(br) and gbs > 1.05 * br
+            # The compute roof is a real roof and always binds; the byte figure only binds when it
+            # is the DRAM one. An arm over the L1 probe is recorded, not discarded.
+            unfit = bool(R) and (tf > 1.05 * R["compute_TFLOPs"]
+                                 or (br_binds and over_probe))
             rec = {"ms": round(ms, 5), "TFLOPs": round(tf, 2), "GBs": round(gbs, 1),
                    "max_abs_vs_f64": err, "rmsd_vs_f64": rms, "unfit": unfit,
-                   "ms_all": res[name]["ms_all"]}
+                   "over_byte_probe": over_probe, "byte_probe_GBs": br,
+                   "byte_probe_binds": br_binds, "ms_all": res[name]["ms_all"]}
             if name == "prod":
                 prod_t = ms
                 rec["derived"] = inc
@@ -705,7 +736,7 @@ def main():
                     rec["fold_s_saved"] = round(cs * (1 - ms / prod_t), 4)
                     rec["fold_Mc_saved"] = round(cmc * (1 - ms / prod_t), 1)
             out[name] = rec
-            flag = " UNFIT" if unfit else ""
+            flag = " UNFIT" if unfit else (" >L1probe" if over_probe else "")
             extra = "" if rec.get("x_vs_prod") is None else f"  {rec['x_vs_prod']:.4f}x"
             if "fold_s_saved" in rec:
                 extra += f"  {rec['fold_s_saved']:+.4f} s fold"

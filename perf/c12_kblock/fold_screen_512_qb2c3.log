@@ -1,0 +1,13 @@
+2026-09-17 12:47:52.996 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  512 warm off 107.776s
+  512 warm on   16.829s
+  512 off #0  15.451s  clock 1350  hits {}
+  512 on  #0  15.000s  clock 1350  hits {'16,24,24': 9600}
+  512 off #1  15.441s  clock 1350  hits {}
+  512 on  #1  15.292s  clock 1350  hits {'16,24,24': 9600}
+  512 off #2  17.088s  clock 1350  hits {}
+  512 on  #2  16.008s  clock 1350  hits {'16,24,24': 9600}
+  == 512 aa: 15.451 -> 15.292 s, +0.1590 s, 1.0104x  [A/A spread 1.1067x]  28800 table hits
+  ^ NOT A RESULT: inside this session's own A/A spread
+wrote perf/c12_kblock/fold_screen_512_qb2c3.json
