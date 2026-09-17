@@ -288,6 +288,16 @@ def main() -> int:
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--unit", default=None)
     ap.add_argument("--reps", type=int, default=3)
+    ap.add_argument("--want-attr", default=None,
+                    help="only grab an instance whose named constructor attribute is truthy. "
+                         "PairformerLayer appears twice in this fold: the trunk variant is built "
+                         "with transform_s=True (280 calls/fold), the MSA-internal one with "
+                         "transform_s=False, and grabbing the wrong one measures the wrong class.")
+    ap.add_argument("--want-args", type=int, default=None,
+                    help="only grab a call with exactly this many positional tensor args. "
+                         "PairformerLayer appears twice in this fold with different signatures -- "
+                         "the trunk variant takes (s, z), the MSA-internal one takes (z,) -- and "
+                         "grabbing the wrong one measures the wrong 280-call class.")
     ap.add_argument("--skip", type=int, default=2,
                     help="grab the Nth call of the unit, so the grabbed one is settled")
     ap.add_argument("--plain-n", type=int, default=2)
@@ -393,6 +403,7 @@ def main() -> int:
     orig = cls.__dict__["__call__"]
     grabs: dict = {}
     counts: Counter = Counter()
+    matched = [0]
 
     def clone(x):
         return ttnn.clone(x) if isinstance(x, ttnn.Tensor) else x
@@ -400,7 +411,13 @@ def main() -> int:
     def wrapper(self_obj, *args, **kw):
         counts[a.unit] += 1
         out = orig(self_obj, *args, **kw)
-        if a.unit not in grabs and counts[a.unit] >= a.skip:
+        nt = sum(1 for x in args if hasattr(x, "shape"))
+        if a.want_args is not None and nt != a.want_args:
+            return out
+        if a.want_attr is not None and not getattr(self_obj, a.want_attr, False):
+            return out
+        matched[0] += 1
+        if a.unit not in grabs and matched[0] >= a.skip:
             grabs[a.unit] = {"obj": self_obj, "args": tuple(clone(x) for x in args),
                              "kwargs": {k: clone(v) for k, v in kw.items()}}
             print("  grabbed %s on call %d" % (a.unit, counts[a.unit]), flush=True)
@@ -426,6 +443,7 @@ def main() -> int:
             restore()
     OUT["precursor_s"] = round(time.perf_counter() - t0, 3)
     OUT["unit_calls_in_precursor"] = dict(counts)
+    OUT["signature_matches_in_precursor"] = matched[0]
     dump()
     if a.unit not in grabs:
         OUT["error"] = "%s was never grabbed" % a.unit

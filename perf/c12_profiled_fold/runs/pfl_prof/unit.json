@@ -1,0 +1,97 @@
+{
+ "env": {
+  "started": "2026-09-17T13:37:28+0000",
+  "t_start": 1789652248.4514592,
+  "phase": "unit",
+  "unit": "PairformerLayer",
+  "reps": 3,
+  "size": 512,
+  "visible": "3,2",
+  "lease": "2,3",
+  "commit": "ccbab5704",
+  "profiler": "1",
+  "ttnn": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+  "metal_home": "/home/ttuser/tt-metal-b2z",
+  "loadavg": [
+   "12.08",
+   "12.48",
+   "13.19"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c",
+  "load_s": 6.0,
+  "t_end": 1789652385.4172192
+ },
+ "precursor_s": 43.995,
+ "unit_calls_in_precursor": {
+  "PairformerLayer": 7
+ },
+ "signature_matches_in_precursor": 3,
+ "arg_shapes": [
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   512,
+   128
+  ],
+  [
+   1,
+   512,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  "NoneType"
+ ],
+ "ops_patched": 63,
+ "t_region0": 1789652384.7105615,
+ "synced_wall_ms_per_call": 31.3153,
+ "t_region1": 1789652385.4149644,
+ "op_seq_len": 1434,
+ "op_seq_path": "/home/ttuser/.coworker/wt/c12-profiled-fold/perf/c12_profiled_fold/runs/pfl_prof/unit.opseq.json",
+ "op_seq_counts": {
+  "deallocate": 486,
+  "linear": 252,
+  "allocate_tensor_on_device": 144,
+  "layer_norm": 120,
+  "multiply_": 114,
+  "generic_op": 84,
+  "add_": 54,
+  "permute": 42,
+  "unsqueeze": 30,
+  "reshape": 30,
+  "matmul": 24,
+  "add": 12,
+  "chunk": 6,
+  "concat": 6,
+  "transpose": 6,
+  "softmax": 6,
+  "slice": 6,
+  "multiply": 6,
+  "exp": 6
+ },
+ "fence": {
+  "op": "ttnn.exp",
+  "n": 3,
+  "dim": 32
+ }
+}

@@ -186,13 +186,26 @@ def rshape(r, slot):
     return t if (t[2] and t[3]) else None
 
 
+FENCE_OP = "UnaryDeviceOperation"
+FENCE_N = 3
+
+
 def is_fence(r, dim_=32):
-    """The harness's fence: 3 x ttnn.exp on a 32x32 bf16 tile, a shape nothing in the fold uses."""
+    """The harness's fence: 3 x `ttnn.exp` on a 1x1x32x32 bf16 tile, twice.
+
+    Matching on the 32x32 shape ALONE does not work and the first version of this reducer got it
+    wrong: a pairformer block is full of `BinaryNgDeviceOperation` rows on 1x1x32x32 operands, they
+    come in dense clusters, and a cluster of three of them reads as a fence. The window it produced
+    held 410 rows, which is not divisible by the 3 reps -- caught by the rep control, not by
+    inspection. The op code is what disambiguates: `ttnn.exp` lands on `UnaryDeviceOperation`, which
+    occurs exactly 2 x 3 = 6 times in the whole capture and nowhere inside the unit.
+    """
     s = rshape(r, "INPUT_0")
-    return s is not None and s[2] == dim_ and s[3] == dim_ and s[0] <= 1 and s[1] <= 1
+    return (r.get("OP CODE") == FENCE_OP and s is not None
+            and s[2] == dim_ and s[3] == dim_ and s[0] <= 1 and s[1] <= 1)
 
 
-def window(rows, fence_n=3):
+def window(rows, fence_n=FENCE_N):
     """Rows strictly between the first and the second run of `fence_n` consecutive fence ops."""
     runs, i = [], 0
     while i < len(rows):
@@ -205,10 +218,19 @@ def window(rows, fence_n=3):
             i = j
         else:
             i += 1
+    n_fence = sum(1 for r in rows if is_fence(r))
+    meta = {"fence_runs": len(runs), "fence_rows": n_fence,
+            "fence_rows_expected": 2 * fence_n}
     if len(runs) < 2:
-        return None, {"fence_runs": len(runs), "why": "need two fence runs to window"}
+        meta["why"] = "need two fence runs to window, found %d" % len(runs)
+        return None, meta
+    if n_fence != 2 * fence_n:
+        meta["why"] = ("found %d fence rows, expected %d -- the marker is not unambiguous in this "
+                       "capture and the window cannot be trusted" % (n_fence, 2 * fence_n))
+        return None, meta
     a, b = runs[0][1], runs[1][0]
-    return rows[a:b], {"fence_runs": len(runs), "window": [a, b], "n_rows": b - a}
+    meta.update({"window": [a, b], "n_rows": b - a})
+    return rows[a:b], meta
 
 
 def align(opseq, rows):
@@ -282,8 +304,21 @@ def unit_device(run: Path, unit: str, target: int, node: int):
             e = by_class[nm]
             e["ns"] += fnum(r, "DEVICE KERNEL DURATION [ns]")
             e["n"] += 1
+    # Control: the fence window must hold exactly `reps` instances of the unit. Split it into
+    # `reps` equal chunks and compare op-code histograms. If the chunks disagree, the window is
+    # not what it claims and per-call numbers taken by dividing by `reps` are not quotable.
+    rep_ctl = {"divisible": len(win) % reps == 0, "reps": reps, "rows": len(win)}
+    if rep_ctl["divisible"]:
+        k = len(win) // reps
+        hs = [Counter(r["OP CODE"] for r in win[i * k:(i + 1) * k]) for i in range(reps)]
+        rep_ctl["identical_histograms"] = all(h == hs[0] for h in hs)
+        ms = [sum(fnum(r, "DEVICE KERNEL DURATION [ns]") for r in win[i * k:(i + 1) * k]) / 1e6
+              for i in range(reps)]
+        rep_ctl["per_rep_ms"] = [round(x, 4) for x in ms]
+        rep_ctl["spread_pct"] = round(100 * (max(ms) - min(ms)) / max(st.median(ms), 1e-9), 3)
+    rep_ctl["ok"] = bool(rep_ctl["divisible"] and rep_ctl.get("identical_histograms"))
     tot_ns = sum(e["ns"] for e in by_code.values())
-    return {"unit": unit, "reps": reps, "clock": q, "window": wmeta,
+    return {"unit": unit, "reps": reps, "clock": q, "window": wmeta, "rep_control": rep_ctl,
             "synced_wall_ms_per_call": d.get("synced_wall_ms_per_call"),
             "device_ms_per_call": round(tot_ns / 1e6 / reps, 5),
             "programs_per_call": round(len(win) / reps, 2),
@@ -336,6 +371,9 @@ def main() -> int:
         print("  synced wall %.4f ms/call, device %.4f ms/call, %s programs/call, clock %s"
               % (u["synced_wall_ms_per_call"], u["device_ms_per_call"],
                  u["programs_per_call"], "OK" if u["clock"]["ok"] else u["clock"].get("why")))
+        rc = u["rep_control"]
+        print("  rep control: %s, per-rep ms %s, spread %s%%"
+              % ("OK" if rc["ok"] else "FAIL %s" % rc, rc.get("per_rep_ms"), rc.get("spread_pct")))
         print("  align_quality", u["align_quality"])
         for k, v in list(u["by_op_code"].items())[:14]:
             print("    %-36s %9.4f ms %8.1f n" % (k, v["ms_per_call"], v["n_per_call"]))

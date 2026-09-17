@@ -34,6 +34,12 @@ export TT_VISIBLE_DEVICES="$VIS"
 export TT_BIO_LEASE_CARDS="$LEASE"
 export TT_BIO_LEASE_HOLDER=worker:c12-profiled-fold
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
+# `python -m tracy` re-invokes the target as the literal string "python3 -m tracy ..."
+# (tools/tracy/__main__.py:361), so the interpreter that actually runs the fold is whatever
+# python3 is first on PATH -- not $PY. With the system python3 there it dies importing loguru and
+# reports it as "No profiling data could be captured. Please make sure you are on a Tracy-enabled
+# build", which is a lie about the build.
+export PATH="$(dirname "$PY"):$PATH"
 
 cd "$ROOT"
 if [ "$OPSUP" -gt 0 ]; then

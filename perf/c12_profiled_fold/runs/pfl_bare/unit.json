@@ -1,0 +1,73 @@
+{
+ "env": {
+  "started": "2026-09-17T13:37:05+0000",
+  "t_start": 1789652225.44821,
+  "phase": "unit",
+  "unit": "PairformerLayer",
+  "reps": 3,
+  "size": 512,
+  "visible": "3,2",
+  "lease": "2,3",
+  "commit": "ccbab5704",
+  "profiler": "0",
+  "ttnn": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+  "metal_home": "/home/ttuser/tt-metal-b2z",
+  "loadavg": [
+   "14.71",
+   "12.98",
+   "13.37"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c",
+  "load_s": 3.71,
+  "t_end": 1789652241.6166434
+ },
+ "precursor_s": 8.57,
+ "unit_calls_in_precursor": {
+  "PairformerLayer": 7
+ },
+ "signature_matches_in_precursor": 3,
+ "arg_shapes": [
+  [
+   1,
+   512,
+   384
+  ],
+  [
+   1,
+   512,
+   512,
+   128
+  ],
+  [
+   1,
+   512,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  [
+   1,
+   1,
+   1,
+   512
+  ],
+  "NoneType"
+ ],
+ "t_region0": 1789652241.0254083,
+ "synced_wall_ms_per_call": 30.7345,
+ "t_region1": 1789652241.6166408,
+ "fence": {
+  "op": "ttnn.exp",
+  "n": 3,
+  "dim": 32
+ }
+}

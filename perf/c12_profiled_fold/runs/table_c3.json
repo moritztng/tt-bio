@@ -571,5 +571,168 @@
   ],
   "notes": []
  },
- "units": []
+ "units": [
+  {
+   "unit": "pfl_prof",
+   "reps": 3,
+   "clock": {
+    "n": 589,
+    "min": 1350,
+    "max": 1350,
+    "read_errors": 0,
+    "max_gap_ms": 4.73,
+    "n_gaps_over": 0,
+    "uncovered_s": 0.0,
+    "uncovered_frac": 0.0,
+    "target": 1350,
+    "node": 3,
+    "held": true,
+    "covered": true,
+    "ok": true
+   },
+   "window": {
+    "fence_runs": 2,
+    "fence_rows": 6,
+    "fence_rows_expected": 6,
+    "window": [
+     2005,
+     2416
+    ],
+    "n_rows": 411
+   },
+   "rep_control": {
+    "divisible": true,
+    "reps": 3,
+    "rows": 411,
+    "identical_histograms": true,
+    "per_rep_ms": [
+     30.3745,
+     30.8238,
+     30.5286
+    ],
+    "spread_pct": 1.472,
+    "ok": true
+   },
+   "synced_wall_ms_per_call": 31.3153,
+   "device_ms_per_call": 30.5756,
+   "programs_per_call": 137.0,
+   "align_quality": 0.3187,
+   "by_op_code": {
+    "GenericOpDeviceOperation": {
+     "ms_per_call": 12.02515,
+     "n_per_call": 14.0
+    },
+    "MatmulDeviceOperation": {
+     "ms_per_call": 6.8362,
+     "n_per_call": 46.0
+    },
+    "BinaryNgDeviceOperation": {
+     "ms_per_call": 5.5979,
+     "n_per_call": 31.0
+    },
+    "LayerNormDeviceOperation": {
+     "ms_per_call": 3.67823,
+     "n_per_call": 20.0
+    },
+    "TransposeDeviceOperation": {
+     "ms_per_call": 1.46935,
+     "n_per_call": 5.0
+    },
+    "SliceDeviceOperation": {
+     "ms_per_call": 0.3709,
+     "n_per_call": 12.0
+    },
+    "PermuteDeviceOperation": {
+     "ms_per_call": 0.27457,
+     "n_per_call": 3.0
+    },
+    "ConcatDeviceOperation": {
+     "ms_per_call": 0.16517,
+     "n_per_call": 1.0
+    },
+    "SoftmaxDeviceOperation": {
+     "ms_per_call": 0.11771,
+     "n_per_call": 1.0
+    },
+    "NlpCreateHeadsDeviceOperation": {
+     "ms_per_call": 0.02207,
+     "n_per_call": 1.0
+    },
+    "ReshapeViewDeviceOperation": {
+     "ms_per_call": 0.01223,
+     "n_per_call": 1.0
+    },
+    "CopyDeviceOperation": {
+     "ms_per_call": 0.0061,
+     "n_per_call": 2.0
+    }
+   },
+   "by_class": {
+    "?": {
+     "ms_per_call": 12.55868,
+     "n_per_call": 73.33
+    },
+    "deallocate": {
+     "ms_per_call": 5.49883,
+     "n_per_call": 18.33
+    },
+    "linear": {
+     "ms_per_call": 5.46484,
+     "n_per_call": 20.0
+    },
+    "layer_norm": {
+     "ms_per_call": 2.5072,
+     "n_per_call": 8.67
+    },
+    "multiply_": {
+     "ms_per_call": 1.40359,
+     "n_per_call": 5.67
+    },
+    "add_": {
+     "ms_per_call": 0.6798,
+     "n_per_call": 2.67
+    },
+    "matmul": {
+     "ms_per_call": 0.55304,
+     "n_per_call": 1.0
+    },
+    "reshape": {
+     "ms_per_call": 0.48032,
+     "n_per_call": 1.67
+    },
+    "multiply": {
+     "ms_per_call": 0.41956,
+     "n_per_call": 0.33
+    },
+    "add": {
+     "ms_per_call": 0.25866,
+     "n_per_call": 1.33
+    },
+    "slice": {
+     "ms_per_call": 0.24319,
+     "n_per_call": 0.33
+    },
+    "unsqueeze": {
+     "ms_per_call": 0.22543,
+     "n_per_call": 0.67
+    },
+    "permute": {
+     "ms_per_call": 0.22348,
+     "n_per_call": 1.33
+    },
+    "transpose": {
+     "ms_per_call": 0.0381,
+     "n_per_call": 0.67
+    },
+    "allocate_tensor_on_device": {
+     "ms_per_call": 0.01916,
+     "n_per_call": 0.67
+    },
+    "generic_op": {
+     "ms_per_call": 0.00173,
+     "n_per_call": 0.33
+    }
+   }
+  }
+ ]
 }
