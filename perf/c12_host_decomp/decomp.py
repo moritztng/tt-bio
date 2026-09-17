@@ -36,7 +36,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path[:0] = [str(ROOT), str(HERE), str(ROOT / "scripts/gpu_vs_tt"),
                 str(ROOT / "perf/b2x_host_residual"), str(ROOT / "perf/other512")]
-from evidence import (coverage, digest, holders, own_nodes, snapshot, validate_snapshot,
+from evidence import (coverage, digest, holders, load_accounting, own_nodes,
+                      snapshot, validate_snapshot,
                       write_json)
 from force_aiclk import FORCE_AICLK, smc
 
@@ -53,6 +54,8 @@ class Fatal(RuntimeError):
 
 F_REFERENCE = {512: 3.9830, 298: 1.9500}
 WORK_REFERENCE = {512: 14665.0, 298: 10403.4}          # Mcycles
+UNACCOUNTED_LOAD_LIMIT = 1.0
+
 ARMS = ("bare", "regions", "cprofile", "sample", "pyspy", "cacheclear")
 
 
@@ -223,8 +226,11 @@ def main() -> int:
         save()
         if socket.gethostname() != "tt-quietbox2":
             raise RuntimeError("wrong host")
-        if os.getloadavg()[0] > 2.0:
-            raise RuntimeError("load prerequisite failed after the benchlock wait")
+        result["load_accounting"] = load_accounting(a.node)
+        save()
+        if result["load_accounting"]["unaccounted_load"] > UNACCOUNTED_LOAD_LIMIT:
+            raise RuntimeError("unaccounted load after the benchlock wait: "
+                               + json.dumps(result["load_accounting"]))
         if result["production_diff"]:
             raise RuntimeError("production source differs from the requested base")
         result["dirty_diff"] = git("diff", "HEAD")

@@ -64,6 +64,41 @@ def own_nodes(pid=None):
     return sorted(nodes)
 
 
+def load_accounting(node, dt=2.0):
+    """Split the 1-minute loadavg into load this row can account for and load it cannot.
+
+    An absolute loadavg bar cannot tell a co-tenant that would corrupt a host-time measurement
+    from a wedged chip holder spinning on another chip whose pid, owner and node are already
+    known. Both read as load, and on this box two known orphans pin loadavg at 2.00 for as long
+    as they live, so an absolute bar of 2.0 can never pass and stops being a statement about
+    contention. Price every foreign device holder off its own /proc ticks and gate on the
+    REMAINDER, recording the accounted part beside it so a reader sees what was on the box.
+    """
+    ticks = os.sysconf("SC_CLK_TCK")
+    before = {h["pid"]: h for h in holders()}
+    t0 = time.monotonic()
+    time.sleep(dt)
+    after = {h["pid"]: h for h in holders()}
+    span = time.monotonic() - t0
+    me = os.getpid()
+    rows = []
+    for pid, h in after.items():
+        if pid == me or pid not in before:
+            continue
+        used = ((h["utime_ticks"] + h["stime_ticks"])
+                - (before[pid]["utime_ticks"] + before[pid]["stime_ticks"])) / ticks
+        rows.append({"pid": pid, "nodes": h["nodes"], "state": h["state"],
+                     "cpu_cores": round(used / span, 3),
+                     "holder": (h.get("env") or {}).get("TT_BIO_LEASE_HOLDER"),
+                     "argv": h["argv"][:160]})
+    accounted = sum(max(0.0, r["cpu_cores"]) for r in rows)
+    load1 = os.getloadavg()[0]
+    return {"loadavg": os.getloadavg(), "dt_s": round(span, 3), "node": node,
+            "foreign_device_holders": sorted(rows, key=lambda r: -r["cpu_cores"]),
+            "accounted_cores": round(accounted, 3),
+            "unaccounted_load": round(load1 - accounted, 3)}
+
+
 def snapshot():
     return {"monotonic_ns": time.monotonic_ns(), "utc_ns": time.time_ns(),
             "boot_id": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),

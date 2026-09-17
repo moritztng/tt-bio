@@ -28,6 +28,28 @@ from pathlib import Path
 
 F_HI, F_LO = 1350.0, 800.0
 
+# What the row actually has to close against, superseding F.
+#
+# `c12-profiled-fold` measured the device term in situ at a held, during-sampled 1350 MHz and
+# weighted it by the fold's own integer call counts: 13.2090 s of 14.8810 s, leaving a non-device
+# remainder of 1.6720 s, or 1.6489 s once ConfidenceHeadsDevice's <= 0.0231 s bound is taken off
+# the host side. That remainder is the ceiling on ALL exposed host time in the fold, so the item
+# sum is checked against it first. F = 3.9830 s stays in the table as a second, wider target: F
+# exceeds the measured remainder by 2.31-2.33 s, and that excess is clock-immune DEVICE cost which
+# no host line item can or should account for. Closing against F would mean padding the table by
+# 2.3 s of work that is not host work.
+# Source: perf/c12_profiled_fold/runs/composed.json on wk/c12-profiled-fold @ a63d6d8e3.
+NONDEVICE_REMAINDER = {512: (1.6489, 1.6720), 298: (None, None)}
+REDUCIBLE_BAR_S = 1.0100      # what 12.5 s needs from host once every device lever lands (pass 23)
+
+
+# The regions whose exclusive seconds are host Python by construction: featurisation, the batch
+# build, the CIF writer, and the exclusive bodies of the three nested callers that hold the fold
+# together. Everything else in the tree wraps a device call, so its exclusive time is host glue
+# around a device wait and is reported but not counted into the host sum.
+HOST_ITEMS = ("prepare", "to_batch", "write_result", "predict_step", "forward", "sampler",
+              "predict_step/forward", "predict_step/forward/sampler")
+
 
 def gains(f_hi=F_HI, f_lo=F_LO):
     return f_hi / (f_hi - f_lo), -f_lo / (f_hi - f_lo)
@@ -88,12 +110,22 @@ def tree_items(rows, key="excl_s"):
     return items
 
 
-def closure(item_F, fold_F, F_reference):
+def closure(item_F, fold_F, F_reference, size=None, host_F=None):
     s = sum(item_F.values())
-    return {"item_F_sum_s": s, "fold_F_s": fold_F, "gap_vs_fold_s": s - fold_F,
-            "gap_vs_fold_pct": 100.0 * (s - fold_F) / fold_F if fold_F else None,
-            "F_reference_s": F_reference, "gap_vs_reference_s": s - F_reference,
-            "gap_vs_reference_pct": 100.0 * (s - F_reference) / F_reference if F_reference else None}
+    out = {"item_F_sum_s": s, "fold_F_s": fold_F, "gap_vs_fold_s": s - fold_F,
+           "gap_vs_fold_pct": 100.0 * (s - fold_F) / fold_F if fold_F else None,
+           "F_reference_s": F_reference, "gap_vs_reference_s": s - F_reference,
+           "gap_vs_reference_pct": 100.0 * (s - F_reference) / F_reference if F_reference else None}
+    lo, hi = NONDEVICE_REMAINDER.get(int(size) if size else 0, (None, None))
+    if lo is not None:
+        target = host_F if host_F is not None else s
+        out["nondevice_remainder_s"] = [lo, hi]
+        out["host_item_sum_s"] = host_F
+        out["gap_vs_remainder_s"] = [target - hi, target - lo]
+        out["pct_of_remainder"] = [100.0 * target / hi, 100.0 * target / lo]
+        out["over_remainder"] = target > hi
+        out["reducible_bar_s"] = REDUCIBLE_BAR_S
+    return out
 
 
 def scaling(F_512, F_298, expected=2.043):
@@ -132,7 +164,10 @@ def _cli(paths):
         F_ref = r.get("F_reference_s")
         out["sizes"][size] = {
             "fold": fold, "items": leaves,
-            "closure": closure({k: v["F_s"] for k, v in leaves.items()}, fold["F_s"], F_ref),
+            "closure": closure({k: v["F_s"] for k, v in leaves.items()}, fold["F_s"], F_ref,
+                               size=size,
+                               host_F=sum(v["F_s"] for k, v in leaves.items()
+                                          if k in HOST_ITEMS or k.startswith("prepare/"))),
             "perturbation": {
                 arm: {str(c): st.median([x["elapsed_s"] for x in r["rows"] if x["arm"] == arm
                                          and x["clock_MHz"] == c and x["valid"]] or [float("nan")])
