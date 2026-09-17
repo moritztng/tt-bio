@@ -1,0 +1,4624 @@
+{
+  "pid": 222706,
+  "host": "tt-quietbox2",
+  "size": 298,
+  "rows": [
+    {
+      "label": "cold",
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200725055,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 22041274232034,
+      "end_monotonic_ns": 22053678738360,
+      "elapsed_s": 12.404506326,
+      "host_cpu_s": 12.537554382,
+      "host_utime_s": 11.743917,
+      "host_stime_s": 0.793636,
+      "host_child_utime_s": 7.2355339999999995,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22041251589909,
+        "utc_ns": 1789601420392598576,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 404,
+            "stime_ticks": 115,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22053678760853,
+        "utc_ns": 1789601432819769239,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 1579,
+            "stime_ticks": 194,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/cold/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 11401,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 2071553,
+        "first_offset_ns": 720538,
+        "last_offset_ns": 357385,
+        "sample_span_fraction": 0.9999131023055919,
+        "min_W": 38.0,
+        "max_W": 142.0,
+        "mean_W": 60.147355495132004,
+        "max_C": 57.839,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 100,
+        "max_gap_ns": 129991537,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_r0",
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200686887,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 22054116243306,
+      "end_monotonic_ns": 22063799924986,
+      "elapsed_s": 9.68368168,
+      "host_cpu_s": 11.056115675,
+      "host_utime_s": 10.633757000000001,
+      "host_stime_s": 0.422358,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22054094632864,
+        "utc_ns": 1789601433235641520,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 1582,
+            "stime_ticks": 194,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22063799940326,
+        "utc_ns": 1789601442940948702,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 2646,
+            "stime_ticks": 236,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_r0/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8906,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1467990,
+        "first_offset_ns": 625896,
+        "last_offset_ns": 935173,
+        "sample_span_fraction": 0.9998387938542812,
+        "min_W": 38.0,
+        "max_W": 148.0,
+        "mean_W": 69.2110936447339,
+        "max_C": 57.839,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 78,
+        "max_gap_ns": 128206467,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1200_r0",
+      "clock_MHz": 1200,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1200,
+        "settled": true,
+        "reads": 12,
+        "settle_ns": 220888715,
+        "distinct": [
+          1200,
+          1350
+        ]
+      },
+      "start_monotonic_ns": 22064272953147,
+      "end_monotonic_ns": 22074870211400,
+      "elapsed_s": 10.597258253,
+      "host_cpu_s": 11.95376472,
+      "host_utime_s": 11.500488000000004,
+      "host_stime_s": 0.4532759999999998,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22064250543297,
+        "utc_ns": 1789601443391551974,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 2651,
+            "stime_ticks": 236,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22074870230016,
+        "utc_ns": 1789601454011238482,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 3801,
+            "stime_ticks": 282,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1200_r0/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1200,
+        "samples": 9764,
+        "min_MHz": 1200,
+        "max_MHz": 1200,
+        "max_gap_ns": 1168848,
+        "first_offset_ns": 1009476,
+        "last_offset_ns": 933925,
+        "sample_span_fraction": 0.9998166128489461,
+        "min_W": 32.0,
+        "max_W": 120.0,
+        "mean_W": 57.81349856616141,
+        "max_C": 56.429,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 87,
+        "max_gap_ns": 129090043,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_r0",
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 13,
+        "settle_ns": 240852087,
+        "distinct": [
+          1000,
+          1200
+        ]
+      },
+      "start_monotonic_ns": 22075377803574,
+      "end_monotonic_ns": 22087723036027,
+      "elapsed_s": 12.345232453,
+      "host_cpu_s": 13.703667994,
+      "host_utime_s": 13.227648000000002,
+      "host_stime_s": 0.4760200000000001,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22075353663453,
+        "utc_ns": 1789601454494672009,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 3807,
+            "stime_ticks": 282,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22087723055525,
+        "utc_ns": 1789601466864063861,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 5130,
+            "stime_ticks": 330,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_r0/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 11303,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1270398,
+        "first_offset_ns": 59044,
+        "last_offset_ns": 679815,
+        "sample_span_fraction": 0.9999401502561566,
+        "min_W": 27.0,
+        "max_W": 94.0,
+        "mean_W": 47.15438379191365,
+        "max_C": 55.019,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 100,
+        "max_gap_ns": 127803796,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c800_r0",
+      "clock_MHz": 800,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 800,
+        "settled": true,
+        "reads": 14,
+        "settle_ns": 260861636,
+        "distinct": [
+          800,
+          1000
+        ]
+      },
+      "start_monotonic_ns": 22088271381922,
+      "end_monotonic_ns": 22103282354125,
+      "elapsed_s": 15.010972203,
+      "host_cpu_s": 16.380958396,
+      "host_utime_s": 15.893747000000005,
+      "host_stime_s": 0.48721000000000014,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22088249078032,
+        "utc_ns": 1789601467390086669,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 5138,
+            "stime_ticks": 330,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22103282373162,
+        "utc_ns": 1789601482423381548,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 6728,
+            "stime_ticks": 379,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c800_r0/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 800,
+        "samples": 13828,
+        "min_MHz": 800,
+        "max_MHz": 800,
+        "max_gap_ns": 1205653,
+        "first_offset_ns": 879259,
+        "last_offset_ns": 253824,
+        "sample_span_fraction": 0.9999245163481301,
+        "min_W": 22.0,
+        "max_W": 74.0,
+        "mean_W": 37.85919872722013,
+        "max_C": 54.25,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 122,
+        "max_gap_ns": 128622881,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c800_r1",
+      "clock_MHz": 800,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 800,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200765195,
+        "distinct": [
+          800
+        ]
+      },
+      "start_monotonic_ns": 22103797803764,
+      "end_monotonic_ns": 22118787716564,
+      "elapsed_s": 14.9899128,
+      "host_cpu_s": 16.369261254,
+      "host_utime_s": 15.946608999999995,
+      "host_stime_s": 0.42265299999999995,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22103775474510,
+        "utc_ns": 1789601482916483107,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 6738,
+            "stime_ticks": 379,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22118787732665,
+        "utc_ns": 1789601497928741042,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 8333,
+            "stime_ticks": 422,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c800_r1/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 800,
+        "samples": 13816,
+        "min_MHz": 800,
+        "max_MHz": 800,
+        "max_gap_ns": 1503377,
+        "first_offset_ns": 678061,
+        "last_offset_ns": 347880,
+        "sample_span_fraction": 0.9999315579073949,
+        "min_W": 22.0,
+        "max_W": 74.0,
+        "mean_W": 37.84843659525188,
+        "max_C": 54.122,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 123,
+        "max_gap_ns": 132885553,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_r1",
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 14,
+        "settle_ns": 260936354,
+        "distinct": [
+          800,
+          1000
+        ]
+      },
+      "start_monotonic_ns": 22119383146939,
+      "end_monotonic_ns": 22131722854886,
+      "elapsed_s": 12.339707947,
+      "host_cpu_s": 13.697041499,
+      "host_utime_s": 13.276978,
+      "host_stime_s": 0.42006299999999985,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22119360215158,
+        "utc_ns": 1789601498501223795,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 8345,
+            "stime_ticks": 423,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22131722874704,
+        "utc_ns": 1789601510863883090,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 9673,
+            "stime_ticks": 465,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_r1/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 11364,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1275567,
+        "first_offset_ns": 1113680,
+        "last_offset_ns": 315238,
+        "sample_span_fraction": 0.9998842016353923,
+        "min_W": 27.0,
+        "max_W": 94.0,
+        "mean_W": 48.02296726504752,
+        "max_C": 55.019,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 100,
+        "max_gap_ns": 130067359,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1200_r1",
+      "clock_MHz": 1200,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1200,
+        "settled": true,
+        "reads": 12,
+        "settle_ns": 220924462,
+        "distinct": [
+          1000,
+          1200
+        ]
+      },
+      "start_monotonic_ns": 22132476412688,
+      "end_monotonic_ns": 22143072891881,
+      "elapsed_s": 10.596479193,
+      "host_cpu_s": 11.943560261,
+      "host_utime_s": 11.563188000000011,
+      "host_stime_s": 0.38037099999999935,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22132454172243,
+        "utc_ns": 1789601511595181120,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 9705,
+            "stime_ticks": 466,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22143072910266,
+        "utc_ns": 1789601522213918722,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 10861,
+            "stime_ticks": 504,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1200_r1/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1200,
+        "samples": 9751,
+        "min_MHz": 1200,
+        "max_MHz": 1200,
+        "max_gap_ns": 1323925,
+        "first_offset_ns": 110744,
+        "last_offset_ns": 931024,
+        "sample_span_fraction": 0.999901687345294,
+        "min_W": 32.0,
+        "max_W": 120.0,
+        "mean_W": 59.26910060506615,
+        "max_C": 56.301,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 86,
+        "max_gap_ns": 129743456,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_r1",
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 13,
+        "settle_ns": 240813609,
+        "distinct": [
+          1200,
+          1350
+        ]
+      },
+      "start_monotonic_ns": 22143685417944,
+      "end_monotonic_ns": 22153389725747,
+      "elapsed_s": 9.704307803,
+      "host_cpu_s": 11.068990844,
+      "host_utime_s": 10.632433000000006,
+      "host_stime_s": 0.43655699999999964,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22143663016110,
+        "utc_ns": 1789601522804024797,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 10877,
+            "stime_ticks": 505,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22153389744694,
+        "utc_ns": 1789601532530753080,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 11941,
+            "stime_ticks": 549,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_r1/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8923,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1193804,
+        "first_offset_ns": 542124,
+        "last_offset_ns": 359598,
+        "sample_span_fraction": 0.9999070802350559,
+        "min_W": 38.0,
+        "max_W": 148.0,
+        "mean_W": 65.65000560349658,
+        "max_C": 57.711,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 79,
+        "max_gap_ns": 130262108,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_r2",
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200788323,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 22153977648180,
+      "end_monotonic_ns": 22163610095148,
+      "elapsed_s": 9.632446968,
+      "host_cpu_s": 10.965401808,
+      "host_utime_s": 10.566148999999996,
+      "host_stime_s": 0.3992519999999997,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22153954804067,
+        "utc_ns": 1789601533095813085,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 11958,
+            "stime_ticks": 550,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22163610112161,
+        "utc_ns": 1789601542751120797,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 13015,
+            "stime_ticks": 590,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_r2/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8876,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1312413,
+        "first_offset_ns": 1020480,
+        "last_offset_ns": 697684,
+        "sample_span_fraction": 0.9998216274633323,
+        "min_W": 38.0,
+        "max_W": 148.0,
+        "mean_W": 71.92541685443894,
+        "max_C": 57.839,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 79,
+        "max_gap_ns": 130951584,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1200_r2",
+      "clock_MHz": 1200,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1200,
+        "settled": true,
+        "reads": 15,
+        "settle_ns": 281031235,
+        "distinct": [
+          1200,
+          1350
+        ]
+      },
+      "start_monotonic_ns": 22164287231018,
+      "end_monotonic_ns": 22174871963981,
+      "elapsed_s": 10.584732963,
+      "host_cpu_s": 11.938932296,
+      "host_utime_s": 11.551007999999996,
+      "host_stime_s": 0.3879229999999998,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22164264799832,
+        "utc_ns": 1789601543405808539,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 13033,
+            "stime_ticks": 592,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22174871982096,
+        "utc_ns": 1789601554012990542,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 14188,
+            "stime_ticks": 631,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1200_r2/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1200,
+        "samples": 9751,
+        "min_MHz": 1200,
+        "max_MHz": 1200,
+        "max_gap_ns": 1187116,
+        "first_offset_ns": 395111,
+        "last_offset_ns": 429603,
+        "sample_span_fraction": 0.9999220845719129,
+        "min_W": 32.0,
+        "max_W": 120.0,
+        "mean_W": 59.06901856219875,
+        "max_C": 56.558,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 86,
+        "max_gap_ns": 131140202,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_r2",
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 16,
+        "settle_ns": 301134595,
+        "distinct": [
+          1000,
+          1200
+        ]
+      },
+      "start_monotonic_ns": 22175590474600,
+      "end_monotonic_ns": 22187898154303,
+      "elapsed_s": 12.307679703,
+      "host_cpu_s": 13.656911758,
+      "host_utime_s": 13.247917000000001,
+      "host_stime_s": 0.40899399999999986,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22175568452696,
+        "utc_ns": 1789601554709461353,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 14208,
+            "stime_ticks": 633,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22187898172638,
+        "utc_ns": 1789601567039181014,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 15533,
+            "stime_ticks": 673,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_r2/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 11341,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1181791,
+        "first_offset_ns": 153781,
+        "last_offset_ns": 127526,
+        "sample_span_fraction": 0.9999771437828422,
+        "min_W": 27.0,
+        "max_W": 93.0,
+        "mean_W": 45.6122035093907,
+        "max_C": 55.148,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 100,
+        "max_gap_ns": 131408103,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c800_r2",
+      "clock_MHz": 800,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 800,
+        "settled": true,
+        "reads": 13,
+        "settle_ns": 240853381,
+        "distinct": [
+          800,
+          1000
+        ]
+      },
+      "start_monotonic_ns": 22188578837085,
+      "end_monotonic_ns": 22203527891395,
+      "elapsed_s": 14.94905431,
+      "host_cpu_s": 16.283492009,
+      "host_utime_s": 15.910067999999995,
+      "host_stime_s": 0.3734250000000001,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22188556494436,
+        "utc_ns": 1789601567697503023,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 15555,
+            "stime_ticks": 675,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22203527906684,
+        "utc_ns": 1789601582668915050,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 17146,
+            "stime_ticks": 712,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c800_r2/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 800,
+        "samples": 13770,
+        "min_MHz": 800,
+        "max_MHz": 800,
+        "max_gap_ns": 1190468,
+        "first_offset_ns": 399929,
+        "last_offset_ns": 702383,
+        "sample_span_fraction": 0.9999262620914245,
+        "min_W": 22.0,
+        "max_W": 75.0,
+        "mean_W": 37.868990559186635,
+        "max_C": 54.25,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 122,
+        "max_gap_ns": 131186125,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c800_r3",
+      "clock_MHz": 800,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 800,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200735898,
+        "distinct": [
+          800
+        ]
+      },
+      "start_monotonic_ns": 22204191773348,
+      "end_monotonic_ns": 22219173455371,
+      "elapsed_s": 14.981682023,
+      "host_cpu_s": 16.331054328,
+      "host_utime_s": 15.913321999999994,
+      "host_stime_s": 0.4177320000000009,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22204167736791,
+        "utc_ns": 1789601583308745428,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 17171,
+            "stime_ticks": 714,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22219173471712,
+        "utc_ns": 1789601598314480178,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 18762,
+            "stime_ticks": 755,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c800_r3/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 800,
+        "samples": 13798,
+        "min_MHz": 800,
+        "max_MHz": 800,
+        "max_gap_ns": 2104643,
+        "first_offset_ns": 186990,
+        "last_offset_ns": 638976,
+        "sample_span_fraction": 0.9999448682732198,
+        "min_W": 22.0,
+        "max_W": 73.0,
+        "mean_W": 37.907377880852295,
+        "max_C": 53.866,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 123,
+        "max_gap_ns": 133911624,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_r3",
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 13,
+        "settle_ns": 240839160,
+        "distinct": [
+          800,
+          1000
+        ]
+      },
+      "start_monotonic_ns": 22219896057413,
+      "end_monotonic_ns": 22232184435617,
+      "elapsed_s": 12.288378204,
+      "host_cpu_s": 13.617786587,
+      "host_utime_s": 13.25345200000001,
+      "host_stime_s": 0.36433300000000024,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22219873774095,
+        "utc_ns": 1789601599014782952,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 18789,
+            "stime_ticks": 757,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22232184454023,
+        "utc_ns": 1789601611325462489,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 20114,
+            "stime_ticks": 794,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_r3/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 11322,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1164822,
+        "first_offset_ns": 495955,
+        "last_offset_ns": 105117,
+        "sample_span_fraction": 0.9999510861409031,
+        "min_W": 26.0,
+        "max_W": 94.0,
+        "mean_W": 47.25834658187599,
+        "max_C": 55.019,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 100,
+        "max_gap_ns": 133803015,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1200_r3",
+      "clock_MHz": 1200,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1200,
+        "settled": true,
+        "reads": 16,
+        "settle_ns": 301102663,
+        "distinct": [
+          1000,
+          1200
+        ]
+      },
+      "start_monotonic_ns": 22232986894640,
+      "end_monotonic_ns": 22243601127655,
+      "elapsed_s": 10.614233015,
+      "host_cpu_s": 11.955315082,
+      "host_utime_s": 11.552053999999998,
+      "host_stime_s": 0.4032619999999998,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22232964973452,
+        "utc_ns": 1789601612105982349,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 20142,
+            "stime_ticks": 796,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22243601143095,
+        "utc_ns": 1789601622742151471,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 21297,
+            "stime_ticks": 837,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1200_r3/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1200,
+        "samples": 9779,
+        "min_MHz": 1200,
+        "max_MHz": 1200,
+        "max_gap_ns": 1188754,
+        "first_offset_ns": 208250,
+        "last_offset_ns": 852807,
+        "sample_span_fraction": 0.9999000345104069,
+        "min_W": 32.0,
+        "max_W": 120.0,
+        "mean_W": 60.32007362716024,
+        "max_C": 56.429,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 86,
+        "max_gap_ns": 129207232,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_r3",
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 15,
+        "settle_ns": 281040706,
+        "distinct": [
+          1200,
+          1350
+        ]
+      },
+      "start_monotonic_ns": 22244401301704,
+      "end_monotonic_ns": 22254057557589,
+      "elapsed_s": 9.656255885,
+      "host_cpu_s": 10.981993261,
+      "host_utime_s": 10.623753000000022,
+      "host_stime_s": 0.3582390000000011,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22244376742539,
+        "utc_ns": 1789601623517751196,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 21326,
+            "stime_ticks": 840,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22254057575513,
+        "utc_ns": 1789601633198583880,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 22388,
+            "stime_ticks": 876,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_r3/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8899,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1170083,
+        "first_offset_ns": 51910,
+        "last_offset_ns": 842608,
+        "sample_span_fraction": 0.9999073638881723,
+        "min_W": 37.0,
+        "max_W": 149.0,
+        "mean_W": 71.51870996741206,
+        "max_C": 57.711,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 79,
+        "max_gap_ns": 129419940,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_r4",
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200694344,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 22254970013521,
+      "end_monotonic_ns": 22264622307499,
+      "elapsed_s": 9.652293978,
+      "host_cpu_s": 10.985597366,
+      "host_utime_s": 10.600092999999987,
+      "host_stime_s": 0.3855039999999992,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22254947628835,
+        "utc_ns": 1789601634088637482,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 22437,
+            "stime_ticks": 878,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22264622326385,
+        "utc_ns": 1789601643763334852,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 23497,
+            "stime_ticks": 916,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_r4/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8841,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1179742,
+        "first_offset_ns": 853909,
+        "last_offset_ns": 311225,
+        "sample_span_fraction": 0.9998792894204573,
+        "min_W": 38.0,
+        "max_W": 150.0,
+        "mean_W": 73.1090374392037,
+        "max_C": 57.839,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 79,
+        "max_gap_ns": 129069288,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1200_r4",
+      "clock_MHz": 1200,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1200,
+        "settled": true,
+        "reads": 12,
+        "settle_ns": 220744445,
+        "distinct": [
+          1200,
+          1350
+        ]
+      },
+      "start_monotonic_ns": 22265395393399,
+      "end_monotonic_ns": 22275978733062,
+      "elapsed_s": 10.583339663,
+      "host_cpu_s": 11.91608232,
+      "host_utime_s": 11.530936999999994,
+      "host_stime_s": 0.3851449999999996,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22265372436875,
+        "utc_ns": 1789601644513445431,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 23531,
+            "stime_ticks": 918,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22275978751658,
+        "utc_ns": 1789601655119760114,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 24684,
+            "stime_ticks": 957,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1200_r4/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1200,
+        "samples": 9747,
+        "min_MHz": 1200,
+        "max_MHz": 1200,
+        "max_gap_ns": 1450312,
+        "first_offset_ns": 522431,
+        "last_offset_ns": 373354,
+        "sample_span_fraction": 0.9999153589482598,
+        "min_W": 32.0,
+        "max_W": 120.0,
+        "mean_W": 56.701959577305836,
+        "max_C": 56.558,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 86,
+        "max_gap_ns": 129623837,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_r4",
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 13,
+        "settle_ns": 240792466,
+        "distinct": [
+          1000,
+          1200
+        ]
+      },
+      "start_monotonic_ns": 22276790719642,
+      "end_monotonic_ns": 22289105404927,
+      "elapsed_s": 12.314685285,
+      "host_cpu_s": 13.656417313,
+      "host_utime_s": 13.236479000000003,
+      "host_stime_s": 0.41993800000000014,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22276766835965,
+        "utc_ns": 1789601655907844691,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 24718,
+            "stime_ticks": 959,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22289105421779,
+        "utc_ns": 1789601668246430165,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 26042,
+            "stime_ticks": 1001,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_r4/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 11334,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1253708,
+        "first_offset_ns": 854304,
+        "last_offset_ns": 952399,
+        "sample_span_fraction": 0.9998532887395668,
+        "min_W": 27.0,
+        "max_W": 93.0,
+        "mean_W": 47.66807834833245,
+        "max_C": 55.276,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 100,
+        "max_gap_ns": 128341746,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c800_r4",
+      "clock_MHz": 800,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 800,
+        "settled": true,
+        "reads": 16,
+        "settle_ns": 300970107,
+        "distinct": [
+          800,
+          1000
+        ]
+      },
+      "start_monotonic_ns": 22289996881980,
+      "end_monotonic_ns": 22304971500339,
+      "elapsed_s": 14.974618359,
+      "host_cpu_s": 16.32691966,
+      "host_utime_s": 15.901208999999994,
+      "host_stime_s": 0.42571099999999973,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22289974282769,
+        "utc_ns": 1789601669115291275,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 26077,
+            "stime_ticks": 1005,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22304971516580,
+        "utc_ns": 1789601684112524956,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 27668,
+            "stime_ticks": 1047,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c800_r4/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 800,
+        "samples": 13802,
+        "min_MHz": 800,
+        "max_MHz": 800,
+        "max_gap_ns": 1173639,
+        "first_offset_ns": 230018,
+        "last_offset_ns": 301867,
+        "sample_span_fraction": 0.9999644808977933,
+        "min_W": 22.0,
+        "max_W": 75.0,
+        "mean_W": 38.00941892479351,
+        "max_C": 54.122,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 123,
+        "max_gap_ns": 132679369,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c800_r5",
+      "clock_MHz": 800,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 800,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200737521,
+        "distinct": [
+          800
+        ]
+      },
+      "start_monotonic_ns": 22305778168897,
+      "end_monotonic_ns": 22320734897937,
+      "elapsed_s": 14.95672904,
+      "host_cpu_s": 16.292340498,
+      "host_utime_s": 15.92745199999996,
+      "host_stime_s": 0.3648869999999995,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22305755449296,
+        "utc_ns": 1789601684896457933,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 27705,
+            "stime_ticks": 1051,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22320734917956,
+        "utc_ns": 1789601699875926412,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 29298,
+            "stime_ticks": 1087,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c800_r5/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 800,
+        "samples": 13785,
+        "min_MHz": 800,
+        "max_MHz": 800,
+        "max_gap_ns": 1178162,
+        "first_offset_ns": 858692,
+        "last_offset_ns": 783929,
+        "sample_span_fraction": 0.9998901751181286,
+        "min_W": 22.0,
+        "max_W": 75.0,
+        "mean_W": 38.35908596300327,
+        "max_C": 53.994,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 122,
+        "max_gap_ns": 131270330,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_r5",
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 13,
+        "settle_ns": 240867091,
+        "distinct": [
+          800,
+          1000
+        ]
+      },
+      "start_monotonic_ns": 22321610278613,
+      "end_monotonic_ns": 22333920209751,
+      "elapsed_s": 12.309931138,
+      "host_cpu_s": 13.658312762,
+      "host_utime_s": 13.230705,
+      "host_stime_s": 0.4276060000000008,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22321587899941,
+        "utc_ns": 1789601700728908708,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 29337,
+            "stime_ticks": 1091,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22333920226183,
+        "utc_ns": 1789601713061234559,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 30660,
+            "stime_ticks": 1134,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_r5/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 11313,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1198878,
+        "first_offset_ns": 918988,
+        "last_offset_ns": 589830,
+        "sample_span_fraction": 0.9998774308334396,
+        "min_W": 27.0,
+        "max_W": 94.0,
+        "mean_W": 48.25519314063467,
+        "max_C": 55.019,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 101,
+        "max_gap_ns": 134068789,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1200_r5",
+      "clock_MHz": 1200,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1200,
+        "settled": true,
+        "reads": 13,
+        "settle_ns": 240857719,
+        "distinct": [
+          1000,
+          1200
+        ]
+      },
+      "start_monotonic_ns": 22334808928268,
+      "end_monotonic_ns": 22345406624201,
+      "elapsed_s": 10.597695933,
+      "host_cpu_s": 11.937416476,
+      "host_utime_s": 11.515746000000036,
+      "host_stime_s": 0.4216689999999996,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22334786118088,
+        "utc_ns": 1789601713927126845,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 30702,
+            "stime_ticks": 1137,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22345406642456,
+        "utc_ns": 1789601724547650842,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 31854,
+            "stime_ticks": 1179,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1200_r5/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1200,
+        "samples": 9761,
+        "min_MHz": 1200,
+        "max_MHz": 1200,
+        "max_gap_ns": 1204818,
+        "first_offset_ns": 586188,
+        "last_offset_ns": 425745,
+        "sample_span_fraction": 0.9999045138673163,
+        "min_W": 32.0,
+        "max_W": 119.0,
+        "mean_W": 58.93996516750333,
+        "max_C": 56.429,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 86,
+        "max_gap_ns": 130681140,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_r5",
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 13,
+        "settle_ns": 241050529,
+        "distinct": [
+          1200,
+          1350
+        ]
+      },
+      "start_monotonic_ns": 22346313861920,
+      "end_monotonic_ns": 22356144369039,
+      "elapsed_s": 9.830507119,
+      "host_cpu_s": 11.159518262,
+      "host_utime_s": 10.77586500000001,
+      "host_stime_s": 0.38365399999999994,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22346290420578,
+        "utc_ns": 1789601725431429264,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 31896,
+            "stime_ticks": 1183,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22356144385821,
+        "utc_ns": 1789601735285394287,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 32974,
+            "stime_ticks": 1222,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_r5/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 9058,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1195035,
+        "first_offset_ns": 234411,
+        "last_offset_ns": 562257,
+        "sample_span_fraction": 0.9999189596233077,
+        "min_W": 38.0,
+        "max_W": 150.0,
+        "mean_W": 70.30437182601015,
+        "max_C": 57.839,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 80,
+        "max_gap_ns": 131899573,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_r6",
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200705590,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 22357020910004,
+      "end_monotonic_ns": 22366689647716,
+      "elapsed_s": 9.668737712,
+      "host_cpu_s": 11.018447411,
+      "host_utime_s": 10.588464999999985,
+      "host_stime_s": 0.429981999999999,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22356999515653,
+        "utc_ns": 1789601736140524329,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 33018,
+            "stime_ticks": 1225,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22366689665470,
+        "utc_ns": 1789601745830673876,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 34077,
+            "stime_ticks": 1268,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_r6/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8865,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1185637,
+        "first_offset_ns": 942689,
+        "last_offset_ns": 620765,
+        "sample_span_fraction": 0.9998382980233232,
+        "min_W": 38.0,
+        "max_W": 149.0,
+        "mean_W": 69.66181613085166,
+        "max_C": 57.839,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 78,
+        "max_gap_ns": 129092923,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1200_r6",
+      "clock_MHz": 1200,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1200,
+        "settled": true,
+        "reads": 12,
+        "settle_ns": 220701563,
+        "distinct": [
+          1200,
+          1350
+        ]
+      },
+      "start_monotonic_ns": 22367614126552,
+      "end_monotonic_ns": 22378237043490,
+      "elapsed_s": 10.622916938,
+      "host_cpu_s": 11.973838791,
+      "host_utime_s": 11.556060000000002,
+      "host_stime_s": 0.41777900000000123,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22367592211590,
+        "utc_ns": 1789601746733220227,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 34124,
+            "stime_ticks": 1272,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22378237061225,
+        "utc_ns": 1789601757378069701,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 35279,
+            "stime_ticks": 1314,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1200_r6/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1200,
+        "samples": 9792,
+        "min_MHz": 1200,
+        "max_MHz": 1200,
+        "max_gap_ns": 1166013,
+        "first_offset_ns": 722165,
+        "last_offset_ns": 784349,
+        "sample_span_fraction": 0.9998581826433556,
+        "min_W": 32.0,
+        "max_W": 121.0,
+        "mean_W": 58.31372549019608,
+        "max_C": 56.558,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 87,
+        "max_gap_ns": 130506202,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_r6",
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 14,
+        "settle_ns": 260820183,
+        "distinct": [
+          1000,
+          1200
+        ]
+      },
+      "start_monotonic_ns": 22379213890260,
+      "end_monotonic_ns": 22391538733281,
+      "elapsed_s": 12.324843021,
+      "host_cpu_s": 13.675422897,
+      "host_utime_s": 13.242260999999985,
+      "host_stime_s": 0.43316100000000013,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22379190992028,
+        "utc_ns": 1789601758332000655,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 35327,
+            "stime_ticks": 1317,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22391538752628,
+        "utc_ns": 1789601770679761004,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 36652,
+            "stime_ticks": 1361,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_r6/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 11360,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1197339,
+        "first_offset_ns": 573884,
+        "last_offset_ns": 186680,
+        "sample_span_fraction": 0.9999382901673713,
+        "min_W": 27.0,
+        "max_W": 94.0,
+        "mean_W": 47.61012323943662,
+        "max_C": 55.148,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 100,
+        "max_gap_ns": 131169997,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c800_r6",
+      "clock_MHz": 800,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 800,
+        "settled": true,
+        "reads": 13,
+        "settle_ns": 240786421,
+        "distinct": [
+          800,
+          1000
+        ]
+      },
+      "start_monotonic_ns": 22392522207444,
+      "end_monotonic_ns": 22407489040614,
+      "elapsed_s": 14.96683317,
+      "host_cpu_s": 16.30847866,
+      "host_utime_s": 15.924339000000032,
+      "host_stime_s": 0.38414000000000037,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.911875,
+        "ptm": 0.927328,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.908011,
+        "complex_iplddt": 0.908011,
+        "complex_pde": 0.460442,
+        "complex_ipde": 0.0,
+        "plddt": 0.908011,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.927328
+          }
+        },
+        "chains_ptm": {
+          "0": 0.927328
+        }
+      },
+      "plddt": 0.908011,
+      "before": {
+        "monotonic_ns": 22392499526362,
+        "utc_ns": 1789601771640534868,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 36701,
+            "stime_ticks": 1365,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 22407489061063,
+        "utc_ns": 1789601786630069830,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 222706,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 38294,
+            "stime_ticks": 1404,
+            "starttime_ticks": 2203624,
+            "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c800_r6/cdk2x2_298.cif",
+      "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+      "clock": {
+        "target_MHz": 800,
+        "samples": 13786,
+        "min_MHz": 800,
+        "max_MHz": 800,
+        "max_gap_ns": 1181568,
+        "first_offset_ns": 323832,
+        "last_offset_ns": 435393,
+        "sample_span_fraction": 0.9999492728360518,
+        "min_W": 22.0,
+        "max_W": 75.0,
+        "mean_W": 38.16640069635862,
+        "max_C": 54.122,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 122,
+        "max_gap_ns": 130326462,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 2397,
+        "whole_chain_all_atom_A": 7.14729353625079e-15,
+        "domain_all_atom_A": [
+          7.14729353625079e-15
+        ],
+        "max_domain_all_atom_A": 7.14729353625079e-15,
+        "cif_byte_exact": true
+      }
+    }
+  ],
+  "errors": [],
+  "criterion": {
+    "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/criterion.json",
+    "sha256": "66c869b6bf5e320b8dbb7e01c1b3d64482617786f57521d591522bc644554c3e",
+    "bytes": 5493
+  },
+  "source_commit": "860d52fd33fbcfa84478e81bd314ddddcdacc1a3",
+  "source_base": "e6004abba460550a650ffa42a90e795ab3e5f20d",
+  "dirty_status": "?? perf/c10_fixed_cost/runs/\n?? perf/c10_fixed_cost/sweep1.out\n",
+  "production_diff": "",
+  "started_utc_ns": 1789601415457745784,
+  "completed": true,
+  "before": {
+    "monotonic_ns": 22036316752767,
+    "utc_ns": 1789601415457761194,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [],
+    "own_nodes": []
+  },
+  "comparable_base_delta": {
+    "base": "5e1886b4fd1bea4211f30c295723c8175c72d63c",
+    "files": [
+      "tt_bio/eltwise_fusion.py",
+      "tt_bio/rfd3/block_sparse.py",
+      "tt_bio/rfd3/model.py",
+      "tt_bio/tenstorrent.py"
+    ],
+    "python_files": [
+      "tt_bio/eltwise_fusion.py",
+      "tt_bio/rfd3/block_sparse.py",
+      "tt_bio/rfd3/model.py",
+      "tt_bio/tenstorrent.py"
+    ],
+    "all_changed_files_are_python": true,
+    "ast_equivalent": {
+      "tt_bio/eltwise_fusion.py": true,
+      "tt_bio/rfd3/block_sparse.py": true,
+      "tt_bio/rfd3/model.py": true,
+      "tt_bio/tenstorrent.py": true
+    },
+    "diff_bytes": 4553,
+    "comment_only": true
+  },
+  "dirty_diff": "",
+  "environment": {
+    "TT_BIO_LEASE_CARDS": "0",
+    "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost",
+    "TT_VISIBLE_DEVICES": "0",
+    "BENCHLOCK_WAIT_S": "60",
+    "BENCHLOCK_LOAD_WAIT_S": "60",
+    "PYTHONPATH": "/home/ttuser/.coworker/wt/c10-fixed-cost",
+    "OMP_NUM_THREADS": "2"
+  },
+  "ttnn_version": "0.68.0",
+  "ttnn_path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/__init__.py",
+  "tt_bio_path": "/home/ttuser/.coworker/wt/c10-fixed-cost/tt_bio/tenstorrent.py",
+  "ttnn_config": "Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}",
+  "profiling": {
+    "tracy_launched": false,
+    "graph": false,
+    "generic_observer": false,
+    "module_timers": false,
+    "sum_profiling": false,
+    "runtime_env": {}
+  },
+  "assigned_node_sysfs": {
+    "resolved": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0/tenstorrent/tenstorrent!0",
+    "device": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0",
+    "subsystem_device": "0x0046",
+    "tt_asic_id": "D7ADCC7E44A5908A",
+    "tt_card_type": "p300c",
+    "tt_fw_bundle_ver": "19.15.0.0",
+    "tt_m3app_fw_ver": "0.31.0.0",
+    "tt_serial": "0000046131934103"
+  },
+  "inputs": [
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/size512/fixtures/cdk2x2_298.yaml",
+      "sha256": "d1c5084cae5c21dbc9de0e1ebbbc7a41b19d3949d74b036d401965225d5279c7",
+      "bytes": 599
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/size512/fixtures/cdk2x2_298.a3m",
+      "sha256": "e6eff96ae8bc7d823a25263aca56bb8af3c83e2e1cd7257e60d642a9e6a49c41",
+      "bytes": 12783
+    }
+  ],
+  "opened": {
+    "monotonic_ns": 22040773929425,
+    "utc_ns": 1789601419914938542,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [
+      {
+        "pid": 222706,
+        "nodes": [
+          "/dev/tenstorrent/0"
+        ],
+        "state": "S",
+        "utime_ticks": 400,
+        "stime_ticks": 114,
+        "starttime_ticks": 2203624,
+        "argv": "python3 perf/c10_fixed_cost/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298 ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "0",
+          "TT_BIO_LEASE_CARDS": "0",
+          "TT_BIO_LEASE_HOLDER": "worker:c10-fixed-cost"
+        }
+      }
+    ],
+    "own_nodes": [
+      "/dev/tenstorrent/0"
+    ]
+  },
+  "model_meta": {
+    "hardware": "blackhole",
+    "grid": [
+      11,
+      10
+    ],
+    "recycling_steps": 3,
+    "load_s": 2.48,
+    "n_msa": 35,
+    "msa_dir": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298/msa",
+    "diffusion_samples": 1,
+    "job_cfg": {
+      "model": "boltz2",
+      "fast": false,
+      "output_format": "cif",
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0,
+      "trace": false,
+      "msa_dir": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298/msa",
+      "struct_dir": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/tmp/ttbase-boltz2-_s86cjyn/out",
+      "use_msa_server": true,
+      "msa_db_path": null,
+      "use_envdb": false,
+      "msa_endpoint": null,
+      "single_sequence": false,
+      "msa_server_url": "https://api.colabfold.com",
+      "msa_pairing_strategy": "greedy",
+      "msa_server_username": null,
+      "msa_server_password": null,
+      "api_key_value": null,
+      "max_msa_seqs": 8192,
+      "write_pae": false,
+      "write_pde": false,
+      "write_embeddings": false,
+      "method": null,
+      "template_structures": "/home/ttuser/.boltz/of3_template_structures",
+      "conf_ckpt": "/home/ttuser/.boltz/boltz2_conf.ckpt",
+      "aff_ckpt": "/home/ttuser/.boltz/boltz2_aff.ckpt",
+      "mol_dir": "/home/ttuser/.boltz/mols",
+      "conf_kwargs": {
+        "predict_args": {
+          "recycling_steps": 3,
+          "sampling_steps": 200,
+          "diffusion_samples": 1,
+          "max_parallel_samples": null
+        },
+        "diffusion_process_args": {
+          "step_scale": 1.5,
+          "gamma_0": 0.8,
+          "gamma_min": 1.0,
+          "noise_scale": 1.003,
+          "rho": 7,
+          "sigma_min": 0.0001,
+          "sigma_max": 160.0,
+          "sigma_data": 16.0,
+          "P_mean": -1.2,
+          "P_std": 1.5,
+          "coordinate_augmentation": true,
+          "alignment_reverse_diff": true,
+          "synchronize_sigmas": true
+        },
+        "pairformer_args": {
+          "num_blocks": 64,
+          "num_heads": 16,
+          "dropout": 0.0,
+          "v2": true
+        },
+        "msa_args": {
+          "subsample_msa": true,
+          "num_subsampled_msa": 1024,
+          "use_paired_feature": true,
+          "msa_s": 64,
+          "msa_blocks": 4,
+          "msa_dropout": 0.15,
+          "z_dropout": 0.25,
+          "pairwise_head_width": 32,
+          "pairwise_num_heads": 4,
+          "activation_checkpointing": true
+        },
+        "steering_args": {
+          "fk_steering": false,
+          "physical_guidance_update": false,
+          "contact_guidance_update": true,
+          "num_particles": 3,
+          "fk_lambda": 4.0,
+          "fk_resampling_interval": 3,
+          "num_gd_steps": 20
+        },
+        "use_kernels": true,
+        "use_tenstorrent": true,
+        "trace": false,
+        "diffusion_trace": false
+      },
+      "aff_kwargs": {
+        "predict_args": {
+          "recycling_steps": 5,
+          "sampling_steps": 200,
+          "diffusion_samples": 5,
+          "max_parallel_samples": 1
+        },
+        "diffusion_process_args": {
+          "step_scale": 1.5,
+          "gamma_0": 0.8,
+          "gamma_min": 1.0,
+          "noise_scale": 1.003,
+          "rho": 7,
+          "sigma_min": 0.0001,
+          "sigma_max": 160.0,
+          "sigma_data": 16.0,
+          "P_mean": -1.2,
+          "P_std": 1.5,
+          "coordinate_augmentation": true,
+          "alignment_reverse_diff": true,
+          "synchronize_sigmas": true
+        },
+        "pairformer_args": {
+          "num_blocks": 64,
+          "num_heads": 16,
+          "dropout": 0.0,
+          "v2": true
+        },
+        "msa_args": {
+          "subsample_msa": true,
+          "num_subsampled_msa": 1024,
+          "use_paired_feature": true,
+          "msa_s": 64,
+          "msa_blocks": 4,
+          "msa_dropout": 0.15,
+          "z_dropout": 0.25,
+          "pairwise_head_width": 32,
+          "pairwise_num_heads": 4,
+          "activation_checkpointing": true
+        },
+        "steering_args": {
+          "fk_steering": false,
+          "physical_guidance_update": false,
+          "contact_guidance_update": false,
+          "num_particles": 3,
+          "fk_lambda": 4.0,
+          "fk_resampling_interval": 3,
+          "num_gd_steps": 20
+        },
+        "affinity_mw_correction": false,
+        "use_tenstorrent": true,
+        "trace": false,
+        "diffusion_trace": false
+      },
+      "use_potentials": false
+    },
+    "struct_dir": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/tmp/ttbase-boltz2-_s86cjyn/out",
+    "timed_region": "predict_one (featurize + fold + CIF write)",
+    "phase_times": null,
+    "assigned_node_sysfs": {
+      "resolved": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0/tenstorrent/tenstorrent!0",
+      "device": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0",
+      "subsystem_device": "0x0046",
+      "tt_asic_id": "D7ADCC7E44A5908A",
+      "tt_card_type": "p300c",
+      "tt_fw_bundle_ver": "19.15.0.0",
+      "tt_m3app_fw_ver": "0.31.0.0",
+      "tt_serial": "0000046131934103"
+    }
+  },
+  "model_predict_args": {
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "diffusion_samples": 1,
+    "max_parallel_samples": null
+  },
+  "acquisition_sources": [
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/ambient.py",
+      "sha256": "56fefb64f05793d20d8d73033a58501ea1c29f6567ee973196d726fcf090076e",
+      "bytes": 1798
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/astsame.py",
+      "sha256": "241906d20360f602715b9472495560cedefb39167164279a5ac3f1b12ee34fd1",
+      "bytes": 1215
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/audit_accuracy.py",
+      "sha256": "ea5e820a97b86a63edcbf14f30fe5f5c93880728b9e5bd5650f270da620c08c1",
+      "bytes": 4310
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/audit_prerequisites.py",
+      "sha256": "452221b86bb2fa3939215844f617e8a24349d9b765a3a61e4f3db096cc0184ac",
+      "bytes": 3342
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/capture.py",
+      "sha256": "513a87f56b35dd0faf4a8924331614cebad886c16a22ee25a17f6eacea2d0f55",
+      "bytes": 15202
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/clockarm.py",
+      "sha256": "b797e01d8f08261d07d2fc89b62ac7955980234672c111f304b7f374071b44b3",
+      "bytes": 7327
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/control.py",
+      "sha256": "99003cb322b8750ba3e75439b92e13890b13172b824b4377ed08312a66f63ef4",
+      "bytes": 4228
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/force_aiclk.py",
+      "sha256": "f8cad754361c724498de52f4e21164705e0667caa710c317076da0312dfb314d",
+      "bytes": 2572
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/negative_control.py",
+      "sha256": "0d0d5c044525de5ba6968bf60ad34066ee1e175fbdb3b5d9beb17eae7cb8a558",
+      "bytes": 5850
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/reduce.py",
+      "sha256": "7e18045bc490e60349aa4fc364720ee7a92140926c386630ef272235e9eeed14",
+      "bytes": 15844
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/report.py",
+      "sha256": "74c05e37d0b208a22aacae1014cb9dc8cfe3cdc5c09ebc9ffe64c433acd58b6b",
+      "bytes": 4676
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/state_doc.py",
+      "sha256": "a45a2ff2fb01d3d0d92e3ef5ea322a0b82580368da9061b42cb4ac59c6250ad8",
+      "bytes": 13708
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/test_controls.py",
+      "sha256": "d36409242bc223fe570a40fbd52380eef91586cc81e5db05e3aa298f5d549b61",
+      "bytes": 8208
+    }
+  ],
+  "msa_cache": [
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-fixed-cost/perf/c10_fixed_cost/runs/sweep1/298/msa/fe22d91e18cd544a.a3m",
+      "sha256": "e6eff96ae8bc7d823a25263aca56bb8af3c83e2e1cd7257e60d642a9e6a49c41",
+      "bytes": 12783
+    }
+  ],
+  "loaded_binaries": [
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libdevice-24800af9.so",
+      "sha256": "86700f0d427f958fae37bed568cdcc3a7a2ccf27d3f06e2b6ae09b421a188dbf",
+      "bytes": 6403017
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libevent_core-2-62e6a6c7.1.so.7.0.1",
+      "sha256": "12d771eba8dbb392552ad6beffec29cad1f9c3f4374ee988898f1b769402d858",
+      "bytes": 247425
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libevent_pthreads-2-65bdebb2.1.so.7.0.1",
+      "sha256": "87b62d0242617afaf06878a95f895fa1716517dd87f18ea3521ea338fb011eca",
+      "bytes": 17817
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libhwloc-61de41b6.so.15.4.1",
+      "sha256": "b58eb17e1659f01cd9f3e8c415daff6bed7e1e2bef6e1bc6c46d3ed06e49d506",
+      "bytes": 372737
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libmpi-58444744.so.40.40.7",
+      "sha256": "68450668bc6a8931aa38d441ad8a26d3faf04c3849fa79e77e809235b4e89a1e",
+      "bytes": 4023145
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libnuma-9d148503.so.1.0.0",
+      "sha256": "08bf83be2e36c491317ef49d084d34be27b8e83e479c4899c3b09086dc77adba",
+      "bytes": 69265
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libopen-pal-e50f0a04.so.80.0.5",
+      "sha256": "85ba52b1ce2c4b297f745cafa0d6b2f979ecf60f47290814cd1b5e273fa759e5",
+      "bytes": 1325761
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libpmix-e8cc5646.so.2.13.5",
+      "sha256": "b9ab2018f53cce3bf9cfba0db82271c6b139400ac821f27a3c3dce000bbffa1f",
+      "bytes": 2526913
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libtracy-4c2b3bfe.so.0.10.0",
+      "sha256": "27788ddd96f773a92fe01c30fabe67b89622b816c9365ddb052a8bc0eeab8c5b",
+      "bytes": 13345
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so",
+      "sha256": "8b0dcbec673cca0f13bfd9e6ec7aaaa56be60f4dbd83fb5a13515668feb14fcd",
+      "bytes": 15975161
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so",
+      "sha256": "c39e747d8ab5bfa6c6dbe6e5f8257dfbb2f6928fd06e3401a1453b745258c145",
+      "bytes": 32749785
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so",
+      "sha256": "0ae0f11d72493364046fe8fedd8317fe4fe9237ddd6cf39c3e1487388c029e6f",
+      "bytes": 24257873
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_stl.so",
+      "sha256": "1458653d16a77c0ba17db7b76ea7680635ef0cadd2e7c9a134573773e1a1f1dd",
+      "bytes": 23656
+    }
+  ],
+  "sdpa_cap": 1024,
+  "timer": "synchronize; monotonic_ns; complete state.predict_one incl. output writing; synchronize; monotonic_ns",
+  "label_plan": [
+    {
+      "label": "cold",
+      "clock_MHz": 1350
+    },
+    {
+      "label": "c1350_r0",
+      "clock_MHz": 1350
+    },
+    {
+      "label": "c1200_r0",
+      "clock_MHz": 1200
+    },
+    {
+      "label": "c1000_r0",
+      "clock_MHz": 1000
+    },
+    {
+      "label": "c800_r0",
+      "clock_MHz": 800
+    },
+    {
+      "label": "c800_r1",
+      "clock_MHz": 800
+    },
+    {
+      "label": "c1000_r1",
+      "clock_MHz": 1000
+    },
+    {
+      "label": "c1200_r1",
+      "clock_MHz": 1200
+    },
+    {
+      "label": "c1350_r1",
+      "clock_MHz": 1350
+    },
+    {
+      "label": "c1350_r2",
+      "clock_MHz": 1350
+    },
+    {
+      "label": "c1200_r2",
+      "clock_MHz": 1200
+    },
+    {
+      "label": "c1000_r2",
+      "clock_MHz": 1000
+    },
+    {
+      "label": "c800_r2",
+      "clock_MHz": 800
+    },
+    {
+      "label": "c800_r3",
+      "clock_MHz": 800
+    },
+    {
+      "label": "c1000_r3",
+      "clock_MHz": 1000
+    },
+    {
+      "label": "c1200_r3",
+      "clock_MHz": 1200
+    },
+    {
+      "label": "c1350_r3",
+      "clock_MHz": 1350
+    },
+    {
+      "label": "c1350_r4",
+      "clock_MHz": 1350
+    },
+    {
+      "label": "c1200_r4",
+      "clock_MHz": 1200
+    },
+    {
+      "label": "c1000_r4",
+      "clock_MHz": 1000
+    },
+    {
+      "label": "c800_r4",
+      "clock_MHz": 800
+    },
+    {
+      "label": "c800_r5",
+      "clock_MHz": 800
+    },
+    {
+      "label": "c1000_r5",
+      "clock_MHz": 1000
+    },
+    {
+      "label": "c1200_r5",
+      "clock_MHz": 1200
+    },
+    {
+      "label": "c1350_r5",
+      "clock_MHz": 1350
+    },
+    {
+      "label": "c1350_r6",
+      "clock_MHz": 1350
+    },
+    {
+      "label": "c1200_r6",
+      "clock_MHz": 1200
+    },
+    {
+      "label": "c1000_r6",
+      "clock_MHz": 1000
+    },
+    {
+      "label": "c800_r6",
+      "clock_MHz": 800
+    }
+  ],
+  "release_response": [
+    0,
+    0
+  ],
+  "sampler_returncode": 0,
+  "after": {
+    "monotonic_ns": 22408380479491,
+    "utc_ns": 1789601787521488338,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [],
+    "own_nodes": []
+  },
+  "released_aiclk_MHz": 1350,
+  "finished_utc_ns": 1789601788577087911
+}

@@ -176,7 +176,8 @@ def reduce(root):
                 lo,cells[str(lo)]['median_s'],cells[str(lo)]['se_median_s'] or 0.0)
             f=out['fit_all_folds']
             floor=max((cells[str(c)].get('adjacent_abs_delta_median_s') or 0.0) for c in criterion['clock']['arms_MHz'])
-            fastest=min(cells[str(c)]['median_s'] for c in criterion['clock']['arms_MHz'])
+            # a cell can be emptied by a control or a rejection; the fit still needs two distinct clocks
+            fastest=min(cells[str(c)]['median_s'] for c in criterion['clock']['arms_MHz'] if cells[str(c)].get('median_s') is not None)
             # Three independent estimators of the same F. Their spread IS the model-misfit term, so
             # F is bounded by it rather than quoted to more digits than the model supports.
             est=[('all_folds',f['F_s'],f.get('se_F_s') or 0.0),

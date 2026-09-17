@@ -1,0 +1,32 @@
+{
+  "recorded_utc": "2026-09-17T23:30:00+00:00",
+  "recorded_before": "any fold of this row; the harness digests this file into every result.json",
+  "model_cycles_saved_predicted": 0,
+  "why_zero": "every arm runs the identical 200-step, 3-recycle, 1-sample, seed-0 configuration on the same committed fixture and the same 35-row A3M. Nothing is optimised, no device cycle is deleted, and the only thing that varies is the clock.",
+  "anchor": {
+    "measured_1350_MHz_s": {"512": 14.8813, "298": 9.6801},
+    "source": "c10-bare-baseline, bc66f7d6d, 16 accepted folds per size, during-sampled min = max = 1350 MHz",
+    "historical_fit": "T = 2.901 + 15355/f, which reads 14.275 s at 1350 and 21.95 s at 800 -- it under-predicts the measured 1350 point by 0.61 s, so it is used only to bracket the prediction",
+    "clock_sweep_refit": "perf/c10_orchestrator/fit_reexam, a0879f8f1, F = 3.478 s, a 512/298 work ratio of 1.839"
+  },
+  "predicted_fold_s": {
+    "512": {"1350": 14.88, "1200": 16.3, "1000": 18.9, "800": 22.7, "range_800": [21.9, 23.2]},
+    "298": {"1350": 9.68, "1200": 10.5, "1000": 11.9, "800": 14.1, "range_800": [13.9, 14.4]}
+  },
+  "predicted_800_MHz_512_aa_s": 22.7,
+  "predicted_F_s": {"512": [2.9, 4.7], "central": 3.5, "298": [2.5, 4.5]},
+  "predicted_F_size_dependence": "F should be SMALLER at 298 aa than at 512 aa if it is dominated by featurization and CIF writing, which scale with the target. A strictly size-independent F would say the fixed term is host or dispatch overhead that does not see the target at all.",
+  "predicted_work_ratio_512_over_298": [1.6, 2.95],
+  "predicted_structure": "byte-identical CIF in every arm at both sizes, so every pairwise float64 Kabsch RMSD is at float64 noise, far under the 0.60 A bar at 512 aa (user seed floor 1.84 A) and the 0.35 A bar at 298 aa (archived upstream seed pairs 0.741-0.847 A). A clock change that moves the structure is a finding and a STOP.",
+  "refutation": [
+    "fitted F at or below 0 s",
+    "fitted F at or above 9.680 s, the whole 298 aa fold at 1350 MHz",
+    "a cell-median residual at 1200 or 1000 MHz above max(A/A timing floor, 0.05 s)",
+    "a during-fold clock that is not exactly that arm's own requested target"
+  ],
+  "demand_arithmetic_stated_in_advance": {
+    "F_untouched": "reaching 10.0 s at 1350 MHz allows 1350*(10.0-F) Mcycles, so the cut is C - 1350*(10.0-F)",
+    "F_cut_to_1s": "reaching 10.0 s at 1350 MHz with F = 1.0 s allows 12150 Mcycles, so the cut is C - 12150",
+    "if_F_exceeds_10s": "no cycle cut whatsoever reaches the target and the campaign is a host problem, not a kernel problem"
+  }
+}

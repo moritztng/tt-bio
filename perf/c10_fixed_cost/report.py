@@ -41,7 +41,10 @@ def main(path):
             print(f"- inverse-clock model: A/A timing floor {f(mc['aa_timing_floor_s'],4)} s, "
                   f"cell-median max |residual| {f(mc['cell_median_max_abs_residual_s'],4)} s, "
                   f"per-fold rms {f(mc['rms_residual_s'],4)} s -> "
-                  f"**{'survives' if mc['inverse_clock_model_survives'] else 'REFUTED as an exact form'}**")
+                  f"**{'the exact two-parameter form holds, F is point-identified' if mc['exact_inverse_clock_form_holds'] else 'the exact two-parameter form is REFUTED, F is an interval'}**")
+            print(f"- three estimators of F: "
+                  + ", ".join(f"{k} {f(v['F_s'],4)} s +-{f(v['se_s'],4)}" for k, v in mc['estimators_F_s'].items())
+                  + f" -> F bounded to {f(mc['F_bound_s'][0],4)} - {f(mc['F_bound_s'][1],4)} s")
         st = t["structure"]
         print(f"- structure: {st['distinct_cif_sha256']} distinct CIF over {t['accepted_folds']} accepted folds, "
               f"max pairwise domain RMSD {st['max_pair_domain_A']:.2e} A against the {st['bar_A']} A bar "
@@ -50,6 +53,9 @@ def main(path):
         if d:
             print(f"- demand for {d['target_s']} s at {d['at_MHz']} MHz (now {f(d['seconds_now'],4)} s):")
             u = d["F_untouched"]
+            if d["seconds_now"] <= d["target_s"]:
+                print(f"  - this size already folds in {f(d['seconds_now'],4)} s, under the {d['target_s']} s target, "
+                      f"so the figures below are headroom rather than a demand")
             if "impossible" in u:
                 print(f"  - F untouched: {u['impossible']}")
             else:

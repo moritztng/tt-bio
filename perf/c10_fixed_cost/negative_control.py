@@ -78,12 +78,19 @@ def main(runroot, size=512):
         case("a clock outside the authorised arms is rejected",
              pristine, tmp, size, unauthorised, "authorised")
 
-        def foreign(run):
-            r = first(run, 1350)
-            r["before"]["holders"] = [{"pid": 999999, "nodes": ["/dev/tenstorrent/1"], "cmd": "foreign"}]
-            return r["label"]
-        case("a foreign device holder anywhere on the box rejects the whole target",
-             pristine, tmp, size, foreign, "foreign holder")
+        # A co-tenant anywhere on the box invalidates the whole session, not one fold, so this
+        # case asserts the target-wide rejection rather than a specific one.
+        run = copy.deepcopy(pristine)
+        first(run, 1350)["before"]["holders"] = [
+            {"pid": 999999, "nodes": ["/dev/tenstorrent/1"], "cmd": "foreign"}]
+        (tmp / str(size) / "result.json").write_text(json.dumps(run, indent=2) + "\n")
+        t = R.reduce(tmp)["targets"][str(size)]
+        rows = [r for r in t["rows"] if r["label"] != "cold"]
+        ok = t["verdict"] == "STOP" and all(
+            any("foreign holder" in x for x in r["rejections"]) for r in rows)
+        (PASSED if ok else FAILED).append(
+            "one foreign device holder in one snapshot rejects EVERY fold of the target: "
+            f"verdict={t['verdict']}, rejected {sum(1 for r in rows if not r['accepted'])}/{len(rows)}")
 
         def timer(run):
             r = first(run, 1200); r["elapsed_s"] = r["elapsed_s"] - 1.0; return r["label"]
