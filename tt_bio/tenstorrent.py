@@ -1416,9 +1416,16 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 # 0.8-1.5 s and three fold-only sessions disagreed in sign, so measure this at the block.
 # The structure arm has run and is favourable on every cell (512 aa CA-lDDT 0.93755 -> 0.93935,
 # 298 aa CA-RMSD 0.77143 -> 0.76557 A), against a 0.60 A kill bar with a 1.84 A seed floor beside it.
-# Default OFF, now gated on two things: a benchlocked fold arm on a quiet box, and moving
-# `_cond_weights()` to model load. That build costs 0.5687 s once per process, so at 0.213-0.257 s
-# saved per fold a process that folds once is 0.31-0.36 s WORSE off and break-even is 2.2-2.7 folds.
+# The win holds across the size axis and decays with it: block delta +0.2809 s at 298 aa,
+# +0.2415 s at 512 aa and +0.1811 s at 768 aa (379.2, 326.0 and 244.6 Mcycles at 1350 MHz), each
+# above its own interleaved A/A and with the two arms' rep ranges not overlapping at any size.
+# The saving is a per-call fixed cost, not bandwidth: the deleted norm traffic grows 2.58x from
+# 298 to 768 aa while the saving falls to 0.64x, and the saving is 13.9x / 7.0x / 3.5x what those
+# bytes are worth at the measured 435.2 GB/s DRAM roof.
+# `_cond_weights()` is now built in `__init__` when this is on, so its 0.34-0.57 s lands at model
+# load: lazily it fell inside the first hoisted fold, which left a one-fold process worse off than
+# leaving the lever off. Default OFF, gated on one remaining thing: a benchlocked fold arm on a
+# quiet box.
 # Read at CALL time, not import time, so an interleaved A/B can flip it.
 _B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", False)
 
@@ -9672,6 +9679,15 @@ class DiffusionTransformer(Module):
         self.atom_level = atom_level
         self.dim = dim
         self._cond_w = None
+        # L8. Build the concatenated conditioning blocks HERE when the lever is on, not at first
+        # use. The concatenation costs 0.54-0.57 s once per process (measured, perf/c12_cond_hoist
+        # sessions 2-4) against 0.21-0.28 s saved per fold, so paying it lazily charges the first
+        # fold for all of it and leaves a process that folds exactly once worse off. At model load
+        # it sits with the rest of the model's setup, where a one-time cost belongs.
+        # Still lazy-safe below: a run that flips the attribute after construction, which is how
+        # the interleaved A/B selects its arm, finds `_cond_w is None` and builds on demand.
+        if _B2_DIT_COND_HOIST and not atom_level:
+            self._cond_weights()
 
     def _cond_weights(self):
         """The 24 layers' conditioning projections, concatenated into two weight blocks.
