@@ -430,10 +430,76 @@ def fusion_probe(dev, ckc, grid, gx, gy, nc, node, a, R):
         if aa is not None and abs(r - 1) <= abs(aa - 1):
             print("    ^ NOT A RESULT: inside this session's own A/A floor", flush=True)
 
+    # --- the decisive second pass: the wide arm owes a SPLIT, and the pair arm does not -------
+    # swiglu needs silu(x@W1) * (x@W2), i.e. TWO tensors. The pair arms hand back two. The wide arm
+    # hands back one [.., 1024] tensor, so the wide route has to slice it in half before the silu
+    # and the multiply, and those two slices read and write the whole 16.777 MB output again. The
+    # silu and the elementwise multiply are common to both routes and cancel; the slice does not.
+    # Comparing a wide matmul against two narrow ones WITHOUT the slice is comparing routes that
+    # produce different things, so it is not a lever, and the byte arithmetic says the slice is the
+    # same order as the saving. Hence this is measured, not argued.
+    split2 = None
+    if bp and bw_:
+        def pair_route(cfg=cfgs.get(bp)):
+            if cfg is None:
+                pair_prod()
+            else:
+                ttnn.deallocate(ttnn.linear(ta, tw1, compute_kernel_config=ckc, memory_config=L1,
+                                            program_config=cfg))
+                ttnn.deallocate(ttnn.linear(ta, tw2, compute_kernel_config=ckc, memory_config=L1,
+                                            program_config=cfg))
+
+        def wide_route(cfg=cfgs.get(bw_)):
+            y = (ttnn.linear(ta, twc, compute_kernel_config=ckc, core_grid=grid, memory_config=L1)
+                 if cfg is None else
+                 ttnn.linear(ta, twc, compute_kernel_config=ckc, memory_config=L1,
+                             program_config=cfg))
+            h1 = ttnn.slice(y, [0, 0, 0, 0], [1, b, tok, n], memory_config=L1)
+            h2 = ttnn.slice(y, [0, 0, 0, n], [1, b, tok, 2 * n], memory_config=L1)
+            ttnn.deallocate(y)
+            ttnn.deallocate(h1)
+            ttnn.deallocate(h2)
+
+        arms2 = [("pair_route", pair_route), ("pair_route_aa", pair_route),
+                 ("wide_route_split", wide_route)]
+        live2 = []
+        for name, fn in arms2:
+            try:
+                fn()
+                ttnn.synchronize_device(dev)
+            except Exception as e:
+                print(f"    {name:28s} SKIP {type(e).__name__}: {str(e)[:90]}", flush=True)
+                continue
+            live2.append((name, fn))
+        if len(live2) >= 2:
+            s2 = clk.Sampler(node)
+            s2.start()
+            r2 = timed_interleaved(dev, live2, pipe=a.pipe, reps=a.reps)
+            clk2 = s2.stop()
+            print(f"\n    --- with the split the wide route owes ---  clock {clk2}", flush=True)
+            for name, _ in live2:
+                print(f"    {name:28s} {r2[name]['ms']:8.4f} ms  {r2[name]['ms_all']}", flush=True)
+            split2 = {"clock": clk2, "best_pair_cfg": bp, "best_wide_cfg": bw_,
+                      "ms": {k: r2[k]["ms"] for k in r2}, "ms_all": {k: r2[k]["ms_all"] for k in r2}}
+            if "pair_route" in r2 and "wide_route_split" in r2:
+                aa2 = (round(r2["pair_route"]["ms"] / r2["pair_route_aa"]["ms"], 4)
+                       if "pair_route_aa" in r2 else None)
+                rr = r2["pair_route"]["ms"] / r2["wide_route_split"]["ms"]
+                split2["x_vs_pair_route"] = round(rr, 4)
+                split2["aa_ratio"] = aa2
+                print(f"    WIDE+SPLIT vs tuned pair: {rr:.4f}x"
+                      f"{'' if aa2 is None else f'  [A/A floor {aa2:.4f}x]'}", flush=True)
+                if aa2 is not None and abs(rr - 1) <= abs(aa2 - 1):
+                    print("    ^ NOT A RESULT: inside this session's own A/A floor", flush=True)
+                if rr < 1:
+                    print("    ^ the slice costs MORE than widening saves: the fusion is a LOSS "
+                          "once it produces what swiglu actually consumes", flush=True)
+
     payload = {"mode": "fusion", "tokens": tok, "clock_target_MHz": a.mhz, "grid": [gx, gy],
                "cores": nc, "roofs": R, "clock": clock, "deleted_B_per_call": saved_B,
                "counts_512": c512, "counts_1024": c1024, "derived_512": inc512,
                "derived_1024": inc1024, "arms": out, "verdict": verdict,
+               "with_split": split2,
                "pipe": a.pipe, "reps": a.reps}
     if a.out:
         json.dump(payload, open(a.out, "w"), indent=1)
@@ -548,11 +614,16 @@ def main():
         # ratio smaller than it is not a result.
         arms.append(("prod", prod_call))
         arms.append(("prod_aa", prod_call))
-        pcm_1d = -(-c["mt_total"] // nc)
-        pcm_2d = -(-c["mt_total"] // gy)
-        pcn_2d = -(-c["nt"] // gx)
-        fam = inc["family"]
-        pcm, pcn = (pcm_1d, c["nt"]) if fam == "1d" else (pcm_2d, pcn_2d)
+        # BOTH factories, not just the one ttnn picks. `create_matmul_program_config` routes on a
+        # height/width ratio of 8 (`matmul_program_config.cpp:28`) and nothing else, so the pair
+        # keys at N=512 (ratio 16.0) get the 1D systolic factory while the SAME operands at N=1024
+        # (ratio 8.0) get the 2D one -- and the fusion probe measured the N=1024 shape at 0.0406 ms
+        # on ttnn's own derived config against 0.0550 ms for the best 1D config on half the work.
+        # That gap is the factory, not the K block, and the routing threshold is a constant rather
+        # than a measurement. A sweep that only explores the derived family cannot see it.
+        fams = ["1d", "2d"]
+        geo = {"1d": (-(-c["mt_total"] // nc), c["nt"]),
+               "2d": (-(-c["mt_total"] // gy), -(-c["nt"] // gx))}
         fused_act = None
         if act == "silu":
             try:
@@ -568,22 +639,24 @@ def main():
                         & set(divisors(c["kt"])))
         if fused_act == "UNAVAILABLE":
             bw_set = []
-        for bw in bw_set:
-            for obh in sorted(set(divisors(pcm)), reverse=True)[:2]:
-                for obw in sorted({pcn, min(pcn, 16), min(pcn, 8)} & set(divisors(pcn)),
-                                  reverse=True):
-                    name = f"{fam}_bw{bw}_obh{obh}_obw{obw}"
-                    if name in cfgs:
-                        continue
-                    try:
-                        cfg = make_cfg(fam, gx, gy, bw, pcm, pcn, obh, obw, fused_act)
-                    except Exception as e:
-                        print(f"    {name:26s} CFG-REFUSED {type(e).__name__}", flush=True)
-                        continue
-                    cfgs[name] = cfg
-                    arms.append((name, (lambda cfg=cfg: ttnn.deallocate(ttnn.linear(
-                        ta, tw, compute_kernel_config=ckc, memory_config=MC[omc],
-                        program_config=cfg)))))
+        for fam in fams:
+            pcm, pcn = geo[fam]
+            for bw in bw_set:
+                for obh in sorted(set(divisors(pcm)), reverse=True)[:2]:
+                    for obw in sorted({pcn, min(pcn, 16), min(pcn, 8)} & set(divisors(pcn)),
+                                      reverse=True):
+                        name = f"{fam}_bw{bw}_obh{obh}_obw{obw}"
+                        if name in cfgs:
+                            continue
+                        try:
+                            cfg = make_cfg(fam, gx, gy, bw, pcm, pcn, obh, obw, fused_act)
+                        except Exception as e:
+                            print(f"    {name:26s} CFG-REFUSED {type(e).__name__}", flush=True)
+                            continue
+                        cfgs[name] = cfg
+                        arms.append((name, (lambda cfg=cfg: ttnn.deallocate(ttnn.linear(
+                            ta, tw, compute_kernel_config=ckc, memory_config=MC[omc],
+                            program_config=cfg)))))
 
         # Drop any arm the device refuses outright, before timing, so a refusal is not a fast arm.
         live, out = [], {}

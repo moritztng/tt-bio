@@ -1,0 +1,47 @@
+2026-09-17 11:56:55.684 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+tt_bio from /home/ttuser/.coworker/wt/c12-kblock-unlock/tt_bio/tenstorrent.py
+grid 11x10 = 110 cores | nodes [3] | clock forced 1350 on [3] | aiclk now 1350 MHz
+ROOFS {"clk_compute": {"n": 9, "min": 1350, "max": 1350, "mean": 1350.0}, "compute_TFLOPs": 113.64, "clk_dram": {"n": 144, "min": 1350, "max": 1350, "mean": 1350.0}, "dram_rw_GBs": 367.1, "clk_l1": {"n": 152, "min": 1350, "max": 1350, "mean": 1350.0}, "l1_rw_GBs": 581.7}
+
+=== FUSION PROBE  a[1, 16, 512, 128] @ w[128,512] x2  vs  @ w[128,1024]  tokens=512
+    identical: 2.147 GFLOP, 16.777 MB written, 0.262 MB of weights
+    deleted by widening: 2.097 MB/call of L1 activation re-read (9.9 % of the pair's bytes)
+    ttnn derives  N=512: {'family': '1d', 'in0_block_w': 2, 'per_core_M': 3, 'per_core_N': 16, 'narrow_ratio': 16.0}
+    ttnn derives N=1024: {'family': '2d', 'in0_block_w': 4, 'per_core_M': 26, 'per_core_N': 3, 'narrow_ratio': 8.0}
+    clock during the probe: {'n': 7, 'min': 1350, 'max': 1350, 'mean': 1350.0}
+    pair_prod_x2                   0.0639 ms    33.59 TF/s    332.1 GB/s  maxabs 0.0021
+    pair_prod_x2_aa                0.0613 ms    35.05 TF/s    346.5 GB/s  maxabs 0.0021
+    wide_prod                      0.0405 ms    52.96 TF/s    472.0 GB/s  maxabs 0.0020
+    pair_1d_bw1_obh3_obw16         0.0632 ms    33.97 TF/s    335.9 GB/s  maxabs 0.0021
+    pair_1d_bw1_obh3_obw8          0.0684 ms    31.40 TF/s    310.5 GB/s  maxabs 0.0021
+    pair_1d_bw1_obh1_obw16         0.0922 ms    23.29 TF/s    230.2 GB/s  maxabs 0.0021
+    pair_1d_bw1_obh1_obw8          0.1169 ms    18.36 TF/s    181.6 GB/s  maxabs 0.0021
+    pair_1d_bw2_obh3_obw16         0.0581 ms    36.94 TF/s    365.2 GB/s  maxabs 0.0021
+    pair_1d_bw2_obh3_obw8          0.0603 ms    35.60 TF/s    352.1 GB/s  maxabs 0.0021
+    pair_1d_bw2_obh1_obw16         0.0812 ms    26.46 TF/s    261.6 GB/s  maxabs 0.0021
+    pair_1d_bw2_obh1_obw8          0.0998 ms    21.52 TF/s    212.8 GB/s  maxabs 0.0021
+    pair_1d_bw4_obh3_obw16         0.0550 ms    39.06 TF/s    386.2 GB/s  maxabs 0.0020
+    pair_1d_bw4_obh3_obw8          0.0585 ms    36.73 TF/s    363.2 GB/s  maxabs 0.0020
+    pair_1d_bw4_obh1_obw16         0.0772 ms    27.83 TF/s    275.2 GB/s  maxabs 0.0020
+    pair_1d_bw4_obh1_obw8          0.0904 ms    23.75 TF/s    234.8 GB/s  maxabs 0.0020
+    wide_2d_bw1_obh26_obw3         0.0486 ms    44.22 TF/s    394.0 GB/s  maxabs 0.0021
+    wide_2d_bw1_obh13_obw3         0.0476 ms    45.12 TF/s    402.1 GB/s  maxabs 0.0021
+    wide_2d_bw2_obh26_obw3         0.0414 ms    51.85 TF/s    462.1 GB/s  maxabs 0.0021
+    wide_2d_bw2_obh13_obw3         0.0435 ms    49.33 TF/s    439.6 GB/s  maxabs 0.0021
+    wide_2d_bw4_obh26_obw3         0.0367 ms    58.56 TF/s    521.8 GB/s  maxabs 0.0020
+    wide_2d_bw4_obh13_obw3         0.0371 ms    57.88 TF/s    515.7 GB/s  maxabs 0.0020
+    A/A floor (pair_prod_x2 vs itself): 1.0436x
+
+    best pair  pair_1d_bw4_obh3_obw16  0.0550 ms
+    best wide  wide_2d_bw4_obh26_obw3  0.0367 ms
+    WIDENING vs best-tuned pair: 1.4993x | vs SHIPPED pair: 1.7437x  [A/A floor 1.0436x]
+
+    --- with the split the wide route owes ---  clock {'n': 0, 'min': 0, 'max': 0, 'mean': 0}
+    pair_route                     0.0530 ms  [0.053, 0.0523, 0.0542, 0.0515, 0.0531]
+    pair_route_aa                  0.0520 ms  [0.0525, 0.052, 0.0515, 0.0502, 0.539]
+    wide_route_split               0.0685 ms  [0.0685, 0.0689, 0.0664, 0.067, 0.0783]
+    WIDE+SPLIT vs tuned pair: 0.7738x  [A/A floor 1.0180x]
+    ^ the slice costs MORE than widening saves: the fusion is a LOSS once it produces what swiglu actually consumes
+
+wrote perf/c12_kblock/fusion_512_qb2c3.json
