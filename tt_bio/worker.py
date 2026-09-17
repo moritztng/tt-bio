@@ -1022,9 +1022,12 @@ class _WorkerState:
                                       mod_names=_artifact_residue_names(chains))
 
         def _row(c):
-            return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
-                    "ptm": round(c.get("ptm", 0.0), 6), "iptm": round(c.get("iptm", 0.0), 6),
-                    "confidence_score": round(_score(c), 6)}
+            row = {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
+                   "ptm": round(c.get("ptm", 0.0), 6), "iptm": round(c.get("iptm", 0.0), 6),
+                   "confidence_score": round(_score(c), 6)}
+            if c.get("pair_chains_iptm") is not None:
+                row["pair_chains_iptm"] = c["pair_chains_iptm"]
+            return row
 
         best = confs[order[0]]
         metrics = {
@@ -1129,9 +1132,12 @@ class _WorkerState:
                                       mod_names=_artifact_residue_names(chains))
 
         def _row(c):
-            return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
-                    "ptm": round(c.get("ptm", 0.0), 6), "iptm": round(c.get("iptm", 0.0), 6),
-                    "confidence_score": round(_score(c), 6)}
+            row = {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
+                   "ptm": round(c.get("ptm", 0.0), 6), "iptm": round(c.get("iptm", 0.0), 6),
+                   "confidence_score": round(_score(c), 6)}
+            if c.get("pair_chains_iptm") is not None:
+                row["pair_chains_iptm"] = c["pair_chains_iptm"]
+            return row
 
         best = confs[order[0]]
         metrics = {
