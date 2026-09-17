@@ -1,0 +1,67 @@
+== MECHANISM: reuse, priced as a rate. Clock 1350 MHz; cycles = s x 1350 Mc/s ==
+set                                             n   calls   now_s   TF/s  N_fus pred TF/s  pred_s rate_win byte_win slice_tax    net_s  net_Mc
+Diff/ConditionedTransitionBlock 1x512x768 K768  3   14400  0.3238  53.72   4608     73.83  0.2356   0.0882   0.0360    0.1023  -0.0140   -19.0
+        act DRAM, BFLOAT16; rate source: extrapolated (slope 0.290 from N=1536,3072)
+Diff/AdaLN 1x512x768 K768                       2   19200  0.2815  41.20   1536     53.72  0.2159   0.0656   0.0402    0.1075  -0.0419   -56.6
+        act DRAM, BFLOAT16; rate source: measured
+Diff/AttentionPairBias 1x512x768 K768           2    9600  0.2470  58.69   3840     70.04  0.2070   0.0400   0.0170    0.0950  -0.0550   -74.3
+        act DRAM, BFLOAT16; rate source: extrapolated (slope 0.290 from N=1536,3072)
+Diff/AttentionPairBias 1x140x32x128 K128        2    2400  0.0387   9.10    256     11.86  0.0297   0.0090   0.0095    0.0134  -0.0044    -5.9
+        act DRAM, BFLOAT16; rate source: measured
+Diff/Transition 1x512x768 K768                  2     800  0.0180  53.72   3072     65.66  0.0147   0.0033   0.0000        L1        -       -
+        act L1, BFLOAT16; rate source: measured
+Pair/Transition 1x512x384 K384                  2     528  0.0081  39.22   3072     56.92  0.0056   0.0025   0.0000        L1        -       -
+        act L1, BFLOAT16; rate source: extrapolated (slope 0.537 from N=384,1536)
+Pair/AttentionPairBias 1x512x384 K384           2     528  0.0062  32.12   1920     44.22  0.0045   0.0017   0.0006    0.0034  -0.0017    -2.2
+        act DRAM, BFLOAT16; rate source: extrapolated (slope 0.537 from N=384,1536)
+Pair/Transition 1x16x512x128 K128               2   16896  1.1005  16.49   1024         -       -        -   0.0000        L1        -       -
+        act L1, BFLOAT16; rate source: refused (one point in family)
+MSAL/PairWeightedAveraging 1024x512x64 K64     16     256  0.1557   3.53    512         -       -        -   0.0973    0.0388        -       -
+        act DRAM, BFLOAT16; rate source: refused (one point in family)
+MSAL/Transition 1x16x512x128 K128               2    1024  0.0667  16.49   1024         -       -        -   0.0000        L1        -       -
+        act L1, BFLOAT16; rate source: refused (one point in family)
+MSAL/Transition 1x16x512x64 K64                 2    2048  0.0641   8.58    512         -       -        -   0.0000        L1        -       -
+        act L1, BFLOAT16; rate source: refused (one point in family)
+MSAL/OuterProductMean 1024x512x64 K64           2      32  0.0195   3.53     64         -       -        -   0.0065    0.0048        -       -
+        act DRAM, BFLOAT16; rate source: refused (one point in family)
+Diff/ConditionedTransitionBlock 1x140x32x128 K  3    3600  0.0891  11.86    768     11.86  0.0891  -0.0000   0.0194    0.0373  -0.0373   -50.3
+        act DRAM, BFLOAT16; rate source: capped at measured N=256 (fit would need 3.0x extrapolation)
+
+== COVERAGE residual: calls in NO sibling set ==
+  linear|out=1x16x512x128|K=512                  8960 calls   0.7920 s    1069.3 Mc
+  linear|out=1x512x768|K=768                    14600 calls   0.2140 s     288.9 Mc
+  linear|out=1x512x512x128|K=128                  560 calls   0.5276 s     712.3 Mc
+  linear|out=512x512x128|K=1024                    16 calls   0.1578 s     213.1 Mc
+  linear|out=1x512x768|K=1536                    5200 calls   0.1238 s     167.1 Mc
+  linear|out=1x512x512x16|K=128                   264 calls   0.1006 s     135.8 Mc
+  linear|out=1x140x128x256|K=128                 1200 calls   0.0974 s     131.4 Mc
+  linear|out=1x140x32x128|K=128                  2400 calls   0.0387 s      52.3 Mc
+  linear|out=1024x512x64|K=32                     128 calls   0.0773 s     104.3 Mc
+  linear|out=1x16x512x64|K=256                   1024 calls   0.0446 s      60.3 Mc
+  linear|out=1x140x32x128|K=256                  1200 calls   0.0377 s      50.9 Mc
+  linear|out=1x4480x768|K=128                     200 calls   0.0072 s       9.8 Mc
+  linear|out=512x512x8|K=128                       16 calls   0.0061 s       8.2 Mc
+  linear|out=1x512x384|K=1536                     264 calls   0.0053 s       7.1 Mc
+  linear|out=1x512x384|K=384                      264 calls   0.0021 s       2.9 Mc
+  linear|out=1x4480x128|K=3                       200 calls   0.0030 s       4.1 Mc
+  linear|out=1x512x128|K=768                      200 calls   0.0022 s       3.0 Mc
+  linear|out=1x4480x3|K=128                       200 calls   0.0016 s       2.2 Mc
+  linear|out=1x768|K=256                          200 calls   0.0012 s       1.6 Mc
+  linear|out=1x256|K=256                          200 calls   0.0011 s       1.5 Mc
+  residual 37296 calls, 2.2415 s (48.1 % of the class)
+
+COVERAGE: 13 sets, 71312 of 108608 calls (65.7 %), 2.4188 of 4.6604 s (51.9 %)
+rate route 0.2103 s (284.0 Mc) before tax, of which DRAM-resident 0.2045 s; slice tax on the DRAM sets 0.4025 s, net -0.1979 s
+byte-only floor, DRAM sets only: 0.2266 s (305.9 Mc)
+
+== CROSS-FRAME sets, priced the same way ==
+  ConditionedTransitionBlock,DiffusionTran n=48     9600 calls  now  0.1407 s  pred 0.0883  win 0.0524  tax 0.0537  net -0.0013
+        rate source: capped at measured N=3072 (fit would need 12.0x extrapolation); act DRAM
+  ConditionedTransitionBlock               n=6      1200 calls  now  0.0194 s  pred 0.0149  win 0.0045  tax 0.0067  net -0.0022
+        rate source: capped at measured N=256 (fit would need 3.0x extrapolation); act DRAM
+  cross-frame rate route 0.0569 s (76.9 Mc) before tax
+  COVERAGE with cross-frame: 82112 of 108608 calls (75.6 %), 2.5789 of 4.6604 s (55.3 %); with no sibling at all 26496 calls, 2.0815 s
+
+== VARIANT: CTB swish+gate only, N=1536+1536 -> 3072, both rates MEASURED ==
+  11.5964 TFLOP  53.72 -> 65.66 TFLOP/s  0.2159 -> 0.1766 s  win 0.0393 s (53.0 Mc)
+  slice tax with ttnn slices: 0.0537 s; with a gated consumer kernel (precedent reader_reblock_permute_gated.cpp): 0

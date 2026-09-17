@@ -1,0 +1,698 @@
+[
+ {
+  "capture": "PairformerLayer",
+  "owner": "Transition",
+  "act_shape": [
+   1,
+   16,
+   512,
+   128
+  ],
+  "K": 128,
+  "members": [
+   {
+    "N": 512,
+    "key": "linear|out=1x16x512x512|K=128",
+    "weight_B": 131072
+   },
+   {
+    "N": 512,
+    "key": "linear|out=1x16x512x512|K=128",
+    "weight_B": 131072
+   }
+  ],
+  "instances_per_capture": 32,
+  "linear_calls": 16896.0,
+  "fold_s": 1.1004518496983942,
+  "Mcycles": 1485.6099970928321,
+  "reread_B": 17716740096.0,
+  "total_B": 179381993472.0,
+  "GBs": 163.007580496288,
+  "TFLOPs": 16.485902462044336,
+  "act_B": 2097152,
+  "act_mem": "L1",
+  "act_dtype": "BFLOAT16",
+  "op_gap": 1,
+  "s_at_constant_rate": 0.9917652472590466,
+  "win_at_constant_rate_s": 0.10868660243934758,
+  "n": 2,
+  "N_fused": 1024,
+  "flop": 18141941858304.0,
+  "r_now": 16.485902462044336,
+  "r_new": null,
+  "how": "refused (one point in family)",
+  "s_new": null,
+  "rate_win_s": null,
+  "byte_win_s": 0.0,
+  "slice_tax_s": null,
+  "net_s": null
+ },
+ {
+  "capture": "DiffusionModule",
+  "owner": "ConditionedTransitionBlock",
+  "act_shape": [
+   1,
+   512,
+   768
+  ],
+  "K": 768,
+  "members": [
+   {
+    "N": 1536,
+    "key": "linear|out=1x512x1536|K=768",
+    "weight_B": 2359296
+   },
+   {
+    "N": 1536,
+    "key": "linear|out=1x512x1536|K=768",
+    "weight_B": 2359296
+   },
+   {
+    "N": 1536,
+    "key": "linear|out=1x512x1536|K=768",
+    "weight_B": 2359296
+   }
+  ],
+  "instances_per_capture": 24,
+  "linear_calls": 14400.0,
+  "fold_s": 0.3238257786048752,
+  "Mcycles": 437.16480111658154,
+  "reread_B": 7549747200.0,
+  "total_B": 67947724800.0,
+  "GBs": 209.82802880220436,
+  "TFLOPs": 53.715975373364316,
+  "act_B": 786432,
+  "act_mem": "DRAM",
+  "act_dtype": "BFLOAT16",
+  "op_gap": 3,
+  "s_at_constant_rate": 0.28784513653766686,
+  "win_at_constant_rate_s": 0.03598064206720836,
+  "n": 3,
+  "N_fused": 4608,
+  "flop": 17394617548800.0,
+  "r_now": 53.715975373364316,
+  "r_new": 73.83406441525553,
+  "how": "extrapolated (slope 0.290 from N=1536,3072)",
+  "s_new": 0.2355906814362767,
+  "rate_win_s": 0.08823509716859851,
+  "byte_win_s": 0.03598064206720836,
+  "slice_tax_s": 0.1022769997742154,
+  "net_s": -0.014041902605616885
+ },
+ {
+  "capture": "DiffusionModule",
+  "owner": "AdaLN",
+  "act_shape": [
+   1,
+   512,
+   768
+  ],
+  "K": 768,
+  "members": [
+   {
+    "N": 768,
+    "key": "linear|out=1x512x768|K=768",
+    "weight_B": 1179648
+   },
+   {
+    "N": 768,
+    "key": "linear|out=1x512x768|K=768",
+    "weight_B": 1179648
+   }
+  ],
+  "instances_per_capture": 48,
+  "linear_calls": 19200.0,
+  "fold_s": 0.2814516670234197,
+  "Mcycles": 379.95975048161665,
+  "reread_B": 7549747200.0,
+  "total_B": 52848230400.0,
+  "GBs": 187.77018078774597,
+  "TFLOPs": 41.202142527139685,
+  "act_B": 786432,
+  "act_mem": "DRAM",
+  "act_dtype": "BFLOAT16",
+  "op_gap": 1,
+  "s_at_constant_rate": 0.24124428602007403,
+  "win_at_constant_rate_s": 0.0402073810033457,
+  "n": 2,
+  "N_fused": 1536,
+  "flop": 11596411699200.0,
+  "r_now": 41.202142527139685,
+  "r_new": 53.715975373364245,
+  "how": "measured",
+  "s_new": 0.21588385240325042,
+  "rate_win_s": 0.0655678146201693,
+  "byte_win_s": 0.04020738100334567,
+  "slice_tax_s": 0.10745790456268725,
+  "net_s": -0.041890089942517944
+ },
+ {
+  "capture": "DiffusionModule",
+  "owner": "AttentionPairBias",
+  "act_shape": [
+   1,
+   512,
+   768
+  ],
+  "K": 768,
+  "members": [
+   {
+    "N": 768,
+    "key": "linear|out=1x512x768|K=768",
+    "weight_B": 1179648
+   },
+   {
+    "N": 3072,
+    "key": "linear|out=1x512x3072|K=768",
+    "weight_B": 4718592
+   }
+  ],
+  "instances_per_capture": 24,
+  "linear_calls": 9600.0,
+  "fold_s": 0.24698911676359536,
+  "Mcycles": 333.43530763085374,
+  "reread_B": 3774873600.0,
+  "total_B": 54735667200.0,
+  "GBs": 221.61165608114635,
+  "TFLOPs": 58.6888799552829,
+  "act_B": 786432,
+  "act_mem": "DRAM",
+  "act_dtype": "BFLOAT16",
+  "op_gap": 13,
+  "s_at_constant_rate": 0.2299553845730026,
+  "win_at_constant_rate_s": 0.01703373219059276,
+  "n": 2,
+  "N_fused": 3840,
+  "flop": 14495514624000.002,
+  "r_now": 58.68887995528291,
+  "r_new": 70.03729643899183,
+  "how": "extrapolated (slope 0.290 from N=1536,3072)",
+  "s_new": 0.20696850622477656,
+  "rate_win_s": 0.04002061053881881,
+  "byte_win_s": 0.017033732190592784,
+  "slice_tax_s": 0.09504914265681541,
+  "net_s": -0.055028532117996604
+ },
+ {
+  "capture": "MSALayer",
+  "owner": "PairWeightedAveraging",
+  "act_shape": [
+   1024,
+   512,
+   64
+  ],
+  "K": 64,
+  "members": [
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   }
+  ],
+  "instances_per_capture": 1,
+  "linear_calls": 256.0,
+  "fold_s": 0.15571269199426752,
+  "Mcycles": 210.21213419226115,
+  "reread_B": 16106127360.0,
+  "total_B": 25770852352.0,
+  "GBs": 165.50258056644952,
+  "TFLOPs": 3.530578059161927,
+  "act_B": 67108864,
+  "act_mem": "DRAM",
+  "act_dtype": "BFLOAT16",
+  "op_gap": 131,
+  "s_at_constant_rate": 0.05839621931526076,
+  "win_at_constant_rate_s": 0.09731647267900675,
+  "n": 16,
+  "N_fused": 512,
+  "flop": 549755813888.0,
+  "r_now": 3.530578059161927,
+  "r_new": null,
+  "how": "refused (one point in family)",
+  "s_new": null,
+  "rate_win_s": null,
+  "byte_win_s": 0.09731647267900675,
+  "slice_tax_s": 0.03878949917362836,
+  "net_s": null
+ },
+ {
+  "capture": "DiffusionModule",
+  "owner": "ConditionedTransitionBlock",
+  "act_shape": [
+   1,
+   140,
+   32,
+   128
+  ],
+  "K": 128,
+  "members": [
+   {
+    "N": 256,
+    "key": "linear|out=1x140x32x256|K=128",
+    "weight_B": 65536
+   },
+   {
+    "N": 256,
+    "key": "linear|out=1x140x32x256|K=128",
+    "weight_B": 65536
+   },
+   {
+    "N": 256,
+    "key": "linear|out=1x140x32x256|K=128",
+    "weight_B": 65536
+   }
+  ],
+  "instances_per_capture": 6,
+  "linear_calls": 3600.0,
+  "fold_s": 0.08911541694557187,
+  "Mcycles": 120.30581287652203,
+  "reread_B": 2752512000.0,
+  "total_B": 12622233600.0,
+  "GBs": 141.63916898586868,
+  "TFLOPs": 11.860625739377413,
+  "act_B": 1146880,
+  "act_mem": "DRAM",
+  "act_dtype": "BFLOAT16",
+  "op_gap": 3,
+  "s_at_constant_rate": 0.06968214845276803,
+  "win_at_constant_rate_s": 0.019433268492803843,
+  "n": 3,
+  "N_fused": 768,
+  "flop": 1056964608000.0,
+  "r_now": 11.860625739377413,
+  "r_new": 11.86062573937741,
+  "how": "capped at measured N=256 (fit would need 3.0x extrapolation)",
+  "s_new": 0.0891154169455719,
+  "rate_win_s": -2.7755575615628914e-17,
+  "byte_win_s": 0.019433268492803836,
+  "slice_tax_s": 0.03728848950101603,
+  "net_s": -0.037288489501016056
+ },
+ {
+  "capture": "MSALayer",
+  "owner": "Transition",
+  "act_shape": [
+   1,
+   16,
+   512,
+   128
+  ],
+  "K": 128,
+  "members": [
+   {
+    "N": 512,
+    "key": "linear|out=1x16x512x512|K=128",
+    "weight_B": 131072
+   },
+   {
+    "N": 512,
+    "key": "linear|out=1x16x512x512|K=128",
+    "weight_B": 131072
+   }
+  ],
+  "instances_per_capture": 32,
+  "linear_calls": 1024.0,
+  "fold_s": 0.06669405149687248,
+  "Mcycles": 90.03696952077784,
+  "reread_B": 1073741824.0,
+  "total_B": 10871635968.0,
+  "GBs": 163.00758049628774,
+  "TFLOPs": 16.48590246204431,
+  "act_B": 2097152,
+  "act_mem": "L1",
+  "act_dtype": "BFLOAT16",
+  "op_gap": 1,
+  "s_at_constant_rate": 0.06010698468236655,
+  "win_at_constant_rate_s": 0.0065870668145059305,
+  "n": 2,
+  "N_fused": 1024,
+  "flop": 1099511627776.0,
+  "r_now": 16.48590246204431,
+  "r_new": null,
+  "how": "refused (one point in family)",
+  "s_new": null,
+  "rate_win_s": null,
+  "byte_win_s": 0.0,
+  "slice_tax_s": null,
+  "net_s": null
+ },
+ {
+  "capture": "MSALayer",
+  "owner": "Transition",
+  "act_shape": [
+   1,
+   16,
+   512,
+   64
+  ],
+  "K": 64,
+  "members": [
+   {
+    "N": 256,
+    "key": "linear|out=1x16x512x256|K=64",
+    "weight_B": 32768
+   },
+   {
+    "N": 256,
+    "key": "linear|out=1x16x512x256|K=64",
+    "weight_B": 32768
+   }
+  ],
+  "instances_per_capture": 64,
+  "linear_calls": 2048.0,
+  "fold_s": 0.06407431314284559,
+  "Mcycles": 86.50032274284155,
+  "reread_B": 1073741824.0,
+  "total_B": 10804527104.0,
+  "GBs": 168.62493835732067,
+  "TFLOPs": 8.57997201877746,
+  "act_B": 1048576,
+  "act_mem": "L1",
+  "act_dtype": "BFLOAT16",
+  "op_gap": 1,
+  "s_at_constant_rate": 0.057706679538587644,
+  "win_at_constant_rate_s": 0.006367633604257947,
+  "n": 2,
+  "N_fused": 512,
+  "flop": 549755813888.0,
+  "r_now": 8.57997201877746,
+  "r_new": null,
+  "how": "refused (one point in family)",
+  "s_new": null,
+  "rate_win_s": null,
+  "byte_win_s": 0.0,
+  "slice_tax_s": null,
+  "net_s": null
+ },
+ {
+  "capture": "DiffusionModule",
+  "owner": "AttentionPairBias",
+  "act_shape": [
+   1,
+   140,
+   32,
+   128
+  ],
+  "K": 128,
+  "members": [
+   {
+    "N": 128,
+    "key": "linear|out=1x140x32x128|K=128",
+    "weight_B": 32768
+   },
+   {
+    "N": 128,
+    "key": "linear|out=1x140x32x128|K=128",
+    "weight_B": 32768
+   }
+  ],
+  "instances_per_capture": 6,
+  "linear_calls": 2400.0,
+  "fold_s": 0.0387338466407168,
+  "Mcycles": 52.29069296496768,
+  "reread_B": 1376256000.0,
+  "total_B": 5583667200.0,
+  "GBs": 144.15472988759348,
+  "TFLOPs": 9.09596042107632,
+  "act_B": 1146880,
+  "act_mem": "DRAM",
+  "act_dtype": "BFLOAT16",
+  "op_gap": 17,
+  "s_at_constant_rate": 0.029186771764483786,
+  "win_at_constant_rate_s": 0.009547074876233016,
+  "n": 2,
+  "N_fused": 256,
+  "flop": 352321536000.0,
+  "r_now": 9.09596042107632,
+  "r_new": 11.86062573937741,
+  "how": "measured",
+  "s_new": 0.029705138981857303,
+  "rate_win_s": 0.009028707658859499,
+  "byte_win_s": 0.009547074876233014,
+  "slice_tax_s": 0.013432238070335906,
+  "net_s": -0.004403530411476408
+ },
+ {
+  "capture": "MSALayer",
+  "owner": "OuterProductMean",
+  "act_shape": [
+   1024,
+   512,
+   64
+  ],
+  "K": 64,
+  "members": [
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   },
+   {
+    "N": 32,
+    "key": "linear|out=1024x512x32|K=64",
+    "weight_B": 4096
+   }
+  ],
+  "instances_per_capture": 1,
+  "linear_calls": 32.0,
+  "fold_s": 0.01946408649928344,
+  "Mcycles": 26.276516774032643,
+  "reread_B": 1073741824.0,
+  "total_B": 3221356544.0,
+  "GBs": 165.50258056644952,
+  "TFLOPs": 3.530578059161927,
+  "act_B": 67108864,
+  "act_mem": "DRAM",
+  "act_dtype": "BFLOAT16",
+  "op_gap": 1,
+  "s_at_constant_rate": 0.012976321654016323,
+  "win_at_constant_rate_s": 0.006487764845267117,
+  "n": 2,
+  "N_fused": 64,
+  "flop": 68719476736.0,
+  "r_now": 3.530578059161927,
+  "r_new": null,
+  "how": "refused (one point in family)",
+  "s_new": null,
+  "rate_win_s": null,
+  "byte_win_s": 0.006487764845267118,
+  "slice_tax_s": 0.004848687396703545,
+  "net_s": null
+ },
+ {
+  "capture": "DiffusionModule",
+  "owner": "Transition",
+  "act_shape": [
+   1,
+   512,
+   768
+  ],
+  "K": 768,
+  "members": [
+   {
+    "N": 1536,
+    "key": "linear|out=1x512x1536|K=768",
+    "weight_B": 2359296
+   },
+   {
+    "N": 1536,
+    "key": "linear|out=1x512x1536|K=768",
+    "weight_B": 2359296
+   }
+  ],
+  "instances_per_capture": 2,
+  "linear_calls": 800.0,
+  "fold_s": 0.0179903210336042,
+  "Mcycles": 24.28693339536567,
+  "reread_B": 314572800.0,
+  "total_B": 3774873600.0,
+  "GBs": 209.8280288022041,
+  "TFLOPs": 53.71597537336425,
+  "act_B": 786432,
+  "act_mem": "L1",
+  "act_dtype": "BFLOAT16",
+  "op_gap": 1,
+  "s_at_constant_rate": 0.016491127614137183,
+  "win_at_constant_rate_s": 0.001499193419467016,
+  "n": 2,
+  "N_fused": 3072,
+  "flop": 966367641600.0001,
+  "r_now": 53.71597537336425,
+  "r_new": 65.65510495437145,
+  "how": "measured",
+  "s_new": 0.014718850000645035,
+  "rate_win_s": 0.0032714710329591647,
+  "byte_win_s": 0.0,
+  "slice_tax_s": null,
+  "net_s": null
+ },
+ {
+  "capture": "PairformerLayer",
+  "owner": "Transition",
+  "act_shape": [
+   1,
+   512,
+   384
+  ],
+  "K": 384,
+  "members": [
+   {
+    "N": 1536,
+    "key": "linear|out=1x512x1536|K=384",
+    "weight_B": 1179648
+   },
+   {
+    "N": 1536,
+    "key": "linear|out=1x512x1536|K=384",
+    "weight_B": 1179648
+   }
+  ],
+  "instances_per_capture": 1,
+  "linear_calls": 528.0,
+  "fold_s": 0.008130327135505567,
+  "Mcycles": 10.975941632932514,
+  "reread_B": 103809024.0,
+  "total_B": 1660944384.0000002,
+  "GBs": 204.28998197951577,
+  "TFLOPs": 39.22367654006703,
+  "act_B": 393216,
+  "act_mem": "L1",
+  "act_dtype": "BFLOAT16",
+  "op_gap": 1,
+  "s_at_constant_rate": 0.007622181689536468,
+  "win_at_constant_rate_s": 0.0005081454459690982,
+  "n": 2,
+  "N_fused": 3072,
+  "flop": 318901321728.00006,
+  "r_now": 39.22367654006703,
+  "r_new": 56.91799022245324,
+  "how": "extrapolated (slope 0.537 from N=384,1536)",
+  "s_new": 0.005602821190306164,
+  "rate_win_s": 0.0025275059451994025,
+  "byte_win_s": 0.0,
+  "slice_tax_s": null,
+  "net_s": null
+ },
+ {
+  "capture": "PairformerLayer",
+  "owner": "AttentionPairBias",
+  "act_shape": [
+   1,
+   512,
+   384
+  ],
+  "K": 384,
+  "members": [
+   {
+    "N": 384,
+    "key": "linear|out=1x512x384|K=384",
+    "weight_B": 294912
+   },
+   {
+    "N": 1536,
+    "key": "linear|out=1x512x1536|K=384",
+    "weight_B": 1179648
+   }
+  ],
+  "instances_per_capture": 1,
+  "linear_calls": 528.0,
+  "fold_s": 0.006205196956314797,
+  "Mcycles": 8.377015891024977,
+  "reread_B": 103809024.0,
+  "total_B": 1115947008.0000002,
+  "GBs": 179.84070704868483,
+  "TFLOPs": 32.12038674729999,
+  "act_B": 393216,
+  "act_mem": "DRAM",
+  "act_dtype": "BFLOAT16",
+  "op_gap": 27,
+  "s_at_constant_rate": 0.00562796933247156,
+  "win_at_constant_rate_s": 0.0005772276238432371,
+  "n": 2,
+  "N_fused": 1920,
+  "flop": 199313326080.00003,
+  "r_now": 32.12038674729999,
+  "r_new": 44.218547910961256,
+  "how": "extrapolated (slope 0.537 from N=384,1536)",
+  "s_new": 0.004507459776411893,
+  "rate_win_s": 0.0016977371799029037,
+  "byte_win_s": 0.0005772276238432368,
+  "slice_tax_s": 0.0033526245169308985,
+  "net_s": -0.0016548873370279948
+ }
+]

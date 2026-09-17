@@ -1,0 +1,119 @@
+== CALL-SITES: census key -> owning unit ==
+linear|out=1x16x512x512|K=128               17920 calls   1.1671 s    1575.6 Mc   163.0 GB/s   16.5 TFLOP/s
+      PairformerLayer/Transition                              16896 (94.3%)
+      MSALayer/Transition                                      1024 ( 5.7%)
+linear|out=1x16x512x128|K=512                8960 calls   0.7920 s    1069.3 Mc   120.1 GB/s   12.1 TFLOP/s
+      PairformerLayer/Transition                               8448 (94.3%)
+      MSALayer/Transition                                       512 ( 5.7%)
+linear|out=1x512x768|K=768                  38600 calls   0.5658 s     763.9 Mc   187.8 GB/s   41.2 TFLOP/s
+      DiffusionModule/AdaLN                                   19200 (49.7%)
+      DiffusionModule/AttentionPairBias                        9600 (24.9%)
+      DiffusionModule/DiffusionTransformerLayer                4800 (12.4%)
+      DiffusionModule/ConditionedTransitionBlock               4800 (12.4%)
+      DiffusionModule/Diffusion                                 200 ( 0.5%)
+linear|out=1x512x512x128|K=128                560 calls   0.5276 s     712.3 Mc   142.5 GB/s    9.1 TFLOP/s
+      PairformerLayer/TriangleMultiplication                    528 (94.3%)
+      MSALayer/TriangleMultiplication                            32 ( 5.7%)
+linear|out=1x512x1536|K=768                 15200 calls   0.3418 s     461.5 Mc   209.8 GB/s   53.7 TFLOP/s
+      DiffusionModule/ConditionedTransitionBlock              14400 (94.7%)
+      DiffusionModule/Transition                                800 ( 5.3%)
+linear|out=1x512x3072|K=768                  4800 calls   0.1766 s     238.4 Mc   235.1 GB/s   65.7 TFLOP/s
+      DiffusionModule/AttentionPairBias                        4800 (100.0%)
+linear|out=1024x512x32|K=64                   288 calls   0.1752 s     236.5 Mc   165.5 GB/s    3.5 TFLOP/s
+      MSALayer/PairWeightedAveraging                            256 (88.9%)
+      MSALayer/OuterProductMean                                  32 (11.1%)
+linear|out=512x512x128|K=1024                  16 calls   0.1578 s     213.1 Mc    61.3 GB/s    7.0 TFLOP/s
+      MSALayer/OuterProductMean                                  16 (100.0%)
+linear|out=1x512x768|K=1536                  5200 calls   0.1238 s     167.1 Mc   198.2 GB/s   50.7 TFLOP/s
+      DiffusionModule/ConditionedTransitionBlock               4800 (92.3%)
+      DiffusionModule/Transition                                400 ( 7.7%)
+linear|out=1x512x512x16|K=128                 264 calls   0.1006 s     135.8 Mc   198.1 GB/s    2.8 TFLOP/s
+      PairformerLayer/AttentionPairBias                         264 (100.0%)
+linear|out=1x140x128x256|K=128               1200 calls   0.0974 s     131.4 Mc   170.4 GB/s   14.5 TFLOP/s
+      DiffusionModule/AttentionPairBias                        1200 (100.0%)
+linear|out=1x140x32x256|K=128                3600 calls   0.0891 s     120.3 Mc   141.6 GB/s   11.9 TFLOP/s
+      DiffusionModule/ConditionedTransitionBlock               3600 (100.0%)
+linear|out=1x140x32x128|K=128                4800 calls   0.0775 s     104.6 Mc   144.2 GB/s    9.1 TFLOP/s
+      DiffusionModule/AttentionPairBias                        3600 (75.0%)
+      DiffusionModule/ConditionedTransitionBlock               1200 (25.0%)
+linear|out=1024x512x64|K=32                   128 calls   0.0773 s     104.3 Mc   166.8 GB/s    3.6 TFLOP/s
+      MSALayer/PairWeightedAveraging                            128 (100.0%)
+linear|out=1x16x512x256|K=64                 2048 calls   0.0641 s      86.5 Mc   168.6 GB/s    8.6 TFLOP/s
+      MSALayer/Transition                                      2048 (100.0%)
+linear|out=1x16x512x64|K=256                 1024 calls   0.0446 s      60.3 Mc   121.0 GB/s    6.2 TFLOP/s
+      MSALayer/Transition                                      1024 (100.0%)
+linear|out=1x140x32x128|K=256                1200 calls   0.0377 s      50.9 Mc   111.7 GB/s    9.4 TFLOP/s
+      DiffusionModule/ConditionedTransitionBlock               1200 (100.0%)
+linear|out=1x512x1536|K=384                   792 calls   0.0122 s      16.5 Mc   204.3 GB/s   39.2 TFLOP/s
+      PairformerLayer/Transition                                528 (66.7%)
+      PairformerLayer/AttentionPairBias                         264 (33.3%)
+linear|out=1x4480x768|K=128                   200 calls   0.0072 s       9.8 Mc   227.6 GB/s   24.4 TFLOP/s
+      DiffusionModule/DiffusionTransformerLayer                 200 (100.0%)
+linear|out=512x512x8|K=128                     16 calls   0.0061 s       8.2 Mc   187.1 GB/s    1.4 TFLOP/s
+      MSALayer/PairWeightedAveraging                             16 (100.0%)
+linear|out=1x512x384|K=1536                   264 calls   0.0053 s       7.1 Mc   158.1 GB/s   30.4 TFLOP/s
+      PairformerLayer/Transition                                264 (100.0%)
+linear|out=1x512x384|K=384                    528 calls   0.0043 s       5.8 Mc   133.4 GB/s   18.6 TFLOP/s
+      PairformerLayer/AttentionPairBias                         528 (100.0%)
+linear|out=1x4480x128|K=3                     200 calls   0.0030 s       4.1 Mc    77.9 GB/s    0.2 TFLOP/s
+      DiffusionModule/Diffusion                                 200 (100.0%)
+linear|out=1x512x128|K=768                    200 calls   0.0022 s       3.0 Mc    99.3 GB/s    9.0 TFLOP/s
+      DiffusionModule/Diffusion                                 200 (100.0%)
+linear|out=1x4480x3|K=128                     200 calls   0.0016 s       2.2 Mc   144.0 GB/s    0.4 TFLOP/s
+      DiffusionModule/DiffusionTransformerLayer                 200 (100.0%)
+linear|out=1x768|K=256                        200 calls   0.0012 s       1.6 Mc    65.1 GB/s    0.1 TFLOP/s
+      DiffusionModule/DiffusionTransformerLayer                 200 (100.0%)
+linear|out=1x256|K=256                        200 calls   0.0011 s       1.5 Mc    23.6 GB/s    0.0 TFLOP/s
+      DiffusionModule/DiffusionTransformerLayer                 200 (100.0%)
+JOIN: 27 keys, 108608 calls, 4.6604 s
+
+== SIBLING-SETS ==
+capture          owner                      act                     n    calls   fold_s   Mcycles reread_GB total_GB    GB/s act_mem
+PairformerLayer  Transition                 1x16x512x128 K128      32    16896   1.1005    1485.6     17.72   179.38   163.0     L1
+      N=512    linear|out=1x16x512x512|K=128            w  0.13 MB
+      N=512    linear|out=1x16x512x512|K=128            w  0.13 MB
+DiffusionModule  ConditionedTransitionBlock 1x512x768 K768         24    14400   0.3238     437.2      7.55    67.95   209.8   DRAM
+      N=1536   linear|out=1x512x1536|K=768              w  2.36 MB
+      N=1536   linear|out=1x512x1536|K=768              w  2.36 MB
+      N=1536   linear|out=1x512x1536|K=768              w  2.36 MB
+DiffusionModule  AdaLN                      1x512x768 K768         48    19200   0.2815     380.0      7.55    52.85   187.8   DRAM
+      N=768    linear|out=1x512x768|K=768               w  1.18 MB
+      N=768    linear|out=1x512x768|K=768               w  1.18 MB
+DiffusionModule  AttentionPairBias          1x512x768 K768         24     9600   0.2470     333.4      3.77    54.74   221.6   DRAM
+      N=768    linear|out=1x512x768|K=768               w  1.18 MB
+      N=3072   linear|out=1x512x3072|K=768              w  4.72 MB
+MSALayer         PairWeightedAveraging      1024x512x64 K64         1      256   0.1557     210.2     16.11    25.77   165.5   DRAM
+      N=32     linear|out=1024x512x32|K=64              w  0.00 MB
+      N=32     linear|out=1024x512x32|K=64              w  0.00 MB
+      ... 14 more members, same shape
+DiffusionModule  ConditionedTransitionBlock 1x140x32x128 K128       6     3600   0.0891     120.3      2.75    12.62   141.6   DRAM
+      N=256    linear|out=1x140x32x256|K=128            w  0.07 MB
+      N=256    linear|out=1x140x32x256|K=128            w  0.07 MB
+      N=256    linear|out=1x140x32x256|K=128            w  0.07 MB
+MSALayer         Transition                 1x16x512x128 K128      32     1024   0.0667      90.0      1.07    10.87   163.0     L1
+      N=512    linear|out=1x16x512x512|K=128            w  0.13 MB
+      N=512    linear|out=1x16x512x512|K=128            w  0.13 MB
+MSALayer         Transition                 1x16x512x64 K64        64     2048   0.0641      86.5      1.07    10.80   168.6     L1
+      N=256    linear|out=1x16x512x256|K=64             w  0.03 MB
+      N=256    linear|out=1x16x512x256|K=64             w  0.03 MB
+DiffusionModule  AttentionPairBias          1x140x32x128 K128       6     2400   0.0387      52.3      1.38     5.58   144.2   DRAM
+      N=128    linear|out=1x140x32x128|K=128            w  0.03 MB
+      N=128    linear|out=1x140x32x128|K=128            w  0.03 MB
+MSALayer         OuterProductMean           1024x512x64 K64         1       32   0.0195      26.3      1.07     3.22   165.5   DRAM
+      N=32     linear|out=1024x512x32|K=64              w  0.00 MB
+      N=32     linear|out=1024x512x32|K=64              w  0.00 MB
+DiffusionModule  Transition                 1x512x768 K768          2      800   0.0180      24.3      0.31     3.77   209.8     L1
+      N=1536   linear|out=1x512x1536|K=768              w  2.36 MB
+      N=1536   linear|out=1x512x1536|K=768              w  2.36 MB
+PairformerLayer  Transition                 1x512x384 K384          1      528   0.0081      11.0      0.10     1.66   204.3     L1
+      N=1536   linear|out=1x512x1536|K=384              w  1.18 MB
+      N=1536   linear|out=1x512x1536|K=384              w  1.18 MB
+PairformerLayer  AttentionPairBias          1x512x384 K384          1      528   0.0062       8.4      0.10     1.12   179.8   DRAM
+      N=384    linear|out=1x512x384|K=384               w  0.29 MB
+      N=1536   linear|out=1x512x1536|K=384              w  1.18 MB
+
+== CROSS-FRAME SETS (one tensor, no reallocation between members) ==
+DiffusionModule  1x512x768 K768 N_fused=36864                 n=48  calls    9600  fold_s  0.1407  Mc    190.0  reread  7.39 GB  ConditionedTransitionBlock,DiffusionTransformerLayer
+DiffusionModule  1x140x32x128 K128 N_fused=768                n=6   calls    1200  fold_s  0.0194  Mc     26.1  reread  1.15 GB  ConditionedTransitionBlock
+
+linear ops walked: 802; addresses seen with >1 shape: 6
