@@ -336,9 +336,9 @@
    }
   },
   "p300c": {
-   "recorded": "2026-09-11T09:40:00Z",
+   "recorded": "2026-09-17T15:55:05Z",
    "host": "tt-quietbox2",
-   "tree": "218c096a2989a1e0f64dfd38979fd1b3ed5b8fe0",
+   "tree": "c23ac2d4399a340c2f5942e6741537f05a0d9776",
    "dirty_tree": false,
    "geometry": {
     "arch": "blackhole",
@@ -357,7 +357,7 @@
     },
     "board_type": "p300c",
     "host": "tt-quietbox2",
-    "card": 0
+    "card": 1
    },
    "reductions": [
     "diffusion_samples=1. Samples are independent and add no peak, so this costs no coverage.",
@@ -707,6 +707,44 @@
      "ceilings_fingerprint": "8b70027f5ec5254a",
      "tree": "3c5c4b95306d78a1fc136dcac246975c322558ce",
      "measured_on": "tt-quietbox2:0"
+    },
+    "opendde": {
+     "verdict": "FAIL",
+     "tokens_requested": 1536,
+     "tokens_padded": 1536,
+     "residues": 1536,
+     "msa_rows_effective": 8832,
+     "dram_peak_bytes": null,
+     "dram_total_bytes": null,
+     "wall_s": 2.1,
+     "mechanism": "size_guard",
+     "decided_by": "screen",
+     "ceiling_tokens": 1024,
+     "alloc_ceiling_tokens": 1024,
+     "alloc_ceiling_note": "1024 is the largest bucket-aligned size whose shapes ALLOCATE (screen); 1056 is the smallest that does not. A clean screen cannot rule out a Class B failure, so this is an upper bound on the completing ceiling, not a pass.",
+     "reason": null,
+     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "tree": "c23ac2d4399a340c2f5942e6741537f05a0d9776",
+     "measured_on": "tt-quietbox2:1"
+    },
+    "opendde-abag": {
+     "verdict": "FAIL",
+     "tokens_requested": 1536,
+     "tokens_padded": 1536,
+     "residues": 1536,
+     "msa_rows_effective": 8832,
+     "dram_peak_bytes": null,
+     "dram_total_bytes": null,
+     "wall_s": 2.1,
+     "mechanism": "size_guard",
+     "decided_by": "screen",
+     "ceiling_tokens": 1024,
+     "alloc_ceiling_tokens": 1024,
+     "alloc_ceiling_note": "1024 is the largest bucket-aligned size whose shapes ALLOCATE (screen); 1056 is the smallest that does not. A clean screen cannot rule out a Class B failure, so this is an upper bound on the completing ceiling, not a pass.",
+     "reason": null,
+     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "tree": "c23ac2d4399a340c2f5942e6741537f05a0d9776",
+     "measured_on": "tt-quietbox2:1"
     }
    }
   }
