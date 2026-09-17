@@ -70,8 +70,15 @@ the tree:
             total                                                                11 Z = 738.2 MB
     fused   read in0 1 Z, write a 1 Z, write b 1 Z                                3 Z = 201.3 MB
 
-8 Z per trimul deleted. The fused op's traffic floor is **0.5119 ms/call** at the measured
-393.3 GB/s 1r1w roof - numerically the same floor `reblock_gated` already runs against, because
+8 Z per trimul deleted. **Disclosed disagreement:** the inherited `genop_audit` books the
+in-projection at 402.9 MB/call, which is 6 Z, where the kernel's own addressing above gives 5 Z -
+`in0` is read once by one sender core per M index and multicast down the column
+(`mm_generic.py:252`), and the output is 4 Z. `headroom.json`'s `floor_ms = 0.9246` and the 61.9 %
+efficiency the central arm borrows are computed from the audit's 6 Z, so if 5 Z is the true count
+the in-projection's real efficiency is 51.6 % and the central arm is optimistic by that much
+(0.8264 -> 0.9920 ms/call, saving 1.0062 s instead of 1.0990 s). It does not cross the kill bar
+either way, and arm 1 resolves it directly by measuring the fused op's own bytes. The fused op's
+traffic floor is **0.5119 ms/call** at the measured 393.3 GB/s 1r1w roof - numerically the same floor `reblock_gated` already runs against, because
 both move 3 Z. Arithmetic intensity rises from 106.6 to ~160 FLOP/byte against a measured
 260.9 FLOP/byte machine balance, so the op stays traffic-bound, but the margin over the matmul's
 own 0.3778 ms of arithmetic falls from 2.04x to 1.36x and the gate's SFPU work now has to hide
