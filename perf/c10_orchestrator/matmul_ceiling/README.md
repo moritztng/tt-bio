@@ -38,6 +38,28 @@ The fold's matmuls sit close to the machine balance rather than far above it:
 ~4× below what arithmetic intensity permits**, because that gap is where the campaign's only viable
 axis lives.
 
+## Does the conclusion depend on which roofs are right? No.
+
+The ceiling above uses the floor artifact's roofs (cube 104.93, DRAM 424.7). Those carry an
+unrecorded clock, so the honest check is whether the finding survives **every** Blackhole roof pair
+the campaign has on record:
+
+| cube | DRAM | ceiling | × today | target as % of ceiling |
+|---|---|---|---|---|
+| 104.93 | 424.7 GB/s | 78.24 | 3.94× | 45.4 % |
+| 112.71 | 424.7 GB/s | 79.99 | 4.02× | 44.4 % |
+| 122.28 | 442.9 GB/s | 83.94 | 4.22× | 42.3 % |
+| 122.30 | 443.1 GB/s | 83.98 | 4.22× | 42.3 % |
+
+**The ceiling moves 7.3 % across the whole range**, the gap to today stays 3.9–4.2×, and the target
+stays 42–45 % of the ceiling. The conclusion does not depend on the roof choice, and the
+better-measured roofs make it slightly *stronger*.
+
+The bottom two pairs are `c10-fold-census`'s in-session roofs, read from its `sweep1` and `sweep2`
+`replay.json` — **that row has not published them**, and they are used here only to bound a
+sensitivity, never as a result. Its two sweeps agree to 0.01 %, which is why they are worth bounding
+against. Controls enforce both the label and the fact that the finding holds at every pair.
+
 ## Limits
 
 Roofline is an upper bound that ignores exactly what probably binds here. **78 TFLOP/s is "not

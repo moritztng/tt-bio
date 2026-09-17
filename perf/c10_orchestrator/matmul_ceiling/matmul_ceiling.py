@@ -25,6 +25,18 @@ BYTES_PER_ELEM = 2          # bf16
 TODAY_TFLOPS = 19.88        # matmul_TFLOP / matmul_floor_s, the modelled class rate
 NEEDED_TFLOPS = 35.49       # frontier: what 10.0 s needs on this axis alone
 
+# Every Blackhole (cube, DRAM) roof pair this campaign has on record, so the conclusion can be
+# checked against all of them rather than resting on the one the floor artifact happens to carry.
+# The last two are c10-fold-census's in-session roofs, read from its runs/sweep1 and runs/sweep2
+# replay.json; that row has NOT published them and they are used here only to bound a sensitivity,
+# never as a result. Its two sweeps agree to 0.01 %, which is why they are worth bounding against.
+ROOF_RANGE = [
+    (104.93, 424.7, "roof_true/true_floor_512_qb2c2.json, the floor artifact this module uses"),
+    (112.71, 424.7, "median of the four-measurement cluster in frontier/"),
+    (122.28, 442.9, "c10-fold-census sweep1, in-session, UNPUBLISHED"),
+    (122.30, 443.1, "c10-fold-census sweep2, in-session, UNPUBLISHED"),
+]
+
 
 def _dims(sig):
     return [[int(x) for x in t.split("x")] for t in re.findall(r"\b\d+(?:x\d+)+\b", sig)]
@@ -104,6 +116,37 @@ def analyse():
     if ceil_cold is None:
         out["verdict"] = "NO MATMUL SHAPES in the census: nothing to say about the ceiling."
         return out
+    # --- does the conclusion depend on which roofs are right? ---------------------------------
+    sens = []
+    for cube_i, bw_i, src in ROOF_RANGE:
+        secs = 0.0
+        for r in rows:
+            ceiling = min(cube_i, r["ai_cold"] * bw_i / 1e3)
+            secs += r["flops_per_call"] * r["calls"] / (ceiling * 1e12)
+        c_i = tot_flops / 1e12 / secs
+        sens.append({"cube_TFLOPs": cube_i, "dram_GBps": bw_i, "source": src,
+                     "ceiling_TFLOPs": c_i, "x_today": c_i / TODAY_TFLOPS,
+                     "target_pct_of_ceiling": 100.0 * NEEDED_TFLOPS / c_i})
+    ceils = [x["ceiling_TFLOPs"] for x in sens]
+    out["roof_sensitivity"] = {
+        "rows": sens,
+        "ceiling_range_TFLOPs": [min(ceils), max(ceils)],
+        "ceiling_spread_pct": 100.0 * (max(ceils) - min(ceils)) / min(ceils),
+        "x_today_range": [min(x["x_today"] for x in sens), max(x["x_today"] for x in sens)],
+        "target_pct_range": [min(x["target_pct_of_ceiling"] for x in sens),
+                             max(x["target_pct_of_ceiling"] for x in sens)],
+        "reading": "Across every roof pair the campaign has measured the ceiling moves only "
+                   "%.1f to %.1f TFLOP/s, the gap to today stays %.1fx to %.1fx, and the target "
+                   "stays %.0f to %.0f %% of the ceiling. **The conclusion does not depend on which "
+                   "roofs are right**, and the better-measured roofs make it slightly stronger. "
+                   "That is the point of this section: it removes the roof uncertainty as a reason "
+                   "to doubt the finding, without resting on any unpublished number."
+                   % (min(ceils), max(ceils),
+                      min(x["x_today"] for x in sens), max(x["x_today"] for x in sens),
+                      min(x["target_pct_of_ceiling"] for x in sens),
+                      max(x["target_pct_of_ceiling"] for x in sens)),
+    }
+
     out["verdict"] = (
         "Bandwidth does NOT explain the fold's matmul rate. The recorded shapes carry enough "
         "arithmetic intensity for a structural ceiling of %.1f TFLOP/s, against a modelled %.2f "

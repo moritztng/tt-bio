@@ -279,6 +279,56 @@
     "gap_to_target_x": 1.785211267605634,
     "target_pct_of_structural": 45.35778403049197
   },
+  "roof_sensitivity": {
+    "rows": [
+      {
+        "cube_TFLOPs": 104.93,
+        "dram_GBps": 424.7,
+        "source": "roof_true/true_floor_512_qb2c2.json, the floor artifact this module uses",
+        "ceiling_TFLOPs": 78.24456321795105,
+        "x_today": 3.935843220218866,
+        "target_pct_of_ceiling": 45.35778403049197
+      },
+      {
+        "cube_TFLOPs": 112.71,
+        "dram_GBps": 424.7,
+        "source": "median of the four-measurement cluster in frontier/",
+        "ceiling_TFLOPs": 79.99489742896753,
+        "x_today": 4.023888200652291,
+        "target_pct_of_ceiling": 44.365329715578156
+      },
+      {
+        "cube_TFLOPs": 122.28,
+        "dram_GBps": 442.9,
+        "source": "c10-fold-census sweep1, in-session, UNPUBLISHED",
+        "ceiling_TFLOPs": 83.94303056347954,
+        "x_today": 4.2224864468551075,
+        "target_pct_of_ceiling": 42.27867371688671
+      },
+      {
+        "cube_TFLOPs": 122.3,
+        "dram_GBps": 443.1,
+        "source": "c10-fold-census sweep2, in-session, UNPUBLISHED",
+        "ceiling_TFLOPs": 83.97719839376312,
+        "x_today": 4.224205150591707,
+        "target_pct_of_ceiling": 42.26147177902972
+      }
+    ],
+    "ceiling_range_TFLOPs": [
+      78.24456321795105,
+      83.97719839376312
+    ],
+    "ceiling_spread_pct": 7.32656038968963,
+    "x_today_range": [
+      3.935843220218866,
+      4.224205150591707
+    ],
+    "target_pct_range": [
+      42.26147177902972,
+      45.35778403049197
+    ],
+    "reading": "Across every roof pair the campaign has measured the ceiling moves only 78.2 to 84.0 TFLOP/s, the gap to today stays 3.9x to 4.2x, and the target stays 42 to 45 % of the ceiling. **The conclusion does not depend on which roofs are right**, and the better-measured roofs make it slightly stronger. That is the point of this section: it removes the roof uncertainty as a reason to doubt the finding, without resting on any unpublished number."
+  },
   "verdict": "Bandwidth does NOT explain the fold's matmul rate. The recorded shapes carry enough arithmetic intensity for a structural ceiling of 78.2 TFLOP/s, against a modelled 19.88 today -- a 3.9x gap that roofline does not account for. The target needs 35.49 TFLOP/s, which is only 45 % of that ceiling. So the headroom frontier/ identified is not excluded by the hardware, and whatever limits these matmuls is implementation -- grid occupancy, tile quantisation, K-loop efficiency, per-program cost -- rather than DRAM.",
   "sharpens_the_census_question": "c10-fold-census was asked to measure the achieved rate. This says the more useful question is WHY it sits about 4x below what arithmetic intensity permits, because that gap is where the campaign's only viable axis lives. Two shapes are worth naming: the 16-head pair matmuls at 8,448 calls each have AI 101, so they are DRAM-bound and capped near 43 TFLOP/s; the 768-family linears at AI 219-307 sit right at the machine balance of 247.",
   "limits": [

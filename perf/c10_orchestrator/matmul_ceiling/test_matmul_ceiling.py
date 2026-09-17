@@ -94,3 +94,41 @@ def test_the_two_named_shape_families_are_actually_in_the_data():
     assert pair and all(90 < s["ai_cold"] < 115 for s in pair), "the 16-head pair matmuls"
     fam = [s for s in r["shapes"] if s["K"] == 768 and s["M"] == 512]
     assert fam and all(200 < s["ai_cold"] < 320 for s in fam), "the 768-family linears"
+
+
+# --- does the conclusion survive every roof the campaign has measured? -------------------------
+def test_the_ceiling_is_insensitive_to_the_roof_range():
+    s = M.analyse()["roof_sensitivity"]
+    assert s["ceiling_spread_pct"] < 15.0, "if the ceiling swings wildly the finding needs the roof"
+    assert len(s["rows"]) == len(M.ROOF_RANGE) >= 4
+
+
+def test_the_finding_holds_under_every_roof_pair():
+    """The headline is 'bandwidth does not explain the gap' and 'the target fits inside the
+    ceiling'. Both must hold at EVERY recorded roof, or the finding rests on a roof choice."""
+    for r in M.analyse()["roof_sensitivity"]["rows"]:
+        assert r["x_today"] > 3.0, f"gap collapsed at cube={r['cube_TFLOPs']}"
+        assert r["target_pct_of_ceiling"] < 60.0, f"target too close at cube={r['cube_TFLOPs']}"
+
+
+def test_better_measured_roofs_make_the_finding_stronger_not_weaker():
+    rows = M.analyse()["roof_sensitivity"]["rows"]
+    lo, hi = rows[0], rows[-1]
+    assert hi["ceiling_TFLOPs"] > lo["ceiling_TFLOPs"]
+    assert hi["target_pct_of_ceiling"] < lo["target_pct_of_ceiling"]
+
+
+def test_unpublished_roofs_are_labelled_as_such_and_only_bound_a_sensitivity():
+    srcs = [r["source"] for r in M.analyse()["roof_sensitivity"]["rows"]]
+    unpub = [s for s in srcs if "UNPUBLISHED" in s]
+    assert len(unpub) == 2, "the census roofs must be marked unpublished"
+    assert all("c10-fold-census" in s for s in unpub)
+    reading = M.analyse()["roof_sensitivity"]["reading"]
+    assert "without resting on any unpublished number" in reading
+
+
+def test_a_collapsed_bandwidth_roof_would_break_the_finding(monkeypatch):
+    """Negative control: the insensitivity is a property of these shapes, not a hardcoded claim."""
+    monkeypatch.setattr(M, "ROOF_RANGE", M.ROOF_RANGE + [(104.93, 20.0, "synthetic: DRAM starved")])
+    rows = M.analyse()["roof_sensitivity"]["rows"]
+    assert rows[-1]["x_today"] < 3.0, "a starved DRAM roof must collapse the gap"
