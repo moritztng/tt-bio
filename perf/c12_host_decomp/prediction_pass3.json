@@ -3,13 +3,23 @@
   "registered_by": "c12-host-decomp pass 3",
   "why_a_second_prediction_file": "prediction.json was registered in pass 1 and is not touched. This file adds the items pass 3 identified from source and from a sibling row's committed screen, and it is committed BEFORE the capture that prices them exists. The campaign's two worst rows predicted 3.04 s and 4.908 s and delivered -0.0214 s and 0.156 s, and both were only caught because the prediction was written first.",
   "closes_against": {
-    "primary_s": [1.6489, 1.6720],
+    "primary_s": [
+      1.6489,
+      1.672
+    ],
     "primary_source": "c12-profiled-fold composed.json: device 13.2090 s of 14.8810 s in situ at a held, during-sampled 1350 MHz; the remainder is the ceiling on ALL exposed host time",
-    "secondary_s": 3.9830,
+    "secondary_s": 3.983,
     "secondary_source": "c10-fixed-cost F at 512 aa, which exceeds the measured remainder by 2.3110-2.3341 s of clock-immune DEVICE cost that no host item can account for",
-    "reducible_bar_s": 1.0100,
-    "reducible_bar_pct_of_remainder": [60.4, 61.3],
-    "bar_source": "C12 pass 23: 12.5 s needs 2.3810 s, the whole measured device book at full value is 1.7770 s, so host owes 1.0100 s"
+    "reducible_bar_s": 0.849,
+    "reducible_bar_pct_of_remainder": [
+      50.8,
+      51.5
+    ],
+    "bar_source": "c12 DONE_CHECK as of 2026-09-17 16:0xZ: 12.5 s needs 0.8490 s of host on top of silu 0.2843 + cond-hoist 0.2415 + reblock-delete 1.0062 = 1.5320 s, i.e. 50.8-51.5 % of all non-device time, 39.1-55.9 % across reblock-delete's own band. Pass 23's 1.0100 s / 60.4-61.3 % was an arithmetic slip and is RETRACTED.",
+    "reducible_bar_band_pct": [
+      39.1,
+      55.9
+    ]
   },
   "items": [
     {
@@ -17,7 +27,10 @@
       "site": "tt_bio/boltz2.py:5731 - Boltz2.forward calls dev.disable_and_clear_program_cache() then enable_program_cache() on EVERY forward unless TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE=1",
       "claim": "The clear itself is microseconds. Its cost is the REBUILD of every program the fold then uses, which a profiler books inside whichever device-call region touches each program first, not against the clear. So this item is invisible to the region tree and to any per-op device view, and it can only be priced by an A/B on the flag.",
       "predicted_fold_seconds": 0.0,
-      "allowed_band_s": [0.0, 2.3],
+      "allowed_band_s": [
+        0.0,
+        2.3
+      ],
       "prediction_is_conditional": true,
       "condition": "The lever is worth zero in a one-fold-per-process protocol, because the first forward after process start rebuilds the cache either way. It is worth the full rebuild only when the timed fold is an in-process REPEAT after an earlier fold has already warmed the cache. decomp.py folds 24 times in one process, so its own rep-1-vs-rep-2 spread at a fixed clock measures this directly, and the cacheclear arm times the clear call to separate the two.",
       "prior_evidence": "perf/boltz2-affinity-fixedcost/results/screen_walls.txt, another row's committed screen at 256 aa with the affinity pipeline: warm same-shape second target, structure stage 15.1 s with the clear against 12.8 s with it suppressed, a 2.3 s delta. Its cold first target moved 27.7 -> 13.7 s, which cannot be a clear-vs-no-clear difference on a cold cache and is therefore not used as the prediction.",
@@ -30,7 +43,10 @@
       "site": "tt_bio/boltz2.py, Boltz2.forward: for m in self.modules(): if hasattr(m, 'reset_static_cache'): m.reset_static_cache()",
       "claim": "A full module walk on every forward. Once per fold, so it is bounded by one traversal of the module tree plus whatever each reset does.",
       "predicted_fold_seconds": 0.02,
-      "allowed_band_s": [0.0, 0.15],
+      "allowed_band_s": [
+        0.0,
+        0.15
+      ],
       "refuted_if": "forward's own exclusive F exceeds 0.15 s and the walk is the reason",
       "clock_class_predicted": "CLOCK-IMMUNE",
       "reducible": "partly. The walk is invariant across folds of the same shape but the caches it clears are per-protein, so it cannot simply be deleted."
@@ -40,17 +56,23 @@
       "site": "one call per fold, measured in pass 2 at 109.29 ms of host against 21.29 ms of device kernel, 16.30 percent in-kernel",
       "claim": "Pass 2 already priced this off c12-profiled-fold's bare walls. It is the densest host block in any device unit and it is still only 0.73 percent of the fold.",
       "predicted_fold_seconds": 0.109,
-      "allowed_band_s": [0.08, 0.14],
+      "allowed_band_s": [
+        0.08,
+        0.14
+      ],
       "refuted_if": "the region tree's cond_device exclusive F falls outside the band",
       "clock_class_predicted": "CLOCK-IMMUNE",
-      "reducible": "at most 0.11 s, so it cannot fund the 1.0100 s bar on its own"
+      "reducible": "at most 0.11 s, so it cannot fund the 0.8490 s bar on its own"
     },
     {
       "name": "featurisation_and_writer",
       "site": "regions prepare, to_batch, write_result in perf/b2x_host_residual/host_residual.py's tree",
       "claim": "These are host Python by construction and they are the largest part of the 1.3348 s that no device unit named in pass 2.",
       "predicted_fold_seconds": 0.75,
-      "allowed_band_s": [0.35, 1.25],
+      "allowed_band_s": [
+        0.35,
+        1.25
+      ],
       "refuted_if": "the three regions sum outside the band",
       "clock_class_predicted": "CLOCK-IMMUNE, and this is the one place the clock control should confirm rather than discriminate",
       "reducible": "prepare is reducible if it recomputes anything invariant across recycles; write_result is irreducible WORK but reducible COST if it sits on the critical path and need not"
