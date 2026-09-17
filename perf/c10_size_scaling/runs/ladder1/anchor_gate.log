@@ -1,0 +1,6 @@
+  OK   t_1350_s = 14.9016  allowed [14.7000, 15.0500]
+  OK   t_800_s = 22.3428  allowed [22.1000, 22.7000]
+  OK   W_Mcycles = 14611.7203  allowed [14319.0577, 15010.9423]
+  info F_s = 4.0781 +- 0.1101 against the 3.983 +- 0.1181 s of record
+  info folds/sd: 1350 MHz n=5 sd=0.0552 s; 800 MHz n=5 sd=0.0977 s
+ANCHOR GATE: PASS -- the ladder may continue

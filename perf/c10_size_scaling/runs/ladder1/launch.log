@@ -1,0 +1,32 @@
+benchlock: c10-size-scaling acquired after 0s, loadavg 0.00 0.10 0.39
+=== SIZE 512  2026-09-17T00:51:26Z
+2026-09-17 00:51:27.081 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{"label": "cold", "MHz": 1350, "elapsed_s": 18.719689995, "host_cpu_s": 18.8959033, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 69.06667053835879, "cif_sha256": "bb7f0e1af7e271ee", "plddt": 0.845919}
+{"label": "c1350_r0", "MHz": 1350, "elapsed_s": 14.98385687, "host_cpu_s": 16.90681611, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 78.91879753712423, "cif_sha256": "bb7f0e1af7e271ee", "plddt": 0.845919}
+{"label": "c800_r0", "MHz": 800, "elapsed_s": 22.319879589, "host_cpu_s": 24.193006022, "min_MHz": 800, "max_MHz": 800, "mean_W": 42.93818394046982, "cif_sha256": "bb7f0e1af7e271ee", "plddt": 0.845919}
+{"label": "c800_r1", "MHz": 800, "elapsed_s": 22.342751451, "host_cpu_s": 24.228018336, "min_MHz": 800, "max_MHz": 800, "mean_W": 42.54187909686817, "cif_sha256": "bb7f0e1af7e271ee", "plddt": 0.845919}
+{"label": "c1350_r1", "MHz": 1350, "elapsed_s": 14.889158251, "host_cpu_s": 16.754300819, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 77.18749544560228, "cif_sha256": "bb7f0e1af7e271ee", "plddt": 0.845919}
+{"label": "c1350_r2", "MHz": 1350, "elapsed_s": 14.839754411, "host_cpu_s": 16.680217355, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 79.54687042995027, "cif_sha256": "bb7f0e1af7e271ee", "plddt": 0.845919}
+{"label": "c800_r2", "MHz": 800, "elapsed_s": 22.30766582, "host_cpu_s": 24.15808801, "min_MHz": 800, "max_MHz": 800, "mean_W": 43.41831622975536, "cif_sha256": "bb7f0e1af7e271ee", "plddt": 0.845919}
+{"label": "c800_r3", "MHz": 800, "elapsed_s": 22.546523581, "host_cpu_s": 24.453379599, "min_MHz": 800, "max_MHz": 800, "mean_W": 42.259913378248314, "cif_sha256": "bb7f0e1af7e271ee", "plddt": 0.845919}
+{"label": "c1350_r3", "MHz": 1350, "elapsed_s": 14.901597604, "host_cpu_s": 16.768189729, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 78.55640577175339, "cif_sha256": "bb7f0e1af7e271ee", "plddt": 0.845919}
+{"label": "c1350_r4", "MHz": 1350, "elapsed_s": 14.946504258, "host_cpu_s": 16.851640265, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 78.92791745385846, "cif_sha256": "bb7f0e1af7e271ee", "plddt": 0.845919}
+{"label": "c800_r4", "MHz": 800, "elapsed_s": 22.395236018, "host_cpu_s": 24.323766875, "min_MHz": 800, "max_MHz": 800, "mean_W": 43.395686939665616, "cif_sha256": "bb7f0e1af7e271ee", "plddt": 0.845919}
+=== ANCHOR GATE 2026-09-17T00:55:05Z
+  OK   t_1350_s = 14.9016  allowed [14.7000, 15.0500]
+  OK   t_800_s = 22.3428  allowed [22.1000, 22.7000]
+  OK   W_Mcycles = 14611.7203  allowed [14319.0577, 15010.9423]
+  info F_s = 4.0781 +- 0.1101 against the 3.983 +- 0.1181 s of record
+  info folds/sd: 1350 MHz n=5 sd=0.0552 s; 800 MHz n=5 sd=0.0977 s
+ANCHOR GATE: PASS -- the ladder may continue
+=== SIZE 768  2026-09-17T00:55:05Z
+2026-09-17 00:55:06.669 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-09-17 00:55:13.966 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2198016 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+{"label": "cold", "MHz": 1350, "elapsed_s": 34.863120976, "host_cpu_s": 36.50961907, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 77.99439252336448, "cif_sha256": "9e1a1fdd392e0b4c", "plddt": 0.825254}
+{"label": "c1350_r0", "MHz": 1350, "elapsed_s": 31.552197637, "host_cpu_s": 34.63617521, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 81.09421311419042, "cif_sha256": "9e1a1fdd392e0b4c", "plddt": 0.825254}
+{"label": "c800_r0", "MHz": 800, "elapsed_s": 47.252853287, "host_cpu_s": 50.363826039, "min_MHz": 800, "max_MHz": 800, "mean_W": 46.43208401314429, "cif_sha256": "9e1a1fdd392e0b4c", "plddt": 0.825254}
+{"label": "c800_r1", "MHz": 800, "elapsed_s": 47.070582248, "host_cpu_s": 50.185045645, "min_MHz": 800, "max_MHz": 800, "mean_W": 46.2328116716989, "cif_sha256": "9e1a1fdd392e0b4c", "plddt": 0.825254}
+{"label": "c1350_r1", "MHz": 1350, "elapsed_s": 31.547049695, "host_cpu_s": 34.636613122, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 81.81702156936943, "cif_sha256": "9e1a1fdd392e0b4c", "plddt": 0.825254}
+{"label": "c1350_r2", "MHz": 1350, "elapsed_s": 31.745161251, "host_cpu_s": 34.835056579, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 82.94284540880933, "cif_sha256": "9e1a1fdd392e0b4c", "plddt": 0.825254}

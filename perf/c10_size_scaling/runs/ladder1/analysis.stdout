@@ -1,0 +1,171 @@
+{
+  "512": {
+    "accepted_folds": 10,
+    "cells": {
+      "1350": {
+        "accepted_folds": 5,
+        "enough": true,
+        "median_s": 14.901597604,
+        "mean_s": 14.9121742788,
+        "min_s": 14.839754411,
+        "max_s": 14.98385687,
+        "spread_s": 0.14410245900000085,
+        "sample_stdev_s": 0.05523400716656275,
+        "se_mean_s": 0.024701398938828972,
+        "se_median_s": 0.03095826329003435,
+        "se_median_note": "1.2533*sd/sqrt(n), the asymptotic standard error OF A MEDIAN. The mean's sd/sqrt(n) understates it by 25 %, and the medians are what the two-clock separation consumes.",
+        "during_min_MHz": 1350,
+        "during_max_MHz": 1350,
+        "mean_W": 78.62749732765772,
+        "max_C": 58.096,
+        "host_cpu_s_median": 16.768189729,
+        "host_cpu_s_min": 16.680217355,
+        "host_cpu_s_max": 16.90681611,
+        "adjacent_abs_delta_s": [
+          0.09469861900000076,
+          0.04940384000000009,
+          0.061843193000001406,
+          0.04490665399999827
+        ],
+        "adjacent_abs_delta_median_s": 0.05562351650000075,
+        "elapsed_device_clock_equivalent_Mcycles": 20117.156765400003
+      },
+      "800": {
+        "accepted_folds": 5,
+        "enough": true,
+        "median_s": 22.342751451,
+        "mean_s": 22.3824112918,
+        "min_s": 22.30766582,
+        "max_s": 22.546523581,
+        "spread_s": 0.23885776099999845,
+        "sample_stdev_s": 0.09768229042477757,
+        "se_mean_s": 0.043684848317535885,
+        "se_median_s": 0.05475022039636773,
+        "se_median_note": "1.2533*sd/sqrt(n), the asymptotic standard error OF A MEDIAN. The mean's sd/sqrt(n) understates it by 25 %, and the medians are what the two-clock separation consumes.",
+        "during_min_MHz": 800,
+        "during_max_MHz": 800,
+        "mean_W": 42.91079591700146,
+        "max_C": 54.25,
+        "host_cpu_s_median": 24.228018336,
+        "host_cpu_s_min": 24.15808801,
+        "host_cpu_s_max": 24.453379599,
+        "adjacent_abs_delta_s": [
+          0.022871862000002352,
+          0.03508563100000117,
+          0.23885776099999845,
+          0.15128756300000035
+        ],
+        "adjacent_abs_delta_median_s": 0.09318659700000076,
+        "elapsed_device_clock_equivalent_Mcycles": 17874.201160800003
+      }
+    },
+    "work": {
+      "clocks_MHz": [
+        1350,
+        800
+      ],
+      "F_s": 4.078101099272736,
+      "W_Mcycles": 14611.720281381818,
+      "se_F_s": 0.11007383067854373,
+      "se_W_Mcycles": 123.5063382555796,
+      "dF_dt_gain": [
+        2.454545454545454,
+        -1.4545454545454544
+      ],
+      "dW_dt_gain": [
+        -1963.6363636363633,
+        1963.6363636363633
+      ]
+    },
+    "aa_floor": {
+      "timing_floor_s": 0.09318659700000076,
+      "per_cell_adjacent_abs_delta_median_s": {
+        "1350": 0.05562351650000075,
+        "800": 0.09318659700000076
+      },
+      "structural_floor_A": 0.0,
+      "work_uncertainty_from_floor_Mcycles": 258.7792895518196,
+      "note": "the A/A floor is what an identical arm repeated costs. A leg whose work signal is inside the floor-implied uncertainty of its two sizes cannot support an exponent claim."
+    },
+    "work_check": {
+      "W_positive": true,
+      "F_between_zero_and_fastest_fold": true,
+      "two_clocks_only": "with exactly two arms the inverse-clock fit is the closed form: the residual is zero BY CONSTRUCTION and carries no information, so no goodness-of-fit is claimed here. c10-fixed-cost tested the T = F + W/f form against four clocks at 298 and 512 aa and it held; this row assumes it rather than re-testing it.",
+      "se_W_Mcycles": 123.5063382555796,
+      "se_F_s": 0.11007383067854373
+    },
+    "anchor": {
+      "t_1350_s": 14.901597604,
+      "t_1350_allowed_s": [
+        14.7,
+        15.05
+      ],
+      "t_1350_reproduces": true,
+      "t_800_s": 22.342751451,
+      "t_800_allowed_s": [
+        22.1,
+        22.7
+      ],
+      "t_800_reproduces": true,
+      "W_Mcycles": 14611.720281381818,
+      "W_of_record_Mcycles": 14665.0,
+      "W_delta_Mcycles": -53.279718618181505,
+      "W_tolerance_Mcycles": 345.9423396423262,
+      "W_reproduces": true,
+      "F_s": 4.078101099272736,
+      "F_of_record_s": 3.983,
+      "F_delta_s": 0.09510109927273591,
+      "F_tolerance_s": 0.32288609880419883,
+      "consequence": "if the anchor does not reproduce, nothing else in this session may be quoted",
+      "reproduces": true
+    },
+    "verdict": "GO",
+    "run_errors": []
+  },
+  "768": {
+    "accepted_folds": 0,
+    "cells": {
+      "1350": {
+        "accepted_folds": 0,
+        "enough": false
+      },
+      "800": {
+        "accepted_folds": 0,
+        "enough": false
+      }
+    },
+    "verdict": "STOP",
+    "run_errors": []
+  },
+  "640": {
+    "verdict": "STOP"
+  },
+  "384": {
+    "verdict": "STOP"
+  },
+  "ladder": {
+    "sizes_aa": [
+      512
+    ],
+    "W_Mcycles": {
+      "512": 14611.720281381818
+    },
+    "F_s": {
+      "512": 4.078101099272736
+    },
+    "se_W_Mcycles": {
+      "512": 123.5063382555796
+    },
+    "se_p_quotability_bar": 0.15,
+    "legs": [],
+    "unmeasured_sizes_aa": [
+      384,
+      640,
+      768
+    ],
+    "quotable": false,
+    "exponent_rises": false,
+    "exponent_shape": []
+  },
+  "verdict": "STOP"
+}

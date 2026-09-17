@@ -1,0 +1,104 @@
+{
+  "recorded_utc": "2026-09-17T00:00:00+00:00",
+  "row": "c10-size-scaling",
+  "source_base": "e6004abba460550a650ffa42a90e795ab3e5f20d",
+  "comparable_base": "5e1886b4fd1bea4211f30c295723c8175c72d63c",
+  "comparable_base_note": "c10-bare-baseline's 14.8813 s at 1350 MHz was measured on 5e1886b4f and c10-fixed-cost's F and W on e6004abba. capture.py re-checks the two commits between them as ASTs with docstrings stripped and records the verdict rather than asserting it.",
+  "question": "Does the device's clock-scaled work grow sublinearly with the target across a ladder that extends ABOVE 512 aa, or was the sublinear exponent measured at 298/512 an artifact of 298 tokens under-filling the grid? Reported per LEG, because a rising exponent is the artifact's signature and a flat sublinear one is the finding's.",
+  "prediction": "Identical model configuration at every size and clock: predicted model-cycle saving exactly zero. This row prices nothing, changes no production code and ships nothing. See prediction.json, written before any fold and digested into every result.json.",
+  "model": {
+    "model": "boltz2",
+    "sizes": [
+      512,
+      768,
+      640,
+      384
+    ],
+    "sizes_run_order_note": "512 first because it is the anchor and a failed anchor voids the session; 768 second because the 512->768 leg is the pre-registered decisive one and would survive a truncated session.",
+    "ladder_aa": [
+      384,
+      512,
+      640,
+      768
+    ],
+    "sampling_steps": 200,
+    "recycling_steps": 3,
+    "diffusion_samples": 1,
+    "seed": 0,
+    "msa_rows": 35,
+    "templates": false,
+    "fast": false,
+    "trace": false,
+    "hoist": false,
+    "instrument": false
+  },
+  "warmup_folds": 1,
+  "folds_per_cell": 5,
+  "minimum_folds_per_cell": 4,
+  "folds_preregistration": "5 per cell, 2 cells per size, 40 accepted folds over the ladder, chosen to fit the whole ladder inside one benchlock session rather than to reach a target precision, because the precision is already far more than the question needs. With c10-bare-baseline's 512 aa within-session stdev of 0.049 s and c10-fixed-cost's 0.123 s at 800 MHz, the median of 5 has se = 1.253*sd/sqrt(5) of about 0.027 and 0.069 s, so se_W = 1963.64*hypot(se_1350, se_800) is about 146 Mcycles, 1.0 % of W at 512 aa, and se_p on the 512->768 leg lands near 0.03 against a 1.0-vs-1.7 separation of 0.7. The pre-registered quotability bar is se_p <= 0.15 on a leg, which still separates the two hypotheses at over 4 sigma from their midpoint of 1.35.",
+  "clock": {
+    "arms_MHz": [
+      1350,
+      800
+    ],
+    "warm_MHz": 1350,
+    "order": "alternating: 1350 then 800 on even reps and the reverse on odd reps, so neither arm sits systematically early or late within a size.",
+    "mechanism": "ARC FORCE_AICLK (0x33) through tt-kmd's SMC message queue, re-sent and re-verified before EVERY label, released in the finally block with a checked return",
+    "gains": "F = 2.4545*t_1350 - 1.4545*t_800 and W = 1963.64*(t_800 - t_1350) Mcycles, c10-fixed-cost's closed form unchanged",
+    "settle": "the requested MHz must appear in sysfs and stay there for 200 ms before the timer starts, within a 5 s timeout",
+    "minimum_samples": 3,
+    "max_gap_ns": 10000000,
+    "errors_allowed": 0,
+    "all_during_samples_must_equal_that_folds_own_target": true,
+    "800_is_an_arm": "scripts/aiclk_watch.sh logs AICLK-WATCH: qb2 CLAMPED-UNDER-LOAD for a busy chip under 1200 MHz, so this row trips the fleet's own guard on purpose, announced in the state doc with its UTC window. A pinned 800 MHz fold is a measurement; an unrequested one is an artifact, and the during-fold samples plus the board power reading say which this was."
+  },
+  "quiet": {
+    "all_chip_foreign_holders_allowed": 0,
+    "holder_max_gap_ns": 1000000000,
+    "lock_wait_s": 60,
+    "load_wait_s": 60,
+    "benchlock_maxload": 2.0,
+    "matcher_and_location": "unchanged shared benchlock",
+    "host_cpu_witness": {
+      "sampler": "perf/c10_size_scaling/ambient.py, 250 ms, whole locked window",
+      "record_cpu_pct_at_or_above": 2.0,
+      "foreign_cpu_reject_pct": 20.0,
+      "foreign": "any process outside the run session (own=false)"
+    },
+    "co_tenancy": "STOP rather than measure anyway; never signal a holder"
+  },
+  "accuracy": {
+    "metric": "maximum independently superposed 298-residue-block all-atom float64 Kabsch RMSD; also report whole-chain all-atom. The fixtures are one chain of the CDK2 sequence repeated and truncated, so the 298-block split is the 512 convention generalised, not a new metric.",
+    "bars_A": {
+      "384": 0.6,
+      "512": 0.6,
+      "640": 0.6,
+      "768": 0.6
+    },
+    "bars_note": "Only 512 (0.60 A) and 298 (0.35 A) have bars of record. No transform changes in this row and no accuracy claim is owed beyond same-seed repeatability, so the 512 bar is carried unchanged to 384, 640 and 768 as a deliberately conservative convention: larger targets have larger seed floors, so 0.60 A is a tighter test there than at 512, not a looser one.",
+    "user_512_seed_floor_A": 1.84,
+    "same_seed_only": "A/A across clock arms and repetitions. No transform changed, so no new float64 model reference is needed. A clock change or a repetition must not move the structure; if it does, that is a finding and a STOP.",
+    "hard_stop": "a non-finite coordinate or a non-finite pLDDT at any size is a hard stop, not a rejection"
+  },
+  "kill": [
+    "512 aa does not reproduce the anchor: 14.881 s at 1350 MHz within the pooled baseline spread and W within the combined error of 14665 +- 121.1 Mcycles. Nothing else in the session may be quoted",
+    "wrong source/config or input hashes",
+    "wrong opened node, containment change or boot change",
+    "foreign device holder or quiet/lock timeout",
+    "clock read error, a clock other than that fold's own target, or a coverage gap",
+    "FORCE_AICLK refused, or a requested clock that did not settle before the timer started",
+    "the above-cap fused SDPA route counter is not [0, 0] at ANY size: the code path is then not uniform across the ladder and no exponent is meaningful",
+    "nonfinite/missing/duplicate atoms or identity mismatch",
+    "any structural deviation between arms over the size bar",
+    "foreign host CPU process at or above 20% of a core during an accepted fold",
+    "a leg whose se_p_work exceeds 0.15, or whose work signal is inside the uncertainty implied by that size's own A/A timing floor"
+  ],
+  "refutation": [
+    "p_work at or above 1.7 on the 512->768 leg: the size-independent term is a small-size artifact, perf/c10_orchestrator/size_scaling/ is withdrawn and the campaign's deletion target has to come from kernels. A FULL PASS",
+    "p_work rising monotonically and significantly across 384->512, 512->640, 640->768: the same artifact verdict, read off the shape rather than one leg",
+    "a fitted W at or below 0 Mcycles at any size: the two-clock separation is broken and no exponent may be quoted",
+    "768 aa OOMs or crashes: report the failing size, fall back to 640 as the top of the ladder and state plainly that the top leg is unmeasured. Not a workaround, not a model change"
+  ],
+  "bare": "Production wheel, no Tracy/graph/observer/module timers/sum profiling, no trace, no hoist, no --fast, no MSA truncation, no tensor parallelism, no bfp8, no kernel change, no reduction of steps or recycles, no flag. Synchronize before the monotonic start and after predict_one including CIF writing: c10-bare-baseline's timer boundary unchanged, because comparability with every number this campaign is priced against depends on it.",
+  "unmeasured": "No device-cycle census, per-op budget, roof, ceiling, upstream accuracy or cross-run speedup. W is the term that scales with AICLK; it is NOT shown to be arithmetic, and F is NOT shown to be host CPU work. The ladder is one fixture family, one chain, one 35-row A3M: it says nothing about MSA depth, ligands or multi-chain targets."
+}

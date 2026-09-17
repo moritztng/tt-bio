@@ -1,0 +1,3729 @@
+{
+  "verdict": "STOP",
+  "targets": {
+    "512": {
+      "accepted_folds": 10,
+      "rows": [
+        {
+          "label": "cold",
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200644478,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 26912823130599,
+          "end_monotonic_ns": 26931542820594,
+          "elapsed_s": 18.719689995,
+          "host_cpu_s": 18.8959033,
+          "host_utime_s": 17.423268,
+          "host_stime_s": 1.4726350000000001,
+          "host_child_utime_s": 10.968812,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 26912800859033,
+            "utc_ns": 1789606291941867609,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 481,
+                "stime_ticks": 105,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 26931542837957,
+            "utc_ns": 1789606310683846403,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 2223,
+                "stime_ticks": 253,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/cold/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 17219,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1220827,
+            "first_offset_ns": 968501,
+            "last_offset_ns": 793379,
+            "sample_span_fraction": 0.9999058809200114,
+            "min_W": 37.0,
+            "max_W": 143.0,
+            "mean_W": 69.06667053835879,
+            "max_C": 56.558,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 152,
+            "max_gap_ns": 129757429,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 152,
+            "max_gap_ns": 129757429,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 72,
+            "max_loadavg": 0.609375,
+            "max_foreign_cpu_pct": 11.7,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 11.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26924866013715
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 11.6,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26914859505407
+              },
+              {
+                "pid": 481,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 26913825525635
+              },
+              {
+                "pid": 190372,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 26914343463362
+              },
+              {
+                "pid": 15,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 26915116696251
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": false,
+          "rejections": [],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/512/cifs/cold/cdk2x2_512.cif"
+        },
+        {
+          "label": "c1350_r0",
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200734653,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 26931998255671,
+          "end_monotonic_ns": 26946982112541,
+          "elapsed_s": 14.98385687,
+          "host_cpu_s": 16.90681611,
+          "host_utime_s": 15.928416999999996,
+          "host_stime_s": 0.978399,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 26931976006740,
+            "utc_ns": 1789606311117015497,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 2228,
+                "stime_ticks": 253,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 26946982127179,
+            "utc_ns": 1789606326123135545,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 3821,
+                "stime_ticks": 351,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_r0/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13805,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1231518,
+            "first_offset_ns": 630214,
+            "last_offset_ns": 832314,
+            "sample_span_fraction": 0.9999023930879286,
+            "min_W": 37.0,
+            "max_W": 143.0,
+            "mean_W": 78.91879753712423,
+            "max_C": 56.942,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 123,
+            "max_gap_ns": 132226722,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 123,
+            "max_gap_ns": 132226722,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 59,
+            "max_loadavg": 0.69677734375,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26934879267963
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26936929524248
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26941030933905
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26946943573241
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 26932056795004
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": true,
+          "rejections": [],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/512/cifs/c1350_r0/cdk2x2_512.cif"
+        },
+        {
+          "label": "c800_r0",
+          "clock_MHz": 800,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 800,
+            "settled": true,
+            "reads": 12,
+            "settle_ns": 220858725,
+            "distinct": [
+              800,
+              1350
+            ]
+          },
+          "start_monotonic_ns": 26947670378358,
+          "end_monotonic_ns": 26969990257947,
+          "elapsed_s": 22.319879589,
+          "host_cpu_s": 24.193006022,
+          "host_utime_s": 23.380283000000006,
+          "host_stime_s": 0.8127219999999999,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 26947647957103,
+            "utc_ns": 1789606326788965810,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 3847,
+                "stime_ticks": 351,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 26969990272644,
+            "utc_ns": 1789606349131281031,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 6185,
+                "stime_ticks": 433,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c800_r0/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 800,
+            "samples": 20561,
+            "min_MHz": 800,
+            "max_MHz": 800,
+            "max_gap_ns": 1194167,
+            "first_offset_ns": 73600,
+            "last_offset_ns": 479027,
+            "sample_span_fraction": 0.9999752405922354,
+            "min_W": 22.0,
+            "max_W": 71.0,
+            "mean_W": 42.93818394046982,
+            "max_C": 53.353,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 183,
+            "max_gap_ns": 136093415,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 183,
+            "max_gap_ns": 136093415,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 87,
+            "max_loadavg": 0.845703125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26948998440355
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26953099023937
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26961043573148
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26963099417110
+              },
+              {
+                "pid": 1100,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "@dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only ",
+                "at_ns": 26947713926958
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": true,
+          "rejections": [],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/512/cifs/c800_r0/cdk2x2_512.cif"
+        },
+        {
+          "label": "c800_r1",
+          "clock_MHz": 800,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 800,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200761390,
+            "distinct": [
+              800
+            ]
+          },
+          "start_monotonic_ns": 26970507001477,
+          "end_monotonic_ns": 26992849752928,
+          "elapsed_s": 22.342751451,
+          "host_cpu_s": 24.228018336,
+          "host_utime_s": 23.369940000000007,
+          "host_stime_s": 0.8580769999999998,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 26970484804259,
+            "utc_ns": 1789606349625813186,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 6196,
+                "stime_ticks": 434,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 26992849773577,
+            "utc_ns": 1789606371990781954,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 8533,
+                "stime_ticks": 519,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c800_r1/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 800,
+            "samples": 20595,
+            "min_MHz": 800,
+            "max_MHz": 800,
+            "max_gap_ns": 1222491,
+            "first_offset_ns": 372393,
+            "last_offset_ns": 306273,
+            "sample_span_fraction": 0.9999696247795851,
+            "min_W": 22.0,
+            "max_W": 72.0,
+            "mean_W": 42.54187909686817,
+            "max_C": 53.353,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 183,
+            "max_gap_ns": 131384018,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 183,
+            "max_gap_ns": 131384018,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 87,
+            "max_loadavg": 1.02392578125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26971063026078
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26973114004474
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26983365016711
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26991323763702
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 26970548841653
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": true,
+          "rejections": [],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/512/cifs/c800_r1/cdk2x2_512.cif"
+        },
+        {
+          "label": "c1350_r1",
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 15,
+            "settle_ns": 281010091,
+            "distinct": [
+              800,
+              1350
+            ]
+          },
+          "start_monotonic_ns": 26993487025913,
+          "end_monotonic_ns": 27008376184164,
+          "elapsed_s": 14.889158251,
+          "host_cpu_s": 16.754300819,
+          "host_utime_s": 15.973181000000011,
+          "host_stime_s": 0.7811199999999996,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 26993463400709,
+            "utc_ns": 1789606372604409446,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 8548,
+                "stime_ticks": 520,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 27008376200235,
+            "utc_ns": 1789606387517208691,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 10145,
+                "stime_ticks": 598,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_r1/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13723,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1186282,
+            "first_offset_ns": 994979,
+            "last_offset_ns": 917341,
+            "sample_span_fraction": 0.9998715629206324,
+            "min_W": 37.0,
+            "max_W": 145.0,
+            "mean_W": 77.18749544560228,
+            "max_C": 57.583,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 121,
+            "max_gap_ns": 134234331,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 121,
+            "max_gap_ns": 134234331,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 58,
+            "max_loadavg": 1.01806640625,
+            "max_foreign_cpu_pct": 19.4,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 1099,
+                "cpu_pct": 19.4,
+                "own": false,
+                "argv": "/usr/libexec/bluetooth/bluetoothd ",
+                "at_ns": 27008260745979
+              },
+              {
+                "pid": 1099,
+                "cpu_pct": 11.6,
+                "own": false,
+                "argv": "/usr/libexec/bluetooth/bluetoothd ",
+                "at_ns": 27003641028112
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 26995431626548
+              },
+              {
+                "pid": 1099,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/libexec/bluetooth/bluetoothd ",
+                "at_ns": 26996969626657
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27001326012472
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": true,
+          "rejections": [],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/512/cifs/c1350_r1/cdk2x2_512.cif"
+        },
+        {
+          "label": "c1350_r2",
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200664202,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 27008951225578,
+          "end_monotonic_ns": 27023790979989,
+          "elapsed_s": 14.839754411,
+          "host_cpu_s": 16.680217355,
+          "host_utime_s": 15.980484000000004,
+          "host_stime_s": 0.6997330000000002,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 27008929222325,
+            "utc_ns": 1789606388070231463,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 10161,
+                "stime_ticks": 600,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 27023790997092,
+            "utc_ns": 1789606402932005558,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 11760,
+                "stime_ticks": 670,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_r2/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13676,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1285697,
+            "first_offset_ns": 576447,
+            "last_offset_ns": 292562,
+            "sample_span_fraction": 0.9999414404729396,
+            "min_W": 38.0,
+            "max_W": 143.0,
+            "mean_W": 79.54687042995027,
+            "max_C": 57.583,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 121,
+            "max_gap_ns": 129314801,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 121,
+            "max_gap_ns": 129314801,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 58,
+            "max_loadavg": 1.22607421875,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27009545877647
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27013390322178
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27015441150615
+              },
+              {
+                "pid": 1099,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/libexec/bluetooth/bluetoothd ",
+                "at_ns": 27017748445393
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27021601567456
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": true,
+          "rejections": [],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/512/cifs/c1350_r2/cdk2x2_512.cif"
+        },
+        {
+          "label": "c800_r2",
+          "clock_MHz": 800,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 800,
+            "settled": true,
+            "reads": 16,
+            "settle_ns": 301119010,
+            "distinct": [
+              800,
+              1350
+            ]
+          },
+          "start_monotonic_ns": 27024489255329,
+          "end_monotonic_ns": 27046796921149,
+          "elapsed_s": 22.30766582,
+          "host_cpu_s": 24.15808801,
+          "host_utime_s": 23.371023000000008,
+          "host_stime_s": 0.787064,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 27024466971145,
+            "utc_ns": 1789606403607979792,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 11778,
+                "stime_ticks": 671,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 27046796937009,
+            "utc_ns": 1789606425937945375,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 14115,
+                "stime_ticks": 750,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c800_r2/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 800,
+            "samples": 20561,
+            "min_MHz": 800,
+            "max_MHz": 800,
+            "max_gap_ns": 1203701,
+            "first_offset_ns": 690218,
+            "last_offset_ns": 288049,
+            "sample_span_fraction": 0.9999561465996535,
+            "min_W": 22.0,
+            "max_W": 72.0,
+            "mean_W": 43.41831622975536,
+            "max_C": 53.738,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 183,
+            "max_gap_ns": 129838857,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 183,
+            "max_gap_ns": 129838857,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 87,
+            "max_loadavg": 1.3095703125,
+            "max_foreign_cpu_pct": 11.7,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 11.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27039554862227
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27025456383624
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27033658266740
+              },
+              {
+                "pid": 280378,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 27026225424551
+              },
+              {
+                "pid": 2241,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/gnome-shell ",
+                "at_ns": 27026738306928
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": true,
+          "rejections": [],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/512/cifs/c800_r2/cdk2x2_512.cif"
+        },
+        {
+          "label": "c800_r3",
+          "clock_MHz": 800,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 800,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200976676,
+            "distinct": [
+              800
+            ]
+          },
+          "start_monotonic_ns": 27047428775949,
+          "end_monotonic_ns": 27069975299530,
+          "elapsed_s": 22.546523581,
+          "host_cpu_s": 24.453379599,
+          "host_utime_s": 23.539589000000007,
+          "host_stime_s": 0.9137899999999997,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 27047406741394,
+            "utc_ns": 1789606426547750151,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 14137,
+                "stime_ticks": 752,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 27069975317605,
+            "utc_ns": 1789606449116326061,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 16491,
+                "stime_ticks": 843,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c800_r3/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 800,
+            "samples": 20780,
+            "min_MHz": 800,
+            "max_MHz": 800,
+            "max_gap_ns": 1416633,
+            "first_offset_ns": 82682,
+            "last_offset_ns": 609250,
+            "sample_span_fraction": 0.9999693109229228,
+            "min_W": 22.0,
+            "max_W": 71.0,
+            "mean_W": 42.259913378248314,
+            "max_C": 53.738,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 184,
+            "max_gap_ns": 132203124,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 184,
+            "max_gap_ns": 132203124,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 88,
+            "max_loadavg": 1.3212890625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27047769310454
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27051872057518
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27057768010603
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27061868679292
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27063926527371
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": true,
+          "rejections": [],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/512/cifs/c800_r3/cdk2x2_512.cif"
+        },
+        {
+          "label": "c1350_r3",
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 13,
+            "settle_ns": 240951810,
+            "distinct": [
+              800,
+              1350
+            ]
+          },
+          "start_monotonic_ns": 27070686187371,
+          "end_monotonic_ns": 27085587784975,
+          "elapsed_s": 14.901597604,
+          "host_cpu_s": 16.768189729,
+          "host_utime_s": 15.919254999999993,
+          "host_stime_s": 0.8489339999999999,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 27070663505075,
+            "utc_ns": 1789606449804513832,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 16515,
+                "stime_ticks": 845,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 27085587800976,
+            "utc_ns": 1789606464728809512,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 18107,
+                "stime_ticks": 930,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_r3/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13722,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1176891,
+            "first_offset_ns": 987460,
+            "last_offset_ns": 248488,
+            "sample_span_fraction": 0.9999170593628385,
+            "min_W": 38.0,
+            "max_W": 144.0,
+            "mean_W": 78.55640577175339,
+            "max_C": 57.711,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 133831692,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 133831692,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 58,
+            "max_loadavg": 1.330078125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27071887891332
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27073941710940
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27079836600930
+              },
+              {
+                "pid": 2241,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/gnome-shell ",
+                "at_ns": 27070861025635
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 27071117629347
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": true,
+          "rejections": [],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/512/cifs/c1350_r3/cdk2x2_512.cif"
+        },
+        {
+          "label": "c1350_r4",
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200759673,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 27086275344198,
+          "end_monotonic_ns": 27101221848456,
+          "elapsed_s": 14.946504258,
+          "host_cpu_s": 16.851640265,
+          "host_utime_s": 15.94550799999999,
+          "host_stime_s": 0.9061319999999995,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 27086252537710,
+            "utc_ns": 1789606465393546296,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 18133,
+                "stime_ticks": 933,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 27101221863044,
+            "utc_ns": 1789606480362871480,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 19728,
+                "stime_ticks": 1023,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_r4/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13762,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1206623,
+            "first_offset_ns": 111567,
+            "last_offset_ns": 661049,
+            "sample_span_fraction": 0.9999483079128964,
+            "min_W": 38.0,
+            "max_W": 145.0,
+            "mean_W": 78.92791745385846,
+            "max_C": 58.096,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 133902084,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 133902084,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 58,
+            "max_loadavg": 1.296875,
+            "max_foreign_cpu_pct": 11.7,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 11.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27098071284751
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27090115016570
+              },
+              {
+                "pid": 1116,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/lib/polkit-1/polkitd --no-debug ",
+                "at_ns": 27092934309528
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 27087038567349
+              },
+              {
+                "pid": 1852,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /usr/local/sbin/qb2-heartbeat.py ",
+                "at_ns": 27087038567349
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": true,
+          "rejections": [],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/512/cifs/c1350_r4/cdk2x2_512.cif"
+        },
+        {
+          "label": "c800_r4",
+          "clock_MHz": 800,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 800,
+            "settled": true,
+            "reads": 14,
+            "settle_ns": 260939126,
+            "distinct": [
+              800,
+              1350
+            ]
+          },
+          "start_monotonic_ns": 27101999483883,
+          "end_monotonic_ns": 27124394719901,
+          "elapsed_s": 22.395236018,
+          "host_cpu_s": 24.323766875,
+          "host_utime_s": 23.35060900000002,
+          "host_stime_s": 0.9731579999999997,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 27101974369724,
+            "utc_ns": 1789606481115378341,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 19757,
+                "stime_ticks": 1026,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 27124394734940,
+            "utc_ns": 1789606503535743316,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 281347,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 22092,
+                "stime_ticks": 1123,
+                "starttime_ticks": 2690713,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c800_r4/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 800,
+            "samples": 20635,
+            "min_MHz": 800,
+            "max_MHz": 800,
+            "max_gap_ns": 1181721,
+            "first_offset_ns": 897389,
+            "last_offset_ns": 702899,
+            "sample_span_fraction": 0.9999285433741929,
+            "min_W": 22.0,
+            "max_W": 73.0,
+            "mean_W": 43.395686939665616,
+            "max_C": 54.25,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 183,
+            "max_gap_ns": 134920703,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 183,
+            "max_gap_ns": 134920703,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 87,
+            "max_loadavg": 1.41845703125,
+            "max_foreign_cpu_pct": 11.7,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 11.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27118341292113
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27106029015922
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27110129662395
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27102181028456
+              },
+              {
+                "pid": 190372,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 27102438024544
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": true,
+          "rejections": [],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/512/cifs/c800_r4/cdk2x2_512.cif"
+        }
+      ],
+      "cells": {
+        "1350": {
+          "accepted_folds": 5,
+          "enough": true,
+          "median_s": 14.901597604,
+          "mean_s": 14.9121742788,
+          "min_s": 14.839754411,
+          "max_s": 14.98385687,
+          "spread_s": 0.14410245900000085,
+          "sample_stdev_s": 0.05523400716656275,
+          "se_mean_s": 0.024701398938828972,
+          "se_median_s": 0.03095826329003435,
+          "se_median_note": "1.2533*sd/sqrt(n), the asymptotic standard error OF A MEDIAN. The mean's sd/sqrt(n) understates it by 25 %, and the medians are what the two-clock separation consumes.",
+          "during_min_MHz": 1350,
+          "during_max_MHz": 1350,
+          "mean_W": 78.62749732765772,
+          "max_C": 58.096,
+          "host_cpu_s_median": 16.768189729,
+          "host_cpu_s_min": 16.680217355,
+          "host_cpu_s_max": 16.90681611,
+          "adjacent_abs_delta_s": [
+            0.09469861900000076,
+            0.04940384000000009,
+            0.061843193000001406,
+            0.04490665399999827
+          ],
+          "adjacent_abs_delta_median_s": 0.05562351650000075,
+          "elapsed_device_clock_equivalent_Mcycles": 20117.156765400003
+        },
+        "800": {
+          "accepted_folds": 5,
+          "enough": true,
+          "median_s": 22.342751451,
+          "mean_s": 22.3824112918,
+          "min_s": 22.30766582,
+          "max_s": 22.546523581,
+          "spread_s": 0.23885776099999845,
+          "sample_stdev_s": 0.09768229042477757,
+          "se_mean_s": 0.043684848317535885,
+          "se_median_s": 0.05475022039636773,
+          "se_median_note": "1.2533*sd/sqrt(n), the asymptotic standard error OF A MEDIAN. The mean's sd/sqrt(n) understates it by 25 %, and the medians are what the two-clock separation consumes.",
+          "during_min_MHz": 800,
+          "during_max_MHz": 800,
+          "mean_W": 42.91079591700146,
+          "max_C": 54.25,
+          "host_cpu_s_median": 24.228018336,
+          "host_cpu_s_min": 24.15808801,
+          "host_cpu_s_max": 24.453379599,
+          "adjacent_abs_delta_s": [
+            0.022871862000002352,
+            0.03508563100000117,
+            0.23885776099999845,
+            0.15128756300000035
+          ],
+          "adjacent_abs_delta_median_s": 0.09318659700000076,
+          "elapsed_device_clock_equivalent_Mcycles": 17874.201160800003
+        }
+      },
+      "structure": {
+        "distinct_cif_sha256": 1,
+        "all_accepted_byte_exact": true,
+        "folds_per_hash": {
+          "bb7f0e1af7e271ee": [
+            "c1350_r0",
+            "c800_r0",
+            "c800_r1",
+            "c1350_r1",
+            "c1350_r2",
+            "c800_r2",
+            "c800_r3",
+            "c1350_r3",
+            "c1350_r4",
+            "c800_r4"
+          ]
+        },
+        "distinct_pairs_scored": [],
+        "max_pair_domain_A": 0.0,
+        "bar_A": 0.6,
+        "context": {
+          "metric": "maximum independently superposed 298-residue-block all-atom float64 Kabsch RMSD; also report whole-chain all-atom. The fixtures are one chain of the CDK2 sequence repeated and truncated, so the 298-block split is the 512 convention generalised, not a new metric.",
+          "bars_A": {
+            "384": 0.6,
+            "512": 0.6,
+            "640": 0.6,
+            "768": 0.6
+          },
+          "bars_note": "Only 512 (0.60 A) and 298 (0.35 A) have bars of record. No transform changes in this row and no accuracy claim is owed beyond same-seed repeatability, so the 512 bar is carried unchanged to 384, 640 and 768 as a deliberately conservative convention: larger targets have larger seed floors, so 0.60 A is a tighter test there than at 512, not a looser one.",
+          "user_512_seed_floor_A": 1.84,
+          "same_seed_only": "A/A across clock arms and repetitions. No transform changed, so no new float64 model reference is needed. A clock change or a repetition must not move the structure; if it does, that is a finding and a STOP.",
+          "hard_stop": "a non-finite coordinate or a non-finite pLDDT at any size is a hard stop, not a rejection"
+        },
+        "passes_bar": true
+      },
+      "fit_all_folds": {
+        "n": 10,
+        "clocks_MHz": [
+          800,
+          1350
+        ],
+        "F_s": 4.046374987163636,
+        "C_Mcycles": 14668.82904370909,
+        "residual_s": [
+          0.07168259120000187,
+          -0.06253170279999765,
+          -0.039659840799995294,
+          -0.023016027799998895,
+          -0.07241986779999898,
+          -0.07474547179999647,
+          0.16411228920000198,
+          -0.010576674799997576,
+          0.03432997920000069,
+          0.012824726200001635
+        ],
+        "max_abs_residual_s": 0.16411228920000198,
+        "rms_residual_s": 0.07097217880354667,
+        "se_C_Mcycles": null,
+        "se_F_s": null,
+        "se_note": "two distinct clocks only: the fit is the exact closed form, residual is zero by construction and carries no information about uncertainty"
+      },
+      "work": {
+        "clocks_MHz": [
+          1350,
+          800
+        ],
+        "F_s": 4.078101099272736,
+        "W_Mcycles": 14611.720281381818,
+        "se_F_s": 0.11007383067854373,
+        "se_W_Mcycles": 123.5063382555796,
+        "dF_dt_gain": [
+          2.454545454545454,
+          -1.4545454545454544
+        ],
+        "dW_dt_gain": [
+          -1963.6363636363633,
+          1963.6363636363633
+        ]
+      },
+      "aa_floor": {
+        "timing_floor_s": 0.09318659700000076,
+        "per_cell_adjacent_abs_delta_median_s": {
+          "1350": 0.05562351650000075,
+          "800": 0.09318659700000076
+        },
+        "structural_floor_A": 0.0,
+        "work_uncertainty_from_floor_Mcycles": 258.7792895518196,
+        "note": "the A/A floor is what an identical arm repeated costs. A leg whose work signal is inside the floor-implied uncertainty of its two sizes cannot support an exponent claim."
+      },
+      "work_check": {
+        "W_positive": true,
+        "F_between_zero_and_fastest_fold": true,
+        "two_clocks_only": "with exactly two arms the inverse-clock fit is the closed form: the residual is zero BY CONSTRUCTION and carries no information, so no goodness-of-fit is claimed here. c10-fixed-cost tested the T = F + W/f form against four clocks at 298 and 512 aa and it held; this row assumes it rather than re-testing it.",
+        "se_W_Mcycles": 123.5063382555796,
+        "se_F_s": 0.11007383067854373
+      },
+      "anchor": {
+        "t_1350_s": 14.901597604,
+        "t_1350_allowed_s": [
+          14.7,
+          15.05
+        ],
+        "t_1350_reproduces": true,
+        "t_800_s": 22.342751451,
+        "t_800_allowed_s": [
+          22.1,
+          22.7
+        ],
+        "t_800_reproduces": true,
+        "W_Mcycles": 14611.720281381818,
+        "W_of_record_Mcycles": 14665.0,
+        "W_delta_Mcycles": -53.279718618181505,
+        "W_tolerance_Mcycles": 345.9423396423262,
+        "W_reproduces": true,
+        "F_s": 4.078101099272736,
+        "F_of_record_s": 3.983,
+        "F_delta_s": 0.09510109927273591,
+        "F_tolerance_s": 0.32288609880419883,
+        "consequence": "if the anchor does not reproduce, nothing else in this session may be quoted",
+        "reproduces": true
+      },
+      "verdict": "GO",
+      "run_errors": []
+    },
+    "768": {
+      "accepted_folds": 0,
+      "rows": [
+        {
+          "label": "cold",
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200685870,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 27131710918065,
+          "end_monotonic_ns": 27166574039041,
+          "elapsed_s": 34.863120976,
+          "host_cpu_s": 36.50961907,
+          "host_utime_s": 34.106037,
+          "host_stime_s": 2.4035830000000002,
+          "host_child_utime_s": 9.544117,
+          "metrics": {
+            "confidence_score": 0.784025,
+            "ptm": 0.619106,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.825254,
+            "complex_iplddt": 0.825254,
+            "complex_pde": 0.742775,
+            "complex_ipde": 0.0,
+            "plddt": 0.825254,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.619106
+              }
+            },
+            "chains_ptm": {
+              "0": 0.619106
+            }
+          },
+          "plddt": 0.825254,
+          "before": {
+            "monotonic_ns": 27131688980018,
+            "utc_ns": 1789606510829988465,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 286656,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 412,
+                "stime_ticks": 103,
+                "starttime_ticks": 2712671,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 768 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/768 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 27166574058889,
+            "utc_ns": 1789606545715067275,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 286656,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 3823,
+                "stime_ticks": 344,
+                "starttime_ticks": 2712671,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 768 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/768 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/cold/cdk2x2_768.cif",
+          "cif_sha256": "9e1a1fdd392e0b4c84213bfd5718ebeafd832c1a7e689a919c5a4e4b966feacc",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 32100,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 2184998,
+            "first_offset_ns": 475015,
+            "last_offset_ns": 771957,
+            "sample_span_fraction": 0.9999642323473892,
+            "min_W": 38.0,
+            "max_W": 141.0,
+            "mean_W": 77.99439252336448,
+            "max_C": 58.48,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 284,
+            "max_gap_ns": 132397389,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 6177,
+            "whole_chain_all_atom_A": 1.0255541222820596e-14,
+            "domain_all_atom_A": [
+              2.0338043537430377e-15,
+              5.050200875277347e-15,
+              3.3133536889341923e-15
+            ],
+            "max_domain_all_atom_A": 5.050200875277347e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 284,
+            "max_gap_ns": 132397389,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 135,
+            "max_loadavg": 1.56591796875,
+            "max_foreign_cpu_pct": 11.6,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 11.6,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27164546557816
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27134266765860
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27142482452942
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27144532750729
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27152478823783
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 6177,
+          "ca_count": 768,
+          "cif_plddt": {
+            "n_atoms": 6177,
+            "n_ca": 768,
+            "mean_all": 0.826698,
+            "mean_ca": 0.825254
+          },
+          "accepted": false,
+          "rejections": [
+            "release/sampler",
+            "boot/containment"
+          ],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/768/cifs/cold/cdk2x2_768.cif"
+        },
+        {
+          "label": "c1350_r0",
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200738407,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 27167072047506,
+          "end_monotonic_ns": 27198624245143,
+          "elapsed_s": 31.552197637,
+          "host_cpu_s": 34.63617521,
+          "host_utime_s": 32.534318,
+          "host_stime_s": 2.1018559999999997,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.784025,
+            "ptm": 0.619106,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.825254,
+            "complex_iplddt": 0.825254,
+            "complex_pde": 0.742775,
+            "complex_ipde": 0.0,
+            "plddt": 0.825254,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.619106
+              }
+            },
+            "chains_ptm": {
+              "0": 0.619106
+            }
+          },
+          "plddt": 0.825254,
+          "before": {
+            "monotonic_ns": 27167049998709,
+            "utc_ns": 1789606546191007346,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 286656,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 3832,
+                "stime_ticks": 345,
+                "starttime_ticks": 2712671,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 768 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/768 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 27198624265131,
+            "utc_ns": 1789606577765273607,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 286656,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 7085,
+                "stime_ticks": 555,
+                "starttime_ticks": 2712671,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 768 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/768 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_r0/cdk2x2_768.cif",
+          "cif_sha256": "9e1a1fdd392e0b4c84213bfd5718ebeafd832c1a7e689a919c5a4e4b966feacc",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 29083,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1289017,
+            "first_offset_ns": 583637,
+            "last_offset_ns": 956845,
+            "sample_span_fraction": 0.9999511767130226,
+            "min_W": 37.0,
+            "max_W": 141.0,
+            "mean_W": 81.09421311419042,
+            "max_C": 58.736,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 258,
+            "max_gap_ns": 130832265,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 6177,
+            "whole_chain_all_atom_A": 1.0255541222820596e-14,
+            "domain_all_atom_A": [
+              2.0338043537430377e-15,
+              5.050200875277347e-15,
+              3.3133536889341923e-15
+            ],
+            "max_domain_all_atom_A": 5.050200875277347e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 258,
+            "max_gap_ns": 130832265,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 123,
+            "max_loadavg": 1.42578125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27170710630583
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27176609483324
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27184812472795
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27188657927067
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27194822617755
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 6177,
+          "ca_count": 768,
+          "cif_plddt": {
+            "n_atoms": 6177,
+            "n_ca": 768,
+            "mean_all": 0.826698,
+            "mean_ca": 0.825254
+          },
+          "accepted": false,
+          "rejections": [
+            "release/sampler",
+            "boot/containment"
+          ],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/768/cifs/c1350_r0/cdk2x2_768.cif"
+        },
+        {
+          "label": "c800_r0",
+          "clock_MHz": 800,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 800,
+            "settled": true,
+            "reads": 13,
+            "settle_ns": 240956034,
+            "distinct": [
+              800,
+              1350
+            ]
+          },
+          "start_monotonic_ns": 27199211605314,
+          "end_monotonic_ns": 27246464458601,
+          "elapsed_s": 47.252853287,
+          "host_cpu_s": 50.363826039,
+          "host_utime_s": 48.23422600000001,
+          "host_stime_s": 2.1296,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.784025,
+            "ptm": 0.619106,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.825254,
+            "complex_iplddt": 0.825254,
+            "complex_pde": 0.742775,
+            "complex_ipde": 0.0,
+            "plddt": 0.825254,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.619106
+              }
+            },
+            "chains_ptm": {
+              "0": 0.619106
+            }
+          },
+          "plddt": 0.825254,
+          "before": {
+            "monotonic_ns": 27199188675168,
+            "utc_ns": 1789606578329683675,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 286656,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 7099,
+                "stime_ticks": 556,
+                "starttime_ticks": 2712671,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 768 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/768 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 27246464474741,
+            "utc_ns": 1789606625605483769,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 286656,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 11922,
+                "stime_ticks": 769,
+                "starttime_ticks": 2712671,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 768 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/768 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c800_r0/cdk2x2_768.cif",
+          "cif_sha256": "9e1a1fdd392e0b4c84213bfd5718ebeafd832c1a7e689a919c5a4e4b966feacc",
+          "clock": {
+            "target_MHz": 800,
+            "samples": 43517,
+            "min_MHz": 800,
+            "max_MHz": 800,
+            "max_gap_ns": 4221958,
+            "first_offset_ns": 662192,
+            "last_offset_ns": 917766,
+            "sample_span_fraction": 0.9999665637545652,
+            "min_W": 22.0,
+            "max_W": 71.0,
+            "mean_W": 46.43208401314429,
+            "max_C": 55.019,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 388,
+            "max_gap_ns": 132533931,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 6177,
+            "whole_chain_all_atom_A": 1.0255541222820596e-14,
+            "domain_all_atom_A": [
+              2.0338043537430377e-15,
+              5.050200875277347e-15,
+              3.3133536889341923e-15
+            ],
+            "max_domain_all_atom_A": 5.050200875277347e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 388,
+            "max_gap_ns": 132533931,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 184,
+            "max_loadavg": 1.400390625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27200733888068
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27202786107509
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27212782021659
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27214832563128
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27225084381852
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 6177,
+          "ca_count": 768,
+          "cif_plddt": {
+            "n_atoms": 6177,
+            "n_ca": 768,
+            "mean_all": 0.826698,
+            "mean_ca": 0.825254
+          },
+          "accepted": false,
+          "rejections": [
+            "release/sampler",
+            "boot/containment"
+          ],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/768/cifs/c800_r0/cdk2x2_768.cif"
+        },
+        {
+          "label": "c800_r1",
+          "clock_MHz": 800,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 800,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200790960,
+            "distinct": [
+              800
+            ]
+          },
+          "start_monotonic_ns": 27247091377533,
+          "end_monotonic_ns": 27294161959781,
+          "elapsed_s": 47.070582248,
+          "host_cpu_s": 50.185045645,
+          "host_utime_s": 48.05492299999999,
+          "host_stime_s": 2.130123000000001,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.784025,
+            "ptm": 0.619106,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.825254,
+            "complex_iplddt": 0.825254,
+            "complex_pde": 0.742775,
+            "complex_ipde": 0.0,
+            "plddt": 0.825254,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.619106
+              }
+            },
+            "chains_ptm": {
+              "0": 0.619106
+            }
+          },
+          "plddt": 0.825254,
+          "before": {
+            "monotonic_ns": 27247068152965,
+            "utc_ns": 1789606626209161652,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 286656,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 11943,
+                "stime_ticks": 771,
+                "starttime_ticks": 2712671,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 768 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/768 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 27294161975711,
+            "utc_ns": 1789606673302984237,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 286656,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 16748,
+                "stime_ticks": 984,
+                "starttime_ticks": 2712671,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 768 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/768 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c800_r1/cdk2x2_768.cif",
+          "cif_sha256": "9e1a1fdd392e0b4c84213bfd5718ebeafd832c1a7e689a919c5a4e4b966feacc",
+          "clock": {
+            "target_MHz": 800,
+            "samples": 43387,
+            "min_MHz": 800,
+            "max_MHz": 800,
+            "max_gap_ns": 1250665,
+            "first_offset_ns": 902019,
+            "last_offset_ns": 405319,
+            "sample_span_fraction": 0.9999722260074645,
+            "min_W": 22.0,
+            "max_W": 72.0,
+            "mean_W": 46.2328116716989,
+            "max_C": 54.635,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 386,
+            "max_gap_ns": 132502010,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 6177,
+            "whole_chain_all_atom_A": 1.0255541222820596e-14,
+            "domain_all_atom_A": [
+              2.0338043537430377e-15,
+              5.050200875277347e-15,
+              3.3133536889341923e-15
+            ],
+            "max_domain_all_atom_A": 5.050200875277347e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 386,
+            "max_gap_ns": 132502010,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 184,
+            "max_loadavg": 1.33837890625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27247172011332
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27255126094504
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27257179695299
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27263332317532
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27269231373077
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 6177,
+          "ca_count": 768,
+          "cif_plddt": {
+            "n_atoms": 6177,
+            "n_ca": 768,
+            "mean_all": 0.826698,
+            "mean_ca": 0.825254
+          },
+          "accepted": false,
+          "rejections": [
+            "release/sampler",
+            "boot/containment"
+          ],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/768/cifs/c800_r1/cdk2x2_768.cif"
+        },
+        {
+          "label": "c1350_r1",
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 14,
+            "settle_ns": 260820022,
+            "distinct": [
+              800,
+              1350
+            ]
+          },
+          "start_monotonic_ns": 27294919797923,
+          "end_monotonic_ns": 27326466847618,
+          "elapsed_s": 31.547049695,
+          "host_cpu_s": 34.636613122,
+          "host_utime_s": 32.556295000000006,
+          "host_stime_s": 2.080318,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.784025,
+            "ptm": 0.619106,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.825254,
+            "complex_iplddt": 0.825254,
+            "complex_pde": 0.742775,
+            "complex_ipde": 0.0,
+            "plddt": 0.825254,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.619106
+              }
+            },
+            "chains_ptm": {
+              "0": 0.619106
+            }
+          },
+          "plddt": 0.825254,
+          "before": {
+            "monotonic_ns": 27294897107404,
+            "utc_ns": 1789606674038115980,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 286656,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 16776,
+                "stime_ticks": 986,
+                "starttime_ticks": 2712671,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 768 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/768 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 27326466866344,
+            "utc_ns": 1789606705607874780,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 286656,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 20031,
+                "stime_ticks": 1194,
+                "starttime_ticks": 2712671,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 768 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/768 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_r1/cdk2x2_768.cif",
+          "cif_sha256": "9e1a1fdd392e0b4c84213bfd5718ebeafd832c1a7e689a919c5a4e4b966feacc",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 29069,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1427507,
+            "first_offset_ns": 620779,
+            "last_offset_ns": 553596,
+            "sample_span_fraction": 0.9999627738564666,
+            "min_W": 38.0,
+            "max_W": 142.0,
+            "mean_W": 81.81702156936943,
+            "max_C": 58.865,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 259,
+            "max_gap_ns": 130947959,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 6177,
+            "whole_chain_all_atom_A": 1.0255541222820596e-14,
+            "domain_all_atom_A": [
+              2.0338043537430377e-15,
+              5.050200875277347e-15,
+              3.3133536889341923e-15
+            ],
+            "max_domain_all_atom_A": 5.050200875277347e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 259,
+            "max_gap_ns": 130947959,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 122,
+            "max_loadavg": 1.54541015625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27295423314882
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27299533525559
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27305432450764
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27311582438774
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27313633292781
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 6177,
+          "ca_count": 768,
+          "cif_plddt": {
+            "n_atoms": 6177,
+            "n_ca": 768,
+            "mean_all": 0.826698,
+            "mean_ca": 0.825254
+          },
+          "accepted": false,
+          "rejections": [
+            "release/sampler",
+            "boot/containment"
+          ],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/768/cifs/c1350_r1/cdk2x2_768.cif"
+        },
+        {
+          "label": "c1350_r2",
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200668083,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 27327210599220,
+          "end_monotonic_ns": 27358955760471,
+          "elapsed_s": 31.745161251,
+          "host_cpu_s": 34.835056579,
+          "host_utime_s": 32.698510999999996,
+          "host_stime_s": 2.136545999999999,
+          "host_child_utime_s": 0.0,
+          "metrics": {
+            "confidence_score": 0.784025,
+            "ptm": 0.619106,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.825254,
+            "complex_iplddt": 0.825254,
+            "complex_pde": 0.742775,
+            "complex_ipde": 0.0,
+            "plddt": 0.825254,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.619106
+              }
+            },
+            "chains_ptm": {
+              "0": 0.619106
+            }
+          },
+          "plddt": 0.825254,
+          "before": {
+            "monotonic_ns": 27327188994935,
+            "utc_ns": 1789606706330003602,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 286656,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 20062,
+                "stime_ticks": 1198,
+                "starttime_ticks": 2712671,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 768 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/768 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 27358955775890,
+            "utc_ns": 1789606738096784367,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 286656,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 23332,
+                "stime_ticks": 1411,
+                "starttime_ticks": 2712671,
+                "argv": "python3 perf/c10_size_scaling/capture.py --size 768 --out /home/ttuser/.coworker/wt/c10-size-scaling/perf/c10_size_scaling/runs/ladder1/768 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-size-scaling"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_r2/cdk2x2_768.cif",
+          "cif_sha256": "9e1a1fdd392e0b4c84213bfd5718ebeafd832c1a7e689a919c5a4e4b966feacc",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 29219,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1222381,
+            "first_offset_ns": 713761,
+            "last_offset_ns": 917475,
+            "sample_span_fraction": 0.9999486146569834,
+            "min_W": 38.0,
+            "max_W": 141.0,
+            "mean_W": 82.94284540880933,
+            "max_C": 59.121,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 260,
+            "max_gap_ns": 132968123,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 6177,
+            "whole_chain_all_atom_A": 1.0255541222820596e-14,
+            "domain_all_atom_A": [
+              2.0338043537430377e-15,
+              5.050200875277347e-15,
+              3.3133536889341923e-15
+            ],
+            "max_domain_all_atom_A": 5.050200875277347e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 260,
+            "max_gap_ns": 132968123,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 124,
+            "max_loadavg": 1.54541015625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27327764725203
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27329819527505
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27335716700046
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27341868173061
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 27345712942008
+              }
+            ],
+            "passed": true
+          },
+          "atoms": 6177,
+          "ca_count": 768,
+          "cif_plddt": {
+            "n_atoms": 6177,
+            "n_ca": 768,
+            "mean_all": 0.826698,
+            "mean_ca": 0.825254
+          },
+          "accepted": false,
+          "rejections": [
+            "release/sampler",
+            "boot/containment"
+          ],
+          "cif_path": "perf/c10_size_scaling/runs/ladder1/768/cifs/c1350_r2/cdk2x2_768.cif"
+        }
+      ],
+      "cells": {
+        "1350": {
+          "accepted_folds": 0,
+          "enough": false
+        },
+        "800": {
+          "accepted_folds": 0,
+          "enough": false
+        }
+      },
+      "structure": {
+        "distinct_cif_sha256": 0,
+        "all_accepted_byte_exact": false,
+        "folds_per_hash": {},
+        "distinct_pairs_scored": [],
+        "max_pair_domain_A": 0.0,
+        "bar_A": 0.6,
+        "context": {
+          "metric": "maximum independently superposed 298-residue-block all-atom float64 Kabsch RMSD; also report whole-chain all-atom. The fixtures are one chain of the CDK2 sequence repeated and truncated, so the 298-block split is the 512 convention generalised, not a new metric.",
+          "bars_A": {
+            "384": 0.6,
+            "512": 0.6,
+            "640": 0.6,
+            "768": 0.6
+          },
+          "bars_note": "Only 512 (0.60 A) and 298 (0.35 A) have bars of record. No transform changes in this row and no accuracy claim is owed beyond same-seed repeatability, so the 512 bar is carried unchanged to 384, 640 and 768 as a deliberately conservative convention: larger targets have larger seed floors, so 0.60 A is a tighter test there than at 512, not a looser one.",
+          "user_512_seed_floor_A": 1.84,
+          "same_seed_only": "A/A across clock arms and repetitions. No transform changed, so no new float64 model reference is needed. A clock change or a repetition must not move the structure; if it does, that is a finding and a STOP.",
+          "hard_stop": "a non-finite coordinate or a non-finite pLDDT at any size is a hard stop, not a rejection"
+        },
+        "passes_bar": true
+      },
+      "verdict": "STOP",
+      "run_errors": []
+    },
+    "640": {
+      "verdict": "STOP",
+      "reason": "target not run"
+    },
+    "384": {
+      "verdict": "STOP",
+      "reason": "target not run"
+    }
+  },
+  "scope": "How the clock-scaled work term of the current-tree bare fold grows with the target, over a 384/512/640/768 aa ladder of one fixture family, from interleaved pinned-clock arms at 1350 and 800 MHz. No device-cycle census, no per-op budget, no upstream accuracy, no optimisation.",
+  "host_cpu_witness": "recorded",
+  "ladder": {
+    "sizes_aa": [
+      512
+    ],
+    "W_Mcycles": {
+      "512": 14611.720281381818
+    },
+    "F_s": {
+      "512": 4.078101099272736
+    },
+    "se_W_Mcycles": {
+      "512": 123.5063382555796
+    },
+    "se_p_quotability_bar": 0.15,
+    "legs": [],
+    "unmeasured_sizes_aa": [
+      384,
+      640,
+      768
+    ],
+    "quotable": false,
+    "exponent_rises": false,
+    "exponent_shape": []
+  }
+}
