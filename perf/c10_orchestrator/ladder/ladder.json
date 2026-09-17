@@ -32,6 +32,17 @@
       "Mcycles": null
     },
     {
+      "item": "fuse the arithmetic-free elementwise traffic into its producers",
+      "mechanism": "ttnn.multiply_, ttnn.layer_norm and ttnn.add_ move 0.881 TB, 30.8 % of the fold's entire byte traffic, while performing essentially none of its arithmetic -- pure DRAM round trips over the pair and single representations that a producer's epilogue can absorb",
+      "fold_s": 0.69,
+      "evidence": "arithmetic on measured artifacts, not itself measured",
+      "basis": "2.074 to 2.523 s of modelled traffic depending on which of the two in-house roofs is used, times the one-third return this project has already measured for this class of fusion. Roof-free part: the byte and call shares, on which the two capture artifacts agree to 3 ppm on fold totals. Attacks F, the clock-immune term, so it does not compete with arithmetic and does not shrink at burst clock",
+      "accuracy_spend": "a fused epilogue changes accumulation order; digest will move, so it needs Angstrom against the 0.60 A bar at 512 and 0.35 A at 298",
+      "row": "not rowed yet",
+      "status": "unowned",
+      "Mcycles": 931.4999999999999
+    },
+    {
       "item": "per-class grid sizing, trimul and triangle attention",
       "mechanism": "fewer cores for a class whose parallel efficiency falls off, more for one whose does not",
       "fold_s": null,
@@ -94,24 +105,25 @@
     }
   ],
   "priced_total": {
-    "fold_s": 0.21,
-    "Mcycles": 283.5,
+    "fold_s": 0.8999999999999999,
+    "Mcycles": 1214.9999999999998,
     "items": [
       "ttnn trace of the diffusion loop",
+      "fuse the arithmetic-free elementwise traffic into its producers",
       "TT_BIO_HEAD_PAD_TAIL"
     ],
     "dropped_as_mutually_exclusive": [
       "TT_BIO_DIT_FUSED_QKV"
     ],
-    "naive_sum_including_excluded_s": 0.32999999999999996,
-    "would_read_s": 14.6713252375,
-    "covers_pct_of_gap": 4.3021103856532354
+    "naive_sum_including_excluded_s": 1.02,
+    "would_read_s": 13.9813252375,
+    "covers_pct_of_gap": 18.437615938513865
   },
   "honest_reading": [
     "Nothing in this table has been measured as a fold-level win yet. Cycles saved to date: zero. Accuracy spent to date: none.",
     "Two of the priced rows are DERIVED, meaning arithmetic over measured artifacts rather than a measured lever, and two are Wormhole numbers that have never run on Blackhole. Do not read the total as a forecast.",
     "The two Wormhole rows cannot both ship: jointly they are 0.713 A against a 0.60 A bar.",
     "Perturbations stack strongly sub-additively on this fixture, so a stack must be measured as a stack and never by summing individual readings. This total is an inventory, not a prediction.",
-    "If every priced row landed at its full value the fold would read 14.67 s, which is above the 10.0 s target. On present evidence the target needs either the clock-immune term to give up something the trace demonstrably does not reach, or a device-work lever nobody has found. The one sized candidate left is the size-independent share of the work term, 3,301 to 8,220 Mcycles, which c10-size-scaling is measuring. nobody has found yet."
+    "If every priced row landed at its full value the fold would read 13.98 s, which is above the 10.0 s target. On present evidence the target needs either the clock-immune term to give up something the trace demonstrably does not reach, or a device-work lever nobody has found. The one sized candidate left is the size-independent share of the work term, 3,301 to 8,220 Mcycles, which c10-size-scaling is measuring. nobody has found yet."
   ]
 }

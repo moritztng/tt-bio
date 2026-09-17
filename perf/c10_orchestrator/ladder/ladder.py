@@ -53,6 +53,22 @@ LADDER = [
         "status": "unowned",
     },
     {
+        "item": "fuse the arithmetic-free elementwise traffic into its producers",
+        "mechanism": "ttnn.multiply_, ttnn.layer_norm and ttnn.add_ move 0.881 TB, 30.8 % of the "
+                     "fold's entire byte traffic, while performing essentially none of its "
+                     "arithmetic -- pure DRAM round trips over the pair and single "
+                     "representations that a producer's epilogue can absorb",
+        "fold_s": 0.69, "evidence": DERIVED,
+        "basis": "2.074 to 2.523 s of modelled traffic depending on which of the two in-house "
+                 "roofs is used, times the one-third return this project has already measured for "
+                 "this class of fusion. Roof-free part: the byte and call shares, on which the two "
+                 "capture artifacts agree to 3 ppm on fold totals. Attacks F, the clock-immune "
+                 "term, so it does not compete with arithmetic and does not shrink at burst clock",
+        "accuracy_spend": "a fused epilogue changes accumulation order; digest will move, so it "
+                          "needs Angstrom against the 0.60 A bar at 512 and 0.35 A at 298",
+        "row": "not rowed yet", "status": "unowned",
+    },
+    {
         "item": "per-class grid sizing, trimul and triangle attention",
         "mechanism": "fewer cores for a class whose parallel efficiency falls off, more for one "
                      "whose does not",

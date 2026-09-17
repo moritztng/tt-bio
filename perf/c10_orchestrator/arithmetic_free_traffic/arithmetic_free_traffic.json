@@ -1,0 +1,141 @@
+{
+  "scope": "CPU re-reading of two committed capture artifacts. No device, no new measurement.",
+  "sources": {
+    "census": "/home/moritz/.coworker/wt/c10-orchestrator/perf/roof_launch/op_census_512.json",
+    "floor": "/home/moritz/.coworker/wt/c10-orchestrator/perf/roof_true/true_floor_512_qb2c2.json"
+  },
+  "fold_totals": {
+    "calls": 465664.0,
+    "TB": 2.858934829056,
+    "matmul_TFLOP": 219.05789943808,
+    "nonmatmul_TFLOP": 0.108246663168,
+    "nonmatmul_pct_of_FLOP": 0.04939022978393451
+  },
+  "zero_arithmetic": {
+    "byte_moving": {
+      "classes": 20,
+      "calls": 201744.0,
+      "TB": 1.400923963392,
+      "s_traffic": 3.2986201162985687,
+      "pct_of_calls": 43.3239417262232,
+      "pct_of_bytes": 49.00160539352257
+    },
+    "bookkeeping_zero_byte": {
+      "classes": 7,
+      "calls": 149760.0,
+      "TB": 0.0,
+      "s_traffic": 0.0,
+      "pct_of_calls": 32.160527762506874,
+      "note": "deallocate, getitem, allocate, unsqueeze, squeeze. Priced at exactly zero by both instruments and moving no device bytes. c10-trace-lever's null says host per-call cost is not this fold's constraint, so these are probably genuinely cheap -- but they are 32 % of the fold's calls priced at zero, which is an assumption, not a measurement."
+    }
+  },
+  "instrument_agreement": {
+    "fold_calls": {
+      "census": 465664.0,
+      "floor": 465664.0
+    },
+    "fold_TB": {
+      "census": 2.858934829056,
+      "floor": 2.858944004096
+    },
+    "zero_arith_calls": {
+      "census": 351504.0,
+      "floor": 353384.0
+    },
+    "zero_arith_TB": {
+      "census": 1.400923963392,
+      "floor": 1.704031895552
+    },
+    "zero_arith_seconds": {
+      "census": 3.2986201162985687,
+      "floor": 4.012319038266991
+    },
+    "reading": "The graph facts agree and the roof-derived seconds do not. Call totals match exactly, byte totals to 3 parts per million, and zero-arithmetic call counts to 0.5 %, while the byte attribution differs by 22 % and the seconds by 22 %. So the composition claim is safe and any single-number cost is not."
+  },
+  "cost_bracket_s": {
+    "low": 3.2986201162985687,
+    "high": 4.012319038266991,
+    "measured_F_s": 3.983,
+    "measured_F_se_s": 0.1181,
+    "F_inside_bracket": true,
+    "reading": "Both in-house roofs bracket the measured clock-immune term. That is consistent with F being arithmetic-free data movement, and it is not proof: two roofs that disagree by 22 % will bracket a lot of things."
+  },
+  "concentration": [
+    {
+      "op": "ttnn.multiply_",
+      "calls": 42720.0,
+      "TB": 0.326832750592,
+      "pct_of_fold_bytes": 11.431976247598406,
+      "s_traffic_census": 0.7695614565387372
+    },
+    {
+      "op": "ttnn.layer_norm",
+      "calls": 35304.0,
+      "TB": 0.28233826304,
+      "pct_of_fold_bytes": 9.875645298750168,
+      "s_traffic_census": 0.6647945915705202
+    },
+    {
+      "op": "ttnn.add_",
+      "calls": 14616.0,
+      "TB": 0.27183546368,
+      "pct_of_fold_bytes": 9.508277730477618,
+      "s_traffic_census": 0.6400646660701682
+    },
+    {
+      "op": "ttnn.permute",
+      "calls": 12432.0,
+      "TB": 0.10875568128,
+      "pct_of_fold_bytes": 3.804062973898232,
+      "s_traffic_census": 0.2560764805274315
+    },
+    {
+      "op": "ttnn.transformer.scaled_dot_product_attention",
+      "calls": 6000.0,
+      "TB": 0.0796655616,
+      "pct_of_fold_bytes": 2.786546961138845,
+      "s_traffic_census": 0.18758079020485044
+    },
+    {
+      "op": "ttnn.experimental.nlp_create_qkv_heads",
+      "calls": 6264.0,
+      "TB": 0.064059604992,
+      "pct_of_fold_bytes": 2.2406808417228605,
+      "s_traffic_census": 0.15083495406639977
+    }
+  ],
+  "headline_candidate": {
+    "ops": [
+      "ttnn.multiply_",
+      "ttnn.layer_norm",
+      "ttnn.add_"
+    ],
+    "calls": 92640.0,
+    "TB": 0.881006477312,
+    "pct_of_fold_bytes": 30.81589927682619,
+    "traffic_s_bracket": [
+      2.0744207141794258,
+      2.5232483376161388
+    ],
+    "realistic_prize_s_bracket": [
+      0.6914735713931419,
+      0.8410827792053795
+    ],
+    "why_not_the_full_amount": "These are in-place elementwise and normalisation ops over the pair and single representations -- pure DRAM round trips. The shape that a producer's epilogue can absorb. But this project has measured that class of fusion before and it returns about a third of what it deletes, so the prize is a third of the traffic, not all of it."
+  },
+  "what_is_new_here": [
+    "The axis is against F, the clock-immune term, not against kernel time. It does not compete with arithmetic and it does not shrink when the clock rises, which is why it was mis-ranked while every ratio in the corpus was a wall-time ratio at an unrecorded clock.",
+    "The concentration is three op classes, not a long tail: multiply_, layer_norm and add_ move 31 % of the fold's entire byte traffic and compute essentially none of it.",
+    "The framing is roof-free: half the bytes do 0.05 % of the arithmetic, and that statement survives both roofs being wrong."
+  ],
+  "what_is_not_new": [
+    "The byte axis itself is known and floor_mix/ already capped it at 1.487x of the floor, with an unknown part already consumed by shipped levers. This is a sharper target on a known axis, not a new axis.",
+    "Nothing here is a lever or a measurement of one. No cycle deleted, no accuracy spent."
+  ],
+  "limits": [
+    "'Zero arithmetic' is a MODEL statement -- an op the census prices with no arithmetic term -- not a hardware statement. A layer_norm does real SFPU work the model does not price.",
+    "The two instruments disagree by 22 % on which bytes belong to this class, so the class boundary is soft even though the totals are exact.",
+    "Layout traffic cannot all be deleted: tensors genuinely need different layouts, and an in-place add exists because something has to add. Sizing an axis is not finding a lever.",
+    "Both artifacts were captured at an unrecorded clock; only the byte and call counts are clock-independent."
+  ]
+}
