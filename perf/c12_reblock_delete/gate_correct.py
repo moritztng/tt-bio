@@ -46,6 +46,10 @@ def permute_w(w, src_order, dst_order, C):
     return torch.cat([w[:, idx[b] * C:(idx[b] + 1) * C] for b in dst_order], dim=-1)
 
 
+def stage(name):
+    print(f"STAGE {name}", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--h", type=int, default=128, help="pair-rep side; M = h*h")
@@ -62,7 +66,7 @@ def main():
     M = a.h * a.h
     assert N // TILE == n_blocks, (N, n_blocks)
 
-    torch.manual_seed(0)
+    stage("host-inputs")
     x_t = (torch.randn(1, a.h, a.h, a.k) * 0.5).bfloat16()
     src = role_major_cols(C, a.group)
     dst = tile_interleaved_cols(C, a.group)
@@ -74,6 +78,7 @@ def main():
     # it, and the standing hard stop is "verify against a float64 reference, never against another
     # approximation". At ~1e-16 it is twelve orders tighter than the bf16 result it scores, so a
     # small systematic bias is distinguishable from bf16 rounding rather than buried in it.
+    stage("host-ref-f64")
     acc = (x_t.double().reshape(M, a.k) @ w_major.double()).reshape(1, a.h, a.h, N)
     col = {b: i for i, b in enumerate(src)}
 
@@ -87,8 +92,10 @@ def main():
     # tt-bio's own opener, not ttnn.open_device: a LONE p300 chip is a CUSTOM cluster and
     # open_device is a TT_FATAL without a mesh graph descriptor. get_device sets it, takes the
     # device-init lock and honours TT_BIO_LEASE_CARDS.
+    stage("device-open")
     from tt_bio.tenstorrent import get_device
     dev = get_device()
+    stage("device-open-ok")
     res = {"shape": {"h": a.h, "k": a.k, "N": N, "M": M, "C": C, "group": a.group},
            "card": a.card}
     try:
@@ -103,29 +110,38 @@ def main():
             return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev,
                                    dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
+        stage("upload-x")
         x = dev_t(x_t)
+        stage("upload-x-ok")
 
         # ---- arm ref_mm: today's path, shipped op then the shipped gate --------------------
+        stage("upload-w-major")
         wm = dev_t(w_major)
+        stage("shipped-minimal-matmul")
         fused = ttnn.experimental.minimal_matmul(
             x, wm, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=ttnn.bfloat16,
             compute_kernel_config=ckc)
+        stage("shipped-mm-ok")
         q = dict(zip(ROLES, ttnn.chunk(fused, chunks=4, dim=-1)))
         got_ref_a = ttnn.to_torch(ttnn.multiply(
             q["p_a"], q["g_a"], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])).float()
         got_ref_b = ttnn.to_torch(ttnn.multiply(
             q["p_b"], q["g_b"], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])).float()
         ttnn.deallocate(fused)
+        stage("shipped-gate-ok")
 
         # ---- arm gate: the fused epilogue ---------------------------------------------------
+        stage("upload-w-interleaved")
         wi = dev_t(w_inter)
         outs = [ttnn.allocate_tensor_on_device(
             ttnn.Shape([1, a.h, a.h, a.slice_c]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
             ttnn.DRAM_MEMORY_CONFIG) for _ in range(2)]
+        stage("MY-GATED-EPILOGUE")
         G.generic_minimal_matmul(
             dev, x, wi, outs, cfg, G.ckc_args(ckc),
             {"MM_DUAL_NOC": 1}, KERNEL_DIR, None, ttnn.NOC_MODE.DM_DYNAMIC_NOC,
             [a.slice_c // TILE, a.slice_c // TILE], KERNEL_DIR, True)
+        stage("MY-GATED-EPILOGUE-ok")
         got_a = ttnn.to_torch(outs[0]).float()
         got_b = ttnn.to_torch(outs[1]).float()
 
@@ -138,6 +154,7 @@ def main():
             return {"arm": name, "max_abs": d.max().item(), "mean_abs": d.mean().item(),
                     "rel_mean": d.mean().item() / den if den else None, "pcc": pcc}
 
+        stage("scoring")
         res["scores"] = [
             score("ref_mm.a", got_ref_a, ref_a), score("ref_mm.b", got_ref_b, ref_b),
             score("gate.a", got_a, ref_a), score("gate.b", got_b, ref_b),

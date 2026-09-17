@@ -443,7 +443,16 @@ void kernel_main() {
             cb_push_back(intermediate_cb, out_block_num_tiles);
             PACK((llk_pack_reconfig_l1_acc(0)));
 
+            // The gate pushes M_block_tiles * (N_block_tiles / 2) and mm_generic sizes the out CB
+            // on that same drain_block, so reserving the pre-gate count asks for the WHOLE CB
+            // every block. The producer then cannot reserve block n+1 until the writer has
+            // drained block n completely, which serialises the two and deadlocks the deferred
+            // write path. Reserve exactly what gate_block pushes.
+#ifdef MM_GATE
+            cb_reserve_back(out_cb, out_block_num_tiles >> 1);
+#else
             cb_reserve_back(out_cb, out_block_num_tiles);
+#endif
 #ifndef FUSE_TERNARY
             cb_wait_front(intermediate_cb, out_block_num_tiles);
 #ifndef FUSE_BIAS
