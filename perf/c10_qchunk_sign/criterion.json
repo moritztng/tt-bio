@@ -1,0 +1,49 @@
+{
+  "recorded_utc": "2026-09-17T00:40:00+00:00",
+  "source_base": "e6004abba460550a650ffa42a90e795ab3e5f20d",
+  "flag": {
+    "name": "TT_BIO_SDPA_GRID_Q_CHUNK",
+    "shipped_default": "ON",
+    "site": "tt_bio/tenstorrent.py:_SDPA_GRID_Q_CHUNK, consumed by _sdpa_q_chunk -> _grid_q_chunk",
+    "arms": {"on": "shipped default, the grid rule picks the q_chunk", "off": "_capped_sdpa_chunk_size only, the 256 cap"},
+    "switch": "module attribute plus cache_clear on _grid_q_chunk, _sdpa_q_chunk and _sdpa_program_config_for_shape, inside one process and one device context",
+    "question": "the SIGN of a default-ON flag, not a new lever"
+  },
+  "design": {
+    "order": "on off off on per rep (ABBA): the lever sits at positions 1 and 4, so a linear drift across a rep cancels in the rep contrast",
+    "warmup": "one census fold per arm before any timing, so neither arm pays first-mover program-config build inside the timed sequence",
+    "AA_control": "drawn from the SAME rep sequence: the middle off|off pair of every rep and the on|on rep boundary, never a separate session",
+    "primary_statistic": "median of the 16 adjacent cross-pair deltas off_minus_on_s, percentile-bootstrap 95 % CI, seed 0, 20000 resamples",
+    "secondary_statistic": "median of the 8 drift-immune ABBA rep contrasts",
+    "sign_convention": "off_minus_on_s > 0 means the flag ON is FASTER, i.e. the shipped default is right"
+  },
+  "model": {"model":"boltz2","sizes":[512,298],"sampling_steps":200,"recycling_steps":3,"diffusion_samples":1,"seed":0,"msa_rows":35,"templates":false,"fast":false,"trace":false,"hoist":false,"instrument":false},
+  "reps": 8,
+  "minimum_cross_pairs": 16,
+  "minimum_AA_pairs": 12,
+  "AA_floor_s": {"512": 0.055, "298": 0.043},
+  "AA_floor_source": "c10-bare-baseline bc66f7d6d: median adjacent absolute A/A pair delta, same card, same clock, same timer",
+  "clock": {"target_MHz":1350,"minimum_samples":3,"max_gap_ns":10000000,"errors_allowed":0,"all_during_samples_must_equal_target":true,"below_1200":"clock artifact; reject timing, never call regression"},
+  "quiet": {"all_chip_foreign_holders_allowed":0,"holder_max_gap_ns":1000000000,"lock_wait_s":60,"load_wait_s":60,"benchlock_maxload":2.0,"matcher_and_location":"unchanged shared benchlock",
+            "host_cpu_witness":{"sampler":"perf/c10_qchunk_sign/ambient.py, 250 ms, whole locked window","record_cpu_pct_at_or_above":2.0,"foreign_cpu_reject_pct":20.0,"foreign":"any process outside the run session (own=false)"}},
+  "accuracy": {
+    "metric":"maximum independently superposed domain all-atom float64 Kabsch RMSD, split after residue 298; also report whole-chain all-atom",
+    "bars_A": {"512":0.6,"298":0.35},
+    "user_512_seed_floor_A": 1.84,
+    "archived_upstream_seed_spread_A": {"298":{"mean":0.80128,"min":0.74099,"max":0.84656},"512":{"mean":1.66454,"min":0.9454,"max":2.29123}},
+    "cross_arm": "the flag changes a grid decision, so the CIF digest is compared between arms; a moved digest is scored in Angstrom against the size bar, not an automatic kill"
+  },
+  "kill": [
+    "wrong source/config or input hashes, or the flag set in the environment",
+    "flag default is not the shipped ON",
+    "wrong opened node, containment change or boot change",
+    "foreign device holder, foreign host CPU at or above 20 % of a core, or quiet/lock timeout",
+    "clock read error, wrong clock or coverage gap",
+    "the chunk census shows a site moving with the flag OFF, or nothing moving with it ON",
+    "cross-arm structural deviation over the size bar",
+    "fewer than 16 accepted cross pairs or 12 accepted A/A pairs"
+  ],
+  "bare": "Production wheel, no Tracy/graph/observer/module timers/sum profiling. Synchronize before monotonic start and after predict_one including CIF writing. The per-call chunk census runs only on the two discarded warm-up folds, never inside a timed one.",
+  "unmeasured": "No device-cycle census, no per-op attribution, no split of wall time into device work and host gaps, no upstream accuracy, no other card and no second session.",
+  "no_production_change": "This directory measures the shipped tree. It changes no production file and flips no default."
+}

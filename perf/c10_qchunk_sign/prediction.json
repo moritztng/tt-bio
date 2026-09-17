@@ -1,0 +1,41 @@
+{
+  "recorded_utc": "2026-09-17T00:45:00+00:00",
+  "recorded_before": "any fold of this row was run; derived from perf/c10_qchunk_sign/predict_picks.py (CPU, no device) and the b2z2_qchunk Blackhole op census",
+  "sign_convention": "off_minus_on_s > 0 means the flag ON is faster, i.e. the shipped default is right",
+  "P1_mechanism_512": {
+    "claim": "exactly one call site moves at 512 aa: token_dit, q 512 x k 512, work 16, shipped chunk 256 -> rule 128, 32 -> 64 work units on 110 cores. Every other site declines, and the atom site (q = 32, one tile) provably cannot move.",
+    "kill": "a second site moves, token_dit declines, or any site moves with the flag OFF"
+  },
+  "P2_mechanism_298": {
+    "claim": "token_dit moves further at 298 aa: q pads to 320, shipped chunk 256 does not divide 320, rule picks 64, 32 -> 80 work units. The atom site declines here too.",
+    "kill": "the rule picks anything other than 64 at 298 aa"
+  },
+  "P3_sign_512": {
+    "claim": "positive. b2z2_qchunk measured 13.58 us saved on each of 4800 token_dit calls = 0.065 s of a 19.78 s fold; under the campaign's 3.952 s + 14755 Mcycles/AICLK model that fold sat at ~932 MHz, so the same arithmetic work at 1350 MHz is 0.065 x 932/1350 = 0.045 s.",
+    "predicted_off_minus_on_s": 0.045,
+    "predicted_ratio": 1.0030,
+    "predicted_Mcycles_at_1350": 61,
+    "note": "0.045 s is BELOW the 0.055 s single-pair A/A floor, so a single pair cannot see it; 16 paired folds can. A result whose CI contains zero AND whose half-width is under the floor is a real answer: the flag is worth nothing either way.",
+    "kill": "median negative with a CI excluding zero -> the shipped default costs users time and this row has found a live regression"
+  },
+  "P4_sign_298": {
+    "claim": "positive and smaller in seconds than 512 aa. The token SDPA carries about (320/512)^2 = 0.39 of the 512 aa attention work, against a larger occupancy gain (32 -> 80 units rather than 32 -> 64).",
+    "predicted_off_minus_on_s_range": [0.02, 0.05],
+    "predicted_point_s": 0.030,
+    "note": "the 298 aa single-pair A/A floor is 0.043 s, so this is predicted to land inside its own floor",
+    "kill": "median negative with a CI excluding zero at 298 aa while 512 aa is positive -> the flag is a bucketing question, not a win or a loss"
+  },
+  "P5_parity": {
+    "claim": "bit-exact across arms at both sizes. q_chunk partitions independent query rows, so the reduction order does not move; b2z2_qchunk saw one sha256 across all 28 folds.",
+    "kill": "the digest moves; then score in Angstrom against 0.60 A (512) / 0.35 A (298) with the 1.84 A user seed floor beside it"
+  },
+  "P6_route": {
+    "claim": "both above-cap fused-SDPA counters read [0, 0] in every fold at both sizes, as in c10-bare-baseline. Nothing at 298 or 512 aa reaches the 1024-token fused route, so nothing here can be attributed to it.",
+    "kill": "a counter moves"
+  },
+  "P7_AA_control": {
+    "claim": "the in-session A/A (15 same-arm adjacent pairs) has a median within 0.02 s of zero and a CI containing zero at both sizes.",
+    "kill": "the A/A itself clears zero; then the session is drifting and no lever verdict is readable from it"
+  },
+  "predicted_model_cycles_saved": "61 Mcycles elapsed device-clock-equivalent at 512 aa and about 40 at 298 aa, both at 1350 MHz, both host gaps included. This is a sign check on a shipped default, not a new lever: nothing here is proposed for merge and no default is changed."
+}
