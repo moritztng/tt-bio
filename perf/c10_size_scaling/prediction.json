@@ -1,0 +1,67 @@
+{
+  "recorded_utc_note": "Written to disk and committed BEFORE the first fold of this row, and digested into every result.json by capture.py. Nothing below was edited after a measurement.",
+  "row": "c10-size-scaling",
+  "model_cycles_saved": 0,
+  "model_cycles_saved_note": "Every size and every clock runs the identical 200-step, 3-recycle, 1-sample, seed-0 configuration on the committed fixture with its 35-row A3M. No transform, flag, trace or kernel changes. This row prices nothing and ships nothing, so the predicted model-cycle saving is exactly zero and any non-zero reading would be a defect in the harness, not a win.",
+  "anchor": {
+    "size_aa": 512,
+    "t_1350_s": 14.85,
+    "t_1350_allowed_s": [14.70, 15.05],
+    "t_1350_sources": "c10-bare-baseline pooled median 14.881 s over 16 folds, min 14.813, max 14.972; c10-fixed-cost cell median 14.9306 s",
+    "t_800_s": 22.36,
+    "t_800_allowed_s": [22.10, 22.70],
+    "W_Mcycles": 14665.0,
+    "W_stated_error_Mcycles": 121.1,
+    "W_allowed_Mcycles": "within 2 * hypot(this session's se_W, 121.1) of 14665.0",
+    "F_s": 3.983,
+    "F_stated_error_s": 0.1181,
+    "if_it_fails": "STOP, report the discrepancy, quote nothing else from the session"
+  },
+  "hypotheses": {
+    "finding": {
+      "claim": "the device's clock-scaled work really does grow sublinearly with the target, so a large size-independent term exists and is worth attacking",
+      "p_work_512_to_768": [0.6, 1.0],
+      "W_768_Mcycles": [19000, 20000],
+      "point_estimates_at_p_0_63": {"384": 12234, "512": 14665, "640": 16879, "768": 18933},
+      "predicted_fold_s_at_p_0_63": {
+        "384": {"1350": 11.83, "800": 18.06},
+        "512": {"1350": 14.85, "800": 22.31},
+        "640": {"1350": 17.70, "800": 26.30},
+        "768": {"1350": 20.44, "800": 30.08}
+      },
+      "leg_shape": "p_work flat and below about 1.0 on all three legs"
+    },
+    "artifact": {
+      "claim": "298 tokens pad to 320 and spread over 110 cores, so every core holds its minimum tile and the op costs what a larger one costs; that inflates W(298), shrinks the 298->512 ratio and manufactures the sublinear exponent. Above 512 the under-fill is gone and the exponent returns to the target's own growth",
+      "p_work_512_to_768": [1.7, 2.0],
+      "W_768_Mcycles": [26000, 33000],
+      "point_estimates_at_p_1_85": {"384": 8613, "512": 14665, "640": 22160, "768": 31049},
+      "predicted_fold_s_at_p_1_85": {
+        "384": {"1350": 9.15, "800": 13.53},
+        "512": {"1350": 14.85, "800": 22.31},
+        "640": {"1350": 21.61, "800": 32.90},
+        "768": {"1350": 29.41, "800": 45.23}
+      },
+      "leg_shape": "p_work RISING across 384->512, 512->640, 640->768"
+    }
+  },
+  "fixed_term_prediction": {
+    "F_model_s": "F(N) ~ 0.0095*N - 0.881, the straight line through c10-fixed-cost's F(298) = 1.950 s and F(512) = 3.983 s",
+    "F_expected_s": {"384": 2.77, "512": 3.98, "640": 5.20, "768": 6.41},
+    "note": "F is predicted to keep growing with the target because featurization and CIF writing scale with it. A flat F above 512 aa would itself be a finding and is not what this row is testing."
+  },
+  "discriminating_power": {
+    "se_p_expected": 0.03,
+    "separation": "the two hypotheses are 0.7 apart on the 512->768 leg against an expected se_p of about 0.03, roughly 23 sigma; even a se_p of 0.15 separates them at over 4 sigma from their midpoint of 1.35",
+    "quotability_bar": "a leg whose se_p_work exceeds 0.15 is not quoted",
+    "folds": "5 per cell, 2 clocks, 4 sizes, 40 accepted folds"
+  },
+  "refutation_of_this_prediction": [
+    "p_work at or above 1.7 on the 512->768 leg: ARTIFACT, the size-independent term is withdrawn. A full pass",
+    "p_work rising monotonically and significantly across the three legs: the same verdict read off the shape",
+    "any fitted W at or below 0 Mcycles: the two-clock separation is broken, no exponent quoted",
+    "768 aa OOMs or crashes: fall back to 640 as the top of the ladder, top leg reported as unmeasured",
+    "the above-cap fused SDPA route counter non-zero at any size: the code path is not uniform, no exponent quoted"
+  ],
+  "parity_prediction": "Same-seed byte-identical CIF within every size, across both clock arms and all repetitions, as c10-bare-baseline and c10-fixed-cost both observed on this fixture family. Predicted structural deviation 0 A. No accuracy claim against upstream is owed or made."
+}

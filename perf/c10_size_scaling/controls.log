@@ -1,0 +1,20 @@
+PASS  exact A and p recovered from two clocks at every rung
+        W recovered to 5.9e-16 relative, F to 5.3e-15 s, p to 1.8e-15 absolute
+PASS  the 1350/800 gains are c10-fixed-cost's, 2.4545 and -1.4545
+        gains 2.4545 / -1.4545; F from c10-fixed-cost's own 512 aa medians = 4.1280 s against its published 4.1280 s
+PASS  ONE clock cannot produce a work term: refused, not approximated
+        work_two_clock(f, ..., f, ...) raises at both arms
+PASS  ONE size cannot produce an exponent, and a non-positive work term cannot either
+        identical sizes and non-positive work both raise
+PASS  negative control: a planted WRONG exponent comes back wrong
+        a ladder built at p=1.85 reads back 1.850000, not 0.63; the check is not pinned to the expected answer
+PASS  standard error propagates: se_p brackets the truth under the measured A/A floor
+        2-sigma coverage 0.949 over 4000 synthetic sessions, median se_p 0.0299, inside the 0.15 quotability bar
+PASS  the two hypotheses are separated at this precision
+        p=0.63 reads 0.6300+-0.0310, p=1.85 reads 1.8500+-0.0271: 29.6 sigma apart
+PASS  the non-negative-mixture floor is exact on a planted mixture
+        K recovered exactly from a planted K=8220+L*(N/512) mixture; a p=1.85 ladder returns -18103 Mcycles, correctly refusing to imply a fixed term
+PASS  seconds convert to cycles at the clock they were measured at
+        a clock-flat fold yields 0 Mcycles of clock-scaled work; c10-fixed-cost's 512 aa medians yield 14583.5 Mcycles against its fitted 14665.0 +- 121.1
+
+9/9 known-answer controls pass
