@@ -1,0 +1,19 @@
+{
+  "seed": 1,
+  "target_id": "9ncy",
+  "harvested_from": "/home/moritz/.coworker/artifacts/tt-bio-protenix-9ncy-ref-fixture/ref_protenix_seed1",
+  "selected_record": {
+    "id": "9ncy",
+    "status": "ok",
+    "n_residues": null,
+    "n_chains": 1,
+    "msa": true,
+    "samples": 5,
+    "ptm": 0.8846191763877869,
+    "iptm": 0.887684166431427,
+    "plddt": 93.14259338378906,
+    "ranking_score": 0.8870711326599121,
+    "selected_sample_idx": 0
+  },
+  "note": "real reference output copied verbatim; not regenerated or edited"
+}
