@@ -1,0 +1,7 @@
+2026-09-17 12:15:00.309 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+grid 11x10 | nodes [3] | forced on [3] | aiclk 1350 MHz | flag default False
+  fc2  (256,4,16)   2d bw=4 drain=26x2 L1 | off 0.0336 ms  on 0.0270 ms  1.2434x  [A/A 0.9605x]  maxabs 0.00207->0.00196  RESULT
+  fc3  (256,16,4)   1d bw=2 drain=3x4 L1 | off 0.0431 ms  on 0.0364 ms  1.1852x  [A/A 1.0029x]  maxabs 0.00408->0.00379  RESULT
+  dit  (16,24,24)   2d bw=12 drain=2x3 DRAM | off 0.0211 ms  on 0.0198 ms  1.0627x  [A/A 1.0185x]  maxabs 0.00444->0.00445  RESULT  ACCURACY REGRESSED
+  ctb  (16,24,48)   2d bw=8 drain=2x5 DRAM | off 0.0293 ms  on 0.0295 ms  0.9935x  [A/A 1.0085x]  maxabs 0.00433->0.00430  inside floor

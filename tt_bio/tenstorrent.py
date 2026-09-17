@@ -6923,8 +6923,11 @@ _LINEAR_BLOCK = {
     (10, 24, 24): ("2d", 8),    # DiT s-projection  @ 298 aa     1.1025x / 1.0360x
     (16, 24, 24): ("2d", 12),   # DiT s-projection  @ 512 aa     1.1091x / benchlocked, no A/A arm
     (24, 24, 24): ("2d", 8),    # DiT s-projection  @ 768 aa     1.1078x / 1.0567x
-    (16, 24, 48): ("2d", 8),    # CTB               @ 512 aa     1.0649x / benchlocked, no A/A arm
-    (24, 24, 48): ("2d", 12),   # CTB               @ 768 aa     1.1202x / 1.0122x
+    (24, 24, 48): ("2d", 12),   # CTB               @ 768 aa     1.1202x / 1.0122x  sweep only
+    # CTB @ 512 aa was here at ("2d", 8) on the sweep's 1.0649x and is REMOVED: measured through
+    # this very function on device it reads 0.9935x against an A/A floor of 1.0085x
+    # (perf/c12_kblock/lever_ab_512_qb2c3.json), i.e. inside the floor and with no evidence of a
+    # win. The 768 aa entry above is still sweep-only and owes the same check.
     # CTB @ 298 aa is DELIBERATELY ABSENT. Its best arm read 1.0551x against that session's own A/A
     # floor of 1.0538x, so it is not a result and the site keeps today's call at that size. An entry
     # here would be tuning to noise.
