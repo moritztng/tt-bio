@@ -229,6 +229,17 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     M_tiles_per_core = padded_M_tiles // in0_axis_cores
     N_tiles_per_core = padded_N_tiles // in1_axis_cores
     K_blocks = padded_K_tiles // K_block_tiles
+    if gate:
+        # padded_N_tiles is N_tiles_per_core * in1_axis_cores, so it is odd exactly when BOTH
+        # factors are, and an odd in1 core count is ordinary on the 11x10 Blackhole grid. The
+        # evenness check above covers N_tiles and N_block_tiles but not this one, and an odd
+        # padded_N_tiles would make MM_OUT_N truncate the destination's padded width by a tile
+        # while the pre-gate in1 shape kept the full width -- the writer would fall a tile short
+        # of the last chunk and the shortfall would look like data, not like a crash. Arm 1a runs
+        # N_tiles_per_core = 2 so it cannot trip this, which is why the source audit found it and
+        # no run of arm 1a would have.
+        assert padded_N_tiles % 2 == 0, (
+            "gate needs an even padded N", padded_N_tiles, N_tiles_per_core, in1_axis_cores)
     M_blocks_per_core = _div_up(M_tiles_per_core, M_block_tiles)
     N_blocks_per_core = _div_up(N_tiles_per_core, N_block_tiles)
 
