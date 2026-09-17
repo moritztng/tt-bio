@@ -220,6 +220,37 @@
    }
   }
  },
+ "arm_1a": {
+  "what": "gate epilogue only, plain reblock_permute keeps the move",
+  "today_Z": 11,
+  "arm_Z": 7,
+  "deleted_Z": 4,
+  "move_ms_estimated_from": "reblock_back, same 2 Z, inverse direction",
+  "move_ms": 0.494081,
+  "predicted": {
+   "optimistic": {
+    "ms_per_call": 1.5044349781649995,
+    "fold_s": 0.8424835877723997,
+    "fold_Mc": 1137.3528434927396,
+    "saved_s": 0.7192495082276005,
+    "saved_Mc": 970.9868361072606
+   },
+   "central": {
+    "ms_per_call": 1.814548935416311,
+    "fold_s": 1.0161474038331342,
+    "fold_Mc": 1371.798995174731,
+    "saved_s": 0.545585692166866,
+    "saved_Mc": 736.5406844252691
+   },
+   "pessimistic": {
+    "ms_per_call": 2.108794262572345,
+    "fold_s": 1.180924787040513,
+    "fold_Mc": 1594.2484625046927,
+    "saved_s": 0.38080830895948714,
+    "saved_Mc": 514.0912170953077
+   }
+  }
+ },
  "untouched": {
   "reblock_back_s": 0.27749865599999995,
   "reblock_back_Mc": 374.62318559999994,

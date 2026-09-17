@@ -154,11 +154,34 @@ def main():
         # reblock writer's measured 20.6 % exposure on top
         "pessimistic": (fused_floor_ms + i["arith_ms"]) / eff_gated,
     }
+    # --- arm 1a: the gate epilogue WITHOUT the reblock in the writer --------------------------
+    # The matmul writes p * sigmoid(g) into `a` and `b` in the ORIGINAL [1,H,H,slice_c] layout, so
+    # its writer keeps its normal tile order and only the destination addressing changes. The two
+    # plain forward moves then run as today's `reblock_permute`, which is arithmetic-free and
+    # bit-exact by construction. 3 Z + 2 x 2 Z = 7 Z against today's 11 Z.
+    # The plain move's cost is ESTIMATED from `reblock_back`, which moves the same 2 Z between the
+    # same two shapes in the inverse direction and is measured at 0.4941 ms/call. It is not a
+    # measurement of the forward move at this shape.
+    back = site["reblock_back"]
+    Z = Zb / 1e6
+    move_floor_ms = 2 * Zb / (bw_1r1w * 1e6)
+    a1 = {
+        "optimistic": arms["optimistic"] + 2 * move_floor_ms / eff_gated,
+        "central": arms["central"] + 2 * back["ms"],
+        "pessimistic": arms["pessimistic"] + 2 * back["ms"],
+    }
+
     pred = {}
     for k, ms in arms.items():
         sec = ms * calls_in / 1000.0
         pred[k] = dict(ms_per_call=ms, fold_s=sec, fold_Mc=sec * 1350.0,
                        saved_s=today_s - sec, saved_Mc=(today_s - sec) * 1350.0)
+
+    pred_1a = {}
+    for k, ms in a1.items():
+        sec = ms * calls_in / 1000.0
+        pred_1a[k] = dict(ms_per_call=ms, fold_s=sec, fold_Mc=sec * 1350.0,
+                          saved_s=today_s - sec, saved_Mc=(today_s - sec) * 1350.0)
 
     out = dict(
         clock_mhz=1350, grid=list(GRID), part="p300c Blackhole",
@@ -181,6 +204,10 @@ def main():
                    today_fold_s=today_s, today_fold_Mc=today_s * 1350,
                    floor_ms_per_call=fused_floor_ms, bw_1r1w_GBs=bw_1r1w,
                    eff_gated=eff_gated, eff_inproj=eff_in, predicted=pred),
+        arm_1a=dict(what="gate epilogue only, plain reblock_permute keeps the move",
+                    today_Z=11, arm_Z=7, deleted_Z=4,
+                    move_ms_estimated_from="reblock_back, same 2 Z, inverse direction",
+                    move_ms=back["ms"], predicted=pred_1a),
         untouched=dict(reblock_back_s=site["reblock_back"]["sec"],
                        reblock_back_Mc=site["reblock_back"]["sec"] * 1350,
                        why="its producer is ttnn.matmul (tenstorrent.py:6573), not a tt-bio "
@@ -221,6 +248,12 @@ def main():
     print("\nPREDICTED fold seconds for the fused op, 560 calls:")
     for k in ("optimistic", "central", "pessimistic"):
         q = pred[k]
+        print("  %-12s %.4f ms/call -> %.4f s (%.1f Mc), saves %.4f s (%.1f Mc)"
+              % (k, q["ms_per_call"], q["fold_s"], q["fold_Mc"], q["saved_s"], q["saved_Mc"]))
+    print("\nARM 1a, gate epilogue only (7 Z, plain move kept, move cost estimated from "
+          "reblock_back):")
+    for k in ("optimistic", "central", "pessimistic"):
+        q = pred_1a[k]
         print("  %-12s %.4f ms/call -> %.4f s (%.1f Mc), saves %.4f s (%.1f Mc)"
               % (k, q["ms_per_call"], q["fold_s"], q["fold_Mc"], q["saved_s"], q["saved_Mc"]))
     print("\nreblock_back stays: %.4f s (%.1f Mc). %s"

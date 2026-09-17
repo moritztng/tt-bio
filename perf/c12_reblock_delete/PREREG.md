@@ -106,6 +106,65 @@ not this lever's ceiling and it is not its target.
     (742.5 Mc)**, half the central prediction.
   * Any delta under 3x the session's own A/A floor is not a result and is reported as such.
 
+## Why this is not step 2, stated as an accounting rather than an assertion
+
+Step 2 lost because it deleted 8 Z of DRAM traffic and bought back L1 traffic no DRAM byte counter
+sees. So the discriminator for this lever is its ON-CHIP accounting, not its DRAM accounting:
+
+    stage                        today                        fused
+    matmul out CB fill/drain     M_block x N_block tiles      same
+    gate: sigmoid, mul, WH       3 CB round trips per tile    same, same kernel body
+    writer gather                2048 local transactions      same, same writer
+                                 per 32-tile group
+    DRAM in between              4 Z write + 4 Z read         none
+
+Every on-chip stage is the same stage, in the same order, through the same circular buffers. The
+fused op does not add staging traffic; it removes a DRAM round trip from between two stages that
+already exist. Step 2 by contrast KEPT both programs and added `ttnn.slice` copies of the LN'd
+pair tensor (`ttnn.slice` is a copy, not a view) on top. That is the whole difference, and it is
+the reason a +0.907 ms result does not transfer.
+
+The one genuinely new cost is L1 residency: the writer needs 32 gated tiles staged before it can
+emit a destination tile, and the matmul's `M_block_tiles = 8` emits 8 at a time, so 4 output
+blocks have to be held. 32 gated + 32 destination tiles is **131 kB per core** on top of the
+matmul's own circular buffers - the same order as the 148 kB `reblock_permute_gated` already
+carries. That is the number arm 1b has to survive, and it is why the row is built in two arms
+rather than one.
+
+## BUILD, in two arms, because the second one is the risky half
+
+**Arm 1a - the gate epilogue only.** The matmul writes `p * sigmoid(g)` into `a` and `b` in the
+ORIGINAL `[1,H,H,slice_c]` layout. Its writer keeps its normal tile order and only the destination
+addressing changes, which is the machinery `MM_SPLIT_LAST_TILES` and `write_tile_to_chunk` already
+carry. The two plain forward moves then run as today's `reblock_permute` - arithmetic-free and
+bit-exact by construction. Traffic 3 Z + 2 x 2 Z = **7 Z**, deleting 4 of the 8.
+
+    arm            ms/call   fold s   fold Mc   saves s   saves Mc
+    optimistic      1.5044   0.8425    1137.4    0.7192      971.0
+    central         1.8145   1.0161    1371.8    0.5456      736.5
+    pessimistic     2.1088   1.1809    1594.2    0.3808      514.1
+
+The plain move's cost is **estimated**, not measured: it is taken from `reblock_back`'s measured
+0.4941 ms/call, which moves the same 2 Z between the same two shapes in the inverse direction.
+The forward move at this shape has never been timed, because the shipped path uses the gated one.
+Arm 1a's own kill bar is **0.300 s / 405 Mc** - below that it is not worth keeping as a standalone
+even if arm 1b then fails.
+
+**Arm 1b - the reblock in the writer.** Adds the 32-tile group M assignment and the gather, taking
+traffic to 3 Z and the prediction to the table above.
+
+Both arms need the same two things first, and both are inert on their own:
+
+  * the **tile-interleaved fused weight order** `(p t0, g t0, p t1, g t1, ...)`, because at
+    `N_tiles_per_core = 2` the shipped role-major order puts no (p, g) pair on one core. A pure
+    column permutation laid out once at load, the same mechanism `TRIMUL_GP_BANK_SPLIT` uses.
+  * a **compute-kernel source override** in `mm_generic`, since `compute_src` was pinned to the
+    wheel's own `compute.cpp`. LANDED this pass as `compute_dir=None`, threaded through `build`,
+    `_key` and `generic_minimal_matmul`; `None` is the wheel's kernel so every existing caller is
+    byte-identical. It is in the CACHE KEY as well as the build, because two arms of one A/B
+    session differing only in their compute kernel would otherwise share the first arm's
+    descriptor, and the arms of a perf comparison have to interleave inside one process.
+
 ## BUILD: the wheel, and that is why this route was chosen
 
 `patch_mm_split.py` already generates tt-bio's dataflow kernels from the wheel's own

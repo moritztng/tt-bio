@@ -120,7 +120,7 @@ def _cb(idx, core_grid, page_size, num_tiles, data_format):
 
 
 def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=None,
-          noc_mode=None, n_widths=None):
+          noc_mode=None, n_widths=None, compute_dir=None):
     """The ProgramDescriptor for ``minimal_matmul(in0, in1) -> outs`` with block config ``cfg``.
 
     ``cfg`` is a 5-tuple ``(M_block, K_block, N_block, subblock_h, subblock_w)`` and a
@@ -139,6 +139,12 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     the same -- a 512-wide projection and a 128-wide one sharing one pass over the activation.
     Only a differing LAST chunk is supported, which is what the kernel's ``MM_SPLIT_LAST_TILES``
     covers and what every call site needs. ``None`` means the stock equal split.
+
+    ``compute_dir`` is the same override for the COMPUTE kernel, which until now was always the
+    wheel's own ``compute.cpp``. An epilogue that has to touch the output tiles before they leave
+    the core -- a gate, a channel move -- lives there and nowhere else, and generating it the way
+    ``patch_mm_split.py`` generates the dataflow pair keeps the whole op on the shipped wheel.
+    ``None`` is the wheel's own kernel, so every existing caller is byte-identical.
 
     ``noc_mode`` is for a DM kernel that issues transactions on the NOC it was NOT configured
     with. Under the default ``DM_DEDICATED_NOC`` the firmware only runs ``noc_local_state_init``
@@ -255,7 +261,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     kd = _kernel_dir()
     dmd = kernel_dir or kd
     in0_src, in1_src = str(dmd / "dm_in0_sender.cpp"), str(dmd / "dm_in1_sender_out.cpp")
-    compute_src = str(kd / "compute.cpp")          # never patched, always the wheel's own
+    compute_src = str((compute_dir or kd) / "compute.cpp")   # the wheel's own unless overridden
 
     k_blocks_per_core = _div_up(K_blocks, in1_axis_cores if transpose else in0_axis_cores)
 
@@ -345,26 +351,32 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
                      "transpose_core_grid": transpose, "defines": defines}}
 
 
-def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None, n_widths=None):
+def _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k=None, noc_mode=None, n_widths=None,
+         compute_dir=None):
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     return (spec(in0), spec(in1), tuple(spec(o) for o in outs),
             cfg, tuple(str(c) for c in ckc),
             tuple(sorted(dict(defines).items())), str(kernel_dir), m_k, str(noc_mode),
-            None if n_widths is None else tuple(n_widths))
+            None if n_widths is None else tuple(n_widths), str(compute_dir))
 
 
 def generic_minimal_matmul(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None,
-                           m_k=None, noc_mode=None, n_widths=None):
-    """``minimal_matmul`` through ``generic_op``, descriptor cached per shape/config."""
+                           m_k=None, noc_mode=None, n_widths=None, compute_dir=None):
+    """``minimal_matmul`` through ``generic_op``, descriptor cached per shape/config.
+
+    ``compute_dir`` is part of the cache key, not just of the build: two arms of one A/B session
+    differing only in their compute kernel would otherwise share the first arm's descriptor, and
+    the arms of a perf comparison have to interleave inside one process.
+    """
     if not isinstance(outs, (list, tuple)):
         outs = [outs]
-    key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k, noc_mode, n_widths)
+    key = _key(in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k, noc_mode, n_widths, compute_dir)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = build(device, in0, in1, outs, cfg, ckc, defines, kernel_dir, m_k,
-                                    noc_mode, n_widths)
+                                    noc_mode, n_widths, compute_dir)
     addrs = (in0.buffer_address(), in1.buffer_address(),
              tuple(o.buffer_address() for o in outs))
     if addrs != entry["addrs"]:
