@@ -9643,7 +9643,7 @@ class DiffusionTransformerLayer(Module):
                                   cond=None if cond is None else (t_trans, s_o2_pre))
             a = ttnn.add(ttnn.add(a, b), a_t)
         else:
-            if _eltwise_fusion.FUSE_COND_MULADD:
+            if _eltwise_fusion.FUSE_ATTN_GATE_ADD:
                 a = mask_add(a, s_o, b)
             else:
                 a = ttnn.add(a, ttnn.multiply(s_o, b))
