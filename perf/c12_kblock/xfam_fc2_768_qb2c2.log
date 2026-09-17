@@ -1,0 +1,35 @@
+2026-09-17 12:28:44.247 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+tt_bio from /home/ttuser/.coworker/wt/c12-kblock-unlock/tt_bio/tenstorrent.py
+grid 11x10 = 110 cores | nodes [2] | clock forced 1350 on [2] | aiclk now 1350 MHz
+ROOFS {"clk_compute": {"n": 10, "min": 1350, "max": 1350, "mean": 1350.0}, "compute_TFLOPs": 112.78, "clk_dram": {"n": 0, "min": 0, "max": 0, "mean": 0}, "dram_rw_GBs": 377.3, "clk_l1": {"n": 0, "min": 0, "max": 0, "mean": 0}, "l1_rw_GBs": 590.0}
+   byte roof applied: 377.3 GB/s to all-DRAM keys, 590.0 GB/s to keys with an L1 operand
+
+=== pair_tr_fc2  a[1, 16, 768, 128] @ w[128, 512]  mt_total=384 kt=4 nt=16  act=None  L1->L1
+    census 0 calls, 0.0000 s, 0.0 Mc | Transition.swiglu fc2 tenstorrent.py:8222
+    ttnn v0.68.0 would derive: {'family': '1d', 'in0_block_w': 2, 'per_core_M': 4, 'per_core_N': 16, 'narrow_ratio': 24.0}
+    clock during this key: {'n': 5, 'min': 1350, 'max': 1350, 'mean': 1350.0}
+    prod                         0.0443 ms    36.36 TF/s    358.1 GB/s  maxabs 0.0021
+    prod_aa                      0.0440 ms    36.62 TF/s    360.6 GB/s  maxabs 0.0021  1.0070x
+    1d_bw1_obh4_obw16            0.0436 ms    36.96 TF/s    364.0 GB/s  maxabs 0.0021  1.0165x
+    1d_bw1_obh4_obw8             0.0463 ms    34.81 TF/s    342.8 GB/s  maxabs 0.0021  0.9574x
+    1d_bw1_obh2_obw16            0.0487 ms    33.10 TF/s    325.9 GB/s  maxabs 0.0021  0.9103x
+    1d_bw1_obh2_obw8             0.0589 ms    27.35 TF/s    269.4 GB/s  maxabs 0.0021  0.7523x
+    1d_bw2_obh4_obw16            0.0408 ms    39.52 TF/s    389.2 GB/s  maxabs 0.0021  1.0868x
+    1d_bw2_obh4_obw8             0.0422 ms    38.15 TF/s    375.6 GB/s  maxabs 0.0021  1.0491x
+    1d_bw2_obh2_obw16            0.0428 ms    37.61 TF/s    370.4 GB/s  maxabs 0.0021  1.0344x
+    1d_bw2_obh2_obw8             0.0465 ms    34.64 TF/s    341.1 GB/s  maxabs 0.0021  0.9527x
+    1d_bw4_obh4_obw16            0.0344 ms    46.82 TF/s    461.0 GB/s  maxabs 0.0020  1.2874x
+    1d_bw4_obh4_obw8             0.0384 ms    41.94 TF/s    413.0 GB/s  maxabs 0.0020  1.1535x
+    1d_bw4_obh2_obw16            0.0406 ms    39.64 TF/s    390.3 GB/s  maxabs 0.0020  1.0901x
+    1d_bw4_obh2_obw8             0.0432 ms    37.33 TF/s    367.5 GB/s  maxabs 0.0020  1.0265x
+    2d_bw1_obh39_obw2            0.0391 ms    41.14 TF/s    405.1 GB/s  maxabs 0.0021  1.1314x
+    2d_bw1_obh13_obw2            0.0449 ms    35.85 TF/s    353.1 GB/s  maxabs 0.0021  0.9860x
+    2d_bw2_obh39_obw2            0.0381 ms    42.33 TF/s    416.8 GB/s  maxabs 0.0021  1.1640x
+    2d_bw2_obh13_obw2            0.0405 ms    39.80 TF/s    391.9 GB/s  maxabs 0.0021  1.0946x
+    2d_bw4_obh39_obw2            0.0337 ms    47.78 TF/s    470.5 GB/s  maxabs 0.0020  1.3139x
+    2d_bw4_obh13_obw2            0.0356 ms    45.24 TF/s    445.5 GB/s  maxabs 0.0020  1.2441x
+    BEST 2d_bw4_obh39_obw2  1.3139x vs prod  (no census counts at this size)  [A/A floor 1.0070x]
+
+wrote perf/c12_kblock/xfam_fc2_768_qb2c2.json
+TOTAL pre-registered fold seconds from the K block alone: +0.0000 s

@@ -1,8 +1,8 @@
-2026-09-17 12:19:57.499 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+2026-09-17 12:30:49.613 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
 Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
 grid 11x10 | nodes [2] | forced on [2] | aiclk 1350 MHz | flag default False
-  fc2  tok=320  1d bw=2 drain=2x16     L1   | off 0.0250 ms  on 0.0235 ms  1.0628x  [A/A 1.0028x]  maxabs 0.00190->0.00201  RESULT  ACCURACY REGRESSED
-  fc3  tok=320  1d bw=4 drain=2x4      L1   | off 0.0377 ms  on 0.0265 ms  1.4241x  [A/A 0.9918x]  maxabs 0.00382->0.00382  RESULT
-  dit  tok=320  2d bw=8 drain=1x3      DRAM | off 0.0215 ms  on 0.0240 ms  0.8925x  [A/A 1.0260x]  maxabs 0.00446->0.00427  RESULT
+  fc2  tok=320  2d bw=4 drain=16x2     L1   | off 0.0252 ms  on 0.0218 ms  1.1565x  [A/A 0.9861x]  maxabs 0.00190->0.00190  RESULT
+  fc3  tok=320  1d bw=4 drain=2x4      L1   | off 0.0380 ms  on 0.0274 ms  1.3878x  [A/A 1.0078x]  maxabs 0.00382->0.00382  RESULT
+  dit  tok=320  NOT IN TABLE -> inert, site keeps today's call (mt_total=10, kt=24, nt=24)
   ctb  tok=320  NOT IN TABLE -> inert, site keeps today's call (mt_total=10, kt=24, nt=48)
 wrote perf/c12_kblock/lever_ab_320_qb2c2.json

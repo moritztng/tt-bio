@@ -6914,9 +6914,9 @@ _LINEAR_KBLOCK = env_flag("TT_BIO_LINEAR_KBLOCK", False)
 
 _LINEAR_BLOCK = {
     # (mt_total, kt, nt): (family, in0_block_w)          ratio / A/A floor of that session
-    (160, 4, 16): ("1d", 2),    # pair Transition fc2 @ 298 aa   1.0628x / 1.0028x  2D unmeasured
+    (160, 4, 16): ("2d", 4),    # pair Transition fc2 @ 298 aa   PENDING / sweep 1.4128x
     (256, 4, 16): ("2d", 4),    # pair Transition fc2 @ 512 aa   1.2434x / 0.9605x  2D beats 1D here
-    (384, 4, 16): ("1d", 4),    # pair Transition fc2 @ 768 aa   1.1620x / 0.9951x  2D unmeasured
+    (384, 4, 16): ("2d", 4),    # pair Transition fc2 @ 768 aa   PENDING / sweep 1.3139x
     (160, 16, 4): ("1d", 4),    # pair Transition fc3 @ 298 aa   1.4241x / 0.9918x
     (256, 16, 4): ("1d", 2),    # pair Transition fc3 @ 512 aa   1.1852x / 1.0029x
     (384, 16, 4): ("1d", 2),    # pair Transition fc3 @ 768 aa   1.1544x / 1.0067x
@@ -6933,6 +6933,14 @@ _LINEAR_BLOCK = {
     #   CTB @ 512 aa, was ("2d", 8) on 1.0649x -> 0.9935x against a 1.0085x floor: inside it.
     #   CTB @ 768 aa, was ("2d", 12) on 1.1202x -> 1.0176x against a 1.0367x floor: inside it.
     #     So CTB has no entry at any size and the three CTB sites are inert.
+    #
+    # fc2 takes the 2D factory at ALL THREE sizes and ttnn routes it to 1D at all three: its
+    # height/width ratio is 16.0 at every size because both height and width scale with nothing
+    # (mt_total moves with the tokens, nt is fixed at 16), so the ratio-8 rule mis-routes it
+    # uniformly rather than at one size. Cross-family sweep: 1.4128x at 298 aa against the best 1D
+    # config's 1.1495x, 1.3139x at 768 aa (perf/c12_kblock/xfam_fc2_{320,768}_qb2c2.json). Those two
+    # are marked PENDING because only the 512 aa 2D entry has been through lever_ab on device, and
+    # the sweep overstates.
     #
     # The two DiT entries that survive are marked MARGINAL deliberately: they clear their floors by
     # only 4.3 and 4.0 points while the same key inverted at 298 aa, so they are the first thing to

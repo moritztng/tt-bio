@@ -1,0 +1,37 @@
+2026-09-17 12:34:25.334 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+tt_bio from /home/ttuser/.coworker/wt/c12-kblock-unlock/tt_bio/tenstorrent.py
+grid 11x10 = 110 cores | nodes [2] | clock forced 1350 on [2] | aiclk now 1350 MHz
+ROOFS {"clk_compute": {"n": 13, "min": 1350, "max": 1350, "mean": 1350.0}, "compute_TFLOPs": 114.45, "clk_dram": {"n": 141, "min": 1350, "max": 1350, "mean": 1350.0}, "dram_rw_GBs": 390.9, "clk_l1": {"n": 135, "min": 1350, "max": 1350, "mean": 1350.0}, "l1_rw_GBs": 599.6}
+   byte roof applied: 390.9 GB/s to all-DRAM keys, 599.6 GB/s to keys with an L1 operand
+
+=== pair_tr_fc3  a[1, 16, 512, 512] @ w[512, 128]  mt_total=256 kt=16 nt=4  act=None  L1->DRAM
+    census 8960 calls, 0.7920 s, 1069.3 Mc | Transition.swiglu fc3 tenstorrent.py:8233
+    ttnn v0.68.0 would derive: {'family': '1d', 'in0_block_w': 2, 'per_core_M': 3, 'per_core_N': 4, 'narrow_ratio': 64.0}
+    clock during this key: {'n': 7, 'min': 1350, 'max': 1350, 'mean': 1350.0}
+    prod                         0.0436 ms    24.65 TF/s    243.7 GB/s  maxabs 0.0036
+    prod_aa                      0.0413 ms    26.02 TF/s    257.3 GB/s  maxabs 0.0036  1.0557x  +0.0418 s fold
+    1d_bw1_obh3_obw4             0.0421 ms    25.49 TF/s    252.1 GB/s  maxabs 0.0036  1.0343x  +0.0262 s fold
+    1d_bw1_obh1_obw4             0.0847 ms    12.68 TF/s    125.4 GB/s  maxabs 0.0036  0.5144x  -0.7476 s fold
+    1d_bw2_obh3_obw4             0.0329 ms    32.65 TF/s    322.8 GB/s  maxabs 0.0036  1.3245x  +0.1941 s fold
+    1d_bw2_obh1_obw4             0.0581 ms    18.47 TF/s    182.7 GB/s  maxabs 0.0036  0.7494x  -0.2648 s fold
+    1d_bw4_obh3_obw4             0.0343 ms    31.26 TF/s    309.1 GB/s  maxabs 0.0036  1.2683x  +0.1675 s fold
+    1d_bw4_obh1_obw4             0.0475 ms    22.61 TF/s    223.6 GB/s  maxabs 0.0036  0.9173x  -0.0714 s fold
+    1d_bw8_obh3_obw4             0.0374 ms    28.72 TF/s    284.0 GB/s  maxabs 0.0036  1.1651x  +0.1122 s fold
+    1d_bw8_obh1_obw4             0.0438 ms    24.52 TF/s    242.5 GB/s  maxabs 0.0036  0.9948x  -0.0041 s fold
+    1d_bw16_obh3_obw4            0.0448 ms    23.95 TF/s    236.8 GB/s  maxabs 0.0036  0.9718x  -0.0230 s fold
+    1d_bw16_obh1_obw4            0.0457 ms    23.51 TF/s    232.4 GB/s  maxabs 0.0036  0.9537x  -0.0385 s fold
+    2d_bw1_obh26_obw1            0.0511 ms    21.03 TF/s    207.9 GB/s  maxabs 0.0036  0.8532x  -0.1363 s fold
+    2d_bw1_obh13_obw1            0.0587 ms    18.30 TF/s    180.9 GB/s  maxabs 0.0036  0.7422x  -0.2751 s fold
+    2d_bw2_obh26_obw1            0.0490 ms    21.93 TF/s    216.8 GB/s  maxabs 0.0036  0.8897x  -0.0982 s fold
+    2d_bw2_obh13_obw1            0.0514 ms    20.91 TF/s    206.7 GB/s  maxabs 0.0036  0.8482x  -0.1417 s fold
+    2d_bw4_obh26_obw1            0.0452 ms    23.78 TF/s    235.1 GB/s  maxabs 0.0036  0.9646x  -0.0291 s fold
+    2d_bw4_obh13_obw1            0.0440 ms    24.38 TF/s    241.0 GB/s  maxabs 0.0036  0.9889x  -0.0089 s fold
+    2d_bw8_obh26_obw1            0.0443 ms    24.23 TF/s    239.6 GB/s  maxabs 0.0036  0.9830x  -0.0137 s fold
+    2d_bw8_obh13_obw1            0.0415 ms    25.85 TF/s    255.6 GB/s  maxabs 0.0036  1.0488x  +0.0369 s fold
+    2d_bw16_obh26_obw1           0.0522 ms    20.56 TF/s    203.3 GB/s  maxabs 0.0036  0.8342x  -0.1574 s fold
+    2d_bw16_obh13_obw1           0.0524 ms    20.51 TF/s    202.8 GB/s  maxabs 0.0036  0.8320x  -0.1599 s fold
+    BEST 1d_bw2_obh3_obw4  1.3245x vs prod  +0.1941 s / +262.0 Mc of fold  [A/A floor 1.0557x]
+
+wrote perf/c12_kblock/xfam_fc3_512_qb2c2.json
+TOTAL pre-registered fold seconds from the K block alone: +0.1941 s
