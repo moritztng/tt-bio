@@ -55,3 +55,16 @@ byte overstatement. A seventh key the fold issues 200 times, `matmul|out=1x768x5
 `None`.
 
 Findings and verdict: `~/.coworker/state/c12-matmul-key-attribution.md`.
+
+## Against the parent's device-ceiling envelope
+
+`price.py` reproduces the envelope's own figures for the `matmul` arm (0.2930 s achievable on
+`matmul|out=1x128x512x512|K=512` against the parent's 0.2931) and then says what reaching its
+65.66 TFLOP/s frontier point would demand of each key. That point is
+`linear|out=1x512x3072|K=768`, which sits at 279.3 FLOP/byte against a machine balance of
+276.1 — right at the knee, on the arithmetic side. The trimul key sits at 0.62x balance, on the
+traffic side, so reaching the frontier rate would need 384.7 GB/s: 0.87 of the measured streaming
+DRAM roof and **1.36x the best rate any real fold shape reached in that session**, on a matmul that
+reads one operand tile-transposed. Scaling the frontier rate by engaged cores instead (88 in the
+fold for that shape, 64 for this one) lands at 0.4029 s, within 0.8 % of the traffic argument's
+0.3998 s. Two independent arguments, one roof.

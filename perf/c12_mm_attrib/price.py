@@ -50,6 +50,18 @@ GRID_CORES = 110                  # p300c compute grid the cube roof was measure
 BEST_FOLD_GBS = 282.01            # matmul|out=1x128x4480|K=512, grid=None
 BEST_FOLD_CUBE_FRAC = 94.05 / CUBE_TFLOPS   # matmul|out=16384x16384|K=1024, [11,10], 110 cores
 
+# The parent's device-ceiling envelope (c12_orchestrator/device_ceiling.py, wk/c12-orchestrator
+# @ 44cab8781) gives a key the best rate ANY key with equal or fewer FLOPs per call reached in the
+# census session. For the `matmul` arm that frontier point is `linear|out=1x512x3072|K=768` on its
+# [11,10] arm. The envelope says so itself: it is shape-blind. `envelope_check` says what reaching
+# that point would demand of THIS key, which is what turns a bound into an achievable roof or
+# refutes it.
+FRONTIER_KEY = "linear|out=1x512x3072|K=768"
+FRONTIER_TFLOPS = 65.66
+FRONTIER_FLOPS = 2.41592e9
+FRONTIER_BYTES = 8.65075e6
+FRONTIER_INSITU_CORES = 88   # what that shape resolves to in the fold, from the armed capture
+
 
 def _shape(x, i):
     v = [x.get(f"INPUT_{i}_{a}[LOGICAL]", "") for a in ("W_PAD", "Z_PAD", "Y_PAD", "X_PAD")]
@@ -133,6 +145,38 @@ def roofs(flops, dram_bytes, cores):
             "argued_arith_s": arg_a, "argued_traffic_s": arg_t,
             "argued_s": max(arg_a, arg_t),
             "argued_binding": "traffic" if arg_t > arg_a else "arithmetic"}
+
+
+def envelope_check(flops, dram_bytes, cores, insitu_us, calls):
+    """Is the envelope's frontier rate reachable by a key with THIS access pattern?
+
+    Two independent tests, both from the same session's measurements:
+
+    * Machine balance. The frontier point sits at `FRONTIER_FLOPS / FRONTIER_BYTES` FLOP per byte
+      against a balance of cube/dram. A key on the traffic side of balance cannot reach a rate set
+      by a key on the arithmetic side without a DRAM rate the session never produced, and
+      `required_GBs` is exactly that demand.
+    * Cores. The frontier program engaged `FRONTIER_INSITU_CORES`; this key's resolved program
+      config engages `cores`. Per-core the frontier rate scales by `cores / FRONTIER_INSITU_CORES`,
+      and a core the program does not contain cannot contribute FLOPs.
+    """
+    bal = (CUBE_TFLOPS * 1e12) / (DRAM_GBS * 1e9)
+    t_front = flops / (FRONTIER_TFLOPS * 1e12)
+    scaled = FRONTIER_TFLOPS * cores / FRONTIER_INSITU_CORES
+    t_scaled = flops / (scaled * 1e12)
+    return {"frontier_key": FRONTIER_KEY, "frontier_TFLOPs": FRONTIER_TFLOPS,
+            "balance_FLOP_per_byte": bal,
+            "frontier_AI": FRONTIER_FLOPS / FRONTIER_BYTES,
+            "frontier_AI_over_balance": (FRONTIER_FLOPS / FRONTIER_BYTES) / bal,
+            "key_AI": flops / dram_bytes, "key_AI_over_balance": (flops / dram_bytes) / bal,
+            "frontier_s_per_call": t_front,
+            "required_GBs": dram_bytes / t_front / 1e9,
+            "required_over_dram_roof": (dram_bytes / t_front / 1e9) / DRAM_GBS,
+            "required_over_best_fold": (dram_bytes / t_front / 1e9) / BEST_FOLD_GBS,
+            "core_scaled_TFLOPs": scaled, "core_scaled_s_per_call": t_scaled,
+            "core_scaled_fold_s": t_scaled * calls,
+            "core_scaled_prize_s": max(0.0, insitu_us / 1e6 - t_scaled) * calls,
+            "envelope_fold_s": t_front * calls}
 
 
 def control(prof, census):
@@ -230,6 +274,8 @@ def main():
             **R,
             "prize_dense_s": max(0.0, (s["us"] / 1e6 - R["dense_s"])) * e["calls"],
             "prize_argued_s": max(0.0, (s["us"] / 1e6 - R["argued_s"])) * e["calls"],
+            "envelope": envelope_check(e["TFLOP"] / e["calls"] * 1e12, rb, max(s["cores"]),
+                                       s["us"], e["calls"]),
         })
     rows.sort(key=lambda r: -(r.get("insitu_fold_s") or 0))
 
@@ -315,6 +361,29 @@ def main():
                 max(u["cores"]), "-", u["prize_dense_s"], u["prize_argued_s"]))
         else:
             print("%-31s  UNPRICED BY CENSUS, not attributed" % str(u.get("key") or u["out"]))
+    print("\nENVELOPE  what the parent's %.2f TFLOP/s frontier point (%s) would demand"
+          % (FRONTIER_TFLOPS, FRONTIER_KEY))
+    print("          machine balance %.1f FLOP/byte; frontier point sits at %.1f (%.2fx balance)"
+          % (rows[0]["envelope"]["balance_FLOP_per_byte"], rows[0]["envelope"]["frontier_AI"],
+             rows[0]["envelope"]["frontier_AI_over_balance"]))
+    print("%-31s %6s %8s %9s %9s %9s %8s" % ("key", "AI/bal", "env_s", "req_GB/s", "xroof",
+                                             "xbestfold", "core_s"))
+    for r in rows:
+        if not r.get("attributed"):
+            continue
+        E = r["envelope"]
+        print("%-31s %6.2f %8.4f %9.1f %9.2f %9.2f %8.4f" % (
+            r["key"].replace("matmul|out=", "").replace("|K=", " K"), E["key_AI_over_balance"],
+            E["envelope_fold_s"], E["required_GBs"], E["required_over_dram_roof"],
+            E["required_over_best_fold"], E["core_scaled_fold_s"]))
+    E = rows[0]["envelope"]
+    print("          biggest key: envelope %.4f s, core-scaled frontier %.4f s, argued roof "
+          "%.4f s, in situ %.4f s" % (E["envelope_fold_s"], E["core_scaled_fold_s"],
+                                      rows[0]["argued_s"] * rows[0]["calls"],
+                                      rows[0]["insitu_fold_s"]))
+    print("          its prize: envelope-style %.4f s, core-scaled %.4f s, argued %.4f s"
+          % (E["envelope_fold_s"] and (1.0724 - E["envelope_fold_s"]),
+             E["core_scaled_prize_s"], rows[0]["prize_argued_s"]))
     print("\nin cycles at %g MHz: census %.1f Mc, in-situ %.1f Mc, prize <= %.1f Mc (dense) / "
           "%.1f Mc (argued)" % (MHZ, tc * MHZ, ti * MHZ, pd * MHZ, pa * MHZ))
     return 0

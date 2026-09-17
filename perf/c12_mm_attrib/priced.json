@@ -516,7 +516,25 @@
    "argued_s": 0.0007138987695471792,
    "argued_binding": "traffic",
    "prize_dense_s": 0.20361973331823716,
-   "prize_argued_s": 0.05840588905357971
+   "prize_argued_s": 0.05840588905357971,
+   "envelope": {
+    "frontier_key": "linear|out=1x512x3072|K=768",
+    "frontier_TFLOPs": 65.66,
+    "balance_FLOP_per_byte": 276.11540786641115,
+    "frontier_AI": 279.2728954136925,
+    "frontier_AI_over_balance": 1.011435390627708,
+    "key_AI": 170.66666666666666,
+    "key_AI_over_balance": 0.618099033246409,
+    "frontier_s_per_call": 0.0005232978734084679,
+    "required_GBs": 384.7265625,
+    "required_over_dram_roof": 0.868698988588198,
+    "required_over_best_fold": 1.3642302134676076,
+    "core_scaled_TFLOPs": 47.75272727272727,
+    "core_scaled_s_per_call": 0.0007195345759366433,
+    "core_scaled_fold_s": 0.40293936252452023,
+    "core_scaled_prize_s": 0.0552498374754798,
+    "envelope_fold_s": 0.29304680910874203
+   }
   },
   {
    "key": "matmul|out=16384x16384|K=1024",
@@ -578,7 +596,25 @@
    "argued_s": 0.005845356872812334,
    "argued_binding": "arithmetic",
    "prize_dense_s": 0.037473843999976414,
-   "prize_argued_s": 0.015879170035002665
+   "prize_argued_s": 0.015879170035002665,
+   "envelope": {
+    "frontier_key": "linear|out=1x512x3072|K=768",
+    "frontier_TFLOPs": 65.66,
+    "balance_FLOP_per_byte": 276.11540786641115,
+    "frontier_AI": 279.2728954136925,
+    "frontier_AI_over_balance": 1.011435390627708,
+    "key_AI": 910.2222222222222,
+    "key_AI_over_balance": 3.2965281773141815,
+    "frontier_s_per_call": 0.008372765974535486,
+    "required_GBs": 72.13623046875,
+    "required_over_dram_roof": 0.16288106036028713,
+    "required_over_best_fold": 0.2557931650251764,
+    "core_scaled_TFLOPs": 82.07499999999999,
+    "core_scaled_s_per_call": 0.00669821277962839,
+    "core_scaled_fold_s": 0.10717140447405424,
+    "core_scaled_prize_s": 0.0022334755259457717,
+    "envelope_fold_s": 0.13396425559256778
+   }
   },
   {
    "key": "matmul|out=1024x32x512|K=512",
@@ -642,7 +678,25 @@
    "argued_s": 0.0002379662565157264,
    "argued_binding": "traffic",
    "prize_dense_s": 0.06730887110996092,
-   "prize_argued_s": 0.05624495916598702
+   "prize_argued_s": 0.05624495916598702,
+   "envelope": {
+    "frontier_key": "linear|out=1x512x3072|K=768",
+    "frontier_TFLOPs": 65.66,
+    "balance_FLOP_per_byte": 276.11540786641115,
+    "frontier_AI": 279.2728954136925,
+    "frontier_AI_over_balance": 1.011435390627708,
+    "key_AI": 256.0,
+    "key_AI_over_balance": 0.9271485498696136,
+    "frontier_s_per_call": 0.00026164893670423394,
+    "required_GBs": 256.484375,
+    "required_over_dram_roof": 0.5791326590587987,
+    "required_over_best_fold": 0.9094868089784051,
+    "core_scaled_TFLOPs": 76.85204545454545,
+    "core_scaled_s_per_call": 0.00022354472262109306,
+    "core_scaled_fold_s": 0.028613724495499912,
+    "core_scaled_prize_s": 0.05809091550450009,
+    "envelope_fold_s": 0.033491063898141944
+   }
   },
   {
    "key": "matmul|out=1x16x512x512|K=32",
@@ -708,7 +762,25 @@
    "argued_s": 3.346400482252402e-05,
    "argued_binding": "traffic",
    "prize_dense_s": 0.005973573374666401,
-   "prize_argued_s": 0.002764606726853658
+   "prize_argued_s": 0.002764606726853658,
+   "envelope": {
+    "frontier_key": "linear|out=1x512x3072|K=768",
+    "frontier_TFLOPs": 65.66,
+    "balance_FLOP_per_byte": 276.11540786641115,
+    "frontier_AI": 279.2728954136925,
+    "frontier_AI_over_balance": 1.011435390627708,
+    "key_AI": 28.444444444444443,
+    "key_AI_over_balance": 0.10301650554106817,
+    "frontier_s_per_call": 4.088264636003655e-06,
+    "required_GBs": 2308.359375,
+    "required_over_dram_roof": 5.212193931529188,
+    "required_over_best_fold": 8.185381280805645,
+    "core_scaled_TFLOPs": 23.876363636363635,
+    "core_scaled_s_per_call": 1.1242727749010051e-05,
+    "core_scaled_fold_s": 0.0029680801257386535,
+    "core_scaled_prize_s": 0.008631023874261345,
+    "envelope_fold_s": 0.001079301863904965
+   }
   },
   {
    "key": "matmul|out=1x16x512x32|K=512",
@@ -774,7 +846,25 @@
    "argued_s": 3.346400482252402e-05,
    "argued_binding": "traffic",
    "prize_dense_s": 0.003813789374666402,
-   "prize_argued_s": 0.0006048227268536595
+   "prize_argued_s": 0.0006048227268536595,
+   "envelope": {
+    "frontier_key": "linear|out=1x512x3072|K=768",
+    "frontier_TFLOPs": 65.66,
+    "balance_FLOP_per_byte": 276.11540786641115,
+    "frontier_AI": 279.2728954136925,
+    "frontier_AI_over_balance": 1.011435390627708,
+    "key_AI": 28.444444444444443,
+    "key_AI_over_balance": 0.10301650554106817,
+    "frontier_s_per_call": 4.088264636003655e-06,
+    "required_GBs": 2308.359375,
+    "required_over_dram_roof": 5.212193931529188,
+    "required_over_best_fold": 8.185381280805645,
+    "core_scaled_TFLOPs": 23.876363636363635,
+    "core_scaled_s_per_call": 1.1242727749010051e-05,
+    "core_scaled_fold_s": 0.0029680801257386535,
+    "core_scaled_prize_s": 0.0064712398742613475,
+    "envelope_fold_s": 0.001079301863904965
+   }
   },
   {
    "key": "matmul|out=1x128x4480|K=512",
@@ -838,7 +928,25 @@
    "argued_s": 2.0798808552888197e-05,
    "argued_binding": "traffic",
    "prize_dense_s": 0.0028139942815269504,
-   "prize_argued_s": 0.0013030382894223607
+   "prize_argued_s": 0.0013030382894223607,
+   "envelope": {
+    "frontier_key": "linear|out=1x512x3072|K=768",
+    "frontier_TFLOPs": 65.66,
+    "balance_FLOP_per_byte": 276.11540786641115,
+    "frontier_AI": 279.2728954136925,
+    "frontier_AI_over_balance": 1.011435390627708,
+    "key_AI": 100.11173184357541,
+    "key_AI_over_balance": 0.3625720586082288,
+    "frontier_s_per_call": 8.943078891257995e-06,
+    "required_GBs": 655.8671875,
+    "required_over_dram_roof": 1.4809249424503566,
+    "required_over_best_fold": 2.3256876972447786,
+    "core_scaled_TFLOPs": 52.22954545454545,
+    "core_scaled_s_per_call": 1.1242727749010051e-05,
+    "core_scaled_fold_s": 0.00224854554980201,
+    "core_scaled_prize_s": 0.00321425445019799,
+    "envelope_fold_s": 0.001788615778251599
+   }
   }
  ],
  "unpriced_by_census": [
