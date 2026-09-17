@@ -28,6 +28,78 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Changed
 
+- **Triangle attention runs on the fused kernel above 1024 tokens, and a 1536-residue fold is
+  1.1856x faster.** The chunk ladder that picks a query and key chunk walked query chunks widest
+  first and took the first pair that ran at all, so above 1024 tokens it settled on a wide query the
+  fused kernel cannot take and handed the call to the stock attention. Every length from 1024 to
+  2592 tokens fell off the fast path that way. The ladder now offers the fused pair first above the
+  cap (`TT_BIO_SDPA_FUSED_LARGE_S`, on by default, was off in 0.8.0) and serves 36 of the 50 lengths
+  in that range on an 11x10 grid at 4 heads; the other 14 have no 32-aligned divisor and the kernel
+  declines them by construction. 4.23x on the attention op at 1536 tokens, 136.143 to 32.184 ms, and
+  174.178 s to 146.915 s on the fold at the shipped 200 sampling steps, off/on/off interleaved
+  against a 1.21 % same-session A/A floor. **Nothing at or below 1024 tokens changes**: there the
+  ladder already lands on a fused pair, 560 of 560 calls at both 512 and 1024 residues, and those
+  digests are bit-exact and shipped. Above 1024 it is not bit-exact and there is no shipped digest
+  to break, because no length above 1024 served this kernel before: the key chunk sets the
+  online-softmax reduction order, a 1536-residue structure moves 1.007 A all-atom where a different
+  seed moves it 36.6 A, and pLDDT goes from 0.786016 to 0.789493. An L1 refusal costs speed and not
+  correctness, falling back to the same stock attention bit-identically.
+  `TT_BIO_SDPA_FUSED_LARGE_S=0` restores the stock ladder everywhere.
+
+- **Each transition block sizes its row block from the card's own L1 budget, and Boltz-2 folds
+  512 residues 1.023-1.035x faster on Blackhole.** The block height was 16 rows everywhere, a number
+  fitted on Wormhole, so a 512-residue pair tensor was cut into 32 blocks where its own budget allows
+  11. It is now the tallest block whose live bytes fit the card's measured per-core L1, floored at
+  today's height so nothing gets shorter (`TT_BIO_TRANSITION_L1_ROWS`, on by default, Blackhole
+  only): 48 rows at 512 residues, 32 at 768, 24 at 1024, and 16 at 1536 where the old constant
+  already sat at the budget. One expression rather than a table, so the MSA track gets its own taller
+  block from the same budget and a wider channel gets a shorter one. 1.030x at 768 residues and
+  1.013x at 1024, four paired reps per measurement with the off arm run on both sides of the on arm.
+  Byte-identical CIF at 298, 512, 768 and 1024 residues on an 11x10 p300c, and byte-identical with
+  the MSA depth axis at its full 1024 rows. Bit-exactness is not a property of every shape: on the
+  no-MSA prot leg the arms differ by 0.165 A on a target whose arms both already sit 7 A from the
+  fp32 reference, and that leg is a documented bf16 floor whose verdict does not change. Reaches
+  Boltz-2, BoltzGen and OpenFold3; Protenix-v2 and OpenDDE have wider pair tracks and keep today's
+  height, because the budget was fitted at 128 channels and unbounded it kills every OpenDDE seed
+  with an L1 circular-buffer clash.
+
+- **Blackhole picks the confidence readback shape from its own part instead of the part the shape
+  was fitted on, and saves 9.58 ms a fold.** The pTM/pAE/pDE head untilized and sliced on the card
+  so only three channels crossed the bus, which wins on Wormhole: 2.097 MB in 17.500 ms against
+  32.644 ms for the whole 16.777 MB tile. On Blackhole a row-major readback is layout-bound at about
+  13 ms whatever its size, while the tiled readback of the full tile costs 4.419 ms, so the narrow
+  shape lost by more than it won by elsewhere. Blackhole now moves the tile whole and slices on the
+  host: 4.75 ms against 14.33 ms on the download stage at 512 residues, measured with both arms
+  interleaved in one process against one device open. The head output is asserted identical on every
+  fold, not just the first. No number the head reports changes, only which side of the bus slices.
+
+- **Three eltwise chains our pinned TT-NN already fuses now run as one op each.** `x * scale + bias`
+  becomes `ttnn.addalpha`, the gated-residual write-back becomes `ttnn.addcmul`, and an add whose
+  only consumer is a layer norm is passed to the norm as its residual input
+  (`TT_BIO_FUSE_SCALE_ADD`, `TT_BIO_FUSE_MASK_ADD`, `TT_BIO_FUSE_NORM_RESIDUAL`, all on by default).
+  Eleven call sites across six models go through three helpers, so there is no per-model fusion code.
+  The fused ops are closer to a float64 reference than the chains they replace, because a chain packs
+  the intermediate to the tensor dtype and reloads it while the fused op keeps the product in an fp32
+  register. `addalpha` is fused for fp32 operands only, and that restriction is the whole design: at
+  fp32 both arms round identically, measured bit-identical at every call shape, and 1500 of the 1503
+  calls a 298-residue fold makes are fp32. Fusing the other three, which are bf16, moved an OpenFold3
+  structure 1.475 A, so they keep the chain and both affected models come back byte-identical,
+  OpenFold3 `46fec3e5b027b36c` and Protenix-v2 `753f43c4f269e303` across every arm. Predicted saving
+  67.0 ms of a 6.92 s Protenix-v2 fold and 73.9 ms of a 9.93 s OpenFold3 fold, summed from measured
+  per-call times at the census shapes; that is under 1 %, below the 2.7-5.3 % A/A floor the
+  298-residue fold instrument reaches, so no wall-clock fold ratio is claimed for it.
+
+- **Six Wormhole size ceilings that read "unmeasured" now carry a measured number.** Walked on a
+  Wormhole Galaxy chip: ESMC-300M and ESMC-600M take 69,632 residues and first fail at 73,728;
+  SaProt-35M 73,728, SaProt-650M 65,537, SaProt-1.3B 57,344; ESMC-6B does 8,192 under `--fast`.
+  BoltzGen reaches 14,786 target atoms with no failure found, so that number is the top of the ladder
+  walked rather than a wall. OpenDDE and OpenDDE-abag still take 1,024 residues and their first
+  failure is now measured at 1,088, DRAM fragmentation rather than one oversized tensor. ESMFold2's
+  first failure moves from 1,057 to 1,056 and ESMFold2-fast's from 1,280 to 1,248, both refinements
+  of the same wall. `tt_bio/size_limits.py` also gained an atoms denominator with its own dimension
+  guard, so a 1,200-residue refusal can no longer offer BoltzGen as having room because its cap reads
+  14,786 atoms.
+
 - **Boltz-2 folds 1.0474x faster at 512 residues on Blackhole, with every atom unmoved.** The
   confidence head's pair input was assembled on the host and uploaded — 134 MB of fp32 at 512
   residues — and its pae/pde bin logits were downloaded whole. Both now happen on the card, where
