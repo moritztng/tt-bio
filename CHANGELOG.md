@@ -5,7 +5,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
-
 ### Added
 
 - **A preflight warning when a host OpenMPI is set up to break the bundled one.** tt-metal ships
@@ -170,7 +169,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   0.000000 Å. The confidence itself moves, in bf16 where the host used fp32 — per-atom pLDDT by at
   most 0.362 of 100 at 512 residues, 0.185 at 298. 16.537 s against 17.285 s, 8 paired folds an arm
   interleaved ABBA on one card under benchlock, all 8 pairs positive against a 1.00104x A/A floor.
-
 
 - **Boltz-2 folds 1.0229x faster at 512 residues on Blackhole, byte for byte the same structure.**
   A triangle multiplication projects its gates and values in one matmul, and the channel move that
