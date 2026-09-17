@@ -204,6 +204,60 @@ Same two gated calls and one back call per trimul. Its call count still has to b
 executed graph on the measurement arm - the 512 aa counts above are measured, the 768 aa ones are
 derived from the plan.
 
+## The epilogue is expressible, checked in the kernel rather than assumed
+
+Read at `ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels/compute.cpp` in the
+pc source checkout. That checkout is **v0.72.0-dev** and the wheel is **v0.68.0**, so this is a
+structural reading, not the bytes the generator will patch - `patch_mm_split.py`'s exact-match
+asserts are what pin the anchors to the wheel's own copy, and they fail loudly on drift.
+
+  * The output stage is `copy_block(intermediate_cb, out_cb, M_block_tiles, N_block_tiles)`, a
+    plain (m, n) walk that copies each accumulated tile into DST, optionally applies
+    `SFPU_OP_FUNC_ACTIVATION`, and packs to `out_cb`. **There is already an SFPU hook in the
+    output stage.** A unary macro cannot express a gate, but this loop is the right place and the
+    edit is local to it.
+  * The exact idiom the gate needs is **already in this file**: `add_bias_and_addcmul_block`'s
+    `TERNARY_B_IS_FLOAT32` branch does two `copy_tile`s into two DST slots and then
+    `mul_binary_tile(DST_ID, TERNARY_B_DST_ID, DST_ID)`, which is
+    `compute_reblock_permute_gated.cpp`'s stage 2 with the sigmoid removed.
+  * **Plumbing trap worth stating before the build:** gating halves the tiles the output stage
+    pushes per row, and the writer's `write_block_sync_granular` pops `N_block_tiles` from the
+    out CB. The gated width has to be halved consistently in the writer's compile-time args and
+    in the destination tensor's N, or the writer walks off the end and writes plausible garbage.
+
+## The precision fact this reading turned up, which changes the accuracy pre-registration
+
+`mm_generic.py` sizes `intermediate_cb` as `float32 if fp32_dest_acc_en else bfloat16`, and the
+in-projection runs under `fp32_dest_acc_en=True`. `copy_block` therefore reads **fp32**
+accumulated tiles and packs them to bf16 on the way to `out_cb`.
+
+So a gate placed in that stage would read **fp32** `p` and `g`, where today's path packs the
+projection to bf16 into DRAM and the gated kernel reads bf16 operands. The digest moves for three
+reasons, not one, and the operand precision is the largest of them:
+
+    1. operands carry fp32 mantissa instead of bf16   <- new, and the biggest
+    2. `calculate_sigmoid` takes its accurate branch under the flag (10.4 % of elements, 1 ulp)
+    3. packer ties break away from zero rather than to even (0.91 % at a 1.85 % tie rate)
+
+All three push toward *better* float64 accuracy, which is precisely the
+`c12-fused-eltwise-at-pin` failure signature - a transform more accurate than what it replaced
+still failed. So the default is the matched-rounding variant:
+
+  * **Variant B, the default.** Pack `intermediate_cb` to a bf16 CB first - which is exactly what
+    `copy_block` already does into `out_cb` - and gate from that bf16 CB. Today's operand
+    precision is reproduced and the exposure narrows to item 2 alone. Costs one extra CB round
+    trip per tile and no DRAM byte.
+  * **Variant A, measured against it.** Gate straight off the fp32 `intermediate_cb`. Cheaper by
+    that round trip, more accurate against float64, and a larger digest move.
+
+Pre-registered: **B is what arm 1a ships if it ships**, and A is a same-session comparison, scored
+on both time and Angstrom. Choosing A on its float64 accuracy alone would be the mistake
+`c12-fused-eltwise-at-pin` already paid for.
+
+Also settled by this reading: at 512 aa `K_tiles = 4` against `K_block_tiles = 8`, so
+`K_blocks = 1` and the `llk_pack_reconfig_l1_acc` accumulation never folds across K blocks. There
+is no contraction-order question at this shape.
+
 ## ACCURACY: pre-registered, and this lever is not bit-exact
 
 `compute_reblock_permute_gated.cpp:11-27` is explicit that its bit-exactness against ttnn depends
