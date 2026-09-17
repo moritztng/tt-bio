@@ -1,0 +1,7 @@
+# Session CIF dumps: one structure per fold, 58 MB for s3 alone. The digest and plDDT of
+# every fold are already in the session JSON, so these are raw traces and stay on qb2.
+s1_cifs/
+s3_cifs/
+s4_cifs/
+wire_cifs/
+wire2_cifs/
