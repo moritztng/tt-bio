@@ -27,7 +27,8 @@ Arms are interleaved inside the clock and the clock order reverses on odd repeti
 drifting box cannot masquerade as a clock effect or as an instrument effect.
 """
 from __future__ import annotations
-import argparse, cProfile, gzip, importlib.metadata, io, json, math, os, pstats, shutil, signal
+import argparse
+import contextlib, cProfile, gzip, importlib.metadata, io, json, math, os, pstats, shutil, signal
 import socket, statistics as st, subprocess, sys, time, traceback
 from collections import Counter
 from pathlib import Path
@@ -56,7 +57,7 @@ F_REFERENCE = {512: 3.9830, 298: 1.9500}
 WORK_REFERENCE = {512: 14665.0, 298: 10403.4}          # Mcycles
 UNACCOUNTED_LOAD_LIMIT = 1.0
 
-ARMS = ("bare", "regions", "cprofile", "sample", "pyspy", "cacheclear")
+ARMS = ("bare", "regions", "cprofile", "sample", "pyspy", "cacheclear", "keepcache")
 
 
 def git(*args):
@@ -132,6 +133,53 @@ def pyspy_reduce(raw, top=40):
     return {"samples": total,
             "by_leaf": [{"at": k, "n": v, "share": round(v / total, 5) if total else None}
                         for k, v in leaf.most_common(top)]}
+
+
+KEEP_FLAG = "TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE"
+FLAG_QUERIES: list = []
+
+
+@contextlib.contextmanager
+def keep_cache_flag(on: bool):
+    """Suppress `Boltz2.forward`'s unconditional program-cache clear for ONE label.
+
+    Set in-process rather than in the environment: the startup check refuses any `TT_BIO_*`
+    outside its allowed set, and the whole point is to A/B the flag inside one process against
+    arms that keep the clear, so the compared folds share a warm cache and a warm allocator.
+    """
+    prev = os.environ.get(KEEP_FLAG)
+    if on:
+        os.environ[KEEP_FLAG] = "1"
+    else:
+        os.environ.pop(KEEP_FLAG, None)
+    try:
+        yield
+    finally:
+        if prev is None:
+            os.environ.pop(KEEP_FLAG, None)
+        else:
+            os.environ[KEEP_FLAG] = prev
+
+
+def install_flag_witness(boltz2):
+    """Record which branch `tt_bio/boltz2.py:5385` actually took, per label.
+
+    A flag set is not a lever fired. `env_flag` is the only reader of KEEP_FLAG in the tree, so
+    wrapping it witnesses the branch that ran rather than the environment that was requested.
+    """
+    real = boltz2.env_flag
+    if getattr(real, "_c12_witness", False):
+        return real
+
+    def wrapped(name, default):
+        v = real(name, default)
+        if name == KEEP_FLAG:
+            FLAG_QUERIES.append(bool(v))
+        return v
+
+    wrapped._c12_witness = True
+    boltz2.env_flag = wrapped
+    return wrapped
 
 
 def install_extra(reg, state, T, boltz2):
@@ -258,6 +306,7 @@ def main() -> int:
         result["instrument"] = {"host_residual": digest(
             ROOT / "perf/b2x_host_residual/host_residual.py")}
         result["ttnn_version"] = importlib.metadata.version("ttnn")
+        install_flag_witness(boltz2)
         result["ttnn_path"] = ttnn.__file__
         result["ttnn_config"] = str(ttnn.CONFIG)
         if Path(T.__file__).resolve() != ROOT / "tt_bio/tenstorrent.py":
@@ -344,6 +393,8 @@ def main() -> int:
             T.SDPA_FUSED_LARGE_S_STATS[:] = [0, 0]
             row = dict(label=label, arm=arm, clock_MHz=clock, rep=rep, force_response=force,
                        before=before, valid=False)
+            FLAG_QUERIES.clear()
+            row["keep_program_cache"] = (arm == "keepcache")
             reg = pr = smp = gt = spy = raw = None
             if arm in ("regions", "sample"):
                 reg = HR.Regions()
@@ -430,6 +481,11 @@ def main() -> int:
                 raise RuntimeError(f"expected one CIF, got {list(row['cif'])}")
             if row["plddt"] is None or not math.isfinite(float(row["plddt"])):
                 raise RuntimeError("nonfinite confidence")
+            row["keep_flag_queries"] = list(FLAG_QUERIES)
+            want_keep = arm == "keepcache"
+            if not FLAG_QUERIES or any(q != want_keep for q in FLAG_QUERIES):
+                raise RuntimeError("program-cache flag witness failed: "
+                                   f"arm={arm} want={want_keep} queries={FLAG_QUERIES}")
             row["after"] = snapshot()
             validate_snapshot(row["after"], a.node, True)
             if row["after"]["boot_id"] != result["before"]["boot_id"]:
@@ -465,7 +521,8 @@ def main() -> int:
                 for arm in arms:
                     label = f"{arm}_c{clock}_r{rep}"
                     try:
-                        one(label, arm, clock, rep)
+                        with keep_cache_flag(arm == "keepcache"):
+                            one(label, arm, clock, rep)
                     except Fatal:
                         raise
                     except Exception as e:
