@@ -45,6 +45,21 @@ FUSE_SCALE_ADD = env_flag("TT_BIO_FUSE_SCALE_ADD", True)
 #: Bit-exact at fold level (openfold3 cdk2x2_298, 1504 calls, byte-identical digest), so
 #: it is on: it deletes 1504 dispatches and cannot move the structure.
 FUSE_MASK_ADD = env_flag("TT_BIO_FUSE_MASK_ADD", True)
+#: The diffusion transformer's conditioning gates: move each gate's sigmoid into the
+#: projection matmul that produces it, then fold the gate multiply into the residual add
+#: with ``mask_add``. One lever, because the fold is only free once the sigmoid moves --
+#: the gate operand is fresh on 9612 of 12000 calls, so a standalone ``ttnn.sigmoid``
+#: would read and write exactly the bytes the fold deletes.
+#: Two sites on the Boltz-2 512 aa path, both found by tracing the executed graph rather
+#: than grepping: ``AdaLN.__call__`` (9600 DRAM calls) and ``DiffusionTransformerLayer``'s
+#: attention write-back (4800 + 1200). See perf/c12_eltwise/.
+FUSE_COND_MULADD = env_flag("TT_BIO_FUSE_COND_MULADD", False)
+#: The attention write-back gate in ``DiffusionTransformerLayer``, split out from
+#: ``FUSE_COND_MULADD`` because it is a strictly smaller change and has to be scored on its own:
+#: its gate ``s_o`` already carries ``activation="sigmoid"`` in the projection that makes it, so
+#: this site is a pure ``addcmul`` substitution with no producer change and strictly better
+#: rounding. 4800 + 1200 calls, 0.0368 s / 49.7 Mc at 1350 MHz.
+FUSE_ATTN_GATE_ADD = env_flag("TT_BIO_FUSE_ATTN_GATE_ADD", False)
 #: ``layer_norm(residual_input_tensor=)``: an add whose only consumer is a norm. Bit-exact
 #: at fold level and the largest per-op win of the three (1.880x on a [1,512,512,128]
 #: norm), but its one site (protenix.py:1637, the confidence head's pde branch) does not
