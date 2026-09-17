@@ -1,0 +1,38 @@
+{
+ "written": "before any device arm ran in this row; the replay refuses to start if this file is absent",
+ "predicted_model_cycles_saved": 0,
+ "why_zero": "this row changes no model code, ships no lever and alters no default. It measures what the fold's own shapes can do.",
+ "clock": "1350 MHz requested through ARC FORCE_AICLK on card 0 and sampled at ~1 kHz DURING every timed loop by a separate process. An interval that is not min == max == 1350 with no read error and no gap above 10 ms is an artifact and is dropped.",
+ "predictions": {
+  "cube8192_TFLOPs": {"central": 112.0, "allowed": [95.0, 130.0],
+   "basis": "four independent Blackhole dense-cube measurements cluster at 104.93 to 114.20 TFLOP/s. Outside the allowed range the instrument or the clock is wrong, not the chip."},
+  "cube8192_start_vs_end_pct": {"allowed_abs": 2.0,
+   "basis": "the same cube measured at both ends of one session bounds session drift. Above 2 % the session is not a single measurement."},
+  "dram_add8192_GBs": {"central": 500.0, "allowed": [200.0, 900.0],
+   "basis": "a starved 8192x8192 add over 402,653,184 bytes admits no reuse, so its rate is the DRAM roof. p300c's published class is several hundred GB/s; a reading above 900 would exceed the physical bus."},
+  "matmul_class_ceiling_TFLOPs": {"central": 40.0, "allowed": [12.0, 75.0],
+   "basis": "roof_pair_transition measured 28 % of cube on one unit's own shapes and triangle multiplication came in 5.89x off its own session's cube (17 %). The fold's largest matmul key is out=[1,512,768] K=768: a 24x24-tile output over 110 cores is about 5 tiles per core, so it is launch- and traffic-shaped rather than cube-shaped. I predict 20 to 45 % of the measured cube."},
+  "matmul_class_fold_seconds_floor": {"central": 3.3, "allowed": [1.7, 11.0],
+   "basis": "131.269 TFLOP of recorded linear+matmul FLOPs divided by the predicted ceiling. This is a LOWER bound on the class's fold seconds because every arm keeps its faster configuration."},
+  "three_byte_classes_fold_seconds_floor": {"central": 2.3, "allowed": [1.0, 4.5],
+   "basis": "the two contaminated in-house roofs bracket multiply_ + layer_norm + add_ at 2.074 to 2.523 s. I expect the measured floor inside that bracket or below it, because both roofs were taken at an unknown clock."}
+ },
+ "decision_rule": {
+  "question": "does the matmul class have rate headroom at the fold's real shapes, or is the modelled 19.88 TFLOP/s already the shape ceiling?",
+  "headroom_real_if": "measured class ceiling >= 2x the modelled 19.88 TFLOP/s, i.e. >= 39.8 TFLOP/s. Then the fold is leaving rate on the table at shapes it already runs and Phase 2 has a kernel target.",
+  "target_does_not_exist_if": "measured class ceiling <= 1.25x 19.88, i.e. <= 24.9 TFLOP/s. Then the fold is already at what these shapes can do, the frontier's 8.9 to 9.1 s of matmul headroom is not reachable without changing the shapes themselves, and the campaign should say 10.0 s does not exist on this fixture.",
+  "between": "report the measured ceiling and the implied reachable saving, and name what fraction of the 4.846 s requirement it covers. No verdict is invented to fill the gap."
+ },
+ "refutation": [
+  "The known-answer control must return exactly 1,099,511,627,776 FLOPs and exactly 402,653,184 bytes for 8192^3. Anything else: STOP, no table row is written.",
+  "Any arm whose measured rate exceeds the same-session cube is an instrument error and its row is refused, not reported as a finding.",
+  "Any arm whose weighted fold seconds alone exceed the 14.881 s bare fold median is an arithmetic error and the table is refused.",
+  "A cube measured outside the allowed range, or a start/end cube disagreement above 2 %, invalidates every rate in the session.",
+  "A foreign holder on card 0 at any point, or containment/srcversion not matching A10759A24565BC5BBE903C5, invalidates the session."
+ ],
+ "not_claimed": [
+  "This row does not measure the fold's in-situ per-op time; a standalone replay of a shape is an upper bound on its rate and therefore a lower bound on its fold cost.",
+  "No whole-fold CLOSURE is claimed from this measurement alone.",
+  "No accuracy, parity, default or production change."
+ ]
+}
