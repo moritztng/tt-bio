@@ -17,7 +17,8 @@ from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
 from .envflags import env_flag, env_int
 from .device_lease import device_init_lock
-from .eltwise_fusion import scale_add
+from . import eltwise_fusion as _eltwise_fusion
+from .eltwise_fusion import mask_add, scale_add
 
 TRIANGLE_MULT_CHUNK_SIZE = 32
 TRIANGLE_ATT_CHUNK_SIZE_FAST = 1024
@@ -9363,6 +9364,8 @@ class AdaLN(Module):
         # Kept apart so a reset can free the pair without touching the caller's `s`.
         self._s_memo = None
         self._s_memo_src = None
+        # which arm built the memo: `s_scale` carries its sigmoid only on the fused arm
+        self._s_memo_fused = None
         self.s_norm_weight = self.torch_to_tt("s_norm.weight", dtype=dtype)
         self.s_scale_weight = self.torch_to_tt("s_scale.weight", dtype=dtype)
         self.s_scale_bias = self.torch_to_tt("s_scale.bias", dtype=dtype)
@@ -9375,8 +9378,10 @@ class AdaLN(Module):
         once per call. The diffusion rollout is exactly that case: 401 atom-transformer
         calls per fold, 9 AdaLNs each, and ``s`` is the atom conditioning ``cl``, which
         does not depend on the noise level or the noisy coordinates."""
+        fused = _eltwise_fusion.FUSE_COND_MULADD
         memo = self.atom_level and _B2_ADALN_S_MEMO
-        if memo and self._s_memo is not None and self._s_memo_src is s:
+        if (memo and self._s_memo is not None and self._s_memo_src is s
+                and self._s_memo_fused == fused):
             return self._s_memo
         # The memo keys on the CALLER's `s` and is taken before the L1 conversion below. Keying
         # on the converted copy instead both misses every time (the copy is fresh per call) and
@@ -9398,6 +9403,9 @@ class AdaLN(Module):
             bias=self.s_scale_bias,
             compute_kernel_config=self.compute_kernel_config,
             memory_config=memory_config,
+            # The gate's sigmoid, in the matmul's own epilogue. It runs on the fp32
+            # accumulator before the pack, so it costs no traffic and rounds once.
+            activation="sigmoid" if fused else None,
             #core_grid=ttnn.CoreGrid(y=10, x=11), CAUSES ACCURACY ISSUE
         )
         s_bias = ttnn.linear(
@@ -9415,6 +9423,7 @@ class AdaLN(Module):
             s_bias = ttnn.to_memory_config(s_bias, memory_config=ttnn.DRAM_MEMORY_CONFIG)
             self._s_memo = (s_scale, s_bias)
             self._s_memo_src = s_src
+            self._s_memo_fused = fused
             # Return the memo OBJECT, not a fresh tuple: `__call__` decides ownership by identity
             # against it, and a fresh tuple makes the storing call deallocate what it just stored.
             return self._s_memo
@@ -9444,8 +9453,14 @@ class AdaLN(Module):
             # A memoised pair belongs to the memo and must survive this call.
             own = self._s_memo is not s_terms
         s_scale, s_bias = s_terms
-        a = ttnn.multiply_(a, s_scale, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        a = ttnn.add_(a, s_bias)
+        if _eltwise_fusion.FUSE_COND_MULADD:
+            # `s_scale` already carries the sigmoid, so this is one addcmul in place of a
+            # multiply and an add: 4 passes over the activation instead of 6.
+            a = mask_add(s_bias, a, s_scale, memory_config=memory_config)
+        else:
+            a = ttnn.multiply_(a, s_scale,
+                               input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+            a = ttnn.add_(a, s_bias)
         if own:                     # a cached pair belongs to the caller
             ttnn.deallocate(s_scale)
             ttnn.deallocate(s_bias)
@@ -9619,15 +9634,19 @@ class DiffusionTransformerLayer(Module):
                 self.s_o, self._s_o_key = s_o, key
         else:
             s_o = self.s_o
-        b = ttnn.multiply(s_o, b)
         if self.no_residual:
             # transition reads the block input, so it must be evaluated BEFORE a
-            # absorbs the attention output
+            # absorbs the attention output. The gate multiply cannot fold into that add:
+            # its residual is `a + b`, which does not exist until after the transition.
+            b = ttnn.multiply(s_o, b)
             a_t = self.transition(a, s, large_seq_len=large_seq_len,
                                   cond=None if cond is None else (t_trans, s_o2_pre))
             a = ttnn.add(ttnn.add(a, b), a_t)
         else:
-            a = ttnn.add(a, b)
+            if _eltwise_fusion.FUSE_COND_MULADD:
+                a = mask_add(a, s_o, b)
+            else:
+                a = ttnn.add(a, ttnn.multiply(s_o, b))
             a_t = self.transition(a, s, large_seq_len=large_seq_len,
                                   cond=None if cond is None else (t_trans, s_o2_pre))
             a = ttnn.add(a, a_t)

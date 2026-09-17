@@ -13,7 +13,7 @@ WT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PY="${PY:-/tmp/relvenv090/bin/python3}"
 cd "$WT"
 export PYTHONPATH="$WT"
-export TT_BIO_LEASE_CARDS="1,$CARD"
+export TT_BIO_LEASE_CARDS="$CARD"
 export TT_VISIBLE_DEVICES="$CARD"
 export TT_BIO_LEASE_HOLDER=worker:c12-fused-eltwise-at-pin
 mkdir -p perf/c12_eltwise/runs

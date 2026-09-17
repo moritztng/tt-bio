@@ -1,0 +1,1216 @@
+{
+ "trace": "perf/c12_eltwise/runs/trace_512_c2.json",
+ "n_ops": 391880,
+ "op_counts": {
+  "from_torch": 814,
+  "deallocate": 101559,
+  "reshape": 19129,
+  "add_": 14645,
+  "linear": 88027,
+  "multiply": 12470,
+  "cos": 202,
+  "multiply_": 35839,
+  "unsqueeze": 6558,
+  "add": 13747,
+  "layer_norm": 28443,
+  "clone": 4,
+  "permute": 12438,
+  "softmax": 284,
+  "slice": 12806,
+  "matmul": 1633,
+  "chunk": 296,
+  "concat": 1498,
+  "to_layout": 2464,
+  "generic_op": 3920,
+  "to_memory_config": 16164,
+  "nlp_create_qkv_heads": 6264,
+  "transpose": 264,
+  "from_device": 205,
+  "to_torch": 205,
+  "sum": 1,
+  "pad": 3600,
+  "scaled_dot_product_attention": 6000,
+  "nlp_concat_heads": 1200,
+  "squeeze": 1200,
+  "where": 1
+ },
+ "dram_roof_GBs": 442.8767243360721,
+ "at_roof_pct": 97.0,
+ "fusable": [
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:9447:__call__",
+   "consumer_site": "tenstorrent.py:9448:__call__",
+   "shape": "1x512x768|BFLOAT16",
+   "calls": 9600,
+   "bytes_per_call": 1572864,
+   "bytes_per_fold": 15099494400,
+   "seconds": 0.05853188175979227,
+   "rate_basis": "key 258.0 GB/s",
+   "l1_calls": 0,
+   "l1_bytes_not_counted": 0
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:9622:__call__",
+   "consumer_site": "tenstorrent.py:9630:__call__",
+   "shape": "1x512x768|BFLOAT16",
+   "calls": 4800,
+   "bytes_per_call": 1572864,
+   "bytes_per_fold": 7549747200,
+   "seconds": 0.029265940879896136,
+   "rate_basis": "key 258.0 GB/s",
+   "l1_calls": 0,
+   "l1_bytes_not_counted": 0
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:9534:__call__",
+   "consumer_site": "tenstorrent.py:9633:__call__",
+   "shape": "1x512x768|BFLOAT16",
+   "calls": 4800,
+   "bytes_per_call": 1572864,
+   "bytes_per_fold": 7549747200,
+   "seconds": 0.029265940879896136,
+   "rate_basis": "key 258.0 GB/s",
+   "l1_calls": 0,
+   "l1_bytes_not_counted": 0
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:9622:__call__",
+   "consumer_site": "tenstorrent.py:9630:__call__",
+   "shape": "1x140x32x128|BFLOAT16",
+   "calls": 1200,
+   "bytes_per_call": 2293760,
+   "bytes_per_fold": 2752512000,
+   "seconds": 0.00753614615580052,
+   "rate_basis": "key 365.2 GB/s",
+   "l1_calls": 0,
+   "l1_bytes_not_counted": 0
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:9534:__call__",
+   "consumer_site": "tenstorrent.py:9633:__call__",
+   "shape": "1x140x32x128|BFLOAT16",
+   "calls": 1200,
+   "bytes_per_call": 2293760,
+   "bytes_per_fold": 2752512000,
+   "seconds": 0.00753614615580052,
+   "rate_basis": "key 365.2 GB/s",
+   "l1_calls": 0,
+   "l1_bytes_not_counted": 0
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:9633:__call__",
+   "consumer_site": "tenstorrent.py:10781:__call__",
+   "shape": "1x512x768|BFLOAT16",
+   "calls": 200,
+   "bytes_per_call": 1572864,
+   "bytes_per_fold": 314572800,
+   "seconds": 0.0011678155433106656,
+   "rate_basis": "key 269.4 GB/s",
+   "l1_calls": 0,
+   "l1_bytes_not_counted": 0
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:9633:__call__",
+   "consumer_site": "tenstorrent.py:10815:__call__",
+   "shape": "1x140x32x128|BFLOAT16",
+   "calls": 200,
+   "bytes_per_call": 2293760,
+   "bytes_per_fold": 458752000,
+   "seconds": 0.0012016817806245214,
+   "rate_basis": "key 381.8 GB/s",
+   "l1_calls": 0,
+   "l1_bytes_not_counted": 0
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:8623:__call__",
+   "consumer_site": "tenstorrent.py:11724:_branch",
+   "shape": "1x512x384|BFLOAT16",
+   "calls": 3,
+   "bytes_per_call": 786432,
+   "bytes_per_fold": 2359296,
+   "seconds": 1.742744125307812e-05,
+   "rate_basis": "key 135.4 GB/s",
+   "l1_calls": 0,
+   "l1_bytes_not_counted": 0
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:12177:_contact",
+   "consumer_site": "tenstorrent.py:12179:_contact",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 2,
+   "bytes_per_call": 134217728,
+   "bytes_per_fold": 268435456,
+   "seconds": 0.0006061177778137212,
+   "rate_basis": "roof 442.9 GB/s",
+   "l1_calls": 0,
+   "l1_bytes_not_counted": 0
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:10480:__call__",
+   "consumer_site": "tenstorrent.py:10090:project_ab",
+   "shape": "1x64x512x64|BFLOAT16",
+   "calls": 1,
+   "bytes_per_call": 8388608,
+   "bytes_per_fold": 8388608,
+   "seconds": null,
+   "rate_basis": "unpriced (key not in census)",
+   "l1_calls": 0,
+   "l1_bytes_not_counted": 0
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:11352:_populate_diffusion_cache",
+   "consumer_site": "tenstorrent.py:11352:_populate_diffusion_cache",
+   "shape": "140x1x1x128|BFLOAT16",
+   "calls": 1,
+   "bytes_per_call": 71680,
+   "bytes_per_fold": 71680,
+   "seconds": null,
+   "rate_basis": "unpriced (key not in census)",
+   "l1_calls": 0,
+   "l1_bytes_not_counted": 0
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:6802:__call__",
+   "consumer_site": "tenstorrent.py:8583:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 0,
+   "bytes_per_call": 0,
+   "bytes_per_fold": 0,
+   "seconds": 0.0,
+   "rate_basis": "roof 442.9 GB/s",
+   "l1_calls": 280,
+   "l1_bytes_not_counted": 37580963840
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:6802:__call__",
+   "consumer_site": "tenstorrent.py:8587:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 0,
+   "bytes_per_call": 0,
+   "bytes_per_fold": 0,
+   "seconds": 0.0,
+   "rate_basis": "roof 442.9 GB/s",
+   "l1_calls": 264,
+   "l1_bytes_not_counted": 35433480192
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:9447:__call__",
+   "consumer_site": "tenstorrent.py:9448:__call__",
+   "shape": "1x140x32x128|BFLOAT16",
+   "calls": 0,
+   "bytes_per_call": 0,
+   "bytes_per_fold": 0,
+   "seconds": 0.0,
+   "rate_basis": "key 365.2 GB/s",
+   "l1_calls": 2400,
+   "l1_bytes_not_counted": 5505024000
+  }
+ ],
+ "rejected": [
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:9448:__call__",
+   "shape": "1x512x768|BFLOAT16",
+   "calls": 9600,
+   "reasons": {
+    "2_consumers": 4800,
+    "3_consumers": 4800
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:8167:__call__",
+   "shape": "1x512x768|BFLOAT16",
+   "calls": 4800,
+   "reasons": {
+    "sole_consumer_is_linear": 4800
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:9630:__call__",
+   "shape": "1x512x768|BFLOAT16",
+   "calls": 4800,
+   "reasons": {
+    "2_consumers": 4800
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:9504:__call__",
+   "shape": "1x512x1536|BFLOAT16",
+   "calls": 4800,
+   "reasons": {
+    "sole_consumer_is_multiply_": 4800
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:9513:__call__",
+   "shape": "1x512x1536|BFLOAT16",
+   "calls": 4800,
+   "reasons": {
+    "sole_consumer_is_linear": 4800
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:9633:__call__",
+   "shape": "1x512x768|BFLOAT16",
+   "calls": 4600,
+   "reasons": {
+    "2_consumers": 4600
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:8231:swiglu",
+   "shape": "1x47x512x512|BFLOAT16",
+   "calls": 2800,
+   "reasons": {
+    "sole_consumer_is_linear": 2800
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:9448:__call__",
+   "shape": "1x140x32x128|BFLOAT16",
+   "calls": 2400,
+   "reasons": {
+    "sole_consumer_is_to_memory_config": 2400
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:8167:__call__",
+   "shape": "1x140x32x128|BFLOAT16",
+   "calls": 1200,
+   "reasons": {
+    "sole_consumer_is_linear": 1200
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:9630:__call__",
+   "shape": "1x140x32x128|BFLOAT16",
+   "calls": 1200,
+   "reasons": {
+    "2_consumers": 1200
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:9504:__call__",
+   "shape": "1x140x32x256|BFLOAT16",
+   "calls": 1200,
+   "reasons": {
+    "sole_consumer_is_multiply_": 1200
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:9513:__call__",
+   "shape": "1x140x32x256|BFLOAT16",
+   "calls": 1200,
+   "reasons": {
+    "sole_consumer_is_linear": 1200
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:9633:__call__",
+   "shape": "1x140x32x128|BFLOAT16",
+   "calls": 1000,
+   "reasons": {
+    "2_consumers": 1000
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:8231:swiglu",
+   "shape": "1x512x1536|BFLOAT16",
+   "calls": 664,
+   "reasons": {
+    "sole_consumer_is_linear": 664
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:7409:gate_and_project",
+   "shape": "512x4x512x32|BFLOAT16",
+   "calls": 560,
+   "reasons": {
+    "sole_consumer_is_generic_op": 560
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:6568:__call__",
+   "shape": "1x128x512x512|BFLOAT16",
+   "calls": 528,
+   "reasons": {
+    "2_consumers": 526,
+    "sole_consumer_is_matmul": 2
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:7576:__call__",
+   "shape": "1x4x512x512|BFLOAT16",
+   "calls": 528,
+   "reasons": {
+    "2_consumers": 256,
+    "sole_consumer_is_generic_op": 272
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:8583:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 280,
+   "reasons": {
+    "2_consumers": 280
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:8587:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 280,
+   "reasons": {
+    "2_consumers": 280
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:8591:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 280,
+   "reasons": {
+    "2_consumers": 280
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:8595:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 280,
+   "reasons": {
+    "2_consumers": 280
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:8231:swiglu",
+   "shape": "1x42x512x512|BFLOAT16",
+   "calls": 280,
+   "reasons": {
+    "sole_consumer_is_linear": 280
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:8603:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 280,
+   "reasons": {
+    "2_consumers": 18,
+    "sole_consumer_is_add": 1,
+    "3_consumers": 259,
+    "5_consumers": 1,
+    "6_consumers": 1
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:8067:__call__",
+   "shape": "1x16x512x512|BFLOAT16",
+   "calls": 264,
+   "reasons": {
+    "sole_consumer_is_add_": 264
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:8078:__call__",
+   "shape": "1x16x512x512|BFLOAT16",
+   "calls": 264,
+   "reasons": {
+    "sole_consumer_is_multiply_": 264
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:8079:__call__",
+   "shape": "1x16x512x512|BFLOAT16",
+   "calls": 264,
+   "reasons": {
+    "sole_consumer_is_softmax": 264
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:8167:__call__",
+   "shape": "1x512x384|BFLOAT16",
+   "calls": 264,
+   "reasons": {
+    "2_consumers": 60,
+    "sole_consumer_is_linear": 204
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:8619:__call__",
+   "shape": "1x512x384|BFLOAT16",
+   "calls": 264,
+   "reasons": {
+    "2_consumers": 264
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:8623:__call__",
+   "shape": "1x512x384|BFLOAT16",
+   "calls": 261,
+   "reasons": {
+    "2_consumers": 261
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:10694:__call__",
+   "shape": "1x4480x128|BFLOAT16",
+   "calls": 200,
+   "reasons": {
+    "2_consumers": 200
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:10727:__call__",
+   "shape": "1x256|BFLOAT16",
+   "calls": 200,
+   "reasons": {
+    "sole_consumer_is_cos": 200
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:10743:__call__",
+   "shape": "1x512x768|BFLOAT16",
+   "calls": 200,
+   "reasons": {
+    "2_consumers": 200
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:10746:__call__",
+   "shape": "1x512x768|BFLOAT16",
+   "calls": 200,
+   "reasons": {
+    "2_consumers": 200
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:10749:__call__",
+   "shape": "1x512x768|BFLOAT16",
+   "calls": 200,
+   "reasons": {
+    "97_consumers": 200
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:10764:__call__",
+   "shape": "1x512x768|BFLOAT16",
+   "calls": 200,
+   "reasons": {
+    "2_consumers": 200
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:10804:__call__",
+   "shape": "1x4480x128|BFLOAT16",
+   "calls": 200,
+   "reasons": {
+    "2_consumers": 200
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:9894:head_out",
+   "shape": "64x512x32|BFLOAT16",
+   "calls": 128,
+   "reasons": {
+    "sole_consumer_is_linear": 128
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:9924:heads_over",
+   "shape": "64x512x64|BFLOAT16",
+   "calls": 112,
+   "reasons": {
+    "sole_consumer_is_add_": 112
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:10478:__call__",
+   "shape": "1x64x512x64|BFLOAT16",
+   "calls": 16,
+   "reasons": {
+    "sole_consumer_is_chunk": 16
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:8231:swiglu",
+   "shape": "1x64x512x256|BFLOAT16",
+   "calls": 16,
+   "reasons": {
+    "sole_consumer_is_linear": 16
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:10113:project_ab",
+   "shape": "64x512x32|BFLOAT16",
+   "calls": 16,
+   "reasons": {
+    "sole_consumer_is_permute": 16
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:10312:outer_product_mean",
+   "shape": "512x512x1024|BFLOAT16",
+   "calls": 16,
+   "reasons": {
+    "sole_consumer_is_linear": 16
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:10482:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 16,
+   "reasons": {
+    "2_consumers": 16
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:6802:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 16,
+   "reasons": {
+    "2_consumers": 16
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:10480:__call__",
+   "shape": "1x64x512x64|BFLOAT16",
+   "calls": 15,
+   "reasons": {
+    "3_consumers": 12,
+    "2_consumers": 3
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:12195:_acc",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 8,
+   "reasons": {
+    "sole_consumer_is_add_": 5,
+    "sole_consumer_is_add": 2,
+    "2_consumers": 1
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:11835:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 6,
+   "reasons": {
+    "sole_consumer_is_add_": 6
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:12194:_acc",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 4,
+   "reasons": {
+    "sole_consumer_is_add": 2,
+    "4_consumers": 1,
+    "sole_consumer_is_add_": 1
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:11738:_branch",
+   "shape": "1x512x384|BFLOAT16",
+   "calls": 4,
+   "reasons": {
+    "2_consumers": 4
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:11738:_branch",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 4,
+   "reasons": {
+    "3_consumers": 1,
+    "2_consumers": 3
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:10541:__call__",
+   "shape": "1x64x512x64|BFLOAT16",
+   "calls": 4,
+   "reasons": {
+    "2_consumers": 4
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:12875:_iteration",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 4,
+   "reasons": {
+    "2_consumers": 4
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:12172:_contact",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 2,
+   "reasons": {
+    "sole_consumer_is_cos": 2
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:12175:_contact",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 2,
+   "reasons": {
+    "sole_consumer_is_multiply_": 2
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:12179:_contact",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 2,
+   "reasons": {
+    "sole_consumer_is_add_": 2
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:11943:__call__",
+   "shape": "1x512x512x256|BFLOAT16",
+   "calls": 2,
+   "reasons": {
+    "sole_consumer_is_linear": 2
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:11947:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 2,
+   "reasons": {
+    "2_consumers": 2
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:11360:prepare_atom_bias",
+   "shape": "140x12x32x128|BFLOAT16",
+   "calls": 2,
+   "reasons": {
+    "sole_consumer_is_multiply_": 2
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:11361:prepare_atom_bias",
+   "shape": "140x12x32x128|BFLOAT16",
+   "calls": 2,
+   "reasons": {
+    "3_consumers": 2
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:12387:__call__",
+   "shape": "1x512x512x32|BFLOAT16",
+   "calls": 2,
+   "reasons": {
+    "sole_consumer_is_where": 2
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:11352:_populate_diffusion_cache",
+   "shape": "140x1x1x128|BFLOAT16",
+   "calls": 1,
+   "reasons": {
+    "sole_consumer_is_multiply": 1
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:11352:_populate_diffusion_cache",
+   "shape": "140x1x1x128|BFLOAT16",
+   "calls": 1,
+   "reasons": {
+    "2_consumers": 1
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:11377:_populate_diffusion_cache",
+   "shape": "1x512x512x384|BFLOAT16",
+   "calls": 1,
+   "reasons": {
+    "sole_consumer_is_permute": 1
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:11397:_populate_diffusion_cache",
+   "shape": "1x1x512|BFLOAT16",
+   "calls": 1,
+   "reasons": {
+    "0_consumers": 1
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:11394:_populate_diffusion_cache",
+   "shape": "1x4480x512|BFLOAT16",
+   "calls": 1,
+   "reasons": {
+    "200_consumers": 1
+   }
+  },
+  {
+   "family": "mul_into_add",
+   "producer_site": "tenstorrent.py:12250:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 1,
+   "reasons": {
+    "2_consumers": 1
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:12254:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 1,
+   "reasons": {
+    "sole_consumer_is_add_": 1
+   }
+  },
+  {
+   "family": "add_into_norm",
+   "producer_site": "tenstorrent.py:12373:__call__",
+   "shape": "1x512x512x128|BFLOAT16",
+   "calls": 1,
+   "reasons": {
+    "2_consumers": 1
+   }
+  }
+ ],
+ "consumer_hist": [
+  {
+   "op": "multiply_",
+   "shape": "1x512x768|BFLOAT16",
+   "defs": 14400,
+   "consumer_hist": {
+    "1:add_": 9600,
+    "1:add": 4800
+   }
+  },
+  {
+   "op": "add",
+   "shape": "1x512x768|BFLOAT16",
+   "defs": 10400,
+   "consumer_hist": {
+    "2:add,layer_norm": 10000,
+    "97:layer_norm,linear": 200,
+    "1:layer_norm": 200
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "1x512x1536|BFLOAT16",
+   "defs": 10264,
+   "consumer_hist": {
+    "1:linear": 5464,
+    "1:multiply_": 4800
+   }
+  },
+  {
+   "op": "add_",
+   "shape": "1x512x768|BFLOAT16",
+   "defs": 9600,
+   "consumer_hist": {
+    "2:linear": 4800,
+    "3:linear": 4800
+   }
+  },
+  {
+   "op": "multiply",
+   "shape": "1x512x768|BFLOAT16",
+   "defs": 9600,
+   "consumer_hist": {
+    "1:linear": 4800,
+    "1:add": 4800
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "1x140x32x128|BFLOAT16",
+   "defs": 3600,
+   "consumer_hist": {
+    "1:add_": 2400,
+    "1:add": 1200
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "1x47x512x512|BFLOAT16",
+   "defs": 2800,
+   "consumer_hist": {
+    "1:linear": 2800
+   }
+  },
+  {
+   "op": "add_",
+   "shape": "1x140x32x128|BFLOAT16",
+   "defs": 2400,
+   "consumer_hist": {
+    "1:to_memory_config": 2400
+   }
+  },
+  {
+   "op": "multiply",
+   "shape": "1x140x32x128|BFLOAT16",
+   "defs": 2400,
+   "consumer_hist": {
+    "1:linear": 1200,
+    "1:add": 1200
+   }
+  },
+  {
+   "op": "add",
+   "shape": "1x140x32x128|BFLOAT16",
+   "defs": 2400,
+   "consumer_hist": {
+    "2:add,to_memory_config": 2000,
+    "2:add,linear": 200,
+    "1:layer_norm": 200
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "1x140x32x256|BFLOAT16",
+   "defs": 2400,
+   "consumer_hist": {
+    "1:multiply_": 1200,
+    "1:linear": 1200
+   }
+  },
+  {
+   "op": "add_",
+   "shape": "1x512x512x128|BFLOAT16",
+   "defs": 1437,
+   "consumer_hist": {
+    "2:add_,layer_norm": 590,
+    "2:add_,permute": 280,
+    "2:add_,chunk": 280,
+    "3:add_,layer_norm": 259,
+    "1:add_": 14,
+    "2:layer_norm": 4,
+    "1:add": 3,
+    "2:add,generic_op": 3,
+    "1:multiply_": 2,
+    "5:concat,from_device,layer_norm,to_torch": 1,
+    "6:add,layer_norm,linear,permute,where": 1
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "1x512x512x128|BFLOAT16",
+   "defs": 562,
+   "consumer_hist": {
+    "1:add_": 546,
+    "2:add_,generic_op": 16
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "512x4x512x32|BFLOAT16",
+   "defs": 560,
+   "consumer_hist": {
+    "1:generic_op": 560
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "1x128x512x512|BFLOAT16",
+   "defs": 528,
+   "consumer_hist": {
+    "2:generic_op,matmul": 526,
+    "1:matmul": 2
+   }
+  },
+  {
+   "op": "add",
+   "shape": "1x4x512x512|BFLOAT16",
+   "defs": 528,
+   "consumer_hist": {
+    "1:generic_op": 272,
+    "2:generic_op": 256
+   }
+  },
+  {
+   "op": "add_",
+   "shape": "1x16x512x512|BFLOAT16",
+   "defs": 528,
+   "consumer_hist": {
+    "1:add_": 264,
+    "1:multiply_": 264
+   }
+  },
+  {
+   "op": "add_",
+   "shape": "1x512x384|BFLOAT16",
+   "defs": 528,
+   "consumer_hist": {
+    "2:add_,layer_norm": 523,
+    "1:layer_norm": 3,
+    "2:from_device,to_torch": 2
+   }
+  },
+  {
+   "op": "add",
+   "shape": "1x4480x128|BFLOAT16",
+   "defs": 400,
+   "consumer_hist": {
+    "2:add,to_memory_config": 400
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "1x42x512x512|BFLOAT16",
+   "defs": 280,
+   "consumer_hist": {
+    "1:linear": 280
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "1x16x512x512|BFLOAT16",
+   "defs": 264,
+   "consumer_hist": {
+    "1:softmax": 264
+   }
+  },
+  {
+   "op": "multiply",
+   "shape": "1x512x384|BFLOAT16",
+   "defs": 264,
+   "consumer_hist": {
+    "1:linear": 204,
+    "2:generic_op,linear": 60
+   }
+  },
+  {
+   "op": "multiply",
+   "shape": "1x256|BFLOAT16",
+   "defs": 200,
+   "consumer_hist": {
+    "1:cos": 200
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "64x512x32|BFLOAT16",
+   "defs": 144,
+   "consumer_hist": {
+    "1:linear": 128,
+    "1:permute": 16
+   }
+  },
+  {
+   "op": "add_",
+   "shape": "64x512x64|BFLOAT16",
+   "defs": 112,
+   "consumer_hist": {
+    "1:add_": 112
+   }
+  },
+  {
+   "op": "add_",
+   "shape": "1x64x512x64|BFLOAT16",
+   "defs": 36,
+   "consumer_hist": {
+    "1:chunk": 16,
+    "3:add_,layer_norm": 12,
+    "2:add_,layer_norm": 4,
+    "2:generic_op,layer_norm": 3,
+    "1:layer_norm": 1
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "1x64x512x256|BFLOAT16",
+   "defs": 16,
+   "consumer_hist": {
+    "1:linear": 16
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "512x512x1024|BFLOAT16",
+   "defs": 16,
+   "consumer_hist": {
+    "1:linear": 16
+   }
+  },
+  {
+   "op": "add",
+   "shape": "1x512x512x128|BFLOAT16",
+   "defs": 13,
+   "consumer_hist": {
+    "2:add_,layer_norm": 4,
+    "2:add,clone": 3,
+    "1:add": 2,
+    "4:add": 1,
+    "3:add,clone,generic_op": 1,
+    "1:add_": 1,
+    "2:linear": 1
+   }
+  },
+  {
+   "op": "add",
+   "shape": "1x512x384|BFLOAT16",
+   "defs": 4,
+   "consumer_hist": {
+    "2:add_,layer_norm": 4
+   }
+  },
+  {
+   "op": "multiply",
+   "shape": "1x512x512x128|BFLOAT16",
+   "defs": 3,
+   "consumer_hist": {
+    "1:cos": 2,
+    "2:add_,linear": 1
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "1x512x512x256|BFLOAT16",
+   "defs": 2,
+   "consumer_hist": {
+    "1:linear": 2
+   }
+  },
+  {
+   "op": "multiply",
+   "shape": "140x1x1x128|BFLOAT16",
+   "defs": 2,
+   "consumer_hist": {
+    "1:add": 1,
+    "2:add_": 1
+   }
+  },
+  {
+   "op": "add_",
+   "shape": "140x12x32x128|BFLOAT16",
+   "defs": 2,
+   "consumer_hist": {
+    "1:multiply_": 2
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "140x12x32x128|BFLOAT16",
+   "defs": 2,
+   "consumer_hist": {
+    "3:slice": 2
+   }
+  },
+  {
+   "op": "add_",
+   "shape": "1x512x512x32|BFLOAT16",
+   "defs": 2,
+   "consumer_hist": {
+    "1:where": 2
+   }
+  },
+  {
+   "op": "add",
+   "shape": "140x1x1x128|BFLOAT16",
+   "defs": 1,
+   "consumer_hist": {
+    "1:multiply": 1
+   }
+  },
+  {
+   "op": "multiply_",
+   "shape": "1x512x512x384|BFLOAT16",
+   "defs": 1,
+   "consumer_hist": {
+    "1:permute": 1
+   }
+  },
+  {
+   "op": "add",
+   "shape": "1x1x512|BFLOAT16",
+   "defs": 1,
+   "consumer_hist": {
+    "0:-": 1
+   }
+  },
+  {
+   "op": "multiply",
+   "shape": "1x4480x512|BFLOAT16",
+   "defs": 1,
+   "consumer_hist": {
+    "200:matmul": 1
+   }
+  }
+ ],
+ "total_bytes_per_fold": 36756592640,
+ "total_seconds": 0.13512909837418757
+}

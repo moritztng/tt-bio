@@ -1,2 +1,3 @@
-runs/*.json
+runs/trace_*.json
 runs/*.log
+runs/cif_*/

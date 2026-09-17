@@ -90,6 +90,27 @@ def _addr(t):
         return None
 
 
+_DRAM = [None]
+
+
+def _space(t):
+    """1 if the tensor lives in DRAM, 0 if in L1, -1 unknown.
+
+    A fusion deletes the producer's output write and the consumer's read of it. If both live in
+    L1 (which the shipped _PAIR_PROJ_L1_OUT lever arranges for exactly the trimul's multiply_
+    and the Pairformer's residual add_) then no DRAM byte is deleted and the fusion is worth
+    nothing at the DRAM roof. Pricing an L1 operand at a DRAM rate is the error that invents a
+    lever, so residency is recorded per operand rather than assumed.
+    """
+    try:
+        import ttnn
+        if _DRAM[0] is None:
+            _DRAM[0] = ttnn.BufferType.DRAM
+        return 1 if t.memory_config().buffer_type == _DRAM[0] else 0
+    except Exception:
+        return -1
+
+
 def _tensors(obj, out, depth=0):
     if depth > 2 or obj is None:
         return
@@ -114,7 +135,7 @@ def _wrap(name, fn):
         for t in ins:
             ad = _addr(t)
             if ad is not None:
-                reads.append((ad, VER[ad], _shape_id(t), _nbytes(t)))
+                reads.append((ad, VER[ad], _shape_id(t), _nbytes(t), _space(t)))
         site = _site()
         r = fn(*a, **k)
         outs = []
@@ -125,7 +146,7 @@ def _wrap(name, fn):
             if ad is None:
                 continue
             VER[ad] += 1
-            writes.append((ad, VER[ad], _shape_id(t), _nbytes(t)))
+            writes.append((ad, VER[ad], _shape_id(t), _nbytes(t), _space(t)))
         REC.append((_SEQ[0], name, site, reads, writes))
         _SEQ[0] += 1
         return r
@@ -195,6 +216,12 @@ def main():
     finally:
         _TRACING[0] = False
     print("traced fold %.1fs, %d ops" % (time.time() - t1, len(REC)), flush=True)
+    import tt_bio.tenstorrent as _TT
+    latch = {k: {kk: vv for kk, vv in v.items() if kk != "why"}
+             for k, v in getattr(_TT, "LATCH_STATS", {}).items()
+             if any(v.get(f) for f in ("served", "refused", "blocked", "declined"))}
+    print("latches: %s" % json.dumps(latch), flush=True)
+    print("trimul g_out fused: %s" % getattr(_TT, "TRIMUL_GOUT_STATS", None), flush=True)
 
     a.out.parent.mkdir(parents=True, exist_ok=True)
     with open(a.out, "w") as f:
@@ -202,6 +229,8 @@ def main():
                    "sites": {v: k for k, v in SITES.items()},
                    "shapes": {v: k for k, v in SHAPES.items()},
                    "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
+                   "latches": latch,
+                   "fields": ["addr", "version", "shape_id", "bytes", "dram"],
                    "records": REC}, f)
     print("wrote %s (%.1f MB)" % (a.out, a.out.stat().st_size / 1e6))
 
