@@ -39,10 +39,14 @@ venv you installed the wheel into, with `PYTHONPATH="$PWD"` so the tree under te
 stays the repository:
 
 ```bash
-python3 -m build && python3 -m venv /tmp/relvenv
-/tmp/relvenv/bin/pip install "$(echo dist/tt_bio-*.whl)[tenstorrent,test]"
-PYTHONPATH="$PWD" /tmp/relvenv/bin/python3 scripts/full_parity_gate.py ...
+python3 -m build && python3 -m venv ~/scratch/relvenv
+~/scratch/relvenv/bin/pip install "$(echo dist/tt_bio-*.whl)[tenstorrent,test]"
+PYTHONPATH="$PWD" ~/scratch/relvenv/bin/python3 scripts/full_parity_gate.py ...
 ```
+
+Keep that venv off `/tmp`. A gate chain runs for hours and a box can reboot under it:
+on 2026-09-17 qb2 rebooted mid-gate, `/tmp` went with it, and the next three arms
+each exited 127 in the same second and wrote a DONE marker over an empty gate.
 
 `full_parity_gate.py`, `perf_regression.py` and `ux_regression.py` all spawn their
 folds and scorers as `sys.executable`, so the choice propagates to every leg.
@@ -177,7 +181,7 @@ TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm OPENDDE_DOCKQ_PYTHON=/path/to/dockq_v
 # swing on the boltz2-affinity leg alone. Cells are seeded on the release venv, so a
 # bare `python3` can hand you a 25% "regression" or "win" that is only the instrument.
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
-  /tmp/relvenv/bin/python3 scripts/perf_regression.py
+  ~/scratch/relvenv/bin/python3 scripts/perf_regression.py
 
 # Size-generality arm: folds every structure model at 256/512/640/768/896/1024 aa,
 # plus a model's own top rung where it reaches past that (rf3 also folds 1088)
@@ -618,7 +622,7 @@ Update a baseline only for an intentional performance change:
 
 ```bash
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
-  /tmp/relvenv/bin/python3 scripts/perf_regression.py --update-baseline --note "reason"
+  ~/scratch/relvenv/bin/python3 scripts/perf_regression.py --update-baseline --note "reason"
 ```
 
 Seed a cell with the same release-venv interpreter that measures it. A cell written
