@@ -26,9 +26,16 @@ SHAPES = {
     (160, 16, 4): ((1, 16, 320, 512), (512, 128)),
     (256, 16, 4): ((1, 16, 512, 512), (512, 128)),
     (384, 16, 4): ((1, 16, 768, 512), (512, 128)),
-    (10, 24, 24): ((1, 320, 768), (768, 768)),
     (16, 24, 24): ((1, 512, 768), (768, 768)),
     (24, 24, 24): ((1, 768, 768), (768, 768)),
+}
+# Shapes the table must NOT name, each removed on a measurement rather than an opinion: DiT at
+# 298 aa reads 0.8925x through the production path (a regression), CTB reads 0.9935x at 512 aa and
+# 1.0176x at 768 aa, both inside their own A/A floors. If an entry for one of these reappears, this
+# test fails rather than the fold quietly getting slower at one size.
+ABSENT = {
+    (10, 24, 24): ((1, 320, 768), (768, 768)),
+    (10, 24, 48): ((1, 320, 768), (768, 1536)),
     (16, 24, 48): ((1, 512, 768), (768, 1536)),
     (24, 24, 48): ((1, 768, 768), (768, 1536)),
 }
@@ -77,6 +84,14 @@ for key, (a, w) in SHAPES.items():
     print("  %-14s %s bw=%-3d pcm=%-3d pcn=%-3d drain=%dx%d sub=%dx%d  %s"
           % (key, got_fam, c.in0_block_w, c.per_core_M, c.per_core_N, c.out_block_h,
              c.out_block_w, c.out_subblock_h, c.out_subblock_w, "ok" if not bad else "FAIL"))
+
+for key, (a, w) in ABSENT.items():
+    if key in TB._LINEAR_BLOCK:
+        fail.append(f"{key} is back in the table -- it was removed on a measured regression or a "
+                    f"ratio inside its own A/A floor")
+    if cfg(a, w) is not None:
+        fail.append(f"{key} must stay inert and did not")
+print("  %d removed keys still absent and inert" % len(ABSENT))
 
 # --- negative controls: each must REFUSE, and each is a distinct guard -------------------------
 a512, w512 = SHAPES[(256, 4, 16)]

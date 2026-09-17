@@ -26,19 +26,26 @@ import clk                                  # noqa: E402
 import tt_bio.tenstorrent as TB             # noqa: E402
 
 L1, DRAM = ttnn.L1_MEMORY_CONFIG, ttnn.DRAM_MEMORY_CONFIG
-# (label, a_shape, w_shape, a memory_config, out memory_config). The placements are each key's
-# OWN measured placement from c10-fold-census, not a single choice applied to all four: the pair
-# transition runs L1-resident and the DiT and CTB projections run DRAM->DRAM. Getting this wrong is
-# not cosmetic -- the first run of this script put every `a` in L1 and the two DRAM keys inverted to
-# 0.9416x and 0.9545x, because a block config tuned for a DRAM operand is not the one an L1 operand
-# wants. The table keys on (mt_total, kt, nt) and NOT on placement, so that inversion is a real open
-# risk at any site whose operand placement differs from the one its entry was measured at.
-KEYS = [
-    ("fc2  (256,4,16)", (1, 16, 512, 128), (128, 512), L1, L1),
-    ("fc3  (256,16,4)", (1, 16, 512, 512), (512, 128), L1, DRAM),
-    ("dit  (16,24,24)", (1, 512, 768), (768, 768), DRAM, DRAM),
-    ("ctb  (16,24,48)", (1, 512, 768), (768, 1536), DRAM, DRAM),
-]
+# (label, a_shape(tok), w_shape, a memory_config, out memory_config). The placements are each
+# key's OWN measured placement from c10-fold-census, not a single choice applied to all four: the
+# pair transition runs L1-resident and the DiT and CTB projections run DRAM->DRAM. Getting this
+# wrong is not cosmetic -- the first run of this script put every `a` in L1 and the two DRAM keys
+# inverted to 0.9416x and 0.9545x, because a block config tuned for a DRAM operand is not the one an
+# L1 operand wants. The table keys on (mt_total, kt, nt) and NOT on placement, so that inversion is
+# a real open risk at any site whose operand placement differs from the one its entry was measured
+# at.
+#
+# The token axis is the only thing that moves with sequence length: K and N are channel dims. 298 aa
+# is token axis 320 (bucketed to a multiple of 32), 768 aa is 768.
+def keys_at(tok):
+    return [
+        ("fc2", (1, 16, tok, 128), (128, 512), L1, L1),
+        ("fc3", (1, 16, tok, 512), (512, 128), L1, DRAM),
+        ("dit", (1, tok, 768), (768, 768), DRAM, DRAM),
+        ("ctb", (1, tok, 768), (768, 1536), DRAM, DRAM),
+    ]
+
+
 REPS, PIPE = 5, 4
 
 
@@ -47,6 +54,7 @@ def med(xs):
 
 
 def main():
+    tok = int(sys.argv[2]) if len(sys.argv) > 2 else 512
     dev = TB.get_device()
     nodes = clk.nodes_open_by_this_process()
     held = clk.force(1350, nodes)
@@ -60,7 +68,7 @@ def main():
 
     torch.manual_seed(0)
     out = {}
-    for label, a_shape, w_shape, amc, omc in KEYS:
+    for label, a_shape, w_shape, amc, omc in keys_at(tok):
         at = torch.randn(*a_shape) * 0.1
         wt = torch.randn(*w_shape) * 0.1
         ta = ttnn.from_torch(at, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16,
@@ -86,7 +94,18 @@ def main():
         TB._LINEAR_KBLOCK = True
         cfg_on = TB._linear_block_cfg(a_shape, w_shape, None, None, grid)
         TB._LINEAR_KBLOCK = False
-        assert cfg_on is not None, f"{label}: flag on produced no config"
+        if cfg_on is None:
+            # A key the table deliberately does not name must stay INERT rather than abort the run:
+            # CTB at 298 aa was removed on purpose after it failed its own A/A floor, and an assert
+            # here would make a correct decision look like a crash.
+            mt = (a_shape[1] * a_shape[2] // 32) if len(a_shape) == 4 else (a_shape[1] // 32)
+            print("  %-4s tok=%-4d NOT IN TABLE -> inert, site keeps today's call "
+                  "(mt_total=%d, kt=%d, nt=%d)"
+                  % (label, tok, mt, w_shape[0] // 32, w_shape[1] // 32), flush=True)
+            out["%s@%d" % (label, tok)] = {"in_table": False}
+            ttnn.deallocate(ta)
+            ttnn.deallocate(tw)
+            continue
         fam = "1d" if "1D" in type(cfg_on).__name__ else "2d"
         witness = "%s bw=%d drain=%dx%d" % (fam, cfg_on.in0_block_w, cfg_on.out_block_h,
                                             cfg_on.out_block_w)
@@ -122,15 +141,17 @@ def main():
         res = {"witness": witness, "ms": ms, "x": round(x, 4), "aa": round(aa, 4),
                "maxabs": err, "clock": clock,
                "result": abs(x - 1) > abs(aa - 1), "accuracy_ok": err["on"] <= err["off"]}
-        out[label] = res
-        print("  %-17s %s %s | off %.4f ms  on %.4f ms  %.4fx  [A/A %.4fx]  maxabs %.5f->%.5f  %s%s"
-              % (label, witness, "L1" if amc is L1 else "DRAM", ms["off"], ms["on"], x, aa, err["off"], err["on"],
+        out["%s@%d" % (label, tok)] = res
+        print("  %-4s tok=%-4d %-22s %-4s | off %.4f ms  on %.4f ms  %.4fx  [A/A %.4fx]  maxabs %.5f->%.5f  %s%s"
+              % (label, tok, witness, "L1" if amc is L1 else "DRAM", ms["off"], ms["on"], x, aa, err["off"], err["on"],
                  "RESULT" if res["result"] else "inside floor",
                  "" if res["accuracy_ok"] else "  ACCURACY REGRESSED"), flush=True)
         ttnn.deallocate(ta)
         ttnn.deallocate(tw)
 
-    json.dump(out, open(sys.argv[1], "w"), indent=1) if len(sys.argv) > 1 else None
+    if len(sys.argv) > 1:
+        json.dump(out, open(sys.argv[1], "w"), indent=1)
+        print("wrote", sys.argv[1], flush=True)
     clk.release()
 
 

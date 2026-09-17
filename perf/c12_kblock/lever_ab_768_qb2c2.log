@@ -1,0 +1,8 @@
+2026-09-17 12:22:02.330 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+grid 11x10 | nodes [2] | forced on [2] | aiclk 1350 MHz | flag default False
+  fc2  tok=768  1d bw=4 drain=4x16     L1   | off 0.0416 ms  on 0.0358 ms  1.1620x  [A/A 0.9951x]  maxabs 0.00206->0.00203  RESULT
+  fc3  tok=768  1d bw=2 drain=4x4      L1   | off 0.0529 ms  on 0.0458 ms  1.1544x  [A/A 1.0067x]  maxabs 0.00362->0.00419  RESULT  ACCURACY REGRESSED
+  dit  tok=768  2d bw=8 drain=3x3      DRAM | off 0.0259 ms  on 0.0251 ms  1.0306x  [A/A 0.9906x]  maxabs 0.00423->0.00399  RESULT
+  ctb  tok=768  2d bw=12 drain=3x5     DRAM | off 0.0424 ms  on 0.0416 ms  1.0176x  [A/A 1.0367x]  maxabs 0.00447->0.00422  inside floor
+wrote perf/c12_kblock/lever_ab_768_qb2c2.json

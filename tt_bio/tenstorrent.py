@@ -6914,20 +6914,30 @@ _LINEAR_KBLOCK = env_flag("TT_BIO_LINEAR_KBLOCK", False)
 
 _LINEAR_BLOCK = {
     # (mt_total, kt, nt): (family, in0_block_w)          ratio / A/A floor of that session
-    (160, 4, 16): ("1d", 2),    # pair Transition fc2 @ 298 aa   1.1105x / 1.0527x  2D unmeasured
-    (256, 4, 16): ("2d", 4),    # pair Transition fc2 @ 512 aa   1.2593x / 0.9858x  2D beats 1D 1.1832x
-    (384, 4, 16): ("1d", 4),    # pair Transition fc2 @ 768 aa   1.2440x / 1.0721x  2D unmeasured
-    (160, 16, 4): ("1d", 4),    # pair Transition fc3 @ 298 aa   1.5053x / 1.0475x
-    (256, 16, 4): ("1d", 2),    # pair Transition fc3 @ 512 aa   1.2776x / benchlocked, no A/A arm
-    (384, 16, 4): ("1d", 2),    # pair Transition fc3 @ 768 aa   1.1313x / 1.0377x
-    (10, 24, 24): ("2d", 8),    # DiT s-projection  @ 298 aa     1.1025x / 1.0360x
-    (16, 24, 24): ("2d", 12),   # DiT s-projection  @ 512 aa     1.1091x / benchlocked, no A/A arm
-    (24, 24, 24): ("2d", 8),    # DiT s-projection  @ 768 aa     1.1078x / 1.0567x
-    (24, 24, 48): ("2d", 12),   # CTB               @ 768 aa     1.1202x / 1.0122x  sweep only
-    # CTB @ 512 aa was here at ("2d", 8) on the sweep's 1.0649x and is REMOVED: measured through
-    # this very function on device it reads 0.9935x against an A/A floor of 1.0085x
-    # (perf/c12_kblock/lever_ab_512_qb2c3.json), i.e. inside the floor and with no evidence of a
-    # win. The 768 aa entry above is still sweep-only and owes the same check.
+    (160, 4, 16): ("1d", 2),    # pair Transition fc2 @ 298 aa   1.0628x / 1.0028x  2D unmeasured
+    (256, 4, 16): ("2d", 4),    # pair Transition fc2 @ 512 aa   1.2434x / 0.9605x  2D beats 1D here
+    (384, 4, 16): ("1d", 4),    # pair Transition fc2 @ 768 aa   1.1620x / 0.9951x  2D unmeasured
+    (160, 16, 4): ("1d", 4),    # pair Transition fc3 @ 298 aa   1.4241x / 0.9918x
+    (256, 16, 4): ("1d", 2),    # pair Transition fc3 @ 512 aa   1.1852x / 1.0029x
+    (384, 16, 4): ("1d", 2),    # pair Transition fc3 @ 768 aa   1.1544x / 1.0067x
+    (16, 24, 24): ("2d", 12),   # DiT s-projection  @ 512 aa     1.0627x / 1.0185x  MARGINAL
+    (24, 24, 24): ("2d", 8),    # DiT s-projection  @ 768 aa     1.0306x / 0.9906x  MARGINAL
+    # Every ratio above is measured through THIS function on device (perf/c12_kblock/lever_ab.py,
+    # the *_qb2c* json/log pairs), not from the standalone sweep, because the sweep overstates this
+    # class uniformly and at two keys it inverted the sign. Three entries were removed on that
+    # evidence rather than kept on a sweep number:
+    #
+    #   DiT @ 298 aa, was ("2d", 8) on the sweep's 1.1025x -> production path reads 0.8925x against
+    #     an A/A floor of 1.0260x. A measured REGRESSION of 11 %, which is exactly what a one-size
+    #     tuning does at the size it was not tuned at. 298 aa keeps today's call.
+    #   CTB @ 512 aa, was ("2d", 8) on 1.0649x -> 0.9935x against a 1.0085x floor: inside it.
+    #   CTB @ 768 aa, was ("2d", 12) on 1.1202x -> 1.0176x against a 1.0367x floor: inside it.
+    #     So CTB has no entry at any size and the three CTB sites are inert.
+    #
+    # The two DiT entries that survive are marked MARGINAL deliberately: they clear their floors by
+    # only 4.3 and 4.0 points while the same key inverted at 298 aa, so they are the first thing to
+    # re-check if the fold A/B underdelivers. fc2 and fc3 clear theirs at all three sizes and carry
+    # 0.0480 s and 0.1238 s of the 0.2052 s predicted, against DiT's 0.0334 s.
     # CTB @ 298 aa is DELIBERATELY ABSENT. Its best arm read 1.0551x against that session's own A/A
     # floor of 1.0538x, so it is not a result and the site keeps today's call at that size. An entry
     # here would be tuning to noise.
