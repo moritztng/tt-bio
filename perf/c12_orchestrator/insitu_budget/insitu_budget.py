@@ -109,6 +109,33 @@ BUILDABLE = {"reblock-delete", "matmul-class", "kblock", "cross-family"}
 
 F_FITTED_S, F_ERR_S = 3.9830, 0.1181       # c10-fixed-cost, four pinned clock arms
 
+# --- c12-host-decomp, pass 34: AXIS A IS MEASURED AND IT IS NOT A SOURCE OF SECONDS --------
+# The conjunction this script's own verdict used to close on ("reblock-delete in its band AND
+# host-decomp finding 39-56 % of non-device time reducible") is now decided on its second term.
+# c12-host-decomp closed its host tree against the MEASURED non-device remainder, not against F:
+# item sum 0.7674 s of 1.6489-1.6720 s (45.9-46.5 %), with the gap in the direction a partition
+# should err. Its own two-clock fit reproduced F at 4.2511 s inside the parent's 3.5727-4.4746 s
+# leave-one-out envelope, on a different card and session -- so F is confirmed and is still not a
+# host budget, because `trunk` and `denoise_device` are MIXED brackets contributing F_i 1.7789 and
+# 1.3151 s of device cost in a clock domain AICLK does not fully drive.
+#
+# What is REDUCIBLE is the only number that matters here, and it is measured, not bracketed:
+HOST_REDUCIBLE_S = {
+    # label                     seconds  what it is
+    "latency cell":              0.0000,  # nothing survives the 12.5 s latency definition
+    "generous":                  0.0960,  # half of prepare/featurize + parse_yaml
+    "absurd (forward body)":     0.1896,  # ALL of Boltz2.forward's own body as deletable glue,
+                                          # which the row says it is not. Carried as an upper bound.
+}
+# NOT latency and deliberately excluded: write_result 0.0610 s is worth that much of THROUGHPUT
+# where target N's write overlaps target N+1's fold, but `model_meta.timed_region` is
+# `predict_one (featurize + fold + CIF write)`, so deferring it stops the timer earlier rather
+# than finishing sooner -- the standing prohibition on buying a speedup by doing less work.
+# The program-cache rebuild at boltz2.py:5385 was the row's last live candidate and is UNRESOLVED
+# against its own floor at both clocks WITH THE TWO CLOCKS DISAGREEING IN SIGN (+0.0524 s at 1350,
+# -0.4154 s at 800 where the arm's own reps span 0.9486 s), so it is worth nothing usable.
+HOST_BAR_S = 0.8490      # what 12.5 s needed from host once the three main device levers land
+
 TARGETS = [12.5, 10.0]
 
 
@@ -240,9 +267,53 @@ def main():
         print(f"    fold {landed:.4f} s vs {t:5.1f} s -> "
               f"{'REACHES' if landed <= t else f'MISSES by {landed-t:.4f} s'}")
     line("=")
-    print("VERDICT: 12.5 s turns on reblock-delete landing in its band AND host-decomp finding\n         39-56 % of all non-device time reducible (50.8-51.5 % at the central 5Z arm).")
+    print("PASS 34 -- AXIS A IS MEASURED, SO THE CONJUNCTION IS DECIDED ON ITS SECOND TERM")
+    print(f"  the bar 12.5 s set for host, once the 3 main device levers land  {HOST_BAR_S:7.4f} s")
+    for lbl, v in HOST_REDUCIBLE_S.items():
+        print(f"    measured reducible, {lbl:22s} {v:7.4f} s = "
+              f"{100*v/HOST_BAR_S:5.1f} % of the bar")
+    host_best = max(HOST_REDUCIBLE_S.values())
+    print(f"  -> host supplies at most {host_best:.4f} s of the {HOST_BAR_S:.4f} s asked of it "
+          f"({100*host_best/HOST_BAR_S:.1f} %), so the conjunction FAILS on its host term.")
+
+    print("\n  THE STACK, at every optimism setting, against 12.5 s (needs "
+          f"{FOLD_S-12.5:.4f} s)")
+    reblock_band = (("central 5Z", 1.0062), ("optimistic", 1.2007))
+    others = sum(s_ for n, s_, _, _ in LEVERS
+                 if n in ("matmul-class", "kblock", "cross-family"))
+    rows = []
+    for rlbl, rv in reblock_band:
+        for hlbl, hv in (("host 0", 0.0000), ("host absurd", host_best)):
+            for olbl, ov in (("3 levers", 0.0), ("+ every named lever", others)):
+                tot = bank + rv + hv + ov
+                rows.append((f"{rlbl} / {hlbl} / {olbl}", tot, FOLD_S - tot))
+    for lbl, tot, landed in rows:
+        d = landed - 12.5
+        print(f"    {lbl:44s} {tot:6.4f} s -> {landed:7.4f} s  "
+              f"{'REACHES' if d <= 0 else f'MISSES by {d:.4f} s'}")
+    best = min(r[2] for r in rows)
+    print(f"\n  BEST CASE OVER THE WHOLE NAMED SET: {best:.4f} s, missing 12.5 s by "
+          f"{best-12.5:.4f} s.")
+    print("  That best case stacks reblock-delete at its optimistic end (unbuilt, never executed),")
+    print("  kblock (concluded BELOW its own kill criterion, flag off), cross-family (row CLOSED),")
+    print("  the whole matmul-class cap as if one lever took all of it, and host at an upper bound")
+    print("  its own row says is not deletable -- and it STILL misses. It also sums perturbations,")
+    print("  which the standing bar forbids because they are strongly sub-additive, so the real")
+    print("  number is lower than every row above.")
+    print("\nVERDICT: 12.5 s IS NOT REACHABLE ON THE NAMED LEVER SET. The conjunction pass 22 set")
+    print(f"         has failed on its host term: 0.0000-{host_best:.4f} s measured against "
+          f"{HOST_BAR_S:.4f} s asked.")
     print("         10.0 s misses even when every named lever lands in full AND all")
     print("         non-device time is deleted -- the fourth independent derivation.")
+    print("\n  WHERE THE UNOWNED SECONDS ARE, and no row owns either today:")
+    print("    layout / data movement   1.2596 - 1.5603 s  ten of 19 device ops compute no model")
+    print("                                                arithmetic; layout_screen.py. The largest")
+    print("                                                transpose is at 95.3 % of the 1R+1W roof")
+    print("                                                (deletion only); the second is 2.2x above")
+    print("                                                it, worth up to ~0.1525 s.")
+    print("    generic_op gap           1.2050 s           a GAP, not a lever: zero of six sites is")
+    print("                                                arithmetic-bound, it holds a 2.1693 s")
+    print("                                                traffic floor, and its row closed STOP.")
 
 
 if __name__ == "__main__":
