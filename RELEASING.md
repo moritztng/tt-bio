@@ -54,6 +54,34 @@ absent` as a GAP. That is not a failure and it is not a pass either -- it means 
 leg never ran, which reads the same as a leg that ran and had nothing to say. Check
 the log rather than the verdict for any leg you expected to open a card.
 
+### The gate host on qb2 (Blackhole p300c)
+
+0.9.0 was gated here, so this is the current recipe. Every path below was reconstructed from
+scratch that pass; none of it is discoverable from the gate output.
+
+```bash
+ESM_ROOT=/home/ttuser/esm                                        # the ESMC embedding-parity leg
+AF2IG_PARAMS=/home/ttuser/.boltz/af2/params/params_model_1_ptm.npz
+OF3_CKPT=/home/ttuser/.boltz/of3-p2-155k.pt
+OPENDDE_DOCKQ_PYTHON=/home/ttuser/.coworker/dockq-venv/bin/python # opendde-abag ERRORs without it
+```
+
+Write `--workers localhost:0,localhost:1`, never `pc:0`. `pc` is an ssh alias that exists in the
+orchestrator's config and not in qb2's, so the gate would ssh to nothing and every device leg would
+exit 255 in 0 s while the in-process legs passed. The preflight catches it, but only if you read it.
+
+**Cards 0 and 1 only.** qb2 has four chips on two boards; board `...410d` (cards 2 and 3) is
+excluded, and a `tt-smi -r` on any card takes its whole board pair down rather than that chip, so
+pass `--no-card-reset` to the capacity gate when anything else could land on the pair.
+
+Run the arms **serially**. The parity, capacity and size-ladder arms all take cards, and the perf
+arm is timed: an arm of your own gate running beside it is a co-tenant like any other.
+
+The clock sets the fold time on this part. `fold_s = 2.901 + 15355 / AICLK_MHz` on the 512 aa cell,
+so the same tree reads 21.90 s at 800 MHz and 17.34 s at ~1063. An idle card reports 800 because the
+governor has not ramped; sample the clock DURING a fold, not before, and record it beside any number
+you publish.
+
 ### The gate interpreter on the WH Galaxy
 
 `japanfold-ssh` (GWH02) has exactly one tt-bio env, `/home/cust-team/mthuening/tt-bio/env`, and
