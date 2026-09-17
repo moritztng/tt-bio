@@ -71,18 +71,32 @@ GENOP_FLOOR_S = 2.169320
 
 # --- the campaign's named lever book, each with its numerator's provenance --
 # name, fold seconds, provenance, status
+# The `matmul` class is entered ONCE, at its measured in-situ cap, rather than as two overlapping
+# leads. `c12-matmul-key-attribution` priced the whole class in situ at 0.6808 s against 1.4794 s
+# booked and put total class headroom at <= 0.1352 s (PRICED.txt, TOTAL "argued" column). Both the
+# 64-of-110 core pin and the cross-family arm are levers INSIDE that class, so adding them to it
+# would double-count against a measured cap.
+#
+# The 0.2150 s core-pin figure handed over by `c12-genericop-rate` is VOID and is not used. The pin
+# is real -- the armed capture reads CORE COUNT 64 on the trimul key -- but that key sits at 0.62x
+# machine balance, i.e. on the TRAFFIC side, so a 110/64 = 1.72x occupancy multiplier does not apply
+# to its rate. PRICED.txt computes what it would demand: 384.7 GB/s, which is 1.36x the best rate
+# any real fold shape reached in that session. Its own line reads "its prize: envelope-style
+# 0.7794 s, core-scaled 0.0552 s, argued 0.0584 s". This is the same error `c12-genericop-rate`
+# named as its own headline lesson (a resource gap is not headroom until you check which resource
+# binds), made on the lever it handed over, in the document that warned about it.
 LEVERS = [
     ("silu",          0.2843, "executed-graph",  "GO op-level, accuracy clean, fold owed"),
     ("cond-hoist",    0.2415, "block-level A/B", "GO block-level, fold owed"),
     ("reblock-delete",1.0000, "in-situ measured","PRICED, UNBUILT, needs source build + accuracy"),
-    ("matmul-64/110", 0.2150, "handed-over",     "no row"),
+    ("matmul-class",  0.1352, "in-situ cap",     "<= this for ALL matmul levers; 64/110 pin is "
+                                                 "0.0584 s of it, not 0.2150 s"),
     ("kblock",        0.0350, "production A/B",  "concluded BELOW its own kill criterion, off"),
     ("cross-family",  0.0810, "re-derived",      "row CLOSED on opportunity cost"),
-    ("matmul-xfam",   0.0750, "bound",           "<= this, no row"),
     ("fused-eltwise", 0.1321, "in-situ",         "ACCURACY FAILED, default-off"),
 ]
 BANKABLE = {"silu", "cond-hoist"}          # GO + accuracy clean, only a fold owed
-BUILDABLE = {"reblock-delete", "matmul-64/110", "kblock", "cross-family", "matmul-xfam"}
+BUILDABLE = {"reblock-delete", "matmul-class", "kblock", "cross-family"}
 
 F_FITTED_S, F_ERR_S = 3.9830, 0.1181       # c10-fixed-cost, four pinned clock arms
 
