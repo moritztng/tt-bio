@@ -5,6 +5,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+
+### Added
+
+- **A preflight warning when a host OpenMPI is set up to break the bundled one.** tt-metal ships
+  the OpenMPI it wants and single-host prediction needs no MPI setup; `OMPI_MCA_*`, `OPAL_PREFIX`
+  or a foreign `libmpi` on `LD_LIBRARY_PATH` aborts it in `MPI_Init` before any Python runs. Every
+  local-worker path now names what it saw and points at the `unset` line, and changes nothing for
+  you. README gained the matching troubleshooting note. Reported in #12 by @ssiddhantsharma.
+
+- **`tt-bio --version`.** `-V` works too. Both print `tt-bio, version X.Y.Z` from the
+  installed package metadata and exit, without importing ttnn or opening a card.
+
 ### Fixed
 
 - **A BoltzGen design spread over a full box now gets the same idle-thread parking a full box of
@@ -25,6 +37,54 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   and proceeds rather than failing a box where bring-up works today. The fallback serializes one
   account's processes; two accounts on one box still need a lock file both can write, and the
   warning says so. Nothing changes where the shared lock already works.
+
+- **A worker's native crash is no longer thrown away.** A spawned worker sent fd 2 to
+  `/dev/null`, so the fatals that never reach Python -- an `MPI_Init` abort, a tt-metal L1
+  circular-buffer throw -- left a 0-byte log and an opaque `SpawnProcess-1 exit 14`. fd 2 now
+  goes to a per-worker capture file and the launcher prints the tail when a worker dies, both
+  when the pool is empty and when the supervisor respawns one. From #13 by @ssiddhantsharma,
+  who also reported #12.
+
+- **A fold no longer dies on an L1 refusal its own ladder was built to absorb.** The
+  tri-attention SDPA ladder retries a narrower q_chunk when the device declines the wide one,
+  but the last rung was issued bare, so the identical refusal was survivable one rung up and
+  fatal on the final one. A padded length whose divisor set is sparse has nothing but the final
+  one: 736 tokens is 23 tiles, prime. That is the crash in #14.
+
+- **An absorbed L1 refusal says it was absorbed.** tt-metal writes its `TT_THROW` to fd 2 from
+  inside the failing op, so a by-design retry reads as a crash report. Every site that absorbs
+  one now labels it on the same stream and records its census, so it is attributable from inside
+  a fold instead of only from a private set.
+
+- **Matmul program configs are priced by one function against one budget.** Three sites carried
+  their own copy of the same circular-buffer arithmetic, and one was 201,760 B per core more
+  permissive than its neighbours on the same part. A plan one site admits and the allocator then
+  refuses is the shape of #14. Measured neutral first: 350 decisions in a protenix-v2 fold at
+  704 tokens, 8 distinct shapes, none moved, on a p300c 11x10 and a Wormhole 8x9.
+
+- **A weights download can no longer wait forever, and no checkpoint has a single door.** The
+  stall watchdog now fires on a download that stops making progress instead of hanging the run,
+  aria2c no longer preallocates the file the watchdog is watching (which made a live download look
+  finished), and a checkpoint that is available from several sources falls back instead of failing
+  on the first one. Landed after v0.8.0 was tagged, so it ships in the next release; the same hang
+  is present in 0.7.x, so this is a fix arriving late, not a regression.
+- **The Protenix capstone test reports why it failed.** `scripts/protenix_fold_e2e.py` declared its
+  progress callback as `prog(stage, step, total)` while the repo-wide contract is
+  `fn(stage, step=0, total=0)`, so the confidence stage's one-argument call raised `TypeError`
+  after the fold had paid for all 10 trunk cycles and 200 diffusion steps. The test also discarded
+  the subprocess's stderr, which is why the reason sat unread through three release passes. No
+  shipped code path was affected: both production callbacks take the one-argument call.
+
+- **Boltz-2 reports `plddt`, and RF3 reports it on the same 0..1 scale as every other model.**
+  Boltz-2 was the only model whose result metrics carried no `plddt` key, so a reader asking for
+  it fell through to whatever fallback it had: `confidence_score`, which is
+  `0.8*plDDT + 0.2*pTM` and therefore sat above the fold's own plDDT column at 298 aa and below
+  it at 512 aa. Boltz-2 now emits `plddt` as the complex mean. Separately, RF3 reported plDDT on
+  a 0-100 scale under a comment claiming that was the repo convention; it was not, and
+  `--early_stop_plddt` already compared against 0..1. **An RF3 `plddt` that read `81.7155` now
+  reads `0.817155`**, so rescale if you parse RF3 metrics. The engine's reported plDDT always
+  matched the B-factor column the same fold writes (0.0 gap at 298 and 512 aa, checked over 83
+  folds on disk); what was wrong was one missing key and one scale.
 
 ### Changed
 
@@ -255,56 +315,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   composition and closes it by construction, so the two things `docs/size-generality.md`
   recommends -- an off-lattice rung and the fleet-wide bucket off switch -- can now be used
   together.
-
-### Added
-
-- **A preflight warning when a host OpenMPI is set up to break the bundled one.** tt-metal ships
-  the OpenMPI it wants and single-host prediction needs no MPI setup; `OMPI_MCA_*`, `OPAL_PREFIX`
-  or a foreign `libmpi` on `LD_LIBRARY_PATH` aborts it in `MPI_Init` before any Python runs. Every
-  local-worker path now names what it saw and points at the `unset` line, and changes nothing for
-  you. README gained the matching troubleshooting note. Reported in #12 by @ssiddhantsharma.
-
-- **`tt-bio --version`.** `-V` works too. Both print `tt-bio, version X.Y.Z` from the
-  installed package metadata and exit, without importing ttnn or opening a card.
-
-### Fixed
-
-- **A worker's native crash is no longer thrown away.** A spawned worker sent fd 2 to
-  `/dev/null`, so the fatals that never reach Python -- an `MPI_Init` abort, a tt-metal L1
-  circular-buffer throw -- left a 0-byte log and an opaque `SpawnProcess-1 exit 14`. fd 2 now
-  goes to a per-worker capture file and the launcher prints the tail when a worker dies, both
-  when the pool is empty and when the supervisor respawns one. From #13 by @ssiddhantsharma,
-  who also reported #12.
-
-- **A fold no longer dies on an L1 refusal its own ladder was built to absorb.** The
-  tri-attention SDPA ladder retries a narrower q_chunk when the device declines the wide one,
-  but the last rung was issued bare, so the identical refusal was survivable one rung up and
-  fatal on the final one. A padded length whose divisor set is sparse has nothing but the final
-  one: 736 tokens is 23 tiles, prime. That is the crash in #14.
-
-- **An absorbed L1 refusal says it was absorbed.** tt-metal writes its `TT_THROW` to fd 2 from
-  inside the failing op, so a by-design retry reads as a crash report. Every site that absorbs
-  one now labels it on the same stream and records its census, so it is attributable from inside
-  a fold instead of only from a private set.
-
-- **Matmul program configs are priced by one function against one budget.** Three sites carried
-  their own copy of the same circular-buffer arithmetic, and one was 201,760 B per core more
-  permissive than its neighbours on the same part. A plan one site admits and the allocator then
-  refuses is the shape of #14. Measured neutral first: 350 decisions in a protenix-v2 fold at
-  704 tokens, 8 distinct shapes, none moved, on a p300c 11x10 and a Wormhole 8x9.
-
-- **A weights download can no longer wait forever, and no checkpoint has a single door.** The
-  stall watchdog now fires on a download that stops making progress instead of hanging the run,
-  aria2c no longer preallocates the file the watchdog is watching (which made a live download look
-  finished), and a checkpoint that is available from several sources falls back instead of failing
-  on the first one. Landed after v0.8.0 was tagged, so it ships in the next release; the same hang
-  is present in 0.7.x, so this is a fix arriving late, not a regression.
-- **The Protenix capstone test reports why it failed.** `scripts/protenix_fold_e2e.py` declared its
-  progress callback as `prog(stage, step, total)` while the repo-wide contract is
-  `fn(stage, step=0, total=0)`, so the confidence stage's one-argument call raised `TypeError`
-  after the fold had paid for all 10 trunk cycles and 200 diffusion steps. The test also discarded
-  the subprocess's stderr, which is why the reason sat unread through three release passes. No
-  shipped code path was affected: both production callbacks take the one-argument call.
 
 ## [0.8.0] - 2026-09-10
 
