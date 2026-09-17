@@ -1,0 +1,64 @@
+{
+  "registered_before_any_fold": true,
+  "predicted_model_cycles_saved": 0,
+  "why_zero": "every label runs the identical 200-step, 3-recycle, 1-sample, seed-0 configuration on the same committed fixture; only the instrument and the requested clock differ. This row ships no lever and changes no default.",
+
+  "central_claim": {
+    "statement": "most of F is NOT host Python. The prior qb2 attribution of this same fold (perf/b2x_host_residual/residual_512_qb2c2.json, 512 aa, Blackhole p300c, fold 23.5521 s, attributed to 99.985 %) puts the whole non-device host path at 3.01 s, and ~2.29 s of that has since moved onto the card: diffusion_cond 1.364 s, predict_step exclusive (the z_init assembly) 0.351 s and confidence exclusive 0.571 s all ran with TT_BIO_DEVICE_CONDITIONING / _ZINIT / _CONFIDENCE off, and all three default to True on this tree. So the host path should now be under ~1 s while F is 3.983 s.",
+    "predicted_host_python_sum_512_s": 0.85,
+    "allowed_range_s": [0.60, 1.30],
+    "consequence_if_right": "the remaining ~3.1 s of F is clock-immune time INSIDE the device brackets -- per-call dispatch, program-cache repopulation, host-to-device transfer and any device clock domain AICLK does not drive. That is neither host work that can be deleted in Python nor AICLK work a kernel can shorten, and Axis A's premise has to be restated rather than executed."
+  },
+
+  "per_item_512_at_1350MHz": {
+    "prepare (featurisation, parse, tokenize)": {"s": 0.19, "range_s": [0.10, 0.45], "class": "CLOCK-IMMUNE"},
+    "to_batch": {"s": 0.001, "range_s": [0.0, 0.02], "class": "CLOCK-IMMUNE"},
+    "forward exclusive (z_init path, program-cache clear, reset_static_cache walk)": {"s": 0.20, "range_s": [0.05, 0.60], "class": "CLOCK-IMMUNE"},
+    "program-cache clear + re-enable, measured on its own": {"s": 0.10, "range_s": [0.02, 0.40], "class": "CLOCK-IMMUNE"},
+    "trunk bracket": {"clock_immune_s": 1.60, "range_s": [0.60, 2.60], "class": "MIXED"},
+    "denoise_device bracket, 200 calls": {"clock_immune_s": 0.90, "range_s": [0.30, 1.80], "class": "MIXED"},
+    "pairformer_conf bracket": {"clock_immune_s": 0.10, "range_s": [0.0, 0.35], "class": "MIXED"},
+    "sampler per-step host glue, 200 steps": {"s": 0.21, "ms_per_step": 1.03, "range_ms_per_step": [0.5, 2.5], "class": "CLOCK-IMMUNE"},
+    "confidence host part": {"s": 0.10, "range_s": [0.02, 0.40], "class": "CLOCK-IMMUNE"},
+    "write_result (CIF)": {"s": 0.06, "range_s": [0.02, 0.20], "class": "CLOCK-IMMUNE"},
+    "unattributed leftover": {"s": 0.01, "range_s": [0.0, 0.30]}
+  },
+
+  "brief_candidate_refuted_in_advance": {
+    "candidate": "per-step host glue in the 200-step sampler loop at 5 ms per step, worth 1.0 s of F by itself",
+    "prediction": "REFUTED. The same instrument on the same fixture and the same card type already measured the sampler's exclusive host cost at 0.086 s (loop body) + 0.081 s (weighted_rigid_align, 200 calls) + 0.020 s (compute_random_augmentation) + 0.019 s (denoiser glue) = 0.206 s over 200 steps, i.e. 1.03 ms per step, not 5 ms. Predicted 0.21 s, allowed 0.10-0.50 s.",
+    "fires_if": "measured per-step host glue exceeds 3 ms/step"
+  },
+
+  "scaling_512_over_298": {
+    "fold_F_ratio_expected": 2.043,
+    "prediction": "no single item carries 2.043x. Host-Python items are per-token or per-atom work and should track the 1.718x token ratio or below; the clock-immune part of the device brackets should exceed 2.043x, because program count and tile count grow faster than tokens. The fold ratio is a mix, so a per-item ratio near 2.04 would be a coincidence rather than a confirmation.",
+    "host_items_ratio_range": [1.3, 2.0],
+    "device_bracket_immune_ratio_range": [2.0, 3.2]
+  },
+
+  "perturbation": {
+    "prediction_regions_arm_pct": 1.0, "range_pct": [0.0, 4.0],
+    "prediction_cprofile_arm_pct": 25.0, "range_pct": [5.0, 60.0],
+    "prediction_stack_sampler_arm_pct": 3.0, "range_pct": [0.0, 8.0],
+    "prediction_pyspy_arm_pct": 0.5, "range_pct": [0.0, 3.0],
+    "rule": "items are quoted from the regions arm and NEVER rescaled to the bare fold; the difference is reported as a column."
+  },
+
+  "reducible_preregistered": [
+    {"item": "program-cache clear on every forward", "lever": "TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE=1", "predicted_fold_s": 0.10, "range_s": [0.0, 0.40], "note": "boltz2-affinity-program-cache-fixed-cost already returned NO-GO on this as the explanation of a ~170 s affinity cost, where forward runs twice per prediction with disjoint shapes. A structure-only fold calls forward once, so the clear discards the PREVIOUS fold's cache and the warm fold pays to rebuild it. Different question, so it gets priced here rather than inherited."},
+    {"item": "sampler per-step host glue", "lever": "none proposed this row", "predicted_fold_s": 0.10, "range_s": [0.0, 0.25], "note": "weighted_rigid_align is an SVD per step and is the larger half."},
+    {"item": "CIF write", "lever": "off the critical path", "predicted_fold_s": 0.06, "range_s": [0.02, 0.20], "note": "irreducible work, possibly reducible cost; too small to build."},
+    {"item": "featurisation", "lever": "none", "predicted_fold_s": 0.0, "note": "already runs once per fold, not once per recycle, so the 'invariant work recomputed per recycle' case does not apply here. Predicted NOT reducible."},
+    {"item": "clock-immune time inside the device brackets", "lever": "NOT a call-count argument", "predicted_fold_s": null, "note": "c10's trace replay removed host dispatch by construction and measured -0.0214 s against a predicted 3.04 s. This row will state a mechanism and a predicted RATE or it will state nothing. No lever is proposed from a call count."}
+  ],
+
+  "refutation": {
+    "a": "item F sum misses the fold's own fitted F by more than 10 % -> report the gap as a finding, do not pad the table",
+    "b": "host-Python items sum above 2.5 s -> the port accounting above is wrong and the central claim fails",
+    "c": "per-step host glue above 3 ms/step -> the brief's 5 ms/step candidate is live after all",
+    "d": "the whole-fold F from this row's own bare arm falls outside 3.5-4.5 s -> cross-session disagreement with c10-fixed-cost; report both, average neither",
+    "e": "the item F sum is below 1.0 s, i.e. nearly everything classifies CLOCK-SCALED -> F is device time in a host costume, the c10-fixed-cost interpretation is wrong and the verdict is STOP",
+    "f": "any fold whose during-sampled clock is not flat at its own requested target is rejected, not reported"
+  }
+}
