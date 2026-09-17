@@ -41,11 +41,17 @@ prize that was the same, a 15.031 s floor built on rates from the wrong machine,
 cube that implies 799 MHz, a size-independent work term that was grid under-fill. Every one was
 quoted in good faith after it had stopped being true.
 
-`consistency.py` checks all 16 READMEs for two things: the numbers of record agree wherever they
-are quoted, and **no retired number appears without its retirement somewhere in the same
-document**. It found `grid_evidence/` still presenting 67.59 TFLOP/s as a Blackhole rate, which is
-now corrected there. Scope is the document, not the paragraph — paragraph scoping flagged nine
-places, seven of them honest, and a checker that cries wolf gets switched off.
+`consistency.py` checks all 17 READMEs: the numbers of record agree wherever they are quoted, and
+**no retired number or retired claim appears without its retirement somewhere in the same
+document**. Scope is the document, not the paragraph — paragraph scoping flagged nine places, seven
+of them honest, and a checker that cries wolf gets switched off.
+
+It has caught two live instances. `grid_evidence/` still presented 67.59 TFLOP/s as a Blackhole
+rate. And `dispatch_hypothesis/` argued a hypothesis that had been *measured to zero* while carrying
+no refutation at all — **every number in it was still correct**, so the number list never tripped,
+which is why retired *claims* are tracked too. Both are corrected. Claim markers are past tense on
+purpose: a substring `refut` also matches "What would refute it", a section about testing a live
+claim, and that false negative let the real document through on the first attempt.
 
     python3 consistency.py                      # 16 READMEs, 5 retired numbers tracked
     python3 -m pytest test_consistency.py -q    # 13 controls

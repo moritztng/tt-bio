@@ -5,8 +5,14 @@ target, with per-call cost to separate "many small calls" from "a few large ones
 
 The 512 aa floor of 12.706 s spreads across 60 recorded shapes and **the top 20 hold only 31.5 %**.
 No single (class, shape) holds more than 3.6 %. That is the headline: a lever here has to hit a
-class across many shapes, or remove per-call cost rather than per-shape cost. There is no one
-kernel to fix.
+class across many shapes rather than one kernel. There is no one kernel to fix.
+
+> **2026-09-17: the "remove per-call cost" half of that advice is withdrawn.** It meant *host*
+> per-call cost, and `c10-trace-lever` measured that at zero — ttnn dispatch is asynchronous and the
+> host was never on the critical path. The per-shape long tail below is still real; what a lever has
+> to hit is a *class of device work*, and on the measured evidence that class is the N² pair
+> representation. See [`../dispatch_hypothesis/`](../dispatch_hypothesis/) and
+> [`../frontier/`](../frontier/).
 
 The largest single item is worth naming anyway:
 

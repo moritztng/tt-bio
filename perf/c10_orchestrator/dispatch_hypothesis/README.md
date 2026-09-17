@@ -1,4 +1,30 @@
-# What the 3.952 s is probably made of, and the lever that already exists for it
+# REFUTED: the clock-immune term is not host dispatch
+
+> **This hypothesis was measured and it is wrong. Do not build on the reasoning below.**
+>
+> It priced a ttnn trace of the diffusion loop at **+3.02 s** by dividing the clock-immune term by a
+> call count. `c10-trace-lever` ran it: **−0.0214 s at 512 aa**, inside a 0.055 s A/A floor, null
+> reproduced at a second clock, byte-identical CIF. The trace deleted **76 % of the fold's
+> `ttnn.deallocate` calls, 101,559 → 24,413**, and the fold did not get shorter.
+>
+> **Root cause, now known.** ttnn dispatch is *asynchronous*: the host queues a whole diffusion
+> step's ~1,096 programs while the device is still executing the previous step, and stays ahead of
+> it. So the great majority of the "host call overhead" this note attributes the clock-immune term
+> to was never gating wall time at all. The call arithmetic below is correct; the inference from it
+> is not. **Dividing a clock-immune term by a call count assumes those calls are on the critical
+> path, and that has to be established before the lever is priced, not after.**
+>
+> A second trap worth carrying: host CPU seconds sampled *inside* the timed window read 16.7–17.0 s
+> in **both** arms, which differ 4x in call count, because tt-metal's completion-wait threads spin
+> rather than block. **Host CPU-in-window cannot discriminate two dispatch-shape arms on this
+> stack** — use device-side wall time or occupancy.
+>
+> What replaced this: `F` is size-*dependent* (N^1.32 at 298→512, N^1.91 at 512→768), which host
+> dispatch cannot be, and [`../floor_vs_measured/`](../floor_vs_measured/) puts it close to the
+> traffic-bound half of the roofline floor. See [`../frontier/`](../frontier/) for what that leaves.
+
+## The original note follows, kept for the record
+
 
 The clock-immune term of the 512 aa fold is 3.952 s (`../fixed_cost/`). Clock-immune is not the
 same as host CPU, so the next question is what is inside it. Three numbers from the existing

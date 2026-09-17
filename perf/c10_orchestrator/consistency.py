@@ -39,6 +39,25 @@ RETIRED = {
     "8,220": (["refuted", "withdrawn", "artifact", "under-fill", "under-filling"],
               "the size-independent work term's pair reading, refuted by c10-size-scaling"),
 }
+# Retired CLAIMS, not just retired numbers. The number list missed `dispatch_hypothesis/`, which
+# argued a hypothesis measured to zero and carried no refutation anywhere -- its numbers were all
+# still correct, so nothing tripped. A claim is a phrase the corpus used to believe; it must appear
+# beside a word that marks it as no longer believed. Markers are PAST TENSE on purpose: "refut"
+# also matches "What would refute it", a section about how a live claim could be tested, and that
+# false negative let the real dispatch_hypothesis document through on the first attempt.
+RETIRED_CLAIMS = {
+    "remove per-call cost": (["withdrawn", "refuted", "no longer", "was never", "measured at zero",
+                              "asynchronous"],
+                             "host per-call cost: c10-trace-lever measured its deletion at -0.0214 s"),
+    "is per-call host dispatch": (["refuted", "withdrawn", "is not host dispatch",
+                                   "asynchronous", "-0.0214"],
+                                  "the clock-immune term is not host dispatch"),
+    "size-independent term": (["refuted", "withdrawn", "artifact", "under-fill",
+                               "under-filling"],
+                              "the size-independent work term, refuted at 768 aa"),
+}
+
+
 # Scope is the DOCUMENT, not the paragraph. A reader of a README sees the whole file, so a
 # retirement stated anywhere in it is stated. Paragraph scoping was tried first and flagged nine
 # places, seven of which were honest -- a title naming what the document retires, a line quoting an
@@ -67,14 +86,16 @@ def check():
         rel = str(doc.relative_to(HERE))
         text = doc.read_text()
         low = text.lower()
-        for num, (markers, what) in RETIRED.items():
-            if num not in text:
+        for num, (markers, what) in list(RETIRED.items()) + list(RETIRED_CLAIMS.items()):
+            if num.lower() not in low:
                 continue
             if not any(m in low for m in markers):
                 problems.append({
-                    "file": rel, "number": num, "kind": "retired number quoted with no retirement "
+                    "file": rel, "number": num, "kind": "retired number or claim used with no retirement "
                     "anywhere in the document", "what_it_is": what,
-                    "excerpt": " ".join(next(l for l in text.splitlines() if num in l).split())[:160],
+                    "excerpt": " ".join(next((l for l in text.splitlines()
+                                              if num.lower() in l.lower()), "")
+                                        .split())[:160],
                 })
             else:
                 d = _distance(text, num, markers)
@@ -90,6 +111,7 @@ def check():
         "docs_checked": len(_docs()),
         "numbers_of_record": {k: sorted(set(v)) for k, v in quotes.items()},
         "retired_numbers_tracked": {k: v[1] for k, v in RETIRED.items()},
+        "retired_claims_tracked": {k: v[1] for k, v in RETIRED_CLAIMS.items()},
         "problems": problems,
         "retirement_far_from_its_number": far,
         "clean": not problems,
@@ -107,7 +129,8 @@ def check():
 if __name__ == "__main__":
     r = check()
     (HERE / "consistency.json").write_text(json.dumps(r, indent=2) + "\n")
-    print(f"{r['docs_checked']} READMEs checked, {len(RETIRED)} retired numbers tracked")
+    print(f"{r['docs_checked']} READMEs checked, {len(RETIRED)} retired numbers and "
+          f"{len(RETIRED_CLAIMS)} retired claims tracked")
     for p in r["problems"]:
         print(f"  BARE {p['number']} in {p['file']}: {p['excerpt'][:110]}")
     print("clean" if r["clean"] else f"{len(r['problems'])} problem(s)")

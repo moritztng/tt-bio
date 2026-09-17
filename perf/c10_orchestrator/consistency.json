@@ -41,8 +41,24 @@
     "3,301": "the size-independent work term's lower bound, refuted by c10-size-scaling",
     "8,220": "the size-independent work term's pair reading, refuted by c10-size-scaling"
   },
+  "retired_claims_tracked": {
+    "remove per-call cost": "host per-call cost: c10-trace-lever measured its deletion at -0.0214 s",
+    "is per-call host dispatch": "the clock-immune term is not host dispatch",
+    "size-independent term": "the size-independent work term, refuted at 768 aa"
+  },
   "problems": [],
-  "retirement_far_from_its_number": [],
+  "retirement_far_from_its_number": [
+    {
+      "file": "dispatch_hypothesis/README.md",
+      "number": "is per-call host dispatch",
+      "lines_away": 89
+    },
+    {
+      "file": "size_scaling/README.md",
+      "number": "remove per-call cost",
+      "lines_away": 81
+    }
+  ],
   "clean": true,
   "limits": [
     "Textual, not semantic: it checks that a retired number appears beside its retirement, not that the surrounding prose is correct.",

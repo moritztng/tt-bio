@@ -83,3 +83,73 @@ def test_the_retired_list_covers_what_the_campaign_actually_retired():
     assert set(C.RETIRED) == {"15.031", "2.309", "67.59", "3,301", "8,220"}
     for num, (markers, what) in C.RETIRED.items():
         assert markers and what, f"{num} has no markers or no explanation"
+
+
+# --- retired claims, not just retired numbers --------------------------------------------------
+def test_retired_claims_are_tracked_alongside_retired_numbers():
+    r = C.check()
+    assert set(C.RETIRED_CLAIMS) == {"remove per-call cost", "is per-call host dispatch",
+                                     "size-independent term"}
+    assert set(r["retired_claims_tracked"]) == set(C.RETIRED_CLAIMS)
+
+
+def test_it_reds_on_dispatch_hypothesis_as_it_actually_was(tmp_path, monkeypatch):
+    """The number list missed this one: every figure in dispatch_hypothesis/ was still correct, so
+    nothing tripped, while the document argued a hypothesis measured to zero. Reconstruct it."""
+    d = tmp_path / "dispatch_hypothesis"
+    d.mkdir()
+    (d / "README.md").write_text(
+        "# What the 3.952 s is probably made of\n\n"
+        "That is the trace lever's reach: if the clock-immune term is per-call host dispatch,\n"
+        "a trace of the diffusion loop reaches most of it.\n")
+    monkeypatch.setattr(C, "HERE", tmp_path)
+    r = C.check()
+    assert not r["clean"]
+    assert any(p["number"] == "is per-call host dispatch" for p in r["problems"])
+
+
+def test_adding_the_refutation_clears_the_claim(tmp_path, monkeypatch):
+    d = tmp_path / "dispatch_hypothesis"
+    d.mkdir()
+    (d / "README.md").write_text(
+        "# REFUTED\n\nThis was wrong: if the clock-immune term is per-call host dispatch the trace\n"
+        "would have helped, and it measured -0.0214 s. ttnn dispatch is asynchronous.\n")
+    monkeypatch.setattr(C, "HERE", tmp_path)
+    assert C.check()["clean"]
+
+
+@pytest.mark.parametrize("claim", sorted(C.RETIRED_CLAIMS))
+def test_every_retired_claim_is_caught_when_used_bare(tmp_path, monkeypatch, claim):
+    d = tmp_path / "note"
+    d.mkdir()
+    (d / "README.md").write_text(f"# A note\n\nThe plan is to {claim} and it will work.\n")
+    monkeypatch.setattr(C, "HERE", tmp_path)
+    assert any(p["number"] == claim for p in C.check()["problems"]), f"{claim} not caught"
+
+
+def test_claim_matching_is_case_insensitive(tmp_path, monkeypatch):
+    d = tmp_path / "note"
+    d.mkdir()
+    (d / "README.md").write_text("# A note\n\nWe should REMOVE PER-CALL COST next.\n")
+    monkeypatch.setattr(C, "HERE", tmp_path)
+    assert any(p["number"] == "remove per-call cost" for p in C.check()["problems"])
+
+
+def test_a_prospective_refutation_section_does_not_count_as_a_retirement(tmp_path, monkeypatch):
+    """'What would refute it' is a section about how a LIVE claim could be tested. A substring
+    marker of 'refut' matches it, and that false negative let the real dispatch_hypothesis document
+    through on the first attempt. Markers are past tense for this reason."""
+    d = tmp_path / "dispatch_hypothesis"
+    d.mkdir()
+    (d / "README.md").write_text(
+        "# The hypothesis\n\nIf the clock-immune term is per-call host dispatch, a trace reaches "
+        "most of it.\n\n## What would refute it\n\nA trace that returns nothing.\n")
+    monkeypatch.setattr(C, "HERE", tmp_path)
+    r = C.check()
+    assert not r["clean"], "a 'what would refute it' section must not clear a live claim"
+    assert any(p["number"] == "is per-call host dispatch" for p in r["problems"])
+
+
+def test_markers_for_claims_are_past_tense_not_substrings_of_the_verb():
+    for claim, (markers, _) in C.RETIRED_CLAIMS.items():
+        assert "refut" not in markers, f"{claim}: bare 'refut' matches 'would refute it'"

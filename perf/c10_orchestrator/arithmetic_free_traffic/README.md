@@ -20,9 +20,10 @@ parts per million. Only turning bytes into seconds needs a roof, and there the t
 Those ops perform **0.049 %** of the fold's 219.2 TFLOP. Half the traffic, none of the maths.
 
 The second row is bookkeeping — `deallocate` alone is 122,112 calls — and both instruments price it
-at exactly zero. `c10-trace-lever`'s null says host per-call cost is not this fold's constraint, so
-that is probably right, but it is 32 % of the fold's calls resting on an assumption rather than a
-measurement.
+at exactly zero. **That zero is now measured rather than assumed**: `c10-trace-lever` deleted 76 % of
+the fold's `ttnn.deallocate` calls, 101,559 → 24,413, and the fold did not get shorter (−0.0214 s,
+inside a 0.055 s A/A floor). ttnn dispatch is asynchronous and the host stays ahead of the device, so
+these calls were never on the critical path.
 
 ## Where it is concentrated, and it is not a long tail
 
