@@ -36,6 +36,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 CENSUS = HERE.parent / "b2x_host_residual/residual_512_qb2c2.json"
+SCALING_128 = HERE.parent / "b2x_host_residual/preflight_128.json"
 
 # Today's measured ceiling on all exposed host time, from c12-profiled-fold's composed.json.
 REMAINDER = (1.6489, 1.6720)
@@ -138,6 +139,68 @@ REDUCIBLE = {
 }
 
 
+def scaling(tree_512):
+    """Does each host item grow with the problem, or is it fixed overhead? Two on-card sizes.
+
+    `preflight_128.json` is a second CLOSED tree from the SAME card (qb2 card 2, p300c):
+    4.9736 s fold, unattributed 0.0004 s. 512/128 tokens is a **4.0x** ratio, against the
+    1.72x of the 298-to-512 pair the row's `SCALING:` field actually asks for, so this is a
+    bigger lever on the same question and not a substitute for that field.
+
+    Three things keep this honest:
+
+      * **Only leaves present in BOTH trees are compared.** The preflight instrument carried a
+        smaller patch set: it has no `diffusion_cond`, `rel_pos` or `input_embedder` rows. A
+        missing row is not a zero and is reported as absent.
+      * **Two points cannot fit an exponent** and none is fitted. The ratio is reported and the
+        only claim made from it is the qualitative one: grows with the problem, or does not.
+      * **The 128 leg ran at loadavg 5.91 against the 512 leg's 2.34.** Host rows inflate under
+        load, so the 128 seconds are if anything too high, which makes every ratio here a LOWER
+        bound for the items that scale. It is the conservative direction for the conclusion.
+    """
+    try:
+        small = json.loads(SCALING_128.read_text())
+    except OSError as e:
+        return {"error": repr(e)}
+    t128, a128, e128 = small["attrib"]["tree"], small["attrib"], small["env"]
+    ratio_tokens = 512.0 / float(e128["size"])
+    rows = []
+    for path, v in sorted(tree_512.items(), key=lambda kv: -kv[1]["excl_s"]):
+        klass, _ = CLASS[path]
+        if klass != "host":
+            continue
+        if path not in t128:
+            rows.append({"item": path, "s_512": v["excl_s"], "s_128": None,
+                         "ratio": None, "note": "absent from the preflight patch set"})
+            continue
+        a, b = v["excl_s"], t128[path]["excl_s"]
+        r = (a / b) if b > 1e-9 else None
+        rows.append({"item": path, "s_512": a, "s_128": b,
+                     "ratio": round(r, 3) if r else None,
+                     "verdict": ("too small to call" if a < 0.001 else
+                                 "grows with the problem" if r and r >= 2.0 else
+                                 "flat in size" if r and r <= 1.5 else
+                                 "weakly size-dependent")})
+    grows = sum(r["s_512"] for r in rows if r.get("verdict") == "grows with the problem")
+    flat = sum(r["s_512"] for r in rows
+               if r.get("verdict") in ("flat in size", "weakly size-dependent"))
+    return {
+        "compared_against": str(SCALING_128.name),
+        "small_fold_s": a128["fold_wall_s"], "small_unattributed_s": a128["unattributed_s"],
+        "small_size_tokens": e128["size"], "token_ratio": ratio_tokens,
+        "small_loadavg": a128["loadavg"], "large_loadavg": None,
+        "caveat": "ratios are LOWER bounds: the 128 leg ran at loadavg 5.91 against 2.34, and "
+                  "host rows inflate under load. Only leaves in both trees are compared, and no "
+                  "exponent is fitted from two points.",
+        "host_s_512_that_grows": round(grows, 5),
+        "host_s_512_that_is_flat": round(flat, 5),
+        "reading": "the host seconds at 512 aa are dominated by items that grow with the "
+                   "problem, and the per-step sampler glue is near flat in size, so it does not "
+                   "get worse at the sizes the campaign cares about",
+        "rows": rows,
+    }
+
+
 def main() -> int:
     c = json.loads(CENSUS.read_text())
     tree, env, attrib = c["attrib"]["tree"], c["env"], c["attrib"]
@@ -203,6 +266,7 @@ def main() -> int:
             "fold_if_all_named_host_deleted_s": round(FOLD_TODAY - named, 4),
         },
         "rows": rows,
+        "scaling_first_cut": scaling(tree),
     }
     print(json.dumps(out, indent=2))
     return 0

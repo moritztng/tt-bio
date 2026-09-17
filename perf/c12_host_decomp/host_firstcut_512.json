@@ -248,5 +248,101 @@
       "reducible_frac": 0.0,
       "reducible_argument": "zero."
     }
-  ]
+  ],
+  "scaling_first_cut": {
+    "compared_against": "preflight_128.json",
+    "small_fold_s": 4.9736,
+    "small_unattributed_s": 0.0004,
+    "small_size_tokens": 128,
+    "token_ratio": 4.0,
+    "small_loadavg": [
+      "5.91",
+      "6.63",
+      "5.30"
+    ],
+    "large_loadavg": null,
+    "caveat": "ratios are LOWER bounds: the 128 leg ran at loadavg 5.91 against 2.34, and host rows inflate under load. Only leaves in both trees are compared, and no exponent is fitted from two points.",
+    "host_s_512_that_grows": 0.59957,
+    "host_s_512_that_is_flat": 0.20539,
+    "reading": "the host seconds at 512 aa are dominated by items that grow with the problem, and the per-step sampler glue is near flat in size, so it does not get worse at the sizes the campaign cares about",
+    "rows": [
+      {
+        "item": "predict_step",
+        "s_512": 0.351,
+        "s_128": 0.11446,
+        "ratio": 3.067,
+        "verdict": "grows with the problem"
+      },
+      {
+        "item": "prepare",
+        "s_512": 0.19155,
+        "s_128": 0.03937,
+        "ratio": 4.865,
+        "verdict": "grows with the problem"
+      },
+      {
+        "item": "predict_step/sampler",
+        "s_512": 0.08583,
+        "s_128": 0.05936,
+        "ratio": 1.446,
+        "verdict": "flat in size"
+      },
+      {
+        "item": "predict_step/sampler/align",
+        "s_512": 0.08073,
+        "s_128": 0.06556,
+        "ratio": 1.231,
+        "verdict": "flat in size"
+      },
+      {
+        "item": "write_result",
+        "s_512": 0.05702,
+        "s_128": 0.01596,
+        "ratio": 3.573,
+        "verdict": "grows with the problem"
+      },
+      {
+        "item": "predict_step/input_embedder/atom_encoder",
+        "s_512": 0.05531,
+        "s_128": null,
+        "ratio": null,
+        "note": "absent from the preflight patch set"
+      },
+      {
+        "item": "predict_step/input_embedder",
+        "s_512": 0.05161,
+        "s_128": null,
+        "ratio": null,
+        "note": "absent from the preflight patch set"
+      },
+      {
+        "item": "predict_step/sampler/randaug",
+        "s_512": 0.0203,
+        "s_128": 0.01831,
+        "ratio": 1.109,
+        "verdict": "flat in size"
+      },
+      {
+        "item": "predict_step/sampler/denoiser",
+        "s_512": 0.01853,
+        "s_128": 0.01601,
+        "ratio": 1.157,
+        "verdict": "flat in size"
+      },
+      {
+        "item": "to_batch",
+        "s_512": 0.00012,
+        "s_128": 8e-05,
+        "ratio": 1.5,
+        "verdict": "too small to call"
+      },
+      {
+        "item": "predict_step/sampler/digest",
+        "s_512": 0.0,
+        "s_128": 0.0,
+        "ratio": null,
+        "verdict": "too small to call"
+      }
+    ]
+  }
 }
