@@ -402,6 +402,17 @@ def main() -> int:
                     "but it means this row must NOT claim the host cannot reach the bar. It "
                     "claims something narrower and better supported: nothing the row can name "
                     "reaches it, and one unmeasured item decides the rest.",
+                "never_instrumented":
+                    "the reason this block exists at all, and why no other row's data can "
+                    "substitute: Boltz2.forward's OWN BODY has never been instrumented by "
+                    "anyone. Every committed tree patches either predict_step, which is above "
+                    "it, or the device modules, which are below it, so forward's body has always "
+                    "fallen out as predict_step's exclusive remainder. Checked exhaustively: "
+                    "b2x_host_residual's 128/512 on-card trees, its CPU-only hostpath_512_pc "
+                    "(same six stages, no s_init / pair_mask / program-cache rows), the four "
+                    "whglx 512 aa trees, and c12-profiled-fold's per-unit book. decomp.py's "
+                    "install_extra is the first instrument that patches `forward`, which is what "
+                    "its own docstring says it was added for.",
                 "what_settles_it":
                     "one A/B on TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE inside a fold-repeating "
                     "process, plus brackets inside Boltz2.forward. That is the first thing the "
