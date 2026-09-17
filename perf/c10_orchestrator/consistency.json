@@ -1,17 +1,19 @@
 {
   "scope": "CPU cross-check of the C10 artifact tree. Reads the READMEs; changes nothing.",
-  "docs_checked": 20,
+  "docs_checked": 21,
   "numbers_of_record": {
     "F at 512 aa": [
       "README.md",
       "arithmetic_free_traffic/README.md",
       "floor_vs_measured/README.md",
       "frontier/README.md",
+      "node1_anchor/README.md",
       "size_scaling/README.md"
     ],
     "W at 512 aa": [
       "README.md",
       "frontier/README.md",
+      "node1_anchor/README.md",
       "size_scaling/README.md"
     ],
     "baseline at 512 aa": [
@@ -19,6 +21,7 @@
       "dispatch_hypothesis/README.md",
       "fixed_cost/README.md",
       "ladder/README.md",
+      "node1_anchor/README.md",
       "regression_check/README.md"
     ],
     "pinned clock": [
@@ -30,6 +33,7 @@
       "floor_vs_measured/README.md",
       "frontier/README.md",
       "ladder/README.md",
+      "node1_anchor/README.md",
       "regression_check/README.md",
       "size_scaling/README.md"
     ]
