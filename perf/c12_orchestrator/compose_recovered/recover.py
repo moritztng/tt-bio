@@ -167,7 +167,7 @@ print()
 BOOK = [
     ("compose stack (silu+hoist)", d,        "MEASURED at the fold, paired, resolved; margin 2.87-2.98x vs a 3x gate"),
     ("reblock-delete",             1.0062,   "PREDICTED central, band 0.9342-1.2007, never executed an instruction"),
-    ("genop unowned slack",        0.4544,   "PREDICTED at the best measured efficiency (79.39 % of roof)"),
+    ("genop recoverable",          0.0184,   "MEASURED/pre-registered by c12-genop-triatt-slack, VERDICT STOP. Was 0.4544 s: that ceiling rested on reblock_gated at 79.39 % of roof, roofed against the WRONG arm (bw_clone 1R+1W for a 2:1 site); at its matching roof it is 71.66 %, so the existence proof does not exist. And triatt_out's 37.99 % was a byte-model defect (insitu_sites.py:47 dropped the repair bytes) -- really 75.96 %, so 0.0860 s of it was never slack."),
     ("matmul class",               0.1352,   "measured in-situ cap for ALL matmul levers, no row"),
     ("Axis A host",                0.0960,   "MEASURED 0.0000 reducible / 0.0960 generous / 0.1896 absurd"),
 ]
