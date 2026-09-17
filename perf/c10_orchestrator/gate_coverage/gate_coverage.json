@@ -1,0 +1,123 @@
+{
+  "scope": "CPU read of scripts/release_gate.py and its fixtures. No device, no gate run, no gate change proposed as code.",
+  "gate": "/home/moritz/.coworker/wt/c10-orchestrator/scripts/release_gate.py",
+  "step_constants": {
+    "SAMPLING_STEPS": 200,
+    "SIZE_LADDER_STEPS": 6,
+    "CAPACITY_STEPS": 6,
+    "L1_BUDGET_STEPS": 200
+  },
+  "boltz2_legs": [
+    {
+      "leg": "accuracy (per-model fold)",
+      "model": "boltz2",
+      "fixture": "examples/prot.yaml",
+      "size_aa": 117,
+      "steps": 200,
+      "single_sequence": false
+    },
+    {
+      "leg": "l1-budget",
+      "model": "boltz2",
+      "fixture": "examples/affinity_fkg.yaml",
+      "size_aa": 107,
+      "steps": 200,
+      "single_sequence": true
+    },
+    {
+      "leg": "size-ladder",
+      "model": "boltz2",
+      "fixture": "perf/size512/fixtures/cdk2x2_<N>",
+      "size_aa": [
+        256,
+        512,
+        640,
+        768,
+        896,
+        1024
+      ],
+      "steps": 6,
+      "single_sequence": true
+    }
+  ],
+  "all_legs": [
+    {
+      "leg": "accuracy (per-model fold)",
+      "model": "boltz2",
+      "fixture": "examples/prot.yaml",
+      "size_aa": 117,
+      "steps": 200,
+      "single_sequence": false
+    },
+    {
+      "leg": "l1-budget",
+      "model": "boltz2",
+      "fixture": "examples/affinity_fkg.yaml",
+      "size_aa": 107,
+      "steps": 200,
+      "single_sequence": true
+    },
+    {
+      "leg": "size-ladder",
+      "model": "boltz2",
+      "fixture": "perf/size512/fixtures/cdk2x2_<N>",
+      "size_aa": [
+        256,
+        512,
+        640,
+        768,
+        896,
+        1024
+      ],
+      "steps": 6,
+      "single_sequence": true
+    },
+    {
+      "leg": "capacity",
+      "model": "protenix-v2 / opendde-abag",
+      "fixture": "abag yamls",
+      "size_aa": [
+        1095,
+        891
+      ],
+      "steps": 6,
+      "single_sequence": false
+    }
+  ],
+  "incident": {
+    "size_aa": 768,
+    "steps": 200,
+    "recycles": 3,
+    "msa_rows": 35,
+    "folds_before_failure": 5,
+    "card": "p300c",
+    "row": "c10-size-scaling"
+  },
+  "gap": {
+    "largest_boltz2_target_folded_at_production_steps_aa": 117,
+    "production_steps": 200,
+    "legs_above_that_size": [
+      "size-ladder"
+    ],
+    "their_steps": [
+      6
+    ],
+    "step_ratio": 33.333333333333336,
+    "statement": "Every Boltz-2 target the gate folds above 117 aa is folded at 6 steps, 33.3x shorter than the 200 the product runs, and single-sequence so the MSA path is not exercised there at all."
+  },
+  "incident_in_the_gap": {
+    "covered": false,
+    "reading": "The wedge happened at 768 aa and 200 steps. The gate's only Boltz-2 coverage at that size runs 6 steps, roughly 3 % of the diffusion device work, and single-sequence. A hang that needs production-length work to appear is invisible to it, and this one is nondeterministic on top: five identical folds completed first."
+  },
+  "not_a_criticism_of_any_arm": "The size-ladder arm's own docstring says it counts guard decisions rather than trajectory statistics and picks six steps deliberately, and it names its own price: a cliff living only in the MSA module is invisible there. It is doing exactly what it claims. The hole is in the COMPOSITION -- size coverage and length coverage are supplied by different legs and they do not overlap, so no leg folds a large target for a long time.",
+  "minimal_fix_not_implemented_here": [
+    "One long rung: fold the top size-ladder rung at production steps with an MSA, as a stability check with a timeout, scoring completion rather than counters. Cost is one fold.",
+    "Or state the limit in the gate's own summary, so 'size-ladder PASS' is not read as 'large targets are safe'.",
+    "Either is a release-gate change and therefore gated: it stays on this branch and is Moritz's call, not this row's."
+  ],
+  "limits": [
+    "Coverage is read from constants and fixture files. A leg that folds a large target through a path this parse does not recognise would be missed; the legs list is explicit so it can be checked by eye against the file.",
+    "This says nothing about whether the wedge reproduces, what causes it, or how often. One occurrence in six folds is not a rate.",
+    "rf3 folds 997 aa in the gate, but that is a different model and does not cover Boltz-2."
+  ]
+}

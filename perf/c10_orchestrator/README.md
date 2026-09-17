@@ -31,12 +31,14 @@ host sat at 101 % CPU in state R for over ten minutes while **board power sat at
 46 W an 800 MHz fold draws**, i.e. a host busy-polling a device that had stopped. SIGTERM was
 ignored, so the spin is inside native code; SIGKILL was required. The ARC stayed alive throughout.
 768 aa is below the 1024 padded-token SDPA cap and the route counters read [0, 0], so the fused
-above-cap path is not implicated. This is a size users can ask for.
+above-cap path is not implicated. This is a size users can ask for, and [`gate_coverage/`](gate_coverage/) shows the release gate could not have caught it: **every
+Boltz-2 target it folds above 117 aa runs 6 steps**, 33.3x shorter than the product's 200.
 
 ## Findings
 
 | | |
 |---|---|
+| [`gate_coverage/`](gate_coverage/) | **The release gate never folds Boltz-2 at production length above 117 residues.** Size coverage and length coverage come from different legs and do not overlap: the 200-step legs fold 117 aa and 107 aa, and the only leg reaching 768 aa runs **6 steps, single-sequence**. The 768 aa wedge sits exactly in that hole. Not a broken arm — the size-ladder arm says it counts guard decisions, not trajectory statistics — a gap in the composition. Fix is release-gated and Moritz's call. |
 | [`frontier/`](frontier/) | **What 10.0 s requires: remove 4.846 s.** Cycles alone means −44.6 %; **`F` alone is impossible at any completeness** (it would have to be −0.86 s). Every lever the campaign has ever numbered sums to **0.90 s, 18.6 %** of that. The only axis big enough is the matmul class's achieved **19.88 TFLOP/s against a 104.93–114.20 cube** — 53 % of that gap would do it, and the number rests on rates measured on pc's 130-core firmware. Also finds a **fourth clock artifact**: the 67.59 TFLOP/s "same-session cube" implies **799 MHz**. |
 | [`arithmetic_free_traffic/`](arithmetic_free_traffic/) | **Half the fold's bytes move through ops that do 0.049 % of its arithmetic** — 201,744 calls, 1.401 TB. Roof-free: both capture artifacts agree on the call total exactly and the byte total to 3 ppm. Concentrated in three classes, not a tail: `multiply_`, `layer_norm` and `add_` move **30.8 % of all fold bytes** and compute nothing. Traffic 2.07–2.52 s; realistic prize **0.69–0.84 s** at the one-third return this project has measured for that fusion. Also finds the **third byte-counting defect** of the campaign: the census's own `B = calls × tiles × 2048` identity holds at median exactly 1.000 over 50 shapes and two shapes break it, under-counting 155.8 GB (5.45 %) — correcting it raises the headline to 51.6 %, so the published figures are conservative. |
 | [`floor_vs_measured/`](floor_vs_measured/) | **The 2.309 s prize was the clock, and it is retired.** `prize_s = 17.34 − 15.031` and 17.34 s is the ~1063 MHz reading; the same fixture at a pinned 1350 MHz is 14.846 s, **0.185 s below that floor**. The floor's traffic/arithmetic split also lands within 5.7 % and 0.5 % of the measured `F` and `W/f` — interesting, not a validation: its shape rates were measured on **pc's 130-core firmware**, not on qb2. |
