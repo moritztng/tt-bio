@@ -1,0 +1,3 @@
+Dump #21 at 102.533s
+Device 0 worker core(x= 0,y= 0) virtual(x= 1,y= 2):  NTW,   W,UPAW,MWDD,   K  rmsg:D0G|BNT h_id:  9 smsg:DGGG cb[0](rcv 384!=ack 320) cb[1](rcv 384!=ack 320) cb[2](rcv 256!=ack 192) cb[3](rcv 320!=ack 256) k_ids: 23| 25| 27| 27| 27
+Device 0 worker core(x= 1,y= 0) virtual(x= 2,y= 2):  NTW,   W,UPAW,MWDD,   K  rmsg:D0G|BNT h_id:  9 smsg:DGGG cb[0](rcv 384!=ack 320) cb[1](rcv 384!=ack 320) cb[2](rcv 256!=ack 192) cb[3](rcv 320!=ack 256) k_ids: 23| 26| 27| 27| 27

@@ -1,0 +1,11 @@
+# TT_METAL_WATCHER=5, dump #21, gate=True hang on dev3 at 1350 MHz.
+# All 110 worker cores read identically. Raw 5105-line log kept on qb2 at
+# perf/c12_reblock_delete/out/watcher_gate_hang.log (out/ is gitignored).
+#
+# cb[2] is the out CB: 256 pushed, 192 acked, 64 outstanding against 64-tile capacity = FULL.
+# cb[3] intermediate (64, single-buffered) = FULL. TRISC2 K = blocked in cb_reserve_back.
+# BRISC k_id 23 = tt_bio/kernels/mm_split/dm_in0_sender.cpp, waypoint NTW = NOC transaction wait.
+
+Dump #21 at 102.533s
+Device 0 worker core(x= 0,y= 0) virtual(x= 1,y= 2):  NTW,   W,UPAW,MWDD,   K  rmsg:D0G|BNT h_id:  9 smsg:DGGG cb[0](rcv 384!=ack 320) cb[1](rcv 384!=ack 320) cb[2](rcv 256!=ack 192) cb[3](rcv 320!=ack 256) k_ids: 23| 25| 27| 27| 27
+Device 0 worker core(x= 1,y= 0) virtual(x= 2,y= 2):  NTW,   W,UPAW,MWDD,   K  rmsg:D0G|BNT h_id:  9 smsg:DGGG cb[0](rcv 384!=ack 320) cb[1](rcv 384!=ack 320) cb[2](rcv 256!=ack 192) cb[3](rcv 320!=ack 256) k_ids: 23| 26| 27| 27| 27
