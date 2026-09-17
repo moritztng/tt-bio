@@ -261,6 +261,26 @@ def install_ops(ttnn, rec):
     return restore, len(undo)
 
 
+
+def parse_units(spec: str):
+    """`Name[:want_attr][:reps]` items, comma separated.
+
+    `PairformerLayer:transform_s:3,MSALayer::5,PairConditioningDevice`
+    An empty middle field means no attribute filter. Missing reps falls back to --reps.
+    """
+    out = []
+    for item in spec.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        parts = item.split(":")
+        name = parts[0].strip()
+        attr = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
+        reps = int(parts[2]) if len(parts) > 2 and parts[2].strip() else None
+        out.append((name, attr, reps))
+    return out
+
+
 def truncate_stacks(T, keep):
     import gc
     saved = []
@@ -303,18 +323,10 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--phase", required=True, choices=("counts", "probe", "unit"))
     ap.add_argument("--size", type=int, default=512)
-    ap.add_argument("--unit", default=None)
+    ap.add_argument("--unit", default=None, help="single unit; --units supersedes it")
+    ap.add_argument("--units", default=None,
+                    help="comma separated Name[:want_attr][:reps] -- one precursor, several units")
     ap.add_argument("--reps", type=int, default=3)
-    ap.add_argument("--want-attr", default=None,
-                    help="only grab an instance whose named constructor attribute is truthy. "
-                         "PairformerLayer appears twice in this fold: the trunk variant is built "
-                         "with transform_s=True (280 calls/fold), the MSA-internal one with "
-                         "transform_s=False, and grabbing the wrong one measures the wrong class.")
-    ap.add_argument("--want-args", type=int, default=None,
-                    help="only grab a call with exactly this many positional tensor args. "
-                         "PairformerLayer appears twice in this fold with different signatures -- "
-                         "the trunk variant takes (s, z), the MSA-internal one takes (z,) -- and "
-                         "grabbing the wrong one measures the wrong 280-call class.")
     ap.add_argument("--skip", type=int, default=2,
                     help="grab the Nth call of the unit, so the grabbed one is settled")
     ap.add_argument("--plain-n", type=int, default=2)
@@ -408,39 +420,59 @@ def main() -> int:
         return 0
 
     # --- phase unit -------------------------------------------------------------------------
-    if not a.unit:
-        OUT["error"] = "--unit is required for --phase unit"
+    # One precursor, several units. A model load plus a precursor fold costs minutes and the card is
+    # shared, so collecting every unit that is reachable before the same abort point in ONE process
+    # is the difference between one leg and seven. Each unit still gets its own fenced region, so the
+    # reducer windows them independently.
+    specs = [(n, at, r if r else a.reps)
+             for n, at, r in parse_units(a.units or a.unit or "")]
+    if not specs:
+        OUT["error"] = "--units is required for --phase unit"
         dump()
         return 2
-    cls = getattr(T, a.unit, None)
-    if cls is None:
-        OUT["error"] = "no class %s in tt_bio.tenstorrent" % a.unit
-        dump()
-        return 2
-    orig = cls.__dict__["__call__"]
+    OUT["specs"] = [{"unit": u, "want_attr": at, "reps": r} for u, at, r in specs]
+    wrapped: list = []
     grabs: dict = {}
     counts: Counter = Counter()
-    matched = [0]
+    matched: Counter = Counter()
 
     def clone(x):
         return ttnn.clone(x) if isinstance(x, ttnn.Tensor) else x
 
-    def wrapper(self_obj, *args, **kw):
-        counts[a.unit] += 1
-        out = orig(self_obj, *args, **kw)
-        nt = sum(1 for x in args if hasattr(x, "shape"))
-        if a.want_args is not None and nt != a.want_args:
+    def install(name, attr_req):
+        cls = getattr(T, name, None)
+        if cls is None:
+            OUT.setdefault("missing_classes", []).append(name)
+            return
+        key = "__call__" if "__call__" in cls.__dict__ else "forward"
+        orig = cls.__dict__.get(key)
+        if orig is None:
+            OUT.setdefault("missing_classes", []).append("%s (no __call__/forward)" % name)
+            return
+
+        def w(self_obj, *args, **kw):
+            counts[name] += 1
+            out = orig(self_obj, *args, **kw)
+            if name in grabs:
+                return out
+            if attr_req is not None and not getattr(self_obj, attr_req, False):
+                return out
+            matched[name] += 1
+            if matched[name] >= a.skip:
+                grabs[name] = {"obj": self_obj,
+                               "args": tuple(clone(x) for x in args),
+                               "kwargs": {k: clone(v) for k, v in kw.items()}}
+                print("  grabbed %s on call %d (match %d)"
+                      % (name, counts[name], matched[name]), flush=True)
+                if len(grabs) == len([1 for n, _at, _r in specs
+                                      if n not in OUT.get("missing_classes", [])]):
+                    raise Grabbed
             return out
-        if a.want_attr is not None and not getattr(self_obj, a.want_attr, False):
-            return out
-        matched[0] += 1
-        if a.unit not in grabs and matched[0] >= a.skip:
-            grabs[a.unit] = {"obj": self_obj, "args": tuple(clone(x) for x in args),
-                             "kwargs": {k: clone(v) for k, v in kw.items()}}
-            print("  grabbed %s on call %d" % (a.unit, counts[a.unit]), flush=True)
-            raise Grabbed
-        return out
-    cls.__call__ = wrapper
+        setattr(cls, key, w)
+        wrapped.append((cls, key, orig))
+
+    for name, attr_req, _reps in specs:
+        install(name, attr_req)
 
     restore = None
     if a.short_precursor:
@@ -448,54 +480,66 @@ def main() -> int:
         OUT["env"].update({"stacks_truncated": n_trunc, "keep_blocks": a.keep_blocks})
         print("  truncated %d block stacks to %d" % (n_trunc, a.keep_blocks), flush=True)
 
-    print("=== precursor fold (unwound at the grab) ===", flush=True)
+    print("=== precursor fold (unwound once every unit is in hand) ===", flush=True)
     t0 = time.perf_counter()
     try:
         one_fold()
     except Grabbed:
         pass
     finally:
-        cls.__call__ = orig
+        for cls, key, orig in wrapped:
+            setattr(cls, key, orig)
         if restore:
             restore()
     OUT["precursor_s"] = round(time.perf_counter() - t0, 3)
-    OUT["unit_calls_in_precursor"] = dict(counts)
-    OUT["signature_matches_in_precursor"] = matched[0]
+    OUT["calls_in_precursor"] = dict(counts)
+    OUT["signature_matches_in_precursor"] = dict(matched)
+    OUT["grabbed"] = sorted(grabs)
+    OUT["not_grabbed"] = [n for n, _at, _r in specs if n not in grabs]
     dump()
-    if a.unit not in grabs:
-        OUT["error"] = "%s was never grabbed" % a.unit
+    if not grabs:
+        OUT["error"] = "nothing was grabbed"
         dump()
         print("FAILED " + OUT["error"], flush=True)
         return 1
 
-    g = grabs[a.unit]
-    OUT["arg_shapes"] = [shp(x) or type(x).__name__ for x in g["args"]]
     fence = make_fence(ttnn, dev)
     rec: list = []
     undo_ops = None
     if a.ops:
         undo_ops, n_patched = install_ops(ttnn, rec)
         OUT["ops_patched"] = n_patched
-    print("=== profiled region: %d x %s ===" % (a.reps, a.unit), flush=True)
-    OUT["t_region0"] = time.time()
+    # order matters: the reducer pairs the k-th fenced window with the k-th entry of this list
+    OUT["unit_order"] = [n for n, _at, _r in specs if n in grabs]
+    OUT["units"] = {}
     try:
-        OUT["synced_wall_ms_per_call"] = timed_reps(ttnn, dev, g["obj"], g["args"], g["kwargs"],
-                                                    a.reps, fence)
+        for name, _at, reps in specs:
+            if name not in grabs:
+                continue
+            g = grabs[name]
+            print("=== profiled region %d/%d: %d x %s ==="
+                  % (len(OUT["units"]) + 1, len(OUT["unit_order"]), reps, name), flush=True)
+            t_a = time.time()
+            ms = timed_reps(ttnn, dev, g["obj"], g["args"], g["kwargs"], reps, fence)
+            OUT["units"][name] = {
+                "reps": reps, "synced_wall_ms_per_call": ms,
+                "t_region0": t_a, "t_region1": time.time(),
+                "arg_shapes": [shp(x) or type(x).__name__ for x in g["args"]],
+                "calls_in_precursor": counts[name],
+            }
+            print("  %s synced wall %.4f ms/call (profiler=%s)"
+                  % (name, ms, OUT["env"]["profiler"]), flush=True)
+            dump()
     finally:
-        OUT["t_region1"] = time.time()
         if undo_ops:
             undo_ops()
     if a.ops:
-        # the warmup + fence calls are inside `rec` too; the reducer keys off the repeated
-        # sequence, so the sequence is written whole rather than trimmed here on a guess.
         OUT["op_seq_len"] = len(rec)
         (a.out.parent / (a.out.stem + ".opseq.json")).write_text(json.dumps(rec))
         OUT["op_seq_path"] = str(a.out.parent / (a.out.stem + ".opseq.json"))
         OUT["op_seq_counts"] = dict(Counter(r[0] for r in rec).most_common())
     OUT["fence"] = {"op": "ttnn.exp", "n": FENCE_N, "dim": FENCE_DIM}
     OUT["env"]["t_end"] = time.time()
-    print("  %s synced wall %.4f ms/call (profiler=%s)"
-          % (a.unit, OUT["synced_wall_ms_per_call"], OUT["env"]["profiler"]), flush=True)
     dump()
     print("DONE", a.out, flush=True)
     return 0

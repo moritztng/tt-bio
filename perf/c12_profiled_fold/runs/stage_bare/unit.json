@@ -1,0 +1,126 @@
+{
+ "env": {
+  "started": "2026-09-17T14:06:16+0000",
+  "t_start": 1789653976.489744,
+  "phase": "unit",
+  "unit": null,
+  "reps": 3,
+  "size": 512,
+  "visible": "3,2",
+  "lease": "2,3",
+  "commit": "ee6411b08",
+  "profiler": "0",
+  "ttnn": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+  "metal_home": "/home/ttuser/tt-metal-b2z",
+  "loadavg": [
+   "9.09",
+   "9.10",
+   "8.88"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c",
+  "load_s": 3.27,
+  "t_end": 1789654003.9468262
+ },
+ "specs": [
+  {
+   "unit": "PairConditioningDevice",
+   "want_attr": null,
+   "reps": 5
+  },
+  {
+   "unit": "RelPosGather",
+   "want_attr": null,
+   "reps": 10
+  },
+  {
+   "unit": "PairAssemblyDevice",
+   "want_attr": null,
+   "reps": 5
+  }
+ ],
+ "precursor_s": 18.992,
+ "calls_in_precursor": {
+  "PairAssemblyDevice": 1,
+  "RelPosGather": 1,
+  "PairConditioningDevice": 1
+ },
+ "signature_matches_in_precursor": {
+  "RelPosGather": 1,
+  "PairAssemblyDevice": 1,
+  "PairConditioningDevice": 1
+ },
+ "grabbed": [
+  "PairAssemblyDevice",
+  "PairConditioningDevice",
+  "RelPosGather"
+ ],
+ "not_grabbed": [],
+ "unit_order": [
+  "PairConditioningDevice",
+  "RelPosGather",
+  "PairAssemblyDevice"
+ ],
+ "units": {
+  "PairConditioningDevice": {
+   "reps": 5,
+   "synced_wall_ms_per_call": 130.582,
+   "t_region0": 1789654002.1098619,
+   "t_region1": 1789654003.4474268,
+   "arg_shapes": [
+    [
+     1,
+     512,
+     512,
+     128
+    ],
+    [
+     1,
+     512,
+     512,
+     128
+    ],
+    "int",
+    "int"
+   ],
+   "calls_in_precursor": 1
+  },
+  "RelPosGather": {
+   "reps": 10,
+   "synced_wall_ms_per_call": 14.5534,
+   "t_region0": 1789654003.4477484,
+   "t_region1": 1789654003.6381912,
+   "arg_shapes": [
+    "dict",
+    "int"
+   ],
+   "calls_in_precursor": 1
+  },
+  "PairAssemblyDevice": {
+   "reps": 5,
+   "synced_wall_ms_per_call": 37.7646,
+   "t_region0": 1789654003.638473,
+   "t_region1": 1789654003.9465225,
+   "arg_shapes": [
+    [
+     1,
+     512,
+     384
+    ],
+    "dict",
+    "int",
+    "int"
+   ],
+   "calls_in_precursor": 1
+  }
+ },
+ "fence": {
+  "op": "ttnn.exp",
+  "n": 3,
+  "dim": 32
+ }
+}

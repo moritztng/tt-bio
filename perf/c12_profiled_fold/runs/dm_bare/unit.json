@@ -1,0 +1,67 @@
+{
+ "env": {
+  "started": "2026-09-17T14:02:19+0000",
+  "t_start": 1789653739.0286834,
+  "phase": "unit",
+  "unit": null,
+  "reps": 3,
+  "size": 512,
+  "visible": "3,2",
+  "lease": "2,3",
+  "commit": "ee6411b08",
+  "profiler": "0",
+  "ttnn": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+  "metal_home": "/home/ttuser/tt-metal-b2z",
+  "loadavg": [
+   "4.76",
+   "6.48",
+   "8.15"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c",
+  "load_s": 3.78,
+  "stacks_truncated": 3,
+  "keep_blocks": 2,
+  "t_end": 1789653779.9621184
+ },
+ "specs": [
+  {
+   "unit": "DiffusionModule",
+   "want_attr": null,
+   "reps": 3
+  }
+ ],
+ "precursor_s": 33.151,
+ "calls_in_precursor": {
+  "DiffusionModule": 2
+ },
+ "signature_matches_in_precursor": {
+  "DiffusionModule": 2
+ },
+ "grabbed": [
+  "DiffusionModule"
+ ],
+ "not_grabbed": [],
+ "unit_order": [
+  "DiffusionModule"
+ ],
+ "units": {
+  "DiffusionModule": {
+   "reps": 3,
+   "synced_wall_ms_per_call": 21.2251,
+   "t_region0": 1789653779.8262653,
+   "t_region1": 1789653779.9618483,
+   "arg_shapes": [],
+   "calls_in_precursor": 2
+  }
+ },
+ "fence": {
+  "op": "ttnn.exp",
+  "n": 3,
+  "dim": 32
+ }
+}

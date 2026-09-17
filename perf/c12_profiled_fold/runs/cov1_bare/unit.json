@@ -1,0 +1,150 @@
+{
+ "env": {
+  "started": "2026-09-17T13:57:00+0000",
+  "t_start": 1789653420.0737064,
+  "phase": "unit",
+  "unit": null,
+  "reps": 3,
+  "size": 512,
+  "visible": "3,2",
+  "lease": "2,3",
+  "commit": "ee6411b08",
+  "profiler": "0",
+  "ttnn": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+  "metal_home": "/home/ttuser/tt-metal-b2z",
+  "loadavg": [
+   "3.58",
+   "4.75",
+   "8.23"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c",
+  "load_s": 3.15,
+  "t_end": 1789653471.289675
+ },
+ "specs": [
+  {
+   "unit": "PairformerLayer",
+   "want_attr": "transform_s",
+   "reps": 3
+  },
+  {
+   "unit": "MSALayer",
+   "want_attr": null,
+   "reps": 5
+  },
+  {
+   "unit": "PairConditioningDevice",
+   "want_attr": null,
+   "reps": 5
+  },
+  {
+   "unit": "RelPosGather",
+   "want_attr": null,
+   "reps": 10
+  }
+ ],
+ "precursor_s": 44.169,
+ "calls_in_precursor": {
+  "RelPosGather": 2,
+  "MSALayer": 16,
+  "PairformerLayer": 280,
+  "PairConditioningDevice": 1
+ },
+ "signature_matches_in_precursor": {
+  "RelPosGather": 2,
+  "MSALayer": 3,
+  "PairformerLayer": 3,
+  "PairConditioningDevice": 1
+ },
+ "grabbed": [
+  "MSALayer",
+  "PairformerLayer"
+ ],
+ "not_grabbed": [
+  "PairConditioningDevice",
+  "RelPosGather"
+ ],
+ "unit_order": [
+  "PairformerLayer",
+  "MSALayer"
+ ],
+ "units": {
+  "PairformerLayer": {
+   "reps": 3,
+   "synced_wall_ms_per_call": 30.7369,
+   "t_region0": 1789653470.6254182,
+   "t_region1": 1789653470.8127775,
+   "arg_shapes": [
+    [
+     1,
+     512,
+     384
+    ],
+    [
+     1,
+     512,
+     512,
+     128
+    ],
+    [
+     1,
+     512,
+     512
+    ],
+    [
+     1,
+     1,
+     1,
+     512
+    ],
+    [
+     1,
+     1,
+     1,
+     512
+    ],
+    "NoneType"
+   ],
+   "calls_in_precursor": 280
+  },
+  "MSALayer": {
+   "reps": 5,
+   "synced_wall_ms_per_call": 59.4596,
+   "t_region0": 1789653470.8133035,
+   "t_region1": 1789653471.2894833,
+   "arg_shapes": [
+    [
+     1,
+     512,
+     512,
+     128
+    ],
+    [
+     1,
+     64,
+     512,
+     64
+    ],
+    "NoneType",
+    "NoneType",
+    [
+     64,
+     1,
+     1
+    ],
+    "int"
+   ],
+   "calls_in_precursor": 16
+  }
+ },
+ "fence": {
+  "op": "ttnn.exp",
+  "n": 3,
+  "dim": 32
+ }
+}

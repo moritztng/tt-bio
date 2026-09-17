@@ -212,8 +212,7 @@ def is_fence(r, dim_=32):
             and s[2] == dim_ and s[3] == dim_ and s[0] <= 1 and s[1] <= 1)
 
 
-def window(rows, fence_n=FENCE_N):
-    """Rows strictly between the first and the second run of `fence_n` consecutive fence ops."""
+def fence_runs(rows, fence_n=FENCE_N):
     runs, i = [], 0
     while i < len(rows):
         if is_fence(rows[i]):
@@ -225,122 +224,194 @@ def window(rows, fence_n=FENCE_N):
             i = j
         else:
             i += 1
+    return runs
+
+
+def window(rows, k=0, n_units=1, fence_n=FENCE_N):
+    """Rows of the k-th fenced region. `timed_reps` emits [warm][F][reps][F] per unit, so with
+    n_units run back to back the fence runs come in pairs and region k lies between run 2k and
+    2k+1."""
+    runs = fence_runs(rows, fence_n)
     n_fence = sum(1 for r in rows if is_fence(r))
     meta = {"fence_runs": len(runs), "fence_rows": n_fence,
-            "fence_rows_expected": 2 * fence_n}
-    if len(runs) < 2:
-        meta["why"] = "need two fence runs to window, found %d" % len(runs)
+            "fence_rows_expected": 2 * fence_n * n_units, "region": k}
+    if len(runs) < 2 * (k + 1):
+        meta["why"] = ("need %d fence runs to window region %d, found %d"
+                       % (2 * (k + 1), k, len(runs)))
         return None, meta
-    if n_fence != 2 * fence_n:
-        meta["why"] = ("found %d fence rows, expected %d -- the marker is not unambiguous in this "
-                       "capture and the window cannot be trusted" % (n_fence, 2 * fence_n))
+    if n_fence != 2 * fence_n * n_units:
+        meta["why"] = ("found %d fence rows, expected %d for %d units -- the marker is not "
+                       "unambiguous in this capture and the windows cannot be trusted"
+                       % (n_fence, 2 * fence_n * n_units, n_units))
         return None, meta
-    a, b = runs[0][1], runs[1][0]
+    a, b = runs[2 * k][1], runs[2 * k + 1][0]
     meta.update({"window": [a, b], "n_rows": b - a})
     return rows[a:b], meta
 
 
+# Which python ttnn ops can produce which device op code. This is what makes the walk
+# unambiguous, and it replaced a shape-search that mis-credited rows: searching ahead for "any
+# recorded operand whose last two dims match" let a LayerNorm row be credited to a `generic_op`
+# eight calls later that happened to carry a (512,128) operand. Order is reliable -- python
+# dispatch order IS device dispatch order -- so the only thing needed is a rule for skipping the
+# python calls that dispatch nothing.
+OPCODE_NAMES = {
+    "MatmulDeviceOperation": ("linear", "matmul"),
+    "BinaryNgDeviceOperation": ("add", "add_", "subtract", "subtract_", "multiply", "multiply_",
+                                "div", "div_", "mul", "where", "clamp"),
+    "LayerNormDeviceOperation": ("layer_norm", "rms_norm"),
+    "GenericOpDeviceOperation": ("generic_op",),
+    "SoftmaxDeviceOperation": ("softmax",),
+    "TransposeDeviceOperation": ("transpose",),
+    "PermuteDeviceOperation": ("permute",),
+    "ConcatDeviceOperation": ("concat",),
+    "SliceDeviceOperation": ("slice", "chunk", "split"),
+    "CopyDeviceOperation": ("copy", "clone", "allocate_tensor_on_device"),
+    "CloneOperation": ("clone", "copy"),
+    "ReshapeViewDeviceOperation": ("reshape", "unsqueeze", "squeeze"),
+    "PadDeviceOperation": ("pad",),
+    "TilizeDeviceOperation": ("to_layout", "tilize"),
+    "UntilizeDeviceOperation": ("to_layout", "untilize"),
+    "NlpCreateHeadsDeviceOperation": ("nlp_create_qkv_heads",),
+    "EmbeddingsDeviceOperation": ("embedding",),
+    "UnaryDeviceOperation": ("exp", "silu", "sigmoid", "gelu", "relu", "sqrt", "rsqrt", "tanh",
+                             "neg", "reciprocal"),
+    "UnaryNgDeviceOperation": ("exp", "silu", "sigmoid", "gelu", "relu", "sqrt", "rsqrt", "tanh",
+                               "neg", "reciprocal"),
+    "TypecastDeviceOperation": ("typecast",),
+    "ReduceDeviceOperation": ("sum", "mean", "max", "min"),
+}
+
+
 def align(opseq, rows):
-    """Order-preserving map from ops-report rows to the python op name that dispatched them.
+    """Split each device op code into the python ops that produced it, per group, in order.
 
-    A python ttnn call dispatches 0 or 1 programs in almost every case, so the alignment walks both
-    sequences and consumes a python call per report row, skipping python calls that dispatch
-    nothing. A row is only credited to a name when the name's recorded operand shapes contain the
-    row's INPUT_0 shape; otherwise the python cursor advances. The fraction of rows credited is
-    `align_quality`, and it is reported rather than assumed.
+    Two earlier designs failed and the failures are the reason this one is per-group. A shape
+    search mis-credited rows: looking ahead for "any recorded operand whose last two dims match"
+    let a LayerNorm row be credited to a `generic_op` eight calls later carrying a (512,128)
+    operand. A single global cursor keyed on an opcode-compatibility table then ran AWAY: mapping
+    `CopyDeviceOperation` to `allocate_tensor_on_device` let one row drag the cursor past the
+    `multiply_` and `matmul` that the next two rows needed, and credited 49 of 411 rows.
+
+    So: no global cursor. For each device op code, take its rows in order and the python calls
+    whose name can produce it in order. If the two subsequences have the SAME LENGTH the mapping
+    is exact -- python dispatch order is device dispatch order -- and they are zipped. If the
+    lengths differ, that group is REFUSED rather than guessed at, because a length mismatch means
+    some call in it dispatched zero or several programs and the pairing is no longer determined.
+    The length check is the control, and `groups` reports it per code.
     """
-    def norm(s):
-        return tuple(int(x) for x in s) if s else None
+    def norm(x):
+        return tuple(int(v) for v in x) if x else None
 
-    names, credited, k = [], 0, 0
-    for r in rows:
-        want = rshape(r, "INPUT_0")
-        wantl = rshape(r, "INPUT_0", logical=True) or want or ()
-        hit = None
-        j = k
-        while j < len(opseq) and j < k + 64:
-            nm, ins, kwins = opseq[j]
-            shapes = [norm(x) for x in (ins or []) if x] + [norm(x) for x in (kwins or []) if x]
-            if want is None and nm in ("deallocate", "reshape", "unsqueeze", "squeeze"):
-                j += 1
-                continue
-            if want is not None and any(
-                    s is not None and (tuple(s[-2:]) == tuple(want[-2:])
-                                       or tuple(s[-2:]) == tuple(wantl[-2:])) for s in shapes):
-                hit = nm
-                k = j + 1
-                break
-            j += 1
-        if hit is None:
-            if k < len(opseq):
-                hit = opseq[k][0]
-                k += 1
-        else:
-            credited += 1
-        names.append(hit or "?")
-    return names, round(credited / max(len(rows), 1), 4)
+    names = ["?"] * len(rows)
+    groups = {}
+    by_code: dict = defaultdict(list)
+    for i, r in enumerate(rows):
+        by_code[r.get("OP CODE") or ""].append(i)
+    for code, idxs in by_code.items():
+        cands = OPCODE_NAMES.get(code)
+        if not cands:
+            groups[code] = {"rows": len(idxs), "calls": None, "matched": False,
+                            "why": "no python op is mapped to this device op code"}
+            continue
+        calls = [c for c in opseq if c[0] in cands]
+        if len(calls) != len(idxs):
+            groups[code] = {"rows": len(idxs), "calls": len(calls), "matched": False,
+                            "why": "row count != call count, pairing not determined"}
+            continue
+        agree = 0
+        for i, c in zip(idxs, calls):
+            names[i] = c[0]
+            want = rshape(rows[i], "INPUT_0", logical=True) or rshape(rows[i], "INPUT_0")
+            shapes = [norm(x) for x in (c[1] or []) if x]
+            if want is not None and any(s is not None and tuple(s[-2:]) == tuple(want[-2:])
+                                        for s in shapes):
+                agree += 1
+        groups[code] = {"rows": len(idxs), "calls": len(calls), "matched": True,
+                        "shape_agree": round(agree / max(len(idxs), 1), 4),
+                        "split": dict(Counter(c[0] for c in calls).most_common())}
+    credited = sum(1 for n in names if n != "?")
+    return names, {"align_quality": round(credited / max(len(rows), 1), 4),
+                   "groups": groups}
 
 
-def unit_device(run: Path, unit: str, target: int, node: int):
-    """Per-op device kernel seconds for one profiled unit, per call of that unit."""
-    j = run / "unit.json"
-    d = json.loads(j.read_text())
-    reps = d["env"]["reps"]
+def unit_device(run: Path, target: int, node: int):
+    """Per-op device kernel seconds for every unit profiled in one run.
+
+    Handles both shapes of `unit.json`: the single-unit form this row started with (one
+    `synced_wall_ms_per_call` at the top level) and the multi-unit form (`unit_order` plus a
+    `units` map), so archived legs keep reducing.
+    """
+    d = json.loads((run / "unit.json").read_text())
     csvs = sorted((run / "tracy").rglob("ops_perf_results*.csv"))
     if not csvs:
-        return {"unit": unit, "error": "no ops_perf_results csv under %s" % (run / "tracy")}
+        alt = run / "ops_perf_results.csv.gz"
+        csvs = [alt] if alt.is_file() else []
+    if not csvs:
+        return [{"run": run.name, "error": "no ops_perf_results csv under %s" % run}]
     rows = ops_report(csvs[-1])
-    win, wmeta = window(rows)
-    if win is None:
-        return {"unit": unit, "error": wmeta["why"], "meta": wmeta}
     clock = load_clock(run / "clock.jsonl")
-    q = qualify(clock, d.get("t_region0"), d.get("t_region1"), target, node)
-    by_code: dict = defaultdict(lambda: {"ns": 0.0, "n": 0})
-    for r in win:
-        e = by_code[r["OP CODE"]]
-        e["ns"] += fnum(r, "DEVICE KERNEL DURATION [ns]")
-        e["n"] += 1
-    by_class: dict = defaultdict(lambda: {"ns": 0.0, "n": 0})
-    quality = None
+    if "unit_order" in d:
+        order = [(n, d["units"][n]) for n in d["unit_order"] if n in d.get("units", {})]
+    else:
+        order = [(d["env"].get("unit") or run.name,
+                  {"reps": d["env"]["reps"],
+                   "synced_wall_ms_per_call": d.get("synced_wall_ms_per_call"),
+                   "t_region0": d.get("t_region0"), "t_region1": d.get("t_region1")})]
+    opseq = None
     seqp = run / "unit.opseq.json"
     if seqp.is_file():
         opseq = json.loads(seqp.read_text())
-        # window the python sequence on its own fence marks, the same 32x32 exp triple
         marks = [i for i, (nm, ins, _k) in enumerate(opseq)
                  if nm == "exp" and ins and ins[0] and tuple(ins[0][-2:]) == (32, 32)]
-        if len(marks) >= 6:
-            lo, hi = marks[2] + 1, marks[3]
-            opseq = opseq[lo:hi]
-        names, quality = align(opseq, win)
-        for nm, r in zip(names, win):
-            e = by_class[nm]
+    out = []
+    for k, (name, u) in enumerate(order):
+        reps = u["reps"]
+        win, wmeta = window(rows, k, len(order))
+        if win is None:
+            out.append({"run": run.name, "unit": name, "error": wmeta["why"], "window": wmeta})
+            continue
+        q = qualify(clock, u.get("t_region0"), u.get("t_region1"), target, node)
+        rep_ctl = {"divisible": len(win) % reps == 0, "reps": reps, "rows": len(win)}
+        if rep_ctl["divisible"]:
+            n = len(win) // reps
+            hs = [Counter(r["OP CODE"] for r in win[i * n:(i + 1) * n]) for i in range(reps)]
+            rep_ctl["identical_histograms"] = all(h == hs[0] for h in hs)
+            ms = [sum(fnum(r, "DEVICE KERNEL DURATION [ns]")
+                      for r in win[i * n:(i + 1) * n]) / 1e6 for i in range(reps)]
+            rep_ctl["per_rep_ms"] = [round(x, 4) for x in ms]
+            rep_ctl["spread_pct"] = round(100 * (max(ms) - min(ms)) / max(st.median(ms), 1e-9), 3)
+        rep_ctl["ok"] = bool(rep_ctl["divisible"] and rep_ctl.get("identical_histograms"))
+        by_code: dict = defaultdict(lambda: {"ns": 0.0, "n": 0})
+        for r in win:
+            e = by_code[r["OP CODE"]]
             e["ns"] += fnum(r, "DEVICE KERNEL DURATION [ns]")
             e["n"] += 1
-    # Control: the fence window must hold exactly `reps` instances of the unit. Split it into
-    # `reps` equal chunks and compare op-code histograms. If the chunks disagree, the window is
-    # not what it claims and per-call numbers taken by dividing by `reps` are not quotable.
-    rep_ctl = {"divisible": len(win) % reps == 0, "reps": reps, "rows": len(win)}
-    if rep_ctl["divisible"]:
-        k = len(win) // reps
-        hs = [Counter(r["OP CODE"] for r in win[i * k:(i + 1) * k]) for i in range(reps)]
-        rep_ctl["identical_histograms"] = all(h == hs[0] for h in hs)
-        ms = [sum(fnum(r, "DEVICE KERNEL DURATION [ns]") for r in win[i * k:(i + 1) * k]) / 1e6
-              for i in range(reps)]
-        rep_ctl["per_rep_ms"] = [round(x, 4) for x in ms]
-        rep_ctl["spread_pct"] = round(100 * (max(ms) - min(ms)) / max(st.median(ms), 1e-9), 3)
-    rep_ctl["ok"] = bool(rep_ctl["divisible"] and rep_ctl.get("identical_histograms"))
-    tot_ns = sum(e["ns"] for e in by_code.values())
-    return {"unit": unit, "reps": reps, "clock": q, "window": wmeta, "rep_control": rep_ctl,
-            "synced_wall_ms_per_call": d.get("synced_wall_ms_per_call"),
-            "device_ms_per_call": round(tot_ns / 1e6 / reps, 5),
-            "programs_per_call": round(len(win) / reps, 2),
-            "align_quality": quality,
-            "by_op_code": {k: {"ms_per_call": round(v["ns"] / 1e6 / reps, 5),
-                               "n_per_call": round(v["n"] / reps, 2)}
-                           for k, v in sorted(by_code.items(), key=lambda kv: -kv[1]["ns"])},
-            "by_class": {k: {"ms_per_call": round(v["ns"] / 1e6 / reps, 5),
-                             "n_per_call": round(v["n"] / reps, 2)}
-                         for k, v in sorted(by_class.items(), key=lambda kv: -kv[1]["ns"])}}
+        by_class: dict = defaultdict(lambda: {"ns": 0.0, "n": 0})
+        quality = None
+        if opseq is not None and len(marks) >= 6 * (k + 1):
+            lo, hi = marks[6 * k + 2] + 1, marks[6 * k + 3]
+            names, quality = align(opseq[lo:hi], win)
+            for nm, r in zip(names, win):
+                e = by_class[nm]
+                e["ns"] += fnum(r, "DEVICE KERNEL DURATION [ns]")
+                e["n"] += 1
+        tot_ns = sum(e["ns"] for e in by_code.values())
+        out.append({"run": run.name, "unit": name, "reps": reps, "clock": q, "window": wmeta,
+                    "rep_control": rep_ctl,
+                    "synced_wall_ms_per_call": u.get("synced_wall_ms_per_call"),
+                    "device_ms_per_call": round(tot_ns / 1e6 / reps, 5),
+                    "programs_per_call": round(len(win) / reps, 2),
+                    "align_quality": quality,
+                    "by_op_code": {kk: {"ms_per_call": round(v["ns"] / 1e6 / reps, 5),
+                                        "n_per_call": round(v["n"] / reps, 2)}
+                                   for kk, v in sorted(by_code.items(),
+                                                       key=lambda kv: -kv[1]["ns"])},
+                    "by_class": {kk: {"ms_per_call": round(v["ns"] / 1e6 / reps, 5),
+                                      "n_per_call": round(v["n"] / reps, 2)}
+                                 for kk, v in sorted(by_class.items(),
+                                                     key=lambda kv: -kv[1]["ns"])}})
+    return out
 
 
 def main() -> int:
@@ -356,7 +427,7 @@ def main() -> int:
     out = {"target_MHz": a.target, "node": a.node,
            "census": CENSUS, "fold_s_of_record": FOLD_S_OF_RECORD}
     out["spine"] = spine(a.run, a.target, a.node)
-    out["units"] = [unit_device(p, p.name, a.target, a.node) for p in a.unit_run]
+    out["units"] = [u for p in a.unit_run for u in unit_device(p, a.target, a.node)]
 
     sp = out["spine"]
     if sp:
@@ -376,7 +447,7 @@ def main() -> int:
         for n in sp["notes"]:
             print("  note:", n)
     for u in out["units"]:
-        print("\nUNIT %s" % u["unit"])
+        print("\nUNIT %s  [%s]" % (u["unit"], u["run"]))
         if "error" in u:
             print("  ERROR", u["error"])
             continue
@@ -386,7 +457,7 @@ def main() -> int:
         rc = u["rep_control"]
         print("  rep control: %s, per-rep ms %s, spread %s%%"
               % ("OK" if rc["ok"] else "FAIL %s" % rc, rc.get("per_rep_ms"), rc.get("spread_pct")))
-        print("  align_quality", u["align_quality"])
+        print("  align:", u["align_quality"])
         for k, v in list(u["by_op_code"].items())[:14]:
             print("    %-36s %9.4f ms %8.1f n" % (k, v["ms_per_call"], v["n_per_call"]))
     if a.out:

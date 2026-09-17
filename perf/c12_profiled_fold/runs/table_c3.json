@@ -573,14 +573,15 @@
  },
  "units": [
   {
-   "unit": "pfl_prof",
+   "run": "pfl_prof2",
+   "unit": "PairformerLayer",
    "reps": 3,
    "clock": {
-    "n": 589,
+    "n": 266,
     "min": 1350,
     "max": 1350,
     "read_errors": 0,
-    "max_gap_ms": 4.73,
+    "max_gap_ms": 4.13,
     "n_gaps_over": 0,
     "uncovered_s": 0.0,
     "uncovered_frac": 0.0,
@@ -594,6 +595,7 @@
     "fence_runs": 2,
     "fence_rows": 6,
     "fence_rows_expected": 6,
+    "region": 0,
     "window": [
      2005,
      2416
@@ -606,143 +608,222 @@
     "rows": 411,
     "identical_histograms": true,
     "per_rep_ms": [
-     30.3745,
-     30.8238,
-     30.5286
+     30.5007,
+     31.0027,
+     30.4614
     ],
-    "spread_pct": 1.472,
+    "spread_pct": 1.775,
     "ok": true
    },
-   "synced_wall_ms_per_call": 31.3153,
-   "device_ms_per_call": 30.5756,
+   "synced_wall_ms_per_call": 30.8584,
+   "device_ms_per_call": 30.65493,
    "programs_per_call": 137.0,
-   "align_quality": 0.3187,
+   "align_quality": {
+    "align_quality": 0.8248,
+    "groups": {
+     "LayerNormDeviceOperation": {
+      "rows": 60,
+      "calls": 60,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "layer_norm": 60
+      }
+     },
+     "GenericOpDeviceOperation": {
+      "rows": 42,
+      "calls": 42,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "generic_op": 42
+      }
+     },
+     "CopyDeviceOperation": {
+      "rows": 6,
+      "calls": 72,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "BinaryNgDeviceOperation": {
+      "rows": 93,
+      "calls": 93,
+      "matched": true,
+      "shape_agree": 0.3871,
+      "split": {
+       "multiply_": 57,
+       "add_": 27,
+       "add": 6,
+       "multiply": 3
+      }
+     },
+     "MatmulDeviceOperation": {
+      "rows": 138,
+      "calls": 138,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "linear": 126,
+       "matmul": 12
+      }
+     },
+     "PermuteDeviceOperation": {
+      "rows": 9,
+      "calls": 21,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "TransposeDeviceOperation": {
+      "rows": 15,
+      "calls": 3,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "SliceDeviceOperation": {
+      "rows": 36,
+      "calls": 6,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "ConcatDeviceOperation": {
+      "rows": 3,
+      "calls": 3,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "concat": 3
+      }
+     },
+     "NlpCreateHeadsDeviceOperation": {
+      "rows": 3,
+      "calls": 0,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "SoftmaxDeviceOperation": {
+      "rows": 3,
+      "calls": 3,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "softmax": 3
+      }
+     },
+     "ReshapeViewDeviceOperation": {
+      "rows": 3,
+      "calls": 30,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     }
+    }
+   },
    "by_op_code": {
     "GenericOpDeviceOperation": {
-     "ms_per_call": 12.02515,
+     "ms_per_call": 12.08649,
      "n_per_call": 14.0
     },
     "MatmulDeviceOperation": {
-     "ms_per_call": 6.8362,
+     "ms_per_call": 6.84889,
      "n_per_call": 46.0
     },
     "BinaryNgDeviceOperation": {
-     "ms_per_call": 5.5979,
+     "ms_per_call": 5.62244,
      "n_per_call": 31.0
     },
     "LayerNormDeviceOperation": {
-     "ms_per_call": 3.67823,
+     "ms_per_call": 3.65254,
      "n_per_call": 20.0
     },
     "TransposeDeviceOperation": {
-     "ms_per_call": 1.46935,
+     "ms_per_call": 1.46958,
      "n_per_call": 5.0
     },
     "SliceDeviceOperation": {
-     "ms_per_call": 0.3709,
+     "ms_per_call": 0.37533,
      "n_per_call": 12.0
     },
     "PermuteDeviceOperation": {
-     "ms_per_call": 0.27457,
+     "ms_per_call": 0.27626,
      "n_per_call": 3.0
     },
     "ConcatDeviceOperation": {
-     "ms_per_call": 0.16517,
+     "ms_per_call": 0.16518,
      "n_per_call": 1.0
     },
     "SoftmaxDeviceOperation": {
-     "ms_per_call": 0.11771,
+     "ms_per_call": 0.11781,
      "n_per_call": 1.0
     },
     "NlpCreateHeadsDeviceOperation": {
-     "ms_per_call": 0.02207,
+     "ms_per_call": 0.02201,
      "n_per_call": 1.0
     },
     "ReshapeViewDeviceOperation": {
-     "ms_per_call": 0.01223,
+     "ms_per_call": 0.01232,
      "n_per_call": 1.0
     },
     "CopyDeviceOperation": {
-     "ms_per_call": 0.0061,
+     "ms_per_call": 0.00608,
      "n_per_call": 2.0
     }
    },
    "by_class": {
-    "?": {
-     "ms_per_call": 12.55868,
-     "n_per_call": 73.33
-    },
-    "deallocate": {
-     "ms_per_call": 5.49883,
-     "n_per_call": 18.33
+    "generic_op": {
+     "ms_per_call": 12.08649,
+     "n_per_call": 14.0
     },
     "linear": {
-     "ms_per_call": 5.46484,
-     "n_per_call": 20.0
-    },
-    "layer_norm": {
-     "ms_per_call": 2.5072,
-     "n_per_call": 8.67
+     "ms_per_call": 5.06276,
+     "n_per_call": 42.0
     },
     "multiply_": {
-     "ms_per_call": 1.40359,
-     "n_per_call": 5.67
+     "ms_per_call": 3.75641,
+     "n_per_call": 19.0
+    },
+    "layer_norm": {
+     "ms_per_call": 3.65254,
+     "n_per_call": 20.0
+    },
+    "?": {
+     "ms_per_call": 2.16159,
+     "n_per_call": 24.0
     },
     "add_": {
-     "ms_per_call": 0.6798,
-     "n_per_call": 2.67
+     "ms_per_call": 1.82716,
+     "n_per_call": 9.0
     },
     "matmul": {
-     "ms_per_call": 0.55304,
+     "ms_per_call": 1.78613,
+     "n_per_call": 4.0
+    },
+    "concat": {
+     "ms_per_call": 0.16518,
      "n_per_call": 1.0
     },
-    "reshape": {
-     "ms_per_call": 0.48032,
-     "n_per_call": 1.67
-    },
-    "multiply": {
-     "ms_per_call": 0.41956,
-     "n_per_call": 0.33
+    "softmax": {
+     "ms_per_call": 0.11781,
+     "n_per_call": 1.0
     },
     "add": {
-     "ms_per_call": 0.25866,
-     "n_per_call": 1.33
+     "ms_per_call": 0.03209,
+     "n_per_call": 2.0
     },
-    "slice": {
-     "ms_per_call": 0.24319,
-     "n_per_call": 0.33
-    },
-    "unsqueeze": {
-     "ms_per_call": 0.22543,
-     "n_per_call": 0.67
-    },
-    "permute": {
-     "ms_per_call": 0.22348,
-     "n_per_call": 1.33
-    },
-    "transpose": {
-     "ms_per_call": 0.0381,
-     "n_per_call": 0.67
-    },
-    "allocate_tensor_on_device": {
-     "ms_per_call": 0.01916,
-     "n_per_call": 0.67
-    },
-    "generic_op": {
-     "ms_per_call": 0.00173,
-     "n_per_call": 0.33
+    "multiply": {
+     "ms_per_call": 0.00679,
+     "n_per_call": 1.0
     }
    }
   },
   {
-   "unit": "dif_prof",
-   "reps": 3,
+   "run": "msal_prof",
+   "unit": "MSALayer",
+   "reps": 5,
    "clock": {
-    "n": 423,
+    "n": 541,
     "min": 1350,
     "max": 1350,
     "read_errors": 0,
-    "max_gap_ms": 4.83,
+    "max_gap_ms": 1.4,
     "n_gaps_over": 0,
     "uncovered_s": 0.0,
     "uncovered_frac": 0.0,
@@ -756,9 +837,237 @@
     "fence_runs": 2,
     "fence_rows": 6,
     "fence_rows_expected": 6,
+    "region": 0,
     "window": [
-     7387,
-     10675
+     1634,
+     2769
+    ],
+    "n_rows": 1135
+   },
+   "rep_control": {
+    "divisible": true,
+    "reps": 5,
+    "rows": 1135,
+    "identical_histograms": true,
+    "per_rep_ms": [
+     58.9443,
+     59.0676,
+     58.8185,
+     59.1028,
+     59.9216
+    ],
+    "spread_pct": 1.867,
+    "ok": true
+   },
+   "synced_wall_ms_per_call": 59.6022,
+   "device_ms_per_call": 59.17096,
+   "programs_per_call": 227.0,
+   "align_quality": {
+    "align_quality": 0.6784,
+    "groups": {
+     "LayerNormDeviceOperation": {
+      "rows": 105,
+      "calls": 105,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "layer_norm": 105
+      }
+     },
+     "MatmulDeviceOperation": {
+      "rows": 385,
+      "calls": 385,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "linear": 330,
+       "matmul": 55
+      }
+     },
+     "PermuteDeviceOperation": {
+      "rows": 25,
+      "calls": 120,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "SoftmaxDeviceOperation": {
+      "rows": 5,
+      "calls": 5,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "softmax": 5
+      }
+     },
+     "SliceDeviceOperation": {
+      "rows": 215,
+      "calls": 170,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "TransposeDeviceOperation": {
+      "rows": 95,
+      "calls": 0,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "BinaryNgDeviceOperation": {
+      "rows": 205,
+      "calls": 205,
+      "matched": true,
+      "shape_agree": 0.4634,
+      "split": {
+       "multiply_": 130,
+       "add_": 75
+      }
+     },
+     "UntilizeDeviceOperation": {
+      "rows": 10,
+      "calls": 20,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "TilizeDeviceOperation": {
+      "rows": 10,
+      "calls": 20,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "ReshapeViewDeviceOperation": {
+      "rows": 5,
+      "calls": 70,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "GenericOpDeviceOperation": {
+      "rows": 70,
+      "calls": 70,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "generic_op": 70
+      }
+     },
+     "ConcatDeviceOperation": {
+      "rows": 5,
+      "calls": 10,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     }
+    }
+   },
+   "by_op_code": {
+    "MatmulDeviceOperation": {
+     "ms_per_call": 20.66959,
+     "n_per_call": 77.0
+    },
+    "GenericOpDeviceOperation": {
+     "ms_per_call": 12.01045,
+     "n_per_call": 14.0
+    },
+    "BinaryNgDeviceOperation": {
+     "ms_per_call": 8.64213,
+     "n_per_call": 41.0
+    },
+    "TransposeDeviceOperation": {
+     "ms_per_call": 4.51782,
+     "n_per_call": 19.0
+    },
+    "LayerNormDeviceOperation": {
+     "ms_per_call": 3.73475,
+     "n_per_call": 21.0
+    },
+    "ReshapeViewDeviceOperation": {
+     "ms_per_call": 3.05729,
+     "n_per_call": 1.0
+    },
+    "UntilizeDeviceOperation": {
+     "ms_per_call": 2.84707,
+     "n_per_call": 2.0
+    },
+    "TilizeDeviceOperation": {
+     "ms_per_call": 2.45712,
+     "n_per_call": 2.0
+    },
+    "PermuteDeviceOperation": {
+     "ms_per_call": 0.58276,
+     "n_per_call": 5.0
+    },
+    "SliceDeviceOperation": {
+     "ms_per_call": 0.41404,
+     "n_per_call": 43.0
+    },
+    "ConcatDeviceOperation": {
+     "ms_per_call": 0.16468,
+     "n_per_call": 1.0
+    },
+    "SoftmaxDeviceOperation": {
+     "ms_per_call": 0.07327,
+     "n_per_call": 1.0
+    }
+   },
+   "by_class": {
+    "linear": {
+     "ms_per_call": 16.27843,
+     "n_per_call": 66.0
+    },
+    "?": {
+     "ms_per_call": 14.04078,
+     "n_per_call": 73.0
+    },
+    "generic_op": {
+     "ms_per_call": 12.01045,
+     "n_per_call": 14.0
+    },
+    "multiply_": {
+     "ms_per_call": 6.17955,
+     "n_per_call": 26.0
+    },
+    "matmul": {
+     "ms_per_call": 4.39116,
+     "n_per_call": 11.0
+    },
+    "layer_norm": {
+     "ms_per_call": 3.73475,
+     "n_per_call": 21.0
+    },
+    "add_": {
+     "ms_per_call": 2.46258,
+     "n_per_call": 15.0
+    },
+    "softmax": {
+     "ms_per_call": 0.07327,
+     "n_per_call": 1.0
+    }
+   }
+  },
+  {
+   "run": "dm_prof",
+   "unit": "DiffusionModule",
+   "reps": 3,
+   "clock": {
+    "n": 382,
+    "min": 1350,
+    "max": 1350,
+    "read_errors": 0,
+    "max_gap_ms": 1.17,
+    "n_gaps_over": 0,
+    "uncovered_s": 0.0,
+    "uncovered_frac": 0.0,
+    "target": 1350,
+    "node": 3,
+    "held": true,
+    "covered": true,
+    "ok": true
+   },
+   "window": {
+    "fence_runs": 2,
+    "fence_rows": 6,
+    "fence_rows_expected": 6,
+    "region": 0,
+    "window": [
+     7380,
+     10668
     ],
     "n_rows": 3288
    },
@@ -768,143 +1077,615 @@
     "rows": 3288,
     "identical_histograms": true,
     "per_rep_ms": [
-     20.29,
-     20.2961,
-     20.3209
+     20.3308,
+     20.332,
+     20.3403
     ],
-    "spread_pct": 0.152,
+    "spread_pct": 0.047,
     "ok": true
    },
-   "synced_wall_ms_per_call": 36.7973,
-   "device_ms_per_call": 20.30231,
+   "synced_wall_ms_per_call": 37.0991,
+   "device_ms_per_call": 20.33434,
    "programs_per_call": 1096.0,
-   "align_quality": 0.3945,
+   "align_quality": {
+    "align_quality": 0.8376,
+    "groups": {
+     "MatmulDeviceOperation": {
+      "rows": 1143,
+      "calls": 1143,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "linear": 1137,
+       "matmul": 6
+      }
+     },
+     "BinaryNgDeviceOperation": {
+      "rows": 1017,
+      "calls": 1017,
+      "matched": true,
+      "shape_agree": 0.0708,
+      "split": {
+       "multiply_": 456,
+       "add": 198,
+       "multiply": 183,
+       "add_": 180
+      }
+     },
+     "CopyDeviceOperation": {
+      "rows": 72,
+      "calls": 0,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "LayerNormDeviceOperation": {
+      "rows": 342,
+      "calls": 342,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "layer_norm": 342
+      }
+     },
+     "SliceDeviceOperation": {
+      "rows": 180,
+      "calls": 180,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "slice": 180
+      }
+     },
+     "UntilizeDeviceOperation": {
+      "rows": 18,
+      "calls": 36,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "PadDeviceOperation": {
+      "rows": 54,
+      "calls": 54,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "pad": 54
+      }
+     },
+     "TilizeDeviceOperation": {
+      "rows": 18,
+      "calls": 36,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "ConcatDeviceOperation": {
+      "rows": 18,
+      "calls": 18,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "concat": 18
+      }
+     },
+     "NlpCreateHeadsDeviceOperation": {
+      "rows": 90,
+      "calls": 0,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "SDPAOperation": {
+      "rows": 90,
+      "calls": null,
+      "matched": false,
+      "why": "no python op is mapped to this device op code"
+     },
+     "NLPConcatHeadsDeviceOperation": {
+      "rows": 18,
+      "calls": null,
+      "matched": false,
+      "why": "no python op is mapped to this device op code"
+     },
+     "TransposeDeviceOperation": {
+      "rows": 153,
+      "calls": 0,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "UnaryNgDeviceOperation": {
+      "rows": 3,
+      "calls": 0,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "ReshapeViewDeviceOperation": {
+      "rows": 72,
+      "calls": 360,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     }
+    }
+   },
    "by_op_code": {
     "MatmulDeviceOperation": {
-     "ms_per_call": 9.01478,
+     "ms_per_call": 9.0352,
      "n_per_call": 381.0
     },
     "BinaryNgDeviceOperation": {
-     "ms_per_call": 3.75729,
+     "ms_per_call": 3.75669,
      "n_per_call": 339.0
     },
     "SDPAOperation": {
-     "ms_per_call": 2.1659,
+     "ms_per_call": 2.16741,
      "n_per_call": 30.0
     },
     "LayerNormDeviceOperation": {
-     "ms_per_call": 1.769,
+     "ms_per_call": 1.76916,
      "n_per_call": 114.0
     },
     "NlpCreateHeadsDeviceOperation": {
-     "ms_per_call": 1.47128,
+     "ms_per_call": 1.47431,
      "n_per_call": 30.0
     },
     "ReshapeViewDeviceOperation": {
-     "ms_per_call": 0.5252,
+     "ms_per_call": 0.52415,
      "n_per_call": 24.0
     },
     "PadDeviceOperation": {
-     "ms_per_call": 0.43027,
+     "ms_per_call": 0.43204,
      "n_per_call": 18.0
     },
     "SliceDeviceOperation": {
-     "ms_per_call": 0.42922,
+     "ms_per_call": 0.42979,
      "n_per_call": 60.0
     },
     "TransposeDeviceOperation": {
-     "ms_per_call": 0.28047,
+     "ms_per_call": 0.28598,
      "n_per_call": 51.0
     },
     "ConcatDeviceOperation": {
-     "ms_per_call": 0.13821,
+     "ms_per_call": 0.13924,
      "n_per_call": 6.0
     },
     "CopyDeviceOperation": {
-     "ms_per_call": 0.11336,
+     "ms_per_call": 0.11341,
      "n_per_call": 24.0
     },
     "TilizeDeviceOperation": {
-     "ms_per_call": 0.07223,
+     "ms_per_call": 0.07132,
      "n_per_call": 6.0
     },
     "UntilizeDeviceOperation": {
-     "ms_per_call": 0.06728,
+     "ms_per_call": 0.06743,
      "n_per_call": 6.0
     },
     "NLPConcatHeadsDeviceOperation": {
-     "ms_per_call": 0.06559,
+     "ms_per_call": 0.06546,
      "n_per_call": 6.0
     },
     "UnaryNgDeviceOperation": {
-     "ms_per_call": 0.00222,
+     "ms_per_call": 0.00274,
      "n_per_call": 1.0
     }
    },
    "by_class": {
-    "deallocate": {
-     "ms_per_call": 4.57193,
-     "n_per_call": 232.0
-    },
     "linear": {
-     "ms_per_call": 4.2248,
-     "n_per_call": 246.33
+     "ms_per_call": 8.88746,
+     "n_per_call": 379.0
     },
     "?": {
-     "ms_per_call": 4.19917,
-     "n_per_call": 226.67
+     "ms_per_call": 4.77222,
+     "n_per_call": 178.0
     },
     "multiply_": {
-     "ms_per_call": 1.57981,
-     "n_per_call": 79.33
+     "ms_per_call": 1.99582,
+     "n_per_call": 152.0
     },
     "layer_norm": {
-     "ms_per_call": 1.53112,
-     "n_per_call": 90.33
-    },
-    "add": {
-     "ms_per_call": 0.98938,
-     "n_per_call": 48.67
-    },
-    "unsqueeze": {
-     "ms_per_call": 0.82163,
-     "n_per_call": 22.67
+     "ms_per_call": 1.76916,
+     "n_per_call": 114.0
     },
     "multiply": {
-     "ms_per_call": 0.7103,
-     "n_per_call": 49.33
+     "ms_per_call": 0.64623,
+     "n_per_call": 61.0
     },
-    "reshape": {
-     "ms_per_call": 0.69866,
-     "n_per_call": 34.33
+    "add": {
+     "ms_per_call": 0.60332,
+     "n_per_call": 66.0
     },
     "add_": {
-     "ms_per_call": 0.50525,
-     "n_per_call": 26.0
-    },
-    "permute": {
-     "ms_per_call": 0.23302,
-     "n_per_call": 27.67
-    },
-    "slice": {
-     "ms_per_call": 0.12218,
-     "n_per_call": 6.0
-    },
-    "squeeze": {
-     "ms_per_call": 0.09412,
-     "n_per_call": 5.0
+     "ms_per_call": 0.51131,
+     "n_per_call": 60.0
     },
     "pad": {
-     "ms_per_call": 0.01138,
-     "n_per_call": 0.67
+     "ms_per_call": 0.43204,
+     "n_per_call": 18.0
     },
-    "to_layout": {
-     "ms_per_call": 0.00779,
-     "n_per_call": 0.67
+    "slice": {
+     "ms_per_call": 0.42979,
+     "n_per_call": 60.0
     },
     "matmul": {
-     "ms_per_call": 0.00179,
-     "n_per_call": 0.33
+     "ms_per_call": 0.14774,
+     "n_per_call": 2.0
+    },
+    "concat": {
+     "ms_per_call": 0.13924,
+     "n_per_call": 6.0
+    }
+   }
+  },
+  {
+   "run": "stage_prof",
+   "unit": "PairConditioningDevice",
+   "reps": 5,
+   "clock": {
+    "n": 1004,
+    "min": 1350,
+    "max": 1350,
+    "read_errors": 0,
+    "max_gap_ms": 3.71,
+    "n_gaps_over": 0,
+    "uncovered_s": 0.0,
+    "uncovered_frac": 0.0,
+    "target": 1350,
+    "node": 3,
+    "held": true,
+    "covered": true,
+    "ok": true
+   },
+   "window": {
+    "fence_runs": 6,
+    "fence_rows": 18,
+    "fence_rows_expected": 18,
+    "region": 0,
+    "window": [
+     39084,
+     39179
+    ],
+    "n_rows": 95
+   },
+   "rep_control": {
+    "divisible": true,
+    "reps": 5,
+    "rows": 95,
+    "identical_histograms": true,
+    "per_rep_ms": [
+     21.2771,
+     21.7026,
+     21.1309,
+     21.1554,
+     21.182
+    ],
+    "spread_pct": 2.699,
+    "ok": true
+   },
+   "synced_wall_ms_per_call": 145.1129,
+   "device_ms_per_call": 21.28959,
+   "programs_per_call": 19.0,
+   "align_quality": {
+    "align_quality": 1.0,
+    "groups": {
+     "ConcatDeviceOperation": {
+      "rows": 5,
+      "calls": 5,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "concat": 5
+      }
+     },
+     "LayerNormDeviceOperation": {
+      "rows": 25,
+      "calls": 25,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "layer_norm": 25
+      }
+     },
+     "MatmulDeviceOperation": {
+      "rows": 45,
+      "calls": 45,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "linear": 45
+      }
+     },
+     "BinaryNgDeviceOperation": {
+      "rows": 20,
+      "calls": 20,
+      "matched": true,
+      "shape_agree": 0.5,
+      "split": {
+       "multiply_": 10,
+       "add_": 10
+      }
+     }
+    }
+   },
+   "by_op_code": {
+    "MatmulDeviceOperation": {
+     "ms_per_call": 14.94903,
+     "n_per_call": 9.0
+    },
+    "LayerNormDeviceOperation": {
+     "ms_per_call": 2.94014,
+     "n_per_call": 5.0
+    },
+    "BinaryNgDeviceOperation": {
+     "ms_per_call": 2.69868,
+     "n_per_call": 4.0
+    },
+    "ConcatDeviceOperation": {
+     "ms_per_call": 0.70174,
+     "n_per_call": 1.0
+    }
+   },
+   "by_class": {
+    "linear": {
+     "ms_per_call": 14.94903,
+     "n_per_call": 9.0
+    },
+    "layer_norm": {
+     "ms_per_call": 2.94014,
+     "n_per_call": 5.0
+    },
+    "multiply_": {
+     "ms_per_call": 1.80451,
+     "n_per_call": 2.0
+    },
+    "add_": {
+     "ms_per_call": 0.89418,
+     "n_per_call": 2.0
+    },
+    "concat": {
+     "ms_per_call": 0.70174,
+     "n_per_call": 1.0
+    }
+   }
+  },
+  {
+   "run": "stage_prof",
+   "unit": "RelPosGather",
+   "reps": 10,
+   "clock": {
+    "n": 175,
+    "min": 1350,
+    "max": 1350,
+    "read_errors": 0,
+    "max_gap_ms": 1.17,
+    "n_gaps_over": 0,
+    "uncovered_s": 0.0,
+    "uncovered_frac": 0.0,
+    "target": 1350,
+    "node": 3,
+    "held": true,
+    "covered": true,
+    "ok": true
+   },
+   "window": {
+    "fence_runs": 6,
+    "fence_rows": 18,
+    "fence_rows_expected": 18,
+    "region": 1,
+    "window": [
+     39206,
+     39276
+    ],
+    "n_rows": 70
+   },
+   "rep_control": {
+    "divisible": true,
+    "reps": 10,
+    "rows": 70,
+    "identical_histograms": true,
+    "per_rep_ms": [
+     13.9944,
+     14.0031,
+     13.9912,
+     14.0036,
+     14.0108,
+     13.9981,
+     14.0083,
+     14.0014,
+     13.9891,
+     13.9937
+    ],
+    "spread_pct": 0.155,
+    "ok": true
+   },
+   "synced_wall_ms_per_call": 14.5531,
+   "device_ms_per_call": 13.99937,
+   "programs_per_call": 7.0,
+   "align_quality": {
+    "align_quality": 1.0,
+    "groups": {
+     "EmbeddingsDeviceOperation": {
+      "rows": 40,
+      "calls": 40,
+      "matched": true,
+      "shape_agree": 0.0,
+      "split": {
+       "embedding": 40
+      }
+     },
+     "BinaryNgDeviceOperation": {
+      "rows": 30,
+      "calls": 30,
+      "matched": true,
+      "shape_agree": 0.0,
+      "split": {
+       "add_": 30
+      }
+     }
+    }
+   },
+   "by_op_code": {
+    "EmbeddingsDeviceOperation": {
+     "ms_per_call": 12.6582,
+     "n_per_call": 4.0
+    },
+    "BinaryNgDeviceOperation": {
+     "ms_per_call": 1.34117,
+     "n_per_call": 3.0
+    }
+   },
+   "by_class": {
+    "embedding": {
+     "ms_per_call": 12.6582,
+     "n_per_call": 4.0
+    },
+    "add_": {
+     "ms_per_call": 1.34117,
+     "n_per_call": 3.0
+    }
+   }
+  },
+  {
+   "run": "stage_prof",
+   "unit": "PairAssemblyDevice",
+   "reps": 5,
+   "clock": {
+    "n": 276,
+    "min": 1350,
+    "max": 1350,
+    "read_errors": 0,
+    "max_gap_ms": 3.79,
+    "n_gaps_over": 0,
+    "uncovered_s": 0.0,
+    "uncovered_frac": 0.0,
+    "target": 1350,
+    "node": 3,
+    "held": true,
+    "covered": true,
+    "ok": true
+   },
+   "window": {
+    "fence_runs": 6,
+    "fence_rows": 18,
+    "fence_rows_expected": 18,
+    "region": 2,
+    "window": [
+     39363,
+     39498
+    ],
+    "n_rows": 135
+   },
+   "rep_control": {
+    "divisible": true,
+    "reps": 5,
+    "rows": 135,
+    "identical_histograms": true,
+    "per_rep_ms": [
+     26.5854,
+     26.5767,
+     26.5822,
+     26.5775,
+     26.5856
+    ],
+    "spread_pct": 0.033,
+    "ok": true
+   },
+   "synced_wall_ms_per_call": 39.0184,
+   "device_ms_per_call": 26.58147,
+   "programs_per_call": 27.0,
+   "align_quality": {
+    "align_quality": 0.9259,
+    "groups": {
+     "EmbeddingsDeviceOperation": {
+      "rows": 25,
+      "calls": 25,
+      "matched": true,
+      "shape_agree": 0.0,
+      "split": {
+       "embedding": 25
+      }
+     },
+     "BinaryNgDeviceOperation": {
+      "rows": 60,
+      "calls": 60,
+      "matched": true,
+      "shape_agree": 0.1667,
+      "split": {
+       "add_": 40,
+       "add": 10,
+       "multiply": 5,
+       "multiply_": 5
+      }
+     },
+     "MatmulDeviceOperation": {
+      "rows": 40,
+      "calls": 40,
+      "matched": true,
+      "shape_agree": 1.0,
+      "split": {
+       "linear": 40
+      }
+     },
+     "UnaryNgDeviceOperation": {
+      "rows": 5,
+      "calls": 0,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     },
+     "ReshapeViewDeviceOperation": {
+      "rows": 5,
+      "calls": 35,
+      "matched": false,
+      "why": "row count != call count, pairing not determined"
+     }
+    }
+   },
+   "by_op_code": {
+    "EmbeddingsDeviceOperation": {
+     "ms_per_call": 15.9071,
+     "n_per_call": 5.0
+    },
+    "BinaryNgDeviceOperation": {
+     "ms_per_call": 5.3174,
+     "n_per_call": 12.0
+    },
+    "MatmulDeviceOperation": {
+     "ms_per_call": 4.84216,
+     "n_per_call": 8.0
+    },
+    "UnaryNgDeviceOperation": {
+     "ms_per_call": 0.48485,
+     "n_per_call": 1.0
+    },
+    "ReshapeViewDeviceOperation": {
+     "ms_per_call": 0.02996,
+     "n_per_call": 1.0
+    }
+   },
+   "by_class": {
+    "embedding": {
+     "ms_per_call": 15.9071,
+     "n_per_call": 5.0
+    },
+    "linear": {
+     "ms_per_call": 4.84216,
+     "n_per_call": 8.0
+    },
+    "add_": {
+     "ms_per_call": 3.57659,
+     "n_per_call": 8.0
+    },
+    "add": {
+     "ms_per_call": 0.89285,
+     "n_per_call": 2.0
+    },
+    "?": {
+     "ms_per_call": 0.51481,
+     "n_per_call": 2.0
+    },
+    "multiply_": {
+     "ms_per_call": 0.46513,
+     "n_per_call": 1.0
+    },
+    "multiply": {
+     "ms_per_call": 0.38283,
+     "n_per_call": 1.0
     }
    }
   }

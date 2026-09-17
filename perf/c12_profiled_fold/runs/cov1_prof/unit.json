@@ -1,0 +1,175 @@
+{
+ "env": {
+  "started": "2026-09-17T13:57:57+0000",
+  "t_start": 1789653477.1856768,
+  "phase": "unit",
+  "unit": null,
+  "reps": 3,
+  "size": 512,
+  "visible": "3,2",
+  "lease": "2,3",
+  "commit": "ee6411b08",
+  "profiler": "1",
+  "ttnn": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+  "metal_home": "/home/ttuser/tt-metal-b2z",
+  "loadavg": [
+   "6.48",
+   "5.53",
+   "8.29"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c",
+  "load_s": 4.61,
+  "t_end": 1789653518.074619
+ },
+ "specs": [
+  {
+   "unit": "PairformerLayer",
+   "want_attr": "transform_s",
+   "reps": 3
+  },
+  {
+   "unit": "MSALayer",
+   "want_attr": null,
+   "reps": 5
+  },
+  {
+   "unit": "PairConditioningDevice",
+   "want_attr": null,
+   "reps": 5
+  },
+  {
+   "unit": "RelPosGather",
+   "want_attr": null,
+   "reps": 10
+  }
+ ],
+ "precursor_s": 33.601,
+ "calls_in_precursor": {
+  "RelPosGather": 2,
+  "MSALayer": 16,
+  "PairformerLayer": 280,
+  "PairConditioningDevice": 1
+ },
+ "signature_matches_in_precursor": {
+  "RelPosGather": 2,
+  "MSALayer": 3,
+  "PairformerLayer": 3,
+  "PairConditioningDevice": 1
+ },
+ "grabbed": [
+  "MSALayer",
+  "PairformerLayer"
+ ],
+ "not_grabbed": [
+  "PairConditioningDevice",
+  "RelPosGather"
+ ],
+ "ops_patched": 63,
+ "unit_order": [
+  "PairformerLayer",
+  "MSALayer"
+ ],
+ "units": {
+  "PairformerLayer": {
+   "reps": 3,
+   "synced_wall_ms_per_call": 31.0021,
+   "t_region0": 1789653517.338148,
+   "t_region1": 1789653517.538966,
+   "arg_shapes": [
+    [
+     1,
+     512,
+     384
+    ],
+    [
+     1,
+     512,
+     512,
+     128
+    ],
+    [
+     1,
+     512,
+     512
+    ],
+    [
+     1,
+     1,
+     1,
+     512
+    ],
+    [
+     1,
+     1,
+     1,
+     512
+    ],
+    "NoneType"
+   ],
+   "calls_in_precursor": 280
+  },
+  "MSALayer": {
+   "reps": 5,
+   "synced_wall_ms_per_call": 68.6304,
+   "t_region0": 1789653517.5405612,
+   "t_region1": 1789653518.0662434,
+   "arg_shapes": [
+    [
+     1,
+     512,
+     512,
+     128
+    ],
+    [
+     1,
+     64,
+     512,
+     64
+    ],
+    "NoneType",
+    "NoneType",
+    [
+     64,
+     1,
+     1
+    ],
+    "int"
+   ],
+   "calls_in_precursor": 16
+  }
+ },
+ "op_seq_len": 4320,
+ "op_seq_path": "/home/ttuser/.coworker/wt/c12-profiled-fold/perf/c12_profiled_fold/runs/cov1_prof/unit.opseq.json",
+ "op_seq_counts": {
+  "deallocate": 1318,
+  "linear": 780,
+  "allocate_tensor_on_device": 336,
+  "multiply_": 322,
+  "layer_norm": 288,
+  "slice": 262,
+  "permute": 234,
+  "generic_op": 196,
+  "add_": 174,
+  "reshape": 126,
+  "matmul": 112,
+  "unsqueeze": 46,
+  "to_layout": 32,
+  "chunk": 22,
+  "concat": 22,
+  "softmax": 14,
+  "add": 12,
+  "exp": 12,
+  "transpose": 6,
+  "multiply": 6
+ },
+ "fence": {
+  "op": "ttnn.exp",
+  "n": 3,
+  "dim": 32
+ }
+}

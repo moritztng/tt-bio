@@ -4,7 +4,9 @@
 `ttnn==0.68.0` wheel, AICLK forced to 1350 MHz through tt-kmd's ARC queue and sampled at 1 kHz
 during every timed leg. No production code changed.
 
-## VERDICT: PARTIAL. 81.5 % of the fold is now measured per op. Three campaign figures do not survive it.
+## VERDICT: PARTIAL on coverage grounds (88.8 % composed), but every deliverable is measured.
+Five campaign figures do not survive it. See pass 3 below for the closed tables; passes 1 and 2
+are kept because their controls and dead ends are the reason the pass-3 numbers can be trusted.
 
 ## 1. A profiled fold is not the instrument, and the arithmetic says so before the first run
 
@@ -314,3 +316,189 @@ allows, and treat any unit whose program count is comparable to its operand coun
    into the per-class table the brief asks for.
 3. The 14.881 s denominator on a quiet box. Everything above divides by the campaign's figure, not
    by a fold this row measured; this row's own fold read 17.5213 s co-tenanted.
+
+---
+
+# Pass 3: 88.8 % of the fold composed, per device op AND per python class
+
+Six units, each grabbed out of a live fold, replayed fenced under the profiler, and weighted by the
+fold's own integer call count. Clock held at 1350 MHz and qualified inside every profiled region.
+
+| unit | calls/fold | programs/call | device ms/call | s/fold | rep spread |
+|---|---|---|---|---|---|
+| PairformerLayer (`transform_s=True`) | 264 | 137 | 30.6549 | **8.0929** | 1.775 % |
+| DiffusionModule | 200 | 1096 | 20.3343 | **4.0669** | 0.047 % |
+| MSALayer | 16 | 227 | 59.1710 | **0.9467** | 1.867 % |
+| PairAssemblyDevice | 2 | 27 | 26.5815 | 0.0532 | 0.033 % |
+| RelPosGather | 2 | 7 | 13.9994 | 0.0280 | 0.155 % |
+| PairConditioningDevice | 1 | 19 | 21.2896 | 0.0213 | 2.699 % |
+| **device total** | | | | **13.2090** | |
+
+`ConfidenceHeadsDevice` is the one unit not composed: it runs after the diffusion sampler, so
+reaching it needs a whole-fold precursor and the profiler cannot survive one. It is bounded by its
+own inclusive host wall from the `counts` phase instead, **<= 0.0231 s**, 0.16 % of the fold.
+
+Reproducibility across independent sessions, same unit, different process and different precursor:
+PairformerLayer device **30.5756 -> 30.6549 ms (0.26 %)**, bare wall **30.7345 -> 30.7369 ms
+(0.008 %)**. `DiffusionModule` reproduces `Diffusion` at 1096 programs and 20.3343 vs 20.3023 ms
+(0.16 %), which also says something useful on its own: **the diffusion sampler's per-step body
+dispatches zero device programs.** All 1.2575 s of `DiffusionModule`'s exclusive host wall is host.
+
+## PER DEVICE OP, whole fold
+
+| device op | s/fold | % of 14.881 s |
+|---|---|---|
+| MatmulDeviceOperation | 3.9705 | 26.7 |
+| **GenericOpDeviceOperation** | **3.3830** | **22.7** |
+| BinaryNgDeviceOperation | 2.3900 | 16.1 |
+| LayerNormDeviceOperation | 1.3808 | 9.3 |
+| TransposeDeviceOperation | 0.5175 | 3.5 |
+| SDPAOperation | 0.4335 | 2.9 |
+| NlpCreateHeadsDeviceOperation | 0.3007 | 2.0 |
+| Slice, ReshapeView, Pad, Permute, Concat, Untilize, Embeddings, Tilize, Softmax, Copy, NLPConcatHeads, UnaryNg | 0.8330 | 5.6 |
+
+## PER PYTHON CLASS, whole fold, signed against the census, and which arm the fold resembles
+
+The split is emitted only for a device op code whose row count and python call count matched
+**exactly** inside the profiled window. A code that did not match is carried in the totals and
+reported UNSPLIT rather than divided on a guess; that is 1.7508 s, 11.77 % of the fold, and none of
+it carries a census price (Transpose 0.5175, SDPA 0.4335, NlpCreateHeads 0.3007, ReshapeView
+0.1571, and seven smaller).
+
+| class | measured s | census s | signed | ratio | Mcycles | census arm |
+|---|---|---|---|---|---|---|
+| **linear** | **3.3991** | **4.6604** | **-1.2613** | **0.729x** | **1702.7** | grid110; bare was 10.7316 s |
+| **generic_op** | **3.3830** | **4.0841** | **-0.7011** | **0.828x** | **946.5** | not a replay price, a traffic FLOOR |
+| multiply_ | 1.4925 | 1.7510 | -0.2585 | 0.852x | 349.0 | bare |
+| layer_norm | 1.3808 | 1.5330 | -0.1522 | 0.901x | 205.5 | bare (published 1.357 + 0.176) |
+| add_ | 0.6348 | 0.8473 | -0.2125 | 0.749x | 286.9 | bare |
+| **matmul** | **0.5713** | **1.4790** | **-0.9077** | **0.386x** | **1225.3** | grid110; bare was 2.1174 s |
+| multiply | 0.1318 | 0.1256 | **+0.0062** | **1.049x** | 8.4 | bare |
+| add | 0.1309 | 0.1403 | **-0.0094** | **0.933x** | 12.7 | bare |
+
+**The census's own two control classes validate the whole comparison.** `add` and `multiply` are the
+classes the census identified as genuinely DRAM-resident in the fold (byte ratio 1.03x and 1.00x,
+where every other class was 1.22-2.23x). They are the only two that come out at parity here:
+**0.933x and 1.049x.** Every class carrying a DRAM-operand overprice or a grid-110 arm comes out
+0.386-0.901x. The pattern the census predicted without being able to measure it is exactly the
+pattern that appeared.
+
+**Which arm does the fold resemble? Neither, and the answer differs per class.**
+- `linear`: 3.3991 s measured. The grid110 arm priced it at 4.6604 s (0.729x of it) and the bare arm
+  at 10.7316 s (0.317x of it). The fold is **faster than both**, closer to grid110.
+- `matmul`: 0.5713 s against grid110's 1.4790 s (0.386x) and bare's 2.1174 s (0.270x). Same
+  direction, further off.
+- the four eltwise and `layer_norm` classes were published from their **bare** arm, and the fold
+  comes in 0.749-1.049x of it, i.e. at or below.
+
+**What this does to Axis B.** Axis B is sized per key off `linear` = 4.6604 s. The real in-fold
+figure is **3.3991 s**. Every prediction quoted against the old denominator is over by the same
+1.371x, before coverage is added back: silu +0.270 s becomes ~+0.197 s, K-block +0.3423 s becomes
+~+0.250 s, cond-hoist +0.1445 s becomes ~+0.105 s. In cycles the `linear` overprice alone is
+**1702.7 Mcycles** and the Matmul group's is 2930.0 Mcycles.
+
+**generic_op's floor is beaten, so it is not a floor.** 14 generic_op programs per PairformerLayer
+and 14 per MSALayer, x 264 + x 16 = **3,920 programs per fold**, which is the campaign's own
+generic_op call count to the call. Measured 3.3830 s against a 4.0841 s traffic floor: **0.828x,
+-0.7011 s, 946.5 Mcycles below the bytes it is supposed to be unable to beat.** Either the 0.9127 TB
+byte count or the rate behind it is wrong, and the figure may not be quoted as a floor until one of
+them is re-derived.
+
+## RESIDUAL: 1.6720 s, and F cannot live in it
+
+```
+14.8810 s   fold of record, pinned during-sampled 1350 MHz, quiet box
+13.2090 s   device, six units x the fold's own call counts
+-----------
+ 1.6720 s   remainder, everything else in the fold
+-0.0231 s   ConfidenceHeadsDevice, bounded by its own inclusive host wall
+-----------
+ 1.6489 s   at most, for featurisation, the CIF write, the trunk recycle's host code, the
+            sampler's per-step host body, and EVERY second of exposed host time
+```
+
+**F = 3.9830 s exceeds the whole remainder by 2.3110 s.** `c10-fixed-cost` measured F as the term
+that does not move with AICLK and its own UNCOUNTED section refused to call it removable CPU work.
+It cannot be: there is not 3.983 s of non-device time in this fold to remove. Axis A's working
+assumption of 2.983 s of free host work is **2.983 s against a 1.6489 s ceiling** -- it is not
+merely optimistic, it is larger than the entire non-device remainder.
+
+The largest single host item this pass can name is `PairConditioningDevice`: **130.5820 ms of bare
+synced wall for 21.2896 ms of device, so 109.3 ms of host in one call**, 0.73 % of the fold. It is
+16.3 % in-kernel, against 99.7 % for PairformerLayer and 99.5 % for MSALayer.
+
+## PERTURBATION, per unit, measured bare and profiled in the same configuration
+
+| unit | bare ms | profiled ms | profiled/bare | device ms | in-kernel |
+|---|---|---|---|---|---|
+| PairformerLayer | 30.7345 | 30.8584 | **1.0040x** | 30.6549 | 99.7 % |
+| MSALayer | 59.4596 | 59.6022 | **1.0024x** | 59.1710 | 99.5 % |
+| RelPosGather | 14.5534 | 14.5531 | **1.0000x** | 13.9994 | 96.2 % |
+| PairAssemblyDevice | 37.7646 | 39.0184 | 1.0332x | 26.5815 | 70.4 % |
+| PairConditioningDevice | 130.5820 | 145.1129 | 1.1113x | 21.2896 | 16.3 % |
+| DiffusionModule | 21.2251 | 37.0991 | **1.7479x** | 20.3343 | 95.8 % |
+| DiffusionTransformerLayer | 0.7936 | 1.5109 | **1.9040x** | (not composed) | 91.3 % |
+
+The overhead tracks **programs per second**, not seconds: a 137-program block over 30 ms absorbs it
+(1.004x), a 1096-program step over 21 ms does not (1.748x), a 41-program layer over 0.79 ms least of
+all (1.904x). The device kernel sums are not affected in kind -- the profiler times kernels, not the
+gaps between them -- and the rep controls put the per-rep spread at 0.033-2.699 %. What is
+disqualified is the **wall** of a program-dense unit under the profiler, and any A/B taken under it.
+
+**The whole-fold profiled-vs-unprofiled ratio the brief asks for cannot be measured**, at 465,664
+calls, for the reason in section 1. This row quotes no proxy for it. The closest defensible
+statement is the weighted per-unit figure: the six composed units carry 13.2090 s of device, and
+weighting each unit's profiled/bare ratio by its s/fold gives **1.214x** on the profiled portion --
+which is a statement about the units, not about a fold, and is labelled as such.
+
+## What went wrong on the way, because the controls are the reason to believe the tables
+
+1. **A fence matched on shape alone.** A pairformer block is full of `BinaryNg` rows on 1x1x32x32
+   operands in dense clusters, and three of them read as a fence. The window held 410 rows, not
+   divisible by 3 reps. The **rep control** caught it, not inspection. `ttnn.exp` lands on
+   `UnaryDeviceOperation`, which appears exactly 2 x 3 times per unit and never inside one, so the
+   op code is the disambiguator, and the reducer now refuses a window whose fence-row count is wrong.
+2. **A shape-searching alignment mis-credited rows.** Looking ahead for "any recorded operand whose
+   last two dims match" let a `LayerNorm` row be credited to a `generic_op` eight calls later that
+   happened to carry a (512,128) operand.
+3. **An opcode-compatibility walk with a single global cursor ran away.** Mapping `CopyDeviceOperation`
+   to `allocate_tensor_on_device` let one row drag the cursor past the `multiply_` and `matmul` the
+   next two rows needed. It credited 49 of 411 rows, 0.119.
+4. **The per-group length control is what finally worked**, 0.8248 on PairformerLayer: per device op
+   code, zip its rows against the python calls that can produce it, and refuse the group if the two
+   counts differ. Every class with a census price matched exactly, `MatmulDeviceOperation` 138 rows
+   to 138 calls with shape agreement 1.0.
+5. **`--skip 3` can never match a unit called once or twice.** `PairConditioningDevice` (1 call) and
+   `RelPosGather` (2) were silently never grabbed and the precursor just ran to completion; they
+   needed their own leg at `--skip 1`.
+6. **The device profiler can abort in post-processing instead of warning.** Profiling two units in
+   one process died with `TT_FATAL profiler.cpp:1999 start_marker_it->marker_id == marker.marker_id`,
+   "Start and end marker IDs do not match", a TRISC-FW `ZONE_START` paired to a TRISC-KERNEL
+   `ZONE_END`, thrown on a background thread so the process aborted with a core dump and produced no
+   `cpp_device_perf_report.csv` at all. Zero dropped-marker warnings, 3.6 GB of artifacts, and no
+   device data. One unit per process is the configuration that works.
+7. **`python -m tracy` re-invokes the target as the literal string `python3 -m tracy ...`**
+   (`tools/tracy/__main__.py:361`), so the interpreter that runs the fold is whatever `python3` is
+   first on PATH. With the system python3 there it dies importing `loguru` and reports it as "No
+   profiling data could be captured. Please make sure you are on a Tracy-enabled build" -- a lie
+   about the build.
+8. **Grab the LARGEST unit that fits the budget.** 30 `DiffusionTransformerLayer` calls run inside one
+   `Diffusion` call, and 30 x 0.7242 = 21.7260 ms against the 20.3023 ms of the whole `Diffusion`
+   containing them: the part cannot exceed the whole. It is a different graph, not just slower --
+   1230 programs against 1096, the extra being 3 `Pad` and 4 `Copy` per layer. `ttnn.clone` of the
+   grabbed operands does not preserve their in-fold memory config, so a unit small enough to be
+   dominated by its own boundary inherits the very DRAM-operand bias this row exists to remove.
+
+## Honest limits on the tables above
+
+- **Coverage is 88.8 %, not 100 %.** The 1.6720 s remainder is measured as a remainder, not
+  itemised, apart from the `ConfidenceHeadsDevice` bound.
+- **11.77 % of the fold's device seconds are UNSPLIT** by python class. None of it carries a census
+  price, so the REPLAY-BIAS table is unaffected, but the per-class table does not sum to the
+  per-device-op table.
+- **`PairAssemblyDevice` x 2 assumes its two calls cost the same.** One is `for_trunk` and one is
+  `for_confidence`; the trunk-side one was grabbed. 0.0532 s total, so the exposure is small.
+- **The 14.881 s denominator is the campaign's, not this row's.** This row's own fold read 17.5213 s
+  co-tenanted with the release gate on the neighbouring board, at a clock that never left 1350 MHz.
+  Every composed second above is a device second and is insensitive to that host contention; the
+  *percentages* of the fold are not, and would shift if the quiet-box denominator moves.
