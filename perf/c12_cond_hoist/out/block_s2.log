@@ -1,0 +1,26 @@
+2026-09-17 12:08:42.096 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  rep-1 base    pos0 fold  91.963s  load 16.65->12.06 sha=47b41b3048019cd6
+  rep-1 hoist   pos1 fold  19.459s  load 12.06->12.69 sha=bea76f6f8a86c6c8
+  rep-1 base    pos2 fold  17.126s  load 12.69->14.68 sha=47b41b3048019cd6
+  rep0  base    pos0 fold  16.742s  load 14.68->16.21 sha=47b41b3048019cd6
+  rep0  hoist   pos1 fold  17.538s  load 16.21->18.67 sha=bea76f6f8a86c6c8
+  rep0  base    pos2 fold  18.109s  load 18.67->19.63 sha=47b41b3048019cd6
+  rep1  base    pos0 fold  17.271s  load 19.63->20.21 sha=47b41b3048019cd6
+  rep1  hoist   pos1 fold  16.621s  load 20.21->20.82 sha=bea76f6f8a86c6c8
+  rep1  base    pos2 fold  16.540s  load 20.82->20.79 sha=47b41b3048019cd6
+  rep2  base    pos0 fold  18.438s  load 20.79->20.22 sha=47b41b3048019cd6
+  rep2  hoist   pos1 fold  14.807s  load 20.22->17.78 sha=bea76f6f8a86c6c8
+  rep2  base    pos2 fold  15.620s  load 17.78->16.43 sha=47b41b3048019cd6
+  rep3  base    pos0 fold  17.635s  load 16.43->15.06 sha=47b41b3048019cd6
+  rep3  hoist   pos1 fold  16.407s  load 15.06->13.31 sha=bea76f6f8a86c6c8
+  rep3  base    pos2 fold  18.549s  load 13.31->14.70 sha=47b41b3048019cd6
+  rep4  base    pos0 fold  17.918s  load 14.70->17.57 sha=47b41b3048019cd6
+  rep4  hoist   pos1 fold  18.163s  load 17.57->17.51 sha=bea76f6f8a86c6c8
+  rep4  base    pos2 fold  17.159s  load 17.51->18.84 sha=47b41b3048019cd6
+base     n=10 fold 17.453s 1.00000x  block 3.2065s 1.0x  spread 16.78%
+hoist    n=5 fold 16.621s 1.05006x  block 2.965s 1.08145x  spread 20.19%
+A/A floor (base pos0 / base pos-last): 1.02774x
+A/A floor BLOCK (base pos0 / base pos-last): 0.99250x  delta -0.0242s
+_cond_weights() built 1x, [0.5687]s, in [(-1, 'hoist')]
+{"block_n": [200], "atom_block_n": [400], "hoist_norms_by_arm": {"base": [0], "hoist": [200]}}
