@@ -1,0 +1,18 @@
+benchlock: WARNING after 60s load=3.60 foreign_folds=0. Proceeding, RECORD THIS.
+benchlock: a co-tenanted arm measured 0.84 % slow once; treat this run as suspect.
+benchlock: c12-compose-fold acquired after 70s, loadavg 3.60 5.18 6.89
+2026-09-17 14:28:24.713 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  rep-1  base   pos0 fold  49.203s  clk 1350-1350 (n=23787)  load  3.71-> 5.17  hoist_norms=0    silu=0     sha=47b41b3048019cd6 plddt=0.864082  [COLD, discarded]
+  rep-1  silu   pos1 fold  14.905s  clk 1350-1350 (n=7231)  load  5.17-> 5.25  hoist_norms=0    silu=3760  sha=b6d76f5e326929ca plddt=0.847425  [COLD, discarded]
+  rep-1  hoist  pos2 fold  15.403s  clk 1350-1350 (n=7443)  load  5.25-> 4.75  hoist_norms=200  silu=0     sha=bea76f6f8a86c6c8 plddt=0.864325  [COLD, discarded]
+  rep-1  both   pos3 fold  14.549s  clk 1350-1350 (n=7056)  load  4.75-> 4.36  hoist_norms=200  silu=3760  sha=4a1d995cf7fb8fbb plddt=0.846441  [COLD, discarded]
+  rep-1  base   pos4 fold  14.810s  clk 1350-1350 (n=7180)  load  4.36-> 4.06  hoist_norms=0    silu=0     sha=47b41b3048019cd6 plddt=0.864082  [COLD, discarded]
+  rep0   base   pos0 fold  15.038s  clk 1350-1350 (n=7270)  load  4.06-> 3.98  hoist_norms=0    silu=0     sha=47b41b3048019cd6 plddt=0.864082
+  rep0   silu   pos1 fold  14.572s  clk 1350-1350 (n=7065)  load  3.98-> 4.33  hoist_norms=0    silu=3760  sha=b6d76f5e326929ca plddt=0.847425
+  rep0   hoist  pos2 fold  14.879s  clk 1350-1350 (n=7201)  load  4.33-> 4.03  hoist_norms=200  silu=0     sha=bea76f6f8a86c6c8 plddt=0.864325
+  rep0   both   pos3 fold  14.980s  clk 1350-1350 (n=7114)  load  4.03-> 5.36  hoist_norms=200  silu=3760  sha=4a1d995cf7fb8fbb plddt=0.846441
+  rep0   base   pos4 fold  15.498s  clk 1350-1350 (n=7397)  load  5.36-> 5.54  hoist_norms=0    silu=0     sha=47b41b3048019cd6 plddt=0.864082
+Terminated
+benchlock: c12-compose-fold released, rc=143, loadavg 7.98 7.04 6.98
+run.sh: benchlock+fold exit 143
