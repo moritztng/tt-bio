@@ -145,15 +145,15 @@ def reduce(root):
             cu,ct=cells.get(f'{clk}_untraced'),cells.get(f'{clk}_traced')
             if not (cu and ct):continue
             pd=[p['delta_s'] for p in pairs if p['clock_MHz']==clk]
-            d=cu['median']-ct['median']
+            dm=cu['median']-ct['median']
             deltas[str(clk)]={'n_untraced':cu['n'],'n_traced':ct['n'],
                 'untraced_median_s':cu['median'],'traced_median_s':ct['median'],
-                'delta_s':d,'delta_Mcycles':d*clk,'speedup':cu['median']/ct['median'],
+                'delta_s':dm,'delta_Mcycles':dm*clk,'speedup':cu['median']/ct['median'],
                 'paired_n':len(pd),'paired_median_delta_s':statistics.median(pd) if pd else None,
                 'paired_min_s':min(pd) if pd else None,'paired_max_s':max(pd) if pd else None,
                 'host_cpu_delta_s':cu.get('n') and (statistics.median([p['host_cpu_delta_s'] for p in pairs if p['clock_MHz']==clk]) if pd else None),
-                'exceeds_committed_AA_floor':abs(d)>AA_FLOOR_S[str(size)],
-                'exceeds_session_AA_floor':T['session_AA_floor_s'] is None or abs(d)>T['session_AA_floor_s']}
+                'exceeds_committed_AA_floor':abs(dm)>AA_FLOOR_S[str(size)],
+                'exceeds_session_AA_floor':T['session_AA_floor_s'] is None or abs(dm)>T['session_AA_floor_s']}
         T['deltas']=deltas
         # clock-immune vs clock-scaled: a host-dispatch gain is constant in SECONDS across clocks
         hi,lo=str(criterion['primary_clock_MHz']),None

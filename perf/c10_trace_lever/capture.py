@@ -193,7 +193,7 @@ def main():
                      start_monotonic_ns=start,end_monotonic_ns=end,elapsed_s=(end-start)/1e9,
                      score_calls=dict(ctr.n),
                      trace_present_after=tr is not None,
-                     trace_id=(tr or {}).get('tid'),trace_shape=[(tr or {}).get('B'),(tr or {}).get('N_padded')],
+                     trace_id=str((tr or {}).get('tid')),trace_shape=[(tr or {}).get('B'),(tr or {}).get('N_padded')],
                      host_cpu_s=(cpu1['process_time_ns']-cpu0['process_time_ns'])/1e9,
                      host_utime_s=cpu1['utime_s']-cpu0['utime_s'],host_stime_s=cpu1['stime_s']-cpu0['stime_s'],
                      host_child_utime_s=cpu1['child_utime_s']-cpu0['child_utime_s'],

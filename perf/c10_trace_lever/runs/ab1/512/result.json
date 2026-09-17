@@ -1,0 +1,3747 @@
+{
+  "pid": 254838,
+  "host": "tt-quietbox2",
+  "size": 512,
+  "smoke": false,
+  "sampling_steps": 200,
+  "rows": [
+    {
+      "label": "cold",
+      "arm": "untraced",
+      "diffusion_trace": false,
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200738196,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25073831960993,
+      "end_monotonic_ns": 25092502732586,
+      "elapsed_s": 18.670771593,
+      "score_calls": {
+        "traced": 0,
+        "untraced": 200
+      },
+      "trace_present_after": false,
+      "trace_id": "None",
+      "trace_shape": [
+        null,
+        null
+      ],
+      "host_cpu_s": 18.933888279,
+      "host_utime_s": 17.523857,
+      "host_stime_s": 1.4100309999999998,
+      "host_child_utime_s": 10.203234,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25073810078067,
+        "utc_ns": 1789604452951086604,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 401,
+            "stime_ticks": 104,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25092502766832,
+        "utc_ns": 1789604471643775278,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 2154,
+            "stime_ticks": 245,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/cold/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 17173,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1398570,
+        "first_offset_ns": 173672,
+        "last_offset_ns": 242305,
+        "sample_span_fraction": 0.9999777204172882,
+        "min_W": 38.0,
+        "max_W": 144.0,
+        "mean_W": 70.47155418389332,
+        "max_C": 57.455,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 151,
+        "max_gap_ns": 129995230,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_u0",
+      "arm": "untraced",
+      "diffusion_trace": false,
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200705339,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25092961324164,
+      "end_monotonic_ns": 25107977472442,
+      "elapsed_s": 15.016148278,
+      "score_calls": {
+        "traced": 0,
+        "untraced": 200
+      },
+      "trace_present_after": false,
+      "trace_id": "None",
+      "trace_shape": [
+        null,
+        null
+      ],
+      "host_cpu_s": 16.967383547,
+      "host_utime_s": 15.953736999999997,
+      "host_stime_s": 1.013645,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25092938901524,
+        "utc_ns": 1789604472079910711,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 2159,
+            "stime_ticks": 246,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25107977501869,
+        "utc_ns": 1789604487118510275,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 3755,
+            "stime_ticks": 347,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_u0/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13808,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1218279,
+        "first_offset_ns": 131677,
+        "last_offset_ns": 773041,
+        "sample_span_fraction": 0.999939750328563,
+        "min_W": 37.0,
+        "max_W": 146.0,
+        "mean_W": 80.78700753186558,
+        "max_C": 57.967,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 123,
+        "max_gap_ns": 129884830,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_t0",
+      "arm": "traced",
+      "diffusion_trace": true,
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200661148,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25108457709312,
+      "end_monotonic_ns": 25123385309996,
+      "elapsed_s": 14.927600684,
+      "score_calls": {
+        "traced": 200,
+        "untraced": 0
+      },
+      "trace_present_after": true,
+      "trace_id": "MeshTraceId(0)",
+      "trace_shape": [
+        1,
+        4480
+      ],
+      "host_cpu_s": 16.816936828,
+      "host_utime_s": 16.035932000000003,
+      "host_stime_s": 0.7810049999999995,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25108435297000,
+        "utc_ns": 1789604487576305827,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 3762,
+            "stime_ticks": 347,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25123385334843,
+        "utc_ns": 1789604502526343310,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 5366,
+            "stime_ticks": 425,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_t0/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13753,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1185197,
+        "first_offset_ns": 653196,
+        "last_offset_ns": 112917,
+        "sample_span_fraction": 0.9999486780885811,
+        "min_W": 38.0,
+        "max_W": 144.0,
+        "mean_W": 80.29317239874936,
+        "max_C": 58.096,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 122,
+        "max_gap_ns": 133416139,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_t1",
+      "arm": "traced",
+      "diffusion_trace": true,
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200685619,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25123886296139,
+      "end_monotonic_ns": 25138799746542,
+      "elapsed_s": 14.913450403,
+      "score_calls": {
+        "traced": 200,
+        "untraced": 0
+      },
+      "trace_present_after": true,
+      "trace_id": "MeshTraceId(1)",
+      "trace_shape": [
+        1,
+        4480
+      ],
+      "host_cpu_s": 16.794183473,
+      "host_utime_s": 16.040684999999996,
+      "host_stime_s": 0.7534980000000004,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25123865089678,
+        "utc_ns": 1789604503006098295,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 5376,
+            "stime_ticks": 426,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25138799790797,
+        "utc_ns": 1789604517940799273,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 6980,
+            "stime_ticks": 502,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_t1/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13748,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1378502,
+        "first_offset_ns": 949224,
+        "last_offset_ns": 560985,
+        "sample_span_fraction": 0.9998987351042723,
+        "min_W": 38.0,
+        "max_W": 144.0,
+        "mean_W": 79.13747454175153,
+        "max_C": 57.967,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 122,
+        "max_gap_ns": 130322256,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_u1",
+      "arm": "untraced",
+      "diffusion_trace": false,
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200759114,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25139501496508,
+      "end_monotonic_ns": 25154465410419,
+      "elapsed_s": 14.963913911,
+      "score_calls": {
+        "traced": 0,
+        "untraced": 200
+      },
+      "trace_present_after": false,
+      "trace_id": "None",
+      "trace_shape": [
+        null,
+        null
+      ],
+      "host_cpu_s": 16.893046943,
+      "host_utime_s": 15.92226500000001,
+      "host_stime_s": 0.970783,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25139477963759,
+        "utc_ns": 1789604518618972607,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 7009,
+            "stime_ticks": 503,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25154465451488,
+        "utc_ns": 1789604533606459974,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 8601,
+            "stime_ticks": 600,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_u1/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13770,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1184280,
+        "first_offset_ns": 704956,
+        "last_offset_ns": 393504,
+        "sample_span_fraction": 0.9999265927345925,
+        "min_W": 38.0,
+        "max_W": 144.0,
+        "mean_W": 77.25875090777052,
+        "max_C": 58.48,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 122,
+        "max_gap_ns": 130171879,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_u2",
+      "arm": "untraced",
+      "diffusion_trace": false,
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200712119,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25155014736244,
+      "end_monotonic_ns": 25169874248879,
+      "elapsed_s": 14.859512635,
+      "score_calls": {
+        "traced": 0,
+        "untraced": 200
+      },
+      "trace_present_after": false,
+      "trace_id": "None",
+      "trace_shape": [
+        null,
+        null
+      ],
+      "host_cpu_s": 16.719879881,
+      "host_utime_s": 15.943370999999999,
+      "host_stime_s": 0.7765079999999998,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25154992271661,
+        "utc_ns": 1789604534133280298,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 8615,
+            "stime_ticks": 601,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25169874271733,
+        "utc_ns": 1789604549015280189,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 10209,
+            "stime_ticks": 679,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_u2/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13673,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1278696,
+        "first_offset_ns": 1054295,
+        "last_offset_ns": 55307,
+        "sample_span_fraction": 0.9999253271606374,
+        "min_W": 38.0,
+        "max_W": 145.0,
+        "mean_W": 78.92232867695458,
+        "max_C": 58.608,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 121,
+        "max_gap_ns": 129356068,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_t2",
+      "arm": "traced",
+      "diffusion_trace": true,
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200687756,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25170449491113,
+      "end_monotonic_ns": 25185325769328,
+      "elapsed_s": 14.876278215,
+      "score_calls": {
+        "traced": 200,
+        "untraced": 0
+      },
+      "trace_present_after": true,
+      "trace_id": "MeshTraceId(2)",
+      "trace_shape": [
+        1,
+        4480
+      ],
+      "host_cpu_s": 16.744724676,
+      "host_utime_s": 16.09539799999999,
+      "host_stime_s": 0.6493269999999995,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25170426740011,
+        "utc_ns": 1789604549567748828,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 10225,
+            "stime_ticks": 680,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25185325792372,
+        "utc_ns": 1789604564466800809,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 11835,
+            "stime_ticks": 744,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_t2/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13708,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1207249,
+        "first_offset_ns": 611286,
+        "last_offset_ns": 159957,
+        "sample_span_fraction": 0.9999481561860531,
+        "min_W": 38.0,
+        "max_W": 147.0,
+        "mean_W": 78.21914210679896,
+        "max_C": 58.608,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 122,
+        "max_gap_ns": 130328003,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_t3",
+      "arm": "traced",
+      "diffusion_trace": true,
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200803641,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25185923536021,
+      "end_monotonic_ns": 25200809769578,
+      "elapsed_s": 14.886233557,
+      "score_calls": {
+        "traced": 200,
+        "untraced": 0
+      },
+      "trace_present_after": true,
+      "trace_id": "MeshTraceId(3)",
+      "trace_shape": [
+        1,
+        4480
+      ],
+      "host_cpu_s": 16.753513294,
+      "host_utime_s": 16.120902,
+      "host_stime_s": 0.6326110000000007,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25185899863262,
+        "utc_ns": 1789604565040872259,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 11854,
+            "stime_ticks": 746,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25200809813172,
+        "utc_ns": 1789604579950821558,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 13466,
+            "stime_ticks": 809,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_t3/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13701,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1202200,
+        "first_offset_ns": 512267,
+        "last_offset_ns": 752573,
+        "sample_span_fraction": 0.9999150329063993,
+        "min_W": 38.0,
+        "max_W": 145.0,
+        "mean_W": 80.03218743157434,
+        "max_C": 58.608,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 121,
+        "max_gap_ns": 137928531,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_u3",
+      "arm": "untraced",
+      "diffusion_trace": false,
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200722860,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25201430820768,
+      "end_monotonic_ns": 25216320571040,
+      "elapsed_s": 14.889750272,
+      "score_calls": {
+        "traced": 0,
+        "untraced": 200
+      },
+      "trace_present_after": false,
+      "trace_id": "None",
+      "trace_shape": [
+        null,
+        null
+      ],
+      "host_cpu_s": 16.75804651,
+      "host_utime_s": 16.00343700000002,
+      "host_stime_s": 0.7546090000000003,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25201407944645,
+        "utc_ns": 1789604580548953352,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 13486,
+            "stime_ticks": 811,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25216320613522,
+        "utc_ns": 1789604595461622068,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 15086,
+            "stime_ticks": 886,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_u3/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13718,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1197144,
+        "first_offset_ns": 728165,
+        "last_offset_ns": 857028,
+        "sample_span_fraction": 0.9998935379726965,
+        "min_W": 38.0,
+        "max_W": 146.0,
+        "mean_W": 79.46464499198134,
+        "max_C": 58.608,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 122,
+        "max_gap_ns": 132447169,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_u4",
+      "arm": "untraced",
+      "diffusion_trace": false,
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200688789,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25217137649735,
+      "end_monotonic_ns": 25231990901398,
+      "elapsed_s": 14.853251663,
+      "score_calls": {
+        "traced": 0,
+        "untraced": 200
+      },
+      "trace_present_after": false,
+      "trace_id": "None",
+      "trace_shape": [
+        null,
+        null
+      ],
+      "host_cpu_s": 16.705378748,
+      "host_utime_s": 15.899751000000009,
+      "host_stime_s": 0.8056280000000005,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25217115079689,
+        "utc_ns": 1789604596256088375,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 15126,
+            "stime_ticks": 888,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25231990923831,
+        "utc_ns": 1789604611131932288,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 16716,
+            "stime_ticks": 969,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_u4/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13680,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1206332,
+        "first_offset_ns": 636895,
+        "last_offset_ns": 360952,
+        "sample_span_fraction": 0.9999328196261237,
+        "min_W": 38.0,
+        "max_W": 145.0,
+        "mean_W": 78.65752923976608,
+        "max_C": 58.736,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 121,
+        "max_gap_ns": 136614337,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_t4",
+      "arm": "traced",
+      "diffusion_trace": true,
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200685796,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25232660107350,
+      "end_monotonic_ns": 25247565921411,
+      "elapsed_s": 14.905814061,
+      "score_calls": {
+        "traced": 200,
+        "untraced": 0
+      },
+      "trace_present_after": true,
+      "trace_id": "MeshTraceId(4)",
+      "trace_shape": [
+        1,
+        4480
+      ],
+      "host_cpu_s": 16.764764465,
+      "host_utime_s": 16.09978799999999,
+      "host_stime_s": 0.6649759999999993,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25232638321927,
+        "utc_ns": 1789604611779330634,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 16741,
+            "stime_ticks": 971,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25247565950116,
+        "utc_ns": 1789604626706958733,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 18351,
+            "stime_ticks": 1037,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_t4/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13733,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1188493,
+        "first_offset_ns": 584015,
+        "last_offset_ns": 913862,
+        "sample_span_fraction": 0.9998995105538101,
+        "min_W": 38.0,
+        "max_W": 145.0,
+        "mean_W": 81.1687905046239,
+        "max_C": 58.865,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 122,
+        "max_gap_ns": 135751124,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_t5",
+      "arm": "traced",
+      "diffusion_trace": true,
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200770482,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25248256184091,
+      "end_monotonic_ns": 25263095103506,
+      "elapsed_s": 14.838919415,
+      "score_calls": {
+        "traced": 200,
+        "untraced": 0
+      },
+      "trace_present_after": true,
+      "trace_id": "MeshTraceId(5)",
+      "trace_shape": [
+        1,
+        4480
+      ],
+      "host_cpu_s": 16.676499506,
+      "host_utime_s": 16.073998999999986,
+      "host_stime_s": 0.6025009999999984,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25248231687451,
+        "utc_ns": 1789604627372696078,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 18377,
+            "stime_ticks": 1040,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25263095149895,
+        "utc_ns": 1789604642236158361,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 19985,
+            "stime_ticks": 1100,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_t5/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13655,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1215700,
+        "first_offset_ns": 1002511,
+        "last_offset_ns": 432239,
+        "sample_span_fraction": 0.9999033116927268,
+        "min_W": 38.0,
+        "max_W": 146.0,
+        "mean_W": 80.56301720981325,
+        "max_C": 59.121,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 122,
+        "max_gap_ns": 131608129,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1350_u5",
+      "arm": "untraced",
+      "diffusion_trace": false,
+      "clock_MHz": 1350,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1350,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200736800,
+        "distinct": [
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25263808794067,
+      "end_monotonic_ns": 25278633882488,
+      "elapsed_s": 14.825088421,
+      "score_calls": {
+        "traced": 0,
+        "untraced": 200
+      },
+      "trace_present_after": false,
+      "trace_id": "None",
+      "trace_shape": [
+        null,
+        null
+      ],
+      "host_cpu_s": 16.662413312,
+      "host_utime_s": 15.984316000000007,
+      "host_stime_s": 0.6780969999999993,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25263785793064,
+        "utc_ns": 1789604642926801851,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 20014,
+            "stime_ticks": 1102,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25278633925640,
+        "utc_ns": 1789604657774934167,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 21612,
+            "stime_ticks": 1170,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1350_u5/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13660,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1181870,
+        "first_offset_ns": 572437,
+        "last_offset_ns": 1020411,
+        "sample_span_fraction": 0.9998925572681412,
+        "min_W": 38.0,
+        "max_W": 145.0,
+        "mean_W": 79.00519765739385,
+        "max_C": 59.121,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 121,
+        "max_gap_ns": 136984063,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_u0",
+      "arm": "untraced",
+      "diffusion_trace": false,
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 14,
+        "settle_ns": 260930331,
+        "distinct": [
+          1000,
+          1350
+        ]
+      },
+      "start_monotonic_ns": 25279429123471,
+      "end_monotonic_ns": 25297935382445,
+      "elapsed_s": 18.506258974,
+      "score_calls": {
+        "traced": 0,
+        "untraced": 200
+      },
+      "trace_present_after": false,
+      "trace_id": "None",
+      "trace_shape": [
+        null,
+        null
+      ],
+      "host_cpu_s": 20.375185557,
+      "host_utime_s": 19.606977,
+      "host_stime_s": 0.7682099999999998,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25279406907853,
+        "utc_ns": 1789604658547916820,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 21643,
+            "stime_ticks": 1173,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25297935401682,
+        "utc_ns": 1789604677076410068,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 23603,
+            "stime_ticks": 1250,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_u0/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 17030,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1193427,
+        "first_offset_ns": 796477,
+        "last_offset_ns": 1074194,
+        "sample_span_fraction": 0.9998989168473958,
+        "min_W": 27.0,
+        "max_W": 92.0,
+        "mean_W": 53.46541397533764,
+        "max_C": 56.173,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 151,
+        "max_gap_ns": 129459094,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_t0",
+      "arm": "traced",
+      "diffusion_trace": true,
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200701178,
+        "distinct": [
+          1000
+        ]
+      },
+      "start_monotonic_ns": 25298890843065,
+      "end_monotonic_ns": 25317389457658,
+      "elapsed_s": 18.498614593,
+      "score_calls": {
+        "traced": 200,
+        "untraced": 0
+      },
+      "trace_present_after": true,
+      "trace_id": "MeshTraceId(6)",
+      "trace_shape": [
+        1,
+        4480
+      ],
+      "host_cpu_s": 20.371291036,
+      "host_utime_s": 19.707977,
+      "host_stime_s": 0.6633139999999997,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25298869216254,
+        "utc_ns": 1789604678010224850,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 23656,
+            "stime_ticks": 1253,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25317389483117,
+        "utc_ns": 1789604696530491503,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 25626,
+            "stime_ticks": 1320,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_t0/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 17049,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1363554,
+        "first_offset_ns": 367644,
+        "last_offset_ns": 599364,
+        "sample_span_fraction": 0.9999477253826151,
+        "min_W": 27.0,
+        "max_W": 92.0,
+        "mean_W": 54.58179365358672,
+        "max_C": 56.045,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 151,
+        "max_gap_ns": 134959086,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_t1",
+      "arm": "traced",
+      "diffusion_trace": true,
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200648161,
+        "distinct": [
+          1000
+        ]
+      },
+      "start_monotonic_ns": 25318184903162,
+      "end_monotonic_ns": 25336744138240,
+      "elapsed_s": 18.559235078,
+      "score_calls": {
+        "traced": 200,
+        "untraced": 0
+      },
+      "trace_present_after": true,
+      "trace_id": "MeshTraceId(7)",
+      "trace_shape": [
+        1,
+        4480
+      ],
+      "host_cpu_s": 20.412067121,
+      "host_utime_s": 19.750976999999978,
+      "host_stime_s": 0.6610910000000008,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25318163562690,
+        "utc_ns": 1789604697304571327,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 25661,
+            "stime_ticks": 1324,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25336744184339,
+        "utc_ns": 1789604715885192805,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 27637,
+            "stime_ticks": 1390,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_t1/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 17103,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1174196,
+        "first_offset_ns": 1006229,
+        "last_offset_ns": 27157,
+        "sample_span_fraction": 0.9999443195802167,
+        "min_W": 27.0,
+        "max_W": 91.0,
+        "mean_W": 51.84950008770391,
+        "max_C": 55.917,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 152,
+        "max_gap_ns": 135678468,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_u1",
+      "arm": "untraced",
+      "diffusion_trace": false,
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200697819,
+        "distinct": [
+          1000
+        ]
+      },
+      "start_monotonic_ns": 25337570296776,
+      "end_monotonic_ns": 25356081480262,
+      "elapsed_s": 18.511183486,
+      "score_calls": {
+        "traced": 0,
+        "untraced": 200
+      },
+      "trace_present_after": false,
+      "trace_id": "None",
+      "trace_shape": [
+        null,
+        null
+      ],
+      "host_cpu_s": 20.375772767,
+      "host_utime_s": 19.580663999999956,
+      "host_stime_s": 0.7951080000000008,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25337547160201,
+        "utc_ns": 1789604716688168777,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 27676,
+            "stime_ticks": 1394,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25356081521842,
+        "utc_ns": 1789604735222530288,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 29634,
+            "stime_ticks": 1473,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_u1/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 17039,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1191689,
+        "first_offset_ns": 309888,
+        "last_offset_ns": 787620,
+        "sample_span_fraction": 0.9999407110841492,
+        "min_W": 27.0,
+        "max_W": 92.0,
+        "mean_W": 53.6332531251834,
+        "max_C": 55.917,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 151,
+        "max_gap_ns": 136800941,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_u2",
+      "arm": "untraced",
+      "diffusion_trace": false,
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200724614,
+        "distinct": [
+          1000
+        ]
+      },
+      "start_monotonic_ns": 25356940568537,
+      "end_monotonic_ns": 25375497976302,
+      "elapsed_s": 18.557407765,
+      "score_calls": {
+        "traced": 0,
+        "untraced": 200
+      },
+      "trace_present_after": false,
+      "trace_id": "None",
+      "trace_shape": [
+        null,
+        null
+      ],
+      "host_cpu_s": 20.461307517,
+      "host_utime_s": 19.57770400000004,
+      "host_stime_s": 0.8836020000000016,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25356918644095,
+        "utc_ns": 1789604736059653213,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 29676,
+            "stime_ticks": 1478,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25375498003955,
+        "utc_ns": 1789604754639012331,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 31633,
+            "stime_ticks": 1566,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_u2/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 17092,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1242402,
+        "first_offset_ns": 190435,
+        "last_offset_ns": 873805,
+        "sample_span_fraction": 0.9999426514730141,
+        "min_W": 27.0,
+        "max_W": 92.0,
+        "mean_W": 52.89825649426632,
+        "max_C": 55.917,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 151,
+        "max_gap_ns": 130416328,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_t2",
+      "arm": "traced",
+      "diffusion_trace": true,
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200709549,
+        "distinct": [
+          1000
+        ]
+      },
+      "start_monotonic_ns": 25376379980303,
+      "end_monotonic_ns": 25395121474335,
+      "elapsed_s": 18.741494032,
+      "score_calls": {
+        "traced": 200,
+        "untraced": 0
+      },
+      "trace_present_after": true,
+      "trace_id": "MeshTraceId(8)",
+      "trace_shape": [
+        1,
+        4480
+      ],
+      "host_cpu_s": 20.637538649,
+      "host_utime_s": 19.903868000000045,
+      "host_stime_s": 0.7336700000000018,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25376356759406,
+        "utc_ns": 1789604755497768143,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 31677,
+            "stime_ticks": 1570,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25395121499604,
+        "utc_ns": 1789604774262507950,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 33667,
+            "stime_ticks": 1644,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_t2/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 17255,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1176285,
+        "first_offset_ns": 120005,
+        "last_offset_ns": 599795,
+        "sample_span_fraction": 0.9999615932433791,
+        "min_W": 27.0,
+        "max_W": 91.0,
+        "mean_W": 51.87997681831353,
+        "max_C": 55.917,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 153,
+        "max_gap_ns": 134154403,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_t3",
+      "arm": "traced",
+      "diffusion_trace": true,
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200731885,
+        "distinct": [
+          1000
+        ]
+      },
+      "start_monotonic_ns": 25396044898420,
+      "end_monotonic_ns": 25414579668579,
+      "elapsed_s": 18.534770159,
+      "score_calls": {
+        "traced": 200,
+        "untraced": 0
+      },
+      "trace_present_after": true,
+      "trace_id": "MeshTraceId(9)",
+      "trace_shape": [
+        1,
+        4480
+      ],
+      "host_cpu_s": 20.400862006,
+      "host_utime_s": 19.771074999999996,
+      "host_stime_s": 0.6297870000000003,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25396021022447,
+        "utc_ns": 1789604775162031755,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 33715,
+            "stime_ticks": 1648,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25414579711752,
+        "utc_ns": 1789604793720720309,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 35692,
+            "stime_ticks": 1711,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_t3/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 17060,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1344306,
+        "first_offset_ns": 544659,
+        "last_offset_ns": 635829,
+        "sample_span_fraction": 0.999936309542019,
+        "min_W": 27.0,
+        "max_W": 89.0,
+        "mean_W": 52.767995310668226,
+        "max_C": 55.788,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 151,
+        "max_gap_ns": 137524575,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    },
+    {
+      "label": "c1000_u3",
+      "arm": "untraced",
+      "diffusion_trace": false,
+      "clock_MHz": 1000,
+      "force_response": [
+        0,
+        0
+      ],
+      "settle": {
+        "target_MHz": 1000,
+        "settled": true,
+        "reads": 11,
+        "settle_ns": 200807392,
+        "distinct": [
+          1000
+        ]
+      },
+      "start_monotonic_ns": 25415522016971,
+      "end_monotonic_ns": 25434003406022,
+      "elapsed_s": 18.481389051,
+      "score_calls": {
+        "traced": 0,
+        "untraced": 200
+      },
+      "trace_present_after": false,
+      "trace_id": "None",
+      "trace_shape": [
+        null,
+        null
+      ],
+      "host_cpu_s": 20.340490791,
+      "host_utime_s": 19.582273999999984,
+      "host_stime_s": 0.7582170000000019,
+      "host_child_utime_s": 0.0,
+      "metrics": {
+        "confidence_score": 0.802782,
+        "ptm": 0.630234,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.845919,
+        "complex_iplddt": 0.845919,
+        "complex_pde": 0.617971,
+        "complex_ipde": 0.0,
+        "plddt": 0.845919,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.630234
+          }
+        },
+        "chains_ptm": {
+          "0": 0.630234
+        }
+      },
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 25415499261345,
+        "utc_ns": 1789604794640270292,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 35742,
+            "stime_ticks": 1716,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 25434003447331,
+        "utc_ns": 1789604813144455718,
+        "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 254838,
+            "nodes": [
+              "/dev/tenstorrent/0"
+            ],
+            "state": "S",
+            "utime_ticks": 37700,
+            "stime_ticks": 1792,
+            "starttime_ticks": 2506894,
+            "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "0",
+              "TT_BIO_LEASE_CARDS": "0",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/0"
+        ]
+      },
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": true,
+      "cif": "cifs/c1000_u3/cdk2x2_512.cif",
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "target_MHz": 1000,
+        "samples": 17023,
+        "min_MHz": 1000,
+        "max_MHz": 1000,
+        "max_gap_ns": 1674374,
+        "first_offset_ns": 261271,
+        "last_offset_ns": 296163,
+        "sample_span_fraction": 0.9999698380896338,
+        "min_W": 27.0,
+        "max_W": 90.0,
+        "mean_W": 51.89314456911238,
+        "max_C": 55.788,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 151,
+        "max_gap_ns": 129841281,
+        "bad": [],
+        "passed": true
+      },
+      "structure_vs_cold": {
+        "atoms": 4116,
+        "whole_chain_all_atom_A": 8.47546429614432e-15,
+        "domain_all_atom_A": [
+          3.179328362599371e-15,
+          3.700722755141274e-15
+        ],
+        "max_domain_all_atom_A": 3.700722755141274e-15,
+        "cif_byte_exact": true
+      }
+    }
+  ],
+  "errors": [],
+  "criterion": {
+    "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/criterion.json",
+    "sha256": "b5c60eda216aaf625c87afe7710c6454d222b59cd1a39deabc1a2f1ddae2c3fa",
+    "bytes": 6401
+  },
+  "prediction": {
+    "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/prediction.json",
+    "sha256": "ac900dc3e7db06f9cbd7df420a02049da8a8fcf3b0dcd3390c0a6915061cfde4",
+    "bytes": 5697
+  },
+  "source_commit": "666cbffad808e96ddcf3d04be0c442cfe2fec08b",
+  "source_base": "e6004abba460550a650ffa42a90e795ab3e5f20d",
+  "dirty_status": " M perf/c10_trace_lever/capture.py\n?? perf/c10_trace_lever/runs/\n",
+  "production_diff": "",
+  "trace_region_bytes": 1073741824,
+  "started_utc_ns": 1789604448149605157,
+  "completed": true,
+  "before": {
+    "monotonic_ns": 25069008613744,
+    "utc_ns": 1789604448149622230,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [],
+    "own_nodes": []
+  },
+  "comparable_base_delta": {
+    "base": "5e1886b4fd1bea4211f30c295723c8175c72d63c",
+    "files": [
+      "tt_bio/eltwise_fusion.py",
+      "tt_bio/rfd3/block_sparse.py",
+      "tt_bio/rfd3/model.py",
+      "tt_bio/tenstorrent.py"
+    ],
+    "python_files": [
+      "tt_bio/eltwise_fusion.py",
+      "tt_bio/rfd3/block_sparse.py",
+      "tt_bio/rfd3/model.py",
+      "tt_bio/tenstorrent.py"
+    ],
+    "all_changed_files_are_python": true,
+    "ast_equivalent": {
+      "tt_bio/eltwise_fusion.py": true,
+      "tt_bio/rfd3/block_sparse.py": true,
+      "tt_bio/rfd3/model.py": true,
+      "tt_bio/tenstorrent.py": true
+    },
+    "comment_only": true
+  },
+  "dirty_diff": "diff --git a/perf/c10_trace_lever/capture.py b/perf/c10_trace_lever/capture.py\nindex d56a64a28..659b1b3e7 100644\n--- a/perf/c10_trace_lever/capture.py\n+++ b/perf/c10_trace_lever/capture.py\n@@ -193,7 +193,7 @@ def main():\n                      start_monotonic_ns=start,end_monotonic_ns=end,elapsed_s=(end-start)/1e9,\n                      score_calls=dict(ctr.n),\n                      trace_present_after=tr is not None,\n-                     trace_id=(tr or {}).get('tid'),trace_shape=[(tr or {}).get('B'),(tr or {}).get('N_padded')],\n+                     trace_id=str((tr or {}).get('tid')),trace_shape=[(tr or {}).get('B'),(tr or {}).get('N_padded')],\n                      host_cpu_s=(cpu1['process_time_ns']-cpu0['process_time_ns'])/1e9,\n                      host_utime_s=cpu1['utime_s']-cpu0['utime_s'],host_stime_s=cpu1['stime_s']-cpu0['stime_s'],\n                      host_child_utime_s=cpu1['child_utime_s']-cpu0['child_utime_s'],\n",
+  "environment": {
+    "TT_BIO_LEASE_CARDS": "0",
+    "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever",
+    "TT_VISIBLE_DEVICES": "0",
+    "BENCHLOCK_WAIT_S": "60",
+    "BENCHLOCK_LOAD_WAIT_S": "60",
+    "PYTHONPATH": "/home/ttuser/.coworker/wt/c10-trace-lever",
+    "OMP_NUM_THREADS": "2"
+  },
+  "ttnn_version": "0.68.0",
+  "ttnn_path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/__init__.py",
+  "tt_bio_path": "/home/ttuser/.coworker/wt/c10-trace-lever/tt_bio/tenstorrent.py",
+  "ttnn_config": "Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}",
+  "profiling": {
+    "tracy_launched": false,
+    "graph": false,
+    "generic_observer": false,
+    "module_timers": false,
+    "sum_profiling": false,
+    "runtime_env": {}
+  },
+  "assigned_node_sysfs": {
+    "resolved": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0/tenstorrent/tenstorrent!0",
+    "device": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0",
+    "subsystem_device": "0x0046",
+    "tt_asic_id": "D7ADCC7E44A5908A",
+    "tt_card_type": "p300c",
+    "tt_fw_bundle_ver": "19.15.0.0",
+    "tt_m3app_fw_ver": "0.31.0.0",
+    "tt_serial": "0000046131934103"
+  },
+  "trace_region_size_reported": 1073741824,
+  "opened": {
+    "monotonic_ns": 25070905436884,
+    "utc_ns": 1789604450046446141,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [
+      {
+        "pid": 254838,
+        "nodes": [
+          "/dev/tenstorrent/0"
+        ],
+        "state": "S",
+        "utime_ticks": 170,
+        "stime_ticks": 35,
+        "starttime_ticks": 2506894,
+        "argv": "python3 perf/c10_trace_lever/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512 ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "0",
+          "TT_BIO_LEASE_CARDS": "0",
+          "TT_BIO_LEASE_HOLDER": "worker:c10-trace-lever"
+        }
+      }
+    ],
+    "own_nodes": [
+      "/dev/tenstorrent/0"
+    ]
+  },
+  "inputs": [
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/size512/fixtures/cdk2x2_512.yaml",
+      "sha256": "24d8b2d8c06e4409995abae024766e316da3175dde7596073b68c7963d2df398",
+      "bytes": 813
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/size512/fixtures/cdk2x2_512.a3m",
+      "sha256": "ef2301402e7716e9df368987210456194b108c8ae7e144b7bf09a3dd6f40bf5e",
+      "bytes": 20418
+    }
+  ],
+  "model_meta": {
+    "hardware": "blackhole",
+    "grid": [
+      11,
+      10
+    ],
+    "recycling_steps": 3,
+    "load_s": 2.42,
+    "n_msa": 35,
+    "msa_dir": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512/msa",
+    "diffusion_samples": 1,
+    "job_cfg": {
+      "model": "boltz2",
+      "fast": false,
+      "output_format": "cif",
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0,
+      "trace": false,
+      "msa_dir": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512/msa",
+      "struct_dir": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/tmp/ttbase-boltz2-23jxupce/out",
+      "use_msa_server": true,
+      "msa_db_path": null,
+      "use_envdb": false,
+      "msa_endpoint": null,
+      "single_sequence": false,
+      "msa_server_url": "https://api.colabfold.com",
+      "msa_pairing_strategy": "greedy",
+      "msa_server_username": null,
+      "msa_server_password": null,
+      "api_key_value": null,
+      "max_msa_seqs": 8192,
+      "write_pae": false,
+      "write_pde": false,
+      "write_embeddings": false,
+      "method": null,
+      "template_structures": "/home/ttuser/.boltz/of3_template_structures",
+      "conf_ckpt": "/home/ttuser/.boltz/boltz2_conf.ckpt",
+      "aff_ckpt": "/home/ttuser/.boltz/boltz2_aff.ckpt",
+      "mol_dir": "/home/ttuser/.boltz/mols",
+      "conf_kwargs": {
+        "predict_args": {
+          "recycling_steps": 3,
+          "sampling_steps": 200,
+          "diffusion_samples": 1,
+          "max_parallel_samples": null
+        },
+        "diffusion_process_args": {
+          "step_scale": 1.5,
+          "gamma_0": 0.8,
+          "gamma_min": 1.0,
+          "noise_scale": 1.003,
+          "rho": 7,
+          "sigma_min": 0.0001,
+          "sigma_max": 160.0,
+          "sigma_data": 16.0,
+          "P_mean": -1.2,
+          "P_std": 1.5,
+          "coordinate_augmentation": true,
+          "alignment_reverse_diff": true,
+          "synchronize_sigmas": true
+        },
+        "pairformer_args": {
+          "num_blocks": 64,
+          "num_heads": 16,
+          "dropout": 0.0,
+          "v2": true
+        },
+        "msa_args": {
+          "subsample_msa": true,
+          "num_subsampled_msa": 1024,
+          "use_paired_feature": true,
+          "msa_s": 64,
+          "msa_blocks": 4,
+          "msa_dropout": 0.15,
+          "z_dropout": 0.25,
+          "pairwise_head_width": 32,
+          "pairwise_num_heads": 4,
+          "activation_checkpointing": true
+        },
+        "steering_args": {
+          "fk_steering": false,
+          "physical_guidance_update": false,
+          "contact_guidance_update": true,
+          "num_particles": 3,
+          "fk_lambda": 4.0,
+          "fk_resampling_interval": 3,
+          "num_gd_steps": 20
+        },
+        "use_kernels": true,
+        "use_tenstorrent": true,
+        "trace": false,
+        "diffusion_trace": false
+      },
+      "aff_kwargs": {
+        "predict_args": {
+          "recycling_steps": 5,
+          "sampling_steps": 200,
+          "diffusion_samples": 5,
+          "max_parallel_samples": 1
+        },
+        "diffusion_process_args": {
+          "step_scale": 1.5,
+          "gamma_0": 0.8,
+          "gamma_min": 1.0,
+          "noise_scale": 1.003,
+          "rho": 7,
+          "sigma_min": 0.0001,
+          "sigma_max": 160.0,
+          "sigma_data": 16.0,
+          "P_mean": -1.2,
+          "P_std": 1.5,
+          "coordinate_augmentation": true,
+          "alignment_reverse_diff": true,
+          "synchronize_sigmas": true
+        },
+        "pairformer_args": {
+          "num_blocks": 64,
+          "num_heads": 16,
+          "dropout": 0.0,
+          "v2": true
+        },
+        "msa_args": {
+          "subsample_msa": true,
+          "num_subsampled_msa": 1024,
+          "use_paired_feature": true,
+          "msa_s": 64,
+          "msa_blocks": 4,
+          "msa_dropout": 0.15,
+          "z_dropout": 0.25,
+          "pairwise_head_width": 32,
+          "pairwise_num_heads": 4,
+          "activation_checkpointing": true
+        },
+        "steering_args": {
+          "fk_steering": false,
+          "physical_guidance_update": false,
+          "contact_guidance_update": false,
+          "num_particles": 3,
+          "fk_lambda": 4.0,
+          "fk_resampling_interval": 3,
+          "num_gd_steps": 20
+        },
+        "affinity_mw_correction": false,
+        "use_tenstorrent": true,
+        "trace": false,
+        "diffusion_trace": false
+      },
+      "use_potentials": false
+    },
+    "struct_dir": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/tmp/ttbase-boltz2-23jxupce/out",
+    "timed_region": "predict_one (featurize + fold + CIF write)",
+    "phase_times": null,
+    "assigned_node_sysfs": {
+      "resolved": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0/tenstorrent/tenstorrent!0",
+      "device": "/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0",
+      "subsystem_device": "0x0046",
+      "tt_asic_id": "D7ADCC7E44A5908A",
+      "tt_card_type": "p300c",
+      "tt_fw_bundle_ver": "19.15.0.0",
+      "tt_m3app_fw_ver": "0.31.0.0",
+      "tt_serial": "0000046131934103"
+    }
+  },
+  "model_predict_args": {
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "diffusion_samples": 1,
+    "max_parallel_samples": null
+  },
+  "acquisition_sources": [
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/ambient.py",
+      "sha256": "56fefb64f05793d20d8d73033a58501ea1c29f6567ee973196d726fcf090076e",
+      "bytes": 1798
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/astsame.py",
+      "sha256": "241906d20360f602715b9472495560cedefb39167164279a5ac3f1b12ee34fd1",
+      "bytes": 1215
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/audit_accuracy.py",
+      "sha256": "ea5e820a97b86a63edcbf14f30fe5f5c93880728b9e5bd5650f270da620c08c1",
+      "bytes": 4310
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/audit_prerequisites.py",
+      "sha256": "452221b86bb2fa3939215844f617e8a24349d9b765a3a61e4f3db096cc0184ac",
+      "bytes": 3342
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/capture.py",
+      "sha256": "b0798beeed9cf155357852245766974dfd58cc5d4a89f030cb2561a0c2d9f9d4",
+      "bytes": 18810
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/clockarm.py",
+      "sha256": "b797e01d8f08261d07d2fc89b62ac7955980234672c111f304b7f374071b44b3",
+      "bytes": 7327
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/control.py",
+      "sha256": "99003cb322b8750ba3e75439b92e13890b13172b824b4377ed08312a66f63ef4",
+      "bytes": 4228
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/force_aiclk.py",
+      "sha256": "f8cad754361c724498de52f4e21164705e0667caa710c317076da0312dfb314d",
+      "bytes": 2572
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/reduce.py",
+      "sha256": "e73581f8cacafd796230e2a39bbb59d6d49089199f0ccdc8386c468a343bec94",
+      "bytes": 13556
+    }
+  ],
+  "msa_cache": [
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-trace-lever/perf/c10_trace_lever/runs/ab1/512/msa/4e5c2b391bde62d4.a3m",
+      "sha256": "ef2301402e7716e9df368987210456194b108c8ae7e144b7bf09a3dd6f40bf5e",
+      "bytes": 20418
+    }
+  ],
+  "loaded_binaries": [
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libdevice-24800af9.so",
+      "sha256": "86700f0d427f958fae37bed568cdcc3a7a2ccf27d3f06e2b6ae09b421a188dbf",
+      "bytes": 6403017
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libevent_core-2-62e6a6c7.1.so.7.0.1",
+      "sha256": "12d771eba8dbb392552ad6beffec29cad1f9c3f4374ee988898f1b769402d858",
+      "bytes": 247425
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libevent_pthreads-2-65bdebb2.1.so.7.0.1",
+      "sha256": "87b62d0242617afaf06878a95f895fa1716517dd87f18ea3521ea338fb011eca",
+      "bytes": 17817
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libhwloc-61de41b6.so.15.4.1",
+      "sha256": "b58eb17e1659f01cd9f3e8c415daff6bed7e1e2bef6e1bc6c46d3ed06e49d506",
+      "bytes": 372737
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libmpi-58444744.so.40.40.7",
+      "sha256": "68450668bc6a8931aa38d441ad8a26d3faf04c3849fa79e77e809235b4e89a1e",
+      "bytes": 4023145
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libnuma-9d148503.so.1.0.0",
+      "sha256": "08bf83be2e36c491317ef49d084d34be27b8e83e479c4899c3b09086dc77adba",
+      "bytes": 69265
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libopen-pal-e50f0a04.so.80.0.5",
+      "sha256": "85ba52b1ce2c4b297f745cafa0d6b2f979ecf60f47290814cd1b5e273fa759e5",
+      "bytes": 1325761
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libpmix-e8cc5646.so.2.13.5",
+      "sha256": "b9ab2018f53cce3bf9cfba0db82271c6b139400ac821f27a3c3dce000bbffa1f",
+      "bytes": 2526913
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn.libs/libtracy-4c2b3bfe.so.0.10.0",
+      "sha256": "27788ddd96f773a92fe01c30fabe67b89622b816c9365ddb052a8bc0eeab8c5b",
+      "bytes": 13345
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so",
+      "sha256": "8b0dcbec673cca0f13bfd9e6ec7aaaa56be60f4dbd83fb5a13515668feb14fcd",
+      "bytes": 15975161
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so",
+      "sha256": "c39e747d8ab5bfa6c6dbe6e5f8257dfbb2f6928fd06e3401a1453b745258c145",
+      "bytes": 32749785
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so",
+      "sha256": "0ae0f11d72493364046fe8fedd8317fe4fe9237ddd6cf39c3e1487388c029e6f",
+      "bytes": 24257873
+    },
+    {
+      "path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_stl.so",
+      "sha256": "1458653d16a77c0ba17db7b76ea7680635ef0cadd2e7c9a134573773e1a1f1dd",
+      "bytes": 23656
+    }
+  ],
+  "sdpa_cap": 1024,
+  "timer": "synchronize; monotonic_ns; complete state.predict_one incl. output writing; synchronize; monotonic_ns",
+  "arm_mechanism": {
+    "attribute": "model.structure_module._diffusion_trace",
+    "counters": "identical shim on forward_traced and forward, installed for both arms",
+    "region_bytes": 1073741824
+  },
+  "label_plan": [
+    {
+      "label": "cold",
+      "clock_MHz": 1350,
+      "arm": "untraced"
+    },
+    {
+      "label": "c1350_u0",
+      "clock_MHz": 1350,
+      "arm": "untraced"
+    },
+    {
+      "label": "c1350_t0",
+      "clock_MHz": 1350,
+      "arm": "traced"
+    },
+    {
+      "label": "c1350_t1",
+      "clock_MHz": 1350,
+      "arm": "traced"
+    },
+    {
+      "label": "c1350_u1",
+      "clock_MHz": 1350,
+      "arm": "untraced"
+    },
+    {
+      "label": "c1350_u2",
+      "clock_MHz": 1350,
+      "arm": "untraced"
+    },
+    {
+      "label": "c1350_t2",
+      "clock_MHz": 1350,
+      "arm": "traced"
+    },
+    {
+      "label": "c1350_t3",
+      "clock_MHz": 1350,
+      "arm": "traced"
+    },
+    {
+      "label": "c1350_u3",
+      "clock_MHz": 1350,
+      "arm": "untraced"
+    },
+    {
+      "label": "c1350_u4",
+      "clock_MHz": 1350,
+      "arm": "untraced"
+    },
+    {
+      "label": "c1350_t4",
+      "clock_MHz": 1350,
+      "arm": "traced"
+    },
+    {
+      "label": "c1350_t5",
+      "clock_MHz": 1350,
+      "arm": "traced"
+    },
+    {
+      "label": "c1350_u5",
+      "clock_MHz": 1350,
+      "arm": "untraced"
+    },
+    {
+      "label": "c1000_u0",
+      "clock_MHz": 1000,
+      "arm": "untraced"
+    },
+    {
+      "label": "c1000_t0",
+      "clock_MHz": 1000,
+      "arm": "traced"
+    },
+    {
+      "label": "c1000_t1",
+      "clock_MHz": 1000,
+      "arm": "traced"
+    },
+    {
+      "label": "c1000_u1",
+      "clock_MHz": 1000,
+      "arm": "untraced"
+    },
+    {
+      "label": "c1000_u2",
+      "clock_MHz": 1000,
+      "arm": "untraced"
+    },
+    {
+      "label": "c1000_t2",
+      "clock_MHz": 1000,
+      "arm": "traced"
+    },
+    {
+      "label": "c1000_t3",
+      "clock_MHz": 1000,
+      "arm": "traced"
+    },
+    {
+      "label": "c1000_u3",
+      "clock_MHz": 1000,
+      "arm": "untraced"
+    }
+  ],
+  "release_response": [
+    0,
+    0
+  ],
+  "sampler_returncode": 0,
+  "after": {
+    "monotonic_ns": 25434966829062,
+    "utc_ns": 1789604814107837809,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [],
+    "own_nodes": []
+  },
+  "released_aiclk_MHz": 800,
+  "finished_utc_ns": 1789604815158878710
+}

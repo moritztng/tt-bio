@@ -1,0 +1,98 @@
+{
+  "recorded_utc": "2026-09-17T00:00:00+00:00",
+  "row": "c10-trace-lever",
+  "source_base": "e6004abba460550a650ffa42a90e795ab3e5f20d",
+  "comparable_base": "5e1886b4fd1bea4211f30c295723c8175c72d63c",
+  "question": "What does the already-implemented ttnn diffusion trace (Boltz.__init__(diffusion_trace=True) -> DiffusionModule.forward_traced) remove from the Boltz-2 fold, and does it come out of the clock-immune term or the clock-scaled work?",
+  "design": "diffusion_trace False and True INTERLEAVED inside one process and one device context, at two pinned clocks. The device is opened with a 1 GiB trace region in BOTH arms, so the only thing that varies between the two labels of a pair is which python callable the sampler invokes per step. Reserving the region is therefore not part of the measured delta; it is held constant and priced separately.",
+  "lever": {
+    "flag": "AtomDiffusion._diffusion_trace",
+    "toggled": "as an attribute on the live model between labels; production source is untouched and the harness asserts an empty production diff against source_base",
+    "traced_path": "tt_bio/tenstorrent.py DiffusionModule.forward_traced",
+    "untraced_path": "tt_bio/tenstorrent.py DiffusionModule.forward",
+    "region_bytes": 1073741824
+  },
+  "model": {
+    "model": "boltz2",
+    "sizes": [512, 298],
+    "sampling_steps": 200,
+    "recycling_steps": 3,
+    "diffusion_samples": 1,
+    "seed": 0,
+    "msa_rows": 35,
+    "templates": false,
+    "fast": false,
+    "trace": false,
+    "hoist": false,
+    "instrument": false
+  },
+  "warmup_folds": 1,
+  "cells": {
+    "512": {"1350": 6, "1000": 4},
+    "298": {"1350": 6, "1000": 4}
+  },
+  "minimum_folds_per_arm_at_primary_clock": 6,
+  "primary_clock_MHz": 1350,
+  "clock": {
+    "arms_MHz": [1350, 1000],
+    "warm_MHz": 1350,
+    "order": "inside a clock block, arms alternate U,T on even reps and T,U on odd reps, so neither arm sits systematically early or late",
+    "mechanism": "ARC FORCE_AICLK (0x33) through tt-kmd's SMC message queue, re-sent and re-verified before EVERY label, released in the finally block",
+    "settle": "the requested MHz must appear in sysfs and stay there for 200 ms before the timer starts, within a 5 s timeout",
+    "minimum_samples": 3,
+    "max_gap_ns": 10000000,
+    "errors_allowed": 0,
+    "all_during_samples_must_equal_that_folds_own_target": true,
+    "1000_is_an_arm": "scripts/aiclk_watch.sh flags a busy chip under 1200 MHz as CLAMPED-UNDER-LOAD. The 1000 MHz block trips that guard on purpose: it is requested, settled and sampled during every fold, and its board power is recorded. A pinned 1000 MHz fold is a measurement; an unrequested one is an artifact."
+  },
+  "work_witness": {
+    "why": "a trace lever is only this lever if it runs the identical program sequence. Fewer steps would be a cheat, not a speedup.",
+    "how": "both the traced and the untraced score-model entry points are wrapped by an identical counting shim, installed for both arms, so the instrument cost is the same on both sides. Every fold must show exactly sampling_steps calls down its own arm's path and zero down the other.",
+    "second_witness": "the traced path documents itself as bit-identical to the untraced forward. CIF SHA256 equality between arms tests that claim for free."
+  },
+  "quiet": {
+    "all_chip_foreign_holders_allowed": 0,
+    "holder_max_gap_ns": 1000000000,
+    "lock_wait_s": 60,
+    "load_wait_s": 60,
+    "benchlock_maxload": 2.0,
+    "matcher_and_location": "unchanged shared benchlock",
+    "host_cpu_witness": {
+      "sampler": "perf/c10_trace_lever/ambient.py, 250 ms, whole locked window",
+      "record_cpu_pct_at_or_above": 2.0,
+      "foreign_cpu_reject_pct": 20.0,
+      "foreign": "any process outside the run session (own=false)"
+    },
+    "co_tenancy": "STOP rather than measure anyway; never signal a holder"
+  },
+  "accuracy": {
+    "metric": "maximum independently superposed domain all-atom float64 Kabsch RMSD, split after residue 298; also report whole-chain all-atom",
+    "bars_A": {"512": 0.6, "298": 0.35},
+    "user_512_seed_floor_A": 1.84,
+    "archived_upstream_seed_spread_A": {
+      "298": {"mean": 0.80128, "min": 0.74099, "max": 0.84656},
+      "512": {"mean": 1.66454, "min": 0.9454, "max": 2.29123}
+    },
+    "digest_first": "the code claims bit-identical output by construction, so the primary parity evidence is CIF SHA256 equality between arms. A digest change is NOT automatically a failure, but an unexplained one is: fall back to the Angstrom bar at that size, quoted with its own seed floor.",
+    "conventions": "the 512 bar and its 1.84 A user seed floor and the 298 bar with its own 0.741-0.847 A archived upstream seed pairs are each used only at their own size"
+  },
+  "kill": [
+    "wrong source/config or input hashes",
+    "wrong opened node, containment change or boot change",
+    "foreign device holder or quiet/lock timeout",
+    "clock read error, a clock other than that fold's own target, or a coverage gap",
+    "FORCE_AICLK refused, or a requested clock that did not settle before the timer started",
+    "a fold whose step counters do not show exactly sampling_steps calls down its own arm and zero down the other",
+    "nonfinite/missing/duplicate atoms or identity mismatch",
+    "missing CIF or nonfinite confidence",
+    "structural deviation between arms over the size bar",
+    "foreign host CPU process at or above 20% of a core during an accepted fold"
+  ],
+  "refutation": [
+    "a median gain at 512 aa inside the 0.055 s A/A floor c10-bare-baseline recorded: the lever is retired in one pass",
+    "any failure to capture the trace, or a capture that raises: VERDICT STOP with the exact failure point",
+    "a traced arm that does not run 200 steps: this is not this lever"
+  ],
+  "bare": "Production wheel, no Tracy/graph/observer/module timers/sum profiling, no hoist, no --fast, no MSA truncation, no tensor parallelism, no bfp8, no kernel change, no reduction of steps or recycles. Synchronize before the monotonic start and after predict_one including CIF writing: c10-bare-baseline's timer boundary, unchanged.",
+  "unmeasured": "No device-cycle census and no per-op attribution. The split of the gain into clock-immune and clock-scaled seconds comes from two pinned clocks only. The 1 GiB region's effect on sizes larger than 512 aa is a separate check and is not part of the A/B."
+}

@@ -1,0 +1,9 @@
+benchlock: c10-trace-lever acquired after 0s, loadavg 0.46 0.16 0.16
+2026-09-17 00:19:44.137 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{"label": "cold", "arm": "untraced", "MHz": 1350, "elapsed_s": 6.5349, "host_cpu_s": 8.163, "calls": {"traced": 0, "untraced": 20}, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 75.339876892364, "cif": "798b5a68aeaefa81", "plddt": 0.913426}
+{"label": "smoke_u", "arm": "untraced", "MHz": 1350, "elapsed_s": 6.1328, "host_cpu_s": 6.723, "calls": {"traced": 0, "untraced": 20}, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 73.76324209029507, "cif": "798b5a68aeaefa81", "plddt": 0.913426}
+{"label": "smoke_t", "arm": "traced", "MHz": 1350, "elapsed_s": 6.1912, "host_cpu_s": 6.778, "calls": {"traced": 20, "untraced": 0}, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 78.33748028736639, "cif": "798b5a68aeaefa81", "plddt": 0.913426}
+{"label": "smoke_t2", "arm": "traced", "MHz": 1350, "elapsed_s": 6.1825, "host_cpu_s": 6.762, "calls": {"traced": 20, "untraced": 0}, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 75.52178496134927, "cif": "798b5a68aeaefa81", "plddt": 0.913426}
+{"label": "smoke_u2", "arm": "untraced", "MHz": 1350, "elapsed_s": 6.1439, "host_cpu_s": 6.729, "calls": {"traced": 0, "untraced": 20}, "min_MHz": 1350, "max_MHz": 1350, "mean_W": 74.84890304317057, "cif": "798b5a68aeaefa81", "plddt": 0.913426}
+benchlock: c10-trace-lever released, rc=0, loadavg 0.91 0.31 0.21

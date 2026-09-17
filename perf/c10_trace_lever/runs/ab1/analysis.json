@@ -1,0 +1,5832 @@
+{
+  "verdict": "NO-GO",
+  "targets": {
+    "512": {
+      "rows": [
+        {
+          "label": "cold",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200738196,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25073831960993,
+          "end_monotonic_ns": 25092502732586,
+          "elapsed_s": 18.670771593,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 18.933888279,
+          "host_utime_s": 17.523857,
+          "host_stime_s": 1.4100309999999998,
+          "host_child_utime_s": 10.203234,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/cold/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 17173,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1398570,
+            "first_offset_ns": 173672,
+            "last_offset_ns": 242305,
+            "sample_span_fraction": 0.9999777204172882,
+            "min_W": 38.0,
+            "max_W": 144.0,
+            "mean_W": 70.47155418389332,
+            "max_C": 57.455,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 151,
+            "max_gap_ns": 129995230,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 151,
+            "max_gap_ns": 129995230,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 73,
+            "max_loadavg": 0.80615234375,
+            "max_foreign_cpu_pct": 11.7,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 11.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25087186314536
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25077179393388
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25079235106872
+              },
+              {
+                "pid": 2761,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "python3 /home/ttuser/qbfix/wdtrace3.py ",
+                "at_ns": 25074346665201
+              },
+              {
+                "pid": 176635,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25074346665201
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": false
+        },
+        {
+          "label": "c1350_u0",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200705339,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25092961324164,
+          "end_monotonic_ns": 25107977472442,
+          "elapsed_s": 15.016148278,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 16.967383547,
+          "host_utime_s": 15.953736999999997,
+          "host_stime_s": 1.013645,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_u0/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13808,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1218279,
+            "first_offset_ns": 131677,
+            "last_offset_ns": 773041,
+            "sample_span_fraction": 0.999939750328563,
+            "min_W": 37.0,
+            "max_W": 146.0,
+            "mean_W": 80.78700753186558,
+            "max_C": 57.967,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 123,
+            "max_gap_ns": 129884830,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 123,
+            "max_gap_ns": 129884830,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 58,
+            "max_loadavg": 0.849609375,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25095410978790
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25103360324437
+              },
+              {
+                "pid": 1487,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641 ",
+                "at_ns": 25093356294830
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25093356294830
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25095154447396
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_t0",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200661148,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25108457709312,
+          "end_monotonic_ns": 25123385309996,
+          "elapsed_s": 14.927600684,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(0)",
+          "trace_shape": [
+            1,
+            4480
+          ],
+          "host_cpu_s": 16.816936828,
+          "host_utime_s": 16.035932000000003,
+          "host_stime_s": 0.7810049999999995,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_t0/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13753,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1185197,
+            "first_offset_ns": 653196,
+            "last_offset_ns": 112917,
+            "sample_span_fraction": 0.9999486780885811,
+            "min_W": 38.0,
+            "max_W": 144.0,
+            "mean_W": 80.29317239874936,
+            "max_C": 58.096,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 133416139,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 133416139,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 59,
+            "max_loadavg": 0.95703125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25109270042513
+              },
+              {
+                "pid": 1494,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/containerd ",
+                "at_ns": 25110552483934
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25115422024374
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25117473017303
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25123377888573
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_t1",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200685619,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25123886296139,
+          "end_monotonic_ns": 25138799746542,
+          "elapsed_s": 14.913450403,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(1)",
+          "trace_shape": [
+            1,
+            4480
+          ],
+          "host_cpu_s": 16.794183473,
+          "host_utime_s": 16.040684999999996,
+          "host_stime_s": 0.7534980000000004,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_t1/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13748,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1378502,
+            "first_offset_ns": 949224,
+            "last_offset_ns": 560985,
+            "sample_span_fraction": 0.9998987351042723,
+            "min_W": 38.0,
+            "max_W": 144.0,
+            "mean_W": 79.13747454175153,
+            "max_C": 57.967,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 130322256,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 130322256,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 59,
+            "max_loadavg": 0.96728515625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25129533208889
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25133636598509
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25137487415400
+              },
+              {
+                "pid": 1201,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/sbin/NetworkManager --no-daemon ",
+                "at_ns": 25124405772177
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 25124919330966
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_u1",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200759114,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25139501496508,
+          "end_monotonic_ns": 25154465410419,
+          "elapsed_s": 14.963913911,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 16.893046943,
+          "host_utime_s": 15.92226500000001,
+          "host_stime_s": 0.970783,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_u1/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13770,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1184280,
+            "first_offset_ns": 704956,
+            "last_offset_ns": 393504,
+            "sample_span_fraction": 0.9999265927345925,
+            "min_W": 38.0,
+            "max_W": 144.0,
+            "mean_W": 77.25875090777052,
+            "max_C": 58.48,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 130171879,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 130171879,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 59,
+            "max_loadavg": 1.12890625,
+            "max_foreign_cpu_pct": 11.7,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 11.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25145698466364
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25141595945354
+              },
+              {
+                "pid": 1116,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/lib/polkit-1/polkitd --no-debug ",
+                "at_ns": 25144416456399
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25151603329556
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25153657909941
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_u2",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200712119,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25155014736244,
+          "end_monotonic_ns": 25169874248879,
+          "elapsed_s": 14.859512635,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 16.719879881,
+          "host_utime_s": 15.943370999999999,
+          "host_stime_s": 0.7765079999999998,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_u2/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13673,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1278696,
+            "first_offset_ns": 1054295,
+            "last_offset_ns": 55307,
+            "sample_span_fraction": 0.9999253271606374,
+            "min_W": 38.0,
+            "max_W": 145.0,
+            "mean_W": 78.92232867695458,
+            "max_C": 58.608,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 121,
+            "max_gap_ns": 129356068,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 121,
+            "max_gap_ns": 129356068,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 58,
+            "max_loadavg": 1.12890625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25161866233217
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25167768246998
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25155713920519
+              },
+              {
+                "pid": 1250,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/sbin/rsyslogd -n -iNONE ",
+                "at_ns": 25157251627197
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25157764207161
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_t2",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200687756,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25170449491113,
+          "end_monotonic_ns": 25185325769328,
+          "elapsed_s": 14.876278215,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(2)",
+          "trace_shape": [
+            1,
+            4480
+          ],
+          "host_cpu_s": 16.744724676,
+          "host_utime_s": 16.09539799999999,
+          "host_stime_s": 0.6493269999999995,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_t2/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13708,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1207249,
+            "first_offset_ns": 611286,
+            "last_offset_ns": 159957,
+            "sample_span_fraction": 0.9999481561860531,
+            "min_W": 38.0,
+            "max_W": 147.0,
+            "mean_W": 78.21914210679896,
+            "max_C": 58.608,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 130328003,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 130328003,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 58,
+            "max_loadavg": 1.23828125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25171876448660
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25177778391887
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25179831420019
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25183938279809
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 25171876448660
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_t3",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200803641,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25185923536021,
+          "end_monotonic_ns": 25200809769578,
+          "elapsed_s": 14.886233557,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(3)",
+          "trace_shape": [
+            1,
+            4480
+          ],
+          "host_cpu_s": 16.753513294,
+          "host_utime_s": 16.120902,
+          "host_stime_s": 0.6326110000000007,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_t3/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13701,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1202200,
+            "first_offset_ns": 512267,
+            "last_offset_ns": 752573,
+            "sample_span_fraction": 0.9999150329063993,
+            "min_W": 38.0,
+            "max_W": 145.0,
+            "mean_W": 80.03218743157434,
+            "max_C": 58.608,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 121,
+            "max_gap_ns": 137928531,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 121,
+            "max_gap_ns": 137928531,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 58,
+            "max_loadavg": 1.25048828125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25191891048211
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25193942849356
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25198050724480
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25185991697924
+              },
+              {
+                "pid": 905,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25186248511148
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_u3",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200722860,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25201430820768,
+          "end_monotonic_ns": 25216320571040,
+          "elapsed_s": 14.889750272,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 16.75804651,
+          "host_utime_s": 16.00343700000002,
+          "host_stime_s": 0.7546090000000003,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_u3/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13718,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1197144,
+            "first_offset_ns": 728165,
+            "last_offset_ns": 857028,
+            "sample_span_fraction": 0.9998935379726965,
+            "min_W": 38.0,
+            "max_W": 146.0,
+            "mean_W": 79.46464499198134,
+            "max_C": 58.608,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 132447169,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 132447169,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 58,
+            "max_loadavg": 1.22998046875,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25203952977444
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25210110941697
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25212168312168
+              },
+              {
+                "pid": 1100,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "@dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only ",
+                "at_ns": 25201642916203
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25202158158929
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_u4",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200688789,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25217137649735,
+          "end_monotonic_ns": 25231990901398,
+          "elapsed_s": 14.853251663,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 16.705378748,
+          "host_utime_s": 15.899751000000009,
+          "host_stime_s": 0.8056280000000005,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_u4/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13680,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1206332,
+            "first_offset_ns": 636895,
+            "last_offset_ns": 360952,
+            "sample_span_fraction": 0.9999328196261237,
+            "min_W": 38.0,
+            "max_W": 145.0,
+            "mean_W": 78.65752923976608,
+            "max_C": 58.736,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 121,
+            "max_gap_ns": 136614337,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 121,
+            "max_gap_ns": 136614337,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 58,
+            "max_loadavg": 1.21923828125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25220126893531
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25224228504781
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25228342658518
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25218076012086
+              },
+              {
+                "pid": 176635,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25218332333978
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_t4",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200685796,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25232660107350,
+          "end_monotonic_ns": 25247565921411,
+          "elapsed_s": 14.905814061,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(4)",
+          "trace_shape": [
+            1,
+            4480
+          ],
+          "host_cpu_s": 16.764764465,
+          "host_utime_s": 16.09978799999999,
+          "host_stime_s": 0.6649759999999993,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_t4/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13733,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1188493,
+            "first_offset_ns": 584015,
+            "last_offset_ns": 913862,
+            "sample_span_fraction": 0.9998995105538101,
+            "min_W": 38.0,
+            "max_W": 145.0,
+            "mean_W": 81.1687905046239,
+            "max_C": 58.865,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 135751124,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 135751124,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 58,
+            "max_loadavg": 1.21923828125,
+            "max_foreign_cpu_pct": 11.7,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 11.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25238365360598
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25244270611792
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 25233751527020
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25234264353523
+              },
+              {
+                "pid": 1487,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641 ",
+                "at_ns": 25234777007926
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_t5",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200770482,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25248256184091,
+          "end_monotonic_ns": 25263095103506,
+          "elapsed_s": 14.838919415,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(5)",
+          "trace_shape": [
+            1,
+            4480
+          ],
+          "host_cpu_s": 16.676499506,
+          "host_utime_s": 16.073998999999986,
+          "host_stime_s": 0.6025009999999984,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_t5/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13655,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1215700,
+            "first_offset_ns": 1002511,
+            "last_offset_ns": 432239,
+            "sample_span_fraction": 0.9999033116927268,
+            "min_W": 38.0,
+            "max_W": 146.0,
+            "mean_W": 80.56301720981325,
+            "max_C": 59.121,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 131608129,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 131608129,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 58,
+            "max_loadavg": 1.21240234375,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25248376145045
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25252480934621
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25260436402339
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25250429530495
+              },
+              {
+                "pid": 190372,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25250429530495
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_u5",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200736800,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25263808794067,
+          "end_monotonic_ns": 25278633882488,
+          "elapsed_s": 14.825088421,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 16.662413312,
+          "host_utime_s": 15.984316000000007,
+          "host_stime_s": 0.6780969999999993,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_u5/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 13660,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1181870,
+            "first_offset_ns": 572437,
+            "last_offset_ns": 1020411,
+            "sample_span_fraction": 0.9998925572681412,
+            "min_W": 38.0,
+            "max_W": 145.0,
+            "mean_W": 79.00519765739385,
+            "max_C": 59.121,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 121,
+            "max_gap_ns": 136984063,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 121,
+            "max_gap_ns": 136984063,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 57,
+            "max_loadavg": 1.2451171875,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25264550815630
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25272501404414
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25276610734863
+              },
+              {
+                "pid": 190372,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25264293704332
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 25265319936701
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_u0",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 14,
+            "settle_ns": 260930331,
+            "distinct": [
+              1000,
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25279429123471,
+          "end_monotonic_ns": 25297935382445,
+          "elapsed_s": 18.506258974,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 20.375185557,
+          "host_utime_s": 19.606977,
+          "host_stime_s": 0.7682099999999998,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_u0/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 17030,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1193427,
+            "first_offset_ns": 796477,
+            "last_offset_ns": 1074194,
+            "sample_span_fraction": 0.9998989168473958,
+            "min_W": 27.0,
+            "max_W": 92.0,
+            "mean_W": 53.46541397533764,
+            "max_C": 56.173,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 151,
+            "max_gap_ns": 129459094,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 151,
+            "max_gap_ns": 129459094,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 73,
+            "max_loadavg": 1.25537109375,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25282521975336
+              },
+              {
+                "pid": 1116,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/lib/polkit-1/polkitd --no-debug ",
+                "at_ns": 25284573849670
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25284573849670
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25292788529333
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25296638070226
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_t0",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200701178,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25298890843065,
+          "end_monotonic_ns": 25317389457658,
+          "elapsed_s": 18.498614593,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(6)",
+          "trace_shape": [
+            1,
+            4480
+          ],
+          "host_cpu_s": 20.371291036,
+          "host_utime_s": 19.707977,
+          "host_stime_s": 0.6633139999999997,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_t0/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 17049,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1363554,
+            "first_offset_ns": 367644,
+            "last_offset_ns": 599364,
+            "sample_span_fraction": 0.9999477253826151,
+            "min_W": 27.0,
+            "max_W": 92.0,
+            "mean_W": 54.58179365358672,
+            "max_C": 56.045,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 151,
+            "max_gap_ns": 134959086,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 151,
+            "max_gap_ns": 134959086,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 72,
+            "max_loadavg": 1.35888671875,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25300750022697
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25308694762189
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25310749017708
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25314858442469
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 25301519008446
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_t1",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200648161,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25318184903162,
+          "end_monotonic_ns": 25336744138240,
+          "elapsed_s": 18.559235078,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(7)",
+          "trace_shape": [
+            1,
+            4480
+          ],
+          "host_cpu_s": 20.412067121,
+          "host_utime_s": 19.750976999999978,
+          "host_stime_s": 0.6610910000000008,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_t1/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 17103,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1174196,
+            "first_offset_ns": 1006229,
+            "last_offset_ns": 27157,
+            "sample_span_fraction": 0.9999443195802167,
+            "min_W": 27.0,
+            "max_W": 91.0,
+            "mean_W": 51.84950008770391,
+            "max_C": 55.917,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 152,
+            "max_gap_ns": 135678468,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 152,
+            "max_gap_ns": 135678468,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 73,
+            "max_loadavg": 1.3837890625,
+            "max_foreign_cpu_pct": 11.7,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 11.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25334864627008
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25318966689649
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25326914011294
+              },
+              {
+                "pid": 139915,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25318710013512
+              },
+              {
+                "pid": 15,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25319736180189
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_u1",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200697819,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25337570296776,
+          "end_monotonic_ns": 25356081480262,
+          "elapsed_s": 18.511183486,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 20.375772767,
+          "host_utime_s": 19.580663999999956,
+          "host_stime_s": 0.7951080000000008,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_u1/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 17039,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1191689,
+            "first_offset_ns": 309888,
+            "last_offset_ns": 787620,
+            "sample_span_fraction": 0.9999407110841492,
+            "min_W": 27.0,
+            "max_W": 92.0,
+            "mean_W": 53.6332531251834,
+            "max_C": 55.917,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 151,
+            "max_gap_ns": 136800941,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 151,
+            "max_gap_ns": 136800941,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 72,
+            "max_loadavg": 1.37890625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25343075535754
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25351028674217
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25353082090275
+              },
+              {
+                "pid": 1100,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "@dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only ",
+                "at_ns": 25337688291672
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 25338203466157
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_u2",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200724614,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25356940568537,
+          "end_monotonic_ns": 25375497976302,
+          "elapsed_s": 18.557407765,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 20.461307517,
+          "host_utime_s": 19.57770400000004,
+          "host_stime_s": 0.8836020000000016,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_u2/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 17092,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1242402,
+            "first_offset_ns": 190435,
+            "last_offset_ns": 873805,
+            "sample_span_fraction": 0.9999426514730141,
+            "min_W": 27.0,
+            "max_W": 92.0,
+            "mean_W": 52.89825649426632,
+            "max_C": 55.917,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 151,
+            "max_gap_ns": 130416328,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 151,
+            "max_gap_ns": 130416328,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 72,
+            "max_loadavg": 1.3505859375,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25359245031311
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25363089616685
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25367189354678
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25373351245694
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25357190317455
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_t2",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200709549,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25376379980303,
+          "end_monotonic_ns": 25395121474335,
+          "elapsed_s": 18.741494032,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(8)",
+          "trace_shape": [
+            1,
+            4480
+          ],
+          "host_cpu_s": 20.637538649,
+          "host_utime_s": 19.903868000000045,
+          "host_stime_s": 0.7336700000000018,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_t2/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 17255,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1176285,
+            "first_offset_ns": 120005,
+            "last_offset_ns": 599795,
+            "sample_span_fraction": 0.9999615932433791,
+            "min_W": 27.0,
+            "max_W": 91.0,
+            "mean_W": 51.87997681831353,
+            "max_C": 55.917,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 153,
+            "max_gap_ns": 134154403,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 153,
+            "max_gap_ns": 134154403,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 73,
+            "max_loadavg": 1.17041015625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25379254732736
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25385404597993
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25377205023959
+              },
+              {
+                "pid": 1047,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-timesyncd ",
+                "at_ns": 25377461212765
+              },
+              {
+                "pid": 2766,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard/cardtel.py ",
+                "at_ns": 25377461212765
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_t3",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200731885,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25396044898420,
+          "end_monotonic_ns": 25414579668579,
+          "elapsed_s": 18.534770159,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(9)",
+          "trace_shape": [
+            1,
+            4480
+          ],
+          "host_cpu_s": 20.400862006,
+          "host_utime_s": 19.771074999999996,
+          "host_stime_s": 0.6297870000000003,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_t3/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 17060,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1344306,
+            "first_offset_ns": 544659,
+            "last_offset_ns": 635829,
+            "sample_span_fraction": 0.999936309542019,
+            "min_W": 27.0,
+            "max_W": 89.0,
+            "mean_W": 52.767995310668226,
+            "max_C": 55.788,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 151,
+            "max_gap_ns": 137524575,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 151,
+            "max_gap_ns": 137524575,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 72,
+            "max_loadavg": 1.2431640625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25399516276127
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25407462638259
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25409516804628
+              },
+              {
+                "pid": 1,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/sbin/init splash ",
+                "at_ns": 25396439834017
+              },
+              {
+                "pid": 1100,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "@dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only ",
+                "at_ns": 25396439834017
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_u3",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200807392,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25415522016971,
+          "end_monotonic_ns": 25434003406022,
+          "elapsed_s": 18.481389051,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 20.340490791,
+          "host_utime_s": 19.582273999999984,
+          "host_stime_s": 0.7582170000000019,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.845919,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_u3/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 17023,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1674374,
+            "first_offset_ns": 261271,
+            "last_offset_ns": 296163,
+            "sample_span_fraction": 0.9999698380896338,
+            "min_W": 27.0,
+            "max_W": 90.0,
+            "mean_W": 51.89314456911238,
+            "max_C": 55.788,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 151,
+            "max_gap_ns": 129841281,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 151,
+            "max_gap_ns": 129841281,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 72,
+            "max_loadavg": 1.26953125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25419520009243
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25421571183647
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25431577856341
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25433630852254
+              },
+              {
+                "pid": 1132,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/libexec/accounts-daemon ",
+                "at_ns": 25415673518217
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        }
+      ],
+      "n_accepted": 20,
+      "warmup_discarded": [
+        "cold"
+      ],
+      "cells": {
+        "1350_untraced": {
+          "n": 6,
+          "median": 14.874631453500001,
+          "mean": 14.90127753,
+          "stdev": 0.07363022929956378,
+          "min": 14.825088421,
+          "max": 15.016148278,
+          "adjacent_max_abs_delta": 0.10440127600000082
+        },
+        "1350_traced": {
+          "n": 6,
+          "median": 14.896023808999999,
+          "mean": 14.8913827225,
+          "stdev": 0.031667161144538054,
+          "min": 14.838919415,
+          "max": 14.927600684,
+          "adjacent_max_abs_delta": 0.06689464599999972
+        },
+        "1000_untraced": {
+          "n": 4,
+          "median": 18.50872123,
+          "mean": 18.514059819,
+          "stdev": 0.03170462625742832,
+          "min": 18.481389051,
+          "max": 18.557407765,
+          "adjacent_max_abs_delta": 0.07601871399999993
+        },
+        "1000_traced": {
+          "n": 4,
+          "median": 18.547002618500002,
+          "mean": 18.5835284655,
+          "stdev": 0.10821433526661314,
+          "min": 18.498614593,
+          "max": 18.741494032,
+          "adjacent_max_abs_delta": 0.20672387299999784
+        }
+      },
+      "session_AA_floor_s": 0.20672387299999784,
+      "committed_AA_floor_s": 0.055,
+      "pairs": [
+        {
+          "clock_MHz": 1350,
+          "untraced": "c1350_u0",
+          "traced": "c1350_t0",
+          "delta_s": 0.08854759399999956,
+          "host_cpu_delta_s": 0.1504467190000014
+        },
+        {
+          "clock_MHz": 1350,
+          "untraced": "c1350_u1",
+          "traced": "c1350_t1",
+          "delta_s": 0.05046350799999999,
+          "host_cpu_delta_s": 0.09886347000000129
+        },
+        {
+          "clock_MHz": 1350,
+          "untraced": "c1350_u2",
+          "traced": "c1350_t2",
+          "delta_s": -0.016765579999999503,
+          "host_cpu_delta_s": -0.02484479499999992
+        },
+        {
+          "clock_MHz": 1350,
+          "untraced": "c1350_u3",
+          "traced": "c1350_t3",
+          "delta_s": 0.003516714999999948,
+          "host_cpu_delta_s": 0.004533215999998674
+        },
+        {
+          "clock_MHz": 1350,
+          "untraced": "c1350_u4",
+          "traced": "c1350_t4",
+          "delta_s": -0.05256239799999918,
+          "host_cpu_delta_s": -0.05938571699999784
+        },
+        {
+          "clock_MHz": 1350,
+          "untraced": "c1350_u5",
+          "traced": "c1350_t5",
+          "delta_s": -0.013830993999999208,
+          "host_cpu_delta_s": -0.01408619399999722
+        },
+        {
+          "clock_MHz": 1000,
+          "untraced": "c1000_u0",
+          "traced": "c1000_t0",
+          "delta_s": 0.007644381000002198,
+          "host_cpu_delta_s": 0.003894520999999429
+        },
+        {
+          "clock_MHz": 1000,
+          "untraced": "c1000_u1",
+          "traced": "c1000_t1",
+          "delta_s": -0.0480515920000002,
+          "host_cpu_delta_s": -0.03629435399999892
+        },
+        {
+          "clock_MHz": 1000,
+          "untraced": "c1000_u2",
+          "traced": "c1000_t2",
+          "delta_s": -0.18408626699999786,
+          "host_cpu_delta_s": -0.17623113199999807
+        },
+        {
+          "clock_MHz": 1000,
+          "untraced": "c1000_u3",
+          "traced": "c1000_t3",
+          "delta_s": -0.053381107999999955,
+          "host_cpu_delta_s": -0.06037121499999998
+        }
+      ],
+      "deltas": {
+        "1350": {
+          "n_untraced": 6,
+          "n_traced": 6,
+          "untraced_median_s": 14.874631453500001,
+          "traced_median_s": 14.896023808999999,
+          "delta_s": -0.02139235549999796,
+          "delta_Mcycles": -28.879679924997248,
+          "speedup": 0.9985638882043762,
+          "paired_n": 6,
+          "paired_median_delta_s": -0.00515713949999963,
+          "paired_min_s": -0.05256239799999918,
+          "paired_max_s": 0.08854759399999956,
+          "host_cpu_delta_s": -0.004776488999999273,
+          "exceeds_committed_AA_floor": false,
+          "exceeds_session_AA_floor": false
+        },
+        "1000": {
+          "n_untraced": 4,
+          "n_traced": 4,
+          "untraced_median_s": 18.50872123,
+          "traced_median_s": 18.547002618500002,
+          "delta_s": -0.03828138850000329,
+          "delta_Mcycles": -38.28138850000329,
+          "speedup": 0.9979359797759548,
+          "paired_n": 4,
+          "paired_median_delta_s": -0.05071635000000008,
+          "paired_min_s": -0.18408626699999786,
+          "paired_max_s": 0.007644381000002198,
+          "host_cpu_delta_s": -0.04833278449999945,
+          "exceeds_committed_AA_floor": false,
+          "exceeds_session_AA_floor": false
+        }
+      },
+      "mechanism": {
+        "high_MHz": 1350,
+        "low_MHz": 1000,
+        "delta_high_s": -0.02139235549999796,
+        "delta_low_s": -0.03828138850000329,
+        "if_clock_immune_delta_low_would_be_s": -0.02139235549999796,
+        "if_clock_scaled_delta_low_would_be_s": -0.028879679924997247,
+        "observed_minus_immune_s": -0.016889033000005327,
+        "observed_minus_scaled_s": -0.009401708575006041,
+        "clock_immune_fraction": -1.2556833444554445,
+        "verdict": "clock-scaled (device work)"
+      },
+      "parity": {
+        "distinct_untraced_digests": 1,
+        "distinct_traced_digests": 1,
+        "untraced_digest": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+        "traced_digest": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+        "byte_identical_across_arms": true,
+        "geometry": {
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        "bar_A": 0.6,
+        "seed_floor_A": 1.84,
+        "within_bar": true,
+        "plddt": {
+          "untraced": [
+            0.845919
+          ],
+          "traced": [
+            0.845919
+          ]
+        }
+      },
+      "per_arm_consistency": {
+        "untraced_one_digest": true,
+        "traced_one_digest": true
+      },
+      "verdict": "NO-GO",
+      "refutation_fired": [
+        "gain inside the A/A floor"
+      ]
+    },
+    "298": {
+      "rows": [
+        {
+          "label": "cold",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200705240,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25441938356965,
+          "end_monotonic_ns": 25452001347896,
+          "elapsed_s": 10.062990931,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 12.438640421,
+          "host_utime_s": 11.694533,
+          "host_stime_s": 0.7441059999999999,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/cold/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 9270,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1321758,
+            "first_offset_ns": 422555,
+            "last_offset_ns": 236028,
+            "sample_span_fraction": 0.9999345539507573,
+            "min_W": 38.0,
+            "max_W": 150.0,
+            "mean_W": 71.39385113268608,
+            "max_C": 57.839,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 82,
+            "max_gap_ns": 128294047,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 82,
+            "max_gap_ns": 128294047,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 39,
+            "max_loadavg": 1.28955078125,
+            "max_foreign_cpu_pct": 7.7,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25447744931583
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 25443129844231
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25443642621274
+              },
+              {
+                "pid": 176635,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25444155023719
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25445692013498
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": false
+        },
+        {
+          "label": "c1350_u0",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200711975,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25452434281642,
+          "end_monotonic_ns": 25462102384631,
+          "elapsed_s": 9.668102989,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 11.030267672,
+          "host_utime_s": 10.582858,
+          "host_stime_s": 0.4474090000000004,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_u0/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 8910,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1187992,
+            "first_offset_ns": 817406,
+            "last_offset_ns": 436156,
+            "sample_span_fraction": 0.9998703404378888,
+            "min_W": 38.0,
+            "max_W": 150.0,
+            "mean_W": 73.5716049382716,
+            "max_C": 58.224,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 79,
+            "max_gap_ns": 132649706,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 79,
+            "max_gap_ns": 132649706,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 37,
+            "max_loadavg": 1.24462890625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25453903324031
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25455697455197
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25459803144808
+              },
+              {
+                "pid": 1273,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/sbin/ModemManager ",
+                "at_ns": 25452620707494
+              },
+              {
+                "pid": 1567,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/wireplumber ",
+                "at_ns": 25452620707494
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_t0",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200733167,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25462549607810,
+          "end_monotonic_ns": 25472233473772,
+          "elapsed_s": 9.683865962,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(0)",
+          "trace_shape": [
+            1,
+            2688
+          ],
+          "host_cpu_s": 11.040505895,
+          "host_utime_s": 10.728177000000002,
+          "host_stime_s": 0.3123290000000001,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_t0/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 8924,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1184781,
+            "first_offset_ns": 578043,
+            "last_offset_ns": 684823,
+            "sample_span_fraction": 0.999869590718732,
+            "min_W": 38.0,
+            "max_W": 149.0,
+            "mean_W": 72.64242492155984,
+            "max_C": 58.224,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 79,
+            "max_gap_ns": 131245176,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 79,
+            "max_gap_ns": 131245176,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 38,
+            "max_loadavg": 1.3349609375,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25463910233942
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25469814206717
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25471866763805
+              },
+              {
+                "pid": 2241,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/gnome-shell ",
+                "at_ns": 25462884772189
+              },
+              {
+                "pid": 1250,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/sbin/rsyslogd -n -iNONE ",
+                "at_ns": 25465961775224
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_t1",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200728269,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25472696042066,
+          "end_monotonic_ns": 25482376942970,
+          "elapsed_s": 9.680900904,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(1)",
+          "trace_shape": [
+            1,
+            2688
+          ],
+          "host_cpu_s": 11.046637637,
+          "host_utime_s": 10.708532999999996,
+          "host_stime_s": 0.33810399999999996,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_t1/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 8921,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1223209,
+            "first_offset_ns": 723446,
+            "last_offset_ns": 489869,
+            "sample_span_fraction": 0.9998746692056832,
+            "min_W": 38.0,
+            "max_W": 145.0,
+            "mean_W": 69.18036094608227,
+            "max_C": 58.224,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 79,
+            "max_gap_ns": 130591724,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 79,
+            "max_gap_ns": 130591724,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 37,
+            "max_loadavg": 1.388671875,
+            "max_foreign_cpu_pct": 11.7,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 11.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25478020389770
+              },
+              {
+                "pid": 172451,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25473407845777
+              },
+              {
+                "pid": 234232,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25473407845777
+              },
+              {
+                "pid": 176635,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25473664008851
+              },
+              {
+                "pid": 239030,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25473664008851
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_u1",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200672794,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25482855832392,
+          "end_monotonic_ns": 25492503748327,
+          "elapsed_s": 9.647915935,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 10.999196844,
+          "host_utime_s": 10.591220999999997,
+          "host_stime_s": 0.407975,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_u1/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 8893,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1208356,
+            "first_offset_ns": 1015892,
+            "last_offset_ns": 16983,
+            "sample_span_fraction": 0.9998929432006913,
+            "min_W": 38.0,
+            "max_W": 149.0,
+            "mean_W": 72.44788035533566,
+            "max_C": 58.224,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 79,
+            "max_gap_ns": 130245281,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 79,
+            "max_gap_ns": 130245281,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 38,
+            "max_loadavg": 1.3828125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25485974312149
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25490082023008
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 25482896807001
+              },
+              {
+                "pid": 905,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25482896807001
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25483923276830
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_u2",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200649761,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25492996023198,
+          "end_monotonic_ns": 25502599188830,
+          "elapsed_s": 9.603165632,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 10.898016879,
+          "host_utime_s": 10.611075,
+          "host_stime_s": 0.2869410000000001,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_u2/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 8795,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1421314,
+            "first_offset_ns": 219917,
+            "last_offset_ns": 744954,
+            "sample_span_fraction": 0.9998995257358901,
+            "min_W": 38.0,
+            "max_W": 150.0,
+            "mean_W": 69.61887436043206,
+            "max_C": 58.224,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 78,
+            "max_gap_ns": 133436429,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 78,
+            "max_gap_ns": 133436429,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 37,
+            "max_loadavg": 1.3828125,
+            "max_foreign_cpu_pct": 11.7,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 11.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25502145645014
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25495987380641
+              },
+              {
+                "pid": 905,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25493678210931
+              },
+              {
+                "pid": 905,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25494190896206
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25494190896206
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_t2",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200725538,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25503106113335,
+          "end_monotonic_ns": 25512789291986,
+          "elapsed_s": 9.683178651,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(2)",
+          "trace_shape": [
+            1,
+            2688
+          ],
+          "host_cpu_s": 11.048015204,
+          "host_utime_s": 10.72622899999999,
+          "host_stime_s": 0.3217850000000002,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_t2/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 8920,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 2113151,
+            "first_offset_ns": 166670,
+            "last_offset_ns": 652351,
+            "sample_span_fraction": 0.9999154181669554,
+            "min_W": 38.0,
+            "max_W": 149.0,
+            "mean_W": 71.50515695067264,
+            "max_C": 58.224,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 79,
+            "max_gap_ns": 128662628,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 79,
+            "max_gap_ns": 128662628,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 38,
+            "max_loadavg": 1.35400390625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25512153338617
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 25503174024897
+              },
+              {
+                "pid": 905,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25503944275682
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25504200526310
+              },
+              {
+                "pid": 176635,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25504200526310
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_t3",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200716642,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25513314895258,
+          "end_monotonic_ns": 25522946552124,
+          "elapsed_s": 9.631656866,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(3)",
+          "trace_shape": [
+            1,
+            2688
+          ],
+          "host_cpu_s": 10.957189979,
+          "host_utime_s": 10.741894000000002,
+          "host_stime_s": 0.21529500000000024,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_t3/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 8871,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 2115435,
+            "first_offset_ns": 134888,
+            "last_offset_ns": 441827,
+            "sample_span_fraction": 0.9999401229707388,
+            "min_W": 38.0,
+            "max_W": 149.0,
+            "mean_W": 72.55179799346185,
+            "max_C": 58.352,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 78,
+            "max_gap_ns": 131943227,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 78,
+            "max_gap_ns": 131943227,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 38,
+            "max_loadavg": 1.35400390625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25518309113060
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25520364914520
+              },
+              {
+                "pid": 237103,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/sbin/cups-browsed ",
+                "at_ns": 25513437028141
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25514206782871
+              },
+              {
+                "pid": 239030,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25515232210753
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_u3",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200681887,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25523487568493,
+          "end_monotonic_ns": 25533342229764,
+          "elapsed_s": 9.854661271,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 11.216747267,
+          "host_utime_s": 10.784413,
+          "host_stime_s": 0.43233299999999986,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_u3/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 9077,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1262730,
+            "first_offset_ns": 135114,
+            "last_offset_ns": 429243,
+            "sample_span_fraction": 0.9999427319737858,
+            "min_W": 38.0,
+            "max_W": 146.0,
+            "mean_W": 70.61374903602511,
+            "max_C": 58.48,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 80,
+            "max_gap_ns": 132269565,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 80,
+            "max_gap_ns": 132269565,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 38,
+            "max_loadavg": 1.298828125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25524216011802
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25528322407076
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 25525497842533
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25526266923117
+              },
+              {
+                "pid": 176635,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25526266923117
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_u4",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200709050,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25533896524468,
+          "end_monotonic_ns": 25543567593079,
+          "elapsed_s": 9.671068611,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 11.029616936,
+          "host_utime_s": 10.581386000000009,
+          "host_stime_s": 0.44822899999999954,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_u4/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 8906,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1204724,
+            "first_offset_ns": 686541,
+            "last_offset_ns": 1037018,
+            "sample_span_fraction": 0.9998217819488904,
+            "min_W": 38.0,
+            "max_W": 150.0,
+            "mean_W": 73.05423310128003,
+            "max_C": 58.352,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 79,
+            "max_gap_ns": 132316324,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 79,
+            "max_gap_ns": 132316324,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 38,
+            "max_loadavg": 1.251953125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25536282012994
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25542441464475
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25534487148028
+              },
+              {
+                "pid": 1487,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641 ",
+                "at_ns": 25536538682990
+              },
+              {
+                "pid": 15,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25536795088009
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_t4",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200727246,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25544137464494,
+          "end_monotonic_ns": 25553779258961,
+          "elapsed_s": 9.641794467,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(4)",
+          "trace_shape": [
+            1,
+            2688
+          ],
+          "host_cpu_s": 10.98858039,
+          "host_utime_s": 10.713475000000003,
+          "host_stime_s": 0.27510499999999993,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_t4/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 8887,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1183012,
+            "first_offset_ns": 53948,
+            "last_offset_ns": 403008,
+            "sample_span_fraction": 0.9999526067474718,
+            "min_W": 38.0,
+            "max_W": 150.0,
+            "mean_W": 73.88342522786093,
+            "max_C": 58.224,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 79,
+            "max_gap_ns": 129771387,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 79,
+            "max_gap_ns": 129771387,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 38,
+            "max_loadavg": 1.212890625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25544497569898
+              },
+              {
+                "pid": 1493,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd --user ",
+                "at_ns": 25546547799140
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25546547799140
+              },
+              {
+                "pid": 2241,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/gnome-shell ",
+                "at_ns": 25546804166027
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25548341813518
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_t5",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200706888,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25554361161551,
+          "end_monotonic_ns": 25564028503223,
+          "elapsed_s": 9.667341672,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(5)",
+          "trace_shape": [
+            1,
+            2688
+          ],
+          "host_cpu_s": 11.030576842,
+          "host_utime_s": 10.737972999999997,
+          "host_stime_s": 0.29260399999999986,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_t5/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 8903,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1210336,
+            "first_offset_ns": 32307,
+            "last_offset_ns": 1049907,
+            "sample_span_fraction": 0.9998880546445219,
+            "min_W": 38.0,
+            "max_W": 150.0,
+            "mean_W": 71.60327979332808,
+            "max_C": 58.352,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 80,
+            "max_gap_ns": 133477893,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 80,
+            "max_gap_ns": 133477893,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 38,
+            "max_loadavg": 1.24560546875,
+            "max_foreign_cpu_pct": 11.7,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 11.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25558605682602
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25554503032291
+              },
+              {
+                "pid": 176635,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25554503032291
+              },
+              {
+                "pid": 1250,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/sbin/rsyslogd -n -iNONE ",
+                "at_ns": 25554761012962
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25556555344097
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1350_u5",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1350,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1350,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200856766,
+            "distinct": [
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25564624085769,
+          "end_monotonic_ns": 25574254495897,
+          "elapsed_s": 9.630410128,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 10.960805884,
+          "host_utime_s": 10.575949000000008,
+          "host_stime_s": 0.38485499999999995,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1350_u5/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1350,
+            "samples": 8876,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1230644,
+            "first_offset_ns": 15424,
+            "last_offset_ns": 539094,
+            "sample_span_fraction": 0.999942420105413,
+            "min_W": 38.0,
+            "max_W": 139.0,
+            "mean_W": 71.75428120775123,
+            "max_C": 58.608,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 79,
+            "max_gap_ns": 134566610,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 79,
+            "max_gap_ns": 134566610,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 37,
+            "max_loadavg": 1.2255859375,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25566570064244
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25568620923399
+              },
+              {
+                "pid": 1487,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641 ",
+                "at_ns": 25564771678678
+              },
+              {
+                "pid": 1494,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/containerd ",
+                "at_ns": 25565544946696
+              },
+              {
+                "pid": 263813,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25566313846160
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_u0",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 12,
+            "settle_ns": 220721906,
+            "distinct": [
+              1000,
+              1350
+            ]
+          },
+          "start_monotonic_ns": 25574891390744,
+          "end_monotonic_ns": 25587214154571,
+          "elapsed_s": 12.322763827,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 13.677127117,
+          "host_utime_s": 13.255033999999995,
+          "host_stime_s": 0.42209200000000013,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_u0/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 11353,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 2124753,
+            "first_offset_ns": 880227,
+            "last_offset_ns": 42021,
+            "sample_span_fraction": 0.9999251589973688,
+            "min_W": 27.0,
+            "max_W": 93.0,
+            "mean_W": 47.126134061481544,
+            "max_C": 55.788,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 101,
+            "max_gap_ns": 128128851,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 101,
+            "max_gap_ns": 128128851,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 48,
+            "max_loadavg": 1.22802734375,
+            "max_foreign_cpu_pct": 11.7,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 11.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25576576289035
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 11.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25586836642042
+              },
+              {
+                "pid": 2766,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard/cardtel.py ",
+                "at_ns": 25575551470563
+              },
+              {
+                "pid": 1487,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641 ",
+                "at_ns": 25575807685233
+              },
+              {
+                "pid": 905,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25576063973754
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_t0",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200706040,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25587848384825,
+          "end_monotonic_ns": 25600221101449,
+          "elapsed_s": 12.372716624,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(6)",
+          "trace_shape": [
+            1,
+            2688
+          ],
+          "host_cpu_s": 13.750332956,
+          "host_utime_s": 13.407408000000004,
+          "host_stime_s": 0.34292300000000075,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_t0/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 11404,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1187982,
+            "first_offset_ns": 216284,
+            "last_offset_ns": 1084599,
+            "sample_span_fraction": 0.9998948587412504,
+            "min_W": 27.0,
+            "max_W": 93.0,
+            "mean_W": 44.9555419151175,
+            "max_C": 55.788,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 101,
+            "max_gap_ns": 128286374,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 101,
+            "max_gap_ns": 128286374,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 49,
+            "max_loadavg": 1.2900390625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25592735557293
+              },
+              {
+                "pid": 905,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25588119724158
+              },
+              {
+                "pid": 239030,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25588119724158
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25588633774457
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25590685083219
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_t1",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200694960,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25600877302071,
+          "end_monotonic_ns": 25613233886287,
+          "elapsed_s": 12.356584216,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(7)",
+          "trace_shape": [
+            1,
+            2688
+          ],
+          "host_cpu_s": 13.708110505,
+          "host_utime_s": 13.399474999999995,
+          "host_stime_s": 0.30863500000000066,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_t1/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 11385,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1182722,
+            "first_offset_ns": 687548,
+            "last_offset_ns": 1097043,
+            "sample_span_fraction": 0.9998555757020869,
+            "min_W": 27.0,
+            "max_W": 94.0,
+            "mean_W": 46.91040843214756,
+            "max_C": 55.66,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 101,
+            "max_gap_ns": 129029750,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 101,
+            "max_gap_ns": 129029750,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 48,
+            "max_loadavg": 1.3056640625,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25600945629334
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25602742901521
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25610954154979
+              },
+              {
+                "pid": 2241,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/gnome-shell ",
+                "at_ns": 25602999496914
+              },
+              {
+                "pid": 534,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/lib/systemd/systemd-journald ",
+                "at_ns": 25603256258506
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_u1",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200671066,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25613904729912,
+          "end_monotonic_ns": 25626237671041,
+          "elapsed_s": 12.332941129,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 13.698010631,
+          "host_utime_s": 13.243909000000002,
+          "host_stime_s": 0.45410099999999964,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_u1/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 11360,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1218671,
+            "first_offset_ns": 813334,
+            "last_offset_ns": 654264,
+            "sample_span_fraction": 0.9998810017833825,
+            "min_W": 27.0,
+            "max_W": 93.0,
+            "mean_W": 47.67147887323944,
+            "max_C": 55.532,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 101,
+            "max_gap_ns": 133367666,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 101,
+            "max_gap_ns": 133367666,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 48,
+            "max_loadavg": 1.28076171875,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25616857793100
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25618908023045
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25623012507744
+              },
+              {
+                "pid": 239030,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25614293886145
+              },
+              {
+                "pid": 1487,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641 ",
+                "at_ns": 25614806888884
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_u2",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200789063,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25626933422245,
+          "end_monotonic_ns": 25639274898223,
+          "elapsed_s": 12.341475978,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 13.697045009,
+          "host_utime_s": 13.245175000000017,
+          "host_stime_s": 0.4518690000000003,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_u2/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 11362,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1186498,
+            "first_offset_ns": 340021,
+            "last_offset_ns": 701600,
+            "sample_span_fraction": 0.9999155999653642,
+            "min_W": 27.0,
+            "max_W": 94.0,
+            "mean_W": 47.016194331983804,
+            "max_C": 55.404,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 100,
+            "max_gap_ns": 132634802,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 100,
+            "max_gap_ns": 132634802,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 48,
+            "max_loadavg": 1.2177734375,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25628915027897
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25635071984816
+              },
+              {
+                "pid": 15,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25627118975133
+              },
+              {
+                "pid": 1854,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock ",
+                "at_ns": 25627118975133
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25627118975133
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_t2",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200738387,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25640152275022,
+          "end_monotonic_ns": 25652480603227,
+          "elapsed_s": 12.328328205,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(8)",
+          "trace_shape": [
+            1,
+            2688
+          ],
+          "host_cpu_s": 13.677907202,
+          "host_utime_s": 13.407134999999982,
+          "host_stime_s": 0.2707719999999991,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_t2/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 11361,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1182146,
+            "first_offset_ns": 268956,
+            "last_offset_ns": 275643,
+            "sample_span_fraction": 0.9999558253973333,
+            "min_W": 27.0,
+            "max_W": 94.0,
+            "mean_W": 46.94886013555145,
+            "max_C": 55.66,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 101,
+            "max_gap_ns": 133893435,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 101,
+            "max_gap_ns": 133893435,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 48,
+            "max_loadavg": 1.18408203125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 1116,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/lib/polkit-1/polkitd --no-debug ",
+                "at_ns": 25643552706371
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25645091010851
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.7,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25647143926562
+              },
+              {
+                "pid": 239030,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25640213239753
+              },
+              {
+                "pid": 1,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/sbin/init splash ",
+                "at_ns": 25640986515135
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_t3",
+          "arm": "traced",
+          "diffusion_trace": true,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200704815,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25653211836715,
+          "end_monotonic_ns": 25665569324853,
+          "elapsed_s": 12.357488138,
+          "score_calls": {
+            "traced": 200,
+            "untraced": 0
+          },
+          "trace_present_after": true,
+          "trace_id": "MeshTraceId(9)",
+          "trace_shape": [
+            1,
+            2688
+          ],
+          "host_cpu_s": 13.718633849,
+          "host_utime_s": 13.407557999999995,
+          "host_stime_s": 0.3110749999999989,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_t3/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 11385,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1258763,
+            "first_offset_ns": 116257,
+            "last_offset_ns": 870839,
+            "sample_span_fraction": 0.9999201216307896,
+            "min_W": 26.0,
+            "max_W": 93.0,
+            "mean_W": 48.16618357487923,
+            "max_C": 55.148,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 101,
+            "max_gap_ns": 129430321,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 101,
+            "max_gap_ns": 129430321,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 48,
+            "max_loadavg": 1.142578125,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25653302651344
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25657149015019
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25663306478564
+              },
+              {
+                "pid": 1100,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "@dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only ",
+                "at_ns": 25653302651344
+              },
+              {
+                "pid": 2241,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/gnome-shell ",
+                "at_ns": 25653816238353
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        },
+        {
+          "label": "c1000_u3",
+          "arm": "untraced",
+          "diffusion_trace": false,
+          "clock_MHz": 1000,
+          "force_response": [
+            0,
+            0
+          ],
+          "settle": {
+            "target_MHz": 1000,
+            "settled": true,
+            "reads": 11,
+            "settle_ns": 200679597,
+            "distinct": [
+              1000
+            ]
+          },
+          "start_monotonic_ns": 25666320129801,
+          "end_monotonic_ns": 25678642607092,
+          "elapsed_s": 12.322477291,
+          "score_calls": {
+            "traced": 0,
+            "untraced": 200
+          },
+          "trace_present_after": false,
+          "trace_id": "None",
+          "trace_shape": [
+            null,
+            null
+          ],
+          "host_cpu_s": 13.665331163,
+          "host_utime_s": 13.238578999999987,
+          "host_stime_s": 0.4267500000000002,
+          "host_child_utime_s": 0.0,
+          "plddt": 0.908011,
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/c1000_u3/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "target_MHz": 1000,
+            "samples": 11352,
+            "min_MHz": 1000,
+            "max_MHz": 1000,
+            "max_gap_ns": 1196398,
+            "first_offset_ns": 308727,
+            "last_offset_ns": 327714,
+            "sample_span_fraction": 0.9999483512133989,
+            "min_W": 27.0,
+            "max_W": 94.0,
+            "mean_W": 48.23431994362227,
+            "max_C": 55.404,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 100,
+            "max_gap_ns": 130006917,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 100,
+            "max_gap_ns": 130006917,
+            "bad": [],
+            "passed": true
+          },
+          "ambient": {
+            "recorded": true,
+            "samples": 48,
+            "max_loadavg": 1.25341796875,
+            "max_foreign_cpu_pct": 7.8,
+            "foreign_over_limit": [],
+            "foreign_top": [
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25669208069460
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 7.8,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25675365301945
+              },
+              {
+                "pid": 2366,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/libexec/gsd-sharing ",
+                "at_ns": 25666386407027
+              },
+              {
+                "pid": 263813,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "",
+                "at_ns": 25666386407027
+              },
+              {
+                "pid": 2762,
+                "cpu_pct": 3.9,
+                "own": false,
+                "argv": "/usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py ",
+                "at_ns": 25667414228341
+              }
+            ],
+            "passed": true
+          },
+          "failures": [],
+          "accepted": true
+        }
+      ],
+      "n_accepted": 20,
+      "warmup_discarded": [
+        "cold"
+      ],
+      "cells": {
+        "1350_untraced": {
+          "n": 6,
+          "median": 9.658009461999999,
+          "mean": 9.679220761,
+          "stdev": 0.08957263826066986,
+          "min": 9.603165632,
+          "max": 9.854661271,
+          "adjacent_max_abs_delta": 0.2514956389999998
+        },
+        "1350_traced": {
+          "n": 6,
+          "median": 9.674121287999998,
+          "mean": 9.664789753666666,
+          "stdev": 0.022780281718056062,
+          "min": 9.631656866,
+          "max": 9.683865962,
+          "adjacent_max_abs_delta": 0.051521785000000264
+        },
+        "1000_untraced": {
+          "n": 4,
+          "median": 12.327852478,
+          "mean": 12.32991455625,
+          "stdev": 0.009115416587629389,
+          "min": 12.322477291,
+          "max": 12.341475978,
+          "adjacent_max_abs_delta": 0.018998686999999848
+        },
+        "1000_traced": {
+          "n": 4,
+          "median": 12.357036177000001,
+          "mean": 12.35377929575,
+          "stdev": 0.018511289438765514,
+          "min": 12.328328205,
+          "max": 12.372716624,
+          "adjacent_max_abs_delta": 0.02915993300000075
+        }
+      },
+      "session_AA_floor_s": 0.2514956389999998,
+      "committed_AA_floor_s": 0.043,
+      "pairs": [
+        {
+          "clock_MHz": 1350,
+          "untraced": "c1350_u0",
+          "traced": "c1350_t0",
+          "delta_s": -0.015762973000001068,
+          "host_cpu_delta_s": -0.01023822299999999
+        },
+        {
+          "clock_MHz": 1350,
+          "untraced": "c1350_u1",
+          "traced": "c1350_t1",
+          "delta_s": -0.032984968999999253,
+          "host_cpu_delta_s": -0.047440792999999815
+        },
+        {
+          "clock_MHz": 1350,
+          "untraced": "c1350_u2",
+          "traced": "c1350_t2",
+          "delta_s": -0.0800130190000008,
+          "host_cpu_delta_s": -0.14999832500000032
+        },
+        {
+          "clock_MHz": 1350,
+          "untraced": "c1350_u3",
+          "traced": "c1350_t3",
+          "delta_s": 0.2230044049999993,
+          "host_cpu_delta_s": 0.2595572879999999
+        },
+        {
+          "clock_MHz": 1350,
+          "untraced": "c1350_u4",
+          "traced": "c1350_t4",
+          "delta_s": 0.02927414400000039,
+          "host_cpu_delta_s": 0.04103654600000084
+        },
+        {
+          "clock_MHz": 1350,
+          "untraced": "c1350_u5",
+          "traced": "c1350_t5",
+          "delta_s": -0.03693154399999976,
+          "host_cpu_delta_s": -0.06977095799999944
+        },
+        {
+          "clock_MHz": 1000,
+          "untraced": "c1000_u0",
+          "traced": "c1000_t0",
+          "delta_s": -0.049952797000001326,
+          "host_cpu_delta_s": -0.07320583899999988
+        },
+        {
+          "clock_MHz": 1000,
+          "untraced": "c1000_u1",
+          "traced": "c1000_t1",
+          "delta_s": -0.02364308699999995,
+          "host_cpu_delta_s": -0.010099873999999787
+        },
+        {
+          "clock_MHz": 1000,
+          "untraced": "c1000_u2",
+          "traced": "c1000_t2",
+          "delta_s": 0.01314777300000003,
+          "host_cpu_delta_s": 0.019137806999999896
+        },
+        {
+          "clock_MHz": 1000,
+          "untraced": "c1000_u3",
+          "traced": "c1000_t3",
+          "delta_s": -0.03501084700000057,
+          "host_cpu_delta_s": -0.05330268600000032
+        }
+      ],
+      "deltas": {
+        "1350": {
+          "n_untraced": 6,
+          "n_traced": 6,
+          "untraced_median_s": 9.658009461999999,
+          "traced_median_s": 9.674121287999998,
+          "delta_s": -0.016111825999999496,
+          "delta_Mcycles": -21.75096509999932,
+          "speedup": 0.9983345437254353,
+          "paired_n": 6,
+          "paired_median_delta_s": -0.02437397100000016,
+          "paired_min_s": -0.0800130190000008,
+          "paired_max_s": 0.2230044049999993,
+          "host_cpu_delta_s": -0.028839507999999903,
+          "exceeds_committed_AA_floor": false,
+          "exceeds_session_AA_floor": false
+        },
+        "1000": {
+          "n_untraced": 4,
+          "n_traced": 4,
+          "untraced_median_s": 12.327852478,
+          "traced_median_s": 12.357036177000001,
+          "delta_s": -0.02918369900000073,
+          "delta_Mcycles": -29.18369900000073,
+          "speedup": 0.9976382929869284,
+          "paired_n": 4,
+          "paired_median_delta_s": -0.02932696700000026,
+          "paired_min_s": -0.049952797000001326,
+          "paired_max_s": 0.01314777300000003,
+          "host_cpu_delta_s": -0.031701280000000054,
+          "exceeds_committed_AA_floor": false,
+          "exceeds_session_AA_floor": false
+        }
+      },
+      "mechanism": {
+        "high_MHz": 1350,
+        "low_MHz": 1000,
+        "delta_high_s": -0.016111825999999496,
+        "delta_low_s": -0.02918369900000073,
+        "if_clock_immune_delta_low_would_be_s": -0.016111825999999496,
+        "if_clock_scaled_delta_low_would_be_s": -0.02175096509999932,
+        "observed_minus_immune_s": -0.013071873000001233,
+        "observed_minus_scaled_s": -0.007432733900001411,
+        "clock_immune_fraction": -1.3180618119531127,
+        "verdict": "clock-scaled (device work)"
+      },
+      "parity": {
+        "distinct_untraced_digests": 1,
+        "distinct_traced_digests": 1,
+        "untraced_digest": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+        "traced_digest": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+        "byte_identical_across_arms": true,
+        "geometry": {
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        "bar_A": 0.35,
+        "seed_floor_A": {
+          "mean": 0.80128,
+          "min": 0.74099,
+          "max": 0.84656
+        },
+        "within_bar": true,
+        "plddt": {
+          "untraced": [
+            0.908011
+          ],
+          "traced": [
+            0.908011
+          ]
+        }
+      },
+      "per_arm_consistency": {
+        "untraced_one_digest": true,
+        "traced_one_digest": true
+      },
+      "verdict": "NO-GO",
+      "refutation_fired": [
+        "gain inside the A/A floor"
+      ]
+    }
+  },
+  "scope": "What the ttnn diffusion trace removes from the bare Boltz-2 fold, from arms interleaved in one process at two pinned clocks. No device-cycle census, no per-op attribution.",
+  "prediction_digest": "ac900dc3e7db06f9cbd7df420a02049da8a8fcf3b0dcd3390c0a6915061cfde4",
+  "predicted_delta_s": {
+    "512": {
+      "central": 3.04,
+      "range": [
+        1.5,
+        3.6
+      ],
+      "predicted_fold_after_s": 11.84
+    },
+    "298": {
+      "central": 1.48,
+      "range": [
+        0.7,
+        1.8
+      ],
+      "predicted_fold_after_s": 8.2
+    }
+  },
+  "host_cpu_witness": "recorded"
+}

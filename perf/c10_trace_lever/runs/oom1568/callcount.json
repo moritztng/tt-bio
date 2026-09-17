@@ -1,0 +1,23 @@
+{
+  "kind": "call census, not a timing measurement",
+  "pid": 270840,
+  "host": "tt-quietbox2",
+  "size": 1568,
+  "region_bytes": 1073741824,
+  "rows": [],
+  "errors": [
+    "RuntimeError('TT_THROW @ /project/ttnn/core/tensor/storage.cpp:60: tt::exception\\ninfo:\\nBuffer is not allocated\\nbacktrace:\\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x723c3dd5d668]\\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x64368a) [0x723c3de4368a]\\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xa1f4e5) [0x723c3e21f4e5]\\n --- ttnn::move(tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::MemoryConfig> const&)\\n --- ttnn::operations::core::reallocate(tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::MemoryConfig> const&)\\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x2fd622) [0x723c3f2fd622]\\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x723c3f26daa5]\\n --- python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\\n --- python3(_PyObject_Call_Prepend+0xc2) [0x54a802]\\n --- python3() [0x5a3778]\\n --- python3(_PyObject_MakeTpCall+0x75) [0x548fb5]\\n --- python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\\n --- python3(_PyObject_Call_Prepend+0xc2) [0x54a802]\\n --- python3() [0x5a3778]\\n --- python3(_PyObject_MakeTpCall+0x75) [0x548fb5]\\n --- python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\\n --- python3(_PyObject_Call_Prepend+0xc2) [0x54a802]\\n --- python3() [0x5a3778]\\n --- python3(_PyObject_MakeTpCall+0x75) [0x548fb5]\\n --- python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\\n --- python3() [0x54cbb4]\\n --- python3(PyObject_Call+0x115) [0x54b1d5]\\n --- python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\\n --- python3() [0x54cbb4]\\n --- python3(PyObject_Call+0x115) [0x54b1d5]\\n --- python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\\n --- python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\\n --- python3() [0x5a3778]\\n --- python3(_PyObject_MakeTpCall+0x13e) [0x54907e]\\n --- python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\\n --- python3() [0x54cbb4]\\n --- python3(PyObject_Call+0x115) [0x54b1d5]\\n --- python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\\n --- python3() [0x54cbb4]\\n --- python3(PyObject_Call+0x115) [0x54b1d5]\\n --- python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\\n --- python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\\n --- python3() [0x5a3778]\\n --- python3(_PyObject_MakeTpCall+0x13e) [0x54907e]\\n --- python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\\n --- python3(PyEval_EvalCode+0x15b) [0x5d55eb]\\n --- python3() [0x608852]\\n --- python3() [0x6b50d3]\\n --- python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4e3a]\\n --- python3(_PyRun_AnyFileObject+0x4f) [0x6b4c6f]\\n --- python3(Py_RunMain+0x3b5) [0x6bccd5]\\n --- python3(Py_BytesMain+0x2d) [0x6bc7bd]\\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x723c8342a1ca]\\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x723c8342a28b]\\n --- python3(_start+0x25) [0x657a05]\\n')"
+  ],
+  "completed": false,
+  "before": {
+    "monotonic_ns": 25945521954954,
+    "utc_ns": 1789605324662963551,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [],
+    "own_nodes": []
+  },
+  "trace_region_size_reported": 1073741824,
+  "peak_dram_probe": "MeshDevice(1x1 grid, 1 devices)"
+}

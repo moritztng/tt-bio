@@ -1,0 +1,38 @@
+{
+  "kind": "call census, not a timing measurement",
+  "pid": 269923,
+  "host": "tt-quietbox2",
+  "size": 512,
+  "region_bytes": 1073741824,
+  "rows": [
+    {
+      "arm": "untraced",
+      "deallocate_calls": 101559,
+      "instrumented_elapsed_s": 15.098094868,
+      "note": "elapsed is perturbed by the counter and is NOT a measurement",
+      "plddt": 0.845919,
+      "trace_present_after": false
+    },
+    {
+      "arm": "traced",
+      "deallocate_calls": 24413,
+      "instrumented_elapsed_s": 14.682879048,
+      "note": "elapsed is perturbed by the counter and is NOT a measurement",
+      "plddt": 0.845919,
+      "trace_present_after": true
+    }
+  ],
+  "errors": [],
+  "completed": true,
+  "before": {
+    "monotonic_ns": 25817511289851,
+    "utc_ns": 1789605196652298458,
+    "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [],
+    "own_nodes": []
+  },
+  "trace_region_size_reported": 1073741824,
+  "peak_dram_probe": "MeshDevice(1x1 grid, 1 devices)"
+}
