@@ -1,0 +1,451 @@
+{
+  "scope": "CPU AST scan of the engine source. No device, no fold, no measurement, no lever priced. Answers one code question the measuring row left open.",
+  "engine": "/home/moritz/.coworker/wt/c10-orchestrator/tt_bio/tenstorrent.py",
+  "census_lead": {
+    "class_default_TFLOPs": 11.88,
+    "class_best_TFLOPs": 21.38,
+    "class_default_s": 11.048,
+    "class_best_s": 6.1398,
+    "difference_s": 4.908,
+    "difference_Mcycles": 6626,
+    "keys_varied": 27,
+    "keys_total": 33,
+    "caveat": "the census calls this a gap between two of ITS replay configurations, not a fold saving, and forbids entering it on the ladder as one"
+  },
+  "totals": {
+    "sites": 90,
+    "with_core_grid": 53,
+    "no_core_grid_no_splat": 35,
+    "no_core_grid_but_splat": 2
+  },
+  "bare_on_hot_path": [
+    {
+      "line": 4368,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "_pair_proj_linear",
+      "owner": "_pair_proj_linear",
+      "chain": [
+        "_pair_proj_linear"
+      ]
+    },
+    {
+      "line": 4389,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "_pair_proj_linear",
+      "owner": "_pair_proj_linear",
+      "chain": [
+        "_pair_proj_linear"
+      ]
+    },
+    {
+      "line": 4417,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "_narrow_proj_linear",
+      "owner": "_narrow_proj_linear",
+      "chain": [
+        "_narrow_proj_linear"
+      ]
+    },
+    {
+      "line": 4438,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "_narrow_proj_linear",
+      "owner": "_narrow_proj_linear",
+      "chain": [
+        "_narrow_proj_linear"
+      ]
+    },
+    {
+      "line": 4529,
+      "op": "ttnn.matmul",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "attn_value_matmul",
+      "owner": "attn_value_matmul",
+      "chain": [
+        "attn_value_matmul"
+      ]
+    },
+    {
+      "line": 4530,
+      "op": "ttnn.matmul",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "attn_value_matmul",
+      "owner": "attn_value_matmul",
+      "chain": [
+        "attn_value_matmul"
+      ]
+    },
+    {
+      "line": 6557,
+      "op": "ttnn.matmul",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "TriangleMultiplication > __call__",
+      "owner": "__call__",
+      "chain": [
+        "TriangleMultiplication",
+        "__call__"
+      ]
+    },
+    {
+      "line": 7576,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "TriangleAttention > __call__",
+      "owner": "__call__",
+      "chain": [
+        "TriangleAttention",
+        "__call__"
+      ]
+    },
+    {
+      "line": 9157,
+      "op": "ttnn.matmul",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "MiniTriangularUpdate > _matmul_einsum",
+      "owner": "_matmul_einsum",
+      "chain": [
+        "MiniTriangularUpdate",
+        "_matmul_einsum"
+      ]
+    },
+    {
+      "line": 9380,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "AdaLN > s_terms",
+      "owner": "s_terms",
+      "chain": [
+        "AdaLN",
+        "s_terms"
+      ]
+    },
+    {
+      "line": 9388,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "AdaLN > s_terms",
+      "owner": "s_terms",
+      "chain": [
+        "AdaLN",
+        "s_terms"
+      ]
+    },
+    {
+      "line": 9696,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "DiffusionTransformer > __call__",
+      "owner": "__call__",
+      "chain": [
+        "DiffusionTransformer",
+        "__call__"
+      ]
+    },
+    {
+      "line": 9702,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "DiffusionTransformer > __call__",
+      "owner": "__call__",
+      "chain": [
+        "DiffusionTransformer",
+        "__call__"
+      ]
+    },
+    {
+      "line": 10044,
+      "op": "ttnn.matmul",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "OuterProductMean > _small_depth",
+      "owner": "_small_depth",
+      "chain": [
+        "OuterProductMean",
+        "_small_depth"
+      ]
+    },
+    {
+      "line": 10267,
+      "op": "ttnn.matmul",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "OuterProductMean > __call__",
+      "owner": "z_rows",
+      "chain": [
+        "OuterProductMean",
+        "__call__",
+        "z_rows"
+      ]
+    },
+    {
+      "line": 10274,
+      "op": "ttnn.matmul",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "OuterProductMean > __call__",
+      "owner": "z_rows",
+      "chain": [
+        "OuterProductMean",
+        "__call__",
+        "z_rows"
+      ]
+    },
+    {
+      "line": 10697,
+      "op": "ttnn.matmul",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Diffusion > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Diffusion",
+        "__call__"
+      ]
+    },
+    {
+      "line": 10782,
+      "op": "ttnn.matmul",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Diffusion > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Diffusion",
+        "__call__"
+      ]
+    }
+  ],
+  "bare_on_separate_fp32_path": [
+    {
+      "line": 8717,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32TriangleMultiplication > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32TriangleMultiplication",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8718,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32TriangleMultiplication > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32TriangleMultiplication",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8743,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32TriangleMultiplication > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32TriangleMultiplication",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8745,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32TriangleMultiplication > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32TriangleMultiplication",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8806,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32TriangleAttention > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32TriangleAttention",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8815,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32TriangleAttention > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32TriangleAttention",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8816,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32TriangleAttention > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32TriangleAttention",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8817,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32TriangleAttention > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32TriangleAttention",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8818,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32TriangleAttention > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32TriangleAttention",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8844,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32TriangleAttention > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32TriangleAttention",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8874,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32Transition > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32Transition",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8878,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32Transition > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32Transition",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8882,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32Transition > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32Transition",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8953,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32AttentionPairBias > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32AttentionPairBias",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8960,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32AttentionPairBias > __call__",
+      "owner": "qkv",
+      "chain": [
+        "Fp32AttentionPairBias",
+        "__call__",
+        "qkv"
+      ]
+    },
+    {
+      "line": 8986,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32AttentionPairBias > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32AttentionPairBias",
+        "__call__"
+      ]
+    },
+    {
+      "line": 8989,
+      "op": "ttnn.linear",
+      "core_grid": false,
+      "kw_splat": false,
+      "scope": "Fp32AttentionPairBias > __call__",
+      "owner": "__call__",
+      "chain": [
+        "Fp32AttentionPairBias",
+        "__call__"
+      ]
+    }
+  ],
+  "bare_elsewhere": [],
+  "answer": "35 of 90 matmul call sites pass NO core_grid and have no **kw splat that could carry one, and 18 of those are on Boltz-2's default device path -- TriangleMultiplication, TriangleAttention, OuterProductMean, DiffusionTransformer, Diffusion, AdaLN and the shared projection helpers. So the census's 4.908 s is NOT purely an artifact of its own replay configuration: the engine really does call these ops both ways.",
+  "what_this_does_NOT_establish": [
+    "It does not price a lever. A site without an explicit core_grid gets ttnn's default, which may already be the right grid for that shape; the census measured a difference on ITS shapes, not on these sites.",
+    "It does not map a call site to a census key. The launch-key census records class, output shape and K but not the call site, so which of these sites produces which measured key is unresolved.",
+    "The Fp32* sites are counted separately because whether a default Boltz-2 fold reaches that precision path is not established here.",
+    "This is exactly the shape of a one-size-tuning defect, which this fleet has on record as a standing class: a grid good for one shape can be wrong for another, so any change must be A/B'd PER SITE and never applied across the board."
+  ],
+  "cheap_next_step": "Read the five keys the census named -- 1x140x32x128 K=128 and K=256, 1x512x512x16 K=128, 1x16x512x256 K=64, and the top-FLOP 1x512x768 K=768 -- back to their call sites, A/B only those that are currently bare, and price the result as fold seconds in one interleaved session. That is a short session, not a table."
+}

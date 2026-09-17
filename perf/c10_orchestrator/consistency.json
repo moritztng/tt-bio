@@ -1,6 +1,6 @@
 {
   "scope": "CPU cross-check of the C10 artifact tree. Reads the READMEs; changes nothing.",
-  "docs_checked": 21,
+  "docs_checked": 22,
   "numbers_of_record": {
     "F at 512 aa": [
       "README.md",
