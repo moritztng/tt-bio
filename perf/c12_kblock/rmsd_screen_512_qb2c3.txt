@@ -1,0 +1,49 @@
+  512_off_0                    4116 atoms  cdk2x2_512.cif
+  512_off_1                    4116 atoms  cdk2x2_512.cif
+  512_off_2                    4116 atoms  cdk2x2_512.cif
+  512_on_0                     4116 atoms  cdk2x2_512.cif
+  512_on_1                     4116 atoms  cdk2x2_512.cif
+  512_on_2                     4116 atoms  cdk2x2_512.cif
+  512_warm_off                 4116 atoms  cdk2x2_512.cif
+  512_warm_on                  4116 atoms  cdk2x2_512.cif
+
+  atom identity identical across all 8 folds (4116 atoms), so the comparison is atom-for-atom
+
+  pairwise all-atom Kabsch RMSD, A:
+    A/A  512_off_0                  vs 512_off_1                      0.000000
+    A/A  512_off_0                  vs 512_off_2                      0.000000
+    A/B  512_off_0                  vs 512_on_0                       0.568149
+    A/B  512_off_0                  vs 512_on_1                       0.568149
+    A/B  512_off_0                  vs 512_on_2                       0.568149
+    A/B  512_off_0                  vs 512_warm_off                   0.000000
+    A/B  512_off_0                  vs 512_warm_on                    0.568149
+    A/A  512_off_1                  vs 512_off_2                      0.000000
+    A/B  512_off_1                  vs 512_on_0                       0.568149
+    A/B  512_off_1                  vs 512_on_1                       0.568149
+    A/B  512_off_1                  vs 512_on_2                       0.568149
+    A/B  512_off_1                  vs 512_warm_off                   0.000000
+    A/B  512_off_1                  vs 512_warm_on                    0.568149
+    A/B  512_off_2                  vs 512_on_0                       0.568149
+    A/B  512_off_2                  vs 512_on_1                       0.568149
+    A/B  512_off_2                  vs 512_on_2                       0.568149
+    A/B  512_off_2                  vs 512_warm_off                   0.000000
+    A/B  512_off_2                  vs 512_warm_on                    0.568149
+    A/A  512_on_0                   vs 512_on_1                       0.000000
+    A/A  512_on_0                   vs 512_on_2                       0.000000
+    A/B  512_on_0                   vs 512_warm_off                   0.568149
+    A/B  512_on_0                   vs 512_warm_on                    0.000000
+    A/A  512_on_1                   vs 512_on_2                       0.000000
+    A/B  512_on_1                   vs 512_warm_off                   0.568149
+    A/B  512_on_1                   vs 512_warm_on                    0.000000
+    A/B  512_on_2                   vs 512_warm_off                   0.568149
+    A/B  512_on_2                   vs 512_warm_on                    0.000000
+    A/B  512_warm_off               vs 512_warm_on                    0.568149
+
+  A/A structural floor: max 0.000000 A over 6 pair(s)
+
+  vs the `on` arm:
+    off               0.568149 ..  0.568149 A
+    off               0.568149 ..  0.568149 A
+    off               0.568149 ..  0.568149 A
+    512_warm_off      0.568149 ..  0.568149 A
+    512_warm_on       0.000000 ..  0.000000 A
