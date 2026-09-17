@@ -40,9 +40,10 @@ import node_control as N                                                      # 
 from force_aiclk import FORCE_AICLK, smc                                       # noqa: E402
 
 TARGET_MHZ = 1350
-LOOP_TARGET_S = 0.030          # aim each timed loop at 30 ms: long enough to amortise a sync
-MAX_REPS = 64
-LIVE_OUTPUTS = 4               # bound the live footprint while keeping the enqueue depth
+GROUP_TARGET_S = 0.020         # one enqueue group, so host dispatch is amortised over it
+BRACKET_TARGET_S = 0.030       # one timed bracket, so the 1 kHz clock sampler covers it densely
+LIVE_BYTES = 2_000_000_000     # cap the live output footprint of one group
+MAX_REPS = 4096
 
 
 def board_power_W(node):
@@ -152,13 +153,25 @@ def attach(ttnn, torch, dev, kc, grid, spec):
     return spec
 
 
-def time_arm(ttnn, dev, spec, blocks, grid=None, log=print):
-    """Allocate, warm, time `blocks` loops, free. Returns the best loop and its interval marks."""
+def time_arm(ttnn, dev, spec, blocks, grid=None):
+    """Allocate, warm, time `blocks` brackets, free.
+
+    A bracket is a whole number of enqueue groups. Only the enqueue-plus-synchronise time of
+    each group is accumulated into the per-call cost; the deallocation of that group's outputs
+    happens inside the bracket but outside the accumulated time, so no row is inflated by the
+    host-side free of a tensor the op did not have to free. The bracket runs until it has
+    collected BRACKET_TARGET_S of accumulated time, which is what gives the 1 kHz clock sampler
+    enough during-interval samples to qualify the interval at all: a 1 ms interval cannot be
+    shown to have been at 1350 MHz.
+
+    Group size is bounded by LIVE_BYTES rather than a constant, because a 134 MB output at 64
+    outstanding would be 8.6 GB of DRAM.
+    """
     try:
         keep, fn, mode = spec["make"](grid) if grid is not None else spec["make"]()
     except TypeError:
         keep, fn, mode = spec["make"]()
-    live, best, marks = [], None, []
+    best, marks, reps = None, [], None
     try:
         t0 = time.perf_counter()
         for _ in range(2):
@@ -167,24 +180,39 @@ def time_arm(ttnn, dev, spec, blocks, grid=None, log=print):
                 ttnn.deallocate(r)
         ttnn.synchronize_device(dev)
         warm = (time.perf_counter() - t0) / 2
-        reps = max(2, min(MAX_REPS, int(LOOP_TARGET_S / warm) if warm > 0 else MAX_REPS))
+
+        # calibrate on warm kernels, not on the JIT-compiling first call
+        cal = max(1, min(8, int(GROUP_TARGET_S / warm) if warm > 0 else 8))
+        t0 = time.perf_counter()
+        outs = [fn() for _ in range(cal)]
+        ttnn.synchronize_device(dev)
+        est = (time.perf_counter() - t0) / cal
+        for o in outs if mode == "out" else ():
+            ttnn.deallocate(o)
+
+        out_bytes = C.tensor_bytes(spec["out"]) if mode == "out" else 0
+        live_cap = max(1, int(LIVE_BYTES / out_bytes)) if out_bytes else MAX_REPS
+        reps = max(1, min(MAX_REPS, live_cap, int(GROUP_TARGET_S / est) if est > 0 else 1))
+
         for _ in range(blocks):
-            outs = []
             s_ns = time.monotonic_ns()
-            t0 = time.perf_counter()
-            for _ in range(reps):
-                r = fn()
-                if mode == "out":
-                    outs.append(r)
-                    if len(outs) > LIVE_OUTPUTS:
-                        ttnn.deallocate(outs.pop(0))
-            ttnn.synchronize_device(dev)
-            dt = (time.perf_counter() - t0) / reps
+            acc, n = 0.0, 0
+            while acc < BRACKET_TARGET_S:
+                outs = []
+                t0 = time.perf_counter()
+                for _ in range(reps):
+                    r = fn()
+                    if mode == "out":
+                        outs.append(r)
+                ttnn.synchronize_device(dev)
+                acc += time.perf_counter() - t0
+                n += reps
+                for o in outs:
+                    ttnn.deallocate(o)
             e_ns = time.monotonic_ns()
-            for o in outs:
-                ttnn.deallocate(o)
-            marks.append({"start_monotonic_ns": s_ns, "end_monotonic_ns": e_ns,
-                          "reps": reps, "s_per_call": dt})
+            dt = acc / n
+            marks.append({"start_monotonic_ns": s_ns, "end_monotonic_ns": e_ns, "reps": reps,
+                          "calls": n, "accumulated_s": acc, "s_per_call": dt})
             best = dt if best is None else min(best, dt)
     finally:
         for x in keep:
