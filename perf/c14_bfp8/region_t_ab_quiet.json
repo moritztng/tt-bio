@@ -1,0 +1,2362 @@
+{
+ "started_utc": "2026-09-18T20:03:07Z",
+ "host": "tt-quietbox",
+ "card": "0",
+ "note": "One process per arm: TT_BIO_APB_CONCAT_HEADS is consumed at model construction and re-lanes proj_g/proj_o, so it cannot be flipped in process. Arms interleaved block by block; the A/A floor is the spread across the base blocks, compared the same way base is compared to apb.",
+ "blocks": [
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 17.336,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 70,
+       "power_w_mean": 30.0
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.864082,
+      "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+      "loadavg1": 4.23,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 17.672,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 71,
+       "power_w_mean": 30.2
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.864082,
+      "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+      "loadavg1": 3.6,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 17.533,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 68,
+       "power_w_mean": 30.3
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.864082,
+      "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+      "loadavg1": 3.95,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 6.007,
+    "env": {
+     "host": "tt-quietbox",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "0",
+     "lease_cards": "0",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "e49acba0b1f067ae65868a9d0e9d5c9ba291b045",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 20.45,
+     "clock": {
+      "aiclk_min": 800,
+      "aiclk_max": 800,
+      "aiclk_mean": 800.0,
+      "aiclk_n": 83,
+      "power_w_mean": 30.2
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.864082,
+     "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+     "loadavg1": 3.97,
+     "foreign_device_holders": [],
+     "foreign_device_holders_end": [],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       1
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 17.544,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 72,
+       "power_w_mean": 30.2
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845092,
+      "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+      "loadavg1": 4.54,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 17.31,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 71,
+       "power_w_mean": 30.1
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845092,
+      "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+      "loadavg1": 5.77,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 17.592,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 71,
+       "power_w_mean": 30.1
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845092,
+      "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+      "loadavg1": 7.41,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 6.233,
+    "env": {
+     "host": "tt-quietbox",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "0",
+     "lease_cards": "0",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "e49acba0b1f067ae65868a9d0e9d5c9ba291b045",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 20.309,
+     "clock": {
+      "aiclk_min": 800,
+      "aiclk_max": 800,
+      "aiclk_mean": 800.0,
+      "aiclk_n": 80,
+      "power_w_mean": 30.2
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845092,
+     "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+     "loadavg1": 4.02,
+     "foreign_device_holders": [],
+     "foreign_device_holders_end": [],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       1
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 1,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 17.405,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 70,
+       "power_w_mean": 30.3
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.864082,
+      "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+      "loadavg1": 7.06,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 17.652,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 70,
+       "power_w_mean": 30.1
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.864082,
+      "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+      "loadavg1": 6.46,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 17.489,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 70,
+       "power_w_mean": 30.2
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.864082,
+      "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+      "loadavg1": 5.25,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 6.036,
+    "env": {
+     "host": "tt-quietbox",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "0",
+     "lease_cards": "0",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "e49acba0b1f067ae65868a9d0e9d5c9ba291b045",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 20.534,
+     "clock": {
+      "aiclk_min": 800,
+      "aiclk_max": 800,
+      "aiclk_mean": 800.0,
+      "aiclk_n": 80,
+      "power_w_mean": 30.4
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.864082,
+     "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+     "loadavg1": 7.06,
+     "foreign_device_holders": [],
+     "foreign_device_holders_end": [],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       1
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 1,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 17.256,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 71,
+       "power_w_mean": 30.2
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845092,
+      "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+      "loadavg1": 3.95,
+      "foreign_device_holders": [
+       {
+        "pid": 405951,
+        "cwd": "/home/ttuser/.coworker/wt/c14-p150a-ladder-record"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 406038,
+        "cwd": "/home/ttuser/.coworker/wt/c14-p150a-ladder-record"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 17.416,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 70,
+       "power_w_mean": 30.2
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845092,
+      "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+      "loadavg1": 4.42,
+      "foreign_device_holders": [
+       {
+        "pid": 406038,
+        "cwd": "/home/ttuser/.coworker/wt/c14-p150a-ladder-record"
+       }
+      ],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 17.373,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 69,
+       "power_w_mean": 30.3
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845092,
+      "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+      "loadavg1": 4.38,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 6.169,
+    "env": {
+     "host": "tt-quietbox",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "0",
+     "lease_cards": "0",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "e49acba0b1f067ae65868a9d0e9d5c9ba291b045",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 20.425,
+     "clock": {
+      "aiclk_min": 800,
+      "aiclk_max": 800,
+      "aiclk_mean": 800.0,
+      "aiclk_n": 82,
+      "power_w_mean": 30.2
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845092,
+     "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+     "loadavg1": 3.58,
+     "foreign_device_holders": [],
+     "foreign_device_holders_end": [
+      {
+       "pid": 405951,
+       "cwd": "/home/ttuser/.coworker/wt/c14-p150a-ladder-record"
+      }
+     ],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       1
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 2,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 17.672,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 70,
+       "power_w_mean": 30.2
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.864082,
+      "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+      "loadavg1": 6.86,
+      "foreign_device_holders": [
+       {
+        "pid": 407044,
+        "cwd": "/home/ttuser/.coworker/wt/c14-p150a-ladder-record"
+       }
+      ],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 17.453,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 70,
+       "power_w_mean": 30.3
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.864082,
+      "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+      "loadavg1": 5.93,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 17.463,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 70,
+       "power_w_mean": 30.1
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.864082,
+      "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+      "loadavg1": 6.83,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 6.08,
+    "env": {
+     "host": "tt-quietbox",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "0",
+     "lease_cards": "0",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "e49acba0b1f067ae65868a9d0e9d5c9ba291b045",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 20.445,
+     "clock": {
+      "aiclk_min": 800,
+      "aiclk_max": 800,
+      "aiclk_mean": 800.0,
+      "aiclk_n": 80,
+      "power_w_mean": 30.3
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.864082,
+     "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+     "loadavg1": 5.97,
+     "foreign_device_holders": [],
+     "foreign_device_holders_end": [
+      {
+       "pid": 407044,
+       "cwd": "/home/ttuser/.coworker/wt/c14-p150a-ladder-record"
+      }
+     ],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       1
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 2,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 17.217,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 70,
+       "power_w_mean": 30.0
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845092,
+      "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+      "loadavg1": 6.26,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 17.291,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 69,
+       "power_w_mean": 30.3
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845092,
+      "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+      "loadavg1": 6.97,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 17.02,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 68,
+       "power_w_mean": 30.2
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845092,
+      "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+      "loadavg1": 5.72,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 6.131,
+    "env": {
+     "host": "tt-quietbox",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "0",
+     "lease_cards": "0",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "e49acba0b1f067ae65868a9d0e9d5c9ba291b045",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 20.237,
+     "clock": {
+      "aiclk_min": 800,
+      "aiclk_max": 800,
+      "aiclk_mean": 800.0,
+      "aiclk_n": 79,
+      "power_w_mean": 30.3
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845092,
+     "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+     "loadavg1": 7.75,
+     "foreign_device_holders": [],
+     "foreign_device_holders_end": [],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       1
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 3,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 17.659,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 69,
+       "power_w_mean": 30.0
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.864082,
+      "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+      "loadavg1": 4.76,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 17.421,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 70,
+       "power_w_mean": 30.1
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.864082,
+      "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+      "loadavg1": 6.0,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 17.599,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 71,
+       "power_w_mean": 30.1
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.864082,
+      "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+      "loadavg1": 4.89,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 6.183,
+    "env": {
+     "host": "tt-quietbox",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "0",
+     "lease_cards": "0",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "e49acba0b1f067ae65868a9d0e9d5c9ba291b045",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 20.591,
+     "clock": {
+      "aiclk_min": 800,
+      "aiclk_max": 800,
+      "aiclk_mean": 800.0,
+      "aiclk_n": 81,
+      "power_w_mean": 30.2
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.864082,
+     "cif_sha256": "2f2f5faae481337ea428567e1735000c921cb820dad4014189879708d20712f1",
+     "loadavg1": 5.83,
+     "foreign_device_holders": [],
+     "foreign_device_holders_end": [],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       1
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 3,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 17.19,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 70,
+       "power_w_mean": 30.2
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845092,
+      "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+      "loadavg1": 3.95,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.809,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 70,
+       "power_w_mean": 30.2
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845092,
+      "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+      "loadavg1": 4.5,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 17.318,
+      "clock": {
+       "aiclk_min": 800,
+       "aiclk_max": 800,
+       "aiclk_mean": 800.0,
+       "aiclk_n": 72,
+       "power_w_mean": 30.0
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845092,
+      "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+      "loadavg1": 5.73,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        1
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 6.161,
+    "env": {
+     "host": "tt-quietbox",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "0",
+     "lease_cards": "0",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "e49acba0b1f067ae65868a9d0e9d5c9ba291b045",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 20.387,
+     "clock": {
+      "aiclk_min": 800,
+      "aiclk_max": 800,
+      "aiclk_mean": 800.0,
+      "aiclk_n": 80,
+      "power_w_mean": 30.2
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845092,
+     "cif_sha256": "4bc28f5d918ab65f25c2e6d6b8a9a0ca42ef66ea36a535eba2d22b4f6ac6d23d",
+     "loadavg1": 3.36,
+     "foreign_device_holders": [],
+     "foreign_device_holders_end": [],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       1
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  }
+ ],
+ "summary": {
+  "512": {
+   "base_median_s": 17.511,
+   "on_median_s": 17.3,
+   "base_n": 12,
+   "on_n": 12,
+   "delta_s": 0.2105,
+   "ratio_base_over_on": 1.01217,
+   "aa_floor_ratio_max": 1.00779,
+   "base_block_medians": [
+    17.533,
+    17.489,
+    17.463,
+    17.599
+   ],
+   "on_block_medians": [
+    17.544,
+    17.373,
+    17.217,
+    17.19
+   ],
+   "clock_min": 800,
+   "clock_max": 800,
+   "clock_samples": 1682,
+   "verdict_rule": "a ratio inside aa_floor_ratio_max is a NULL, not a win"
+  }
+ },
+ "finished_utc": "2026-09-18T20:14:17Z"
+}

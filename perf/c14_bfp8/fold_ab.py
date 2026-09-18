@@ -267,7 +267,12 @@ def worker(args) -> int:
             p.unlink() if p.is_file() else shutil.rmtree(p)
         _counters(reset=True)
         state.pfn = None
-        cs = ClockSampler(args.card)
+        # Sample the clock on the node the hold actually holds. TT_VISIBLE_DEVICES is a UMD
+        # logical id, not a /dev/tenstorrent node, so ClockSampler(args.card) can watch an
+        # idle sibling: the 2026-09-18 20:03Z run recorded 800 MHz min=max over 1682 samples
+        # off node 0 while the fold ran on node 1, whose own hold watchdog saw no sag.
+        _nodes = AICLK.status().get("nodes") or [args.card]
+        cs = ClockSampler(_nodes[0])
         cs.start()
         foreign = _foreign_device_holders()
         ttnn.synchronize_device(dev)
@@ -279,7 +284,7 @@ def worker(args) -> int:
         clk = cs.take()
         cifs = sorted(struct_dir.glob("*.cif"))
         row = {
-            "tag": tag, "fold_s": round(wall, 3), "clock": clk,
+            "tag": tag, "fold_s": round(wall, 3), "clock": clk, "clock_node": _nodes[0],
             "kernel_path": _counters(),
             "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
             "cif_sha256": hashlib.sha256(cifs[0].read_bytes()).hexdigest() if cifs else None,
