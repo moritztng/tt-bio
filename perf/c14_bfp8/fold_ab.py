@@ -410,6 +410,22 @@ def driver(args) -> int:
               f"delta {s['delta_s']:+.4f}s  ratio {s['ratio_base_over_on']:.5f}  "
               f"A/A floor {s['aa_floor_ratio_max']}  clk {s['clock_min']}-{s['clock_max']} "
               f"({s['clock_samples']} samples)", flush=True)
+
+    # Exit non-zero when an arm produced nothing. Without this the driver prints "an arm produced
+    # no fold" and returns 0, so a dead session is indistinguishable from a finished one to every
+    # caller: benchlock logs rc=0, a wrapper's `&&` runs, and the JSON on disk looks like a result.
+    # Both dead sessions this campaign has had were exactly that -- 2026-09-18 18:14Z and 21:21Z,
+    # both `ModuleNotFoundError: No module named 'torch'` because the parent was started under
+    # /usr/bin/python3 and children inherit sys.executable. Start it with the venv interpreter:
+    # /home/ttuser/tt-bio-dev/env/bin/python3.
+    dead = [size for size, s in summary.items() if "error" in s]
+    if dead:
+        rcs = [(r["size"], r["arm"], r.get("returncode")) for r in out["blocks"]
+               if r.get("returncode")]
+        print(f"FAILED: no fold from an arm at {', '.join(dead)} aa. "
+              f"Non-zero blocks: {rcs}", file=sys.stderr, flush=True)
+        return 1
+    return 0
     return 0
 
 
