@@ -1,0 +1,346 @@
+{
+ "doc": "Pair arms folded in SEPARATE processes against a base folded in its own.\n\nOne process per arm is not a convenience here, it is required. `sdpa_generic.sdpa`'s program\ncache key omits `mask.dtype` and `out.dtype`, so two dtype arms at one shape in one process make\nthe second silently reuse the first's program; that is what produced this campaign's two\n\"mixed dataformat is wrong\" readings. The pairing is still same-seed -- the seed rides on the\nconfig, not on the interpreter -- and base reproduces bit-exactly across processes and cards,\nwhich is checked below rather than assumed.\n\n    pair_arms.py <size> <base_json> <base_cifdir> <arm_json> <arm_cifdir> <out_json> <out_cifdir>\n",
+ "env": {
+  "host": "tt-quietbox",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.11.0+cpu",
+  "tt_visible_devices": "0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!1",
+  "bias_suppressor_installed": false,
+  "tt_bio_file": "/home/ttuser/.coworker/wt/bfp8-accuracy-envelope/armQ/tt_bio/__init__.py",
+  "commit": "a79b2ce5579cb8e8bffb69636e1a8f66ae8431cd",
+  "started_utc": "2026-09-18T14:40:55Z",
+  "loadavg": [
+   7.3466796875,
+   7.6962890625,
+   7.69189453125
+  ],
+  "arms": {
+   "base": {}
+  },
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "base:0,1,2,3"
+  },
+  "arm_env": {
+   "host": "tt-quietbox",
+   "grid": [
+    11,
+    10
+   ],
+   "arch": "Arch.BLACKHOLE",
+   "torch": "2.11.0+cpu",
+   "tt_visible_devices": "1",
+   "aiclk_node": "/sys/class/tenstorrent/tenstorrent!2",
+   "bias_suppressor_installed": false,
+   "tt_bio_file": "/home/ttuser/.coworker/wt/bfp8-accuracy-envelope/armQ/tt_bio/__init__.py",
+   "commit": "a79b2ce5579cb8e8bffb69636e1a8f66ae8431cd",
+   "started_utc": "2026-09-18T14:44:12Z",
+   "loadavg": [
+    11.81396484375,
+    14.1865234375,
+    10.6123046875
+   ],
+   "arms": {
+    "TDN": {
+     "g": {
+      "_TRIATT_B8": true
+     },
+     "dualnoc_b8": true
+    }
+   },
+   "protocol": {
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "plan": "TDN:0,1,2,3"
+   }
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 41.152,
+   "sha256": "2f2f5faae481337e",
+   "aiclk": {
+    "n": 68,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {},
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 0,
+    "calls": 0,
+    "declined": 0
+   },
+   "plddt": 0.864082,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 24.502,
+   "sha256": "f0ae3cdef2d933ed",
+   "aiclk": {
+    "n": 47,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {},
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 0,
+    "calls": 0,
+    "declined": 0
+   },
+   "plddt": 0.861222,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 25.47,
+   "sha256": "287771d9e4f27afe",
+   "aiclk": {
+    "n": 48,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {},
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 0,
+    "calls": 0,
+    "declined": 0
+   },
+   "plddt": 0.852344,
+   "tag": "base-s2"
+  },
+  {
+   "arm": "base",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 22.064,
+   "sha256": "3258ccc69e6e5697",
+   "aiclk": {
+    "n": 42,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {},
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 0,
+    "calls": 0,
+    "declined": 0
+   },
+   "plddt": 0.874473,
+   "tag": "base-s3"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 18.116,
+   "sha256": "2f2f5faae481337e",
+   "aiclk": {
+    "n": 34,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {},
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 0,
+    "calls": 0,
+    "declined": 0
+   },
+   "plddt": 0.864082,
+   "tag": "base-s0_r1"
+  },
+  {
+   "arm": "TDN",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 25.692,
+   "sha256": "ebdaed4b90ac256b",
+   "aiclk": {
+    "n": 48,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 560,
+    "calls": 560,
+    "declined": 0
+   },
+   "plddt": 0.799789,
+   "tag": "TDN-s0"
+  },
+  {
+   "arm": "TDN",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 23.973,
+   "sha256": "c6fcde6df482e8bc",
+   "aiclk": {
+    "n": 45,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 560,
+    "calls": 560,
+    "declined": 0
+   },
+   "plddt": 0.81591,
+   "tag": "TDN-s1"
+  },
+  {
+   "arm": "TDN",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 27.052,
+   "sha256": "d1351baed204863b",
+   "aiclk": {
+    "n": 50,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 560,
+    "calls": 560,
+    "declined": 0
+   },
+   "plddt": 0.803926,
+   "tag": "TDN-s2"
+  },
+  {
+   "arm": "TDN",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 20.13,
+   "sha256": "4b31c01c441bf432",
+   "aiclk": {
+    "n": 38,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 560,
+    "calls": 560,
+    "declined": 0
+   },
+   "plddt": 0.801726,
+   "tag": "TDN-s3"
+  },
+  {
+   "arm": "TDN",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 20.065,
+   "sha256": "19396fe460b8f1da",
+   "aiclk": {
+    "n": 37,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 560,
+    "calls": 560,
+    "declined": 0
+   },
+   "plddt": 0.805129,
+   "tag": "TDN-s0_r1"
+  }
+ ]
+}

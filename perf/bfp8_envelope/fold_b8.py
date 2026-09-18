@@ -72,6 +72,13 @@ import ab_flag_levers as AB  # noqa: E402  -- fixtures, cfg and MSA seeding, unm
 # the fused SDPA is what breaks the fold, this breaks too and the operands are not independently
 # narrowable; if only `Tbias` breaks, the bias operand alone is at fault.
 #
+# `DN` is ledger gate 5, the dual-NOC trimul in-projection, narrowed at its DESTINATION only.
+# `mm_dualnoc.in_proj` takes the destination format as a positional argument and `a79b2ce55` made
+# it allocate in that format instead of a hardcoded bf16, so forcing the argument here narrows the
+# region without a production edit. It is scored at 512 aa because at 298 aa the site declines
+# every call and is invisible: 2240 of 2240 declined at 298, 560 of 560 SERVED at 512.
+# `TDN` is the composition the campaign would actually ship, region T and gate 5 together.
+#
 # `g`   -> tt_bio.tenstorrent module globals, read at call time
 # `env` -> environment variables the code reads live, per call
 # `suppress_bias` -> the wrapper below
@@ -81,9 +88,32 @@ ARMS = {
     "Tbias": {"g": {"_TRIATT_BIAS_B8": True}},
     "Tq":    {"g": {"_TRIATT_B8": True}, "suppress_bias": True},
     "Tmix":  {"g": {"_TRIATT_B8": True}, "bias_bf16": True},
+    "DN":    {"dualnoc_b8": True},
+    "TDN":   {"g": {"_TRIATT_B8": True}, "dualnoc_b8": True},
     "usilu": {"g": {"_UNFUSED_SILU": True}},
     "widek": {"env": {"TT_BIO_SDPA_WIDE_K": "1"}},
 }
+
+
+def install_dualnoc_arm(DN, ttnn, state):
+    """Force `mm_dualnoc.in_proj`'s destination format, and count what the site actually did.
+
+    A dtype arm that never reaches its site reads as a clean null, which is the most expensive
+    kind of wrong answer here, so the counters are part of the measurement, not debug output.
+    """
+    fn = DN.in_proj
+
+    def w(x, weight, ckc, dtype, *a, **kw):
+        if state["dualnoc_b8"]:
+            state["asked"] += 1
+            dtype = ttnn.bfloat8_b
+        r = fn(x, weight, ckc, dtype, *a, **kw)
+        state["calls"] += 1
+        if r is None:
+            state["declined"] += 1
+        return r
+
+    DN.in_proj = w
 
 
 def install_bias_suppressor(T, ttnn, state):
@@ -103,7 +133,11 @@ def install_bias_suppressor(T, ttnn, state):
         keep = (T._TRIATT_B8, T._TRIATT_BIAS_B8)
         T._TRIATT_B8 = T._TRIATT_BIAS_B8 = False
         back = None
+        state["seen"] += 1
+        if bias is not None and bias.dtype == ttnn.bfloat8_b:
+            state["seen_b8"] += 1
         if state["bias_bf16"] and bias is not None and bias.dtype == ttnn.bfloat8_b:
+            state["fired"] += 1
             back = bias = ttnn.typecast(bias, ttnn.bfloat16)
         try:
             return inner(q, k, v, bias, *a, **kw)
@@ -215,10 +249,16 @@ def main() -> int:
         assert var not in os.environ, f"{var} may not be pinned; the arm is set per fold"
     assert not any(want_g.values()), f"a region is already on by default: {want_g}"
     defaults = want_g
-    supp = {"suppress": False, "bias_bf16": False}
+    # A control that silently does nothing is worse than no control: it reads as a clean null.
+    # These counters make the wrapper prove it fired on the arm that asked for it.
+    supp = {"suppress": False, "bias_bf16": False, "seen": 0, "seen_b8": 0, "fired": 0,
+            "dualnoc_b8": False, "asked": 0, "calls": 0, "declined": 0}
     wrapped = any(ARMS[a].get("suppress_bias") or ARMS[a].get("bias_bf16") for a in plan)
     if wrapped:
         install_bias_suppressor(T, ttnn, supp)
+    if any(ARMS[a].get("dualnoc_b8") for a in plan):
+        import tt_bio.mm_dualnoc as DN
+        install_dualnoc_arm(DN, ttnn, supp)
 
     AB.SAMPLING_STEPS, AB.RECYCLING_STEPS = args.steps, args.recycles
     dev = get_device()
@@ -269,6 +309,9 @@ def main() -> int:
         os.environ.update(ARMS[arm].get("env", {}))
         supp["suppress"] = bool(ARMS[arm].get("suppress_bias", False))
         supp["bias_bf16"] = bool(ARMS[arm].get("bias_bf16", False))
+        supp["dualnoc_b8"] = bool(ARMS[arm].get("dualnoc_b8", False))
+        supp["seen"] = supp["seen_b8"] = supp["fired"] = 0
+        supp["asked"] = supp["calls"] = supp["declined"] = 0
         cfg["seed"] = seed
         try:
             state.model.structure_module.score_model.reset_static_cache()
@@ -293,6 +336,10 @@ def main() -> int:
                 "region_on": {n: bool(getattr(T, n)) for n in defaults},
                 "env_on": {n: os.environ.get(n) for n in want_env},
                 "bias_suppressed": supp["suppress"], "bias_forced_bf16": supp["bias_bf16"],
+                "sdpa_calls": supp["seen"], "sdpa_calls_bfp8_bias": supp["seen_b8"],
+                "bias_downcast_fired": supp["fired"],
+                "dualnoc": {"asked_b8": supp["asked"], "calls": supp["calls"],
+                            "declined": supp["declined"]},
                 "plddt": round(float(metrics.get("plddt", metrics.get("confidence_score", 0))), 6)}
 
     first = next(iter(plan))

@@ -1,0 +1,54 @@
+{
+ "doc": "Which of the campaign's bfp8 gates does region T actually hand a narrowed operand to?\n\nThe ledger lists eight of our own bf16 refusals on the pair hot path and assigns them to three\nrows. `TT_BIO_TRIATT_B8` is the only region that exists in code, so before any of those rows is\ngiven a verdict it has to be said, from execution rather than from reading, WHICH of the gates\nregion T already drives and with what operand dtypes. Two of them (`_pair_proj_program_config`,\n`_qkv_l1_config`) `return None` silently, so no served/declined counter can see them fire.\n\nEvery entry point is wrapped here, in the harness, not in the model: this row edits no production\ncode. The wrapper records (call site, operand dtypes, destination dtype, served/declined) and\ncalls straight through, so the fold it censuses is the fold the accuracy arms measured.\n\n    operand_census.py --out <json> --size 298 --arms base,T\n",
+ "env": {
+  "host": "tt-quietbox",
+  "size": "512",
+  "seed": 0,
+  "commit": "42eebf8003aa5956ab29b21f5d1eb49d30c9a46c",
+  "tt_visible_devices": "3",
+  "started_utc": "2026-09-18T14:44:23Z"
+ },
+ "arms": {
+  "base": {
+   "mm_generic.fast_dtypes_ok": {
+    "BFLOAT16/BFLOAT16/BFLOAT16 -> True": 1120
+   },
+   "tenstorrent._pair_proj_program_config": {
+    "config": 840
+   },
+   "tenstorrent._qkv_l1_config": {
+    "None (silent fallback)": 1120
+   },
+   "tenstorrent._tri_att_sdpa_inner": {
+    "q=BFLOAT16 k=BFLOAT16 v=BFLOAT16 bias=BFLOAT16": 560
+   },
+   "tt_bio.mm_dualnoc.in_proj": {
+    "BFLOAT16/BFLOAT16/BFLOAT16 -> served": 560
+   },
+   "tt_bio.triatt_qkv.qkvgb_heads": {
+    "BFLOAT16/BFLOAT16/32 -> served": 560
+   }
+  },
+  "T": {
+   "mm_generic.fast_dtypes_ok": {
+    "BFLOAT16/BFLOAT16/BFLOAT16 -> True": 560,
+    "BFLOAT8_B/BFLOAT16/BFLOAT16 -> True": 560
+   },
+   "tenstorrent._pair_proj_program_config": {
+    "config": 840
+   },
+   "tenstorrent._qkv_l1_config": {
+    "None (silent fallback)": 1120
+   },
+   "tenstorrent._tri_att_sdpa_inner": {
+    "q=BFLOAT8_B k=BFLOAT8_B v=BFLOAT8_B bias=BFLOAT8_B": 560
+   },
+   "tt_bio.mm_dualnoc.in_proj": {
+    "BFLOAT16/BFLOAT16/BFLOAT16 -> served": 560
+   },
+   "tt_bio.triatt_qkv.qkvgb_heads": {
+    "BFLOAT16/BFLOAT16/32 -> served": 560
+   }
+  }
+ }
+}

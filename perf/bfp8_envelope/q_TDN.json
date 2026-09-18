@@ -1,0 +1,191 @@
+{
+ "doc": "Paired same-seed accuracy folds for the bfp8 regions, one process, one device, one model load.\n\nThis row edits no production code. An arm is a set of module globals in `tt_bio.tenstorrent`\npatched between folds, which works because every one of them is read at CALL time\n(`_triatt_dtype()` returns `bfloat8_b if _TRIATT_B8 else _dtype()`), not at import. Running the\narms in one process is what makes the comparison paired: same device, same program cache, same\nweights, same MSA, and the seed set on the config rather than on the interpreter.\n\nArms (see --list). `base` touches nothing and is the reference every other arm is read against.\nThe last fold repeats the first, and that repeat is the A/A control: if it is not 0.0000 A the\npaired read above is not the lever.\n\nBoth sizes matter and neither substitutes for the other. cdk2x2_298 is the fixture the 0.35/0.60 A\nbar is written against; cdk2x2_512 is the production size and is chimeric, so whole-molecule RMSD\non it reads its unconstrained hinge and the per-pseudo-domain / CA-lDDT readings from\nperf/b2z2_fusebias/score.py are what decide there. A 298 aa pass is not evidence at 512 aa:\nb2z's transition site scored 0.266 A at 298 aa and moved the 512 aa fold 13.21 A.\n\nAICLK is sampled DURING each fold off the driver's own telemetry, per fold, min/median/max.\n\n    fold_b8.py --out <json> --cifdir <dir> --sizes 512 --plan base:0,1,2,3;T:0,1,2,3\n",
+ "env": {
+  "host": "tt-quietbox",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.11.0+cpu",
+  "tt_visible_devices": "1",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!2",
+  "bias_suppressor_installed": false,
+  "tt_bio_file": "/home/ttuser/.coworker/wt/bfp8-accuracy-envelope/armQ/tt_bio/__init__.py",
+  "commit": "a79b2ce5579cb8e8bffb69636e1a8f66ae8431cd",
+  "started_utc": "2026-09-18T14:44:12Z",
+  "loadavg": [
+   11.81396484375,
+   14.1865234375,
+   10.6123046875
+  ],
+  "arms": {
+   "TDN": {
+    "g": {
+     "_TRIATT_B8": true
+    },
+    "dualnoc_b8": true
+   }
+  },
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "TDN:0,1,2,3"
+  }
+ },
+ "runs": [
+  {
+   "arm": "TDN",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 25.692,
+   "sha256": "ebdaed4b90ac256b",
+   "aiclk": {
+    "n": 48,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 560,
+    "calls": 560,
+    "declined": 0
+   },
+   "plddt": 0.799789,
+   "tag": "TDN-s0"
+  },
+  {
+   "arm": "TDN",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 23.973,
+   "sha256": "c6fcde6df482e8bc",
+   "aiclk": {
+    "n": 45,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 560,
+    "calls": 560,
+    "declined": 0
+   },
+   "plddt": 0.81591,
+   "tag": "TDN-s1"
+  },
+  {
+   "arm": "TDN",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 27.052,
+   "sha256": "d1351baed204863b",
+   "aiclk": {
+    "n": 50,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 560,
+    "calls": 560,
+    "declined": 0
+   },
+   "plddt": 0.803926,
+   "tag": "TDN-s2"
+  },
+  {
+   "arm": "TDN",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 20.13,
+   "sha256": "4b31c01c441bf432",
+   "aiclk": {
+    "n": 38,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 560,
+    "calls": 560,
+    "declined": 0
+   },
+   "plddt": 0.801726,
+   "tag": "TDN-s3"
+  },
+  {
+   "arm": "TDN",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 20.065,
+   "sha256": "19396fe460b8f1da",
+   "aiclk": {
+    "n": 37,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 560,
+    "calls": 560,
+    "declined": 0
+   },
+   "plddt": 0.805129,
+   "tag": "TDN-s0_r1"
+  }
+ ],
+ "model_load_s": 7.67,
+ "aa_floor_identical": {
+  "512": false
+ },
+ "aiclk_session": {
+  "min": 1343,
+  "max": 1350
+ }
+}

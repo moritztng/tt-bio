@@ -1,0 +1,124 @@
+{
+ "doc": "Paired same-seed accuracy folds for the bfp8 regions, one process, one device, one model load.\n\nThis row edits no production code. An arm is a set of module globals in `tt_bio.tenstorrent`\npatched between folds, which works because every one of them is read at CALL time\n(`_triatt_dtype()` returns `bfloat8_b if _TRIATT_B8 else _dtype()`), not at import. Running the\narms in one process is what makes the comparison paired: same device, same program cache, same\nweights, same MSA, and the seed set on the config rather than on the interpreter.\n\nArms (see --list). `base` touches nothing and is the reference every other arm is read against.\nThe last fold repeats the first, and that repeat is the A/A control: if it is not 0.0000 A the\npaired read above is not the lever.\n\nBoth sizes matter and neither substitutes for the other. cdk2x2_298 is the fixture the 0.35/0.60 A\nbar is written against; cdk2x2_512 is the production size and is chimeric, so whole-molecule RMSD\non it reads its unconstrained hinge and the per-pseudo-domain / CA-lDDT readings from\nperf/b2z2_fusebias/score.py are what decide there. A 298 aa pass is not evidence at 512 aa:\nb2z's transition site scored 0.266 A at 298 aa and moved the 512 aa fold 13.21 A.\n\nAICLK is sampled DURING each fold off the driver's own telemetry, per fold, min/median/max.\n\n    fold_b8.py --out <json> --cifdir <dir> --sizes 512 --plan base:0,1,2,3;T:0,1,2,3\n",
+ "env": {
+  "host": "tt-quietbox",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.11.0+cpu",
+  "tt_visible_devices": "0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!1",
+  "bias_suppressor_installed": false,
+  "tt_bio_file": "/home/ttuser/.coworker/wt/bfp8-accuracy-envelope/armQ/tt_bio/__init__.py",
+  "commit": "a79b2ce5579cb8e8bffb69636e1a8f66ae8431cd",
+  "started_utc": "2026-09-18T14:47:57Z",
+  "loadavg": [
+   7.318359375,
+   12.46728515625,
+   10.8505859375
+  ],
+  "arms": {
+   "DN": {
+    "dualnoc_b8": true
+   }
+  },
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "DN:0,1"
+  }
+ },
+ "runs": [
+  {
+   "arm": "DN",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 19.619,
+   "sha256": "69999b46e2543e0f",
+   "aiclk": {
+    "n": 29,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {},
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 2240,
+    "calls": 2240,
+    "declined": 2240
+   },
+   "plddt": 0.91088,
+   "tag": "DN-s0"
+  },
+  {
+   "arm": "DN",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 12.077,
+   "sha256": "c5ad35339c144f3e",
+   "aiclk": {
+    "n": 23,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {},
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 2240,
+    "calls": 2240,
+    "declined": 2240
+   },
+   "plddt": 0.916649,
+   "tag": "DN-s1"
+  },
+  {
+   "arm": "DN",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 11.963,
+   "sha256": "69999b46e2543e0f",
+   "aiclk": {
+    "n": 22,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {},
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 2240,
+    "calls": 2240,
+    "declined": 2240
+   },
+   "plddt": 0.91088,
+   "tag": "DN-s0_r1"
+  }
+ ],
+ "model_load_s": 5.959,
+ "aa_floor_identical": {
+  "298": true
+ },
+ "aiclk_session": {
+  "min": 1350,
+  "max": 1350
+ }
+}
