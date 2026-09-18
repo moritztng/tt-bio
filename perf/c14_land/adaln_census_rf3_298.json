@@ -1,0 +1,247 @@
+{
+ "host": "tt-quietbox2",
+ "flag": "TT_BIO_ADALN_MEMO_EAGER",
+ "note": "COUNTER census. No field here is a measurement of seconds. fold_s_NOT_A_MEASUREMENT was taken on a deliberately contended box.",
+ "env": {
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:c14-land-tail",
+  "TT_METAL_CACHE": "/home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0",
+  "TT_METAL_LOGGER_LEVEL": "FATAL",
+  "TT_VISIBLE_DEVICES": "1"
+ },
+ "runs": [
+  {
+   "rc": 0,
+   "fold_s_NOT_A_MEASUREMENT": 26.118,
+   "reader": false,
+   "calls": 66,
+   "atom_calls": 18,
+   "token_calls": 48,
+   "hits": 0,
+   "stores": 0,
+   "model": "rf3",
+   "size": 298,
+   "steps": 2,
+   "arm": "new",
+   "recycles": 1,
+   "procs": [
+    {
+     "pid": 105578,
+     "calls": 0,
+     "atom_calls": 0,
+     "stores": 0,
+     "hits": 0,
+     "eager": false,
+     "memo_on": true
+    },
+    {
+     "pid": 105616,
+     "calls": 66,
+     "atom_calls": 18,
+     "stores": 0,
+     "hits": 0,
+     "eager": false,
+     "memo_on": true
+    }
+   ],
+   "pair_bytes": null,
+   "pair_shapes": null,
+   "pair_dtype": null
+  },
+  {
+   "rc": 0,
+   "fold_s_NOT_A_MEASUREMENT": 26.136,
+   "reader": true,
+   "calls": 66,
+   "atom_calls": 18,
+   "token_calls": 48,
+   "hits": 0,
+   "stores": 18,
+   "model": "rf3",
+   "size": 298,
+   "steps": 2,
+   "arm": "eager",
+   "recycles": 1,
+   "procs": [
+    {
+     "pid": 106897,
+     "calls": 0,
+     "atom_calls": 0,
+     "stores": 0,
+     "hits": 0,
+     "eager": true,
+     "memo_on": true
+    },
+    {
+     "pid": 106934,
+     "calls": 66,
+     "atom_calls": 18,
+     "stores": 18,
+     "hits": 0,
+     "eager": true,
+     "memo_on": true
+    }
+   ],
+   "pair_bytes": 1228800,
+   "pair_shapes": [
+    [
+     1,
+     75,
+     32,
+     128
+    ],
+    [
+     1,
+     75,
+     32,
+     128
+    ]
+   ],
+   "pair_dtype": "DataType.BFLOAT16"
+  },
+  {
+   "rc": 0,
+   "fold_s_NOT_A_MEASUREMENT": 27.311,
+   "reader": false,
+   "calls": 186,
+   "atom_calls": 42,
+   "token_calls": 144,
+   "hits": 12,
+   "stores": 12,
+   "model": "rf3",
+   "size": 298,
+   "steps": 4,
+   "arm": "new",
+   "recycles": 1,
+   "procs": [
+    {
+     "pid": 108302,
+     "calls": 0,
+     "atom_calls": 0,
+     "stores": 0,
+     "hits": 0,
+     "eager": false,
+     "memo_on": true
+    },
+    {
+     "pid": 108390,
+     "calls": 186,
+     "atom_calls": 42,
+     "stores": 12,
+     "hits": 12,
+     "eager": false,
+     "memo_on": true
+    }
+   ],
+   "pair_bytes": 1228800,
+   "pair_shapes": [
+    [
+     1,
+     75,
+     32,
+     128
+    ],
+    [
+     1,
+     75,
+     32,
+     128
+    ]
+   ],
+   "pair_dtype": "DataType.BFLOAT16"
+  },
+  {
+   "rc": 0,
+   "fold_s_NOT_A_MEASUREMENT": 27.126,
+   "reader": true,
+   "calls": 186,
+   "atom_calls": 42,
+   "token_calls": 144,
+   "hits": 24,
+   "stores": 18,
+   "model": "rf3",
+   "size": 298,
+   "steps": 4,
+   "arm": "eager",
+   "recycles": 1,
+   "procs": [
+    {
+     "pid": 109740,
+     "calls": 0,
+     "atom_calls": 0,
+     "stores": 0,
+     "hits": 0,
+     "eager": true,
+     "memo_on": true
+    },
+    {
+     "pid": 109778,
+     "calls": 186,
+     "atom_calls": 42,
+     "stores": 18,
+     "hits": 24,
+     "eager": true,
+     "memo_on": true
+    }
+   ],
+   "pair_bytes": 1228800,
+   "pair_shapes": [
+    [
+     1,
+     75,
+     32,
+     128
+    ],
+    [
+     1,
+     75,
+     32,
+     128
+    ]
+   ],
+   "pair_dtype": "DataType.BFLOAT16"
+  }
+ ],
+ "per_step": {
+  "new": {
+   "stores_per_step": 6.0,
+   "atom_calls_per_step": 12.0,
+   "intercept_stores": -12.0,
+   "intercept_atom_calls": -6.0
+  },
+  "eager": {
+   "stores_per_step": 0.0,
+   "atom_calls_per_step": 12.0,
+   "intercept_stores": 18.0,
+   "intercept_atom_calls": -6.0
+  }
+ },
+ "summary": {
+  "model": "rf3",
+  "size": 298,
+  "pair_bytes": 1228800,
+  "pair_shapes": [
+   [
+    1,
+    75,
+    32,
+    128
+   ],
+   [
+    1,
+    75,
+    32,
+    128
+   ]
+  ],
+  "pair_dtype": "DataType.BFLOAT16",
+  "stores_at_production": {
+   "new": 1188.0,
+   "eager": 18.0
+  },
+  "deleted_stores_at_production": -1170.0,
+  "deleted_to_memory_config_calls": -2340.0,
+  "deleted_dram_write_bytes": -1437696000.0,
+  "deleted_traffic_bytes_read_plus_write": -2875392000.0
+ }
+}

@@ -1,0 +1,107 @@
+{
+ "host": "tt-quietbox2",
+ "flag": "TT_BIO_ADALN_MEMO_EAGER",
+ "note": "COUNTER census. No field here is a measurement of seconds. fold_s_NOT_A_MEASUREMENT was taken on a deliberately contended box.",
+ "env": {
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:c14-land-tail",
+  "TT_METAL_CACHE": "/home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0",
+  "TT_METAL_LOGGER_LEVEL": "FATAL",
+  "TT_VISIBLE_DEVICES": "1"
+ },
+ "runs": [
+  {
+   "calls": 0,
+   "atom_calls": 0,
+   "token_calls": 0,
+   "hits": 0,
+   "stores": 0,
+   "pair_bytes": null,
+   "pair_shapes": null,
+   "pair_dtype": null,
+   "rc": 0,
+   "fold_s_NOT_A_MEASUREMENT": 82.478,
+   "reader": false,
+   "model": "rf3",
+   "size": 298,
+   "steps": 2,
+   "arm": "new",
+   "recycles": 1
+  },
+  {
+   "calls": 0,
+   "atom_calls": 0,
+   "token_calls": 0,
+   "hits": 0,
+   "stores": 0,
+   "pair_bytes": null,
+   "pair_shapes": null,
+   "pair_dtype": null,
+   "rc": 0,
+   "fold_s_NOT_A_MEASUREMENT": 37.322,
+   "reader": true,
+   "model": "rf3",
+   "size": 298,
+   "steps": 2,
+   "arm": "eager",
+   "recycles": 1
+  },
+  {
+   "calls": 0,
+   "atom_calls": 0,
+   "token_calls": 0,
+   "hits": 0,
+   "stores": 0,
+   "pair_bytes": null,
+   "pair_shapes": null,
+   "pair_dtype": null,
+   "rc": 0,
+   "fold_s_NOT_A_MEASUREMENT": 35.798,
+   "reader": false,
+   "model": "rf3",
+   "size": 298,
+   "steps": 4,
+   "arm": "new",
+   "recycles": 1
+  },
+  {
+   "calls": 0,
+   "atom_calls": 0,
+   "token_calls": 0,
+   "hits": 0,
+   "stores": 0,
+   "pair_bytes": null,
+   "pair_shapes": null,
+   "pair_dtype": null,
+   "rc": 0,
+   "fold_s_NOT_A_MEASUREMENT": 35.874,
+   "reader": true,
+   "model": "rf3",
+   "size": 298,
+   "steps": 4,
+   "arm": "eager",
+   "recycles": 1
+  }
+ ],
+ "per_step": {
+  "new": {
+   "stores_per_step": 0.0,
+   "atom_calls_per_step": 0.0,
+   "intercept_stores": 0.0,
+   "intercept_atom_calls": 0.0
+  },
+  "eager": {
+   "stores_per_step": 0.0,
+   "atom_calls_per_step": 0.0,
+   "intercept_stores": 0.0,
+   "intercept_atom_calls": 0.0
+  }
+ },
+ "summary": {
+  "model": "rf3",
+  "size": 298,
+  "pair_bytes": null,
+  "pair_shapes": null,
+  "pair_dtype": null
+ }
+}
