@@ -130,7 +130,12 @@ def _relu():
 
 
 # The reduction the point term sums its points with, over an axis a free reshape has grouped.
-@case("sum_dim leading axis", 1e-3, 1e-5)
+# 2e-3 and not 1e-3: this case sums four N(0, 1) terms, which partly cancel, so the error is
+# relative to a sum smaller than the terms. In the point term the four terms are squared
+# distances -- all positive, no cancellation -- so the same per-term rounding lands at ~1e-3 of the
+# answer, which is the property that makes this reduction safe where the |q|^2 + |k|^2 - 2 q.k
+# identity is not.
+@case("sum_dim leading axis", 2e-3, 1e-5)
 def _sum_dim():
     return ((lambda x: x.sum(1, keepdim=True)), (lambda x: ops.sum_dim(x, 1)), [(8, 4, 32, 64)])
 

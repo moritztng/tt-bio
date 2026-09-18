@@ -12,6 +12,7 @@ ok   sum_last              4.26e-04   3.27e-08   0.00e+00  (bars 1e-03 / 1e-05 /
 ok   sqrt_plus             8.74e-08   1.28e-07   0.00e+00  (bars 1e-05 / 1e-05 / 0)
 ok   softplus              3.37e-03   1.13e-07   0.00e+00  (bars 1e-02 / 1e-05 / 0)
 ok   relu                  3.37e-08   3.12e-08   0.00e+00  (bars 1e-05 / 1e-05 / 0)
+ok   sum_dim leading axis   1.12e-03   5.41e-08   0.00e+00  (bars 2e-03 / 1e-05 / 0)
 ok   softmax               1.09e-03   6.94e-04   0.00e+00  (bars 1e-02 / 1e-02 / 0)
 ok   layer_norm            2.42e-03   8.88e-04   0.00e+00  (bars 1e-02 / 1e-02 / 0)
 ok   reshape               5.34e-08   3.09e-08   0.00e+00  (bars 1e-05 / 1e-05 / 0)
