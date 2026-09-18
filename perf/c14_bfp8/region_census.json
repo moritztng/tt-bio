@@ -2,7 +2,7 @@
   "capture": "perf/c14_bfp8/cap_PairformerLayer_512.json.gz",
   "min_mb": 60.0,
   "calls": 264,
-  "rate_gbs": 364.84,
+  "rate_gbs": 380.77,
   "buffers": [
     {
       "buffer": 22,
@@ -23,8 +23,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 4,
-      "deleted_Z": 7.5,
+      "passes": 2,
+      "deleted_Z": 3.75,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -46,8 +46,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 4,
-      "deleted_Z": 7.5,
+      "passes": 2,
+      "deleted_Z": 3.75,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -88,8 +88,8 @@
         "risky"
       ],
       "eligible": false,
-      "passes": 12,
-      "deleted_Z": 5.625,
+      "passes": 14,
+      "deleted_Z": 6.5625,
       "bucket": "accumulator_excluded_Z"
     },
     {
@@ -122,16 +122,15 @@
       ],
       "consumer_verdicts": [
         "ours",
-        "no-kernel"
+        "yes"
       ],
       "blockers": [
-        "no-kernel",
         "ours"
       ],
       "eligible": false,
       "passes": 3,
       "deleted_Z": 1.40625,
-      "bucket": "upstream_blocked_Z"
+      "bucket": "ours_to_fix_Z"
     },
     {
       "buffer": 72,
@@ -150,8 +149,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 3,
-      "deleted_Z": 1.40625,
+      "passes": 2,
+      "deleted_Z": 0.9375,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -171,8 +170,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 3,
-      "deleted_Z": 1.40625,
+      "passes": 2,
+      "deleted_Z": 0.9375,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -211,8 +210,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 3,
-      "deleted_Z": 1.40625,
+      "passes": 2,
+      "deleted_Z": 0.9375,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -262,16 +261,15 @@
       ],
       "consumer_verdicts": [
         "ours",
-        "no-kernel"
+        "yes"
       ],
       "blockers": [
-        "no-kernel",
         "ours"
       ],
       "eligible": false,
       "passes": 3,
       "deleted_Z": 1.40625,
-      "bucket": "upstream_blocked_Z"
+      "bucket": "ours_to_fix_Z"
     },
     {
       "buffer": 326,
@@ -290,8 +288,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 3,
-      "deleted_Z": 1.40625,
+      "passes": 2,
+      "deleted_Z": 0.9375,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -311,8 +309,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 3,
-      "deleted_Z": 1.40625,
+      "passes": 2,
+      "deleted_Z": 0.9375,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -351,8 +349,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 3,
-      "deleted_Z": 1.40625,
+      "passes": 2,
+      "deleted_Z": 0.9375,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -408,8 +406,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 3,
-      "deleted_Z": 1.40625,
+      "passes": 2,
+      "deleted_Z": 0.9375,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -429,8 +427,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 3,
-      "deleted_Z": 1.40625,
+      "passes": 2,
+      "deleted_Z": 0.9375,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -450,8 +448,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 3,
-      "deleted_Z": 1.40625,
+      "passes": 2,
+      "deleted_Z": 0.9375,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -465,16 +463,15 @@
       ],
       "consumer_verdicts": [
         "ours",
-        "no-kernel"
+        "yes"
       ],
       "blockers": [
-        "no-kernel",
         "ours"
       ],
       "eligible": false,
       "passes": 3,
       "deleted_Z": 1.40625,
-      "bucket": "upstream_blocked_Z"
+      "bucket": "ours_to_fix_Z"
     },
     {
       "buffer": 654,
@@ -488,17 +485,16 @@
       ],
       "consumer_verdicts": [
         "ours",
-        "no-kernel",
+        "yes",
         "ours"
       ],
       "blockers": [
-        "no-kernel",
         "ours"
       ],
       "eligible": false,
-      "passes": 4,
-      "deleted_Z": 1.875,
-      "bucket": "upstream_blocked_Z"
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
     },
     {
       "buffer": 832,
@@ -536,8 +532,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 3,
-      "deleted_Z": 1.40625,
+      "passes": 2,
+      "deleted_Z": 0.9375,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -557,8 +553,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 3,
-      "deleted_Z": 1.40625,
+      "passes": 2,
+      "deleted_Z": 0.9375,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -578,8 +574,8 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 3,
-      "deleted_Z": 1.40625,
+      "passes": 2,
+      "deleted_Z": 0.9375,
       "bucket": "ours_to_fix_Z"
     },
     {
@@ -593,16 +589,15 @@
       ],
       "consumer_verdicts": [
         "ours",
-        "no-kernel"
+        "yes"
       ],
       "blockers": [
-        "no-kernel",
         "ours"
       ],
       "eligible": false,
       "passes": 3,
       "deleted_Z": 1.40625,
-      "bucket": "upstream_blocked_Z"
+      "bucket": "ours_to_fix_Z"
     },
     {
       "buffer": 963,
@@ -616,17 +611,16 @@
       ],
       "consumer_verdicts": [
         "ours",
-        "no-kernel",
+        "yes",
         "ours"
       ],
       "blockers": [
-        "no-kernel",
         "ours"
       ],
       "eligible": false,
-      "passes": 4,
-      "deleted_Z": 1.875,
-      "bucket": "upstream_blocked_Z"
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
     },
     {
       "buffer": 1046,
@@ -646,27 +640,28 @@
         "ours"
       ],
       "eligible": false,
-      "passes": 3,
-      "deleted_Z": 1.40625,
+      "passes": 2,
+      "deleted_Z": 0.9375,
       "bucket": "upstream_blocked_Z"
     }
   ],
+  "layer_charged_Z": 95.14794921875,
   "totals_Z_per_layer": {
-    "all_Z": 55.78125,
-    "ours_to_fix_Z": 33.75,
-    "accumulator_excluded_Z": 5.625,
-    "upstream_blocked_Z": 16.40625
+    "all_Z": 42.1875,
+    "ours_to_fix_Z": 29.0625,
+    "accumulator_excluded_Z": 6.5625,
+    "upstream_blocked_Z": 6.5625
   },
   "fold_gb": {
-    "all_Z": 988.26190848,
-    "ours_to_fix_Z": 597.93997824,
-    "accumulator_excluded_Z": 99.65666304,
-    "upstream_blocked_Z": 290.6652672
+    "all_Z": 747.4249728,
+    "ours_to_fix_Z": 514.89275904,
+    "accumulator_excluded_Z": 116.26610688,
+    "upstream_blocked_Z": 116.26610688
   },
   "fold_seconds_at_rate": {
-    "all_Z": 2.708754271680737,
-    "ours_to_fix_Z": 1.6389101475715382,
-    "accumulator_excluded_Z": 0.27315169126192307,
-    "upstream_blocked_Z": 0.7966924328472756
+    "all_Z": 1.9629303064842294,
+    "ours_to_fix_Z": 1.3522408778002468,
+    "accumulator_excluded_Z": 0.30534471434199123,
+    "upstream_blocked_Z": 0.30534471434199123
   }
 }

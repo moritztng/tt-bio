@@ -39,6 +39,13 @@ B16, F32, B8 = ttnn.bfloat16, ttnn.float32, ttnn.bfloat8_b
 WIDTH = {B16: 2.0, F32: 4.0, B8: 1.0625}   # bytes an element; bfp8_b tile is 1088 B / 1024 elts
 DRAM = ttnn.DRAM_MEMORY_CONFIG
 
+# A lone P300 chip is a CUSTOM cluster topology and `ttnn.open_device` hard-fatals on it without
+# a 1x1 Blackhole mesh graph descriptor ("Custom fabric mesh graph descriptor path must be
+# specified"). Production sets this per worker; a bare `open_device` in a harness has no shard to
+# inherit it from, so call the shipped helper rather than hand-rolling the path.
+from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
+MGD = ensure_p300_mesh_descriptor()
+
 dev = ttnn.open_device(device_id=0)
 nodes = clk.nodes_open_by_this_process()
 grid = dev.compute_with_storage_grid_size()
@@ -139,7 +146,7 @@ ARMS = [
 ]
 
 res = {"key": list(PAIR), "grid": [grid.y, grid.x], "cores": grid.x * grid.y, "nodes": nodes,
-       "reps": A.reps, "mhz_requested": A.mhz, "prediction": json.loads(PRED.read_text()),
+       "reps": A.reps, "mhz_requested": A.mhz, "mgd": MGD, "prediction": json.loads(PRED.read_text()),
        "arms": {}, "errors": {}}
 
 held = clk.force(A.mhz, nodes)
