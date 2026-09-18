@@ -1,0 +1,88 @@
+{
+  "what": "boltz2 p300c size-ladder record, 2026-09-18, card 1 on tt-quietbox2, grid 11x10",
+  "commit_recorded_at": "5264350b0",
+  "written_to_baseline": false,
+  "why_not_written": "the five rungs 256-896 reproduce the 679b9ab4c cells to within 1.3%, so the write would have replaced them with themselves; the one cell that moved, 1024 at 53.9 s against 48.4 recorded and 47.7 measured by the zero-contention gate at f2b62c7bc, was drawn after the host went to loadavg 6.7-7.4. Writing it would have swapped a good cell for a contaminated one.",
+  "draws_s": {
+    "256": [
+      4.1,
+      4.2,
+      4.0,
+      4.1,
+      4.7
+    ],
+    "512": [
+      11.0,
+      10.9,
+      11.0,
+      11.0,
+      11.0
+    ],
+    "768": [
+      25.7,
+      25.7,
+      25.8,
+      25.8,
+      25.7
+    ]
+  },
+  "reps": {
+    "256": 5,
+    "512": 5,
+    "768": 5,
+    "640": 1,
+    "896": 1,
+    "1024": 1
+  },
+  "median_s": {
+    "256": 4.1,
+    "512": 11.0,
+    "640": 17.3,
+    "768": 25.7,
+    "896": 37.3,
+    "1024": 53.9
+  },
+  "min_s": {
+    "256": 4.0,
+    "512": 10.9,
+    "768": 25.7
+  },
+  "sigma_rel": {
+    "256": 0.066,
+    "512": 0.004,
+    "768": 0.002
+  },
+  "baseline_679b9ab4c_s": {
+    "256": 4.1,
+    "512": 10.9,
+    "640": 17.2,
+    "768": 25.6,
+    "896": 37.8,
+    "1024": 48.4
+  },
+  "clean_gate_f2b62c7bc_s": {
+    "256": 6.5,
+    "512": 10.9,
+    "640": 17.2,
+    "768": 25.5,
+    "896": 38.0,
+    "1024": 47.7
+  },
+  "aiclk_mhz_during_folds": {
+    "median": 1350,
+    "min": 1306,
+    "max": 1350,
+    "n": 541
+  },
+  "loadavg1_during_folds": {
+    "median": 2.43,
+    "max": 7.74
+  },
+  "load_crossed_4.0_at": "2026-09-18T19:30:15Z",
+  "wall_s": 687,
+  "host_quiet_before": true,
+  "pair_idle_before": true,
+  "host_quiet_after": false,
+  "benchlock": "held from 19:14:29Z, acquired after 312 s, released 19:31:12Z",
+  "rung_1024_attribution": "1024 folds warmup+rep back to back from ~19:29:24Z; loadavg crossed 4.0 at 19:30:15Z and reached 7.74, so the MEASURED rep (19:30:18Z-19:31:12Z) ran entirely inside the loud window while every rung below it was drawn under loadavg <= 3.0. train-b3-train's DP campaign, which does not take benchlock, is the other tenant."
+}
