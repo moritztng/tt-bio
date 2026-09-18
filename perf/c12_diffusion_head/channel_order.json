@@ -1,0 +1,34 @@
+{
+ "all_pass": true,
+ "cases": [
+  {
+   "case": "dit_token",
+   "batch": 1,
+   "seq": 512,
+   "c_in": 768,
+   "n_heads": 16,
+   "head_dim": 48,
+   "padded_head_dim": 64,
+   "HEAD_MAJOR_DT": 2,
+   "lanes_torch_equal": true,
+   "values_torch_equal": true,
+   "max_abs": 0.0,
+   "pad_lanes": 16
+  },
+  {
+   "case": "apb_trunk",
+   "batch": 1,
+   "seq": 512,
+   "c_in": 384,
+   "n_heads": 16,
+   "head_dim": 32,
+   "padded_head_dim": 32,
+   "HEAD_MAJOR_DT": 1,
+   "lanes_torch_equal": true,
+   "values_torch_equal": true,
+   "max_abs": 0.0,
+   "pad_lanes": 0
+  }
+ ],
+ "reference": "laned columns vs the unlaned checkpoint rows, and the projection sliced at those columns, fp64, torch.equal on both"
+}
