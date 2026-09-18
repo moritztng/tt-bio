@@ -137,13 +137,42 @@ if lo < floor:
 print("CLOCK: qualified for the whole measurement")
 PYQ
 
+# --- STAGE 2: the fold-level arm set, with the STACK checked on its own ------------------------
+# C12 closed with the lesson that two individually-correct levers can compose into a silently wrong
+# transform that neither owning row can detect, and that the broken combination can be the FASTEST
+# arm. This row ships two flags, so the stack gets its own end-to-end reading rather than an
+# inference from the two singles. Skipped if stage 1 failed: a broken op-level arm makes the fold
+# uninterpretable.
+if [ "$RC" -eq 0 ] && [ "${SKIP_FOLD:-0}" != "1" ]; then
+    say "stage 2: fold arms off / token / atom / both, interleaved, ${FOLD_REPS:-3} reps"
+    "$PY" "$SCRATCH/clk.py" --nodes "$CARD" --target "$TARGET_MHZ" --period-ms 50 \
+        --out "$OUT/clock_fold_qb2c${CARD}.jsonl" &
+    CLK2=$!
+    sleep 5
+    set +e
+    TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD \
+        "$PY" "$OUT/fold_stack.py" --reps "${FOLD_REPS:-3}" --py "$PY" \
+        --out "fold_stack_qb2c${CARD}.json" 2>&1 | tee "$OUT/fold_stack_qb2c${CARD}.log"
+    FOLD_RC=${PIPESTATUS[0]}
+    set -e
+    kill -TERM "$CLK2" 2>/dev/null || true
+    wait "$CLK2" 2>/dev/null || true
+    say "fold_stack rc=$FOLD_RC"
+    pair_check "after fold"
+else
+    say "stage 2 SKIPPED (stage 1 rc=$RC, SKIP_FOLD=${SKIP_FOLD:-0}) -- no fold-level reading"
+    FOLD_RC=skipped
+fi
+
 say "SESSION ADMISSIBLE. artifacts:"
-ls -la "$OUT"/ab_qkv_qb2c${CARD}.json "$OUT"/ab_qkv_qb2c${CARD}.log "$CLOCK_JSONL" 2>/dev/null || true
+ls -la "$OUT"/ab_qkv_qb2c${CARD}.json "$OUT"/ab_qkv_qb2c${CARD}.log "$CLOCK_JSONL" \
+       "$OUT"/fold_stack_qb2c${CARD}.json "$OUT"/fold_stack_qb2c${CARD}.log \
+       "$OUT"/clock_fold_qb2c${CARD}.jsonl 2>/dev/null || true
 cat <<EOF
 
 qb2 cannot push to origin. Copy the three artifacts back to pc and commit there:
 
-  scp $(hostname):$OUT/{ab_qkv_qb2c${CARD}.json,ab_qkv_qb2c${CARD}.log,$(basename "$CLOCK_JSONL")} \\
+  scp -r $(hostname):$OUT/{ab_qkv_qb2c${CARD}.*,fold_stack_qb2c${CARD}.*,clock_*qb2c${CARD}.jsonl} \\
       pc:/home/moritz/.coworker/wt/$SLUG/perf/c12_diffusion_head/
 
 The state doc must be written on pc: that is the host DONE_CHECK reads.
