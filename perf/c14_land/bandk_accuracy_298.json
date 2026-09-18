@@ -1,0 +1,208 @@
+{
+ "started_utc": "2026-09-18T13:27:32Z",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "note": "One process per arm: TT_BIO_APB_CONCAT_HEADS is consumed at model construction and re-lanes proj_g/proj_o, so it cannot be flipped in process. Arms interleaved block by block; the A/A floor is the spread across the base blocks, compared the same way base is compared to apb.",
+ "blocks": [
+  {
+   "size": "298",
+   "arm": "base",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "298",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 9.694,
+      "clock": {
+       "aiclk_min": 1325,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1345.0,
+       "aiclk_n": 42,
+       "power_w_mean": 69.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.908011,
+      "cif_sha256": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28",
+      "loadavg1": 4.72
+     },
+     {
+      "tag": "1",
+      "fold_s": 9.609,
+      "clock": {
+       "aiclk_min": 1325,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.6,
+       "aiclk_n": 42,
+       "power_w_mean": 72.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.908011,
+      "cif_sha256": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28",
+      "loadavg1": 4.15
+     }
+    ],
+    "model_load_s": 2.836,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_SDPA_BAND_DIV_K",
+     "attr": "_SDPA_BAND_DIV_K",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "7c39188c72cc8e39633b04fe2b418d4a2520458d",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 10.038,
+     "clock": {
+      "aiclk_min": 1325,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1345.6,
+      "aiclk_n": 44,
+      "power_w_mean": 65.3
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.908011,
+     "cif_sha256": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28",
+     "loadavg1": 5.31,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "298",
+   "arm": "on",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "298",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 9.876,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1344.3,
+       "aiclk_n": 42,
+       "power_w_mean": 65.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.909425,
+      "cif_sha256": "d4667bd5c627b2a706d2020a939c915a554b43625277e004edb2de19794c2652",
+      "loadavg1": 3.46
+     },
+     {
+      "tag": "1",
+      "fold_s": 9.576,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.0,
+       "aiclk_n": 41,
+       "power_w_mean": 69.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.909425,
+      "cif_sha256": "d4667bd5c627b2a706d2020a939c915a554b43625277e004edb2de19794c2652",
+      "loadavg1": 3.24
+     }
+    ],
+    "model_load_s": 2.929,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_SDPA_BAND_DIV_K",
+     "attr": "_SDPA_BAND_DIV_K",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "7c39188c72cc8e39633b04fe2b418d4a2520458d",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 11.241,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1344.0,
+      "aiclk_n": 50,
+      "power_w_mean": 65.2
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.909425,
+     "cif_sha256": "d4667bd5c627b2a706d2020a939c915a554b43625277e004edb2de19794c2652",
+     "loadavg1": 3.01,
+     "discarded": true
+    }
+   }
+  }
+ ],
+ "summary": {
+  "298": {
+   "base_median_s": 9.652,
+   "on_median_s": 9.726,
+   "base_n": 2,
+   "on_n": 2,
+   "delta_s": -0.0745,
+   "ratio_base_over_on": 0.99234,
+   "aa_floor_ratio_max": null,
+   "base_block_medians": [
+    9.652
+   ],
+   "on_block_medians": [
+    9.726
+   ],
+   "clock_min": 1306,
+   "clock_max": 1350,
+   "clock_samples": 167,
+   "verdict_rule": "a ratio inside aa_floor_ratio_max is a NULL, not a win"
+  }
+ },
+ "finished_utc": "2026-09-18T13:33:16Z"
+}

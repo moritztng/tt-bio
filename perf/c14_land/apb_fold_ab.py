@@ -56,7 +56,13 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 FIX = REPO / "perf" / "size512" / "fixtures"
 
-ENV_FLAG = "TT_BIO_APB_CONCAT_HEADS"
+# flag -> the tenstorrent module global it sets, asserted in the worker so a typo cannot
+# silently produce two identical arms. Both are settable in the environment before import.
+FLAGS = {
+    "TT_BIO_APB_CONCAT_HEADS": "_APB_CONCAT_HEADS",
+    "TT_BIO_SDPA_BAND_DIV_K": "_SDPA_BAND_DIV_K",
+    "TT_BIO_TRIATT_BIAS_B8": "_TRIATT_BIAS_B8",
+}
 
 
 def _helpers():
@@ -126,12 +132,13 @@ def worker(args) -> int:
         f"imported tt_bio from {_TB.__file__}, not this worktree "
         "(memory parity-gate-scores-installed-package-not-checkout)")
 
-    want = args.arm == "apb"
-    got = bool(getattr(TT, "_APB_CONCAT_HEADS", False))
+    attr = FLAGS[args.flag]
+    want = args.arm == "on"
+    got = bool(getattr(TT, attr, False))
     assert got == want, (
-        f"arm={args.arm} wants _APB_CONCAT_HEADS={want} but the module imported {got}. The flag is "
-        "consumed in AttentionPairBias.__init__, so it must be set in the ENVIRONMENT before import; "
-        "a post-load flip would run padded lanes against unpadded weights.")
+        f"arm={args.arm} wants {attr}={want} but the module imported {got}. The flag must be set "
+        "in the ENVIRONMENT before import. For APB in particular a post-load flip would run "
+        "padded lanes against unpadded weights, which is wrong rather than slow.")
 
     H = _helpers()
     dev = get_device()
@@ -156,9 +163,10 @@ def worker(args) -> int:
         "host": socket.gethostname(), "grid": [g.x, g.y],
         "tt_visible_devices": os.environ.get("TT_VISIBLE_DEVICES"),
         "lease_cards": os.environ.get("TT_BIO_LEASE_CARDS"),
-        "env_flag": os.environ.get(ENV_FLAG),
+        "flag": args.flag, "attr": attr,
+        "env_flag": os.environ.get(args.flag),
         "module_flag": got,
-        "apb_counter_name": "APB_CONCAT_HEADS_STATS",
+        "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
         "git_head": os.popen(f"git -C {REPO} rev-parse HEAD").read().strip(),
         "protocol": {"recycling_steps": cfg["recycling_steps"],
                      "sampling_steps": cfg["sampling_steps"],
@@ -191,7 +199,7 @@ def worker(args) -> int:
             "loadavg1": round(os.getloadavg()[0], 2),
         }
         if args.cifdir and tag != "warmup":
-            d = Path(args.cifdir) / f"{args.size}_{args.arm}_{args.block}_{tag}"
+            d = Path(args.cifdir) / f"{args.size}_{args.arm}_{args.block}_{tag}"  # scorer reads the arm from the tag
             d.mkdir(parents=True, exist_ok=True)
             if cifs:
                 shutil.copy2(cifs[0], d / cifs[0].name)
@@ -207,7 +215,7 @@ def worker(args) -> int:
     shutil.rmtree(work, ignore_errors=True)
     med = st.median([f["fold_s"] for f in out["folds"]])
     print(f"    {args.arm:4s} block{args.block} {args.size}aa median {med:7.3f}s "
-          f"apb={out['folds'][0]['apb_served_declined']} "
+          f"apb_counter={out['folds'][0]['apb_served_declined']} "
           f"clk={out['folds'][0]['clock'].get('aiclk_min')}-"
           f"{out['folds'][0]['clock'].get('aiclk_max')}", flush=True)
     return 0
@@ -234,15 +242,16 @@ def driver(args) -> int:
     for size in [s.strip() for s in args.sizes.split(",") if s.strip()]:
         print(f"[{size} aa]", flush=True)
         for b in range(args.blocks):
-            for arm in ("base", "apb"):
+            for arm in ("base", "on"):
                 jf = tmpdir / f"{size}_{arm}_{b}.json"
                 env = dict(os.environ)
-                if arm == "apb":
-                    env[ENV_FLAG] = "1"
+                if arm == "on":
+                    env[args.flag] = "1"
                 else:
-                    env.pop(ENV_FLAG, None)
+                    env.pop(args.flag, None)
                 cmd = [sys.executable, str(Path(__file__).resolve()),
                        "--arm", arm, "--size", size, "--folds", str(args.folds),
+                       "--flag", args.flag,
                        "--block", str(b), "--card", str(args.card), "--out", str(jf)]
                 if args.cifdir:
                     cmd += ["--cifdir", str(args.cifdir)]
@@ -262,7 +271,7 @@ def driver(args) -> int:
                 if row["size"] == size and row["arm"] == arm and row.get("result"):
                     v.append([f["fold_s"] for f in row["result"]["folds"]])
             return v
-        base_blocks, apb_blocks = folds("base"), folds("apb")
+        base_blocks, apb_blocks = folds("base"), folds("on")
         flat = lambda bs: [x for b in bs for x in b]
         if not flat(base_blocks) or not flat(apb_blocks):
             summary[size] = {"error": "an arm produced no fold"}
@@ -274,13 +283,13 @@ def driver(args) -> int:
         clocks = [f["clock"] for row in out["blocks"] if row["size"] == size and row.get("result")
                   for f in row["result"]["folds"] if f.get("clock", {}).get("aiclk_n")]
         summary[size] = {
-            "base_median_s": round(mb, 3), "apb_median_s": round(ma, 3),
-            "base_n": len(flat(base_blocks)), "apb_n": len(flat(apb_blocks)),
+            "base_median_s": round(mb, 3), "on_median_s": round(ma, 3),
+            "base_n": len(flat(base_blocks)), "on_n": len(flat(apb_blocks)),
             "delta_s": round(mb - ma, 4),
-            "ratio_base_over_apb": round(mb / ma, 5),
+            "ratio_base_over_on": round(mb / ma, 5),
             "aa_floor_ratio_max": round(max(a for a in aa if a), 5) if aa[0] else None,
             "base_block_medians": [round(x, 3) for x in bm],
-            "apb_block_medians": [round(st.median(b), 3) for b in apb_blocks],
+            "on_block_medians": [round(st.median(b), 3) for b in apb_blocks],
             "clock_min": min((c["aiclk_min"] for c in clocks), default=None),
             "clock_max": max((c["aiclk_max"] for c in clocks), default=None),
             "clock_samples": sum(c["aiclk_n"] for c in clocks),
@@ -294,8 +303,8 @@ def driver(args) -> int:
         if "error" in s:
             print(f"{size} aa: {s['error']}", flush=True)
             continue
-        print(f"{size} aa  base {s['base_median_s']:7.3f}s  apb {s['apb_median_s']:7.3f}s  "
-              f"delta {s['delta_s']:+.4f}s  ratio {s['ratio_base_over_apb']:.5f}  "
+        print(f"{size} aa  base {s['base_median_s']:7.3f}s  on {s['on_median_s']:7.3f}s  "
+              f"delta {s['delta_s']:+.4f}s  ratio {s['ratio_base_over_on']:.5f}  "
               f"A/A floor {s['aa_floor_ratio_max']}  clk {s['clock_min']}-{s['clock_max']} "
               f"({s['clock_samples']} samples)", flush=True)
     return 0
@@ -310,7 +319,8 @@ def main() -> int:
     ap.add_argument("--card", default="0")
     ap.add_argument("--cifdir", default=None)
     # worker-only
-    ap.add_argument("--arm", choices=["base", "apb"])
+    ap.add_argument("--arm", choices=["base", "on"])
+    ap.add_argument("--flag", default="TT_BIO_APB_CONCAT_HEADS", choices=sorted(FLAGS))
     ap.add_argument("--size")
     ap.add_argument("--block", type=int, default=0)
     args = ap.parse_args()
