@@ -22,10 +22,13 @@ import release_gate as rg
 def test_every_declared_scorer_names_a_module_a_pin_and_its_user():
     assert rg._EVAL_SCORERS, "the table is the whole check; an empty one silently passes"
     for arm, entry in rg._EVAL_SCORERS.items():
-        mod, pin, user = entry
+        mod, pin, user = entry[0], entry[1], entry[2]
         assert "." in mod or mod.isidentifier(), mod
         assert "==" in pin, f"{arm}: pin the version the arm was validated against, got {pin!r}"
         assert user.endswith(".py"), user
+        assert len(entry) > 3, (f"{arm}: name the interpreter that imports {mod} at scoring "
+                               f"time (None = the gate's own); checking the wrong one is the "
+                               f"bug this field exists for")
 
 
 def test_an_unselected_arm_is_never_checked():
@@ -36,7 +39,8 @@ def test_an_unselected_arm_is_never_checked():
 def test_a_missing_scorer_exits_before_any_device_work():
     saved = dict(rg._EVAL_SCORERS)
     try:
-        rg._EVAL_SCORERS["probe-arm"] = ("no_such_module_xyz", "nope==1.0", "scripts/probe.py")
+        rg._EVAL_SCORERS["probe-arm"] = ("no_such_module_xyz", "nope==1.0",
+                                         "scripts/probe.py", None)
         try:
             rg._preflight_eval_scorers(["probe-arm"])
         except SystemExit as exc:
@@ -56,11 +60,53 @@ def test_a_missing_scorer_exits_before_any_device_work():
 def test_a_present_scorer_is_silent():
     saved = dict(rg._EVAL_SCORERS)
     try:
-        rg._EVAL_SCORERS["probe-arm"] = ("json", "stdlib==1.0", "scripts/probe.py")
+        rg._EVAL_SCORERS["probe-arm"] = ("json", "stdlib==1.0", "scripts/probe.py", None)
         rg._preflight_eval_scorers(["probe-arm"])
     finally:
         rg._EVAL_SCORERS.clear()
         rg._EVAL_SCORERS.update(saved)
+
+
+def test_the_delegated_interpreter_is_the_one_checked():
+    """opendde-abag imports DockQ in OPENDDE_DOCKQ_PYTHON, not here.
+
+    The negative control is the point: a module this interpreter HAS and the delegate does not
+    must still fail. Before the fix the preflight imported in-process, so it passed exactly the
+    configuration it cannot score and failed the supported one.
+    """
+    saved = dict(rg._EVAL_SCORERS)
+    try:
+        # /bin/false is an interpreter that never imports anything: stands in for a venv
+        # without the scorer, without needing a second venv on the box.
+        rg._EVAL_SCORERS["probe-arm"] = ("json", "stdlib==1.0", "scripts/probe.py", "/bin/false")
+        assert __import__("json"), "this interpreter HAS json -- that is the control"
+        try:
+            rg._preflight_eval_scorers(["probe-arm"])
+        except SystemExit as exc:
+            assert "/bin/false" in str(exc), "name the interpreter that was checked"
+            assert "probe-arm" in str(exc)
+        else:
+            raise AssertionError("a scorer absent from the DELEGATE must stop the gate even "
+                                 "when the gate's own venv has it")
+    finally:
+        rg._EVAL_SCORERS.clear()
+        rg._EVAL_SCORERS.update(saved)
+
+
+def test_a_delegate_that_does_have_the_module_is_silent():
+    saved = dict(rg._EVAL_SCORERS)
+    try:
+        rg._EVAL_SCORERS["probe-arm"] = ("json", "stdlib==1.0", "scripts/probe.py",
+                                         sys.executable)
+        rg._preflight_eval_scorers(["probe-arm"])
+    finally:
+        rg._EVAL_SCORERS.clear()
+        rg._EVAL_SCORERS.update(saved)
+
+
+def test_the_opendde_abag_entry_points_at_the_python_that_scores_it():
+    """Wired to the real global, so moving OPENDDE_DOCKQ_PYTHON cannot silently unwire it."""
+    assert rg._EVAL_SCORERS["opendde-abag"][3] == rg.OPENDDE_DOCKQ_PYTHON
 
 
 def test_it_runs_before_the_msa_preflight_and_before_any_fold():
