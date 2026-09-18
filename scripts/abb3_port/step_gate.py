@@ -153,7 +153,7 @@ def main() -> int:
         _assert_padding_is_still_zero(step, padded)
 
         med = statistics.median(totals)
-        print(f"\\nSTEP: median {med:.3f} s over {len(totals)} COMPLETE steps at batch {batch} "
+        print(f"\nSTEP: median {med:.3f} s over {len(totals)} COMPLETE steps at batch {batch} "
               f"({args.accumulate} x {args.micro}) and {args.tokens} tokens, "
               f"min {min(totals):.3f} s, max {max(totals):.3f} s")
         keys = ("forward", "download", "losses", "host_backward", "device_backward", "optimizer")
