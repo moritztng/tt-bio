@@ -1,0 +1,214 @@
+{
+ "env": {
+  "host": "tt-quietbox",
+  "card": "0",
+  "tt_bio_file": "/home/ttuser/train-a1-ab-main/tt_bio/__init__.py",
+  "fixture": "cdk2x2_512",
+  "started_utc": "2026-09-18T15:54:18Z",
+  "loadavg": [
+   2.61669921875,
+   3.35791015625,
+   4.35546875
+  ],
+  "steps": 200,
+  "recycles": 3,
+  "commit": "",
+  "ttnn": "?"
+ },
+ "flags": {
+  "TT_BIO_DEVICE_CONDITIONING": true,
+  "TT_BIO_DEVICE_ZINIT": true,
+  "TT_BIO_DEVICE_CONFIDENCE": true,
+  "TT_BIO_DEVICE_CONF_HEADS": true,
+  "TT_BIO_TRIATT_FUSED_QKVG": true,
+  "TT_BIO_TRIATT_FUSED_QKVGB": true,
+  "TT_BIO_TRIMUL_FUSED_GOUT": true,
+  "TT_BIO_SDPA_GRID_Q_CHUNK": true,
+  "TT_BIO_ATOM_SHIFT_GATHER": true,
+  "TT_BIO_ATOM_L1": "not in tree",
+  "TT_BIO_UNFUSED_SILU": false,
+  "TT_BIO_DIT_COND_HOIST": false,
+  "TT_BIO_TRANSITION_L1_ROWS": true,
+  "TT_BIO_TRIMUL_GP_BANK_SPLIT": true
+ },
+ "runs": [
+  {
+   "i": 0,
+   "warmup": true,
+   "fold_s": 54.877,
+   "foreign_tt": [
+    {
+     "pid": 2977910,
+     "fds": 2,
+     "cmd": "/home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=6, pipe_handle="
+    },
+    {
+     "pid": 2991031,
+     "fds": 15,
+     "cmd": "/opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/pr15/ven"
+    },
+    {
+     "pid": 2991032,
+     "fds": 15,
+     "cmd": "/opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/pr15/ven"
+    },
+    {
+     "pid": 2991033,
+     "fds": 15,
+     "cmd": "/opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/pr15/ven"
+    },
+    {
+     "pid": 2991034,
+     "fds": 15,
+     "cmd": "/opt/tenstorrent/sfpi/compiler/bin/../libexec/gcc/riscv-tt-elf/15.1.0/cc1plus -quiet -I . -I .. -I /home/ttuser/pr15/ven"
+    }
+   ],
+   "plddt": 0.845919,
+   "metrics": {
+    "confidence_score": 0.802782,
+    "ptm": 0.630234,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845919,
+    "complex_iplddt": 0.845919,
+    "complex_pde": 0.617971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845919
+   },
+   "cif_sha256": "0eb4ce2220f951dae3ea5334b85a141d9a0b965f5362165695d777ecf8a3c7fa",
+   "loadavg1": 8.35,
+   "aiclk_mean": 806.0,
+   "aiclk_max": 1350,
+   "aiclk_frac_boost": 0.011,
+   "aiclk_n": 92,
+   "power_w_mean": 30.2
+  },
+  {
+   "i": 1,
+   "warmup": false,
+   "fold_s": 17.723,
+   "foreign_tt": [
+    {
+     "pid": 2977910,
+     "fds": 2,
+     "cmd": "/home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=6, pipe_handle="
+    }
+   ],
+   "plddt": 0.845919,
+   "metrics": {
+    "confidence_score": 0.802782,
+    "ptm": 0.630234,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845919,
+    "complex_iplddt": 0.845919,
+    "complex_pde": 0.617971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845919
+   },
+   "cif_sha256": "0eb4ce2220f951dae3ea5334b85a141d9a0b965f5362165695d777ecf8a3c7fa",
+   "loadavg1": 8.0,
+   "aiclk_mean": 800.0,
+   "aiclk_max": 800,
+   "aiclk_frac_boost": 0.0,
+   "aiclk_n": 74,
+   "power_w_mean": 30.3
+  },
+  {
+   "i": 2,
+   "warmup": false,
+   "fold_s": 17.601,
+   "foreign_tt": [
+    {
+     "pid": 2977910,
+     "fds": 2,
+     "cmd": "/home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=6, pipe_handle="
+    }
+   ],
+   "plddt": 0.845919,
+   "metrics": {
+    "confidence_score": 0.802782,
+    "ptm": 0.630234,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845919,
+    "complex_iplddt": 0.845919,
+    "complex_pde": 0.617971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845919
+   },
+   "cif_sha256": "0eb4ce2220f951dae3ea5334b85a141d9a0b965f5362165695d777ecf8a3c7fa",
+   "loadavg1": 7.87,
+   "aiclk_mean": 800.0,
+   "aiclk_max": 800,
+   "aiclk_frac_boost": 0.0,
+   "aiclk_n": 72,
+   "power_w_mean": 30.2
+  },
+  {
+   "i": 3,
+   "warmup": false,
+   "fold_s": 17.462,
+   "foreign_tt": [
+    {
+     "pid": 2977910,
+     "fds": 2,
+     "cmd": "/home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=6, pipe_handle="
+    }
+   ],
+   "plddt": 0.845919,
+   "metrics": {
+    "confidence_score": 0.802782,
+    "ptm": 0.630234,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.845919,
+    "complex_iplddt": 0.845919,
+    "complex_pde": 0.617971,
+    "complex_ipde": 0.0,
+    "plddt": 0.845919
+   },
+   "cif_sha256": "0eb4ce2220f951dae3ea5334b85a141d9a0b965f5362165695d777ecf8a3c7fa",
+   "loadavg1": 8.24,
+   "aiclk_mean": 800.0,
+   "aiclk_max": 800,
+   "aiclk_frac_boost": 0.0,
+   "aiclk_n": 71,
+   "power_w_mean": 30.4
+  }
+ ],
+ "n": 3,
+ "fold_s_sorted": [
+  17.462,
+  17.601,
+  17.723
+ ],
+ "median_fold_s": 17.601,
+ "min_fold_s": 17.462,
+ "max_fold_s": 17.723,
+ "spread_pct": 1.49,
+ "cif_sha256_16": [
+  "0eb4ce2220f951da"
+ ],
+ "one_digest": true,
+ "plddt": [
+  0.845919
+ ],
+ "aiclk_mean_over_timed_folds": 800.0,
+ "aiclk_mean_per_fold": [
+  800.0,
+  800.0,
+  800.0
+ ],
+ "cotenanted_folds": 3,
+ "clean_session": false,
+ "vs": {
+  "closing_md_20.113": 1.14272,
+  "perf_page_17.340": 0.98517,
+  "h200_7.538_whole_fold": 2.335
+ }
+}
