@@ -1,0 +1,8 @@
+# Adapter checkpoints: a few hundred MB per run and regenerable by re-running the harness.
+# The JSON records beside them are the result and they are committed.
+out/**/ckpt/
+out/**/data/
+*.safetensors
+# One directory per repeat per arm, each carrying its whole loss history. The medians and every
+# per-run value are in out/scale_rank*.json, which is committed; these are its raw input.
+out/r[0-9]_w[0-9]_*/

@@ -1,0 +1,152 @@
+{
+  "cards": [
+    2,
+    0
+  ],
+  "repeats": 5,
+  "steps": 24,
+  "tokens": 4096,
+  "channels": 2048,
+  "blocks": 24,
+  "lora_rank": 128,
+  "cotenants_before": [
+    {
+      "pid": 3768384,
+      "nodes": [
+        0
+      ],
+      "cmd": "python3 scripts/abb3_port/step_gate.py --steps 100 --warmup 2 --micro 4 --accumulate 16 --tokens 256 "
+    },
+    {
+      "pid": 3857873,
+      "nodes": [
+        2
+      ],
+      "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=6, pipe_h"
+    }
+  ],
+  "cotenants_after": [
+    {
+      "pid": 3768384,
+      "nodes": [
+        0
+      ],
+      "cmd": "python3 scripts/abb3_port/step_gate.py --steps 100 --warmup 2 --micro 4 --accumulate 16 --tokens 256 "
+    },
+    {
+      "pid": 3864834,
+      "nodes": [
+        2
+      ],
+      "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=6, pipe_h"
+    }
+  ],
+  "arms": {
+    "1": {
+      "world": 1,
+      "n": 5,
+      "examples_per_s_median": 3.5810018939104404,
+      "examples_per_s": [
+        2.5421076942972145,
+        3.5920444175460133,
+        3.6800723237825372,
+        3.3652127565478,
+        3.5810018939104404
+      ],
+      "median_step_s": 0.279251458006911,
+      "step_s": [
+        0.39337436499772593,
+        0.27839299400511663,
+        0.27173378999577835,
+        0.29715803200087976,
+        0.279251458006911
+      ],
+      "aiclk_median": 1350.0,
+      "aiclk": [
+        1350.0,
+        1350.0,
+        1350.0,
+        1350.0,
+        1350.0
+      ],
+      "nodes": [
+        3
+      ],
+      "sites": 6,
+      "distinct_master_sha": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "comm_bytes": null,
+      "median_transfer_s": null,
+      "median_barrier_wait_s": null,
+      "loadavg": [
+        17.8369140625,
+        25.48388671875,
+        21.70361328125,
+        21.38916015625,
+        22.14990234375
+      ]
+    },
+    "2": {
+      "world": 2,
+      "n": 5,
+      "examples_per_s_median": 6.083233532542233,
+      "examples_per_s": [
+        6.334471844837115,
+        4.203722754237078,
+        6.083233532542233,
+        6.475400810421537,
+        4.217511077950839
+      ],
+      "median_step_s": 0.32877251700119814,
+      "step_s": [
+        0.3157327160006389,
+        0.475768768999842,
+        0.32877251700119814,
+        0.3088611899947864,
+        0.47421333649981534
+      ],
+      "aiclk_median": 1350.0,
+      "aiclk": [
+        1350.0,
+        1350.0,
+        1350.0,
+        1350.0,
+        1350.0
+      ],
+      "nodes": [
+        3,
+        1
+      ],
+      "sites": 6,
+      "distinct_master_sha": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "comm_bytes": 5244416,
+      "median_transfer_s": 0.007478899497073144,
+      "median_barrier_wait_s": 0.00495816049806308,
+      "loadavg": [
+        19.03662109375,
+        27.31103515625,
+        18.95556640625,
+        19.326171875,
+        32.02294921875
+      ]
+    }
+  },
+  "speedup": 1.6987518333589502,
+  "efficiency": 0.8493759166794751,
+  "ptxft_reference": {
+    "speedup": 1.87,
+    "efficiency": 0.935,
+    "what": "perf/ptxft/dpscale.py, Protenix-v2 distogram LoRA, qb1 chips 1 and 3, 8 steps per rank"
+  }
+}

@@ -1,0 +1,351 @@
+{
+  "history": [
+    {
+      "step": 0,
+      "loss": 405.27670672315094,
+      "breakdown": {
+        "mse": {
+          "value": 102.13996975868977,
+          "weight": 4.0,
+          "contribution": 408.5598790347591
+        },
+        "smooth_lddt": {
+          "value": null,
+          "weight": 4.0,
+          "contribution": 0.0,
+          "skipped": "missing ['pred_dist', 'true_dist', 'lddt_pair_mask']"
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": null,
+          "weight": 0.03,
+          "contribution": 0.0,
+          "skipped": "missing ['distogram_logits']"
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['plddt_logits', 'per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['pde_logits']"
+        },
+        "resolved": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['resolved_logits']"
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 18.618240614802954,
+      "lr": 2.9999999999999997e-05,
+      "per_rank_loss": [
+        408.5598790347591,
+        401.9935344115428
+      ]
+    },
+    {
+      "step": 1,
+      "loss": 400.33656325246676,
+      "breakdown": {
+        "mse": {
+          "value": 100.12218503224923,
+          "weight": 4.0,
+          "contribution": 400.48874012899694
+        },
+        "smooth_lddt": {
+          "value": null,
+          "weight": 4.0,
+          "contribution": 0.0,
+          "skipped": "missing ['pred_dist', 'true_dist', 'lddt_pair_mask']"
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": null,
+          "weight": 0.03,
+          "contribution": 0.0,
+          "skipped": "missing ['distogram_logits']"
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['plddt_logits', 'per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['pde_logits']"
+        },
+        "resolved": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['resolved_logits']"
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 19.316791372859626,
+      "lr": 5.9999999999999995e-05,
+      "per_rank_loss": [
+        400.48874012899694,
+        400.1843863759366
+      ]
+    },
+    {
+      "step": 2,
+      "loss": 400.7399046409663,
+      "breakdown": {
+        "mse": {
+          "value": 100.92638921755743,
+          "weight": 4.0,
+          "contribution": 403.7055568702297
+        },
+        "smooth_lddt": {
+          "value": null,
+          "weight": 4.0,
+          "contribution": 0.0,
+          "skipped": "missing ['pred_dist', 'true_dist', 'lddt_pair_mask']"
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": null,
+          "weight": 0.03,
+          "contribution": 0.0,
+          "skipped": "missing ['distogram_logits']"
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['plddt_logits', 'per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['pde_logits']"
+        },
+        "resolved": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['resolved_logits']"
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 18.574984193405633,
+      "lr": 8.999999999999999e-05,
+      "per_rank_loss": [
+        403.7055568702297,
+        397.77425241170283
+      ]
+    },
+    {
+      "step": 3,
+      "loss": 393.43451723353553,
+      "breakdown": {
+        "mse": {
+          "value": 98.05698954310637,
+          "weight": 4.0,
+          "contribution": 392.2279581724255
+        },
+        "smooth_lddt": {
+          "value": null,
+          "weight": 4.0,
+          "contribution": 0.0,
+          "skipped": "missing ['pred_dist', 'true_dist', 'lddt_pair_mask']"
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": null,
+          "weight": 0.03,
+          "contribution": 0.0,
+          "skipped": "missing ['distogram_logits']"
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['plddt_logits', 'per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['pde_logits']"
+        },
+        "resolved": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['resolved_logits']"
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 19.973877933114423,
+      "lr": 0.00011999999999999999,
+      "per_rank_loss": [
+        392.2279581724255,
+        394.6410762946456
+      ]
+    }
+  ],
+  "provenance": {
+    "seed": 0,
+    "git_sha": "3a54ee1a1430-dirty",
+    "config": {
+      "objective": "af3",
+      "global_batch": 2,
+      "steps": 4,
+      "lr": 0.0003,
+      "rank": 8,
+      "alpha": 16.0,
+      "chips": 2,
+      "dp_rank": 0,
+      "rollout": 20,
+      "sites": [
+        "train_d_dp/model.py:29:block",
+        "train_d_dp/model.py:30:block",
+        "train_d_dp/model.py:69:__call__"
+      ],
+      "displacement": {
+        "master": 0.031504261496026205,
+        "device": 0.03264523880713593,
+        "ratio": 1.0362166023556414
+      }
+    },
+    "aiclk": {
+      "samples": 2,
+      "median": 1350.0,
+      "min": 1350.0,
+      "max": 1350.0
+    },
+    "device_nodes": [
+      3
+    ],
+    "seconds": 10.41833663500438,
+    "deviation_a": null,
+    "bar_a": 0.6,
+    "seed_floor_a": 1.84,
+    "clock_is_artifact": false,
+    "passed": null,
+    "dp": {
+      "world": 2,
+      "wall_s": 18.097734547991422,
+      "nodes": [
+        3,
+        1
+      ],
+      "visible": [
+        "2",
+        "0"
+      ],
+      "distinct_master_sha": 1,
+      "master_sha": "e49e14fa3ceca92b26d5cd46ab44de8bacfb310fa8815fc41ce095541014b090",
+      "sync_ok": true,
+      "median_step_s": 0.05202780650870409,
+      "comm_bytes": 163936,
+      "median_transfer_s": 0.0006667395064141601,
+      "median_barrier_wait_s": 0.0010747474952950142,
+      "per_rank": [
+        {
+          "rank": 0,
+          "visible": "2",
+          "node": 3,
+          "steps": 3,
+          "median_step_s": 0.051680882010259666,
+          "median_transfer_s": 0.0006706990097882226,
+          "median_barrier_wait_s": 0.0021172859997022897,
+          "comm_bytes": 163936,
+          "aiclk": {
+            "samples": 2,
+            "median": 1350.0,
+            "min": 1350.0,
+            "max": 1350.0
+          },
+          "loss_first": 408.5598790347591,
+          "loss_last": 392.2279581724255
+        },
+        {
+          "rank": 1,
+          "visible": "0",
+          "node": 1,
+          "steps": 3,
+          "median_step_s": 0.05237473100714851,
+          "median_transfer_s": 0.0006627800030400977,
+          "median_barrier_wait_s": 3.2208990887738764e-05,
+          "comm_bytes": 163936,
+          "aiclk": {
+            "samples": 4,
+            "median": 1350.0,
+            "min": 1350.0,
+            "max": 1350.0
+          },
+          "loss_first": 401.9935344115428,
+          "loss_last": 394.6410762946456
+        }
+      ],
+      "run": "/dev/shm/tt-bio-dp/3872647-1789757733",
+      "params": [
+        "train_d_dp/model.py:29:block.A",
+        "train_d_dp/model.py:29:block.B",
+        "train_d_dp/model.py:30:block.A",
+        "train_d_dp/model.py:30:block.B",
+        "train_d_dp/model.py:69:__call__.A",
+        "train_d_dp/model.py:69:__call__.B"
+      ]
+    }
+  },
+  "displacement": {
+    "master": 0.031504261496026205,
+    "device": 0.03264523880713593,
+    "ratio": 1.0362166023556414
+  }
+}

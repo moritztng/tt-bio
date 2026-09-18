@@ -61,6 +61,23 @@ def _recipe_refuses_a_wide_dp_axis() -> str:
     return window if "NotImplementedError" in window else ""
 
 
+def _recipe_hands_a_wide_dp_axis_to_the_launcher() -> str:
+    """The dispatch that replaced the refusal, if it is there. Returns the window or ''.
+
+    The other half of keying on code. While the recipe refused a wide axis, the honest README
+    was one that did not claim data parallelism, and the control below proved the gate could
+    see that refusal. The launcher landed, so the fact that decides the same question is now
+    the recipe handing a wide axis to it, and the control proves the gate can see THAT. Either
+    way the gate reads `tt_bio/train/recipes.py`; what it reads there changed once.
+    """
+    src = RECIPES.read_text()
+    m = re.search(r"if\s+dp\.width\s*>\s*1\s+and\s+launcher\.driving\(\)\s*:", src)
+    if not m:
+        return ""
+    window = src[m.start():m.start() + 400]
+    return window if "launcher.drive(" in window else ""
+
+
 def _works_today_sentence() -> str:
     if not README.is_file():
         return ""
@@ -93,17 +110,31 @@ def test_the_readme_does_not_claim_data_parallelism_works_while_the_recipe_refus
         "quiet by itself.")
 
 
-def test_the_control_a_recipe_without_the_refusal_clears_the_gate():
+def test_the_control_the_gate_still_reads_the_code_and_not_the_prose():
     """Negative control: the gate must key on the code, not merely on the README's wording.
 
     Without this, the assertion above could be passing on some tree because the regex never
     matches anything rather than because doc and code agree.
+
+    One of the two facts about `recipes.py` has to be findable: either it still refuses a wide
+    dp axis, in which case the works-today claim must not mention data parallelism, or it
+    hands one to the launcher, in which case the claim is true. Neither found means the gate
+    is reading nothing and the assertion above is passing for free -- which is the failure
+    this control exists to make loud. `train-d-dp-launcher` built the launcher and removed the
+    refusal, and the arm below moved with it rather than being deleted.
     """
     refusal = _recipe_refuses_a_wide_dp_axis()
-    assert refusal, (
-        "the dp-width refusal was not found in tt_bio/train/recipes.py, so the gate above cannot "
-        "tell an honest README from a lucky one. If the launcher was built and the guard removed, "
-        "delete this control with it; if the guard was only reworded, update the pattern.")
-    assert "NotImplementedError" in refusal and "launcher" in refusal, (
-        "the refusal matched but does not look like the one this gate was written against; "
-        "re-read it before trusting the assertion above.")
+    dispatch = _recipe_hands_a_wide_dp_axis_to_the_launcher()
+    assert refusal or dispatch, (
+        "tt_bio/train/recipes.py neither refuses a >1-wide dp axis nor hands one to "
+        "tt_bio.train.launcher, so the gate above cannot tell an honest README from a lucky "
+        "one -- it is matching nothing and skipping. Re-read the recipe and update whichever "
+        "pattern moved.")
+    if refusal:
+        assert "NotImplementedError" in refusal and "launcher" in refusal, (
+            "the refusal matched but does not look like the one this gate was written "
+            "against; re-read it before trusting the assertion above.")
+    else:
+        assert "launcher.drive(" in dispatch, (
+            "the dispatch matched but does not call launcher.drive(), so a wide axis reaches "
+            "no launcher and the works-today claim is false again.")

@@ -45,7 +45,7 @@ TIER2 = (
     "lora_factors", "lora_linear", "attach", "census", "select", "af3_lr", "to_host",
     "to_device", "objectives", "losses", "provenance", "save_adapter", "load_adapter",
     "install", "uninstall", "backward", "no_grad", "Tensor", "UnreducedGradients",
-    "UNMEASURED",
+    "UNMEASURED", "launcher",
 )
 
 # name -> the submodule it lives in. A module of its own is listed as itself.
@@ -73,7 +73,7 @@ _WHERE = {
 # permanent.
 _SUBMODULES = ("losses", "objectives", "provenance", "recipes", "mesh", "optim", "lora",
                "checkpoint", "tensors", "loop", "cli", "dryrun", "sharding", "checks",
-               "catalogue")
+               "catalogue", "launcher")
 _FROM_AUTOGRAD = ("install", "uninstall", "installed", "is_grad_enabled", "backward",
                   "no_grad", "Tensor")
 
