@@ -4222,6 +4222,31 @@ _MM_IN1_BLOCK_TILES = 30
 #: Unresolved and not rank-separated anywhere, sign positive everywhere, against a silu-class
 #: regression of -0.0509/-0.0721 CA-lDDT that is 16-65x these CIs. Artifacts
 #: `perf/c14_matmul_ceiling/acc_rf3.json` and `acc_b2_512.json`.
+#:
+#: PERF on those four RF3 shapes, which is a different question from accuracy and the one that
+#: caught this rule regressing `1,512,768,3072` by 1.114x on Boltz-2. Screened op-level on the two
+#: routings the call site actually takes, 11 reps interleaved with the order reversed on odd reps,
+#: A/A twin per shape 0.9961-1.0008, cube 121.961 TFLOP/s and starved add 430.51 GB/s both in band
+#: (`perf/c14_matmul_ceiling/rf3_bwladder_r1.json`):
+#:   (1,117,768)x(768,1536)   bw=6  0.5026x      (1,29,32,128)x(128,256)  bw=4  1.0109x
+#:   (1,117,1536)x(1536,768)  bw=8  0.8857x      (1,29,32,256)x(256,128)  bw=8  0.7524x
+#: Three wins and one 1.1 % regression, +42.0 ms against -0.08 ms per 117 aa fold. So the rule is
+#: better on RF3's unfitted shapes than on the Boltz-2 shape it was fitted on (0.6234x). Note the
+#: scope of the fitted constant: 30 was chosen as the largest value regressing no BOLTZ-2 group by
+#: more than 1.0071x, and RF3 has a group at 1.0109x, so that bound is not global. The constant
+#: cannot fix it -- `k_tiles = 4` with `per_core_N = 1` admits every divisor of K at any constant
+#: above 4 -- but moving the guard below from `k_tiles < 4` to `k_tiles < 8` would, and is a no-op
+#: on Boltz-2, where every served group is `k_tiles` 24 or 48.
+#:
+#: FOLD VALUE, and it is 4.5x below what the op ladder predicted. Registered at +0.2102 s from five
+#: groups each priced at its own measured ratio against its own in-fold device seconds; measured at
+#: **+0.047 s, 1.0032x** (`perf/c14_matmul_ceiling/fold_ab_f3.json`: base n=18 median 14.6110 s
+#: spread 1.48 %, bw n=9 median 14.5570 s, paired +0.0470 s CI [+0.0191, +0.0749], clock 1350-1350
+#: on all 27 folds). A second ungated session agrees at +0.0405 s. Neither books: both A/A
+#: half-widths (0.0605 and 0.0802 s) exceed the effect, because a 0.05 s effect sits at this box's
+#: paired noise floor. The gap is not a config mismatch -- the helper reproduces the fold's resolved
+#: config exactly apart from `in0_block_w` on four of the five served groups -- it is that device
+#: kernel seconds deleted from this class are not wall-clock seconds.
 _MM_SHORT_M_BW = env_flag("TT_BIO_MM_SHORT_M_BW", False)
 
 
