@@ -1,0 +1,26 @@
+{
+  "flag": "TT_BIO_SDPA_BAND_DIV_K",
+  "registered_utc": "2026-09-18T16:55Z",
+  "registered_before": "any fold A/B of this flag on qb2 p300c",
+  "size_aa": 298,
+  "padded": 320,
+  "what_moves": "k_chunk 64 -> 160 on the 560 tri-attention SDPA calls; q_chunk stays 320, kernel stays fused in BOTH arms",
+  "calls_per_fold": 560,
+  "calls_provenance": "perf/c14_land/firing.json rows[].counters.sdpa_route_counts at 298 aa: fused 560, stock 0; sdpa_chunk_picks has the single key (320,320) = [320,64,fused] base vs [320,160,fused] arm",
+  "rate_used_ms_per_call": {"shipped_k64_median": 0.6836, "divk_k160_median": 0.5261, "delta": 0.1575},
+  "rate_provenance": "perf/whb2/out/divk_qb1c1.json padded=320, Blackhole 13x10, arms interleaved, A/A control ratio 0.9957. OP-LEVEL rate on a 13x10 grid, NOT this p300c, so it is a BAND and never a book entry.",
+  "predicted_fold_delta_s": {"upper": 0.0882, "lower": 0.0441},
+  "lower_bound_basis": "the flag comment: isolated per-op timing over-syncs roughly 2x against batched work, so the lower bound halves the upper",
+  "as_pct_of_fold": {"fold_s_reference": 9.652, "upper_pct": 0.91, "lower_pct": 0.46},
+  "what_would_make_it_negative": [
+    "k=160 raises the fused kernel per-core L1 working set; if it spills the arm goes slower, not faster",
+    "the rate came off a 13x10 grid and this campaign measured 43 pct wrong-sign op-to-fold transfer over 87 rows",
+    "0.46-0.91 pct can sit INSIDE this box A/A floor. A ratio inside the session own A/A floor is NULL/unresolvable, which is a finding and a drop, not a win"
+  ],
+  "accuracy_already_banked": {
+    "all_atom_A": 0.254029, "ca_A": 0.121228, "aa_floor_A": 0.0,
+    "pass_threshold_A": 0.35, "hold_threshold_A": 0.6, "seed_floor_A": 0.7998,
+    "verdict": "PASS", "source": "perf/c14_land/bandk_accuracy_score_298.json"
+  },
+  "plddt_arm_owed": "the flag comment says the accuracy arm is plDDT, not a digest, because k_chunk sets the online-softmax reduction order. The A/B harness records plDDT per fold, so this run supplies it with a base spread."
+}
