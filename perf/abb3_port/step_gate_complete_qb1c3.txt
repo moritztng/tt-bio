@@ -1,0 +1,25 @@
+  return total, {"fape": float(fape), "supervised_chi": float(chi),
+  elsewhere  pid 3743539 -> /dev/tenstorrent/1  python3 perf/bfp8_envelope/fold_b8.py --sizes 512 --plan base:0,1,2,3;T:0,1,2,3 --out perf
+  elsewhere  pid 3749159 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+  taped device parameters: 436
+  elsewhere  pid 3743539 -> /dev/tenstorrent/1  python3 perf/bfp8_envelope/fold_b8.py --sizes 512 --plan base:0,1,2,3;T:0,1,2,3 --out perf
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+  step   1  42.868 s  loss 4.9950  (median so far 42.868 s)
+BREAKDOWN (median over steps, seconds and share of the step):
+  forward             5.166 s   12.5 %
+  download            0.255 s    0.6 %
+  losses             11.621 s   28.2 %
+  host_backward      13.147 s   31.9 %
+  device_backward    10.678 s   25.9 %
+  optimizer           0.081 s    0.2 %
+LOSS TERMS (cumulative over 3 steps, share of the loss stage):
+  fape_sidechain      27.46 s   87.6 %
+  renamed_gt           2.79 s    8.9 %
+  fape_backbone        0.75 s    2.4 %
+  supervised_chi       0.21 s    0.7 %
+  final_backbone       0.14 s    0.5 %
+CLOCK: AICLK during the run: card 0 min 1350 median 1350 max 1350 MHz over 27
+INCLUDES: device forward and backward, host geometry tail, the stage-1 losses (FAPE, supervised chi, final-block) and one RAdam step
+TARGETS: synthetic -- their structures/*.pt are not staged on this host; a loss's COST is shape-set and its VALUE is checked by loss_gate.py
+CONTENDED: 0 cotenant(s) on our node and 1 elsewhere

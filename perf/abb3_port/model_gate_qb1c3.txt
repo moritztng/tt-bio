@@ -1,0 +1,100 @@
+=== sigma=0.05, 64 tokens, 8 blocks, batch 2 ===
+  sigma 0.05, 8 blocks, batch 2 x 64 tokens
+  output                    rel err   on vs off
+  ok   frames              7.66e-04    0.00e+00  (bars 5e-2 / 0)
+  ok   angles              1.47e-02    0.00e+00  (bars 5e-2 / 0)  [unconditional 3.71e-02 on 7000 angles; 6927 well-conditioned]
+  ok   unnormalized_angles   3.05e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   states              4.94e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   single              4.47e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   plddt               1.60e-03    0.00e+00  (bars 5e-2 / 0)
+  grad off  atom14 positions: max 0.014 A, rmsd 0.004 A, median 0.0021 A over 1037 atoms
+  grad on   atom14 positions: max 0.014 A, rmsd 0.004 A, median 0.0021 A over 1037 atoms
+  gradient                         cos    L2 rel   max rel   sigma 0.05, bars tight
+  ok   d/d single             0.999681  2.53e-02  6.34e-02  (bars 0.999 / 5e-02)
+  ok   d/d pair               0.999723  2.35e-02  4.80e-02  (bars 0.999 / 5e-02)
+  ok   d/d linear_in_node.w   0.999617  2.78e-02  3.94e-02  (bars 0.999 / 5e-02)
+  ok   d/d linear_in_edge.w   0.999561  3.00e-02  2.87e-02  (bars 0.999 / 5e-02)
+  ok   d/d ipa[0] linear_q.w  0.999823  1.89e-02  2.03e-02  (bars 0.999 / 5e-02)
+  ok   d/d bb_update[7].w[0]  0.999993  4.81e-03  5.64e-03  (bars 0.999 / 5e-02)
+  ok   d/d angle[7] linear_out.w  0.999975  7.21e-03  9.85e-03  (bars 0.999 / 5e-02)
+  float32 control (torch vs torch, same weights)
+       forward states              nan  2.18e-03
+       d/d single             1.000000  9.34e-07
+       d/d pair               1.000000  7.33e-07
+       d/d ipa[0] linear_q.w  1.000000  8.77e-07
+PASS
+=== sigma=0.05, 256 tokens, 8 blocks, batch 2 ===
+  sigma 0.05, 8 blocks, batch 2 x 256 tokens
+  output                    rel err   on vs off
+  ok   frames              8.38e-04    0.00e+00  (bars 5e-2 / 0)
+  ok   angles              1.68e-02    0.00e+00  (bars 5e-2 / 0)  [unconditional 6.75e-02 on 28504 angles; 28169 well-conditioned]
+  ok   unnormalized_angles   2.79e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   states              3.71e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   single              3.66e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   plddt               1.80e-03    0.00e+00  (bars 5e-2 / 0)
+  grad off  atom14 positions: max 0.016 A, rmsd 0.004 A, median 0.0021 A over 4172 atoms
+  grad on   atom14 positions: max 0.016 A, rmsd 0.004 A, median 0.0021 A over 4172 atoms
+  gradient                         cos    L2 rel   max rel   sigma 0.05, bars tight
+  ok   d/d single             0.999521  3.10e-02  4.85e-02  (bars 0.999 / 5e-02)
+  ok   d/d pair               0.999504  3.15e-02  4.99e-02  (bars 0.999 / 5e-02)
+  ok   d/d linear_in_node.w   0.999532  3.08e-02  3.55e-02  (bars 0.999 / 5e-02)
+  ok   d/d linear_in_edge.w   0.999548  3.01e-02  2.80e-02  (bars 0.999 / 5e-02)
+  ok   d/d ipa[0] linear_q.w  0.999531  3.07e-02  3.49e-02  (bars 0.999 / 5e-02)
+  ok   d/d bb_update[7].w[0]  0.999998  2.25e-03  2.70e-03  (bars 0.999 / 5e-02)
+  ok   d/d angle[7] linear_out.w  0.999824  2.00e-02  1.86e-02  (bars 0.999 / 5e-02)
+  float32 control (torch vs torch, same weights)
+       forward states              nan  1.30e-03
+       d/d single             1.000000  1.68e-06
+       d/d pair               1.000000  1.25e-06
+       d/d ipa[0] linear_q.w  1.000000  1.41e-06
+PASS
+=== sigma=0.3, 64 tokens, 8 blocks, batch 2 ===
+  sigma 0.3, 8 blocks, batch 2 x 64 tokens
+  output                    rel err   on vs off
+  ok   frames              6.65e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   angles              3.23e-02    0.00e+00  (bars 5e-2 / 0)  [unconditional 7.41e-02 on 7000 angles; 6964 well-conditioned]
+  ok   unnormalized_angles   8.18e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   states              1.10e-02    0.00e+00  (bars 5e-2 / 0)
+  ok   single              1.50e-02    0.00e+00  (bars 5e-2 / 0)
+  ok   plddt               8.23e-03    0.00e+00  (bars 5e-2 / 0)
+  grad off  atom14 positions: max 0.174 A, rmsd 0.049 A, median 0.0389 A over 1037 atoms
+  grad on   atom14 positions: max 0.174 A, rmsd 0.049 A, median 0.0389 A over 1037 atoms
+  gradient                         cos    L2 rel   max rel   sigma 0.3, bars stress
+  ok   d/d single             0.994133  1.08e-01  6.53e-02  (bars 0.75 / 2e+00)
+  ok   d/d pair               0.993256  1.16e-01  1.55e-01  (bars 0.75 / 2e+00)
+  ok   d/d linear_in_node.w   0.992873  1.20e-01  1.07e-01  (bars 0.75 / 2e+00)
+  ok   d/d linear_in_edge.w   0.991867  1.28e-01  1.41e-01  (bars 0.75 / 2e+00)
+  ok   d/d ipa[0] linear_q.w  0.992803  1.20e-01  1.20e-01  (bars 0.75 / 2e+00)
+  ok   d/d bb_update[7].w[0]  0.999994  7.35e-03  1.06e-02  (bars 0.75 / 2e+00)
+  ok   d/d angle[7] linear_out.w  0.999449  5.52e-02  7.20e-02  (bars 0.75 / 2e+00)
+  float32 control (torch vs torch, same weights)
+       forward states              nan  4.43e-02
+       d/d single             0.999999  1.38e-03
+       d/d pair               0.999998  2.16e-03
+       d/d ipa[0] linear_q.w  0.999998  2.07e-03
+PASS
+=== sigma=0.3, 256 tokens, 8 blocks, batch 2 ===
+  sigma 0.3, 8 blocks, batch 2 x 256 tokens
+  output                    rel err   on vs off
+  ok   frames              9.79e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   angles              4.98e-02    0.00e+00  (bars 5e-2 / 0)  [unconditional 2.49e-01 on 28504 angles; 28353 well-conditioned]
+  ok   unnormalized_angles   7.45e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   states              1.23e-02    0.00e+00  (bars 5e-2 / 0)
+  ok   single              1.64e-02    0.00e+00  (bars 5e-2 / 0)
+  ok   plddt               1.14e-02    0.00e+00  (bars 5e-2 / 0)
+  grad off  atom14 positions: max 0.233 A, rmsd 0.048 A, median 0.0369 A over 4172 atoms
+  grad on   atom14 positions: max 0.233 A, rmsd 0.048 A, median 0.0369 A over 4172 atoms
+  gradient                         cos    L2 rel   max rel   sigma 0.3, bars stress
+  ok   d/d single             0.923075  4.95e-01  8.96e-01  (bars 0.75 / 2e+00)
+  ok   d/d pair               0.983456  1.86e-01  6.18e-01  (bars 0.75 / 2e+00)
+  ok   d/d linear_in_node.w   0.956249  3.48e-01  5.96e-01  (bars 0.75 / 2e+00)
+  ok   d/d linear_in_edge.w   0.993505  1.23e-01  1.29e-01  (bars 0.75 / 2e+00)
+  ok   d/d ipa[0] linear_q.w  0.992171  1.28e-01  1.36e-01  (bars 0.75 / 2e+00)
+  ok   d/d bb_update[7].w[0]  0.993826  1.11e-01  8.59e-02  (bars 0.75 / 2e+00)
+  ok   d/d angle[7] linear_out.w  0.790541  1.01e+00  1.31e+00  (bars 0.75 / 2e+00)
+  float32 control (torch vs torch, same weights)
+       forward states              nan  2.71e-02
+       d/d single             1.000000  2.75e-04
+       d/d pair               1.000000  6.17e-04
+       d/d ipa[0] linear_q.w  1.000000  7.42e-04
+PASS
