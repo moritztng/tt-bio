@@ -45,11 +45,16 @@ from tt_bio.tenstorrent import CORE_GRID_MAIN, get_device  # noqa: E402
 
 READ_ROOF_GBS = 410.9
 WRITE_ROOF_GBS = 277.6
-# Measured, not asserted: 109.56 TFLOP/s on qb2 card 0 (state/trimul-bottleneck-rootcause.md P1),
-# against 102.41 on the same card a pass earlier. `trix-floor` is re-deriving this in the kernel
-# config the shipped code uses, since fp32_dest_acc_en/packer_l1_acc move the same cube 1.40x --
-# update here when it lands rather than reintroducing a hard-coded campaign constant.
-HIFI4_TFLOPS = 109.56
+# Measured at a PINNED, verified 1350 MHz in the shipped kernel config (HiFi4,
+# math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=True): 123.65 TFLOP/s pipelined,
+# 121.40 serial, qb2 p300c card 0 -- state/trix-floor.md, which re-derived this for the TRIX
+# campaign. The 109.56 this file carried between 2026-09-19 morning and now is the SAME card at a
+# governor-set ~1213 MHz, and 137.1 before that was asserted rather than measured.
+#
+# The roof is linear in AICLK at 0.0903 TFLOP/s per MHz across 800/1050/1350 (0.6 % spread over a
+# 1.69x clock range), so if you run this at a clock you did not pin, scale it -- do not reuse the
+# number. A compute share computed against an unpinned clock is not a measurement.
+HIFI4_TFLOPS = 123.65
 
 
 class Tape:
