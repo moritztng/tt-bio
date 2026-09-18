@@ -1,0 +1,13 @@
+SOAK node=2 start=2026-09-18T05:12:49Z max_s=1020 folds=140
+-- holders before:
+   dev0: 
+   dev1: 
+   dev2: 
+   dev3: 
+-- aiclk before: 800
+-- clk pid=602230 aiclk now: 1350
+-- fold pid=602280
+-- fold rc=1 elapsed=28s
+-- aiclk after release: 800
+SOAK node=2 end=2026-09-18T05:13:24Z
+SOAKDONE-2

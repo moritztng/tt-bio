@@ -1,0 +1,388 @@
+{
+ "started_utc": "2026-09-18T14:04:08Z",
+ "host": "tt-quietbox2",
+ "card": "2",
+ "note": "One process per arm: TT_BIO_APB_CONCAT_HEADS is consumed at model construction and re-lanes proj_g/proj_o, so it cannot be flipped in process. Arms interleaved block by block; the A/A floor is the spread across the base blocks, compared the same way base is compared to apb.",
+ "blocks": [
+  {
+   "size": "298",
+   "arm": "base",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "298",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 9.638,
+      "clock": {
+       "aiclk_min": 1331,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1345.9,
+       "aiclk_n": 42,
+       "power_w_mean": 57.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.908011,
+      "cif_sha256": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28",
+      "loadavg1": 6.57
+     },
+     {
+      "tag": "1",
+      "fold_s": 9.663,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1345.2,
+       "aiclk_n": 43,
+       "power_w_mean": 63.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.908011,
+      "cif_sha256": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28",
+      "loadavg1": 6.43
+     }
+    ],
+    "model_load_s": 2.675,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "7cb6288de8ef465c804a1f54eb9bfa2b09827365",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 10.053,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1344.4,
+      "aiclk_n": 44,
+      "power_w_mean": 63.3
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.908011,
+     "cif_sha256": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28",
+     "loadavg1": 7.4,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "298",
+   "arm": "on",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "298",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 9.55,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1345.1,
+       "aiclk_n": 42,
+       "power_w_mean": 65.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.903865,
+      "cif_sha256": "e60aac00b2656d02d4495792b0c522c51a2ce4226fe985429a72d000d843b691",
+      "loadavg1": 5.31
+     },
+     {
+      "tag": "1",
+      "fold_s": 10.271,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.6,
+       "aiclk_n": 46,
+       "power_w_mean": 66.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.903865,
+      "cif_sha256": "e60aac00b2656d02d4495792b0c522c51a2ce4226fe985429a72d000d843b691",
+      "loadavg1": 5.36
+     }
+    ],
+    "model_load_s": 2.644,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "7cb6288de8ef465c804a1f54eb9bfa2b09827365",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 10.578,
+     "clock": {
+      "aiclk_min": 1318,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1345.9,
+      "aiclk_n": 48,
+      "power_w_mean": 58.9
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.903865,
+     "cif_sha256": "e60aac00b2656d02d4495792b0c522c51a2ce4226fe985429a72d000d843b691",
+     "loadavg1": 6.09,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "298",
+   "arm": "base",
+   "block": 1,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "298",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 9.72,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1344.0,
+       "aiclk_n": 40,
+       "power_w_mean": 65.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.908011,
+      "cif_sha256": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28",
+      "loadavg1": 6.07
+     },
+     {
+      "tag": "1",
+      "fold_s": 9.742,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.8,
+       "aiclk_n": 43,
+       "power_w_mean": 66.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.908011,
+      "cif_sha256": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28",
+      "loadavg1": 5.45
+     }
+    ],
+    "model_load_s": 3.338,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "7cb6288de8ef465c804a1f54eb9bfa2b09827365",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 10.421,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1344.2,
+      "aiclk_n": 46,
+      "power_w_mean": 62.7
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.908011,
+     "cif_sha256": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28",
+     "loadavg1": 6.64,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "298",
+   "arm": "on",
+   "block": 1,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "298",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 9.575,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.1,
+       "aiclk_n": 43,
+       "power_w_mean": 67.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.903865,
+      "cif_sha256": "e60aac00b2656d02d4495792b0c522c51a2ce4226fe985429a72d000d843b691",
+      "loadavg1": 4.27
+     },
+     {
+      "tag": "1",
+      "fold_s": 9.583,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.2,
+       "aiclk_n": 42,
+       "power_w_mean": 69.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.903865,
+      "cif_sha256": "e60aac00b2656d02d4495792b0c522c51a2ce4226fe985429a72d000d843b691",
+      "loadavg1": 4.63
+     }
+    ],
+    "model_load_s": 2.688,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "7cb6288de8ef465c804a1f54eb9bfa2b09827365",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 10.04,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.2,
+      "aiclk_n": 45,
+      "power_w_mean": 69.8
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.903865,
+     "cif_sha256": "e60aac00b2656d02d4495792b0c522c51a2ce4226fe985429a72d000d843b691",
+     "loadavg1": 4.68,
+     "discarded": true
+    }
+   }
+  }
+ ],
+ "summary": {
+  "298": {
+   "base_median_s": 9.692,
+   "on_median_s": 9.579,
+   "base_n": 4,
+   "on_n": 4,
+   "delta_s": 0.1125,
+   "ratio_base_over_on": 1.01174,
+   "aa_floor_ratio_max": 1.00834,
+   "base_block_medians": [
+    9.651,
+    9.731
+   ],
+   "on_block_medians": [
+    9.911,
+    9.579
+   ],
+   "clock_min": 1312,
+   "clock_max": 1350,
+   "clock_samples": 341,
+   "verdict_rule": "a ratio inside aa_floor_ratio_max is a NULL, not a win"
+  }
+ },
+ "finished_utc": "2026-09-18T14:06:31Z"
+}

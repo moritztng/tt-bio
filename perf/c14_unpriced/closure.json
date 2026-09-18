@@ -1,0 +1,194 @@
+{
+ "fold_s": 14.881,
+ "device_s": 13.209,
+ "nondevice_s": 1.672,
+ "priced_insitu_s": 7.7413,
+ "priced_replay_s": 10.5366,
+ "replay_overprice_s": 2.7953,
+ "replay_overprice_x": 1.3610892227403666,
+ "generic_op_insitu_s": 3.383,
+ "block_insitu_s": 2.0848,
+ "refused51_insitu_s": 2.0277,
+ "embeddings_s": 0.0571,
+ "sum_s": 13.2091,
+ "residual_s": 9.999999999976694e-05,
+ "naive_residual_s": 2.6723999999999997,
+ "standalone_total_s": 2.725724308050926,
+ "standalone_over_insitu_x": 1.3442443695077804,
+ "dram_roof_GBps": 442.28413847673744,
+ "cube_open_TFLOPs": 86.10740518058682,
+ "cube_close_TFLOPs": 85.99184089452356,
+ "clock_min_MHz": 1312,
+ "clock_max_MHz": 1350,
+ "clock_samples": 38169,
+ "qualified_keys": 47,
+ "unqualified_keys": [
+  "permute|1x512x512x128|KNone",
+  "slice|1x560x32x32|KNone",
+  "permute|1x1x128x512|KNone",
+  "cos|1x256|KNone",
+  "permute|1x16x512x512|KNone"
+ ],
+ "layout_subtotal_s": 1.2466,
+ "compute_subtotal_s": 0.8382000000000001,
+ "table": [
+  {
+   "op": "Transpose+Permute",
+   "insitu_s": 0.5997,
+   "standalone_s": 0.34677666953034436,
+   "calls": 11672.0,
+   "GB": 71.399112704,
+   "GBps_insitu": 119.05805019843254,
+   "pct_roof": 26.918905708099356,
+   "layout": true
+  },
+  {
+   "op": "SDPAOperation",
+   "insitu_s": 0.4335,
+   "standalone_s": 0.6587653182410984,
+   "calls": 6000.0,
+   "GB": 79.6655616,
+   "GBps_insitu": 183.77292179930797,
+   "pct_roof": 41.550873253614036,
+   "layout": false
+  },
+  {
+   "op": "NlpCreateHeads",
+   "insitu_s": 0.3007,
+   "standalone_s": 0.27395985079824714,
+   "calls": 6264.0,
+   "GB": 64.059604992,
+   "GBps_insitu": 213.034935124709,
+   "pct_roof": 48.1669851101644,
+   "layout": false
+  },
+  {
+   "op": "Slice",
+   "insitu_s": 0.1917,
+   "standalone_s": 0.16843297885934155,
+   "calls": 11872.0,
+   "GB": 63.464931328,
+   "GBps_insitu": 331.0638045279082,
+   "pct_roof": 74.85319407295927,
+   "layout": true
+  },
+  {
+   "op": "ReshapeView",
+   "insitu_s": 0.1571,
+   "standalone_s": 0.8587354078525851,
+   "calls": 5080.0,
+   "GB": 12.468617216,
+   "GBps_insitu": 79.36739157224697,
+   "pct_roof": 17.944887611297734,
+   "layout": true
+  },
+  {
+   "op": "Pad",
+   "insitu_s": 0.0864,
+   "standalone_s": 0.08915053088228093,
+   "calls": 3600.0,
+   "GB": 20.1424896,
+   "GBps_insitu": 233.13066666666666,
+   "pct_roof": 52.710609851302294,
+   "layout": true
+  },
+  {
+   "op": "Concat",
+   "insitu_s": 0.0748,
+   "standalone_s": 0.13807960185567952,
+   "calls": 1496.0,
+   "GB": 33.230422016,
+   "GBps_insitu": 444.2569788235294,
+   "pct_roof": 100.44605722321097,
+   "layout": true
+  },
+  {
+   "op": "Tilize+Untilize",
+   "insitu_s": 0.1126,
+   "standalone_s": 0.12024055583207893,
+   "calls": 2464.0,
+   "GB": 50.464555008,
+   "GBps_insitu": 448.1754441207815,
+   "pct_roof": 101.33201829582543,
+   "layout": true
+  },
+  {
+   "op": "Embeddings",
+   "insitu_s": 0.0571,
+   "standalone_s": null,
+   "calls": 0.0,
+   "GB": 0.0,
+   "GBps_insitu": null,
+   "pct_roof": null,
+   "layout": false
+  },
+  {
+   "op": "Softmax",
+   "insitu_s": 0.0323,
+   "standalone_s": 0.012439115249129705,
+   "calls": 280.0,
+   "GB": 4.429185024,
+   "GBps_insitu": 137.12647133126933,
+   "pct_roof": 31.004157599579322,
+   "layout": false
+  },
+  {
+   "op": "Copy",
+   "insitu_s": 0.0243,
+   "standalone_s": 0.046188264285765876,
+   "calls": 5328.0,
+   "GB": 5.781848064,
+   "GBps_insitu": 237.93613432098766,
+   "pct_roof": 53.797121266988924,
+   "layout": true
+  },
+  {
+   "op": "NLPConcatHeads",
+   "insitu_s": 0.0131,
+   "standalone_s": 0.01295601466437446,
+   "calls": 1200.0,
+   "GB": 2.752512,
+   "GBps_insitu": 210.11541984732824,
+   "pct_roof": 47.50688563487328,
+   "layout": false
+  },
+  {
+   "op": "UnaryNg",
+   "insitu_s": 0.0015,
+   "standalone_s": null,
+   "calls": 0.0,
+   "GB": 0.0,
+   "GBps_insitu": null,
+   "pct_roof": null,
+   "layout": false
+  }
+ ],
+ "n_keys_total": 133,
+ "buckets": {
+  "priced": {
+   "keys": 70,
+   "calls": 228872.0,
+   "B": 1491354271744.0
+  },
+  "skip": {
+   "keys": 8,
+   "calls": 150160.0,
+   "B": 57753600.0
+  },
+  "noarm": {
+   "keys": 1,
+   "calls": 3920.0,
+   "B": 912691691520.0
+  },
+  "refused": {
+   "keys": 52,
+   "calls": 57880.0,
+   "B": 454831112192.0
+  },
+  "nokey": {
+   "keys": 2,
+   "calls": 24832.0,
+   "B": 0.0
+  }
+ }
+}

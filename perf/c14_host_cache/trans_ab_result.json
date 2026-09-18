@@ -1,0 +1,1080 @@
+{
+  "pid": 571934,
+  "host": "tt-quietbox2",
+  "node": 3,
+  "sizes": [
+    512,
+    298
+  ],
+  "blocks": [
+    "keep",
+    "clear",
+    "clear",
+    "keep"
+  ],
+  "reps": 3,
+  "clock": 1350,
+  "rows": [
+    {
+      "tag": "cold",
+      "arm": "clear",
+      "block": -1,
+      "rep": -1,
+      "size": 512,
+      "counted": false,
+      "start_monotonic_ns": 10095968232123,
+      "end_monotonic_ns": 10112674904631,
+      "elapsed_s": 16.706672508,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 2,
+      "entries_after": 245,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 14813,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 147.0,
+        "max_gap_ns": 9773399,
+        "sample_span_fraction": 0.9999757683045618,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 126,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 174576084,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b0_keep_r0_512",
+      "arm": "keep",
+      "block": 0,
+      "rep": 0,
+      "size": 512,
+      "counted": false,
+      "start_monotonic_ns": 10113488822809,
+      "end_monotonic_ns": 10128218258160,
+      "elapsed_s": 14.729435351,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 245,
+      "entries_after": 245,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13753,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 149.0,
+        "max_gap_ns": 1975605,
+        "sample_span_fraction": 0.9999742527129545,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 118,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 155200650,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b0_keep_r0_298",
+      "arm": "keep",
+      "block": 0,
+      "rep": 0,
+      "size": 298,
+      "counted": false,
+      "start_monotonic_ns": 10129048785033,
+      "end_monotonic_ns": 10138860436903,
+      "elapsed_s": 9.81165187,
+      "plddt": 0.908011,
+      "cif": {
+        "cdk2x2_298.cif": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28"
+      },
+      "entries_before": 245,
+      "entries_after": 449,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 9167,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 151.0,
+        "max_gap_ns": 1938309,
+        "sample_span_fraction": 0.9998698343544062,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 79,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 132474205,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b0_keep_r1_512",
+      "arm": "keep",
+      "block": 0,
+      "rep": 1,
+      "size": 512,
+      "counted": true,
+      "start_monotonic_ns": 10139706107228,
+      "end_monotonic_ns": 10154306179115,
+      "elapsed_s": 14.600071887,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 449,
+      "entries_after": 449,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13630,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 144.0,
+        "max_gap_ns": 1300739,
+        "sample_span_fraction": 0.999990480800295,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 117,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 157688362,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b0_keep_r1_298",
+      "arm": "keep",
+      "block": 0,
+      "rep": 1,
+      "size": 298,
+      "counted": true,
+      "start_monotonic_ns": 10155175450127,
+      "end_monotonic_ns": 10164721497391,
+      "elapsed_s": 9.546047264,
+      "plddt": 0.908011,
+      "cif": {
+        "cdk2x2_298.cif": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28"
+      },
+      "entries_before": 449,
+      "entries_after": 449,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8893,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 150.0,
+        "max_gap_ns": 1479936,
+        "sample_span_fraction": 0.9998404493548084,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 77,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 144654735,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b0_keep_r2_512",
+      "arm": "keep",
+      "block": 0,
+      "rep": 2,
+      "size": 512,
+      "counted": true,
+      "start_monotonic_ns": 10165604734543,
+      "end_monotonic_ns": 10180299346637,
+      "elapsed_s": 14.694612094,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 449,
+      "entries_after": 449,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13718,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 40.0,
+        "max_W": 147.0,
+        "max_gap_ns": 4304810,
+        "sample_span_fraction": 0.9998880627818225,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 118,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 166017249,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b0_keep_r2_298",
+      "arm": "keep",
+      "block": 0,
+      "rep": 2,
+      "size": 298,
+      "counted": true,
+      "start_monotonic_ns": 10181206831975,
+      "end_monotonic_ns": 10190709678873,
+      "elapsed_s": 9.502846898,
+      "plddt": 0.908011,
+      "cif": {
+        "cdk2x2_298.cif": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28"
+      },
+      "entries_before": 449,
+      "entries_after": 449,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8882,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 152.0,
+        "max_gap_ns": 1483092,
+        "sample_span_fraction": 0.9998633083312882,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 76,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 157489992,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b1_clear_r0_512",
+      "arm": "clear",
+      "block": 1,
+      "rep": 0,
+      "size": 512,
+      "counted": true,
+      "start_monotonic_ns": 10191630282146,
+      "end_monotonic_ns": 10206361642895,
+      "elapsed_s": 14.731360749,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 449,
+      "entries_after": 245,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13767,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 149.0,
+        "max_gap_ns": 2065879,
+        "sample_span_fraction": 0.999966926341137,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 119,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 160676085,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b1_clear_r0_298",
+      "arm": "clear",
+      "block": 1,
+      "rep": 0,
+      "size": 298,
+      "counted": true,
+      "start_monotonic_ns": 10207310025332,
+      "end_monotonic_ns": 10217020014171,
+      "elapsed_s": 9.709988839,
+      "plddt": 0.908011,
+      "cif": {
+        "cdk2x2_298.cif": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28"
+      },
+      "entries_before": 245,
+      "entries_after": 242,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 9075,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 152.0,
+        "max_gap_ns": 1388157,
+        "sample_span_fraction": 0.9998224802284966,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 78,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 157766847,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b1_clear_r1_512",
+      "arm": "clear",
+      "block": 1,
+      "rep": 1,
+      "size": 512,
+      "counted": true,
+      "start_monotonic_ns": 10217982994039,
+      "end_monotonic_ns": 10232863401416,
+      "elapsed_s": 14.880407377,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 242,
+      "entries_after": 245,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13896,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 146.0,
+        "max_gap_ns": 1755497,
+        "sample_span_fraction": 0.9999425510351738,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 119,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 153946800,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b1_clear_r1_298",
+      "arm": "clear",
+      "block": 1,
+      "rep": 1,
+      "size": 298,
+      "counted": true,
+      "start_monotonic_ns": 10233853513119,
+      "end_monotonic_ns": 10243445798634,
+      "elapsed_s": 9.592285515,
+      "plddt": 0.908011,
+      "cif": {
+        "cdk2x2_298.cif": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28"
+      },
+      "entries_before": 245,
+      "entries_after": 242,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8956,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 150.0,
+        "max_gap_ns": 1462083,
+        "sample_span_fraction": 0.9998983225636399,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 77,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 154823191,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b1_clear_r2_512",
+      "arm": "clear",
+      "block": 1,
+      "rep": 2,
+      "size": 512,
+      "counted": true,
+      "start_monotonic_ns": 10244445002863,
+      "end_monotonic_ns": 10259207905708,
+      "elapsed_s": 14.762902845,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 242,
+      "entries_after": 245,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13797,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 146.0,
+        "max_gap_ns": 1405605,
+        "sample_span_fraction": 0.999947435879776,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 118,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 140280504,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b1_clear_r2_298",
+      "arm": "clear",
+      "block": 1,
+      "rep": 2,
+      "size": 298,
+      "counted": true,
+      "start_monotonic_ns": 10260234838373,
+      "end_monotonic_ns": 10269889791451,
+      "elapsed_s": 9.654953078,
+      "plddt": 0.908011,
+      "cif": {
+        "cdk2x2_298.cif": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28"
+      },
+      "entries_before": 245,
+      "entries_after": 242,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8994,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 40.0,
+        "max_W": 152.0,
+        "max_gap_ns": 1492206,
+        "sample_span_fraction": 0.9997910193883182,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 77,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 151679675,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b2_clear_r0_512",
+      "arm": "clear",
+      "block": 2,
+      "rep": 0,
+      "size": 512,
+      "counted": true,
+      "start_monotonic_ns": 10270934252642,
+      "end_monotonic_ns": 10286804031145,
+      "elapsed_s": 15.869778503,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 242,
+      "entries_after": 245,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 14324,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 147.0,
+        "max_gap_ns": 6719601,
+        "sample_span_fraction": 0.9999834726741806,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 123,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 179758985,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b2_clear_r0_298",
+      "arm": "clear",
+      "block": 2,
+      "rep": 0,
+      "size": 298,
+      "counted": true,
+      "start_monotonic_ns": 10288154625745,
+      "end_monotonic_ns": 10298030931483,
+      "elapsed_s": 9.876305738,
+      "plddt": 0.908011,
+      "cif": {
+        "cdk2x2_298.cif": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28"
+      },
+      "entries_before": 245,
+      "entries_after": 242,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8982,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 151.0,
+        "max_gap_ns": 6696296,
+        "sample_span_fraction": 0.9998826930807192,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 76,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 181703718,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b2_clear_r1_512",
+      "arm": "clear",
+      "block": 2,
+      "rep": 1,
+      "size": 512,
+      "counted": true,
+      "start_monotonic_ns": 10299119005892,
+      "end_monotonic_ns": 10314945402438,
+      "elapsed_s": 15.826396546,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 242,
+      "entries_after": 245,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 14204,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 147.0,
+        "max_gap_ns": 6452773,
+        "sample_span_fraction": 0.9999428590710859,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 119,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 180620806,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b2_clear_r1_298",
+      "arm": "clear",
+      "block": 2,
+      "rep": 1,
+      "size": 298,
+      "counted": true,
+      "start_monotonic_ns": 10316083007348,
+      "end_monotonic_ns": 10326444305867,
+      "elapsed_s": 10.361298519,
+      "plddt": 0.908011,
+      "cif": {
+        "cdk2x2_298.cif": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28"
+      },
+      "entries_before": 245,
+      "entries_after": 242,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 9468,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 150.0,
+        "max_gap_ns": 5783692,
+        "sample_span_fraction": 0.9998645883045038,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 80,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 182400111,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b2_clear_r2_512",
+      "arm": "clear",
+      "block": 2,
+      "rep": 2,
+      "size": 512,
+      "counted": true,
+      "start_monotonic_ns": 10327612223773,
+      "end_monotonic_ns": 10343300024716,
+      "elapsed_s": 15.687800943,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 242,
+      "entries_after": 245,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 14100,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 148.0,
+        "max_gap_ns": 7047163,
+        "sample_span_fraction": 0.9998995598550922,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 119,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 166709157,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b2_clear_r2_298",
+      "arm": "clear",
+      "block": 2,
+      "rep": 2,
+      "size": 298,
+      "counted": true,
+      "start_monotonic_ns": 10344605318132,
+      "end_monotonic_ns": 10354268844367,
+      "elapsed_s": 9.663526235,
+      "plddt": 0.908011,
+      "cif": {
+        "cdk2x2_298.cif": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28"
+      },
+      "entries_before": 245,
+      "entries_after": 242,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 9034,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 40.0,
+        "max_W": 151.0,
+        "max_gap_ns": 1400682,
+        "sample_span_fraction": 0.9998673455249331,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 77,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 129580836,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b3_keep_r0_512",
+      "arm": "keep",
+      "block": 3,
+      "rep": 0,
+      "size": 512,
+      "counted": false,
+      "start_monotonic_ns": 10355615783928,
+      "end_monotonic_ns": 10371301092661,
+      "elapsed_s": 15.685308733,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 242,
+      "entries_after": 449,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 14012,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 40.0,
+        "max_W": 148.0,
+        "max_gap_ns": 7809674,
+        "sample_span_fraction": 0.999908352648681,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 120,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 156611322,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b3_keep_r0_298",
+      "arm": "keep",
+      "block": 3,
+      "rep": 0,
+      "size": 298,
+      "counted": false,
+      "start_monotonic_ns": 10372502477246,
+      "end_monotonic_ns": 10382006583017,
+      "elapsed_s": 9.504105771,
+      "plddt": 0.908011,
+      "cif": {
+        "cdk2x2_298.cif": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28"
+      },
+      "entries_before": 449,
+      "entries_after": 449,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8757,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 150.0,
+        "max_gap_ns": 4607831,
+        "sample_span_fraction": 0.9999043618598213,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 74,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 151155054,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b3_keep_r1_512",
+      "arm": "keep",
+      "block": 3,
+      "rep": 1,
+      "size": 512,
+      "counted": true,
+      "valid": false,
+      "error": "RuntimeError(\"clock artifact or thin coverage: {'target_MHz': 1350, 'samples': 14049, 'min_MHz': 1350, 'max_MHz': 1350, 'min_W': 39.0, 'max_W': 147.0, 'max_gap_ns': 33383446, 'sample_span_fraction': 0.9999086102993691, 'errors': [], 'pass': False}\")"
+    },
+    {
+      "tag": "b3_keep_r1_298",
+      "arm": "keep",
+      "block": 3,
+      "rep": 1,
+      "size": 298,
+      "counted": true,
+      "start_monotonic_ns": 10400089221312,
+      "end_monotonic_ns": 10409970752952,
+      "elapsed_s": 9.88153164,
+      "plddt": 0.908011,
+      "cif": {
+        "cdk2x2_298.cif": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28"
+      },
+      "entries_before": 449,
+      "entries_after": 449,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8964,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 152.0,
+        "max_gap_ns": 5657379,
+        "sample_span_fraction": 0.9997936792519343,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 75,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 153210901,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b3_keep_r2_512",
+      "arm": "keep",
+      "block": 3,
+      "rep": 2,
+      "size": 512,
+      "counted": true,
+      "start_monotonic_ns": 10411244493393,
+      "end_monotonic_ns": 10426049542973,
+      "elapsed_s": 14.80504958,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 449,
+      "entries_after": 449,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 13578,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 39.0,
+        "max_W": 146.0,
+        "max_gap_ns": 6022292,
+        "sample_span_fraction": 0.9999598765950232,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 115,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 160461424,
+        "passed": true
+      }
+    },
+    {
+      "tag": "b3_keep_r2_298",
+      "arm": "keep",
+      "block": 3,
+      "rep": 2,
+      "size": 298,
+      "counted": true,
+      "start_monotonic_ns": 10427331786820,
+      "end_monotonic_ns": 10436889864330,
+      "elapsed_s": 9.55807751,
+      "plddt": 0.908011,
+      "cif": {
+        "cdk2x2_298.cif": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28"
+      },
+      "entries_before": 449,
+      "entries_after": 449,
+      "retry_lines": 0,
+      "flag_queries": 1,
+      "flag_ok": true,
+      "valid": true,
+      "clock": {
+        "target_MHz": 1350,
+        "samples": 8935,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "min_W": 40.0,
+        "max_W": 150.0,
+        "max_gap_ns": 1590455,
+        "sample_span_fraction": 0.9998585636077354,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "observations": 77,
+        "foreign": [],
+        "other_nodes_opened": [],
+        "max_gap_ns": 138292948,
+        "passed": true
+      }
+    }
+  ],
+  "errors": [
+    "b3_keep_r1_512: RuntimeError(\"clock artifact or thin coverage: {'target_MHz': 1350, 'samples': 14049, 'min_MHz': 1350, 'max_MHz': 1350, 'min_W': 39.0, 'max_W': 147.0, 'max_gap_ns': 33383446, 'sample_span_fraction': 0.9999086102993691, 'errors': [], 'pass': False}\")"
+  ],
+  "completed": true,
+  "timer": "synchronize_device; monotonic_ns; state.predict_one incl. CIF write; synchronize_device; monotonic_ns",
+  "warmup_rule": "rep 0 of every keep block is discarded: it is the block's cache warm-up",
+  "started_utc_ns": 1789739483981291728,
+  "before": {
+    "monotonic_ns": 10087502936000,
+    "utc_ns": 1789739483981316456,
+    "boot_id": "3924edcb-ff37-4ee4-b102-abb76e615e3d",
+    "module_srcversion": "28CFF5A6678E4F2D87F6383",
+    "containment_unit": {
+      "is_active": "inactive",
+      "rc": 3
+    },
+    "port": {
+      "node": "3",
+      "endpoint": "0000:04:00.0",
+      "port": "0000:00:01.5",
+      "port_COMMAND": "0x0407",
+      "memory_space": true,
+      "bus_master": true,
+      "ok": true
+    },
+    "loadavg": [
+      2.87939453125,
+      2.529296875,
+      2.9892578125
+    ],
+    "holders": [
+      {
+        "pid": 551908,
+        "nodes": [
+          "/dev/tenstorrent/0"
+        ],
+        "state": "R",
+        "utime_ticks": 19827,
+        "stime_ticks": 1521,
+        "starttime_ticks": 986885,
+        "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "0",
+          "TT_BIO_LEASE_CARDS": "0",
+          "TT_BIO_LEASE_HOLDER": "worker:c13-land-first"
+        }
+      }
+    ],
+    "own_nodes": []
+  },
+  "load_accounting": {
+    "loadavg": [
+      2.87939453125,
+      2.529296875,
+      2.9892578125
+    ],
+    "dt_s": 2.025,
+    "node": 3,
+    "foreign_device_holders": [
+      {
+        "pid": 551908,
+        "nodes": [
+          "/dev/tenstorrent/0"
+        ],
+        "state": "S",
+        "cpu_cores": 1.798,
+        "holder": "worker:c13-land-first",
+        "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork "
+      }
+    ],
+    "accounted_cores": 1.798,
+    "unaccounted_load": 1.081
+  },
+  "ttnn_version": "0.68.0",
+  "source_commit": "e7407734bdb73e05aa1ac7a1b66b09d4f1515867",
+  "dirty": "",
+  "model_meta": {
+    "hardware": "blackhole",
+    "grid": [
+      11,
+      10
+    ],
+    "recycling_steps": 3,
+    "timed_region": "predict_one (featurize + fold + CIF write)"
+  },
+  "release_response": [
+    0,
+    0
+  ],
+  "sampler_returncode": 0,
+  "finished_utc_ns": 1789739835204007625
+}

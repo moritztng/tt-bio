@@ -1,0 +1,51 @@
+{
+  "m": 512,
+  "k": 128,
+  "n": 512,
+  "mgd": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/tt_metal/fabric/mesh_graph_descriptors/p150_mesh_graph_descriptor.textproto",
+  "block_entry": true,
+  "grid": [
+    11,
+    10
+  ],
+  "arms": {
+    "our_b16": {
+      "max_abs": 0.007720786612480879,
+      "rel_rmse": 0.001687490723839686,
+      "dtype": "torch.bfloat16",
+      "shape": [
+        512,
+        512
+      ]
+    },
+    "our_b8": {
+      "max_abs": 0.023510437458753586,
+      "rel_rmse": 0.008100167430522987,
+      "dtype": "torch.float32",
+      "shape": [
+        512,
+        512
+      ]
+    },
+    "ttnn_b16": {
+      "max_abs": 0.008722558617591858,
+      "rel_rmse": 0.001719283373556035,
+      "dtype": "torch.bfloat16",
+      "shape": [
+        512,
+        512
+      ]
+    },
+    "ttnn_b8": {
+      "max_abs": 0.023248793557286263,
+      "rel_rmse": 0.008028139609030158,
+      "dtype": "torch.float32",
+      "shape": [
+        512,
+        512
+      ]
+    }
+  },
+  "b8_over_b16": 4.8001256043008125,
+  "ours_over_upstream_b8": 1.0089719193985878
+}

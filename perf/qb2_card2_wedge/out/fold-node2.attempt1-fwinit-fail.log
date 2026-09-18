@@ -1,0 +1,50 @@
+2026-09-18 05:12:54.442 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-09-18 05:13:10.065 | critical |          Always | TT_THROW: Device 0: Timeout (10000 ms) waiting for physical cores to finish: (x=13,y=6), (x=11,y=7), (x=7,y=10), (x=3,y=6), (x=10,y=5), (x=4,y=2), (x=13,y=8), (x=1,y=9), (x=5,y=10), (x=13,y=5), (x=11,y=2), (x=2,y=9), (x=4,y=9), (x=6,y=10), (x=12,y=5), (x=3,y=10), (x=4,y=10), (x=12,y=6), (x=4,y=5), (x=3,y=5), (x=5,y=9), (x=1,y=3), (x=10,y=6), (x=2,y=5), (x=11,y=6), (x=13,y=9), (x=12,y=3), (x=3,y=8), (x=1,y=10), (x=5,y=11), (x=13,y=4), (x=2,y=10), (x=6,y=11), (x=12,y=4), (x=1,y=4), (x=5,y=6), (x=3,y=11), (x=13,y=3), (x=4,y=11), (x=10,y=4), (x=3,y=7), (x=11,y=5), (x=7,y=3), (x=6,y=7), (x=2,y=3), (x=4,y=7), (x=7,y=4), (x=6,y=6), (x=2,y=2), (x=13,y=2), (x=11,y=3), (x=4,y=8), (x=6,y=9), (x=12,y=2), (x=10,y=2), (x=5,y=8), (x=3,y=9), (x=10,y=8), (x=11,y=4), (x=7,y=2), (x=4,y=4), (x=6,y=5), (x=6,y=8), (x=2,y=4), (x=7,y=6), (x=6,y=4), (x=2,y=8), (x=13,y=10), (x=7,y=9), (x=11,y=11), (x=7,y=5), (x=2,y=6), (x=6,y=2), (x=7,y=8), (x=11,y=10), (x=4,y=3), (x=6,y=3), (x=2,y=7), (x=7,y=7), (x=13,y=11), (x=1,y=6), (x=12,y=7), (x=5,y=4), (x=1,y=2), (x=1,y=5), (x=5,y=3), (x=10,y=3), (x=12,y=11), (x=3,y=2), (x=5,y=2), (x=1,y=8), (x=10,y=9), (x=3,y=4), (x=5,y=7), (x=12,y=9), (x=5,y=5), (x=1,y=7), (x=10,y=10), (x=12,y=10), (x=10,y=7), (x=13,y=7), (x=11,y=8), (x=7,y=11), (x=12,y=8), (x=11,y=9), (x=1,y=11), (x=2,y=11), (x=10,y=11), (x=4,y=6), (x=3,y=3). (assert.hpp:104)
+2026-09-18 05:13:10.066 | critical |          Always | TT_THROW: Device 0 init: failed to initialize FW! Try resetting the board. (assert.hpp:104)
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/qb2-card2-wedge-diagnostic/perf/roof_shared/fold_shared.py", line 206, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ttuser/.coworker/wt/qb2-card2-wedge-diagnostic/perf/roof_shared/fold_shared.py", line 119, in main
+    dev = get_device()
+          ^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/qb2-card2-wedge-diagnostic/tt_bio/tenstorrent.py", line 5051, in get_device
+    _device = _open_and_init_device(trace_region_size)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/qb2-card2-wedge-diagnostic/tt_bio/tenstorrent.py", line 5421, in _open_and_init_device
+    dev = _open_device_locked(device_id, kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/qb2-card2-wedge-diagnostic/tt_bio/tenstorrent.py", line 4932, in _open_device_locked
+    dev = ttnn.open_device(device_id=device_id, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: TT_THROW @ /project/tt_metal/impl/device/firmware/risc_firmware_initializer.cpp:1115: tt::exception
+info:
+Device 0 init: failed to initialize FW! Try resetting the board.
+backtrace:
+ --- void tt::assert::detail::tt_throw<unsigned int>(char const*, int, char const*, char const*, fmt::v11::fstring<unsigned int const&>::t, unsigned int const&)
+ --- tt::tt_metal::RiscFirmwareInitializer::initialize_and_launch_firmware(int)
+ --- tt::tt_metal::RiscFirmwareInitializer::run_launch_phase(std::set<int, std::less<int>, std::allocator<int> > const&)
+ --- tt::tt_metal::MetalContext::initialize(tt::tt_metal::DispatchCoreConfig const&, unsigned char, std::vector<unsigned int, std::allocator<unsigned int> > const&, unsigned long, bool)
+ --- tt::tt_metal::MetalContext::initialize_device_manager(std::vector<int, std::allocator<int> > const&, unsigned char, unsigned long, unsigned long, tt::tt_metal::DispatchCoreConfig const&, std::span<unsigned int const, 18446744073709551615ul>, unsigned long, bool, bool)
+ --- tt::tt_metal::experimental::CreateDevices(ttsl::StrongType<int, tt::tt_metal::ContextIdTag>, std::vector<int, std::allocator<int> > const&, unsigned char, unsigned long, unsigned long, tt::tt_metal::DispatchCoreConfig const&, std::vector<unsigned int, std::allocator<unsigned int> > const&, unsigned long, bool, bool)
+ --- tt::tt_metal::distributed::MeshDeviceImpl::ScopedDevices::ScopedDevices(std::vector<tt::tt_metal::distributed::MaybeRemote<int>, std::allocator<tt::tt_metal::distributed::MaybeRemote<int> > > const&, std::vector<tt::tt_metal::distributed::MaybeRemote<int>, std::allocator<tt::tt_metal::distributed::MaybeRemote<int> > > const&, unsigned long, unsigned long, unsigned long, unsigned long, tt::tt_metal::DispatchCoreConfig const&, ttsl::StrongType<int, tt::tt_metal::ContextIdTag>)
+ --- tt::tt_metal::distributed::MeshDeviceImpl::create_unit_meshes(ttsl::StrongType<int, tt::tt_metal::ContextIdTag>, std::vector<int, std::allocator<int> > const&, unsigned long, unsigned long, unsigned long, tt::tt_metal::DispatchCoreConfig const&, std::span<unsigned int const, 18446744073709551615ul>, unsigned long)
+ --- tt::tt_metal::distributed::MeshDeviceImpl::create_unit_mesh(ttsl::StrongType<int, tt::tt_metal::ContextIdTag>, int, unsigned long, unsigned long, unsigned long, tt::tt_metal::DispatchCoreConfig const&, std::span<unsigned int const, 18446744073709551615ul>, unsigned long)
+ --- tt::tt_metal::distributed::MeshDevice::create_unit_mesh(int, unsigned long, unsigned long, unsigned long, tt::tt_metal::DispatchCoreConfig const&, std::span<unsigned int const, 18446744073709551615ul>, unsigned long)
+ --- ttnn::device::open_mesh_device(int, unsigned long, unsigned long, unsigned long, tt::tt_metal::DispatchCoreConfig const&, unsigned long)
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x345191) [0x712b84745191]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x712b8466daa5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x115) [0x54b1d5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d55eb]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x608852]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b50d3]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4e3a]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4c6f]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bccd5]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc7bd]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x712bc882a1ca]
+ --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x712bc882a28b]
+ --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657a05]
+
