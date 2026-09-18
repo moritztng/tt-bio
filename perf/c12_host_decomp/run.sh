@@ -65,10 +65,10 @@ if ! "$PY" "$PAIR_IDLE" --card "$NODE"; then
   exit 75
 fi
 
-if ! "$PY" "$HERE/dispatch_probe.py" --node "$NODE" --timeout "${PROBE_TIMEOUT_S:-240}"; then
-  echo "run.sh: node ${NODE} did not dispatch a 32x32 add. It needs a reset; not measuring." >&2
-  exit 1
-fi
+# The dispatch probe OPENS the device, so it has to run INSIDE benchlock, not before it. Run
+# before, it collided with a co-tenant row's live timed fold on the same card on 2026-09-18: the
+# port read is free, but the 32x32 add is a second opener on a chip somebody else is timing on.
+# It is launched with the capture below instead.
 
 for size in "${SIZES[@]}"; do
   out="$HERE/runs/$NAME/$size"
@@ -80,8 +80,10 @@ for size in "${SIZES[@]}"; do
   TT_VISIBLE_DEVICES="$NODE" TT_BIO_LEASE_CARDS="$NODE" \
   TT_BIO_LEASE_HOLDER="$HOLDER" \
   ~/.coworker/scripts/benchlock.sh "$SLUG" -- \
-    "$PY" "$HERE/decomp.py" --size "$size" --node "$NODE" --out "$out" \
-      --clocks "$CLOCKS" --reps "$REPS" --arms "$ARMS" --holder "$HOLDER" \
+    bash -c '"$0" "$1" --node "$2" --timeout "$3" && "$0" "$4" --size "$5" --node "$2" \
+             --out "$6" --clocks "$7" --reps "$8" --arms "$9" --holder "${10}"' \
+      "$PY" "$HERE/dispatch_probe.py" "$NODE" "${PROBE_TIMEOUT_S:-240}" "$HERE/decomp.py" \
+      "$size" "$out" "$CLOCKS" "$REPS" "$ARMS" "$HOLDER" \
     > >(tee "$HERE/runs/$NAME/launch_$size.log") 2>&1 || rc=$?
   wait
   if [ "$rc" = 75 ]; then

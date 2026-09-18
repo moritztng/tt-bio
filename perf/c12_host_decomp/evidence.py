@@ -10,7 +10,19 @@ from __future__ import annotations
 import hashlib, json, os, select, subprocess, sys, threading, time
 from pathlib import Path
 
-SRCVERSION = "A10759A24565BC5BBE903C5"
+# The tt-kmd srcversions this box is known to boot. `candidate` is the qualified module
+# `qb2-endpoint-containment.service` inserts with `qb_endpoint_quarantine=1 dma_address_bits=0
+# power_policy=0 fw_log_level=3`; `stock` is the DKMS 2.11.0 build with default parameters.
+# c12-host-decomp's whole table was taken on `candidate`. On the 2026-09-18 boot the unit is
+# DISABLED and never started, so the box runs `stock`, i.e. no endpoint quarantine and the
+# stock power policy rather than 0.
+KNOWN_SRCVERSIONS = {"A10759A24565BC5BBE903C5": "candidate (qualified, power_policy=0)",
+                     "28CFF5A6678E4F2D87F6383": "stock DKMS 2.11.0, default parameters"}
+# Latched from the first snapshot of a capture. The invariant a timed capture needs is that the
+# driver does not change UNDER it, which is what this enforces; pinning one accepted value
+# instead would refuse every capture on whichever module the box happens to have booted, which
+# is how this check spent a pass refusing a healthy chip on 2026-09-18.
+SESSION_SRCVERSION: list = []
 GAP_LIMIT_NS = 10_000_000
 
 HOLDERS = """
@@ -99,18 +111,63 @@ def load_accounting(node, dt=2.0):
             "unaccounted_load": round(load1 - accounted, 3)}
 
 
-def snapshot():
+def containment_unit():
+    """`systemctl is-active qb2-endpoint-containment.service`, RECORDED, never gated on.
+
+    Two independent reasons this string cannot be a precondition, both of them properties of the
+    unit rather than of the hardware:
+
+    1. `is-active` exits NONZERO for `inactive`, which is an answer and not a failure.
+       `check_output` raised `CalledProcessError` on it and killed the capture before its first
+       fold on 2026-09-18, when the unit was `disabled` and had not started on that boot.
+    2. The unit is `Type=oneshot RemainAfterExit=yes` with NO `ExecStop`, so a stop transitions
+       systemd's own bookkeeping to inactive while undoing nothing in config space. The journal
+       shows exactly that four times over three boots. So `active` does not prove containment is
+       applied and `inactive` does not prove it is not.
+
+    The hardware fact the capture actually needs is the assigned node's upstream port keeping
+    Memory Space Enable, and that is read per node in `validate_snapshot` below.
+    """
+    r = subprocess.run(["systemctl", "is-active", "qb2-endpoint-containment.service"],
+                       text=True, capture_output=True)
+    return {"is_active": (r.stdout or "").strip() or f"rc={r.returncode}", "rc": r.returncode}
+
+
+def port_command(node):
+    """The assigned node's upstream-port COMMAND register, read through `dispatch_probe`'s own
+    reader rather than a second copy of it, so the guard and the probe cannot drift apart.
+
+    Bit 1, not bit 2: QB quarantine goes 0x0407 -> 0x0405, which drops Memory Space Enable and
+    keeps Bus Master Enable, so a bus-master test passes a quarantined port.
+    """
+    try:
+        from dispatch_probe import upstream_port_state
+        return upstream_port_state(node)
+    except Exception as e:
+        return {"error": repr(e), "memory_space": None}
+
+
+def snapshot(node=None):
     return {"monotonic_ns": time.monotonic_ns(), "utc_ns": time.time_ns(),
             "boot_id": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
             "module_srcversion": Path("/sys/module/tenstorrent/srcversion").read_text().strip(),
-            "containment": subprocess.check_output(
-                ["systemctl", "is-active", "qb2-endpoint-containment.service"], text=True).strip(),
+            "containment_unit": containment_unit(),
+            "port": port_command(node) if node is not None else None,
             "loadavg": os.getloadavg(), "holders": holders(), "own_nodes": own_nodes()}
 
 
 def validate_snapshot(s, node, opened=False):
-    if s["containment"] != "active" or s["module_srcversion"] != SRCVERSION:
-        raise RuntimeError("containment or driver prerequisite failed")
+    sv = s["module_srcversion"]
+    if not SESSION_SRCVERSION:
+        SESSION_SRCVERSION.append(sv)
+    if sv != SESSION_SRCVERSION[0]:
+        raise RuntimeError(f"tt-kmd changed mid-capture: {SESSION_SRCVERSION[0]} -> {sv}")
+    if sv not in KNOWN_SRCVERSIONS:
+        raise RuntimeError(f"unknown tt-kmd srcversion {sv}: qualify it before timing on it")
+    port = s.get("port") or port_command(node)
+    if not port.get("memory_space"):
+        raise RuntimeError(f"assigned node {node} upstream port quarantined or unreadable: {port}"
+                           " -- that state needs a REBOOT, not a reset")
     dev = f"/dev/tenstorrent/{node}"
     for h in s["holders"]:
         if dev in h["nodes"] and h["pid"] != os.getpid():
