@@ -30,7 +30,7 @@ import ttnn
 from .tenstorrent import CORE_GRID_MAIN, get_device
 
 __all__ = ["set_grad_hook", "grad_hook", "kernel_config",
-           "linear", "matmul", "add", "sub", "mul", "div", "scale", "shift", "sum_last", "sqrt_plus",
+           "linear", "matmul", "add", "sub", "sub_square", "mul", "div", "scale", "shift", "sum_last", "sqrt_plus",
            "softplus", "clamp_min", "norm_from_sq", "relu", "sum_dim", "softmax", "layer_norm", "reshape", "permute", "transpose_last",
            "slice_dim", "concat"]
 
@@ -146,6 +146,21 @@ def sub(a, b):
     is set by the magnitude the matmul rounds rather than by the cancellation in the subtraction.
     """
     return ttnn.subtract(a, b)
+
+
+@_dispatching
+def sub_square(a, b):
+    """`(a - b) ** 2`, with the square fused into the subtract's packer.
+
+    Alg. 22's point term is three of these per block on a 50 MB tensor at micro-batch 4 and 256
+    tokens, so the fusion deletes one full-size write and one full-size read per coordinate, and its
+    backward recomputes the difference instead of retaining it -- which is the bigger win, because
+    the retained difference was 150 MB per block held for the whole backward pass.
+
+    `ttnn.subtract(activations=[SQUARE])` is exact here: measured 1.40e-07 against float64, the same
+    as the unfused pair, because both halves are eltwise.
+    """
+    return ttnn.subtract(a, b, activations=[ttnn.UnaryWithParam(ttnn.UnaryOpType.SQUARE)])
 
 
 @_dispatching

@@ -256,6 +256,26 @@ def _sub(shipped, a, b):
     return _tape(out_v, [a, b], make)
 
 
+def _sub_square(shipped, a, b):
+    """`d/da = 2 (a - b) g`, `d/db = -2 (a - b) g`, with `(a - b)` RECOMPUTED in the backward.
+
+    Retaining the difference would hold 150 MB per block across the whole backward pass for a
+    tensor one subtract reproduces. The recompute is the point of the op as much as the fusion is.
+    """
+    av, bv = _unwrap(a), _unwrap(b)
+    out_v = shipped(av, bv)
+
+    def make():
+        def bw(g):
+            twice_diff = ttnn.multiply(ttnn.subtract(av, bv), 2.0)
+            term = ttnn.multiply(g, twice_diff)
+            _accumulate(a, term)
+            _accumulate(b, ttnn.neg(term))
+        return bw
+
+    return _tape(out_v, [a, b], make)
+
+
 def _mul(shipped, a, b):
     av, bv = _unwrap(a), _unwrap(b)
     out_v = shipped(av, bv)
@@ -547,7 +567,7 @@ def _concat(shipped, xs, dim=-1):
 
 
 _TAPED = {
-    "linear": _linear, "matmul": _matmul, "add": _add, "sub": _sub, "mul": _mul, "div": _div,
+    "linear": _linear, "matmul": _matmul, "add": _add, "sub": _sub, "sub_square": _sub_square, "mul": _mul, "div": _div,
     "scale": _scale, "shift": _shift, "sqrt_plus": _sqrt_plus, "softplus": _softplus,
     "clamp_min": _clamp_min, "norm_from_sq": _norm_from_sq, "relu": _relu, "sum_last": _sum_last, "sum_dim": _sum_dim, "softmax": _softmax, "layer_norm": _layer_norm,
     "reshape": _reshape, "permute": _permute, "transpose_last": _transpose_last,

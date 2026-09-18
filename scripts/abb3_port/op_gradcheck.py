@@ -93,6 +93,13 @@ def _sub():
     return (lambda a, b: a - b), (lambda a, b: ops.sub(a, b)), [(2, 4, 32, 64), (2, 1, 32, 1)]
 
 
+# Two-sided broadcast, because that is how the point term calls it: [*, N, 1] against [*, 1, N].
+@case("sub_square two-sided", 1e-5, 1e-2)
+def _sub_square():
+    return ((lambda q, k: (q - k) ** 2), (lambda q, k: ops.sub_square(q, k)),
+            [(2, 4, 64, 1), (2, 4, 1, 64)])
+
+
 @case("mul broadcast", 1e-5, 1e-2)
 def _mul():
     return (lambda a, b: a * b), (lambda a, b: ops.mul(a, b)), [(2, 4, 32, 64), (1, 4, 1, 1)]

@@ -345,14 +345,15 @@ class DeviceIPA:
         reduction runs over an axis that is already grouped.
 
         The subtract is two-sided broadcast, `[B, H*P, N, 1]` against `[B, H*P, 1, N]`, which is
-        every residue pair in one program and is fp32-exact.
+        every residue pair in one program and is fp32-exact, and it carries the square in its own
+        packer -- so the 50 MB difference is never written, and its backward recomputes it rather
+        than holding 150 MB per block for the whole backward pass.
         """
         cfg = self.cfg
         h, pq = cfg.no_heads_ipa, cfg.no_qk_points
         acc = None
         for q_d, k_d in zip(q_pts, k_pts):
-            diff = ops.sub(q_d, k_d)
-            sq = ops.mul(diff, diff)
+            sq = ops.sub_square(q_d, k_d)
             per_head = ops.sum_dim(ops.reshape(sq, [batch * h, pq, n_tok, n_tok]), 1)
             term = ops.reshape(per_head, [batch, h, n_tok, n_tok])
             acc = term if acc is None else ops.add(acc, term)
