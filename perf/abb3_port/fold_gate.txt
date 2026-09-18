@@ -1,9 +1,24 @@
-  loaded base-loss epoch 1465 step 193512, 7,111,515 parameters
+  loaded base-loss epoch 1465 step 193512, 7,111,515 parameters, folding on the reference
   skip 1aqk_H0-L0: 231 residues against 233 regions
   1gaf_H0-L0       CDR-H3: ours 1.519  theirs refined 1.422  theirs unrefined 1.519
   1h0d_B0-A0       CDR-H3: ours 2.714  theirs refined 2.655  theirs unrefined 2.714
   1iqd_B0-A0       CDR-H3: ours 1.863  theirs refined 1.832  theirs unrefined 1.863
   1jps_H0-L0       CDR-H3: ours 0.698  theirs refined 0.641  theirs unrefined 0.698
-  mean CDR-H3 over 4: ours 1.699 A, theirs unrefined 1.699 A
-  mean Fw-H  over 4: ours 0.577 A
+  skip 1t3f_B0-A0: 223 residues against 224 regions
+  1uj3_B0-A0       CDR-H3: ours 0.966  theirs refined 0.783  theirs unrefined 0.966
+  1vge_H0-L0       CDR-H3: ours 2.869  theirs refined 2.864  theirs unrefined 2.869
+  2a9m_I0-M0       CDR-H3: ours 4.984  theirs refined 4.841  theirs unrefined 4.984
+  2b1h_H0-L0       CDR-H3: ours 4.709  theirs refined 4.685  theirs unrefined 4.709
+  2d7t_H0-L0       CDR-H3: ours 2.190  theirs refined 2.135  theirs unrefined 2.190
+  2fb4_H0-L0       CDR-H3: ours 4.044  theirs refined 3.930  theirs unrefined 4.044
+  2qqn_H0-L0       CDR-H3: ours 6.149  theirs refined 6.072  theirs unrefined 6.149
+  2vxv_H0-L0       CDR-H3: ours 5.351  theirs refined 5.342  theirs unrefined 5.351
+  skip 2xza_H0-L0: 226 residues against 228 regions
+  2yc1_A0-B0       CDR-H3: ours 0.823  theirs refined 0.764  theirs unrefined 0.823
+  3bn9_F0-E0       CDR-H3: ours 5.536  theirs refined 5.386  theirs unrefined 5.536
+  3eo9_H0-L0       CDR-H3: ours 2.449  theirs refined 2.444  theirs unrefined 2.449
+  3fn0_H0-L0       CDR-H3: ours 2.615  theirs refined 2.538  theirs unrefined 2.615
+  3giz_H0-L0       CDR-H3: ours 3.178  theirs refined 3.147  theirs unrefined 3.178
+  mean CDR-H3 over 17: ours 3.097 A, theirs unrefined 3.097 A
+  mean Fw-H  over 17: ours 0.693 A
 PASS (bar: mean Fw-H < 2.0 A, the structural-sanity bar)
