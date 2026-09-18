@@ -1,0 +1,4 @@
+seq_keep*/cifs/
+seq_ctrl/cifs/
+seq_*/msa/
+*.log

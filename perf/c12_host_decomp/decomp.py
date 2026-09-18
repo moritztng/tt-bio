@@ -276,7 +276,7 @@ def main() -> int:
     for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
         signal.signal(sig, interrupted)
     try:
-        result["before"] = snapshot()
+        result["before"] = snapshot(a.node)
         validate_snapshot(result["before"], a.node)
         save()
         if socket.gethostname() != "tt-quietbox2":
@@ -353,7 +353,7 @@ def main() -> int:
         _fold, meta, state = B.build_fold("boltz2", out / "msa", target, msa, instrument=False,
                                           hoist=False, fast=False, trace=False, recycling_steps=3)
         dev = T.get_device()
-        result["opened"] = snapshot()
+        result["opened"] = snapshot(a.node)
         validate_snapshot(result["opened"], a.node, True)
         if own_nodes() != [dev_path]:
             raise RuntimeError(f"wrong actual opened device: {own_nodes()}")
@@ -383,7 +383,7 @@ def main() -> int:
 
         def one(label, arm, clock, rep):
             """One timed fold under one instrument at one requested clock."""
-            before = snapshot()
+            before = snapshot(a.node)
             validate_snapshot(before, a.node, True)
             if dict(state.model.predict_args) != expected:
                 raise Fatal("model config changed between labels")
@@ -500,7 +500,7 @@ def main() -> int:
             if not FLAG_QUERIES or any(q != want_keep for q in FLAG_QUERIES):
                 raise RuntimeError("program-cache flag witness failed: "
                                    f"arm={arm} want={want_keep} queries={FLAG_QUERIES}")
-            row["after"] = snapshot()
+            row["after"] = snapshot(a.node)
             validate_snapshot(row["after"], a.node, True)
             if row["after"]["boot_id"] != result["before"]["boot_id"]:
                 raise Fatal("boot changed")
@@ -583,7 +583,7 @@ def main() -> int:
                 result["errors"].append("cleanup: " + repr(e))
                 result["completed"] = False
         try:
-            result["after"] = snapshot()
+            result["after"] = snapshot(a.node)
             validate_snapshot(result["after"], a.node)
             if result["after"]["own_nodes"]:
                 raise RuntimeError("device still open after cleanup")

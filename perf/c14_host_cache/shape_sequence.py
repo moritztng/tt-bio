@@ -47,6 +47,13 @@ def main() -> int:
     ap.add_argument("--keep", type=int, choices=[0, 1], required=True,
                     help="1 suppresses the per-forward program-cache clear for every fold")
     ap.add_argument("--misses-test", type=int, default=1)
+    # The size used for the "a new shape must MISS" leg. It has to be a size NOT in
+    # --sizes: picking one that the sequence already folded makes the leg vacuous, because
+    # its programs are already resident and of course nothing misses. That is what the
+    # first run of this harness did, and it is also the POSITIVE control for the
+    # instrument -- without a leg that throws, "no throw" on the same-size refold does not
+    # distinguish a cache hit from a flag that does nothing.
+    ap.add_argument("--miss-other-size", type=int, default=None)
     a = ap.parse_args()
     sizes = [int(x) for x in a.sizes.split(",")]
     out = a.out.resolve()
@@ -149,7 +156,11 @@ def main() -> int:
         if a.misses_test:
             m = {"note": "set_program_cache_misses_allowed(False), then fold"}
             same = sizes[-1]
-            other = next((n for n in (298, 256, 512) if n != same), None)
+            other = a.miss_other_size
+            if other is None or other in sizes:
+                raise RuntimeError(
+                    "--miss-other-size must be given and must NOT appear in --sizes, or the "
+                    f"leg is vacuous: other={other} sizes={sizes}")
             # 1. a repeat of the size just folded must NOT miss
             dev.set_program_cache_misses_allowed(False)
             try:
@@ -170,8 +181,10 @@ def main() -> int:
                 m["other_size_error"] = repr(e)[:400]
             finally:
                 dev.set_program_cache_misses_allowed(True)
+            m["other_size"] = other
             m["verdict"] = (
-                "shape-keyed: a repeat hits and a new size misses"
+                "shape-keyed: a repeat hits and a NEVER-FOLDED size misses, so the instrument "
+                "throws when it should and the repeat genuinely hit"
                 if m.get("same_size_refold_threw") is False and m.get("other_size_threw") is True
                 else "INCONCLUSIVE or the clear is load-bearing -- read the two flags")
             r["misses_test"] = m

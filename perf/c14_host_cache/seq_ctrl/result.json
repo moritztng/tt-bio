@@ -1,0 +1,114 @@
+{
+  "pid": 487044,
+  "host": "tt-quietbox2",
+  "node": 3,
+  "sizes": [
+    512
+  ],
+  "keep": 1,
+  "rows": [],
+  "misses_test": null,
+  "errors": [
+    "RuntimeError(\"assigned node busy: {'pid': 430333, 'nodes': ['/dev/tenstorrent/0', '/dev/tenstorrent/1', '/dev/tenstorrent/2', '/dev/tenstorrent/3'], 'state': 'S', 'utime_ticks': 147, 'stime_ticks': 64, 'starttime_ticks': 859859, 'argv': '/home/ttuser/tt-bio-dev/env/bin/python3 /tmp/verify_helper.py ', 'env': {'TT_VISIBLE_DEVICES': None, 'TT_BIO_LEASE_CARDS': None, 'TT_BIO_LEASE_HOLDER': None}}\")"
+  ],
+  "completed": false,
+  "started_utc_ns": 1789738299981144804,
+  "before": {
+    "monotonic_ns": 8903502767204,
+    "utc_ns": 1789738299981146427,
+    "boot_id": "3924edcb-ff37-4ee4-b102-abb76e615e3d",
+    "module_srcversion": "28CFF5A6678E4F2D87F6383",
+    "containment_unit": {
+      "is_active": "inactive",
+      "rc": 3
+    },
+    "port": {
+      "node": "3",
+      "endpoint": "0000:04:00.0",
+      "port": "0000:00:01.5",
+      "port_COMMAND": "0x0407",
+      "memory_space": true,
+      "bus_master": true,
+      "ok": true
+    },
+    "loadavg": [
+      0.2314453125,
+      2.76806640625,
+      3.53955078125
+    ],
+    "holders": [
+      {
+        "pid": 430333,
+        "nodes": [
+          "/dev/tenstorrent/0",
+          "/dev/tenstorrent/1",
+          "/dev/tenstorrent/2",
+          "/dev/tenstorrent/3"
+        ],
+        "state": "S",
+        "utime_ticks": 147,
+        "stime_ticks": 64,
+        "starttime_ticks": 859859,
+        "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 /tmp/verify_helper.py ",
+        "env": {
+          "TT_VISIBLE_DEVICES": null,
+          "TT_BIO_LEASE_CARDS": null,
+          "TT_BIO_LEASE_HOLDER": null
+        }
+      },
+      {
+        "pid": 449176,
+        "nodes": [
+          "/dev/tenstorrent/1"
+        ],
+        "state": "S",
+        "utime_ticks": 6291,
+        "stime_ticks": 365,
+        "starttime_ticks": 865606,
+        "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 /home/ttuser/.coworker/wt/c14-land-tail/perf/c14_land/apb_fold_ab.py --arm base --size 298 --folds 2 --flag TT_BIO_SDPA_BAND_DIV_K --block 0 --card 1 --out /home/ttuser/.coworker/wt/c14-land-tail/perf/c14_land/c14-apb-driver-5rs36wpg/298_base_0.json --cifdir perf/c14_land/bandk_cifs_298 ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "1",
+          "TT_BIO_LEASE_CARDS": "1",
+          "TT_BIO_LEASE_HOLDER": "worker:c14-land-tail"
+        }
+      },
+      {
+        "pid": 451028,
+        "nodes": [
+          "/dev/tenstorrent/0"
+        ],
+        "state": "S",
+        "utime_ticks": 354,
+        "stime_ticks": 29,
+        "starttime_ticks": 866357,
+        "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "0",
+          "TT_BIO_LEASE_CARDS": "0",
+          "TT_BIO_LEASE_HOLDER": "worker:c13-land-first"
+        }
+      },
+      {
+        "pid": 459727,
+        "nodes": [
+          "/dev/tenstorrent/0",
+          "/dev/tenstorrent/1",
+          "/dev/tenstorrent/2",
+          "/dev/tenstorrent/3"
+        ],
+        "state": "S",
+        "utime_ticks": 162,
+        "stime_ticks": 62,
+        "starttime_ticks": 872454,
+        "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 /tmp/verify_helper.py ",
+        "env": {
+          "TT_VISIBLE_DEVICES": null,
+          "TT_BIO_LEASE_CARDS": null,
+          "TT_BIO_LEASE_HOLDER": null
+        }
+      }
+    ],
+    "own_nodes": []
+  },
+  "finished_utc_ns": 1789738300006859507
+}
