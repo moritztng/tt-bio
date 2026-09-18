@@ -738,13 +738,20 @@ normed pair tensor, because `ttnn.layer_norm` returns its input's format and nar
 need a cast that costs more than it saves. The out projection keeps the model dtype, so the region
 rounds once on the way out and the residual never sees block float.
 
-**Speed: 1.04588x, +0.6640 s at 512 residues.** One Blackhole processor of a p300c, `cdk2x2_512`,
+**Speed: 1.01211x, +0.1750 s at 512 residues.** One Blackhole processor of a p300c, `cdk2x2_512`,
 11x10 grid, production protocol (3 recycles, 200 sampling steps), AICLK held at 1350 MHz and sampled
-during every fold at min = max = 1350 over 1500 samples, arms interleaved block by block, 12 folds an
-arm: 15.135 s off against 14.471 s on. Every on-arm fold is faster than every off-arm fold. All 560
-triangle-attention calls per fold still serve on the fused SDPA and the fused qkv path with zero
-declines, so this is the same kernels on narrower operands and not a fallback
-(`perf/c14_bfp8/region_t_ab.json`).
+during every fold at min = max = 1350 over 1840 samples, arms interleaved block by block, on a host
+and board pair checked quiet before every arm: 14.630 s off against 14.455 s on. Every on-arm fold
+is faster than every off-arm fold, by a gap of 0.080 s, against an A/A floor of 1.00432 that the
+effect clears 2.80x. A second quiet session agrees to 0.15 % at 1.01358x. All 560 triangle-attention
+calls per fold still serve on the fused SDPA and the fused qkv path with zero declines, so this is
+the same kernels on narrower operands and not a fallback (`perf/c14_bfp8/regiont_quiet_ab2.json`).
+
+An earlier reading of this flag was **1.04588x, +0.6640 s**, and it is refuted rather than
+superseded. It is the same lever measured against a contended base arm: the on arm reproduces, the
+off arm does not, and 15.135 s was a base fold taken while the board pair was busy. A p300c's two
+chips share a power budget, and benchlock excludes other benchlock callers rather than other device
+users, so a sibling that nobody leased can inflate the arm you are dividing by. Book +0.1750 s.
 
 **Accuracy: 0.42886 Å worst at 512 residues against the 0.60 Å bar**, per pseudo-domain and
 hinge-free, four seeds, paired same seed, card-independent, with a negative control
