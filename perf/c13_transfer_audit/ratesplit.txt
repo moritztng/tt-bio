@@ -1,0 +1,6 @@
+count / MEASURED  rate   n=20  geomean R 0.984  95% CI [0.832, 1.184]  scatter 1.51x  wrong-sign-or-nulled 0/20 = 0 %
+   b2z2-msa-movement-attack:0.473, b2z2-shard-replication-attack:0.636, b2z2-step-layout-elision:0.662, b2z2-trunk-byte-floor:0.730, b2z2-trunk-byte-round2:0.740, b2z2-trunk-shard-scale-wh:0.796, b2z2-trunk-shard-scale-wh:0.871, b2z2-shard-replication-attack:0.915, b2z2-trunk-shard-scale-wh:0.915, c12-fused-eltwise-at-pin:0.958, b2z2-trunk-shard-scale-wh:0.968, b2z2-shard-replication-attack:0.975, b2z2-trunk-shard-scale-wh:0.978, b2z2-step-layernorm-fusion:1.008, b2z2-trunk-shard-scale-wh:1.047, b2z2-step-matmul-group:1.123, b2z2-shard-replication-attack:1.133, b2z2-step-layout-elision:1.473, b2z2-shard-replication-attack:2.115, b2z2-trunk-byte-round2:3.114
+
+count / BORROWED  rate   n=14  geomean R 0.690  95% CI [0.198, 2.413]  scatter 7.05x  wrong-sign-or-nulled 6/14 = 43 %
+   b2z2-step-binaryng-fusion:-0.365, b2z2-twopass-loop-bh:-0.083, b2z2-sharded-sampler:-0.047, b2z2-dual-chip-fold:-0.014, c10-trace-lever:-0.007, b2z2-step-adaln-sdpa:0.000, c12-host-decomp:0.024, c10-grid-sweep:0.233, b2z2-l1-sharded-residency:0.392, b2z2-datum-rate-floor:0.580, b2z-work-removal:0.625, c10-core-grid:0.723, b2z2-dst-resident-fusion:6.763, b2z2-step-fusion-next-sites:13.165
+
