@@ -1341,6 +1341,14 @@ def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConf
 
 # Circular-buffer budgets that a q_chunk overflowed on THIS device, so the first fold pays at most
 # one throw per shape and every later call skips straight to a config that fits.
+# Keyed by operand dtype as well as shape. An L1 refusal is a statement about a CB
+# footprint, and `sdpa_generic.cb_table` sizes q/k/v/mask/out from `tile_bytes(<operand dtype>)`,
+# so the same (shape, chunk) costs 0.62-0.77x as much L1 in bfp8 as in bf16 (the five intermediate
+# CB groups stay bf16, which is what keeps it well above the 0.53 tile-byte ratio -- measured over
+# the whole surface in perf/bfp8_l1chunk/l1_surface.json). Without the dtype a bf16 refusal retires
+# a chunk bfp8 fits: at padded 1024 bf16 holds q512 only to k64 while bfp8 reaches k512, so one
+# bf16 throw would have barred the whole wider ladder. The leak is one-directional -- bfp8 fits a
+# strict superset, so a bfp8 refusal barring bf16 costs at most one extra device throw.
 _SDPA_Q_CHUNK_OVER_L1: set = set()
 
 # Kill switch so a fold-level A/B can run both arms without a checkout. Bit-exact either way.
@@ -1799,7 +1807,7 @@ def _sdpa_pick(q_len, k_len, q_chunk, k_chunk, route: str):
     SDPA_CHUNK_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, route]
     SDPA_ROUTE_COUNTS[route] += 1
 # Circular-buffer refusals on the wide-k path, keyed by the FULL config. Deliberately not
-# `_SDPA_Q_CHUNK_OVER_L1`: that set is keyed on q_chunk alone, so writing a (q, wide k) refusal into
+# `_SDPA_Q_CHUNK_OVER_L1`: that set carries no k_chunk, so writing a (q, wide k) refusal into
 # it would retire a q_chunk the shipped k runs perfectly well.
 _SDPA_QK_OVER_L1: set = set()
 
@@ -1871,7 +1879,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
                     if _padded_sdpa_len(q_len) % qc == 0)
         for k_chunk in k_chunks[:-1]:
             for q_chunk in _qs:
-                cfg = (q_len, k_len, q_chunk, k_chunk)
+                cfg = (q_len, k_len, q_chunk, k_chunk, q.dtype)
                 if cfg in _SDPA_QK_OVER_L1:
                     continue
                 o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
@@ -1896,7 +1904,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         SDPA_K_CHUNK_STATS[1] += 1
     k_chunk = k_chunks[-1]
     fits = [qc for qc in _tri_att_q_chunks(q_len, k_len)
-            if (q_len, k_len, qc) not in _SDPA_Q_CHUNK_OVER_L1]
+            if (q_len, k_len, qc, q.dtype) not in _SDPA_Q_CHUNK_OVER_L1]
     # The bias is re-read once per batch row by the stock reader; hold it instead. Same
     # preference order as the stock loop below -- `fits` is widest first, production pick last, and
     # the wide q_chunk is worth 1.08-1.81x on its own, so K2 must not silently take the narrow one.
@@ -1920,7 +1928,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
             return o
         except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
             absorb_l1_refusal("tri_att_sdpa/q_chunk", exc)
-            _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, q_chunk))
+            _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, q_chunk, q.dtype))
     # The last rung, guarded like every rung above it. It used to be issued bare, so an L1
     # refusal HERE was fatal where the identical refusal one rung up was absorbed -- and the
     # last rung is the one a single-entry ladder leaves, which is what a padded length with a
@@ -1943,7 +1951,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         return o
     except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
         absorb_l1_refusal("tri_att_sdpa/last_q_chunk", exc)
-        _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, fits[-1]))
+        _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, fits[-1], q.dtype))
         _latch("sdpa_q_chunk", "refused", exc)
     o = ttnn.transformer.scaled_dot_product_attention(
         q, k, v, attn_mask=bias, is_causal=False, scale=scale)
@@ -2221,7 +2229,7 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
             # 3.46x the 18944 B that refused the widest q there. Bit-identical, and measured
             # perf-neutral (1.167x vs 1.177x at 768, same q and k). Only offered at one k chunk.
             for kv_bf in ((2, 1) if wide else (2,)):
-                cfg = (q_len, k_len, q_chunk, k_chunk, kv_bf)
+                cfg = (q_len, k_len, q_chunk, k_chunk, kv_bf, q.dtype)
                 if cfg in _TRIATT_HIFI_OVER_L1:
                     continue
                 try:
