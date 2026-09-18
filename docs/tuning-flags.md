@@ -185,6 +185,31 @@ below the slowest of the ten lever pairs (1.01566x), so every pair clears the fl
 1.01090x on an n300, six of six positive. `TT_BIO_DEVICE_ZINIT=0` restores the host path and the
 previous coordinates.
 
+## `TT_BIO_DIT_COND_HOIST` — on
+
+Every layer of the token diffusion transformer reads the same conditioning vector, each through
+six projections of its own, and the layer norm in front of those projections is a per-layer scale
+over a shared normalised input. This flag folds each layer's scale into its own weight block, so
+one parameter-free layer norm and two concatenated matmuls replace 144 matmuls and 48 layer norms
+per sampling step. The dot products and the FLOP count do not change. What changes is how the
+launches are grouped, and the order of one bf16 rounding.
+
+The folded weights are built when the model loads rather than on the first fold, so a process that
+folds once is not left paying for them.
+
+**Speed: +0.2052 s at 512 aa on its own** (95 % CI [+0.1561, +0.2543]), inside the +0.4798 s this
+flag and `TT_BIO_UNFUSED_SILU` are worth together. The pair was measured and approved as a stack,
+and the stack is not the sum of its parts, so the number that ships is in that flag's section.
+Timed at the block rather than at the fold, this lever alone reads 1.071x and 1.085x across two
+sessions on this card. The win decays with size: +0.2809 s at 298 aa, +0.2415 s at 512 aa and
++0.1811 s at 768 aa, each above its own interleaved A/A floor.
+
+**Accuracy: not bit-identical, and inside seed scatter.** Scored on the shipped pair, under
+`TT_BIO_UNFUSED_SILU` below.
+
+Scope: RF3's token DiT builds this same block, so the default applies to RF3 as well as Boltz-2.
+The atom-level transformers take a different path and do not read the flag.
+
 ## `TT_BIO_FUSE_BIAS_STACKS` — on, Boltz-2 only
 
 Boltz-2's diffusion conditioning builds a per-layer bias stack with one call per layer. This flag
@@ -769,6 +794,36 @@ offsets as arguments it was already taking.
 there is nothing to recover; the reorder is free on both. The same is true wherever the projection
 runs a narrow slice, at 298 residues among others: the pair is two tiles apart in either order, and
 those sizes read flat.
+
+## `TT_BIO_UNFUSED_SILU` — on
+
+`Transition` is the engine's shared SwiGLU block. Its first matmul can apply silu as a fused
+activation, and on Blackhole that costs more than running silu as a separate op afterwards: 174.0
+us per call against 83.7 us at the 298 aa pair shape. The fused path runs silu at half the rate the
+standalone op reaches, so unfusing pays a full extra round trip through L1 and still wins. The
+penalty is specific to silu. A fused relu costs 2.4 us more than its standalone form and a fused
+gelu 141.3 us more, and the gap holds across eight matmul program configs.
+
+**Speed: 14.588 s to 14.108 s, 1.0340x**, for this flag and `TT_BIO_DIT_COND_HOIST` together.
++0.4798 s paired over five interleaved reps, 95 % CI [+0.4355, +0.5241], against the same session's
+paired A/A floor of +0.0324 s +/- 0.1087. The clock was forced to 1350 MHz and sampled during every
+fold. On its own in that session this flag reads +0.2336 s (CI [+0.1024, +0.3648]). Read the stack
+number rather than the sum of the two singles: the levers were measured together and approved
+together.
+
+**Accuracy: not bit-identical.** Unfusing applies silu to the bf16-packed matmul output instead of
+to the fp32 accumulator, so a structure can move slightly. At 298 aa, the size the 0.35/0.60 A band
+is written against, the stack deviates 0.25705 A all-atom at worst over two seeds. That is inside
+the pass band and 0.321x that fixture's own base-against-base seed floor of 0.7998 A, with a
+same-seed A/A control on the same harness reading 0.0000 A and identical digests. At 512 aa the
+hinge is unconstrained, so RMSD there carries the full seed floor, which runs 1.3735 to 17.5024 A
+over ten seed pairs, and pLDDT decides instead. Over five seeds the stack moves pLDDT by -0.0010 on
+average, unresolved at 95 % (+/- 0.0026), against the base's own across-seed spread of 0.0116.
+
+Scope, because the flag's name does not say it: every model that builds `Transition` inherits this
+default. That is Boltz-2, Protenix, OpenFold3's MSA embedder, and the pairformer and MSA stacks.
+OpenFold3's diffusion stack has its own SwiGLU transition and AF2 its own ReLU transition, and
+neither reads this flag.
 
 ## Idle host threads when a box is full
 

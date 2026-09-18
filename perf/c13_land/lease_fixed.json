@@ -1,0 +1,21 @@
+{
+  "arm": "fixed",
+  "aiclk": "800",
+  "pxdesign": {
+    "gate": true,
+    "fit_rmsd": 4.908543373445742,
+    "seconds": 5.419607414999518,
+    "error": null
+  },
+  "driver_fds_after": [],
+  "driver_lease_after": null,
+  "driver_device_after": null,
+  "subprocess_open": {
+    "ok": true,
+    "grid": [
+      11,
+      10
+    ]
+  },
+  "verdict": "PASS"
+}
