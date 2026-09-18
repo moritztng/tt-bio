@@ -550,13 +550,15 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            # reproducible and the solo one bit-identical to origin/main. The flag was fine and
            # this key was not.
            #
-           # This costs NOTHING on any path reachable today, which is why it is not a perf risk:
-           # `fast_dtypes_ok` admits only a UNIFORM operand set, and both callers allocate `out`
-           # with the query's own dtype (`triatt_sdpa.py:382` takes `q.dtype`, `:511` takes
-           # `x.dtype`). So on every reachable call all five strings below are equal and this key
-           # partitions calls exactly as the q-only key did -- same number of entries, same number
-           # of program compiles. The four added terms only ever separate a mixed set, which is
-           # precisely the case that used to collide.
+           # Cost, stated precisely because `fast_dtypes_ok(dest=...)` now exempts the destination
+           # from uniformity: with every bfp8 region OFF -- the shipped default -- the read
+           # operands are uniform and both callers allocate `out` with the query's own dtype
+           # (`triatt_sdpa.py:382` takes `q.dtype`, `:511` takes `x.dtype`), so all five strings
+           # below are equal and this key partitions calls exactly as the q-only key did: same
+           # entry count, same program-compile count, no perf risk on the default path. With a
+           # region ON and only the DESTINATION narrowed, `out.dtype` differs from the reads and
+           # this key correctly issues a second program for it -- that extra compile is the point,
+           # since it is what stops the narrowed destination from colliding with the bf16 one.
            str(q.dtype), str(k.dtype), str(v.dtype), str(mask.dtype), str(out.dtype),
            q_chunk_size, k_chunk_size, grid, tuple(str(c) for c in ckc),
            tuple(sorted((kw.get("defines_extra") or {}).items())),
