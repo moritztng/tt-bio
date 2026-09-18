@@ -542,7 +542,7 @@ def pair_contract(a: Tensor, b: Tensor, *, incoming: bool = False, config=None) 
     return permute(prod, (1, 2, 0))
 
 
-def checkpoint(fn, *inputs: Tensor) -> Tensor:
+def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
     """Run ``fn`` untaped, and re-run it taped inside its own backward.
 
     Trades one extra forward for dropping every intermediate ``fn`` produced. The
@@ -553,9 +553,19 @@ def checkpoint(fn, *inputs: Tensor) -> Tensor:
     both every op's saved intermediate AND a gradient per op. So checkpointing is not an
     optimisation that buys depth, it is what makes a single block fit.
 
-    Only the ``inputs`` named here receive gradients. Anything ``fn`` closes over -- weights,
-    typically -- does not, which is right for hallucination, where the design variable is the
-    input and the weights are frozen. A training use would have to pass the weights in too.
+    ``inputs`` are re-taped as duplicates, so their gradients arrive on the duplicates and
+    are forwarded. Parameters ``fn`` closes over need no duplication: they are LEAVES, so
+    the recomputed tape calls ``add_grad`` on the original objects and the gradient lands
+    where it belongs without any plumbing.
+
+    ``params`` therefore exists for one reason, and it is not plumbing -- it is the
+    PRUNING decision. ``_tape`` only builds a node when some parent requires a gradient,
+    so a checkpointed segment whose input is frozen (the first adapted block, reading a z
+    the production path produced) would get NO node, its backward would never run, and
+    every weight gradient inside it would be silently absent. Naming the parameters as
+    parents is what keeps that from happening. Fine-tuning is exactly the case where the
+    input can be frozen while the weights are not, so the old signature was correct for
+    hallucination and wrong here.
     """
     with no_grad():
         produced = fn(*inputs)
@@ -577,4 +587,4 @@ def checkpoint(fn, *inputs: Tensor) -> Tensor:
                     src.add_grad(dup.grad)
         return bw
 
-    return _tape(out_value, list(inputs), make)
+    return _tape(out_value, list(inputs) + list(params), make)
