@@ -1,0 +1,428 @@
+{
+ "env": {
+  "host": "tt-quietbox",
+  "card": "1",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/trix-bank-serial/tt_bio/__init__.py",
+  "fixture": "cdk2x2_512",
+  "started_utc": "2026-09-18T23:31:25Z",
+  "loadavg": [
+   0.689453125,
+   0.5322265625,
+   0.9326171875
+  ],
+  "steps": 200,
+  "recycles": 3,
+  "commit": "67f1ecaa8e38868865f8abe16e45c6e1b490085c"
+ },
+ "runs": [
+  {
+   "arm": "off",
+   "fold_s": 29.381,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 4.3,
+   "warmup": true
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.632,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 4.84,
+   "warmup": true
+  },
+  {
+   "arm": "off",
+   "fold_s": 18.106,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 5.97,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.809,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 4.74,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.973,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 3.91,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "off",
+   "fold_s": 18.032,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 4.29,
+   "warmup": false,
+   "rep": 0
+  },
+  {
+   "arm": "off",
+   "fold_s": 18.424,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 3.56,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.782,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 3.43,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.691,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 3.86,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "off",
+   "fold_s": 18.629,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 4.16,
+   "warmup": false,
+   "rep": 1
+  },
+  {
+   "arm": "off",
+   "fold_s": 18.276,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 4.55,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.665,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 4.96,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.861,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 3.84,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "off",
+   "fold_s": 18.213,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 4.29,
+   "warmup": false,
+   "rep": 2
+  },
+  {
+   "arm": "off",
+   "fold_s": 18.257,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 4.35,
+   "warmup": false,
+   "rep": 3
+  },
+  {
+   "arm": "on",
+   "fold_s": 17.953,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 3.78,
+   "warmup": false,
+   "rep": 3
+  },
+  {
+   "arm": "on",
+   "fold_s": 18.108,
+   "roles": [
+    "p_a",
+    "g_a",
+    "p_b",
+    "g_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 4.1,
+   "warmup": false,
+   "rep": 3
+  },
+  {
+   "arm": "off",
+   "fold_s": 18.545,
+   "roles": [
+    "g_a",
+    "g_b",
+    "p_a",
+    "p_b"
+   ],
+   "gated_calls": [
+    1120,
+    0
+   ],
+   "gated_rejects": {},
+   "plddt": 0.864325,
+   "cif_sha256": "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214",
+   "loadavg1": 4.19,
+   "warmup": false,
+   "rep": 3
+  }
+ ],
+ "n_per_arm": {
+  "off": 8,
+  "on": 8
+ },
+ "median_fold_s": {
+  "off": 18.2665,
+  "on": 17.835
+ },
+ "ratio": 1.0241940005606953,
+ "aa_floor": 0.9679531912609372,
+ "plddt": {
+  "off": [
+   0.864325
+  ],
+  "on": [
+   0.864325
+  ]
+ },
+ "paired_deltas_s": [
+  0.297,
+  0.059,
+  0.642,
+  0.938,
+  0.611,
+  0.352,
+  0.304,
+  0.437
+ ],
+ "gated_calls": {
+  "off": [
+   [
+    1120,
+    0
+   ]
+  ],
+  "on": [
+   [
+    1120,
+    0
+   ]
+  ]
+ },
+ "cif_sha256": {
+  "off": [
+   "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214"
+  ],
+  "on": [
+   "f3b25139f1bcb32c7ff36025f9177d783c8b469da70500f9f77cdf6993501214"
+  ]
+ },
+ "bit_exact": true
+}

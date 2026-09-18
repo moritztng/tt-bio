@@ -1,0 +1,30 @@
+{
+ "banks": 8,
+ "cells": [
+  {
+   "N": 512,
+   "C": 128,
+   "off_major": {
+    "g_a": 0,
+    "g_b": 4,
+    "p_a": 8,
+    "p_b": 12
+   },
+   "off_split": {
+    "g_a": 4,
+    "g_b": 12,
+    "p_a": 0,
+    "p_b": 8
+   },
+   "equal_a": true,
+   "equal_b": true,
+   "control_differs": true,
+   "us_major": 1069.5,
+   "us_split": 724.9,
+   "op_ratio": 1.4754
+  }
+ ],
+ "reps": 10,
+ "started_utc": "2026-09-18T23:31:04Z",
+ "all_ok": true
+}
