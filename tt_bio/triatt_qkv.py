@@ -267,11 +267,21 @@ def atom_qkv_heads(s, w_q, b_q, s_kv, w_kv, ckc, n_heads, head_dim, dtype, cfg_q
     rows_kv = int(s_kv.shape[-2])
     dt = head_dim // TILE
 
-    def defines(mt):
-        d = {"HEAD_MAJOR_MT": mt // TILE}
-        if dt != 1:
-            d["HEAD_MAJOR_DT"] = dt
-        return d
+    # q is ONE output, and at N_chunks == 1 the kernel takes `write_block_sync`, which reads
+    # `MM_OUT_TILE_ID` -- a different macro from the split writer's `MM_SPLIT_TILE_ID`. So q's
+    # define is HEAD_MAJOR_OUT_MT, the one `gate_proj` uses for its single output, and not
+    # HEAD_MAJOR_MT, which that writer never looks at. Passing the wrong one is inert rather than
+    # loud, and at the atom window it would even give the right answer by accident, because MT is 1
+    # there and the head-major id IS the plain id.
+    if dt != 1:
+        # Only MM_SPLIT_TILE_ID was generalised to a multi-tile head; MM_OUT_TILE_ID carries no DT,
+        # so a single-output head-major write is only expressible at one tile per head.
+        return _atom_reject("multi_tile_head_on_single_output", shape)
+
+    # kv is TWO outputs, so that call takes the split writer and HEAD_MAJOR_MT is the define it
+    # reads. No HEAD_MAJOR_DT: the guard above already refused a multi-tile head here.
+    def split_defines(rows):
+        return {"HEAD_MAJOR_MT": rows // TILE}
 
     def alloc(rows):
         return ttnn.allocate_tensor_on_device(
@@ -280,10 +290,10 @@ def atom_qkv_heads(s, w_q, b_q, s_kv, w_kv, ckc, n_heads, head_dim, dtype, cfg_q
 
     q = alloc(w)
     G.generic_minimal_matmul(dev, s, w_q, [q], (blk_q, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
-                             defines(w), KERNEL_DIR, bias=b_q)
+                             {"HEAD_MAJOR_OUT_MT": w // TILE}, KERNEL_DIR, bias=b_q)
     kv = [alloc(rows_kv), alloc(rows_kv)]
     G.generic_minimal_matmul(dev, s_kv, w_kv, kv, (blk_kv, tuple(COMPUTE_GRID_MAIN)),
-                             G.ckc_args(ckc), defines(rows_kv), KERNEL_DIR)
+                             G.ckc_args(ckc), split_defines(rows_kv), KERNEL_DIR)
 
     out = [ttnn.reshape(t, (b, k * n_heads, int(t.shape[-2]), head_dim)) for t in (q, *kv)]
     ATOM_STATS[0] += 1

@@ -15,7 +15,8 @@
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
    "torch_equal_vs_create_heads": true,
-   "equals_plain_writer": false
+   "equals_plain_writer": false,
+   "out_macro_matches": null
   },
   {
    "shape": "apb_trunk_512aa",
@@ -31,7 +32,8 @@
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
    "torch_equal_vs_create_heads": true,
-   "equals_plain_writer": false
+   "equals_plain_writer": false,
+   "out_macro_matches": true
   },
   {
    "shape": "atom_kv_512aa",
@@ -47,7 +49,8 @@
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
    "torch_equal_vs_create_heads": true,
-   "equals_plain_writer": false
+   "equals_plain_writer": false,
+   "out_macro_matches": true
   },
   {
    "shape": "atom_q_512aa",
@@ -63,7 +66,8 @@
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
    "torch_equal_vs_create_heads": true,
-   "equals_plain_writer": true
+   "equals_plain_writer": true,
+   "out_macro_matches": true
   },
   {
    "shape": "triatt_512aa_qkv",
@@ -79,7 +83,8 @@
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
    "torch_equal_vs_create_heads": true,
-   "equals_plain_writer": false
+   "equals_plain_writer": false,
+   "out_macro_matches": true
   },
   {
    "shape": "triatt_512aa_qkvg",
@@ -95,7 +100,8 @@
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
    "torch_equal_vs_create_heads": true,
-   "equals_plain_writer": false
+   "equals_plain_writer": false,
+   "out_macro_matches": true
   },
   {
    "shape": "triatt_298aa_qkv",
@@ -111,7 +117,8 @@
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
    "torch_equal_vs_create_heads": true,
-   "equals_plain_writer": false
+   "equals_plain_writer": false,
+   "out_macro_matches": true
   },
   {
    "shape": "dt4_synthetic",
@@ -127,7 +134,8 @@
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
    "torch_equal_vs_create_heads": true,
-   "equals_plain_writer": false
+   "equals_plain_writer": false,
+   "out_macro_matches": null
   }
  ]
 }

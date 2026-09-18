@@ -75,6 +75,35 @@ int main() {
 NEGCTRL = False
 
 
+def _out_macro_text() -> str:
+    """The MM_OUT_TILE_ID block as it stands in the shipped header.
+
+    A different macro from the split writer's: at N_chunks == 1 the kernel takes
+    `write_block_sync`, which reads this one and never looks at HEAD_MAJOR_MT. The atom block's q
+    is a single output, so this is the macro its define has to hit.
+    """
+    src = (HDR / "matmul_dataflow_common.hpp").read_text()
+    start = src.index("#ifdef HEAD_MAJOR_OUT_MT")
+    end = src.index("#endif", src.index(
+        "#define MM_OUT_TILE_ID(row, col, logical_d1) ((row) * (logical_d1) + (col))"))
+    return src[start:end + len("#endif")]
+
+
+def out_macro_ids(mt, rows, d1):
+    """Compile the header's own MM_OUT_TILE_ID and evaluate it over every (row, col)."""
+    body = (_HARNESS.replace("@DEFINES@", f"#define HEAD_MAJOR_OUT_MT {mt}")
+                    .replace("@MACRO@", _out_macro_text())
+                    .replace("MM_SPLIT_TILE_ID", "MM_OUT_TILE_ID")
+                    .replace("@ROWS@", str(rows))
+                    .replace("@D1@", str(d1)))
+    with tempfile.TemporaryDirectory() as td:
+        src, exe = Path(td) / "o.cpp", Path(td) / "o"
+        src.write_text(body)
+        subprocess.run(["g++", "-O2", "-o", str(exe), str(src)], check=True)
+        out = subprocess.run([str(exe)], check=True, capture_output=True, text=True).stdout
+    return [int(x) for x in out.split()]
+
+
 def _macro_text() -> str:
     """The MM_SPLIT_TILE_ID block as it stands in the shipped header."""
     src = (HDR / "matmul_dataflow_common.hpp").read_text()
@@ -154,6 +183,10 @@ def check(name, batch, seq, heads, pdim, chunks):
     # MT = 1 and DT = 1, which is the atom block's q: a 32-row window is one row tile, so that
     # projection is head-major by choosing its destination's shape and needs no define at all.
     plain = ids_macro == [row * d1 + tidx for row in range(rows) for tidx in range(d1)]
+    # The single-output writer's macro, which the atom q's define must hit. Only defined at DT = 1:
+    # MM_OUT_TILE_ID was never generalised to a multi-tile head, and `atom_qkv_heads` refuses that
+    # case rather than passing a define the writer ignores.
+    out_ok = None if dt != 1 else out_macro_ids(mt, rows, d1) == ids_closed
 
     # LAYOUT: one chunk is enough -- the writer's chunk index only selects the destination tensor.
     torch.manual_seed(0)
@@ -175,7 +208,7 @@ def check(name, batch, seq, heads, pdim, chunks):
             "DT_define_passed": dt_define, "n_chunks": chunks,
             "tiles_per_chunk": rows * d1, "macro_equals_closed_form": macro_ok,
             "map_is_a_permutation": onto, "torch_equal_vs_create_heads": layout_ok,
-            "equals_plain_writer": plain}
+            "equals_plain_writer": plain, "out_macro_matches": out_ok}
 
 
 def main() -> int:
@@ -186,9 +219,10 @@ def main() -> int:
         print(f"{r['shape']:<20} MT={r['HEAD_MAJOR_MT']:<4} DT={r['HEAD_MAJOR_DT']} "
               f"tiles={r['tiles_per_chunk']:<7} macro={r['macro_equals_closed_form']} "
               f"perm={r['map_is_a_permutation']} torch.equal={r['torch_equal_vs_create_heads']} "
-              f"plain={r['equals_plain_writer']}")
+              f"plain={r['equals_plain_writer']} out_macro={r['out_macro_matches']}")
     ok = all(r["macro_equals_closed_form"] and r["map_is_a_permutation"]
-             and r["torch_equal_vs_create_heads"] for r in rows)
+             and r["torch_equal_vs_create_heads"]
+             and r["out_macro_matches"] is not False for r in rows)
     if NEGCTRL:
         broke = [r["shape"] for r in rows if not r["torch_equal_vs_create_heads"]]
         kept = [r["shape"] for r in rows if r["HEAD_MAJOR_DT"] == 1]
