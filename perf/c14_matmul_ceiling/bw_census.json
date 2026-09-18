@@ -1,0 +1,936 @@
+{
+ "class_s": 3.94588,
+ "rows": [
+  {
+   "shape": [
+    47,
+    512,
+    128,
+    512
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.25,
+   "calls": 5600.0,
+   "fold_s": 0.88765,
+   "us_per_call": 158.51,
+   "cores": [
+    108
+   ],
+   "per_core_MN": [
+    "7",
+    "16"
+   ],
+   "units": [
+    "MSALayer",
+    "PairformerLayer"
+   ]
+  },
+  {
+   "shape": [
+    128,
+    512,
+    512,
+    512
+   ],
+   "k_tiles": 16,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "in0_block_w": 8,
+   "bw_over_kt": 0.5,
+   "calls": 560.0,
+   "fold_s": 0.47778,
+   "us_per_call": 853.18,
+   "cores": [
+    64
+   ],
+   "per_core_MN": [
+    "2",
+    "2"
+   ],
+   "units": [
+    "MSALayer",
+    "PairformerLayer"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    512,
+    768,
+    768
+   ],
+   "k_tiles": 24,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.0417,
+   "calls": 19200.0,
+   "fold_s": 0.46114,
+   "us_per_call": 24.02,
+   "cores": [
+    64
+   ],
+   "per_core_MN": [
+    "2",
+    "3"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    512,
+    768,
+    1536
+   ],
+   "k_tiles": 24,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "in0_block_w": 4,
+   "bw_over_kt": 0.1667,
+   "calls": 15200.0,
+   "fold_s": 0.34394,
+   "us_per_call": 22.63,
+   "cores": [
+    80
+   ],
+   "per_core_MN": [
+    "2",
+    "5"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    512,
+    768,
+    768
+   ],
+   "k_tiles": 24,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "in0_block_w": 4,
+   "bw_over_kt": 0.1667,
+   "calls": 19400.0,
+   "fold_s": 0.33647,
+   "us_per_call": 17.34,
+   "cores": [
+    64
+   ],
+   "per_core_MN": [
+    "2",
+    "3"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    512,
+    768,
+    3072
+   ],
+   "k_tiles": 24,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "in0_block_w": 4,
+   "bw_over_kt": 0.1667,
+   "calls": 4800.0,
+   "fold_s": 0.19248,
+   "us_per_call": 40.1,
+   "cores": [
+    88
+   ],
+   "per_core_MN": [
+    "2",
+    "9"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    47,
+    512,
+    512,
+    128
+   ],
+   "k_tiles": 16,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.0625,
+   "calls": 2800.0,
+   "fold_s": 0.18798,
+   "us_per_call": 67.14,
+   "cores": [
+    108
+   ],
+   "per_core_MN": [
+    "7",
+    "4"
+   ],
+   "units": [
+    "MSALayer",
+    "PairformerLayer"
+   ]
+  },
+  {
+   "shape": [
+    512,
+    512,
+    128,
+    128
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 4,
+   "bw_over_kt": 1.0,
+   "calls": 560.0,
+   "fold_s": 0.17408,
+   "us_per_call": 310.85,
+   "cores": [
+    110
+   ],
+   "per_core_MN": [
+    "75",
+    "4"
+   ],
+   "units": [
+    "MSALayer",
+    "PairformerLayer"
+   ]
+  },
+  {
+   "shape": [
+    512,
+    512,
+    1024,
+    128
+   ],
+   "k_tiles": 32,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.0312,
+   "calls": 16.0,
+   "fold_s": 0.16553,
+   "us_per_call": 10345.8,
+   "cores": [
+    110
+   ],
+   "per_core_MN": [
+    "75",
+    "4"
+   ],
+   "units": [
+    "MSALayer"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    512,
+    1536,
+    768
+   ],
+   "k_tiles": 48,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "in0_block_w": 4,
+   "bw_over_kt": 0.0833,
+   "calls": 5200.0,
+   "fold_s": 0.12107,
+   "us_per_call": 23.28,
+   "cores": [
+    64
+   ],
+   "per_core_MN": [
+    "2",
+    "3"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    140,
+    128,
+    128,
+    256
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.25,
+   "calls": 1200.0,
+   "fold_s": 0.09839,
+   "us_per_call": 81.99,
+   "cores": [
+    94
+   ],
+   "per_core_MN": [
+    "6",
+    "8"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    140,
+    32,
+    128,
+    256
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.25,
+   "calls": 3600.0,
+   "fold_s": 0.08999,
+   "us_per_call": 25.0,
+   "cores": [
+    70
+   ],
+   "per_core_MN": [
+    "2",
+    "8"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    42,
+    512,
+    128,
+    512
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.25,
+   "calls": 560.0,
+   "fold_s": 0.08844,
+   "us_per_call": 157.93,
+   "cores": [
+    96
+   ],
+   "per_core_MN": [
+    "7",
+    "16"
+   ],
+   "units": [
+    "MSALayer",
+    "PairformerLayer"
+   ]
+  },
+  {
+   "shape": [
+    140,
+    32,
+    128,
+    128
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.25,
+   "calls": 4800.0,
+   "fold_s": 0.07853,
+   "us_per_call": 16.36,
+   "cores": [
+    70
+   ],
+   "per_core_MN": [
+    "2",
+    "4"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    140,
+    32,
+    256,
+    128
+   ],
+   "k_tiles": 8,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.125,
+   "calls": 1200.0,
+   "fold_s": 0.03868,
+   "us_per_call": 32.23,
+   "cores": [
+    70
+   ],
+   "per_core_MN": [
+    "2",
+    "4"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    16384,
+    64,
+    16384
+   ],
+   "k_tiles": 2,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.5,
+   "calls": 16.0,
+   "fold_s": 0.03715,
+   "us_per_call": 2321.78,
+   "cores": [
+    110
+   ],
+   "per_core_MN": [
+    "52",
+    "47"
+   ],
+   "units": [
+    "MSALayer"
+   ]
+  },
+  {
+   "shape": [
+    512,
+    512,
+    128,
+    16
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.25,
+   "calls": 264.0,
+   "fold_s": 0.03309,
+   "us_per_call": 125.33,
+   "cores": [
+    110
+   ],
+   "per_core_MN": [
+    "75",
+    "1"
+   ],
+   "units": [
+    "PairformerLayer"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    768,
+    4480,
+    512
+   ],
+   "k_tiles": 140,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.0071,
+   "calls": 200.0,
+   "fold_s": 0.02406,
+   "us_per_call": 120.28,
+   "cores": [
+    64
+   ],
+   "per_core_MN": [
+    "3",
+    "2"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    42,
+    512,
+    512,
+    128
+   ],
+   "k_tiles": 16,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.0625,
+   "calls": 280.0,
+   "fold_s": 0.01805,
+   "us_per_call": 64.46,
+   "cores": [
+    96
+   ],
+   "per_core_MN": [
+    "7",
+    "4"
+   ],
+   "units": [
+    "MSALayer",
+    "PairformerLayer"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    512,
+    384,
+    1536
+   ],
+   "k_tiles": 12,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "in0_block_w": 4,
+   "bw_over_kt": 0.3333,
+   "calls": 792.0,
+   "fold_s": 0.01602,
+   "us_per_call": 20.22,
+   "cores": [
+    80
+   ],
+   "per_core_MN": [
+    "2",
+    "5"
+   ],
+   "units": [
+    "PairformerLayer"
+   ]
+  },
+  {
+   "shape": [
+    16,
+    512,
+    32,
+    512
+   ],
+   "k_tiles": 1,
+   "factory": "MatmulMultiCoreReuseProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 1.0,
+   "calls": 264.0,
+   "fold_s": 0.01141,
+   "us_per_call": 43.21,
+   "cores": [
+    32
+   ],
+   "per_core_MN": [
+    "8",
+    "16"
+   ],
+   "units": [
+    "PairformerLayer"
+   ]
+  },
+  {
+   "shape": [
+    16,
+    512,
+    512,
+    32
+   ],
+   "k_tiles": 16,
+   "factory": "MatmulMultiCoreReuseProgramConfig",
+   "in0_block_w": 2,
+   "bw_over_kt": 0.125,
+   "calls": 264.0,
+   "fold_s": 0.00962,
+   "us_per_call": 36.46,
+   "cores": [
+    32
+   ],
+   "per_core_MN": [
+    "8",
+    "1"
+   ],
+   "units": [
+    "PairformerLayer"
+   ]
+  },
+  {
+   "shape": [
+    64,
+    512,
+    64,
+    32
+   ],
+   "k_tiles": 2,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.5,
+   "calls": 288.0,
+   "fold_s": 0.00714,
+   "us_per_call": 24.77,
+   "cores": [
+    103
+   ],
+   "per_core_MN": [
+    "10",
+    "1"
+   ],
+   "units": [
+    "MSALayer"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    4480,
+    128,
+    768
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "in0_block_w": 4,
+   "bw_over_kt": 1.0,
+   "calls": 200.0,
+   "fold_s": 0.00713,
+   "us_per_call": 35.65,
+   "cores": [
+    80
+   ],
+   "per_core_MN": [
+    "14",
+    "3"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    64,
+    32,
+    512,
+    512
+   ],
+   "k_tiles": 16,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.0625,
+   "calls": 128.0,
+   "fold_s": 0.00584,
+   "us_per_call": 45.59,
+   "cores": [
+    64
+   ],
+   "per_core_MN": [
+    "1",
+    "16"
+   ],
+   "units": [
+    "MSALayer"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    128,
+    512,
+    4480
+   ],
+   "k_tiles": 16,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 2,
+   "bw_over_kt": 0.125,
+   "calls": 200.0,
+   "fold_s": 0.00549,
+   "us_per_call": 27.46,
+   "cores": [
+    70
+   ],
+   "per_core_MN": [
+    "4",
+    "2"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    512,
+    1536,
+    384
+   ],
+   "k_tiles": 48,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "in0_block_w": 4,
+   "bw_over_kt": 0.0833,
+   "calls": 264.0,
+   "fold_s": 0.0046,
+   "us_per_call": 17.41,
+   "cores": [
+    48
+   ],
+   "per_core_MN": [
+    "2",
+    "2"
+   ],
+   "units": [
+    "PairformerLayer"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    512,
+    384,
+    384
+   ],
+   "k_tiles": 12,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "in0_block_w": 4,
+   "bw_over_kt": 0.3333,
+   "calls": 528.0,
+   "fold_s": 0.00417,
+   "us_per_call": 7.9,
+   "cores": [
+    48
+   ],
+   "per_core_MN": [
+    "2",
+    "2"
+   ],
+   "units": [
+    "PairformerLayer"
+   ]
+  },
+  {
+   "shape": [
+    64,
+    512,
+    32,
+    64
+   ],
+   "k_tiles": 1,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 1.0,
+   "calls": 128.0,
+   "fold_s": 0.00411,
+   "us_per_call": 32.09,
+   "cores": [
+    103
+   ],
+   "per_core_MN": [
+    "10",
+    "2"
+   ],
+   "units": [
+    "MSALayer"
+   ]
+  },
+  {
+   "shape": [
+    64,
+    512,
+    64,
+    256
+   ],
+   "k_tiles": 2,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.5,
+   "calls": 32.0,
+   "fold_s": 0.00338,
+   "us_per_call": 105.55,
+   "cores": [
+    103
+   ],
+   "per_core_MN": [
+    "10",
+    "8"
+   ],
+   "units": [
+    "MSALayer"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    4480,
+    3,
+    128
+   ],
+   "k_tiles": 1,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 1.0,
+   "calls": 200.0,
+   "fold_s": 0.00305,
+   "us_per_call": 15.26,
+   "cores": [
+    70
+   ],
+   "per_core_MN": [
+    "2",
+    "4"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    512,
+    768,
+    128
+   ],
+   "k_tiles": 24,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "in0_block_w": 4,
+   "bw_over_kt": 0.1667,
+   "calls": 200.0,
+   "fold_s": 0.00216,
+   "us_per_call": 10.81,
+   "cores": [
+    32
+   ],
+   "per_core_MN": [
+    "2",
+    "1"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    512,
+    512,
+    128,
+    8
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.25,
+   "calls": 16.0,
+   "fold_s": 0.002,
+   "us_per_call": 125.02,
+   "cores": [
+    110
+   ],
+   "per_core_MN": [
+    "75",
+    "1"
+   ],
+   "units": [
+    "MSALayer"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    4480,
+    128,
+    3
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.25,
+   "calls": 200.0,
+   "fold_s": 0.00187,
+   "us_per_call": 9.37,
+   "cores": [
+    70
+   ],
+   "per_core_MN": [
+    "2",
+    "1"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    1,
+    256,
+    768
+   ],
+   "k_tiles": 8,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.125,
+   "calls": 200.0,
+   "fold_s": 0.00158,
+   "us_per_call": 7.88,
+   "cores": [
+    24
+   ],
+   "per_core_MN": [
+    "1",
+    "1"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    1,
+    1,
+    1,
+    256
+   ],
+   "k_tiles": 1,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 1.0,
+   "calls": 200.0,
+   "fold_s": 0.001,
+   "us_per_call": 5.01,
+   "cores": [
+    8
+   ],
+   "per_core_MN": [
+    "1",
+    "1"
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "shape": [
+    64,
+    512,
+    256,
+    64
+   ],
+   "k_tiles": 8,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "in0_block_w": 1,
+   "bw_over_kt": 0.125,
+   "calls": 16.0,
+   "fold_s": 0.00081,
+   "us_per_call": 50.41,
+   "cores": [
+    103
+   ],
+   "per_core_MN": [
+    "10",
+    "2"
+   ],
+   "units": [
+    "MSALayer"
+   ]
+  }
+ ]
+}
