@@ -125,9 +125,7 @@ def eligible(xa, xb, wa, wb):
 
     Every clause is a real assumption of the fork, so a decline names which one.
     """
-    # Membership widened, the pair tests below untouched: this clause used to be "bf16 must
-    # appear somewhere", and a fast dtype appearing somewhere is a strict superset of it.
-    if not (MG.FAST_DTYPES & {xa.dtype, xb.dtype, wa.dtype, wb.dtype}):
+    if ttnn.bfloat16 not in (xa.dtype, xb.dtype, wa.dtype, wb.dtype):
         return "dtype"
     if xa.dtype != xb.dtype or wa.dtype != wb.dtype:
         return "dtype_pair"
