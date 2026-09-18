@@ -6894,9 +6894,32 @@ _MM_BLOCK = {
 }
 
 
+# Keys `_MM_BLOCK` carries for the AttentionPairBias and atom-block sites ONLY.
+#
+# `_mm_block_for` is keyed on the weight's (kt, nt) and nothing else, so an entry added for one site
+# is inherited by every site with a weight of that shape. Two of the three added here are shapes a
+# TRIANGLE attention could also have: `qkv_heads` accepts a `_MM_DEFAULT` entry (opendde depends on
+# that at (12, 36)), and its width condition is nt = 3 * n_heads at head_dim 32 -- so (12, 48) is a
+# 16-head tri-attention at c_z=384 and (24, 96) a 32-head one at c_z=768. The fleet has none today
+# (boltz2 and openfold3 are 4 heads, protenix-v2 8, opendde 12) but "no model has that width yet" is
+# not a guard, it is a coincidence, and the next port would have inherited an unmeasured route
+# silently. So the triangle-attention entry point refuses these keys BY KEY.
+#
+# The other three entry points need no help: `gate_proj`, `qkvg_heads` and `qkvgb_heads` already
+# refuse a `_MM_DEFAULT` entry outright. (4, 8) cannot be a tri-att qkv key at all -- nt = 8 is not
+# 3 * n_heads for any integer -- and is listed anyway, because the set is a statement about which
+# site owns the entry and not about which arithmetic happens to save us.
+_MM_BLOCK_NOT_TRIATT = frozenset({(24, 96), (12, 48), (4, 8)})
+
+
+def _mm_key(w):
+    """The (k_tiles, n_tiles) key this weight is looked up under."""
+    return ((int(w.shape[-2]) + 31) // 32, (int(w.shape[-1]) + 31) // 32)
+
+
 def _mm_block_for(w):
     """The swept block entry for this weight, or None. The single reader of the (kt, nt) key."""
-    return _MM_BLOCK.get(((int(w.shape[-2]) + 31) // 32, (int(w.shape[-1]) + 31) // 32))
+    return _MM_BLOCK.get(_mm_key(w))
 
 
 @lru_cache(maxsize=None)
@@ -6908,8 +6931,7 @@ def _qkv_mm_config(inp, w):
     """The swept block config for this (activation, weight) pair, or None to leave the op alone."""
     if not _MM_CFG:
         return None
-    kt = (int(w.shape[-2]) + 31) // 32
-    nt = (int(w.shape[-1]) + 31) // 32
+    kt, nt = _mm_key(w)
     blk = _mm_block_for(w)
     if blk is None:
         return None

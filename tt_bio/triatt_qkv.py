@@ -140,6 +140,11 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config, bias=None,
         return _reject(refuse, shape, site)
     if head_dim % TILE or n_heads * head_dim * 3 != int(w.shape[-1]):
         return _reject("head_dim_or_width", shape, site)
+    from .tenstorrent import _MM_BLOCK_NOT_TRIATT, _mm_key
+    if site == "triatt" and _mm_key(w) in _MM_BLOCK_NOT_TRIATT:
+        # A block entry that exists for the AttentionPairBias / atom sites, at a width a triangle
+        # attention could also have. Inheriting it by shape would route an unmeasured model here.
+        return _reject("apb_only_block_entry", shape, site)
     if not _common_ok(x, w, dtype):
         return _reject("dtype_or_memory", shape, site)
     if bias is not None and (bias.dtype != ttnn.bfloat16
