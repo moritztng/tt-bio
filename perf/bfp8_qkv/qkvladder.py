@@ -48,7 +48,7 @@ import ttnn  # noqa: E402
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--part", choices=("ladder", "prod", "acc"), required=True)
+ap.add_argument("--part", choices=("ladder", "prod", "prodclean", "acc"), required=True)
 ap.add_argument("--out", default=None)
 ap.add_argument("--reps", type=int, default=9)
 ap.add_argument("--mhz", type=int, default=1350)
@@ -351,6 +351,75 @@ elif A.part == "prod":
             res["ratios"][fam + "_over_" + ref] = {
                 "time": r, "byte_ratio": br,
                 "realization": (1 - r) / (1 - br) if abs(br - 1) > 1e-9 else None}
+    finish()
+
+# ---------------------------------------------------------------------------- prodclean
+elif A.part == "prodclean":
+    # `--part prod` measures `qkv_heads` as production calls it, which includes allocating three
+    # DRAM destinations per call. That cost is dtype-invariant, so it DILUTES the byte ratio, and
+    # `prod` cannot say by how much. This part splits it: the same program at the same production
+    # key with the destinations preallocated outside the timed region, plus an allocate-and-free
+    # arm on its own so the invariant term is measured and not inferred.
+    S, C, H, D = A.n, A.cz, A.heads, A.head_dim
+    W_QKV = 3 * H * D
+    X = {dt: t((S, S, C), dt) for dt in (B16, B8)}
+    Wq = {dt: t((C, W_QKV), dt, scale=0.05) for dt in (B16, B8)}
+    blk = _mm_block_for(Wq[B16])
+    cfg = (blk, GRID)
+    pad = [int(d) for d in X[B16].padded_shape]
+    DEFS = {"HEAD_MAJOR_MT": pad[-2] // TILE}
+    res.update({"w_qkv": [C, W_QKV], "block_qkv": list(blk or ()), "defines": DEFS})
+    OUTS = {dt: [ttnn.allocate_tensor_on_device(
+        ttnn.Shape([S, H, S, D]), dt, ttnn.TILE_LAYOUT, dev, DRAM) for _ in range(3)]
+        for dt in (B16, B8)}
+
+    def nbytes(xdt, wdt, odt):
+        return (WIDTH[xdt] * S * S * C + WIDTH[wdt] * C * W_QKV
+                + WIDTH[odt] * S * S * W_QKV)
+
+    def pre(xdt, wdt, odt):
+        def f():
+            G.generic_minimal_matmul(dev, X[xdt], Wq[wdt], OUTS[odt], cfg, CK, DEFS,
+                                     Q.KERNEL_DIR)
+        return f, nbytes(xdt, wdt, odt)
+
+    def alloc_only(odt):
+        def f():
+            o = [ttnn.allocate_tensor_on_device(
+                ttnn.Shape([S, H, S, D]), odt, ttnn.TILE_LAYOUT, dev, DRAM) for _ in range(3)]
+            for y in o:
+                ttnn.deallocate(y)
+        return f, 0
+
+    ARMS = [
+        ("pre_b16",) + pre(B16, B16, B16),
+        ("pre_b16_aa",) + pre(B16, B16, B16),
+        ("pre_b8dest",) + pre(B16, B16, B8),
+        ("pre_b8all",) + pre(B8, B8, B8),
+        ("alloc_b16",) + alloc_only(B16),
+        ("alloc_b8",) + alloc_only(B8),
+    ]
+    held, sampler = force_clock()
+    run_arms(ARMS)
+    res["clock"] = sampler.stop()
+    res["aiclk_after"] = {nd: clk.aiclk(nd) for nd in held}
+    base = res["arms"].get("pre_b16", {}).get("ms_med")
+    aa = res["arms"].get("pre_b16_aa", {}).get("ms_med")
+    if base and aa:
+        res["aa_floor_pct"] = abs(aa - base) / base * 100
+    res["ratios"] = {}
+    for fam in ("pre_b8dest", "pre_b8all"):
+        if fam in res["arms"] and base:
+            r = res["arms"][fam]["ms_med"] / base
+            br = res["arms"][fam]["bytes"] / res["arms"]["pre_b16"]["bytes"]
+            res["ratios"][fam] = {"time": r, "byte_ratio": br,
+                                  "realization": (1 - r) / (1 - br)}
+    res["kernel_path"] = {
+        "program": ("tt_bio/kernels/triatt dm_in0_sender.cpp + dm_in1_sender_out.cpp through "
+                    "ttnn.generic_op, block %s, grid %s, defines %s, three DRAM destinations"
+                    % (res["block_qkv"], list(GRID), DEFS)),
+        "note": "same descriptor qkv_heads builds; only the destination allocation moved out",
+    }
     finish()
 
 # ---------------------------------------------------------------------------- acc
