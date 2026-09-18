@@ -31,7 +31,7 @@ from .tenstorrent import CORE_GRID_MAIN, get_device
 
 __all__ = ["set_grad_hook", "grad_hook", "kernel_config",
            "linear", "matmul", "add", "sub", "mul", "scale", "shift", "sum_last", "sqrt_plus",
-           "softplus", "relu", "softmax", "layer_norm", "reshape", "permute", "transpose_last",
+           "softplus", "relu", "sum_dim", "softmax", "layer_norm", "reshape", "permute", "transpose_last",
            "slice_dim", "concat"]
 
 _GRAD_HOOK = None
@@ -211,6 +211,23 @@ def sum_last(x, *, keepdim: bool = True):
     out = ttnn.sum(x, dim=-1, keepdim=True)
     if not keepdim:
         out = ttnn.reshape(out, [int(d) for d in x.shape][:-1])
+    return out
+
+
+@_dispatching
+def sum_dim(x, dim: int, *, keepdim: bool = True):
+    """Sum over one axis.
+
+    The point term reduces the points inside each head with this, over an axis it has already
+    grouped by a free reshape. A reduction rounds like a matmul at ~1e-3 relative, which is
+    harmless here and only here: the terms are the squared coordinate differences of one point
+    pair, all positive and of the same magnitude, so the error scales with the answer. That is the
+    property `|q|^2 + |k|^2 - 2 q.k` does not have, and the reason one is refused and this is not.
+    """
+    out = ttnn.sum(x, dim=dim, keepdim=True)
+    if not keepdim:
+        shape = [int(d) for d in x.shape]
+        out = ttnn.reshape(out, shape[:dim] + shape[dim + 1:])
     return out
 
 

@@ -144,6 +144,12 @@ def _sum_to(g, shape: Sequence[int]):
     got = _shape(g)
     if want == got:
         return g
+    # A matmul that folds the sample axis into the width hands a rank-3 gradient back to a rank-2
+    # weight. Dropping leading 1s is a reshape, not a reduction, so it happens first and the
+    # broadcast reduction below still sees equal ranks.
+    while len(got) > len(want) and got[0] == 1:
+        got = got[1:]
+        g = ttnn.reshape(g, got)
     assert len(want) == len(got), f"cannot reduce {got} onto {want}"
     for dim, (w, d) in enumerate(zip(want, got)):
         if w == d:
@@ -338,6 +344,21 @@ def _sum_last(shipped, x, *, keepdim=True):
     return _tape(out_v, [x], make)
 
 
+def _sum_dim(shipped, x, dim, *, keepdim=True):
+    xv = _unwrap(x)
+    src = _shape(xv)
+    dim = dim % len(src)
+    out_v = shipped(xv, dim, keepdim=keepdim)
+
+    def make():
+        def bw(g):
+            gg = g if keepdim else ttnn.reshape(g, src[:dim] + [1] + src[dim + 1:])
+            _accumulate(x, ttnn.multiply(ttnn.ones_like(xv), gg))
+        return bw
+
+    return _tape(out_v, [x], make)
+
+
 def _softmax(shipped, x, dim=-1):
     """Backward `y * (dy - sum(dy * y))`, which needs only `y`."""
     out_v = shipped(_unwrap(x), dim=dim)
@@ -485,7 +506,7 @@ def _concat(shipped, xs, dim=-1):
 _TAPED = {
     "linear": _linear, "matmul": _matmul, "add": _add, "sub": _sub, "mul": _mul,
     "scale": _scale, "shift": _shift, "sqrt_plus": _sqrt_plus, "softplus": _softplus,
-    "relu": _relu, "sum_last": _sum_last, "softmax": _softmax, "layer_norm": _layer_norm,
+    "relu": _relu, "sum_last": _sum_last, "sum_dim": _sum_dim, "softmax": _softmax, "layer_norm": _layer_norm,
     "reshape": _reshape, "permute": _permute, "transpose_last": _transpose_last,
     "slice_dim": _slice_dim, "concat": _concat,
 }

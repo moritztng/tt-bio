@@ -129,6 +129,12 @@ def _relu():
     return (torch.relu), (lambda x: ops.relu(x)), [(2, 32, 64)]
 
 
+# The reduction the point term sums its points with, over an axis a free reshape has grouped.
+@case("sum_dim leading axis", 1e-3, 1e-5)
+def _sum_dim():
+    return ((lambda x: x.sum(1, keepdim=True)), (lambda x: ops.sum_dim(x, 1)), [(8, 4, 32, 64)])
+
+
 @case("softmax", 1e-2, 1e-2)
 def _softmax():
     return ((lambda x: torch.softmax(x, dim=-1)), (lambda x: ops.softmax(x)), [(2, 4, 32, 64)])
