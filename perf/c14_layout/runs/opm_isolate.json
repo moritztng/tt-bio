@@ -1,0 +1,46 @@
+{
+ "shape": [
+  64,
+  1024,
+  512,
+  128
+ ],
+ "ref_absmax": 0.5041851193454931,
+ "variants": {
+  "A  permute+linear   core_grid  bias": {
+   "rel_max_err": 0.00224574571773266,
+   "absmax": 0.50390625,
+   "verdict": "OK"
+  },
+  "A2 permute+linear   no_grid    bias": {
+   "rel_max_err": 0.00224574571773266,
+   "absmax": 0.50390625,
+   "verdict": "OK"
+  },
+  "A3 permute+linear   core_grid  nobias": {
+   "rel_max_err": 0.34674848634822214,
+   "absmax": 0.435546875,
+   "verdict": "WRONG"
+  },
+  "B  transpose_a      core_grid  bias": {
+   "rel_max_err": 1.2268811225238578,
+   "absmax": 0.49609375,
+   "verdict": "WRONG"
+  },
+  "B2 transpose_a      no_grid    bias": {
+   "rel_max_err": 0.004112385978376125,
+   "absmax": 0.50390625,
+   "verdict": "OK"
+  },
+  "B3 transpose_a      core_grid  nobias": {
+   "rel_max_err": 1.3347996822521622,
+   "absmax": 0.443359375,
+   "verdict": "WRONG"
+  },
+  "B4 transpose_a      no_grid    nobias": {
+   "rel_max_err": 0.34674848634822214,
+   "absmax": 0.435546875,
+   "verdict": "WRONG"
+  }
+ }
+}
