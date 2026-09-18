@@ -18,6 +18,14 @@ step onward while both loss curves look healthy. Every rank sums ``0, 1, ..., wo
 rank computes the same bits and the per-rank master hashes stay equal. That equality is asserted
 each step by the caller rather than assumed here.
 
+**Two hosts run the same protocol over a longer wire.** A rendezvous of
+``/dev/shm/abb3-dp+ttuser@tt-quietbox2`` keeps the local directory and mirrors every file that
+lands in it to that peer, so each host has its own copy of the rendezvous and every rank still
+sums 0..world-1 over local files. ``tt_bio/train/xhost.py`` is the transport and it is the only
+thing that changes; the reduction order, the retirement and the hash check are the same code on
+one host or two. Without a peer in the rendezvous nothing here is reached, so the single-host
+path is unchanged.
+
 Failure is a timeout, not a hang: a rank killed by a watchdog reset stops writing, the survivors
 raise after ``timeout`` seconds, and the supervisor restarts the whole world from the last
 checkpoint. A rendezvous that waits forever converts one dead rank into a silently stalled run.
@@ -32,6 +40,8 @@ import time
 from pathlib import Path
 
 import numpy as np
+
+from .xhost import SshPeers, parse_rendezvous
 
 __all__ = ["HostReduce", "master_hash"]
 
@@ -59,16 +69,19 @@ class HostReduce:
     """
 
     def __init__(self, dir, rank: int, world: int, *, timeout: float = 900.0,
-                 poll: float = 0.01):
+                 poll: float = 0.01, transport=None):
         if not (0 <= rank < world):
             raise ValueError(f"rank {rank} is outside a world of {world}")
         self.rank, self.world = int(rank), int(world)
-        self.dir = Path(dir)
+        self.dir, self.peers = parse_rendezvous(dir)
         self.timeout, self.poll = float(timeout), float(poll)
         self.waited = 0.0
         self.bytes_moved = 0
+        self.transport = transport
         if self.world > 1:
             self.dir.mkdir(parents=True, exist_ok=True)
+            if self.peers and self.transport is None:
+                self.transport = SshPeers(self.peers, self.dir)
 
     # ------------------------------------------------------------------ the primitive
 
@@ -95,12 +108,18 @@ class HostReduce:
         else:
             np.save(tmp, np.ascontiguousarray(payload, dtype=np.float32))
         os.replace(tmp, final)
+        if self.transport is not None:
+            # Read back rather than kept in hand, so the bytes on the wire are the bytes on
+            # disk and the local write path is the one it always was.
+            self.transport.put(f"{tag}/{final.name}", final.read_bytes())
         want = [d / f"{r}.{ext}" for r in range(self.world)]
         t0 = time.perf_counter()
         while True:
             missing = [p for p in want if not p.exists()]
             if not missing:
                 break
+            if self.transport is not None:
+                self.transport.check()
             if time.perf_counter() - t0 > self.timeout:
                 raise TimeoutError(
                     f"rank {self.rank} waited {self.timeout:.0f}s at {tag!r} for "
@@ -157,11 +176,21 @@ class HostReduce:
         """
         for ext in ("npy", "bin"):
             (self.dir / tag / f"{self.rank}.{ext}").unlink(missing_ok=True)
+            if self.transport is not None:
+                # The copy on the peer is this rank’s file too, and nobody else will remove
+                # it. Skipping this leaks 28.4 MB per rank per step onto every peer host.
+                self.transport.remove(f"{tag}/{self.rank}.{ext}")
 
     def cleanup(self) -> None:
         if self.world > 1 and self.rank == 0 and self.dir.exists():
             shutil.rmtree(self.dir, ignore_errors=True)
+        if self.transport is not None:
+            if self.rank == 0:
+                self.transport.remove_tree()
+            self.transport.close()
+            self.transport = None
 
     def __str__(self) -> str:
-        return (f"HostReduce(rank {self.rank}/{self.world}, {self.dir}, "
+        where = f"{self.dir}" + (f" + {','.join(self.peers)}" if self.peers else "")
+        return (f"HostReduce(rank {self.rank}/{self.world}, {where}, "
                 f"{self.bytes_moved / 1e6:.0f} MB moved, {self.waited:.1f}s waiting)")
