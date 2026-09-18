@@ -313,7 +313,7 @@ def torch_forward(name, t):
 
 def tt_forward(name, ag, t):
     if name in ("lora", "lora_pair", "lora_bias"):
-        from tt_bio import finetune as ft
+        from tt_bio import train as ft
         return ft.lora_linear(t["x"], t["w"], t["a"], t["b"], t.get("bias"),
                               scaling=LORA_SCALING)
     if name == "linear":
@@ -468,7 +468,7 @@ def main():
                   f"{m['max_rel']:>10.2e} {m['cos']:>10.6f}  {'PASS' if ok else 'FAIL'}")
 
     if args.lora_init:
-        from tt_bio import finetune as ft
+        from tt_bio import train as ft
         print()
         print("# LoRA initialisation control. tt-train initialises B to exactly zero")
         print("# (modules/lora.py:64-67), which has two consequences this arm measures")
