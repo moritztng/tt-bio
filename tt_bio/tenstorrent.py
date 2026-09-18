@@ -302,6 +302,29 @@ _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 # because the fused path runs silu at half the SFPU rate the standalone op reaches. Release-gated:
 # the unfused form applies silu to the bf16-packed matmul output rather than to the fp32 dest
 # accumulator, so it is not bit-exact.
+#
+# STAYS OFF, AND NOT BECAUSE OF BIT-EXACTNESS. Moritz refused this default on 2026-09-13 on a
+# measured cross-model ACCURACY loss, and that refusal carries a "do not reopen without new
+# evidence" clause (state/roof-orchestrator.md:697 and :2408). This flag is read here, in
+# Transition, which PairformerLayer, MiniformerLayer, MSALayer and Diffusion all build --
+# protenix.py:907/:2038 import Transition directly and openfold3_msa_embedder.py:81 reaches it --
+# so Boltz-2 is not the only caller. cdk2x2_512, CA-lDDT against the experimental 1HCL, per
+# pseudo-domain, both arms folded in one process by one instrument (state/b2z2-union-land.md:66):
+#
+#     Boltz-2      -0.00091 / -0.00265   4 seeds   clean
+#     OpenFold3    -0.01238 / -0.00251   2 seeds   inside its own noise
+#     Protenix-v2  -0.05088 / -0.07210   4 seeds   REGRESSION, arms fully rank-separated
+#
+# The worst flag-off fold beats the best flag-on one by 0.03905 and 0.05107, so no seed of one arm
+# reaches any seed of the other; Protenix-v2 also loses 1.11/1.19 A CA-RMSD and 0.011-0.033 plDDT
+# against a 0.0006 base spread, same sign in every seed and both domains.
+#
+# THE TRAP, because it has now cost two campaigns: a structural-RMSD-against-seed-scatter screen
+# CANNOT see this. It clears Protenix-v2 (2.969/3.443 A moved against a 3.233/3.743 A seed floor)
+# because that model scatters widely on this fixture while landing at the same QUALITY every time.
+# The release gate cannot see it either -- it scores a 117 aa monomer against RMSD/TM floors. Only
+# CA-lDDT against the experimental answer separates the arms, so that is what "new evidence" means
+# here. A Boltz-2 RMSD reading, however clean, is not an argument for flipping this.
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
