@@ -1,0 +1,101 @@
+{
+  "pid": 269452,
+  "host": "tt-quietbox2",
+  "node": 3,
+  "size": 512,
+  "started_utc_ns": 1789735737130713495,
+  "git_rev": "23352a733e3840febcfd3d1c06f77915fec4d8fc",
+  "protocol": "one process, one device context, one session: fold 1 TIMED with the wrappers inert, fold 2 COUNTED with them recording. The counted fold is NOT a wall-clock read.",
+  "folds": [
+    {
+      "label": "warm",
+      "recording": false,
+      "start_monotonic_ns": 6347767036204,
+      "end_monotonic_ns": 6367290007532,
+      "elapsed_s": 19.522971328,
+      "n_calls": null,
+      "n_keys": null,
+      "clock": {
+        "samples": 17709,
+        "min_MHz": 800,
+        "max_MHz": 1350,
+        "max_gap_ns": 9526826,
+        "first_offset_ns": 882778,
+        "last_offset_ns": 789066,
+        "sample_span_fraction": 0.9999143652893859,
+        "errors": [],
+        "pass": false
+      }
+    },
+    {
+      "label": "timed",
+      "recording": false,
+      "start_monotonic_ns": 6367292003327,
+      "end_monotonic_ns": 6382616217441,
+      "elapsed_s": 15.324214114,
+      "n_calls": null,
+      "n_keys": null,
+      "clock": {
+        "samples": 14147,
+        "min_MHz": 800,
+        "max_MHz": 1350,
+        "max_gap_ns": 4543530,
+        "first_offset_ns": 468776,
+        "last_offset_ns": 19528,
+        "sample_span_fraction": 0.9999681351359119,
+        "errors": [],
+        "pass": false
+      }
+    },
+    {
+      "label": "counted",
+      "recording": true,
+      "start_monotonic_ns": 6382617014928,
+      "end_monotonic_ns": 6398203478014,
+      "elapsed_s": 15.586463086,
+      "n_calls": 390728,
+      "n_keys": 255,
+      "clock": {
+        "samples": 14256,
+        "min_MHz": 800,
+        "max_MHz": 1350,
+        "max_gap_ns": 4961956,
+        "first_offset_ns": 278849,
+        "last_offset_ns": 337883,
+        "sample_span_fraction": 0.9999604315618882,
+        "errors": [],
+        "pass": false
+      }
+    }
+  ],
+  "errors": [],
+  "completed": true,
+  "ttnn_path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/__init__.py",
+  "tt_bio_path": "/home/ttuser/.coworker/wt/c14-unpriced-block/tt_bio/tenstorrent.py",
+  "msa": {
+    "rows_in_a3m": 35,
+    "pad_amount": 29,
+    "executed_depth": 64,
+    "census_capture_depth": 1024,
+    "capture_signature": "MSALayer|1x512x512x128,1x1024x512x64",
+    "capture_over_executed_x": 16.0
+  },
+  "model_predict_args": {
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "diffusion_samples": 1,
+    "max_parallel_samples": null
+  },
+  "force_response": [
+    0,
+    0
+  ],
+  "release_response": [
+    0,
+    0
+  ],
+  "ended_utc_ns": 1789735794694600852,
+  "clock_samples": 46479,
+  "clock_min_MHz": 800,
+  "clock_max_MHz": 1350
+}

@@ -15,8 +15,12 @@ every arithmetic operation are unchanged, so the results are **bit-exact** -- `t
 the stock ops at 298, 320, 384, 512, 576 and 640 aa (`perf/triatt_fused/s1_gate.json`,
 `s3_gate.json`), and at the fold the CIF sha256 and plDDT are identical arm to arm.
 
-The gates below are deliberately narrow: 32-channel heads, bf16, interleaved DRAM both sides, and a
-shape the shipped `_MM_BLOCK` entry already covers. Anything else falls through to the stock ops.
+The gates below are deliberately narrow: 32-channel heads, a storage format
+`mm_generic.fast_dtypes_ok` covers, interleaved DRAM both sides, and a shape the shipped
+`_MM_BLOCK` entry already covers. Anything else falls through to the stock ops. The
+bit-exactness above is the bf16 case, which is what ships; `TT_BIO_TRIATT_B8` narrows the
+destination and is one rounding at the pack stage, scored against float64 in
+`perf/bfp8_qkv/acc.json`.
 """
 
 from __future__ import annotations
@@ -50,7 +54,7 @@ def _reject(reason, shape):
 
 def _common_ok(x, w, dtype):
     """The dtype, layout and memory-config conditions the transcription was verified under."""
-    if dtype != ttnn.bfloat16 or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
+    if not G.fast_dtypes_ok(dtype, x.dtype, w.dtype):
         return False
     if x.layout != ttnn.TILE_LAYOUT or len(x.shape) != 3:
         return False

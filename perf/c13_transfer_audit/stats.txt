@@ -1,0 +1,158 @@
+==============================================================================
+ALL ROWS, BY SCREEN KIND
+==============================================================================
+
+[replay] replay gap   n=1
+  median R (all)          0.029
+  median R (sign held)    0.029   n=1   p10..p90 0.029 .. 0.029
+  geometric mean R        0.029   log10 sd 0.000
+  |log10 R| median        1.531  -> typical miss 33.94x
+  sign flips            0/1 = 0 %
+  nulled (lever absent) 0/1 = 0 %
+  wrong sign or nulled  0/1 = 0 %
+
+[roof] roofline headroom   n=9
+  median R (all)          0.018
+  median R (sign held)    0.086   n=6   p10..p90 0.011 .. 0.147
+  geometric mean R        0.085   log10 sd 0.785
+  |log10 R| median        1.070  -> typical miss 11.76x
+  sign flips            0/9 = 0 %
+  nulled (lever absent) 3/9 = 33 %
+  wrong sign or nulled  3/9 = 33 %
+  landed inside its own pre-registered band 0/5 = 0 %
+
+[count] source-derived count/rate model   n=34
+  median R (all)          0.768
+  median R (sign held)    0.915   n=28   p10..p90 0.392 .. 2.115
+  geometric mean R        0.889   log10 sd 0.463
+  |log10 R| median        0.139  -> typical miss 1.38x
+  sign flips            5/34 = 15 %
+  nulled (lever absent) 1/34 = 3 %
+  wrong sign or nulled  6/34 = 18 %
+  landed inside its own pre-registered band 4/15 = 27 %
+
+[op_ab] op- or block-level A/B, extrapolated   n=16
+  median R (all)          1.166
+  median R (sign held)    1.222   n=14   p10..p90 0.725 .. 2.215
+  geometric mean R        1.469   log10 sd 0.428
+  |log10 R| median        0.135  -> typical miss 1.36x
+  sign flips            2/16 = 12 %
+  nulled (lever absent) 0/16 = 0 %
+  wrong sign or nulled  2/16 = 12 %
+  landed inside its own pre-registered band 3/10 = 30 %
+
+[fold_tx] measured fold ratio transferred   n=17
+  median R (all)          1.120
+  median R (sign held)    1.141   n=16   p10..p90 0.761 .. 2.481
+  geometric mean R        1.229   log10 sd 0.279
+  |log10 R| median        0.085  -> typical miss 1.22x
+  sign flips            1/17 = 6 %
+  nulled (lever absent) 0/17 = 0 %
+  wrong sign or nulled  1/17 = 6 %
+  landed inside its own pre-registered band 5/14 = 36 %
+
+[novel] not-yet-existing mechanism   n=4
+  median R (all)         -1.450
+  sign flips            4/4 = 100 %
+  nulled (lever absent) 0/4 = 0 %
+  wrong sign or nulled  4/4 = 100 %
+  landed inside its own pre-registered band 0/3 = 0 %
+
+[ALL KINDS POOLED]   n=81
+  median R (all)          0.915
+  median R (sign held)    1.025   n=65   p10..p90 0.147 .. 2.481
+  geometric mean R        0.819   log10 sd 0.583
+  |log10 R| median        0.141  -> typical miss 1.38x
+  sign flips            12/81 = 15 %
+  nulled (lever absent) 4/81 = 5 %
+  wrong sign or nulled  16/81 = 20 %
+  landed inside its own pre-registered band 12/47 = 26 %
+
+==============================================================================
+FOLD-MEASURED SUBSET ONLY (the screen-to-FOLD transfer question)
+==============================================================================
+
+[replay] replay gap   n=1
+  median R (all)          0.029
+  median R (sign held)    0.029   n=1   p10..p90 0.029 .. 0.029
+  geometric mean R        0.029   log10 sd 0.000
+  |log10 R| median        1.531  -> typical miss 33.94x
+  sign flips            0/1 = 0 %
+  nulled (lever absent) 0/1 = 0 %
+  wrong sign or nulled  0/1 = 0 %
+
+[roof] roofline headroom   n=1
+  median R (all)          0.000
+  sign flips            0/1 = 0 %
+  nulled (lever absent) 1/1 = 100 %
+  wrong sign or nulled  1/1 = 100 %
+  landed inside its own pre-registered band 0/1 = 0 %
+
+[count] source-derived count/rate model   n=5
+  median R (all)         -0.007
+  median R (sign held)    0.374   n=2   p10..p90 0.024 .. 0.024
+  geometric mean R        0.132   log10 sd 1.044
+  |log10 R| median        0.879  -> typical miss 7.58x
+  sign flips            3/5 = 60 %
+  nulled (lever absent) 0/5 = 0 %
+  wrong sign or nulled  3/5 = 60 %
+  landed inside its own pre-registered band 1/3 = 33 %
+
+[op_ab] op- or block-level A/B, extrapolated   n=12
+  median R (all)          1.222
+  median R (sign held)    1.269   n=11   p10..p90 1.076 .. 2.215
+  geometric mean R        1.543   log10 sd 0.470
+  |log10 R| median        0.130  -> typical miss 1.35x
+  sign flips            1/12 = 8 %
+  nulled (lever absent) 0/12 = 0 %
+  wrong sign or nulled  1/12 = 8 %
+  landed inside its own pre-registered band 3/8 = 38 %
+
+[fold_tx] measured fold ratio transferred   n=15
+  median R (all)          1.120
+  median R (sign held)    1.120   n=15   p10..p90 0.761 .. 1.794
+  geometric mean R        1.131   log10 sd 0.246
+  |log10 R| median        0.074  -> typical miss 1.19x
+  sign flips            0/15 = 0 %
+  nulled (lever absent) 0/15 = 0 %
+  wrong sign or nulled  0/15 = 0 %
+  landed inside its own pre-registered band 5/12 = 42 %
+
+[novel] not-yet-existing mechanism   n=1
+  median R (all)         -2.741
+  sign flips            1/1 = 100 %
+  nulled (lever absent) 0/1 = 0 %
+  wrong sign or nulled  1/1 = 100 %
+  landed inside its own pre-registered band 0/1 = 0 %
+
+[ALL KINDS POOLED, fold-measured]   n=35
+  median R (all)          1.076
+  median R (sign held)    1.157   n=29   p10..p90 0.224 .. 2.215
+  geometric mean R        0.967   log10 sd 0.550
+  |log10 R| median        0.119  -> typical miss 1.31x
+  sign flips            5/35 = 14 %
+  nulled (lever absent) 1/35 = 3 %
+  wrong sign or nulled  6/35 = 17 %
+  landed inside its own pre-registered band 9/25 = 36 %
+
+==============================================================================
+DECISION ACCURACY (did the pre-registered verdict hold, ignoring magnitude?)
+==============================================================================
+  [replay ] in-band or kill-confirmed: 0/1
+  [roof   ] in-band or kill-confirmed: 0/9
+  [count  ] in-band or kill-confirmed: 5/35
+  [op_ab  ] in-band or kill-confirmed: 5/18
+  [fold_tx] in-band or kill-confirmed: 6/19
+  [novel  ] in-band or kill-confirmed: 0/4
+
+KILL / FLOOR PREDICTIONS (scored on the decision, R undefined):
+  b2z2-trunk-bh-leg                qkvg alone on BH (P2)                  pred=+0.0010 meas=+0.0075 -> HELD
+  b2z2-bh-compose-landed           DST-resident on BH                     pred=+0.0020 meas=-0.0025 -> FLIPPED
+  b2z2-step-matmul-group           N-stacking the s-projections           pred=+0.0025 meas=-0.1684 -> FLIPPED
+
+ONE-SIDED (floor) PREDICTIONS, excluded from R:
+  b2z2-everything-union-wh         confidence stage (P6)                  pred>=0.150 meas=0.5811
+  b2z2-everything-union-wh         conditioning stage (P6)                pred>=0.300 meas=1.9745
+
+EXCLUDED AS A WORK-REMOVAL CHEAT:
+  b2z-sampler-steps                200 -> 50 sampling steps on BH*

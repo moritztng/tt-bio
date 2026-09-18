@@ -1,0 +1,697 @@
+{
+ "doc": "Every fused activation in one executed 512 aa Boltz-2 fold, by call site (c12-unfused-silu-bh).\n\n`_UNFUSED_SILU` gates exactly ONE of eight `activation=\"silu\"` call sites in the tree, and Moritz's\nstanding rule is UNIFIED, NEVER PER-MODEL. A grep tells you a site exists; it does not tell you\nwhether it fires at this size, how often, or on what shape. So this wraps `ttnn.linear` and\n`ttnn.matmul` for one real fold and records the caller's file:line from the frame, the activation\nargument and the operand shapes. An eligibility firing condition is not a code fact until you see\nit fire.\n\n`sys._getframe(1)` rather than `traceback` because this runs on 108,608 linear calls.\n",
+ "size": 768,
+ "wall_s": 64.038,
+ "host": "tt-quietbox2",
+ "card_node": 2,
+ "clock_forced_mhz": 1350,
+ "aiclk_during_fold": {
+  "n": 30419,
+  "min": 1350,
+  "max": 1350,
+  "mean": 1350.0
+ },
+ "loadavg": [
+  18.064453125,
+  16.54443359375,
+  14.90869140625
+ ],
+ "utc": "2026-09-17T13:28:03Z",
+ "commit": "1ffdaa8f934f2f46820cfa2fe424d8aa0af2c1f4",
+ "note": "instrumented fold; wall_s carries the wrapper overhead and is NOT a perf number",
+ "calls_by_activation": {
+  "None": 88172,
+  "silu": 7402,
+  "sigmoid": 4806,
+  "relu": 200
+ },
+ "total_calls": 100580,
+ "rows": [
+  {
+   "site": "tenstorrent.py:9395",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768",
+   "b_shape": "768x768",
+   "calls": 9600
+  },
+  {
+   "site": "tenstorrent.py:9403",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768",
+   "b_shape": "768x768",
+   "calls": 9600
+  },
+  {
+   "site": "tenstorrent.py:8211",
+   "op": "linear",
+   "activation": "silu",
+   "a_shape": "1x32x768x128",
+   "b_shape": "128x512",
+   "calls": 6720
+  },
+  {
+   "site": "tenstorrent.py:8222",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x32x768x128",
+   "b_shape": "128x512",
+   "calls": 6720
+  },
+  {
+   "site": "tenstorrent.py:8233",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x32x768x512",
+   "b_shape": "512x128",
+   "calls": 6720
+  },
+  {
+   "site": "tenstorrent.py:7971",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768",
+   "b_shape": "768x3072",
+   "calls": 4800
+  },
+  {
+   "site": "tenstorrent.py:8159",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768",
+   "b_shape": "768x768",
+   "calls": 4800
+  },
+  {
+   "site": "tenstorrent.py:8169",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768",
+   "b_shape": "768x768",
+   "calls": 4800
+  },
+  {
+   "site": "tenstorrent.py:9610",
+   "op": "linear",
+   "activation": "sigmoid",
+   "a_shape": "1x768x768",
+   "b_shape": "768x768",
+   "calls": 4800
+  },
+  {
+   "site": "tenstorrent.py:9492",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768",
+   "b_shape": "768x1536",
+   "calls": 4800
+  },
+  {
+   "site": "tenstorrent.py:9498",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768",
+   "b_shape": "768x1536",
+   "calls": 4800
+  },
+  {
+   "site": "tenstorrent.py:9506",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768",
+   "b_shape": "768x1536",
+   "calls": 4800
+  },
+  {
+   "site": "tenstorrent.py:9519",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768",
+   "b_shape": "768x768",
+   "calls": 4800
+  },
+  {
+   "site": "tenstorrent.py:9526",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x1536",
+   "b_shape": "1536x768",
+   "calls": 4800
+  },
+  {
+   "site": "tenstorrent.py:8120",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x196x32x128",
+   "b_shape": "128x128",
+   "calls": 1200
+  },
+  {
+   "site": "tenstorrent.py:8128",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x196x128x128",
+   "b_shape": "128x256",
+   "calls": 1200
+  },
+  {
+   "site": "tenstorrent.py:8159",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x196x32x128",
+   "b_shape": "128x128",
+   "calls": 1200
+  },
+  {
+   "site": "tenstorrent.py:8169",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x196x32x128",
+   "b_shape": "128x128",
+   "calls": 1200
+  },
+  {
+   "site": "tenstorrent.py:9492",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x196x32x128",
+   "b_shape": "128x256",
+   "calls": 1200
+  },
+  {
+   "site": "tenstorrent.py:9498",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x196x32x128",
+   "b_shape": "128x256",
+   "calls": 1200
+  },
+  {
+   "site": "tenstorrent.py:9506",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x196x32x128",
+   "b_shape": "128x256",
+   "calls": 1200
+  },
+  {
+   "site": "tenstorrent.py:9519",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x196x32x128",
+   "b_shape": "128x128",
+   "calls": 1200
+  },
+  {
+   "site": "tenstorrent.py:9526",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x196x32x256",
+   "b_shape": "256x128",
+   "calls": 1200
+  },
+  {
+   "site": "tenstorrent.py:6572",
+   "op": "matmul",
+   "activation": "None",
+   "a_shape": "1x128x768x768",
+   "b_shape": "1x128x768x768",
+   "calls": 560
+  },
+  {
+   "site": "tenstorrent.py:4404",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768x128",
+   "b_shape": "128x128",
+   "calls": 560
+  },
+  {
+   "site": "tenstorrent.py:8211",
+   "op": "linear",
+   "activation": "silu",
+   "a_shape": "1x768x768",
+   "b_shape": "768x1536",
+   "calls": 400
+  },
+  {
+   "site": "tenstorrent.py:8222",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768",
+   "b_shape": "768x1536",
+   "calls": 400
+  },
+  {
+   "site": "tenstorrent.py:8233",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x1536",
+   "b_shape": "1536x768",
+   "calls": 400
+  },
+  {
+   "site": "tenstorrent.py:7971",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x384",
+   "b_shape": "384x1536",
+   "calls": 264
+  },
+  {
+   "site": "tenstorrent.py:4453",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768x128",
+   "b_shape": "128x16",
+   "calls": 264
+  },
+  {
+   "site": "tenstorrent.py:2675",
+   "op": "matmul",
+   "activation": "None",
+   "a_shape": "1x16x768x32",
+   "b_shape": "1x16x32x768",
+   "calls": 264
+  },
+  {
+   "site": "tenstorrent.py:2675",
+   "op": "matmul",
+   "activation": "None",
+   "a_shape": "1x16x768x768",
+   "b_shape": "1x16x768x32",
+   "calls": 264
+  },
+  {
+   "site": "tenstorrent.py:8159",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x384",
+   "b_shape": "384x384",
+   "calls": 264
+  },
+  {
+   "site": "tenstorrent.py:8169",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x384",
+   "b_shape": "384x384",
+   "calls": 264
+  },
+  {
+   "site": "tenstorrent.py:8211",
+   "op": "linear",
+   "activation": "silu",
+   "a_shape": "1x768x384",
+   "b_shape": "384x1536",
+   "calls": 264
+  },
+  {
+   "site": "tenstorrent.py:8222",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x384",
+   "b_shape": "384x1536",
+   "calls": 264
+  },
+  {
+   "site": "tenstorrent.py:8233",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x1536",
+   "b_shape": "1536x384",
+   "calls": 264
+  },
+  {
+   "site": "tenstorrent.py:10688",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x6272x3",
+   "b_shape": "3x128",
+   "calls": 200
+  },
+  {
+   "site": "tenstorrent.py:10705",
+   "op": "linear",
+   "activation": "relu",
+   "a_shape": "1x6272x128",
+   "b_shape": "128x768",
+   "calls": 200
+  },
+  {
+   "site": "tenstorrent.py:10712",
+   "op": "matmul",
+   "activation": "None",
+   "a_shape": "1x6272x768",
+   "b_shape": "1x6272x768",
+   "calls": 200
+  },
+  {
+   "site": "tenstorrent.py:10720",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x1",
+   "b_shape": "1x256",
+   "calls": 200
+  },
+  {
+   "site": "tenstorrent.py:10736",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x256",
+   "b_shape": "256x768",
+   "calls": 200
+  },
+  {
+   "site": "tenstorrent.py:10758",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768",
+   "b_shape": "768x768",
+   "calls": 200
+  },
+  {
+   "site": "tenstorrent.py:10788",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768",
+   "b_shape": "768x128",
+   "calls": 200
+  },
+  {
+   "site": "tenstorrent.py:10797",
+   "op": "matmul",
+   "activation": "None",
+   "a_shape": "1x128x768",
+   "b_shape": "1x6272x768",
+   "calls": 200
+  },
+  {
+   "site": "tenstorrent.py:10822",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x6272x128",
+   "b_shape": "128x3",
+   "calls": 200
+  },
+  {
+   "site": "tenstorrent.py:9867",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "64x768x64",
+   "b_shape": "64x32",
+   "calls": 128
+  },
+  {
+   "site": "tenstorrent.py:9874",
+   "op": "matmul",
+   "activation": "None",
+   "a_shape": "64x32x768",
+   "b_shape": "1x768x768",
+   "calls": 128
+  },
+  {
+   "site": "tenstorrent.py:9883",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "64x768x64",
+   "b_shape": "64x32",
+   "calls": 128
+  },
+  {
+   "site": "tenstorrent.py:9896",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "64x768x32",
+   "b_shape": "32x64",
+   "calls": 128
+  },
+  {
+   "site": "tenstorrent.py:4453",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "768x768x128",
+   "b_shape": "128x8",
+   "calls": 16
+  },
+  {
+   "site": "tenstorrent.py:8211",
+   "op": "linear",
+   "activation": "silu",
+   "a_shape": "1x64x768x64",
+   "b_shape": "64x256",
+   "calls": 16
+  },
+  {
+   "site": "tenstorrent.py:8222",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x64x768x64",
+   "b_shape": "64x256",
+   "calls": 16
+  },
+  {
+   "site": "tenstorrent.py:8233",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x64x768x256",
+   "b_shape": "256x64",
+   "calls": 16
+  },
+  {
+   "site": "tenstorrent.py:10097",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "64x768x64",
+   "b_shape": "64x32",
+   "calls": 16
+  },
+  {
+   "site": "tenstorrent.py:10104",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "64x768x64",
+   "b_shape": "64x32",
+   "calls": 16
+  },
+  {
+   "site": "tenstorrent.py:10282",
+   "op": "matmul",
+   "activation": "None",
+   "a_shape": "24576x64",
+   "b_shape": "24576x64",
+   "calls": 16
+  },
+  {
+   "site": "tenstorrent.py:10316",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "768x768x1024",
+   "b_shape": "1024x128",
+   "calls": 16
+  },
+  {
+   "site": "tenstorrent.py:9395",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x196x32x128",
+   "b_shape": "128x128",
+   "calls": 12
+  },
+  {
+   "site": "tenstorrent.py:9403",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x196x32x128",
+   "b_shape": "128x128",
+   "calls": 12
+  },
+  {
+   "site": "tenstorrent.py:12139",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768x8",
+   "b_shape": "8x128",
+   "calls": 8
+  },
+  {
+   "site": "tenstorrent.py:12139",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x384",
+   "b_shape": "384x128",
+   "calls": 6
+  },
+  {
+   "site": "tenstorrent.py:9610",
+   "op": "linear",
+   "activation": "sigmoid",
+   "a_shape": "1x196x32x128",
+   "b_shape": "128x128",
+   "calls": 6
+  },
+  {
+   "site": "tenstorrent.py:11731",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x384",
+   "b_shape": "384x384",
+   "calls": 4
+  },
+  {
+   "site": "tenstorrent.py:11731",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768x128",
+   "b_shape": "128x128",
+   "calls": 4
+  },
+  {
+   "site": "tenstorrent.py:10535",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x64x768x36",
+   "b_shape": "36x64",
+   "calls": 4
+  },
+  {
+   "site": "tenstorrent.py:10543",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x384",
+   "b_shape": "384x64",
+   "calls": 4
+  },
+  {
+   "site": "tenstorrent.py:12350",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768x128",
+   "b_shape": "128x64",
+   "calls": 4
+  },
+  {
+   "site": "tenstorrent.py:12350",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768x64",
+   "b_shape": "64x32",
+   "calls": 4
+  },
+  {
+   "site": "tenstorrent.py:12139",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768x128",
+   "b_shape": "128x128",
+   "calls": 3
+  },
+  {
+   "site": "tenstorrent.py:11896",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768x256",
+   "b_shape": "256x128",
+   "calls": 3
+  },
+  {
+   "site": "tenstorrent.py:12139",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768x8",
+   "b_shape": "8x1",
+   "calls": 2
+  },
+  {
+   "site": "tenstorrent.py:11896",
+   "op": "linear",
+   "activation": "silu",
+   "a_shape": "1x768x768x128",
+   "b_shape": "128x256",
+   "calls": 2
+  },
+  {
+   "site": "tenstorrent.py:11896",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768x128",
+   "b_shape": "128x256",
+   "calls": 2
+  },
+  {
+   "site": "tenstorrent.py:11896",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768x128",
+   "b_shape": "128x384",
+   "calls": 1
+  },
+  {
+   "site": "tenstorrent.py:11896",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768x128",
+   "b_shape": "128x16",
+   "calls": 1
+  },
+  {
+   "site": "tenstorrent.py:11343",
+   "op": "matmul",
+   "activation": "None",
+   "a_shape": "16x1x392",
+   "b_shape": "392x1568",
+   "calls": 1
+  },
+  {
+   "site": "tenstorrent.py:10679",
+   "op": "linear",
+   "activation": "None",
+   "a_shape": "1x768x768",
+   "b_shape": "768x768",
+   "calls": 1
+  }
+ ],
+ "silu_rows": [
+  {
+   "site": "tenstorrent.py:8211",
+   "op": "linear",
+   "activation": "silu",
+   "a_shape": "1x32x768x128",
+   "b_shape": "128x512",
+   "calls": 6720
+  },
+  {
+   "site": "tenstorrent.py:8211",
+   "op": "linear",
+   "activation": "silu",
+   "a_shape": "1x768x768",
+   "b_shape": "768x1536",
+   "calls": 400
+  },
+  {
+   "site": "tenstorrent.py:8211",
+   "op": "linear",
+   "activation": "silu",
+   "a_shape": "1x768x384",
+   "b_shape": "384x1536",
+   "calls": 264
+  },
+  {
+   "site": "tenstorrent.py:8211",
+   "op": "linear",
+   "activation": "silu",
+   "a_shape": "1x64x768x64",
+   "b_shape": "64x256",
+   "calls": 16
+  },
+  {
+   "site": "tenstorrent.py:11896",
+   "op": "linear",
+   "activation": "silu",
+   "a_shape": "1x768x768x128",
+   "b_shape": "128x256",
+   "calls": 2
+  }
+ ]
+}

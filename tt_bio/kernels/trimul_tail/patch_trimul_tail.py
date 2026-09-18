@@ -145,11 +145,10 @@ def patch_in1(src: str) -> str:
     return HEADER + src
 
 
-COMPUTE_PROLOGUE = """
-// ---------------------------------------------------------------- TRIMUL_TAIL: the gate epilogue
-#include "api/compute/eltwise_binary_sfpu.h"
-
-#ifdef TRISC_MATH
+# The bf16 rounding the product goes through before the pack. Shared with
+# kernels/swiglu_fused, which patches the same wheel compute kernel at the same point and
+# needs the same rounding; it renames the switch to SWIGLU_ROUND and changes nothing else.
+ROUND_BF16 = """#ifdef TRISC_MATH
 #include "llk_math_eltwise_unary_sfpu_params.h"
 #include "sfpi.h"
 
@@ -188,7 +187,13 @@ ALWI void round_bf16_tile(uint32_t idst) {
     MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
         ckernel::sfpu::_round_bf16_<8>, idst, (int)VectorMode::RC)));
 }
+"""
 
+COMPUTE_PROLOGUE = """
+// ---------------------------------------------------------------- TRIMUL_TAIL: the gate epilogue
+#include "api/compute/eltwise_binary_sfpu.h"
+
+""" + ROUND_BF16 + """
 // sigmoid on the bf16 branch, asked for explicitly. `sigmoid_tile` hard-wires DST_ACCUM_MODE and
 // would take the accurate branch, which is not what ttnn.multiply_(..., SIGMOID) computes.
 ALWI void sigmoid_bf16_tile(uint32_t idst) {

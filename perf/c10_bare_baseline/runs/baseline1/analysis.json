@@ -1,0 +1,3406 @@
+{
+  "verdict": "STOP",
+  "targets": {
+    "512": {
+      "verdict": "STOP",
+      "accepted_folds": 0,
+      "rows": [
+        {
+          "label": "cold",
+          "start_monotonic_ns": 9781882824729,
+          "end_monotonic_ns": 9800857281600,
+          "elapsed_s": 18.974456871,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 9781858298618,
+            "utc_ns": 1789589160999307254,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 452,
+                "stime_ticks": 122,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9800857285377,
+            "utc_ns": 1789589179998293914,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 2201,
+                "stime_ticks": 266,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/cold/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "samples": 17804,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1521696,
+            "first_offset_ns": 143960,
+            "last_offset_ns": 854545,
+            "sample_span_fraction": 0.9999473763593452,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 154,
+            "max_gap_ns": 129274448,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 154,
+            "max_gap_ns": 129274448,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A0",
+          "start_monotonic_ns": 9801102915284,
+          "end_monotonic_ns": 9816079915216,
+          "elapsed_s": 14.976999932,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 9801078991024,
+            "utc_ns": 1789589180219999872,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 2206,
+                "stime_ticks": 266,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9816079919024,
+            "utc_ns": 1789589195220927500,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 3794,
+                "stime_ticks": 368,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A0/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "samples": 14101,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1221461,
+            "first_offset_ns": 36780,
+            "last_offset_ns": 785898,
+            "sample_span_fraction": 0.9999450705746321,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 129771938,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 129771938,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A_repeat0",
+          "start_monotonic_ns": 9816536475523,
+          "end_monotonic_ns": 9831455270535,
+          "elapsed_s": 14.918795012,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 9816512584347,
+            "utc_ns": 1789589195653593103,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 3819,
+                "stime_ticks": 369,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9831455274072,
+            "utc_ns": 1789589210596282488,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 5414,
+                "stime_ticks": 454,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A_repeat0/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "samples": 14041,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1129586,
+            "first_offset_ns": 853633,
+            "last_offset_ns": 342701,
+            "sample_span_fraction": 0.999919810279648,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 132730135,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 132730135,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A1",
+          "start_monotonic_ns": 9831742122299,
+          "end_monotonic_ns": 9846722757892,
+          "elapsed_s": 14.980635593,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 9831717613060,
+            "utc_ns": 1789589210858622118,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 5423,
+                "stime_ticks": 454,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9846722761468,
+            "utc_ns": 1789589225863769995,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 7017,
+                "stime_ticks": 551,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A1/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "samples": 14100,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1306164,
+            "first_offset_ns": 637820,
+            "last_offset_ns": 57360,
+            "sample_span_fraction": 0.9999535947593355,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 129886765,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 129886765,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A_repeat1",
+          "start_monotonic_ns": 9847022786130,
+          "end_monotonic_ns": 9861925597606,
+          "elapsed_s": 14.902811476,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 9847000813926,
+            "utc_ns": 1789589226141823054,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 7027,
+                "stime_ticks": 552,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9861925600612,
+            "utc_ns": 1789589241066609699,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 8620,
+                "stime_ticks": 635,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A_repeat1/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "samples": 14024,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1139004,
+            "first_offset_ns": 490133,
+            "last_offset_ns": 967050,
+            "sample_span_fraction": 0.9999022209331208,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 121,
+            "max_gap_ns": 135382398,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 121,
+            "max_gap_ns": 135382398,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A2",
+          "start_monotonic_ns": 9862248761162,
+          "end_monotonic_ns": 9877108112941,
+          "elapsed_s": 14.859351779,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 9862223675381,
+            "utc_ns": 1789589241364684238,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 8632,
+                "stime_ticks": 635,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9877108116638,
+            "utc_ns": 1789589256249125155,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 10224,
+                "stime_ticks": 715,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A2/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "samples": 13987,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 3076430,
+            "first_offset_ns": 878059,
+            "last_offset_ns": 446479,
+            "sample_span_fraction": 0.9999108616567062,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 134803820,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 134803820,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A_repeat2",
+          "start_monotonic_ns": 9877443518224,
+          "end_monotonic_ns": 9892377354226,
+          "elapsed_s": 14.933836002,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 9877418784947,
+            "utc_ns": 1789589256559793714,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 10237,
+                "stime_ticks": 716,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9892377357843,
+            "utc_ns": 1789589271518366209,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 11830,
+                "stime_ticks": 807,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A_repeat2/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "samples": 14039,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1159037,
+            "first_offset_ns": 234478,
+            "last_offset_ns": 911784,
+            "sample_span_fraction": 0.9999232439676017,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 132286412,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 132286412,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A3",
+          "start_monotonic_ns": 9892737203759,
+          "end_monotonic_ns": 9907651028121,
+          "elapsed_s": 14.913824362,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 9892712631221,
+            "utc_ns": 1789589271853640318,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 11844,
+                "stime_ticks": 809,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9907651031678,
+            "utc_ns": 1789589286792040184,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 13438,
+                "stime_ticks": 895,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A3/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "samples": 14043,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1446132,
+            "first_offset_ns": 696092,
+            "last_offset_ns": 316692,
+            "sample_span_fraction": 0.999932090926149,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 122,
+            "max_gap_ns": 130002864,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 122,
+            "max_gap_ns": 130002864,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A_repeat3",
+          "start_monotonic_ns": 9908211908937,
+          "end_monotonic_ns": 9923070984943,
+          "elapsed_s": 14.859076006,
+          "metrics": {
+            "confidence_score": 0.802782,
+            "ptm": 0.630234,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.845919,
+            "complex_iplddt": 0.845919,
+            "complex_pde": 0.617971,
+            "complex_ipde": 0.0,
+            "plddt": 0.845919,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.630234
+              }
+            },
+            "chains_ptm": {
+              "0": 0.630234
+            }
+          },
+          "plddt": 0.845919,
+          "before": {
+            "monotonic_ns": 9908187170638,
+            "utc_ns": 1789589287328179716,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 13472,
+                "stime_ticks": 897,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9923070989251,
+            "utc_ns": 1789589302211997808,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 145622,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 15064,
+                "stime_ticks": 977,
+                "starttime_ticks": 977619,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 512 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/512 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A_repeat3/cdk2x2_512.cif",
+          "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+          "clock": {
+            "samples": 13974,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1923469,
+            "first_offset_ns": 423290,
+            "last_offset_ns": 780766,
+            "sample_span_fraction": 0.9999189683127326,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 121,
+            "max_gap_ns": 137642367,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 4116,
+            "whole_chain_all_atom_A": 8.47546429614432e-15,
+            "domain_all_atom_A": [
+              3.179328362599371e-15,
+              3.700722755141274e-15
+            ],
+            "max_domain_all_atom_A": 3.700722755141274e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 121,
+            "max_gap_ns": 137642367,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 4116,
+          "ca_count": 512,
+          "cif_plddt": {
+            "n_atoms": 4116,
+            "n_ca": 512,
+            "mean_all": 0.846847,
+            "mean_ca": 0.845919
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        }
+      ],
+      "adjacent_pairs": [
+        {
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true,
+          "labels": [
+            "A0",
+            "A_repeat0"
+          ],
+          "timing_accepted": false,
+          "abs_delta_s": 0.05820491999999966,
+          "signed_repeat_minus_A_s": -0.05820491999999966,
+          "passes_structure_bar": true
+        },
+        {
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true,
+          "labels": [
+            "A1",
+            "A_repeat1"
+          ],
+          "timing_accepted": false,
+          "abs_delta_s": 0.07782411700000047,
+          "signed_repeat_minus_A_s": -0.07782411700000047,
+          "passes_structure_bar": true
+        },
+        {
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true,
+          "labels": [
+            "A2",
+            "A_repeat2"
+          ],
+          "timing_accepted": false,
+          "abs_delta_s": 0.0744842229999989,
+          "signed_repeat_minus_A_s": 0.0744842229999989,
+          "passes_structure_bar": true
+        },
+        {
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true,
+          "labels": [
+            "A3",
+            "A_repeat3"
+          ],
+          "timing_accepted": false,
+          "abs_delta_s": 0.054748355999999276,
+          "signed_repeat_minus_A_s": -0.054748355999999276,
+          "passes_structure_bar": true
+        }
+      ],
+      "all_warm_structure_pairs": [
+        {
+          "labels": [
+            "A0",
+            "A_repeat0"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A0",
+            "A1"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A0",
+            "A_repeat1"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A0",
+            "A2"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A0",
+            "A_repeat2"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A0",
+            "A3"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A0",
+            "A_repeat3"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat0",
+            "A1"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat0",
+            "A_repeat1"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat0",
+            "A2"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat0",
+            "A_repeat2"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat0",
+            "A3"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat0",
+            "A_repeat3"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A1",
+            "A_repeat1"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A1",
+            "A2"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A1",
+            "A_repeat2"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A1",
+            "A3"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A1",
+            "A_repeat3"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat1",
+            "A2"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat1",
+            "A_repeat2"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat1",
+            "A3"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat1",
+            "A_repeat3"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A2",
+            "A_repeat2"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A2",
+            "A3"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A2",
+            "A_repeat3"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat2",
+            "A3"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat2",
+            "A_repeat3"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A3",
+            "A_repeat3"
+          ],
+          "atoms": 4116,
+          "whole_chain_all_atom_A": 8.47546429614432e-15,
+          "domain_all_atom_A": [
+            3.179328362599371e-15,
+            3.700722755141274e-15
+          ],
+          "max_domain_all_atom_A": 3.700722755141274e-15,
+          "cif_byte_exact": true
+        }
+      ],
+      "run_errors": [],
+      "accuracy_context": {
+        "metric": "maximum independently superposed domain all-atom float64 Kabsch RMSD, split after residue 298; also report whole-chain all-atom",
+        "bars_A": {
+          "512": 0.6,
+          "298": 0.35
+        },
+        "user_512_seed_floor_A": 1.84,
+        "archived_upstream_seed_spread_A": {
+          "298": {
+            "mean": 0.80128,
+            "min": 0.74099,
+            "max": 0.84656
+          },
+          "512": {
+            "mean": 1.66454,
+            "min": 0.9454,
+            "max": 2.29123
+          }
+        },
+        "digest": "record, not automatic kill",
+        "same_seed_AA_is_not_upstream_accuracy": true
+      }
+    },
+    "298": {
+      "verdict": "STOP",
+      "accepted_folds": 0,
+      "rows": [
+        {
+          "label": "cold",
+          "start_monotonic_ns": 9929677479994,
+          "end_monotonic_ns": 9942214221322,
+          "elapsed_s": 12.536741328,
+          "metrics": {
+            "confidence_score": 0.911875,
+            "ptm": 0.927328,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.908011,
+            "complex_iplddt": 0.908011,
+            "complex_pde": 0.460442,
+            "complex_ipde": 0.0,
+            "plddt": 0.908011,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.927328
+              }
+            },
+            "chains_ptm": {
+              "0": 0.927328
+            }
+          },
+          "plddt": 0.908011,
+          "before": {
+            "monotonic_ns": 9929654900481,
+            "utc_ns": 1789589308795909268,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 399,
+                "stime_ticks": 107,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9942214225400,
+            "utc_ns": 1789589321355233886,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 1576,
+                "stime_ticks": 180,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/cold/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "samples": 11760,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1273750,
+            "first_offset_ns": 785414,
+            "last_offset_ns": 644029,
+            "sample_span_fraction": 0.9998859797005776,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 101,
+            "max_gap_ns": 131293101,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 101,
+            "max_gap_ns": 131293101,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 2397,
+          "ca_count": 298,
+          "cif_plddt": {
+            "n_atoms": 2397,
+            "n_ca": 298,
+            "mean_all": 0.90879,
+            "mean_ca": 0.908011
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A0",
+          "start_monotonic_ns": 9942443396607,
+          "end_monotonic_ns": 9952119090173,
+          "elapsed_s": 9.675693566,
+          "metrics": {
+            "confidence_score": 0.911875,
+            "ptm": 0.927328,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.908011,
+            "complex_iplddt": 0.908011,
+            "complex_pde": 0.460442,
+            "complex_ipde": 0.0,
+            "plddt": 0.908011,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.927328
+              }
+            },
+            "chains_ptm": {
+              "0": 0.927328
+            }
+          },
+          "plddt": 0.908011,
+          "before": {
+            "monotonic_ns": 9942419464576,
+            "utc_ns": 1789589321560473303,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 1578,
+                "stime_ticks": 181,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9952119093309,
+            "utc_ns": 1789589331260101826,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 2637,
+                "stime_ticks": 226,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A0/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "samples": 9098,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1139597,
+            "first_offset_ns": 743634,
+            "last_offset_ns": 808113,
+            "sample_span_fraction": 0.9998396242099427,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 79,
+            "max_gap_ns": 129856420,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 79,
+            "max_gap_ns": 129856420,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 2397,
+          "ca_count": 298,
+          "cif_plddt": {
+            "n_atoms": 2397,
+            "n_ca": 298,
+            "mean_all": 0.90879,
+            "mean_ca": 0.908011
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A_repeat0",
+          "start_monotonic_ns": 9952355623641,
+          "end_monotonic_ns": 9962037158535,
+          "elapsed_s": 9.681534894,
+          "metrics": {
+            "confidence_score": 0.911875,
+            "ptm": 0.927328,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.908011,
+            "complex_iplddt": 0.908011,
+            "complex_pde": 0.460442,
+            "complex_ipde": 0.0,
+            "plddt": 0.908011,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.927328
+              }
+            },
+            "chains_ptm": {
+              "0": 0.927328
+            }
+          },
+          "plddt": 0.908011,
+          "before": {
+            "monotonic_ns": 9952333454527,
+            "utc_ns": 1789589331474463675,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 2641,
+                "stime_ticks": 226,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9962037161751,
+            "utc_ns": 1789589341178170247,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 3701,
+                "stime_ticks": 269,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A_repeat0/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "samples": 9093,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1202223,
+            "first_offset_ns": 633543,
+            "last_offset_ns": 391936,
+            "sample_span_fraction": 0.9998940788819927,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 78,
+            "max_gap_ns": 128694360,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 78,
+            "max_gap_ns": 128694360,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 2397,
+          "ca_count": 298,
+          "cif_plddt": {
+            "n_atoms": 2397,
+            "n_ca": 298,
+            "mean_all": 0.90879,
+            "mean_ca": 0.908011
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A1",
+          "start_monotonic_ns": 9962289890304,
+          "end_monotonic_ns": 9971961275930,
+          "elapsed_s": 9.671385626,
+          "metrics": {
+            "confidence_score": 0.911875,
+            "ptm": 0.927328,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.908011,
+            "complex_iplddt": 0.908011,
+            "complex_pde": 0.460442,
+            "complex_ipde": 0.0,
+            "plddt": 0.908011,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.927328
+              }
+            },
+            "chains_ptm": {
+              "0": 0.927328
+            }
+          },
+          "plddt": 0.908011,
+          "before": {
+            "monotonic_ns": 9962264975672,
+            "utc_ns": 1789589341405984419,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 3706,
+                "stime_ticks": 269,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9971961278915,
+            "utc_ns": 1789589351102287352,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 4767,
+                "stime_ticks": 311,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A1/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "samples": 9104,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1138556,
+            "first_offset_ns": 623594,
+            "last_offset_ns": 1065221,
+            "sample_span_fraction": 0.9998253802438133,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 79,
+            "max_gap_ns": 134434861,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 79,
+            "max_gap_ns": 134434861,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 2397,
+          "ca_count": 298,
+          "cif_plddt": {
+            "n_atoms": 2397,
+            "n_ca": 298,
+            "mean_all": 0.90879,
+            "mean_ca": 0.908011
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A_repeat1",
+          "start_monotonic_ns": 9972224964261,
+          "end_monotonic_ns": 9981944649361,
+          "elapsed_s": 9.7196851,
+          "metrics": {
+            "confidence_score": 0.911875,
+            "ptm": 0.927328,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.908011,
+            "complex_iplddt": 0.908011,
+            "complex_pde": 0.460442,
+            "complex_ipde": 0.0,
+            "plddt": 0.908011,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.927328
+              }
+            },
+            "chains_ptm": {
+              "0": 0.927328
+            }
+          },
+          "plddt": 0.908011,
+          "before": {
+            "monotonic_ns": 9972200132500,
+            "utc_ns": 1789589351341141567,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 4773,
+                "stime_ticks": 312,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9981944652277,
+            "utc_ns": 1789589361085660783,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 5832,
+                "stime_ticks": 362,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A_repeat1/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "samples": 9145,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1164891,
+            "first_offset_ns": 800868,
+            "last_offset_ns": 818728,
+            "sample_span_fraction": 0.9998333694987711,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 79,
+            "max_gap_ns": 130565136,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 79,
+            "max_gap_ns": 130565136,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 2397,
+          "ca_count": 298,
+          "cif_plddt": {
+            "n_atoms": 2397,
+            "n_ca": 298,
+            "mean_all": 0.90879,
+            "mean_ca": 0.908011
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A2",
+          "start_monotonic_ns": 9982220599684,
+          "end_monotonic_ns": 9991908789327,
+          "elapsed_s": 9.688189643,
+          "metrics": {
+            "confidence_score": 0.911875,
+            "ptm": 0.927328,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.908011,
+            "complex_iplddt": 0.908011,
+            "complex_pde": 0.460442,
+            "complex_ipde": 0.0,
+            "plddt": 0.908011,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.927328
+              }
+            },
+            "chains_ptm": {
+              "0": 0.927328
+            }
+          },
+          "plddt": 0.908011,
+          "before": {
+            "monotonic_ns": 9982195932378,
+            "utc_ns": 1789589361336941556,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 5839,
+                "stime_ticks": 363,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 9991908792123,
+            "utc_ns": 1789589371049800559,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 6901,
+                "stime_ticks": 406,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A2/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "samples": 9119,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1185530,
+            "first_offset_ns": 480410,
+            "last_offset_ns": 149376,
+            "sample_span_fraction": 0.9999349944599345,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 79,
+            "max_gap_ns": 131910436,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 79,
+            "max_gap_ns": 131910436,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 2397,
+          "ca_count": 298,
+          "cif_plddt": {
+            "n_atoms": 2397,
+            "n_ca": 298,
+            "mean_all": 0.90879,
+            "mean_ca": 0.908011
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A_repeat2",
+          "start_monotonic_ns": 9992194611404,
+          "end_monotonic_ns": 10001852812432,
+          "elapsed_s": 9.658201028,
+          "metrics": {
+            "confidence_score": 0.911875,
+            "ptm": 0.927328,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.908011,
+            "complex_iplddt": 0.908011,
+            "complex_pde": 0.460442,
+            "complex_ipde": 0.0,
+            "plddt": 0.908011,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.927328
+              }
+            },
+            "chains_ptm": {
+              "0": 0.927328
+            }
+          },
+          "plddt": 0.908011,
+          "before": {
+            "monotonic_ns": 9992169532942,
+            "utc_ns": 1789589371310541729,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 6909,
+                "stime_ticks": 406,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 10001852815468,
+            "utc_ns": 1789589380993823894,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 7969,
+                "stime_ticks": 444,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A_repeat2/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "samples": 9049,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1145865,
+            "first_offset_ns": 110802,
+            "last_offset_ns": 664162,
+            "sample_span_fraction": 0.9999197610406169,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 79,
+            "max_gap_ns": 130932098,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 79,
+            "max_gap_ns": 130932098,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 2397,
+          "ca_count": 298,
+          "cif_plddt": {
+            "n_atoms": 2397,
+            "n_ca": 298,
+            "mean_all": 0.90879,
+            "mean_ca": 0.908011
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A3",
+          "start_monotonic_ns": 10002325544444,
+          "end_monotonic_ns": 10012037481545,
+          "elapsed_s": 9.711937101,
+          "metrics": {
+            "confidence_score": 0.911875,
+            "ptm": 0.927328,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.908011,
+            "complex_iplddt": 0.908011,
+            "complex_pde": 0.460442,
+            "complex_ipde": 0.0,
+            "plddt": 0.908011,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.927328
+              }
+            },
+            "chains_ptm": {
+              "0": 0.927328
+            }
+          },
+          "plddt": 0.908011,
+          "before": {
+            "monotonic_ns": 10002300041801,
+            "utc_ns": 1789589381441050528,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 7996,
+                "stime_ticks": 445,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 10012037484721,
+            "utc_ns": 1789589391178493137,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 9055,
+                "stime_ticks": 494,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A3/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "samples": 9139,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1125115,
+            "first_offset_ns": 175056,
+            "last_offset_ns": 966140,
+            "sample_span_fraction": 0.9998824955322371,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 78,
+            "max_gap_ns": 129546933,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 78,
+            "max_gap_ns": 129546933,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 2397,
+          "ca_count": 298,
+          "cif_plddt": {
+            "n_atoms": 2397,
+            "n_ca": 298,
+            "mean_all": 0.90879,
+            "mean_ca": 0.908011
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        },
+        {
+          "label": "A_repeat3",
+          "start_monotonic_ns": 10012350230253,
+          "end_monotonic_ns": 10021999491269,
+          "elapsed_s": 9.649261016,
+          "metrics": {
+            "confidence_score": 0.911875,
+            "ptm": 0.927328,
+            "iptm": 0.0,
+            "ligand_iptm": 0.0,
+            "protein_iptm": 0.0,
+            "complex_plddt": 0.908011,
+            "complex_iplddt": 0.908011,
+            "complex_pde": 0.460442,
+            "complex_ipde": 0.0,
+            "plddt": 0.908011,
+            "pair_chains_iptm": {
+              "0": {
+                "0": 0.927328
+              }
+            },
+            "chains_ptm": {
+              "0": 0.927328
+            }
+          },
+          "plddt": 0.908011,
+          "before": {
+            "monotonic_ns": 10012325104010,
+            "utc_ns": 1789589391466112817,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 9066,
+                "stime_ticks": 494,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "after": {
+            "monotonic_ns": 10021999495306,
+            "utc_ns": 1789589401140503823,
+            "boot_id": "e39102cc-c3a3-4fc7-8430-da19a435b337",
+            "module_srcversion": "A10759A24565BC5BBE903C5",
+            "containment": "active",
+            "holders": [
+              {
+                "pid": 149591,
+                "nodes": [
+                  "/dev/tenstorrent/0"
+                ],
+                "state": "S",
+                "utime_ticks": 10126,
+                "stime_ticks": 532,
+                "starttime_ticks": 992501,
+                "argv": "python3 perf/c10_bare_baseline/capture.py --size 298 --out /home/ttuser/.coworker/wt/c10-bare-baseline/perf/c10_bare_baseline/runs/baseline1/298 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "0",
+                  "TT_BIO_LEASE_CARDS": "0",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-bare-baseline"
+                }
+              }
+            ],
+            "own_nodes": [
+              "/dev/tenstorrent/0"
+            ]
+          },
+          "above_cap_sdpa_counts": [
+            0,
+            0
+          ],
+          "valid": true,
+          "cif": "cifs/A_repeat3/cdk2x2_298.cif",
+          "cif_sha256": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+          "clock": {
+            "samples": 9082,
+            "min_MHz": 1350,
+            "max_MHz": 1350,
+            "max_gap_ns": 1723765,
+            "first_offset_ns": 676735,
+            "last_offset_ns": 287221,
+            "sample_span_fraction": 0.9999001005363621,
+            "errors": [],
+            "pass": true
+          },
+          "holders": {
+            "samples": 78,
+            "max_gap_ns": 131966600,
+            "bad": [],
+            "passed": true
+          },
+          "structure_vs_cold": {
+            "atoms": 2397,
+            "whole_chain_all_atom_A": 7.14729353625079e-15,
+            "domain_all_atom_A": [
+              7.14729353625079e-15
+            ],
+            "max_domain_all_atom_A": 7.14729353625079e-15,
+            "cif_byte_exact": true
+          },
+          "holder_coverage": {
+            "samples": 78,
+            "max_gap_ns": 131966600,
+            "bad": [],
+            "passed": true
+          },
+          "atoms": 2397,
+          "ca_count": 298,
+          "cif_plddt": {
+            "n_atoms": 2397,
+            "n_ca": 298,
+            "mean_all": 0.90879,
+            "mean_ca": 0.908011
+          },
+          "accepted": false,
+          "rejections": [
+            "whole capture excluded"
+          ]
+        }
+      ],
+      "adjacent_pairs": [
+        {
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true,
+          "labels": [
+            "A0",
+            "A_repeat0"
+          ],
+          "timing_accepted": false,
+          "abs_delta_s": 0.005841328000000701,
+          "signed_repeat_minus_A_s": 0.005841328000000701,
+          "passes_structure_bar": true
+        },
+        {
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true,
+          "labels": [
+            "A1",
+            "A_repeat1"
+          ],
+          "timing_accepted": false,
+          "abs_delta_s": 0.04829947400000023,
+          "signed_repeat_minus_A_s": 0.04829947400000023,
+          "passes_structure_bar": true
+        },
+        {
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true,
+          "labels": [
+            "A2",
+            "A_repeat2"
+          ],
+          "timing_accepted": false,
+          "abs_delta_s": 0.02998861499999883,
+          "signed_repeat_minus_A_s": -0.02998861499999883,
+          "passes_structure_bar": true
+        },
+        {
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true,
+          "labels": [
+            "A3",
+            "A_repeat3"
+          ],
+          "timing_accepted": false,
+          "abs_delta_s": 0.06267608499999966,
+          "signed_repeat_minus_A_s": -0.06267608499999966,
+          "passes_structure_bar": true
+        }
+      ],
+      "all_warm_structure_pairs": [
+        {
+          "labels": [
+            "A0",
+            "A_repeat0"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A0",
+            "A1"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A0",
+            "A_repeat1"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A0",
+            "A2"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A0",
+            "A_repeat2"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A0",
+            "A3"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A0",
+            "A_repeat3"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat0",
+            "A1"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat0",
+            "A_repeat1"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat0",
+            "A2"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat0",
+            "A_repeat2"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat0",
+            "A3"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat0",
+            "A_repeat3"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A1",
+            "A_repeat1"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A1",
+            "A2"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A1",
+            "A_repeat2"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A1",
+            "A3"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A1",
+            "A_repeat3"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat1",
+            "A2"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat1",
+            "A_repeat2"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat1",
+            "A3"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat1",
+            "A_repeat3"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A2",
+            "A_repeat2"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A2",
+            "A3"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A2",
+            "A_repeat3"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat2",
+            "A3"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A_repeat2",
+            "A_repeat3"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        },
+        {
+          "labels": [
+            "A3",
+            "A_repeat3"
+          ],
+          "atoms": 2397,
+          "whole_chain_all_atom_A": 7.14729353625079e-15,
+          "domain_all_atom_A": [
+            7.14729353625079e-15
+          ],
+          "max_domain_all_atom_A": 7.14729353625079e-15,
+          "cif_byte_exact": true
+        }
+      ],
+      "run_errors": [],
+      "accuracy_context": {
+        "metric": "maximum independently superposed domain all-atom float64 Kabsch RMSD, split after residue 298; also report whole-chain all-atom",
+        "bars_A": {
+          "512": 0.6,
+          "298": 0.35
+        },
+        "user_512_seed_floor_A": 1.84,
+        "archived_upstream_seed_spread_A": {
+          "298": {
+            "mean": 0.80128,
+            "min": 0.74099,
+            "max": 0.84656
+          },
+          "512": {
+            "mean": 1.66454,
+            "min": 0.9454,
+            "max": 2.29123
+          }
+        },
+        "digest": "record, not automatic kill",
+        "same_seed_AA_is_not_upstream_accuracy": true
+      }
+    }
+  },
+  "scope": "Current-source bare wall and same-seed A/A only; no upstream accuracy or device-work cycles.",
+  "exclusion": {
+    "verdict": "STOP",
+    "excluded_all_timings": true,
+    "reason": "The PC relay fetch was started while capture was active. Its own Git pack-objects workload overlapped the later 512 folds and the 298 session. Retained as diagnostic evidence only; repeat after transfer has finished and host quiet is rechecked.",
+    "evidence": {
+      "observed_utc": "2026-09-16T20:08:36Z",
+      "pack_pid": 149387,
+      "pack_elapsed_s": 21,
+      "pack_cpu_percent": 19.0,
+      "loadavg": [
+        1.54,
+        0.67,
+        0.32
+      ]
+    },
+    "recorded_utc": "2026-09-16T20:09:48.790627+00:00"
+  }
+}

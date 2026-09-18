@@ -1,0 +1,84 @@
+{
+  "recorded_utc": "2026-09-16T20:01:11.441088+00:00",
+  "source_base": "5e1886b4fd1bea4211f30c295723c8175c72d63c",
+  "prediction": "Identical A/A model configuration: predicted model-cycle saving zero. No speedup claim.",
+  "model": {
+    "model": "boltz2",
+    "sizes": [
+      512,
+      298
+    ],
+    "sampling_steps": 200,
+    "recycling_steps": 3,
+    "diffusion_samples": 1,
+    "seed": 0,
+    "msa_rows": 35,
+    "templates": false,
+    "fast": false,
+    "trace": false,
+    "hoist": false,
+    "instrument": false
+  },
+  "warmup_folds": 1,
+  "pairs": 4,
+  "minimum_pairs": 3,
+  "clock": {
+    "target_MHz": 1350,
+    "minimum_samples": 3,
+    "max_gap_ns": 10000000,
+    "errors_allowed": 0,
+    "all_during_samples_must_equal_target": true,
+    "below_1200": "clock artifact; reject timing, never call regression"
+  },
+  "quiet": {
+    "all_chip_foreign_holders_allowed": 0,
+    "holder_max_gap_ns": 1000000000,
+    "lock_wait_s": 60,
+    "load_wait_s": 60,
+    "benchlock_maxload": 2.0,
+    "matcher_and_location": "unchanged shared benchlock",
+    "host_cpu_witness": {
+      "sampler": "perf/c10_bare_baseline/ambient.py, 250 ms, whole locked window",
+      "record_cpu_pct_at_or_above": 2.0,
+      "foreign_cpu_reject_pct": 20.0,
+      "foreign": "any process outside the run session (own=false)",
+      "added": "2026-09-16, after run baseline1 was excluded for an overlapping git pack the device-holder census could not see",
+      "older_runs": "runs without ambient.jsonl reduce to recorded=false and are not rejected on this criterion"
+    }
+  },
+  "accuracy": {
+    "metric": "maximum independently superposed domain all-atom float64 Kabsch RMSD, split after residue 298; also report whole-chain all-atom",
+    "bars_A": {
+      "512": 0.6,
+      "298": 0.35
+    },
+    "user_512_seed_floor_A": 1.84,
+    "archived_upstream_seed_spread_A": {
+      "298": {
+        "mean": 0.80128,
+        "min": 0.74099,
+        "max": 0.84656
+      },
+      "512": {
+        "mean": 1.66454,
+        "min": 0.9454,
+        "max": 2.29123
+      }
+    },
+    "digest": "record, not automatic kill",
+    "same_seed_AA_is_not_upstream_accuracy": true
+  },
+  "kill": [
+    "wrong source/config or input hashes",
+    "wrong opened node, containment change or boot change",
+    "foreign device holder or quiet/lock timeout",
+    "clock read error, wrong clock or coverage gap",
+    "nonfinite/missing/duplicate atoms or identity mismatch",
+    "same-seed structural deviation over size bar",
+    "missing CIF or nonfinite confidence",
+    "foreign host CPU process at or above 20% of a core during an accepted fold"
+  ],
+  "bare": "Production wheel, no Tracy/graph/observer/module timers/sum profiling. Synchronize before monotonic start and after predict_one including CIF writing.",
+  "unmeasured": "No device-cycle census, per-op budget, CPU removable cost, ceiling, upstream accuracy, or cross-run speedup.",
+  "recorded_utc_host_cpu_witness": "2026-09-16T22:55:56.077107+00:00"
+}

@@ -1,0 +1,1260 @@
+{
+ "capture": "perf/c14_byte_deletion/captures/cap_PairformerLayer__1x512x384,1x512x512x128.json.gz",
+ "Z_bytes": 67108864,
+ "n_ops": 242,
+ "total_dram_MB": 6751.568,
+ "total_Z": 100.6062,
+ "by_op_MB": {
+  "ttnn.allocate_tensor_on_device": 2852.127,
+  "ttnn.layer_norm": 1141.785,
+  "ttnn.multiply_": 1090.519,
+  "ttnn.add_": 691.077,
+  "ttnn.matmul": 555.745,
+  "ttnn.chunk": 201.327,
+  "ttnn.linear": 142.639,
+  "ttnn.permute": 40.108,
+  "ttnn.softmax": 16.777,
+  "ttnn.add": 12.648,
+  "ttnn.experimental.nlp_create_qkv_heads": 3.146,
+  "ttnn.multiply": 1.18,
+  "ttnn.transpose": 1.049,
+  "ttnn.slice": 1.049,
+  "ttnn.reshape": 0.393,
+  "ttnn.generic_op": 0.0,
+  "ttnn.deallocate": 0.0,
+  "ttnn.unsqueeze": 0.0,
+  "ttnn.to_memory_config": 0.0,
+  "ttnn.concat": 0.0,
+  "ttnn.Tensor.__getitem__": 0.0
+ },
+ "calls_by_op": {
+  "ttnn.layer_norm": 20,
+  "ttnn.allocate_tensor_on_device": 24,
+  "ttnn.generic_op": 14,
+  "ttnn.deallocate": 81,
+  "ttnn.unsqueeze": 5,
+  "ttnn.to_memory_config": 2,
+  "ttnn.multiply_": 19,
+  "ttnn.matmul": 4,
+  "ttnn.linear": 42,
+  "ttnn.add_": 9,
+  "ttnn.reshape": 5,
+  "ttnn.permute": 7,
+  "ttnn.add": 2,
+  "ttnn.chunk": 1,
+  "ttnn.concat": 1,
+  "ttnn.experimental.nlp_create_qkv_heads": 1,
+  "ttnn.transpose": 1,
+  "ttnn.softmax": 1,
+  "ttnn.Tensor.__getitem__": 1,
+  "ttnn.slice": 1,
+  "ttnn.multiply": 1
+ },
+ "residual_sites": [
+  {
+   "op_i": 23,
+   "op": "ttnn.add_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ],
+    [
+     "L1",
+     67108864,
+     "ttnn.linear"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218,
+   "update_in": [
+    "L1"
+   ]
+  },
+  {
+   "op_i": 48,
+   "op": "ttnn.add_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ],
+    [
+     "L1",
+     67108864,
+     "ttnn.linear"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218,
+   "update_in": [
+    "L1"
+   ]
+  },
+  {
+   "op_i": 74,
+   "op": "ttnn.add_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ],
+    [
+     "L1",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218,
+   "update_in": [
+    "L1"
+   ]
+  },
+  {
+   "op_i": 102,
+   "op": "ttnn.add_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ],
+    [
+     "L1",
+     67108864,
+     "ttnn.permute"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218,
+   "update_in": [
+    "L1"
+   ]
+  },
+  {
+   "op_i": 194,
+   "op": "ttnn.add_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ],
+    [
+     "L1",
+     67108864,
+     "ttnn.concat"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218,
+   "update_in": [
+    "L1"
+   ]
+  }
+ ],
+ "pair_boundaries": [
+  {
+   "op_i": 0,
+   "op": "ttnn.layer_norm",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ]
+   ],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 201.343
+  },
+  {
+   "op_i": 1,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     268435456
+    ]
+   ],
+   "dram_MB": 536.871
+  },
+  {
+   "op_i": 2,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 67.109
+  },
+  {
+   "op_i": 3,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.layer_norm"
+    ],
+    [
+     "DRAM",
+     268435456,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 4,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 67.109
+  },
+  {
+   "op_i": 5,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     268435456,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 6,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 67.109
+  },
+  {
+   "op_i": 7,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     268435456,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 11,
+   "op": "ttnn.multiply_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 12,
+   "op": "ttnn.matmul",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 268.435
+  },
+  {
+   "op_i": 15,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 67.109
+  },
+  {
+   "op_i": 16,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.matmul"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 18,
+   "op": "ttnn.layer_norm",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 201.343
+  },
+  {
+   "op_i": 19,
+   "op": "ttnn.linear",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.layer_norm"
+    ]
+   ],
+   "out": [
+    [
+     "L1",
+     67108864
+    ]
+   ],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 22,
+   "op": "ttnn.multiply_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "L1",
+     67108864,
+     "ttnn.linear"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 23,
+   "op": "ttnn.add_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ],
+    [
+     "L1",
+     67108864,
+     "ttnn.linear"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 25,
+   "op": "ttnn.layer_norm",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ]
+   ],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 201.343
+  },
+  {
+   "op_i": 26,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     268435456
+    ]
+   ],
+   "dram_MB": 536.871
+  },
+  {
+   "op_i": 27,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 67.109
+  },
+  {
+   "op_i": 28,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.layer_norm"
+    ],
+    [
+     "DRAM",
+     268435456,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 29,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 67.109
+  },
+  {
+   "op_i": 30,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     268435456,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 31,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 67.109
+  },
+  {
+   "op_i": 32,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     268435456,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 36,
+   "op": "ttnn.multiply_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 37,
+   "op": "ttnn.matmul",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 268.435
+  },
+  {
+   "op_i": 40,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 67.109
+  },
+  {
+   "op_i": 41,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.matmul"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 43,
+   "op": "ttnn.layer_norm",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 201.343
+  },
+  {
+   "op_i": 44,
+   "op": "ttnn.linear",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.layer_norm"
+    ]
+   ],
+   "out": [
+    [
+     "L1",
+     67108864
+    ]
+   ],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 47,
+   "op": "ttnn.multiply_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "L1",
+     67108864,
+     "ttnn.linear"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 48,
+   "op": "ttnn.add_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ],
+    [
+     "L1",
+     67108864,
+     "ttnn.linear"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 50,
+   "op": "ttnn.reshape",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 51,
+   "op": "ttnn.layer_norm",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ]
+   ],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 201.343
+  },
+  {
+   "op_i": 52,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 53,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 54,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 55,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 67.109
+  },
+  {
+   "op_i": 57,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.layer_norm"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 62,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 67.109
+  },
+  {
+   "op_i": 63,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 68,
+   "op": "ttnn.multiply_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 268.435
+  },
+  {
+   "op_i": 70,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "L1",
+     67108864
+    ]
+   ],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 71,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "L1",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 73,
+   "op": "ttnn.reshape",
+   "in": [
+    [
+     "L1",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 74,
+   "op": "ttnn.add_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ],
+    [
+     "L1",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 76,
+   "op": "ttnn.reshape",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 77,
+   "op": "ttnn.permute",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ]
+   ],
+   "out": [
+    [
+     "L1",
+     67108864
+    ]
+   ],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 78,
+   "op": "ttnn.layer_norm",
+   "in": [
+    [
+     "L1",
+     67108864,
+     "ttnn.permute"
+    ]
+   ],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 134.234
+  },
+  {
+   "op_i": 79,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 80,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 81,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 82,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 67.109
+  },
+  {
+   "op_i": 84,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.layer_norm"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 89,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 67.109
+  },
+  {
+   "op_i": 90,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 95,
+   "op": "ttnn.multiply_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 268.435
+  },
+  {
+   "op_i": 97,
+   "op": "ttnn.allocate_tensor_on_device",
+   "in": [],
+   "out": [
+    [
+     "DRAM",
+     67108864
+    ]
+   ],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 98,
+   "op": "ttnn.generic_op",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ],
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 100,
+   "op": "ttnn.permute",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     "ttnn.allocate_tensor_on_device"
+    ]
+   ],
+   "out": [
+    [
+     "L1",
+     67108864
+    ]
+   ],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 101,
+   "op": "ttnn.reshape",
+   "in": [
+    [
+     "L1",
+     67108864,
+     "ttnn.permute"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 102,
+   "op": "ttnn.add_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ],
+    [
+     "L1",
+     67108864,
+     "ttnn.permute"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 104,
+   "op": "ttnn.chunk",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ]
+   ],
+   "out": [],
+   "dram_MB": 201.327
+  },
+  {
+   "op_i": 193,
+   "op": "ttnn.concat",
+   "in": [],
+   "out": [
+    [
+     "L1",
+     67108864
+    ]
+   ],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 194,
+   "op": "ttnn.add_",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ],
+    [
+     "L1",
+     67108864,
+     "ttnn.concat"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 134.218
+  },
+  {
+   "op_i": 201,
+   "op": "ttnn.layer_norm",
+   "in": [
+    [
+     "DRAM",
+     67108864,
+     null
+    ]
+   ],
+   "out": [
+    [
+     "L1",
+     67108864
+    ]
+   ],
+   "dram_MB": 0.0
+  },
+  {
+   "op_i": 202,
+   "op": "ttnn.linear",
+   "in": [
+    [
+     "L1",
+     67108864,
+     "ttnn.layer_norm"
+    ]
+   ],
+   "out": [],
+   "dram_MB": 0.0
+  }
+ ]
+}

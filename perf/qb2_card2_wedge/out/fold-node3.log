@@ -1,0 +1,4 @@
+2026-09-18 05:35:54.576 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+  298 ttplain-s0        9.925s sha=a8c6fd65f70f4418 plddt=0.908011 draw0=[1, 4] 3d2a6e6ad1af9f7f atoms=2397
+  298 ttplain-s1        9.529s sha=2e3ea8219531e8ff plddt=0.913445 draw0=[1, 4] eac563667bee9495 atoms=2397

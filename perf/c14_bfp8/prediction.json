@@ -1,0 +1,39 @@
+{
+  "registered_utc": "2026-09-18T13:20Z",
+  "row": "c14-bfp8-fastpath",
+  "question": "At the pair class largest executed key [1,512,512,128] on BLACKHOLE, does a change of STORAGE WIDTH convert to time? Every prior bfp8 realization number in this campaign is Wormhole (b2z-bfp8-narrow, 0.26-0.30 at c_z=128) and the one Blackhole byte number (c14-byte-deletion, 1.9% of the op for 50% of its DRAM bytes) is a DESTINATION RETARGET, not a width cut, so it does not answer this.",
+  "rate_provenance": {
+    "dram_roof_gbs": 442.9,
+    "dram_roof_where": "c10-fold-census, qb2, during-sampled 1350 MHz",
+    "clone_same_shape_gbs": 364.84,
+    "clone_same_shape_where": "c14-byte-deletion, qb1 node 0 (p150a, 110 cores), 1350 MHz, ttnn.clone on this exact key = 82.4% of the roof",
+    "class_in_fold_gbs": {"multiply_": 415.9, "add_": 423.6, "layer_norm_w": 239.0},
+    "class_where": "c10-fold-census on qb2 at a during-sampled 1350 MHz"
+  },
+  "bytes_nominal_Z": {"note": "Z = 67.108864 MB = one bf16 [1,512,512,128] tensor",
+    "bf16_per_elt": 2.0, "fp32_per_elt": 4.0, "bfp8_b_per_elt": 1.0625,
+    "bfp8_ratio": 0.53125},
+  "arms_predicted_time_ratio_vs_bf16": {
+    "clone_f32": [1.75, 2.00],
+    "clone_b8": [0.60, 0.75],
+    "ln_b8": [0.70, 0.90],
+    "mul_b8": [0.60, 0.85],
+    "add_b8": [0.60, 0.85],
+    "linear_b8act": [0.90, 1.00]
+  },
+  "points": {"clone_f32": 1.90, "clone_b8": 0.68, "ln_b8": 0.80, "mul_b8": 0.72,
+             "add_b8": 0.72, "linear_b8act": 0.96},
+  "reasoning": {
+    "clone_f32": "the opposite-direction control demanded by memory dtype-narrowing-byte-discount-needs-opposite-direction-control: if doubling the bytes does not roughly double the time, narrowing cannot halve it and the whole axis is dead on this class.",
+    "clone_b8": "0.531x the bytes but block float is not a byte-for-byte move: the packer re-derives one shared exponent per 16-element block. ttnn.permute on bfloat8_b already measures 1.13-1.44x SLOWER than bf16 on 0.53x the bytes (ttx-reblock-bfp8-pairtrack), so a pure mover is expected to keep well under half the byte cut.",
+    "ln_b8": "layer_norm is at 96.5% of a same-shape clone at this key (c14-byte-deletion) so it is byte-bound here, but removing gamma/beta made it 1.43x SLOWER, i.e. the affine term is load-bearing work a width cut cannot touch.",
+    "mul_b8": "multiply_ and add_ read 415.9 and 423.6 GB/s in-fold against a 442.9 roof, 94-96%, the least non-byte slack in the fold.",
+    "linear_b8act": "c13-matmul-rate fitted the thin-K key as t(kt) = 0.0723 + 0.00554*kt ms, 73.9% of the time at K=128 not scaling with K at all, measured with DRAM traffic removed. A width cut cannot touch a per-output-tile pipeline cost."
+  },
+  "what_would_make_it_negative": [
+    "clone_f32 < 1.40x -> the class is not byte-bound at this key and bfp8 has no mechanism here; the row closes with that as the answer.",
+    "clone_b8 >= 0.95x -> the block format own pack/unpack cost eats the byte cut on a pure mover, so no downstream region can pay however it is scoped.",
+    "any arm throwing on a bfp8 operand -> that op is not bfp8-capable and the region containing it needs a conversion at that edge, which is charged against the region."
+  ],
+  "aa_floor_rule": "the bf16 clone arm runs twice per rep as its own A/A twin; a session whose A/A floor exceeds 1.0% is discarded, not reported."
+}

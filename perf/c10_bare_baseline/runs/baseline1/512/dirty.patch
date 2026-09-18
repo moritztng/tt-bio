@@ -1,0 +1,855 @@
+diff --git a/perf/c10_bare_baseline/.gitignore b/perf/c10_bare_baseline/.gitignore
+new file mode 100644
+index 000000000..0520180cb
+--- /dev/null
++++ b/perf/c10_bare_baseline/.gitignore
+@@ -0,0 +1,2 @@
++tmp/
++__pycache__/
+diff --git a/perf/c10_bare_baseline/audit_accuracy.py b/perf/c10_bare_baseline/audit_accuracy.py
+new file mode 100644
+index 000000000..9cfd5ae5b
+--- /dev/null
++++ b/perf/c10_bare_baseline/audit_accuracy.py
+@@ -0,0 +1,93 @@
++#!/usr/bin/env python3
++"""Replay archived reference seed spread; no folds, timing or new acceptance bar."""
++from __future__ import annotations
++
++import argparse
++import hashlib
++from itertools import combinations
++import json
++from pathlib import Path
++import sys
++
++import numpy as np
++
++ROOT = Path(__file__).resolve().parents[2]
++sys.path.insert(0, str(ROOT / 'perf/other512'))
++from cif_rmsd import kabsch_rmsd, read_atoms
++
++
++def sha(path):
++    return hashlib.sha256(path.read_bytes()).hexdigest()
++
++
++def validate_atoms(keys, xyz, size):
++    if (not keys or any(len(k) != 4 for k in keys) or len(set(keys)) != len(keys)
++            or xyz.shape != (len(keys), 3) or not np.isfinite(xyz).all()):
++        raise ValueError('missing/duplicate atom identity or invalid coordinates')
++    ca = [k for k in keys if k[2] == 'CA']
++    if len({k[0] for k in keys}) != 1 or len(ca) != size:
++        raise ValueError('expected one complete fixture chain')
++    if sorted(int(k[1]) for k in ca) != list(range(1, size + 1)):
++        raise ValueError('CA sequence identities do not match the fixture')
++
++
++def replay(root=ROOT):
++    archive = root / 'perf/k10_anchor'
++    score_path = archive / 'out/score.json'
++    recorded = json.loads(score_path.read_text())
++    result = {'scope': 'CPU replay of archived fp32 upstream reference CIFs, not current TT accuracy or a float64 model reference.',
++              'timing': 'No device or performance measurement.',
++              'metric': 'Maximum independently superposed domain all-atom Kabsch RMSD, split after residue 298; one domain at 298 aa.',
++              'score_path': str(score_path.relative_to(root)), 'score_sha256': sha(score_path),
++              'arithmetic': 'float64 coordinate superposition with the existing CIF scorer',
++              'sizes': {}}
++    for size in (298, 512):
++        inputs, atoms = [], {}
++        for seed in range(4):
++            path = archive / 'gpucif' / f'{size}_gpuref-s{seed}' / f'cdk2x2_{size}.cif'
++            keys, xyz = read_atoms(path)
++            validate_atoms(keys, xyz, size)
++            if atoms and keys != atoms[0][0]:
++                raise ValueError('reference seeds have different atom identities')
++            atoms[seed] = keys, xyz
++            inputs.append({'seed': seed, 'path': str(path.relative_to(root)), 'sha256': sha(path)})
++        seq = np.array([int(k[1]) for k in atoms[0][0]])
++        selections = {'domain1_all_atom_A': seq <= 298}
++        if size == 512:
++            selections['domain2_all_atom_A'] = seq > 298
++        pairs = []
++        for a, b in combinations(range(4), 2):
++            tag = f'gpuref: s{a} vs s{b}'
++            expected = recorded['sizes'][str(size)]['seed_floor'][tag]
++            measured = {name: kabsch_rmsd(atoms[a][1][sel], atoms[b][1][sel])
++                        for name, sel in selections.items()}
++            if any(abs(value - expected[name]) > 0.0000051 for name, value in measured.items()):
++                raise ValueError(f'archived scorer mismatch at {size} {tag}')
++            pairs.append({'seeds': [a, b], **measured, 'worst_domain_A': max(measured.values())})
++        spread = [p['worst_domain_A'] for p in pairs]
++        result['sizes'][str(size)] = {
++            'inputs': inputs, 'seed_pairs': pairs, 'pairs': len(pairs),
++            'mean_A': float(np.mean(spread)), 'min_A': min(spread), 'max_A': max(spread),
++            'matches_archived_five_decimal_scores': True,
++        }
++    result['limits'] = ('A seed floor differs from same-seed A/A repeatability. These old reference folds do not replace current paired baseline/stack/A/A controls. A shared numeric seed across different sampler implementations does not guarantee shared noise. Float64 mathematical transform controls are a separate requirement. No acceptance threshold is inferred from these samples.')
++    return result
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--out', type=Path)
++    args = parser.parse_args()
++    try:
++        result = replay()
++    except (OSError, KeyError, TypeError, ValueError) as error:
++        parser.exit(1, f'invalid reference evidence: {error}\n')
++    text = json.dumps(result, indent=2) + '\n'
++    if args.out:
++        args.out.write_text(text)
++    else:
++        print(text, end='')
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/perf/c10_bare_baseline/audit_prerequisites.py b/perf/c10_bare_baseline/audit_prerequisites.py
+new file mode 100644
+index 000000000..5e145591c
+--- /dev/null
++++ b/perf/c10_bare_baseline/audit_prerequisites.py
+@@ -0,0 +1,70 @@
++"""Read-only evidence for C10's quiet-board measurement prerequisite."""
++import datetime
++import json
++import os
++from pathlib import Path
++import socket
++import subprocess
++import time
++
++ROOT = Path(__file__).resolve().parents[2]
++HOLDERS = """
++import json, os
++from pathlib import Path
++rows=[]
++for p in Path('/proc').iterdir():
++    if not p.name.isdigit(): continue
++    nodes=set()
++    try:
++        for fd in (p/'fd').iterdir():
++            try: target=os.readlink(fd)
++            except OSError: continue
++            if target.startswith('/dev/tenstorrent/'): nodes.add(target)
++        if not nodes: continue
++        stat=(p/'stat').read_text().rsplit(')',1)[1].split()
++        env=dict(e.split('=',1) for e in (p/'environ').read_text().split(chr(0)) if '=' in e)
++        rows.append({'pid':int(p.name),'nodes':sorted(nodes),
++                     'state':stat[0], 'utime_ticks':int(stat[11]), 'stime_ticks':int(stat[12]),
++                     'starttime_ticks':int(stat[19]),
++                     'argv':(p/'cmdline').read_text().replace(chr(0),' '),
++                     'env':{k:env.get(k) for k in ('TT_VISIBLE_DEVICES','TT_BIO_LEASE_CARDS','TT_BIO_LEASE_HOLDER')}})
++    except (OSError,PermissionError): continue
++print(json.dumps(rows))
++"""
++
++def main():
++    result = {
++        "host":socket.gethostname(), "boot_id":Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
++        "containment":subprocess.check_output(["systemctl","is-active","qb2-endpoint-containment.service"],text=True).strip(),
++        "module_srcversion":Path("/sys/module/tenstorrent/srcversion").read_text().strip(),
++        "cpu_ticks_per_second":os.sysconf("SC_CLK_TCK"), "snapshots":[],
++        "scope":"Read-only prerequisite audit. No device opened, model run, roof or floor measured.",
++        "clock_note":"Node 0 idle telemetry is not during-fold coverage and is not a performance measurement.",
++        "observer_pid":os.getpid(),
++    }
++    for i in range(3):
++        snap={"host_monotonic_ns":time.monotonic_ns(),
++              "utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),
++              "loadavg":os.getloadavg(),
++              "holders":json.loads(subprocess.check_output(["sudo","-n","python3","-c",HOLDERS],text=True))}
++        before=time.monotonic_ns()
++        try:
++            snap["idle_card0_clock"]={"read_start_ns":before,
++                "MHz":int(Path("/sys/class/tenstorrent/tenstorrent!0/tt_aiclk").read_text()),
++                "read_end_ns":time.monotonic_ns()}
++        except (OSError,ValueError) as e:
++            snap["idle_card0_clock"]={"error":repr(e)}
++        result["snapshots"].append(snap)
++        if i<2: time.sleep(5)
++    result["assigned_node_available"]=not any("/dev/tenstorrent/0" in h["nodes"] for s in result["snapshots"] for h in s["holders"])
++    result["mapping"]={x.name:str(x.resolve()) for x in Path("/sys/class/tenstorrent").iterdir()}
++    result["quiet_board_available"]=not any(s["holders"] for s in result["snapshots"])
++    result["verdict"]="QUIET" if result["quiet_board_available"] else "PREREQUISITE_UNAVAILABLE"
++    result["probe_elapsed_ns"]=time.monotonic_ns()-result["snapshots"][0]["host_monotonic_ns"]
++    out=ROOT/"perf/c10_dm_control/preflight.json"
++    out.write_text(json.dumps(result,indent=2)+"\n")
++    print(json.dumps(result,indent=2))
++
++if __name__=="__main__":
++    main()
++
+diff --git a/perf/c10_bare_baseline/capture.py b/perf/c10_bare_baseline/capture.py
+new file mode 100644
+index 000000000..4cbfd8675
+--- /dev/null
++++ b/perf/c10_bare_baseline/capture.py
+@@ -0,0 +1,145 @@
++"""One warmed device context per target, identical A/A labels, full prediction timer."""
++from __future__ import annotations
++import argparse, gzip, hashlib, importlib.metadata, json, math, os, shutil, signal, socket, subprocess, sys, time, traceback
++from pathlib import Path
++HERE=Path(__file__).resolve().parent;ROOT=HERE.parents[1]
++sys.path[:0]=[str(ROOT),str(HERE),str(ROOT/'scripts/gpu_vs_tt'),str(ROOT/'perf/other512')]
++from control import coverage, digest, holders, own_nodes, snapshot, validate_snapshot, write_json
++from force_aiclk import smc, FORCE_AICLK
++from reduce import holder_coverage, coordinates, score, lines
++
++def git(*args):return subprocess.check_output(['git',*args],cwd=ROOT,text=True)
++def quiet(s,opened=False):
++    validate_snapshot(s,opened)
++    if any(h['pid']!=os.getpid() for h in s['holders']):raise RuntimeError('foreign holder on shared host')
++
++def binaries():
++    paths=set()
++    for line in Path('/proc/self/maps').read_text().splitlines():
++        p=line.split()[-1]
++        if p.startswith('/') and '.so' in p and any(x in p.lower() for x in ['ttnn','tt_metal','tt-metal','libumd','tracy']):paths.add(p)
++    return [digest(p) for p in sorted(paths)]
++
++def main():
++    ap=argparse.ArgumentParser();ap.add_argument('--size',type=int,choices=[298,512],required=True);ap.add_argument('--out',type=Path,required=True);a=ap.parse_args()
++    out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
++    criterion=json.loads((HERE/'criterion.json').read_text())
++    result=dict(pid=os.getpid(),host=socket.gethostname(),size=a.size,rows=[],errors=[],criterion=digest(HERE/'criterion.json'),source_commit=git('rev-parse','HEAD').strip(),source_base=criterion['source_base'],dirty_status=git('status','--short'),production_diff=git('diff',criterion['source_base'],'--','tt_bio','scripts/gpu_vs_tt/tt_baseline.py','perf/other512/fold_ab_multi.py'),started_utc_ns=time.time_ns(),completed=False)
++    save=lambda:write_json(out/'result.json',result)
++    sampler=None;fd=None;T=None;monitor_log=None
++    def interrupted(sig,frame):raise RuntimeError(f'signal {sig}; release clock and device')
++    for sig in [signal.SIGTERM,signal.SIGINT,signal.SIGHUP]:signal.signal(sig,interrupted)
++    try:
++        result['before']=snapshot();quiet(result['before']);save()
++        if socket.gethostname()!='tt-quietbox2':raise RuntimeError('wrong host')
++        if os.getloadavg()[0]>2.0:raise RuntimeError('load prerequisite failed after benchlock wait')
++        if result['production_diff']:raise RuntimeError('production source differs from requested base')
++        result['dirty_diff']=git('diff','HEAD');(out/'dirty.patch').write_text(result['dirty_diff'])
++        for key,expected in [('TT_VISIBLE_DEVICES','0'),('TT_BIO_LEASE_CARDS','0'),('TT_BIO_LEASE_HOLDER','worker:c10-bare-baseline')]:
++            if os.environ.get(key)!=expected:raise RuntimeError(f'wrong {key}')
++        forbidden={k:v for k,v in os.environ.items() if (k.startswith('TT_BIO_') and k not in {'TT_BIO_LEASE_CARDS','TT_BIO_LEASE_HOLDER'}) or k.startswith('TT_METAL_PROFILER') or k.startswith('TRACY')}
++        if forbidden:raise RuntimeError(f'non-default environment: {forbidden}')
++        result['environment']={k:v for k,v in os.environ.items() if k.startswith(('TT_','OMP_','MKL_','PYTHONPATH','LD_LIBRARY_PATH','BENCHLOCK_'))}
++        import torch,ttnn
++        import tt_bio.tenstorrent as T
++        import tt_baseline as B
++        from fold_ab_multi import patch_boltz2_cfg
++        result['ttnn_version']=importlib.metadata.version('ttnn');result['ttnn_path']=ttnn.__file__;result['tt_bio_path']=T.__file__;result['ttnn_config']=str(ttnn.CONFIG)
++        if Path(T.__file__).resolve()!=ROOT/'tt_bio/tenstorrent.py':raise RuntimeError('wrong production source loaded')
++        if '/site-packages/ttnn/' not in ttnn.__file__:raise RuntimeError('expected production wheel')
++        for attr in ['enable_logging','enable_graph_report','enable_detailed_buffer_report','enable_detailed_tensor_report']:
++            if getattr(ttnn.CONFIG,attr):raise RuntimeError(f'profiling enabled: {attr}')
++        result['profiling']={'tracy_launched':False,'graph':False,'generic_observer':False,'module_timers':False,'sum_profiling':False,'runtime_env':{k:v for k,v in os.environ.items() if 'PROFIL' in k or 'TRACY' in k}}
++        root=Path('/sys/class/tenstorrent/tenstorrent!0')
++        result['assigned_node_sysfs']={'resolved':str(root.resolve()),'device':str((root/'device').resolve()),'subsystem_device':(root/'device/subsystem_device').read_text().strip()}
++        for name in ['tt_board_id','tt_firmware_version','tt_flash_bundle_version']:
++            if (root/name).exists():result['assigned_node_sysfs'][name]=(root/name).read_text().strip()
++        B.RECYCLING_STEPS=3;B.SAMPLING_STEPS=200;B.DIFFUSION_SAMPLES=1;B.SEED=0
++        patch_boltz2_cfg();B._card_info=lambda:{'assigned_node_sysfs':result['assigned_node_sysfs']}
++        fixture=ROOT/f'perf/size512/fixtures/cdk2x2_{a.size}'
++        target=fixture.with_suffix('.yaml');msa=fixture.with_suffix('.a3m')
++        if 'templates:' in target.read_text():raise RuntimeError('templates in input')
++        result['inputs']=[digest(target),digest(msa)]
++        for p in [target,msa]:
++            committed=subprocess.check_output(['git','show',criterion['source_base']+':'+str(p.relative_to(ROOT))],cwd=ROOT)
++            if committed!=p.read_bytes():raise RuntimeError('fixture differs from committed input')
++        unused_fold,meta,state=B.build_fold('boltz2',out/'msa',target,msa,instrument=False,hoist=False,fast=False,trace=False,recycling_steps=3)
++        dev=T.get_device();result['opened']=snapshot();quiet(result['opened'],True)
++        if own_nodes()!=['/dev/tenstorrent/0']:raise RuntimeError('wrong actual opened device')
++        result['model_meta']=meta;result['model_predict_args']=state.model.predict_args
++        expected={'recycling_steps':3,'sampling_steps':200,'diffusion_samples':1,'max_parallel_samples':None}
++        if dict(state.model.predict_args)!=expected:raise RuntimeError('actual model config mismatch')
++        if meta['n_msa']!=35:raise RuntimeError('MSA rows not 35')
++        result['msa_cache']=[digest(p) for p in (out/'msa').glob('*.a3m')]
++        if len(result['msa_cache'])!=1 or result['msa_cache'][0]['sha256']!=result['inputs'][1]['sha256']:raise RuntimeError('MSA cache bytes mismatch')
++        result['loaded_binaries']=binaries();result['sdpa_cap']=T._triatt_sdpa._Q_SPLIT_MAX_S
++        if result['sdpa_cap']!=1024 or not T._SDPA_FUSED_LARGE_S:raise RuntimeError('SDPA defaults differ')
++        result['timer']='synchronize; monotonic_ns; complete state.predict_one incl. output writing; synchronize; monotonic_ns'
++        fd=os.open('/dev/tenstorrent/0',os.O_RDWR|os.O_APPEND)
++        result['force_response']=list(smc(fd,FORCE_AICLK,1350))
++        if result['force_response'][0]!=0:raise RuntimeError('FORCE_AICLK failed')
++        monitor_log=(out/'sampler.log').open('w')
++        sampler=subprocess.Popen([sys.executable,str(HERE/'control.py'),str(out/'clock.jsonl'),str(os.getpid())],stdin=subprocess.PIPE,stdout=monitor_log,stderr=subprocess.STDOUT)
++        time.sleep(.2);save()
++        labels=['cold']+[x for i in range(criterion['pairs']) for x in (f'A{i}',f'A_repeat{i}')]
++        reference=None
++        for label in labels:
++            before=snapshot();quiet(before,True)
++            if before['boot_id']!=result['before']['boot_id']:raise RuntimeError('boot changed')
++            struct_dir=Path(meta['struct_dir'])
++            for p in struct_dir.glob('*'):p.unlink()
++            T.SDPA_FUSED_LARGE_S_STATS[:]=[0,0]
++            ttnn.synchronize_device(dev)
++            start=time.monotonic_ns()
++            metrics,best,feats=state.predict_one(target,meta['job_cfg'])
++            ttnn.synchronize_device(dev)
++            end=time.monotonic_ns()
++            row=dict(label=label,start_monotonic_ns=start,end_monotonic_ns=end,elapsed_s=(end-start)/1e9,metrics=metrics,plddt=metrics.get('plddt'),before=before,after=snapshot(),above_cap_sdpa_counts=list(T.SDPA_FUSED_LARGE_S_STATS),valid=False)
++            result['rows'].append(row)
++            keep=out/'cifs'/label;keep.mkdir(parents=True)
++            for p in struct_dir.glob('*'):
++                if p.is_file():shutil.copyfile(p,keep/p.name)
++            cifs=list(keep.glob('*.cif'))
++            if len(cifs)!=1:raise RuntimeError('expected one CIF')
++            row['cif']=str(cifs[0].relative_to(out));row['cif_sha256']=digest(cifs[0])['sha256'];coordinates(cifs[0],a.size)
++            if row['plddt'] is None or not math.isfinite(float(row['plddt'])):raise RuntimeError('nonfinite confidence')
++            quiet(row['after'],True)
++            if row['after']['boot_id']!=result['before']['boot_id']:raise RuntimeError('boot changed')
++            if row['above_cap_sdpa_counts']!=[0,0]:raise RuntimeError('above-cap route unexpectedly reached')
++            time.sleep(.15)
++            row['clock']=coverage(lines(out/'clock.jsonl'),row);row['holders']=holder_coverage(lines(out/'holders.jsonl'),row,os.getpid())
++            if reference is None:reference=cifs[0]
++            row['structure_vs_cold']=score(reference,cifs[0],a.size)
++            if row['structure_vs_cold']['max_domain_all_atom_A']>criterion['accuracy']['bars_A'][str(a.size)]:raise RuntimeError('A/A structure exceeds bar')
++            if not row['clock']['pass']:raise RuntimeError('clock artifact or incomplete clock coverage')
++            if not row['holders']['passed']:raise RuntimeError('co-tenancy or incomplete holder coverage')
++            row['valid']=True;save()
++            print(json.dumps({'label':label,'elapsed_s':row['elapsed_s'],'clock':row['clock'],'cif_sha256':row['cif_sha256'],'plddt':row['plddt']}),flush=True)
++            del metrics,best,feats
++        result['completed']=True
++    except BaseException as e:
++        result['errors'].append(repr(e));traceback.print_exc()
++    finally:
++        if fd is not None:
++            try:result['release_response']=list(smc(fd,FORCE_AICLK,0))
++            except BaseException as e:result['errors'].append('release: '+repr(e));result['completed']=False
++            finally:os.close(fd)
++        if sampler is not None:
++            try:sampler.communicate(b'stop\n',timeout=15)
++            except subprocess.TimeoutExpired:sampler.terminate();sampler.wait(timeout=5)
++            result['sampler_returncode']=sampler.returncode
++            if sampler.returncode:result['completed']=False
++        if monitor_log:monitor_log.close()
++        if T is not None:
++            try:T.cleanup()
++            except BaseException as e:result['errors'].append('cleanup: '+repr(e));result['completed']=False
++        try:result['after']=snapshot()
++        except BaseException as e:result['errors'].append('snapshot: '+repr(e))
++        for name in ['clock.jsonl','holders.jsonl']:
++            p=out/name
++            if p.exists():
++                data=p.read_bytes();(out/(name+'.gz')).write_bytes(gzip.compress(data,mtime=0));p.unlink()
++        result['finished_utc_ns']=time.time_ns();save()
++    return 0 if result['completed'] else 2
++
++if __name__=='__main__':sys.exit(main())
+diff --git a/perf/c10_bare_baseline/control.py b/perf/c10_bare_baseline/control.py
+new file mode 100644
+index 000000000..0b1f90ad4
+--- /dev/null
++++ b/perf/c10_bare_baseline/control.py
+@@ -0,0 +1,90 @@
++"""Shared evidence helpers for the bounded card-0 calibration."""
++from __future__ import annotations
++import hashlib, json, os, select, subprocess, sys, threading, time
++from pathlib import Path
++from audit_prerequisites import HOLDERS
++
++ROOT = Path(__file__).resolve().parents[2]
++METAL = Path("/home/ttuser/tt-metal-k10")
++CLOCK_REF = "5c60137c2:tt_bio/aiclk.py"
++
++def write_json(path, value):
++    Path(path).write_text(json.dumps(value, indent=2)+"\n")
++
++def digest(path):
++    p = Path(path).resolve()
++    return {"path":str(p), "sha256":hashlib.sha256(p.read_bytes()).hexdigest(),
++            "bytes":p.stat().st_size}
++
++def holders():
++    return json.loads(subprocess.check_output(["sudo","-n","python3","-c",HOLDERS],text=True))
++
++def own_nodes(pid=None):
++    nodes = set()
++    for fd in Path(f"/proc/{pid or os.getpid()}/fd").iterdir():
++        try:
++            target = os.readlink(fd)
++            if target.startswith("/dev/tenstorrent/"): nodes.add(target)
++        except OSError: pass
++    return sorted(nodes)
++
++def snapshot():
++    return {"monotonic_ns":time.monotonic_ns(), "utc_ns":time.time_ns(),
++            "boot_id":Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
++            "module_srcversion":Path("/sys/module/tenstorrent/srcversion").read_text().strip(),
++            "containment":subprocess.check_output(["systemctl","is-active","qb2-endpoint-containment.service"],text=True).strip(),
++            "holders":holders(), "own_nodes":own_nodes()}
++
++def validate_snapshot(s, opened=False):
++    if s["containment"] != "active" or s["module_srcversion"] != "A10759A24565BC5BBE903C5":
++        raise RuntimeError("Containment or driver prerequisite failed")
++    for h in s["holders"]:
++        if "/dev/tenstorrent/0" in h["nodes"] and h["pid"] != os.getpid():
++            raise RuntimeError(f"Assigned node busy: {h}")
++    if opened and s["own_nodes"] != ["/dev/tenstorrent/0"]:
++        raise RuntimeError(f"Unexpected device opens: {s['own_nodes']}")
++
++def coverage(samples, interval):
++    start,end=interval["start_monotonic_ns"],interval["end_monotonic_ns"]
++    during=[s for s in samples if s.get("read_start_ns",-1)>=start and s.get("read_end_ns",end+1)<=end]
++    valid=[s for s in during if "MHz" in s]
++    centers=[(s["read_start_ns"]+s["read_end_ns"])//2 for s in valid]
++    points=[start]+centers+[end]
++    result={"samples":len(valid),"min_MHz":min((s["MHz"] for s in valid),default=None),
++      "max_MHz":max((s["MHz"] for s in valid),default=None),
++      "max_gap_ns":max(b-a for a,b in zip(points,points[1:])),
++      "first_offset_ns":centers[0]-start if centers else None,
++      "last_offset_ns":end-centers[-1] if centers else None,
++      "sample_span_fraction":(centers[-1]-centers[0])/(end-start) if centers else 0,
++      "errors":[s for s in during if "error" in s]}
++    result["pass"]=(len(valid)>=3 and result["min_MHz"]==result["max_MHz"]==1350
++                    and result["max_gap_ns"]<=10_000_000 and not result["errors"])
++    return result
++
++def clock_worker(path, owner):
++    stop=threading.Event()
++    def observe():
++        with Path(path).with_name("holders.jsonl").open("w") as out:
++            while not stop.is_set():
++                row={"monotonic_ns":time.monotonic_ns(),"utc_ns":time.time_ns()}
++                try:
++                    row.update(holders=holders(),owner_nodes=own_nodes(owner))
++                except BaseException as e: row["error"]=repr(e)
++                out.write(json.dumps(row)+"\n"); out.flush()
++                stop.wait(0.1)
++    monitor=threading.Thread(target=observe)
++    monitor.start()
++    try:
++        with Path(path).open("w") as out:
++            while not select.select([sys.stdin],[],[],0.001)[0]:
++                row={"read_start_ns":time.monotonic_ns(),"utc_ns":time.time_ns(),
++                     "node":"/sys/class/tenstorrent/tenstorrent!0/tt_aiclk"}
++                try: row["MHz"]=int(Path(row["node"]).read_text())
++                except (OSError,ValueError) as e: row["error"]=repr(e)
++                row["read_end_ns"]=time.monotonic_ns()
++                out.write(json.dumps(row)+"\n"); out.flush()
++    finally:
++        stop.set(); monitor.join(timeout=10)
++
++if __name__=="__main__":
++    clock_worker(sys.argv[1],int(sys.argv[2]))
+diff --git a/perf/c10_bare_baseline/criterion.json b/perf/c10_bare_baseline/criterion.json
+new file mode 100644
+index 000000000..4167542e2
+--- /dev/null
++++ b/perf/c10_bare_baseline/criterion.json
+@@ -0,0 +1,74 @@
++{
++  "recorded_utc": "2026-09-16T20:01:11.441088+00:00",
++  "source_base": "5e1886b4fd1bea4211f30c295723c8175c72d63c",
++  "prediction": "Identical A/A model configuration: predicted model-cycle saving zero. No speedup claim.",
++  "model": {
++    "model": "boltz2",
++    "sizes": [
++      512,
++      298
++    ],
++    "sampling_steps": 200,
++    "recycling_steps": 3,
++    "diffusion_samples": 1,
++    "seed": 0,
++    "msa_rows": 35,
++    "templates": false,
++    "fast": false,
++    "trace": false,
++    "hoist": false,
++    "instrument": false
++  },
++  "warmup_folds": 1,
++  "pairs": 4,
++  "minimum_pairs": 3,
++  "clock": {
++    "target_MHz": 1350,
++    "minimum_samples": 3,
++    "max_gap_ns": 10000000,
++    "errors_allowed": 0,
++    "all_during_samples_must_equal_target": true,
++    "below_1200": "clock artifact; reject timing, never call regression"
++  },
++  "quiet": {
++    "all_chip_foreign_holders_allowed": 0,
++    "holder_max_gap_ns": 1000000000,
++    "lock_wait_s": 60,
++    "load_wait_s": 60,
++    "benchlock_maxload": 2.0,
++    "matcher_and_location": "unchanged shared benchlock"
++  },
++  "accuracy": {
++    "metric": "maximum independently superposed domain all-atom float64 Kabsch RMSD, split after residue 298; also report whole-chain all-atom",
++    "bars_A": {
++      "512": 0.6,
++      "298": 0.35
++    },
++    "user_512_seed_floor_A": 1.84,
++    "archived_upstream_seed_spread_A": {
++      "298": {
++        "mean": 0.80128,
++        "min": 0.74099,
++        "max": 0.84656
++      },
++      "512": {
++        "mean": 1.66454,
++        "min": 0.9454,
++        "max": 2.29123
++      }
++    },
++    "digest": "record, not automatic kill",
++    "same_seed_AA_is_not_upstream_accuracy": true
++  },
++  "kill": [
++    "wrong source/config or input hashes",
++    "wrong opened node, containment change or boot change",
++    "foreign device holder or quiet/lock timeout",
++    "clock read error, wrong clock or coverage gap",
++    "nonfinite/missing/duplicate atoms or identity mismatch",
++    "same-seed structural deviation over size bar",
++    "missing CIF or nonfinite confidence"
++  ],
++  "bare": "Production wheel, no Tracy/graph/observer/module timers/sum profiling. Synchronize before monotonic start and after predict_one including CIF writing.",
++  "unmeasured": "No device-cycle census, per-op budget, CPU removable cost, ceiling, upstream accuracy, or cross-run speedup."
++}
+diff --git a/perf/c10_bare_baseline/force_aiclk.py b/perf/c10_bare_baseline/force_aiclk.py
+new file mode 100644
+index 000000000..b41cb6b5a
+--- /dev/null
++++ b/perf/c10_bare_baseline/force_aiclk.py
+@@ -0,0 +1,66 @@
++#!/usr/bin/env python3
++"""Send Blackhole ARC FORCE_AICLK through tt-kmd's SMC message queue and watch what the chip does.
++
++tt-kmd owns the ARC message queue and multiplexes it over every open fd
++(TENSTORRENT_IOCTL_SMC_MSG), so this needs no UMD and does not disturb a running job's own
++messages. Message layout is UMD's: message[0] is the type, message[1..7] the arguments
++(blackhole_arc_message_queue.cpp:102). A response status of 0xFF means the firmware does not
++know the message.
++"""
++import fcntl, os, struct, sys, time
++from pathlib import Path
++
++IOC = (0xFA << 8) | 17
++POST, POLL = 1 << 0, 1 << 1
++FORCE_AICLK = 0x33
++
++
++def smc(fd, msg_type, *args):
++    msg = [msg_type] + list(args) + [0] * (7 - len(args))
++    fcntl.ioctl(fd, IOC, struct.pack("=IIII8I", 48, POST, 0, 0, *msg))
++    deadline = time.time() + 2.0
++    while time.time() < deadline:
++        buf = bytearray(struct.pack("=IIII8I", 48, POLL, 0, 0, *([0] * 8)))
++        try:
++            fcntl.ioctl(fd, IOC, buf, True)
++        except OSError as e:
++            if e.errno == 11:          # EAGAIN, still pending
++                time.sleep(0.005)
++                continue
++            raise
++        resp = struct.unpack("=IIII8I", bytes(buf))[4:]
++        return resp[0] & 0xFF, resp[0] >> 16
++    raise TimeoutError("no ARC response")
++
++
++def main():
++    node, target, secs = int(sys.argv[1]), int(sys.argv[2]), float(sys.argv[3])
++    root = Path(f"/sys/class/tenstorrent/tenstorrent!{node}")
++    hw = next(root.glob("device/hwmon/hwmon*"))
++
++    def tele():
++        return (int((root / "tt_aiclk").read_text()),
++                int((hw / "power1_input").read_text()) / 1e6,
++                int((hw / "temp1_input").read_text()) / 1e3)
++
++    fd = os.open(f"/dev/tenstorrent/{node}", os.O_RDWR | os.O_APPEND)
++    try:
++        print("before          aiclk=%d power=%.1fW temp=%.1fC" % tele(), flush=True)
++        status, ret = smc(fd, FORCE_AICLK, target)
++        print("FORCE_AICLK(%d) -> status=0x%02X ret=%d" % (target, status, ret), flush=True)
++        t0 = time.time()
++        while time.time() - t0 < secs:
++            time.sleep(1.0)
++            print("  t=%2.0fs aiclk=%d power=%.1fW temp=%.1fC" % ((time.time() - t0,) + tele()),
++                  flush=True)
++        status, ret = smc(fd, FORCE_AICLK, 0)
++        print("FORCE_AICLK(0) release -> status=0x%02X ret=%d" % (status, ret), flush=True)
++        for _ in range(5):
++            time.sleep(1.0)
++            print("  released aiclk=%d power=%.1fW temp=%.1fC" % tele(), flush=True)
++    finally:
++        os.close(fd)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/perf/c10_bare_baseline/imports.json b/perf/c10_bare_baseline/imports.json
+new file mode 100644
+index 000000000..1879fcce0
+--- /dev/null
++++ b/perf/c10_bare_baseline/imports.json
+@@ -0,0 +1,26 @@
++[
++  {
++    "file": "control.py",
++    "commit": "ee11d5263ffc96cf25939967d3bdd38c1a0f96e3",
++    "source": "perf/c10_dm_control/control.py",
++    "sha256": "99003cb322b8750ba3e75439b92e13890b13172b824b4377ed08312a66f63ef4"
++  },
++  {
++    "file": "audit_prerequisites.py",
++    "commit": "ee11d5263ffc96cf25939967d3bdd38c1a0f96e3",
++    "source": "perf/c10_dm_control/audit_prerequisites.py",
++    "sha256": "452221b86bb2fa3939215844f617e8a24349d9b765a3a61e4f3db096cc0184ac"
++  },
++  {
++    "file": "audit_accuracy.py",
++    "commit": "89141d873ef800f6fe3b5a0fb4e7cfb58375e1ff",
++    "source": "perf/c10_orchestrator/audit_accuracy.py",
++    "sha256": "ea5e820a97b86a63edcbf14f30fe5f5c93880728b9e5bd5650f270da620c08c1"
++  },
++  {
++    "file": "force_aiclk.py",
++    "commit": "463da8e9bd326be091a008da7f886c3ecf5ece20",
++    "source": "perf/b2z2_aiclk_pin/force_aiclk.py",
++    "sha256": "f8cad754361c724498de52f4e21164705e0667caa710c317076da0312dfb314d"
++  }
++]
+diff --git a/perf/c10_bare_baseline/locked.sh b/perf/c10_bare_baseline/locked.sh
+new file mode 100644
+index 000000000..3dc870329
+--- /dev/null
++++ b/perf/c10_bare_baseline/locked.sh
+@@ -0,0 +1,9 @@
++#!/usr/bin/env bash
++set -euo pipefail
++OUT=${1:?output required}
++# The unchanged shared lock logs a load timeout but continues. Reject that here.
++if grep -q 'benchlock: WARNING\|benchlock: TIMED OUT' "$OUT/launch.log"; then exit 75; fi
++for SIZE in 512 298; do
++  TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 TT_BIO_LEASE_HOLDER=worker:c10-bare-baseline \
++    python3 perf/c10_bare_baseline/capture.py --size "$SIZE" --out "$OUT/$SIZE"
++done
+diff --git a/perf/c10_bare_baseline/reduce.py b/perf/c10_bare_baseline/reduce.py
+new file mode 100644
+index 000000000..8dab6cf72
+--- /dev/null
++++ b/perf/c10_bare_baseline/reduce.py
+@@ -0,0 +1,90 @@
++"""CPU replay of bare-fold timing, clock/holder coverage and same-seed coordinates."""
++from __future__ import annotations
++import argparse, gzip, hashlib, itertools, json, math, statistics, sys
++from pathlib import Path
++import numpy as np
++HERE=Path(__file__).resolve().parent
++ROOT=HERE.parents[1]
++sys.path[:0]=[str(HERE),str(ROOT/'perf/other512')]
++from control import coverage
++from audit_accuracy import validate_atoms
++from cif_rmsd import read_atoms, kabsch_rmsd, bfactor_plddt
++
++def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
++def lines(p):
++    p=Path(p)
++    if not p.exists(): p=Path(str(p)+'.gz')
++    opener=gzip.open if p.suffix=='.gz' else open
++    with opener(p,'rt') as f: return [json.loads(x) for x in f if x.strip()]
++
++def holder_coverage(observations,interval,pid):
++    start,end=interval['start_monotonic_ns'],interval['end_monotonic_ns']
++    rows=[r for r in observations if start<=r['monotonic_ns']<=end]
++    points=[start]+[r['monotonic_ns'] for r in rows]+[end]
++    bad=[r for r in rows if r.get('error') or r.get('owner_nodes')!=['/dev/tenstorrent/0'] or any(h['pid']!=pid for h in r.get('holders',[]))]
++    gap=max(b-a for a,b in zip(points,points[1:]))
++    return dict(samples=len(rows),max_gap_ns=gap,bad=bad,passed=bool(rows) and not bad and gap<=1_000_000_000)
++
++def coordinates(path,size):
++    keys,xyz=read_atoms(path);validate_atoms(keys,xyz,size)
++    order=sorted(range(len(keys)),key=lambda i:keys[i])
++    return [keys[i] for i in order],xyz[order]
++
++def score(a,b,size):
++    ka,xa=coordinates(a,size);kb,xb=coordinates(b,size)
++    if ka!=kb:raise ValueError('atom identities differ')
++    seq=np.array([int(k[1]) for k in ka]);masks=[seq<=298]
++    if size==512:masks.append(seq>298)
++    dom=[kabsch_rmsd(xa[m],xb[m]) for m in masks]
++    return dict(atoms=len(ka),whole_chain_all_atom_A=kabsch_rmsd(xa,xb),domain_all_atom_A=dom,max_domain_all_atom_A=max(dom),cif_byte_exact=sha(a)==sha(b))
++
++def reduce(root):
++    root=Path(root);criterion=json.loads((HERE/'criterion.json').read_text());result={'verdict':'GO','targets':{},'scope':'Current-source bare wall and same-seed A/A only; no upstream accuracy or device-work cycles.'}
++    for size in criterion['model']['sizes']:
++        d=root/str(size)
++        if not (d/'result.json').exists():
++            result['targets'][str(size)]={'verdict':'STOP','reason':'target not run'};result['verdict']='STOP';continue
++        run=json.loads((d/'result.json').read_text());samples=lines(d/'clock.jsonl');holders=lines(d/'holders.jsonl')
++        records=[];accepted=[];paths={}
++        for r in run['rows']:
++            clock=coverage(samples,r);hc=holder_coverage(holders,r,run['pid']);rr=dict(r,clock=clock,holder_coverage=hc)
++            failures=[]
++            for name,val in [('clock',clock['pass']),('holders',hc['passed']),('run_valid',r.get('valid',False))]:
++                if not val:failures.append(name)
++            p=d/r['cif'];paths[r['label']]=p
++            try:
++                keys,xyz=coordinates(p,size)
++                if sha(p)!=r['cif_sha256']:raise ValueError('CIF hash mismatch')
++                bf=bfactor_plddt(p)
++                if not bf or not math.isfinite(bf['mean_ca']):raise ValueError('invalid pLDDT column')
++                rr.update(atoms=len(keys),ca_count=size,cif_plddt=bf)
++            except (ValueError,OSError) as e:failures.append(str(e))
++            rr['accepted']=not failures and r['label']!='cold';rr['rejections']=failures
++            records.append(rr)
++            if rr['accepted']:accepted.append(rr)
++        pairs=[]
++        for i in range(criterion['pairs']):
++            a,b=f'A{i}',f'A_repeat{i}'
++            if a not in paths or b not in paths:continue
++            pair=score(paths[a],paths[b],size);pair['labels']=[a,b]
++            selected=[r for r in records if r['label'] in [a,b]]
++            pair['timing_accepted']=len(selected)==2 and all(r['accepted'] for r in selected)
++            pair['abs_delta_s']=abs(selected[1]['elapsed_s']-selected[0]['elapsed_s'])
++            pair['signed_repeat_minus_A_s']=selected[1]['elapsed_s']-selected[0]['elapsed_s']
++            pair['passes_structure_bar']=pair['max_domain_all_atom_A']<=criterion['accuracy']['bars_A'][str(size)]
++            pairs.append(pair)
++        allpairs=[dict(labels=[a['label'],b['label']],**score(d/a['cif'],d/b['cif'],size)) for a,b in itertools.combinations(accepted,2)]
++        times=[r['elapsed_s'] for r in accepted]
++        ok=(run.get('completed',False) and len([p for p in pairs if p['timing_accepted'] and p['passes_structure_bar']])>=criterion['minimum_pairs'] and all(p['max_domain_all_atom_A']<=criterion['accuracy']['bars_A'][str(size)] for p in allpairs))
++        out={'verdict':'GO' if ok else 'STOP','accepted_folds':len(times),'rows':records,'adjacent_pairs':pairs,'all_warm_structure_pairs':allpairs,'run_errors':run.get('errors',[]),'accuracy_context':criterion['accuracy']}
++        if times:
++            out['summary']={'median_s':statistics.median(times),'min_s':min(times),'max_s':max(times),'spread_s':max(times)-min(times),'sample_stdev_s':statistics.stdev(times) if len(times)>1 else None,'during_min_MHz':min(r['clock']['min_MHz'] for r in accepted),'during_max_MHz':max(r['clock']['max_MHz'] for r in accepted),'median_elapsed_device_clock_equivalent_Mcycles':statistics.median(times)*1350,'cycle_units_warning':'Elapsed device-clock-equivalent only, includes host gaps; not measured device work.','max_all_warm_pair_domain_A':max((p['max_domain_all_atom_A'] for p in allpairs),default=None),'adjacent_abs_delta_median_s':statistics.median([p['abs_delta_s'] for p in pairs if p['timing_accepted']]) if any(p['timing_accepted'] for p in pairs) else None,'all_warm_cif_byte_exact':len({r['cif_sha256'] for r in accepted})==1}
++        result['targets'][str(size)]=out
++        if not ok:result['verdict']='STOP'
++    return result
++
++if __name__=='__main__':
++    ap=argparse.ArgumentParser();ap.add_argument('run',type=Path);ap.add_argument('--out',type=Path,required=True);a=ap.parse_args()
++    result=reduce(a.run);a.out.write_text(json.dumps(result,indent=2)+'\n')
++    print(json.dumps({k:{x:y for x,y in v.items() if x in ['verdict','accepted_folds','summary','run_errors']} for k,v in result['targets'].items()},indent=2))
++    sys.exit(0 if result['verdict']=='GO' else 2)
+diff --git a/perf/c10_bare_baseline/run.sh b/perf/c10_bare_baseline/run.sh
+new file mode 100644
+index 000000000..e0d3d44a8
+--- /dev/null
++++ b/perf/c10_bare_baseline/run.sh
+@@ -0,0 +1,17 @@
++#!/usr/bin/env bash
++set -euo pipefail
++cd /home/ttuser/.coworker/wt/c10-bare-baseline
++export PATH=/home/ttuser/tt-bio-dev/env/bin:$PATH
++export PYTHONPATH=$PWD
++unset TT_METAL_HOME TT_METAL_RUNTIME_ROOT LD_LIBRARY_PATH
++export OMP_NUM_THREADS=2
++export BENCHLOCK_WAIT_S=60 BENCHLOCK_LOAD_WAIT_S=60
++export TMPDIR=$PWD/perf/c10_bare_baseline/tmp
++mkdir -p "$TMPDIR"
++RUN_NAME=${1:?run name required}
++[[ "$RUN_NAME" =~ ^[A-Za-z0-9_-]+$ ]] || exit 64
++OUT=$PWD/perf/c10_bare_baseline/runs/$RUN_NAME
++mkdir "$OUT"
++cp perf/c10_bare_baseline/criterion.json "$OUT/criterion.json"
++/home/ttuser/.coworker/scripts/benchlock.sh c10-bare-baseline -- \
++  bash perf/c10_bare_baseline/locked.sh "$OUT" > "$OUT/launch.log" 2>&1
+diff --git a/perf/c10_bare_baseline/source_diff.patch b/perf/c10_bare_baseline/source_diff.patch
+new file mode 100644
+index 000000000..e4cafba4f
+--- /dev/null
++++ b/perf/c10_bare_baseline/source_diff.patch
+@@ -0,0 +1,46 @@
++diff --git a/tt_bio/tenstorrent.py b/tt_bio/tenstorrent.py
++index 932753ac0..b7ce06846 100644
++--- a/tt_bio/tenstorrent.py
+++++ b/tt_bio/tenstorrent.py
++@@ -1776,6 +1776,10 @@ def _tri_att_k_chunks(q_len: int, k_len: int) -> tuple:
++ # A silently-declined config is indistinguishable from an absent one, so an A/B on this path can
++ # only be believed if the fold itself says which pair it ran.
++ SDPA_K_CHUNK_STATS = [0, 0]
+++#: Above-cap fused route only, so `scripts/lever_census.py` can tell a lever that is on from one
+++#: that fires. It cannot share `SDPA_K_CHUNK_STATS`: that counts every fused serve including the
+++#: ones the stock ladder makes below the cap, where this route is unreachable by construction.
+++SDPA_FUSED_LARGE_S_STATS = [0, 0]
++ # (q_len, k_len) -> [q_chunk, k_chunk, "fused"|"stock"], the pair actually served at that shape.
++ SDPA_CHUNK_PICKS: dict = {}
++ # Calls served per route. `SDPA_CHUNK_PICKS` records the route per shape and a fold repeats one
++@@ -1816,8 +1820,15 @@ _SDPA_QK_OVER_L1: set = set()
++ #
++ # NOT bit-exact above the cap: k_chunk sets the online-softmax reduction order. It has no digest to
++ # break -- no length above 1024 served fused before -- and the fold-level Angstrom evidence is in
++-# `perf/ttx_a3/`.
++-_SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", False)
+++# `perf/ttx_a3/`. Default ON on the strength of that evidence: 1.1856x on a 200-step 1536 aa fold
+++# against a 1.21 % A/A floor in the same session, and 1.007 A of all-atom displacement at a size
+++# where changing the seed moves the same structure 36.6 A. `TT_BIO_SDPA_FUSED_LARGE_S=0` restores
+++# the stock ladder everywhere.
+++#
+++# Landed on main via `wk/ttx-a3-sdpa-ship-remerge2` after the release gate recorded a complete
+++# green run: `perf/ttx_a3/gate5/REPORT.md` records the arms that were green earlier; the run that
+++# cleared the last blocker (main's stale p300c size-ladder baseline) is `perf/ttx_a3/gate6/REPORT.md`.
+++_SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", True)
++ 
++ 
++ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
++@@ -1838,8 +1849,12 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
++                                   q_split_cap=0, gate=gate)
++             if o is not None:
++                 SDPA_K_CHUNK_STATS[0] += 1
+++                SDPA_FUSED_LARGE_S_STATS[0] += 1
++                 _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
++                 return o
+++        # Above the cap and eligible, and no pair ran: an L1 refusal, or a token count with no
+++        # 32-aligned divisor. Counted so the census reads a reach, not just a default.
+++        SDPA_FUSED_LARGE_S_STATS[1] += 1
++     k_chunks = _tri_att_k_chunks(q_len, k_len)
++     if len(k_chunks) > 1:
++         # Only q_chunks that DIVIDE the padded sequence are offered against a wide k. The q ladder's
+diff --git a/perf/c10_bare_baseline/test_controls.py b/perf/c10_bare_baseline/test_controls.py
+new file mode 100644
+index 000000000..f120b968a
+--- /dev/null
++++ b/perf/c10_bare_baseline/test_controls.py
+@@ -0,0 +1,49 @@
++"""Known-answer controls for the measurement, not a model-reference test."""
++import tempfile, unittest
++from pathlib import Path
++import numpy as np
++from reduce import coverage, holder_coverage, kabsch_rmsd, score, validate_atoms
++
++class Controls(unittest.TestCase):
++    def test_monotonic_units(self):
++        start=912345678912345;end=start+14250000000
++        self.assertEqual((end-start)/1e9,14.25)
++        self.assertEqual((end-start)/1e9*1350,19237.5)
++    def samples(self):return [dict(read_start_ns=i*1000000,read_end_ns=i*1000000+100,MHz=1350) for i in range(1,20)]
++    def test_clock_accept(self):
++        r=coverage(self.samples(),dict(start_monotonic_ns=0,end_monotonic_ns=20000000))
++        self.assertTrue(r['pass']);self.assertEqual(r['samples'],19)
++    def test_clock_reject_low_and_error(self):
++        for patch in [dict(MHz=800),dict(error='read failed')]:
++            s=self.samples();s[8].pop('MHz');s[8].update(patch)
++            self.assertFalse(coverage(s,dict(start_monotonic_ns=0,end_monotonic_ns=20000000))['pass'])
++    def test_clock_reject_gap_and_prefold(self):
++        self.assertFalse(coverage(self.samples()[:3],dict(start_monotonic_ns=0,end_monotonic_ns=20000000))['pass'])
++        self.assertFalse(coverage(self.samples(),dict(start_monotonic_ns=30000000,end_monotonic_ns=60000000))['pass'])
++    def test_holder_reject_foreign_or_gap(self):
++        interval=dict(start_monotonic_ns=0,end_monotonic_ns=1000000000)
++        s=[dict(monotonic_ns=500000000,owner_nodes=['/dev/tenstorrent/0'],holders=[dict(pid=7)])]
++        self.assertTrue(holder_coverage(s,interval,7)['passed'])
++        s[0]['holders'].append(dict(pid=8));self.assertFalse(holder_coverage(s,interval,7)['passed'])
++        self.assertFalse(holder_coverage([],interval,7)['passed'])
++    def test_rigid_and_reflection(self):
++        x=np.array([[0.,0,0],[1,0,0],[0,2,0],[0,0,3],[2,3,1]])
++        rot=np.array([[0.,-1,0],[1,0,0],[0,0,1]])
++        self.assertLess(kabsch_rmsd(x,x@rot+[3,-2,6]),1e-12)
++        self.assertGreater(kabsch_rmsd(x,x*[-1,1,1]),.1)
++    def test_invalid_coordinates_and_duplicate_identity(self):
++        keys=[('A',str(i),'CA','ALA') for i in range(1,299)];xyz=np.zeros((298,3),dtype=np.float64)
++        validate_atoms(keys,xyz,298)
++        xyz[0,0]=np.nan
++        with self.assertRaises(ValueError):validate_atoms(keys,xyz,298)
++        xyz[0,0]=0;keys[0]=keys[1]
++        with self.assertRaises(ValueError):validate_atoms(keys,xyz,298)
++    def test_atom_mapping_reordered_rows(self):
++        cols=['label_asym_id','label_seq_id','label_atom_id','label_comp_id','Cartn_x','Cartn_y','Cartn_z']
++        rows=[f'A {i} CA ALA {i%7} {i%13} {i%19}' for i in range(1,299)]
++        head='data_test\nloop_\n'+'\n'.join('_atom_site.'+c for c in cols)+'\n'
++        with tempfile.TemporaryDirectory() as d:
++            a,b=Path(d)/'a.cif',Path(d)/'b.cif';a.write_text(head+'\n'.join(rows)+'\n#\n');b.write_text(head+'\n'.join(rows[::-1])+'\n#\n')
++            self.assertLess(score(a,b,298)['max_domain_all_atom_A'],1e-12)
++
++if __name__=='__main__':unittest.main()
