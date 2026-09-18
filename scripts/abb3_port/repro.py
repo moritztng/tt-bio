@@ -65,7 +65,17 @@ def main() -> int:
     ap.add_argument("--kill-at", type=int, default=0,
                     help="SIGKILL this process after this step, to demonstrate the resume")
     ap.add_argument("--max-seconds", type=float, default=0.0)
+    ap.add_argument("--torch-threads", type=int, default=0,
+                    help="cap torch's intra-op threads; 0 leaves its default")
     args = ap.parse_args()
+    # Set after torch is imported, which is the only setting that reliably takes: OMP_NUM_THREADS
+    # is read at import and the supervisor sets it too, so both paths are covered. This exists
+    # because the step's serial term is host torch on an 8-core CPU, and N ranks each defaulting
+    # to 8 threads oversubscribe the cores N-fold -- which is a different thing from a serial
+    # cost and has a different fix.
+    if args.torch_threads:
+        torch.set_num_threads(args.torch_threads)
+    print(f"[rank {args.rank}] torch intra-op threads: {torch.get_num_threads()}", flush=True)
 
     chips = tuple(int(c) for c in args.chips.split(","))
     if len(chips) != args.world:

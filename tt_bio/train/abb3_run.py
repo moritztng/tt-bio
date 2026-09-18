@@ -245,6 +245,11 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
     tenants.start()
     written: list = sorted(ckpt_dir.glob("step-*.safetensors")) if ckpt_dir.is_dir() else []
     cadence = cfg.checkpoint_minutes * 60.0
+    # `TrainStep.loss_terms` accumulates per-term wall clock across the whole run, so the
+    # per-step figure is a delta. Logged because the serial part of the step is almost entirely
+    # the loss stage, and which TERM it is decides whether a lever touches the serial part or
+    # the parallel part -- the distinction the whole optimisation queue is ranked on.
+    prev_terms: dict = {}
     with provenance.during(seed=cfg.seed, config=cfg.as_dict()) as prov:
         for batch in plan:
             gs = batch.step + 1
@@ -254,9 +259,12 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             t0 = time.perf_counter()
             parts, timing = step.step(micros)
             wall = time.perf_counter() - t0
+            terms = {k: round(v - prev_terms.get(k, 0.0), 4)
+                     for k, v in step.loss_terms.items()}
+            prev_terms = dict(step.loss_terms)
             row = {"step": gs, "wall": round(wall, 4), **parts,
                    "digest": step.optimizer.last.get("master_digest"),
-                   "stages": timing.as_dict()}
+                   "stages": timing.as_dict(), "loss_terms": terms}
             history.append(row)
             if gs % cfg.log_every == 0:
                 log.write(json.dumps(row) + "\n")

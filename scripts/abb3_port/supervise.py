@@ -66,6 +66,11 @@ def launch(rank: int, chips: list, args) -> subprocess.Popen:
            "--data", args.data]
     if args.max_seconds:
         cmd += ["--max-seconds", str(args.max_seconds)]
+    if args.torch_threads:
+        cmd += ["--torch-threads", str(args.torch_threads)]
+        # Also in the environment, because torch reads OMP_NUM_THREADS at import and the
+        # thread pool it builds there is what the first op uses.
+        env["OMP_NUM_THREADS"] = str(args.torch_threads)
     if args.kill_at and rank == args.kill_rank:
         cmd += ["--kill-at", str(args.kill_at)]
     logs = Path(args.out) / "logs"
@@ -118,6 +123,7 @@ def main() -> int:
                     help="seconds between a death and the restart, for the card to come back")
     ap.add_argument("--kill-at", type=int, default=0, help="demo: kill one rank at this step")
     ap.add_argument("--kill-rank", type=int, default=0)
+    ap.add_argument("--torch-threads", type=int, default=0)
     ap.add_argument("--print-reboot-hook", action="store_true")
     args = ap.parse_args()
     # Derived from the output directory rather than random, so a supervisor restarted after a
