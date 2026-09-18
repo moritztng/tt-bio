@@ -239,10 +239,14 @@ not the collective. `perf/train_d_dp/` holds the harness and the raw results.
 Tensor parallelism is deliberately absent. A full replica is 14.8 % of one chip, so there is no
 memory argument for it, and it returns only if something later forces it.
 
-Multi-host is out of scope, and the blocker is cabling rather than software: 20 MB/s over WiFi
-makes a per-step gradient exchange cost more than the step. `Mesh.auto()` reports one host
-today, and the interface does not change shape when that changes: an axis is an axis whether
-its chips share a host or not. Until it is wired, the honest claim is multi-card on one host.
+Multi-host has not run yet, and the reason is no longer that the arithmetic forbids it. Between
+our two boxes, exchanging the 28.4 MB gradient this model actually sends takes **1.94 s against a
+22.0 s step, about 9 %**, measured both directions at once with the real payload; the rank-order
+sum that keeps every rank's weights bit-identical returns the same digest on both hosts, across
+two different numpy majors. What is missing is a transport. `Mesh.auto()` reports one host today,
+and the interface does not change shape when that changes: an axis is an axis whether its chips
+share a host or not. Until it runs, the honest claim is multi-card on one host — and the 1.94 s is
+a WiFi number, since one of our two boxes has no ethernet cable in it.
 
 ## Featurisation is per model, on purpose
 
