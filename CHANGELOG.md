@@ -334,6 +334,115 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   recommends -- an off-lattice rung and the fleet-wide bucket off switch -- can now be used
   together.
 
+### The release gate itself
+
+Run on qb2 (`tt-quietbox2`), a four-chip Blackhole p300c box, from a venv built out of this tree
+and resolving the `pyproject.toml` ttnn pin (0.68.0). The gate scores the checkout, not an install.
+
+**Implementation parity: PASS.** 43 legs, 38 PASS, 4 GAP, 1 PASS-caveated, 1 blocked on a missing
+fixture, 4 h 7 min wall. Every one of the four GAP legs (`boltz2-prot-nomsa`, `boltz2-9ncy-nomsa`,
+`openfold3-7xi5-notmpl`, `af2ig-trunk-device`) reproduces the deviation already committed for it, so
+none is new drift. Eight legs came in better than their committed gap: all three MSA Protenix-v2
+legs, three Boltz-2 affinity legs, and both OpenDDE legs.
+
+The three ESMFold2 legs are worth naming because they were red four hours earlier in the same
+release. `scripts/esmfold2_e2e_parity.py` called `from_pretrained` without a `revision=`, so it
+fetched whatever `biohub/ESMFold2` served that minute and crashed on a config key the checkpoint
+does not have. The 09-14 fix that pinned every other ESMFold2 call site had missed this one and two
+siblings. Pinned, and the legs now score plddt PCC 0.9979 / 0.9981 / 0.9988 against reference.
+
+**Performance: PASS.** All 20 recorded p300c models inside the +-15 % band, on one chip with no
+co-tenant on it. The card ran at a median AICLK of 1350 MHz through the arm (2 s telemetry,
+n=534, p10 800 MHz, those being the idle gaps between models), so these are full-clock numbers and
+not a low-clock artifact. Best: BoltzGen +10.0 %, Boltz-2 +9.5 %. Worst: RF3 -14.5 % and RFD3
+-9.0 %. RF3 is a single-shot leg one noise draw from the threshold; it is inside the band and is
+reported as a screen, not re-run, and not treated as a regression.
+
+**UX: PASS.** Every CLI surface cleared progress output, parse and results/manifest shape across
+the fold, design and affinity entry points.
+
+**Packaging: PASS.** The recursive kernel globs still resolve and no data file is dropped from the
+wheel.
+
+**Test suite: 3682 passed, 3 failed, 133 skipped** with a device attached. All three failures are
+the p150a baseline-coverage gap described below, and one of the three is derivative of the other
+two by its own message. Nothing red points at a Blackhole cell or at model code.
+
+**Capacity.** The two p300c OpenDDE cells that existed nowhere are now measured and recorded. The
+arm still exits non-zero on the 15 stale p150a cells, which is the structurally unavailable column
+below and not this run s work.
+
+**Size ladder: re-recorded.** The previous p300c baseline predated two of this release's own
+default flips, so every model drifted against it in the lever census while completing every rung.
+Per the release checklist a perf lever may not ship default-ON on the strength of one sequence
+length, so the baseline was re-measured on this tree rather than compared against a stale one.
+Re-recorded 2026-09-17 20:22Z-23:31Z on one Blackhole card at a sampled 1350 MHz with nothing else
+on the board, rc=0: all nine ladder models walk 256 through 1024 tokens (RF3 to 1088) and no rung
+lost the ability to complete. The 182 dark levers that re-record surfaced each carry a written
+exemption naming the code line that declines them and a control from the same baseline showing the
+lever alive somewhere it should be.
+
+### What this release does not cover
+
+- **No p150a (Wormhole) capacity or size-ladder baseline was re-recorded.** qb1 is powered down by
+  directive, and the only other p150a this fleet can reach is the card root-caused on 2026-08-17 as
+  silently miscomputing matmuls at a low, location-keyed rate. Recording a release baseline on it
+  would put a known-bad card into the file every future release is scored against, so the p150a
+  cells still carry v0.8.0 numbers and 15 of them are stale. Blackhole (p300c) coverage is complete,
+  and every default that flipped in this range was measured on Blackhole.
+
+  This is the whole of the host suite's remaining red. Three tests fail and all three have that one
+  cause: `test_a_moved_ceiling_re_runs_the_capacity_gate` (the 15 stale p150a cells),
+  `test_every_recorded_card_covers_every_rung_the_ladder_walks` (5 p150a models with no cell at 896
+  or 1024), and `test_this_file_does_not_break_the_files_that_run_after_it`, which is derivative and
+  says so in its own message. Nothing red points at a Blackhole cell or at model code. The fourth
+  failure this release started with, `test_every_runnable_model_has_a_recorded_cell`, is fixed: the
+  two p300c opendde cells it wanted were measured and recorded.
+
+- **The `protenix-9ncy-msa` parity leg has no reference structures** in the `parity-fixtures-latest`
+  asset at this commit, so it reports BLOCKED-REF-REGEN-NEEDED instead of a verdict. A reference has
+  since landed on main (994ae7b14) and will be scored in the next release.
+
+- **Eleven of the twenty p300c perf-baseline cells resolve at the card fallback**, whose own note
+  records them as stale low by 25-397 %: boltz2, boltz2-affinity, boltzgen, esmc-300m,
+  esmc-300m-single, esmc-600m, esmc-6b, esmfold2, esmfold2-fast, nesso1, rf3. At the +-15 % gate
+  threshold a regression smaller than that existing gap is not detectable for those models. The
+  other nine resolve at the machine layer and are 6 to 16 days old.
+
+- **The capacity gate reduces coverage in four named ways**, by its own report: diffusion_samples=1,
+  a committed MSA rather than a fresh search, target-first (1536 runs first and a pass ends the
+  cell), and a polymer-only fixture, so the ligand-token path is untested at any size.
+
+- **opendde and opendde-abag report FAIL at the capacity gate's fixed 1536-token bar.** The engine
+  caps opendde at 1024 on Blackhole because 1536 was measured to freeze the trunk, so it declines
+  the bar before any block runs. That is a shipped limit reported at a bar above it, not a
+  regression.
+
+- **Seven commits that are on main are not in this tag** (eab845ad1 and its ancestors): the C10
+  lever corpus under perf/, the protenix-9ncy reference fixture, and three reference-harvest
+  scripts. None of them changes anything under tt_bio/. They were left out because the parity
+  record is bound to a sha256 over tt_bio/ + scripts/, and pulling them in would have discarded a
+  4.5 h parity run for no user-facing change.
+
+- **Outside the gate entirely:** the hosted JapanFold service, tt-metal/ttnn itself, and any model
+  weights fetched from a third-party hub at run time.
+
+- **RF3 came in at -14.5 % against a +-15 % perf threshold.** It passes, and the arm ran at a
+  median 1350 MHz with no co-tenant on the chip, so it is not a low-clock artifact. It is still a
+  single-shot leg one noise draw from the band, and it was not re-run. Treat it as a screen rather
+  than a clean bill of health for RF3 throughput.
+
+- **Only the p300c size-ladder baseline was re-recorded, not p150a.** Same reason as the capacity
+  column: no trustworthy Wormhole card is reachable. The p150a ladder rows still carry v0.8.0
+  numbers.
+
+- **The published 512 aa perf page is a 2026-09-13 cell, not a measurement of this tag.**
+  `TT_BIO_TRANSITION_L1_ROWS` landed on 2026-09-15 and is worth 1.023-1.035x at 512 aa on
+  Blackhole, so the page understates current speed rather than overstating it. Refreshing the
+  Wormhole column needs a p150a this fleet cannot currently reach. Nothing on the page moves from
+  the fused-attention default flip: that route is offered only above 1024 tokens, and the
+  re-recorded baseline confirms it at 0 served across every 512 aa cell.
+
 ## [0.8.0] - 2026-09-10
 
 ### Added
