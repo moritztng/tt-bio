@@ -53,19 +53,36 @@ FAST_DTYPES = frozenset({ttnn.bfloat16, ttnn.bfloat8_b})
 def fast_dtypes_ok(*dtypes) -> bool:
     """True when every operand dtype is one a fast path covers AND they are all the same.
 
-    Uniformity is LOAD BEARING and this is the one clause here that is not merely a policy line.
-    It was previously documented the other way -- `is_uniform_dataformat` is passed as a
-    compile-time hint the SDPA kernel takes either way, so a mixed set reads as legal from the
-    source. It is not. MEASURED on qb1 card 1 at 512 aa, 110 cores, 1350 MHz, against an fp64
-    reference of the same operands (`perf/bfp8_sdpa/probe2_qb1c1.json`): bfp8 q/k/v with a bf16
-    mask is SERVED, returns a finite tensor, raises nothing, and scores **12.55 rel_rms against
-    0.0267 for the bf16 control** -- 470x the control, i.e. wrong values rather than imprecise
-    ones. Uniform bfp8 on the same path scores 0.0283, a 5.7 % debit and fine.
+    Uniformity is LOAD BEARING, but not for the reason first recorded here, and the difference
+    decides whether it can ever be relaxed. The original note cited a measurement -- bfp8 q/k/v
+    with a bf16 mask served, returned finite values and scored 12.55 rel_rms against 0.0267 for
+    the bf16 control, 470x -- and read it as the SDPA kernel computing wrong values on a mixed
+    operand set. That reading is confounded and the number does not support it.
+    `perf/bfp8_sdpa/probe2.py:93` builds its arms in one process as `bf16`, then `bfp8` (bfp8
+    mask), then `bfp8_qkv_bf16_mask` (bf16 mask) at IDENTICAL shapes, chunks, grid and q dtype,
+    and warms every arm in `ORDER` before timing. `sdpa_generic.sdpa`'s cache key carried
+    `str(q.dtype)` and no other operand's format, so the third arm collided with the second and
+    ran a program compiled for a bfp8 mask -- wrong page size, and `check_uniform_dataformat`
+    (`sdpa_generic.py:440`) compiled in for the wrong operand set. The 470x is that collision.
+    `bfp8-accuracy-envelope` demonstrated the same mechanism independently on
+    TT_BIO_TRIATT_BIAS_B8: 22.21 A interleaved after a base fold in one process against 0.92671 A
+    for the identical flag alone, both digests reproducible, the solo one bit-identical to main.
 
-    So do not relax this on a source read. The failure mode it protects against is silent: no
-    decline, no exception, no NaN. `tile_bytes` sizes the operand CBs per dtype correctly, but
-    `sdpa_generic.cb_table` pins the five intermediate CB groups to bf16 unconditionally
-    (`:231-233`), and the mask meets those intermediates in the score add.
+    What IS established, and why the clause stays: several program caches on these paths key on a
+    SUBSET of their operands' formats, so a mixed set can silently fetch a program built for a
+    different one. `sdpa_generic.sdpa`'s key is fixed (it now carries q/k/v/mask/out), but
+    `trimul_tail.py:252` still omits xb/wb/out, `swiglu_fused.py:191` omits w2 and
+    `tenstorrent.py:2657` omits b. None of those three serves a call today, which is exactly why
+    this clause has been holding them harmless. So uniformity is a guard over under-keyed caches,
+    NOT a numerical limit of the kernels -- relax it only per path, once that path's cache key
+    carries every operand it compiles against, and re-score the mixed case against fp64 in a
+    FRESH process (one program per key) rather than in an interleaved A/B.
+
+    The separate, unconfounded numbers: uniform bfp8 on the SDPA path scores 0.0283 rel_rms
+    against 0.0267 bf16, a 5.7 % debit and fine -- but it is 0.7142x at B=64 and 0.8071x at
+    B=512, i.e. the wrong SIGN on speed, because `sdpa_generic.cb_table` pins the five
+    intermediate CB groups to bf16 unconditionally (`:231-233`) and the saved DRAM bytes come
+    back as a per-tile unpack conversion on the math thread.
     """
     seen = set(dtypes)
     return len(seen) == 1 and seen <= FAST_DTYPES
