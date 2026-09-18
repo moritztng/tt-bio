@@ -1,0 +1,77 @@
+{
+ "arms": {
+  "ln_shipped": {
+   "ms_min": 0.381183999706991,
+   "ms_med": 0.4844619979849085,
+   "n": 15,
+   "GB_s_nominal": 352.10745493822054,
+   "Mc_at_1350": 0.5145983996044379
+  },
+  "ln_shipped_AA": {
+   "ms_min": 0.3787440073210746,
+   "ms_med": 0.5068720056442544,
+   "n": 15,
+   "GB_s_nominal": 354.37584596874933,
+   "Mc_at_1350": 0.5113044098834507
+  },
+  "copy_ctl": {
+   "ms_min": 0.3678840002976358,
+   "ms_med": 0.3712839970830828,
+   "n": 15,
+   "GB_s_nominal": 364.83708965709684,
+   "Mc_at_1350": 0.4966434004018083
+  },
+  "ln_noaffine": {
+   "ms_min": 0.5465710128191859,
+   "ms_med": 0.5502210115082562,
+   "n": 15,
+   "GB_s_nominal": 245.56320194829158,
+   "Mc_at_1350": 0.7378708673059009
+  },
+  "ln_l1_out": {
+   "ms_min": 0.37406399496831,
+   "ms_med": 0.378213997464627,
+   "n": 15,
+   "GB_s_nominal": 358.80953474650954,
+   "Mc_at_1350": 0.5049863932072185
+  },
+  "mean_ctl": {
+   "ms_min": 0.4947520064888522,
+   "ms_med": 0.5041209951741621,
+   "n": 15,
+   "GB_s_nominal": 135.64141856898584,
+   "Mc_at_1350": 0.6679152087599505
+  },
+  "AA_pct": 0.6401088156354906,
+  "ln_over_copy": 1.0361526986729372,
+  "l1_out_saving_frac_of_copy": 0.019353939646520622
+ },
+ "grid": [
+  10,
+  11
+ ],
+ "nodes": [
+  0
+ ],
+ "clock": {
+  "n": 155,
+  "min": 1350,
+  "max": 1350,
+  "mean": 1350.0
+ },
+ "reps": 15,
+ "interleaved": true,
+ "key": "1x512x512x128 bf16 DRAM, layer_norm_w largest executed key",
+ "prereg": {
+  "ln_over_copy_ratio": {
+   "my_call": "1.55-1.95",
+   "reasoning": "442.9/239.0 = 1.85 if the whole gap is non-byte",
+   "traffic_bound_branch": "<= 1.15 -- the gap IS traffic, byte deletion on layer_norm_w is viable and this row should build it",
+   "not_traffic_branch": ">= 1.40 -- the gap is NOT traffic; layer_norm_w s 843.2 Mc / 0.6246 s is a reduce/affine term and no byte deletion can collect it"
+  },
+  "ln_l1_out_saving": {
+   "my_call": "under 0.15 of the copy arm s 2 Z time",
+   "lever_branch": ">= 0.25 of the copy arm s time means an L1 destination at the norm boundary is a real byte lever worth pricing per site"
+  }
+ }
+}
