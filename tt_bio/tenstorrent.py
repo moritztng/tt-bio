@@ -1472,6 +1472,17 @@ def _pad_head_lanes(t: torch.Tensor, n_heads: int, head_dim: int, padded_head_di
 _TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
 
 
+# Store the pair accumulator `z` in bfloat8_b for the whole Pairformer stack: cast once on the
+# way in and once on the way out, so the five residual `add_`s a layer write into a bfloat8_b z
+# and every consumer of z reads 0.531x the bytes (a bf16 tile is 2048 B, a bfloat8_b tile is
+# 1024 mantissa + 64 exponent = 1088 B). Nothing else is narrowed: every z_update is still
+# computed and stored bf16, so this is the accumulator ALONE and not `wk/b2x-bfp8-pair-track`'s
+# whole-track arm. Off by default; the default path is byte-identical with it unset.
+# See state/bfp8-z-accumulator.md.
+_PAIR_Z_B8 = env_flag("TT_BIO_PAIR_Z_B8", False)
+PAIR_Z_B8_STATS = [0, 0]   # [narrowed, left bf16] Pairformer calls
+
+
 # When the production q_chunk does not divide the padded length, offer the dividing chunks below
 # it before falling back to one that pads. See the block in `_tri_att_q_chunks` for the 896 aa
 # measurement that motivates it. Off until a fold A/B says otherwise; release-gated because the
@@ -6135,7 +6146,9 @@ class TriangleMultiplication(Module):
                  or (_TRIMUL_TAIL_L1 and int(chunk.shape[1]) >= SEQ_LEN_MORE_CHUNKING // 4))
             and not _TRIMUL_RAW_CHANNEL_MOVES
         )
-        ops = [(ttnn.typecast, ttnn.bfloat16)] if _FAST_MODE else []
+        src_dtype = ttnn.bfloat8_b if _FAST_MODE else chunk.dtype
+        widen = _FAST_MODE or chunk.dtype != ttnn.bfloat16
+        ops = [(ttnn.typecast, ttnn.bfloat16)] if widen else []
         if decompose:
             ops.append((_channel_move,))
             ops.append((ttnn.transpose, -2, -1))
@@ -6143,8 +6156,8 @@ class TriangleMultiplication(Module):
             ops.append((_channel_move,))
         else:
             ops.append((ttnn.permute, permute_dims))
-        if _FAST_MODE:
-            ops.append((ttnn.typecast, ttnn.bfloat8_b))
+        if widen:
+            ops.append((ttnn.typecast, src_dtype))
         # The reallocate compacts the chunk so the NEXT iteration's allocations find contiguous
         # space; with one iteration there is no next one and nothing to fragment. It is a full
         # round trip of the chunk through DRAM (134.2 MB each way at 512 aa, measured 0.711 ms for
@@ -6510,6 +6523,7 @@ class TriangleMultiplication(Module):
                             (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
                             and (mask is None or mask_moved_ok)
                             and not _FAST_MODE
+                            and gp_in_fused.dtype == ttnn.bfloat16
                             and not _TRIMUL_RAW_CHANNEL_MOVES
                             and memory_config.buffer_type == ttnn.BufferType.DRAM
                             and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
@@ -8680,9 +8694,23 @@ class Pairformer(Module):
         # the MSA trunk's peak is floor + k*m_feat + pair_copies*z, and only a measurement
         # separates the two. No-op unless TT_BIO_DRAM_PEAK is set.
         dram_peak(f"pairformer enter [z={'x'.join(str(d) for d in z.shape)}]")
+        z_in_dtype = z.dtype
+        if _PAIR_Z_B8 and _DTYPE_OVERRIDE is None and z.dtype == ttnn.bfloat16:
+            narrow = ttnn.typecast(z, ttnn.bfloat8_b)
+            ttnn.deallocate(z)
+            z = narrow
+            PAIR_Z_B8_STATS[0] += 1
+        else:
+            PAIR_Z_B8_STATS[1] += 1
         for i, block in enumerate(self.blocks):
             s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)
             dram_peak(f"pairformer block {i} done")
+        if z.dtype != z_in_dtype:
+            # hand the caller the dtype it passed in, so nothing downstream of the trunk sees
+            # the narrowing
+            wide = ttnn.typecast(z, z_in_dtype)
+            ttnn.deallocate(z)
+            z = wide
         return s, z
 
 
