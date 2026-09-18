@@ -2951,6 +2951,9 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     """
     levers, runtimes, census_jsons, refused = {}, {}, {}, {}
     sigma, grid, drift, runtime_src = None, None, [], None
+    # Per-rung noise, not just the middle rung's. The loop below already has every rep's
+    # runtime for every rung, so this costs no folds -- it was being thrown away.
+    sigmas = {}
     sigma_rung = _size_ladder_sigma_rung(model)
     for rung in rungs:
         reps = reps_sigma if rung == sigma_rung else reps_other
@@ -3003,13 +3006,15 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
         census_jsons[str(rung)] = runs[0]["census_json"]
         ts = [r["runtime_s"] for r in runs]
         runtimes[str(rung)] = round(statistics.median(ts), 2)
+        if len(ts) > 1:
+            sigmas[str(rung)] = round(statistics.stdev(ts) / statistics.mean(ts), 4)
         if rung == sigma_rung and len(ts) > 1:
             sigma = statistics.stdev(ts) / statistics.mean(ts)
     if not runtimes and refused:
         return {"error": f"every rung requested ({','.join(map(str, rungs))}) is above this "
                          f"model's size guard: {next(iter(refused.values()))}",
                 "refused": refused}
-    return {"levers": levers, "runtime_s": runtimes, "sigma": sigma,
+    return {"levers": levers, "runtime_s": runtimes, "sigma": sigma, "sigmas": sigmas,
             "runtime_src": runtime_src,
             "census_jsons": census_jsons, "grid": grid, "drift": drift,
             "refused": refused}
@@ -3057,9 +3062,36 @@ def _size_ladder_sigma_rung(model: str):
     return exp[len(exp) // 2] if exp else None
 
 
-def _size_ladder_exponent_block(model: str, runtimes: dict, sigma):
+def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas: dict | None = None):
     """Baseline exponent entries per consecutive rung pair: k with a tolerance
-    derived from the measured noise floor. Returns (block, skip_reason)."""
+    derived from the measured noise floor. Returns (block, skip_reason).
+
+    An exponent has TWO rungs and they do not share a noise level. Until 2026-09-18 this
+    propagated the MIDDLE rung's sigma into every interval, i.e. it assumed the lowest rung is
+    as quiet as the rung sigma was measured at. It is not: on p300c the 256 aa cell folds in
+    4-9 s and its two observed modes are 1.4-1.6x apart, while 512 aa reproduces inside a few
+    per cent.
+
+    Measured over all 52 recorded p300c cells against a zero-contention gate
+    (``perf/c13_land/gate.log``, ``f2b62c7bc``): geomean ratio 0.968, median 0.978, and 50 of the
+    52 inside [0.78, 1.05]. The two outliers are BOTH the 256 aa rung and they sit on opposite
+    sides -- boltz2 1.585 (baseline 4.1 s, measured 6.5 s) and openbind 0.699 (baseline 9.3 s,
+    measured 6.5 s). Those are the only two models that failed the arm. boltz2's two modes are
+    0.66 apart in exponent against a +/-0.50 band, so no single-shot re-record can fix it:
+    whichever mode you write down, the other one fails.
+
+    So the band is now ``3 * sqrt(s1^2 + s2^2) / ln(N2/N1)`` with each rung's own sigma, which is
+    algebraically identical to the old ``3 * sqrt(2) * sigma / ln(N2/N1)`` whenever s1 == s2 --
+    including every existing baseline, none of which carries a per-rung sigma. Nothing already
+    recorded moves. What changes is that a bimodal low rung widens its own interval's band and,
+    past SIZE_LADDER_EXP_MAX_TOL, trips the cliff this function already has and declines to gate
+    that interval with a reason. That is the honest outcome: the check was firing on draw noise,
+    and a check that fires on noise every time detects nothing while costing a 3h36m gate run.
+
+    This does not migrate the estimator. A min-of-N check was considered and rejected on
+    2026-09-18 (``538566d4c``) because it would shift every recorded exponent downward at once;
+    this widens a band where the noise was never measured and leaves every recorded k alone.
+    """
     gated = _size_ladder_exp_rungs(model)
     rungs = sorted(int(r) for r in runtimes if int(r) in gated)
     if len(rungs) < 2:
@@ -3072,18 +3104,39 @@ def _size_ladder_exponent_block(model: str, runtimes: dict, sigma):
         # median-of-3, the repo's standing answer to single-shot noise
         # (perf-gate-single-shot-legs-recurring-false-alarm, merged 7431d6e39)
         reps, sigma_eff = 3, sigma / math.sqrt(3)
+
+    def _rung_sigma(n):
+        """That rung's own measured sigma, or the middle rung's if it was never repeated.
+
+        The median-of-N credit belongs to whichever rung was actually repeated, so it is
+        applied per rung rather than once to the fallback.
+        """
+        s = (sigmas or {}).get(str(n))
+        if s is None:
+            return sigma_eff
+        return s / math.sqrt(reps) if reps > 1 else s
+
     exps = {}
     for n1, n2 in zip(rungs, rungs[1:]):
         k = math.log(runtimes[str(n2)] / runtimes[str(n1)]) / math.log(n2 / n1)
+        s1, s2 = _rung_sigma(n1), _rung_sigma(n2)
         tol = max(SIZE_LADDER_EXP_TOL_FLOOR,
-                  3 * math.sqrt(2) * sigma_eff / math.log(n2 / n1))
+                  3 * math.sqrt(s1 * s1 + s2 * s2) / math.log(n2 / n1))
         exps[f"{n1}->{n2}"] = {"k": round(k, 3), "tol": round(tol, 3)}
-    worst = max(e["tol"] for e in exps.values())
+    worst_iv = max(exps, key=lambda i: exps[i]["tol"])
+    worst = exps[worst_iv]["tol"]
     if worst > SIZE_LADDER_EXP_MAX_TOL:
-        return None, (f"measured sigma {sigma:.1%} needs a ±{worst:.2f} band, wider "
+        # Name the interval and BOTH its rungs' sigmas. "measured sigma 6.5%" was the middle
+        # rung's and said nothing about the rung that actually blew the band.
+        n1, n2 = (int(x) for x in worst_iv.split("->"))
+        return None, (f"{worst_iv} needs a ±{worst:.2f} band from its own rung noise "
+                      f"({n1} aa {_rung_sigma(n1):.1%}, {n2} aa {_rung_sigma(n2):.1%}), wider "
                       f"than the ~{SIZE_LADDER_EXP_MAX_TOL} cliff signal — an exponent "
                       f"gate would be a coin flip for this model")
-    return {"reps": reps, "sigma_runtime_512": round(sigma, 4), "exponents": exps}, None
+    block = {"reps": reps, "sigma_runtime_512": round(sigma, 4), "exponents": exps}
+    if sigmas:
+        block["sigma_runtime"] = dict(sorted(sigmas.items(), key=lambda kv: int(kv[0])))
+    return block, None
 
 
 def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list:
@@ -3942,7 +3995,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             err = _size_ladder_record_refusal(meas)
             block = skip = None
             if err is None:
-                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"])
+                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"],
+                                                          meas.get("sigmas"))
                 # Re-measure at the rep count the CHECK will use. Only the sigma rung was repeated
                 # above, so a model noisy enough to need a median went into the baseline
                 # single-shot at the other three rungs while the check reads a median of three
@@ -3960,14 +4014,16 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                         for k in ("levers", "runtime_s", "census_jsons"):
                             meas[k].update(m2[k])
                         block, skip = _size_ladder_exponent_block(m, meas["runtime_s"],
-                                                                  meas["sigma"])
+                                                                  meas["sigma"],
+                                                                  meas.get("sigmas"))
             if err:
                 print(f"  [size-ladder] {m}: NOT RECORDED — {err}", flush=True)
                 legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
                 continue
             carried_rungs = _size_ladder_carry_rungs(meas, old_models.get(m), stamp)
             if carried_rungs:
-                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"])
+                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"],
+                                                          meas.get("sigmas"))
             todos += _size_ladder_fill_reasons(
                 meas["levers"], old_models.get(m, {}).get("levers"),
                 _size_ladder_other_card_levers(reasons_from, card, m))
