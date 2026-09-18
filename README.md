@@ -908,7 +908,7 @@ tt-bio finetune --list-objectives    # the named loss rows
 ```
 
 **What works today:** the interface, the dry run, the LoRA adapters, the optimizer, gradient
-checking, checkpoints and single-box data parallelism up to 4 chips. **What does not:** no
+checking, checkpoints, and data parallelism across the chips in one box. **What does not:** no
 model ships a training featuriser yet, so a real `tt-bio finetune` run stops with a named error
 at the point it would read your data. Featurisation is per model on purpose, and a model
 registers its own with `tt_bio.train.catalogue.register`.
@@ -927,6 +927,21 @@ Four things the API enforces rather than documents, because each is a bug we hit
 
 Global batch is always yours to set and is never derived from how many chips you have, so a
 recipe means the same thing on a bigger box.
+
+Training on several chips is one flag, `--chips 2`, or one argument,
+`mesh=train.Mesh({"dp": [0, 1]})`. Under it a launcher runs your program once per chip and sums
+the gradients between them, the way `torchrun` does, so the program has to be re-runnable and
+must not open a card before the `finetune` call. Both are checked before anything starts. Two
+p150a chips on a QuietBox measured **1.96x** at a 0.33 MB adapter gradient and **1.70x** at 5.24
+MB, both at 1350 MHz; the gap is host-side Adam contending between the two processes, not the
+exchange, which costs 2.3 % of the step. Four chips runs the same path and is not measured yet.
+One host: reaching a second box needs a cable, not a code change.
+
+Every run carries the check that makes a multi-chip number mean something. The ranks' weights
+must stay identical, so the launcher compares every rank's master weights at the end and refuses
+a run where they differ, and it reads each rank's chip off that rank's own open file descriptors
+rather than trusting `TT_VISIBLE_DEVICES`, which names a different number than the device node.
+Both failures look like a healthy run otherwise.
 
 Tiers, cut lines, the escape-hatch test and where `plan()` gets its numbers:
 [`docs/training.md`](docs/training.md).

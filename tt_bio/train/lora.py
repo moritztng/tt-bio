@@ -20,6 +20,7 @@ train only the last block. The delegation is through ``ops.grad_hook()``, which 
 
 from __future__ import annotations
 
+import hashlib
 import math
 import re
 import sys
@@ -73,7 +74,11 @@ def lora_factors(in_features: int, out_features: int, cfg: LoraConfig, device, *
     (``_create_lora_B``, :64-67).
     """
     import numpy as np
-    rng = np.random.default_rng() if rng is None else rng
+    # An int is a seed, a Generator is the caller's own stream, None is fresh entropy. The
+    # int form exists because an unseeded init is unreproducible, and unreproducible is not
+    # survivable under data parallelism: see `_site_rng`.
+    rng = (rng if isinstance(rng, np.random.Generator)
+           else np.random.default_rng() if rng is None else np.random.default_rng(rng))
     bound = 1.0 / math.sqrt(in_features)
     a = rng.uniform(-bound, bound, size=(in_features, cfg.rank)).astype(np.float32)
     b = np.zeros((cfg.rank, out_features), dtype=np.float32)
@@ -245,6 +250,26 @@ def select(sites: Dict[str, LoraSite], cfg: LoraConfig) -> Dict[str, LoraSite]:
     return out
 
 
+def _site_rng(rng, name: str):
+    """One stream per SITE, so the adapter init does not depend on discovery order.
+
+    A seed spread over the site names rather than consumed in whatever order the census
+    returned them. That distinction is cheap here and expensive later: a data-parallel run
+    builds the same adapters once per chip, and two ranks whose censuses came back in a
+    different order would start from different weights, train two different models, and show
+    two loss curves that both fall.
+
+    A ``Generator`` is used as handed in, because then the caller owns the stream. ``None``
+    stays fresh entropy, which is the honest answer for a caller that asked for no seed --
+    and it is why every entry point that has a seed passes it.
+    """
+    import numpy as np
+    if isinstance(rng, np.random.Generator) or rng is None:
+        return rng
+    tag = int.from_bytes(hashlib.blake2b(name.encode(), digest_size=8).digest(), "big")
+    return np.random.default_rng([int(rng), tag])
+
+
 def lora_factors_for(forward, cfg: LoraConfig, device, *args, dtype=ttnn.bfloat16,
                      rng=None, **kwargs) -> Dict[str, Tuple[ag.Tensor, ag.Tensor]]:
     """Discover the adaptable sites in ``forward`` and build ``(A, B)`` for each selected one.
@@ -253,6 +278,11 @@ def lora_factors_for(forward, cfg: LoraConfig, device, *args, dtype=ttnn.bfloat1
     costs one inference, and that is the price of not maintaining a list of site names by
     hand. Returns ``{site_name: (A, B)}``, ready to hand to :func:`attach` and to name the
     optimizer's parameters with.
+
+    ``rng`` may be an int seed, a ``Generator``, or ``None`` for fresh entropy. Pass the seed:
+    A is random and B is zero, so an unseeded init means two processes adapting the same model
+    start from different weights. Under the launcher that is one process per chip, which makes
+    it a silent divergence rather than an unreproducible run.
     """
     sites = select(census(forward, *args, **kwargs), cfg)
     if not sites:
@@ -262,7 +292,7 @@ def lora_factors_for(forward, cfg: LoraConfig, device, *args, dtype=ttnn.bfloat1
             "it, which is A1's attach work and not a config change -- or it was not actually "
             "called")
     return {name: lora_factors(s.in_features, s.out_features, cfg, device,
-                               dtype=dtype, rng=rng)
+                               dtype=dtype, rng=_site_rng(rng, name))
             for name, s in sites.items()}
 
 

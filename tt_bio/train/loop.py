@@ -38,6 +38,9 @@ class Run:
     provenance: object
     plan: object
     displacement: dict
+    #: The data-parallel record when the run was one: per-rank timings, the chips the ranks
+    #: actually held, and the count of distinct master-weight hashes. ``None`` on one chip.
+    dp: Optional[dict] = None
 
     @property
     def steps(self) -> int:
@@ -53,9 +56,19 @@ class Run:
 
     def __str__(self) -> str:
         loss = "no steps ran" if self.loss is None else f"loss {self.loss:.6f}"
-        return (f"Run({self.recipe}) {self.steps} steps, {loss}, "
-                f"displacement ratio {self.displacement.get('ratio', float('nan')):.4f}\n"
-                f"  {self.provenance.summary()}")
+        out = (f"Run({self.recipe}) {self.steps} steps, {loss}, "
+               f"displacement ratio {self.displacement.get('ratio', float('nan')):.4f}\n"
+               f"  {self.provenance.summary()}")
+        if self.dp:
+            d = self.dp
+            out += (f"\n  {d['world']} ranks on /dev/tenstorrent {d['nodes']}, "
+                    f"{d['distinct_master_sha']} distinct master hash"
+                    f"{'' if d['distinct_master_sha'] == 1 else 'es'}, "
+                    f"median step {d['median_step_s']:.3f} s, "
+                    f"all-reduce {d['comm_bytes'] / 1e6:.1f} MB in "
+                    f"{1e3 * (d['median_transfer_s'] or 0):.1f} ms "
+                    f"(+{1e3 * (d['median_barrier_wait_s'] or 0):.1f} ms at the barrier)")
+        return out
 
 
 def finetune(forward, dataset, *, out_dir, global_batch, steps, objective="af3",

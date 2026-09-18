@@ -25,6 +25,12 @@ The ``dataset`` the adapter returns needs ``__len__``, ``tokens``, ``device`` an
 ``batch(indices) -> dict`` carrying the labels the objective row names. Four members, no base
 class to inherit: a dataset is data, and the reason to keep the contract this thin is that
 every family will want to satisfy it differently.
+
+``device`` must be resolved LAZILY, on first use, and not in the constructor. Data parallelism
+is one process per chip, so the process that spawns the ranks has to reach the launcher holding
+no card; a dataset that opens a device while being built takes a chip in the driver and the
+launcher refuses to start. The contract check below looks the four members up without calling
+them for the same reason.
 """
 
 from __future__ import annotations
@@ -65,7 +71,13 @@ def load(model: str, path: Path, *, tokens=None):
             f"tt_bio.train.catalogue.register({model!r}, adapter). "
             f"Registered today: {names() or 'none'}")
     forward, dataset = adapter(Path(path), tokens=tokens)
-    missing = [m for m in REQUIRED_DATASET_MEMBERS if not hasattr(dataset, m)]
+    # Looked up on the CLASS, then in the instance's own dict -- never with `hasattr`, which
+    # CALLS a property to find out whether it is there. `device` is the one that matters: a
+    # data-parallel run is one process per chip, so a dataset resolves its device lazily and
+    # the driver must reach the launcher holding no card. `hasattr(dataset, "device")` opened
+    # one, in the driver, from inside the check that exists to validate the contract.
+    missing = [m for m in REQUIRED_DATASET_MEMBERS
+               if not (hasattr(type(dataset), m) or m in vars(dataset))]
     if missing:
         raise TypeError(f"{model!r}'s dataset is missing {missing}; the contract is "
                         f"{list(REQUIRED_DATASET_MEMBERS)}")

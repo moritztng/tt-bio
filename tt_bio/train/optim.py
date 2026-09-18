@@ -224,10 +224,11 @@ class AdamW:
             raise UnreducedGradients(
                 f"these parameters have a gradient but no per-chip entry: {sorted(missing)}. "
                 f"A partially reduced step is the same failure as an unreduced one")
-        for name, per_chip in replicas.items():
-            t = self.params[name]
-            summed = self.data_parallel.reduce(per_chip)
-            t.grad = summed[0]
+        # One call for the whole parameter set, not one per parameter. On a mesh device the
+        # two are the same work; across the launcher's processes the per-parameter form pays
+        # a barrier per adapter tensor, which is dozens per step.
+        for name, summed in self.data_parallel.reduce_all(replicas).items():
+            self.params[name].grad = summed
 
     def check_displacement(self, band=DISPLACEMENT_BAND) -> dict:
         """Assert the device weight moved as far as the master did. The step control.

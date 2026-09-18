@@ -1,0 +1,50 @@
+{
+ "512": {
+  "bf16": 24,
+  "bfp8_buggy": 25,
+  "bfp8_fixed": 25,
+  "lost": 0
+ },
+ "640": {
+  "bf16": 34,
+  "bfp8_buggy": 35,
+  "bfp8_fixed": 35,
+  "lost": 0
+ },
+ "768": {
+  "bf16": 55,
+  "bfp8_buggy": 61,
+  "bfp8_fixed": 62,
+  "lost": 1
+ },
+ "896": {
+  "bf16": 22,
+  "bfp8_buggy": 24,
+  "bfp8_fixed": 25,
+  "lost": 1
+ },
+ "1024": {
+  "bf16": 19,
+  "bfp8_buggy": 22,
+  "bfp8_fixed": 23,
+  "lost": 1
+ },
+ "1280": {
+  "bf16": 37,
+  "bfp8_buggy": 41,
+  "bfp8_fixed": 43,
+  "lost": 2
+ },
+ "1536": {
+  "bf16": 48,
+  "bfp8_buggy": 62,
+  "bfp8_fixed": 63,
+  "lost": 1
+ },
+ "2048": {
+  "bf16": 10,
+  "bfp8_buggy": 13,
+  "bfp8_fixed": 15,
+  "lost": 2
+ }
+}
