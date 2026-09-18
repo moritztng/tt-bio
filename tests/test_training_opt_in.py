@@ -106,15 +106,7 @@ def _classes(path: Path) -> set[str]:
 
 @pytest.mark.skipif(not FORK_FILE.is_file(), reason="the fork is gone, which is the goal")
 def test_the_known_fork_does_not_grow():
-    """The taped copies under perf/ are a census. New ones mean the fork is spreading.
-
-    DELETE THIS TEST once the twin's removal reaches main. `train-a1-defork` deleted
-    `perf/ptxft/tape_block.py` on its branch, so this already skips there; it is kept only while
-    main still carries the file. A test that skips unconditionally is dead code pretending to be
-    coverage, and the live form of this invariant is
-    `test_the_training_package_defines_no_forward` below, which needs no census because it names
-    no files.
-    """
+    """The taped copies under perf/ are a census. New ones mean the fork is spreading."""
     extra = _classes(FORK_FILE) - set(KNOWN_FORK)
     assert not extra, (
         f"perf/ptxft/tape_block.py grew new taped classes {sorted(extra)}. Every class here is a "
