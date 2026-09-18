@@ -75,8 +75,14 @@ def fast_dtypes_ok(*dtypes) -> bool:
     `tenstorrent.py:2657` omits b. None of those three serves a call today, which is exactly why
     this clause has been holding them harmless. So uniformity is a guard over under-keyed caches,
     NOT a numerical limit of the kernels -- relax it only per path, once that path's cache key
-    carries every operand it compiles against, and re-score the mixed case against fp64 in a
-    FRESH process (one program per key) rather than in an interleaved A/B.
+    carries every operand it compiles against.
+
+    On the SDPA path that re-scoring has since been done, in a fresh process (one program per key)
+    rather than an interleaved A/B: `bfp8-accuracy-envelope` measured the mixed arm run alone as
+    BIT-IDENTICAL to uniform bfp8 at 298 aa and at 512 aa, with 560 of 560 calls counted taking the
+    downcast so it is not a silent null. A mixed dataformat into the fused SDPA computes the right
+    answer. The clause stays anyway, because it is cheap and it still guards the three caches above,
+    and because narrowing this path is the wrong SIGN on speed regardless (see below).
 
     The separate, unconfounded numbers: uniform bfp8 on the SDPA path scores 0.0283 rel_rms
     against 0.0267 bf16, a 5.7 % debit and fine -- but it is 0.7142x at B=64 and 0.8071x at
