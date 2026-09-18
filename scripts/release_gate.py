@@ -613,8 +613,9 @@ CAPACITY_LEGS = [
 #     tol = max(0.50, 3 * sqrt(2) * sigma / ln(N2/N1))
 #
 # with sigma the measured relative noise of one rung's runtime_s (record mode
-# measures it with SIZE_LADDER_SIGMA_REPS reps at the middle gated rung
-# (_size_ladder_sigma_rung), 512 aa on the fold arm; boltz2 reads 6.5% on
+# measures it with SIZE_LADDER_SIGMA_REPS reps at EVERY gated rung, and takes
+# the band's sigma from the middle one (_size_ladder_sigma_rung), 512 aa on the
+# fold arm; boltz2 reads 6.5% on
 # pc card 0, giving tol 0.50 on 256->512 and 0.68 on 512->768 against a
 # measured cliff signal of 1.4-1.6). The 0.50 floor keeps a suspiciously quiet
 # model from getting an unfalsifiably tight band. Above sigma = 12% the arm
@@ -2657,12 +2658,21 @@ def _size_ladder_model_rungs(model: str, want=None) -> tuple:
 
 
 def _size_ladder_measure_model(model: str, rungs, workdir: Path,
-                               reps_sigma: int, reps_other: int) -> dict:
+                               reps_gated: int, reps_other: int) -> dict:
     """Census-fold every rung, discarding the first fold AT EACH RUNG, then report.
 
     Returns {"levers": {rung: ...}, "runtime_s": {rung: median}, "sigma": relative
-    runtime noise at the sigma rung | None, "census_jsons": {rung: path}} or
-    {"error": ...}.
+    runtime noise at the sigma rung | None, "runtime_reps": {rung: [every kept
+    draw]}, "census_jsons": {rung: path}} or {"error": ...}.
+
+    ``reps_gated`` is taken at EVERY rung an exponent is computed over
+    (_size_ladder_exp_rungs, 256/512/768 on the fold arm), not only at the middle one.
+    An exponent has two rungs and they do not share a noise level: on p300c the 256 aa
+    cell folds in 4-9 s and has been drawn 1.4-1.6x apart, while 512 aa reproduces
+    inside a few per cent. Repeating only the middle rung recorded the two rungs the
+    band is computed from at one draw and five, and cost two false gate failures
+    (openbind and boltz2, 2026-09-18). The extra folds are cheap where it matters,
+    since the low rung is the fastest on the ladder.
     "drift" lists any rep-to-rep difference the check's own comparator would call a finding.
 
     The discard is per rung, not one warm-up at the smallest rung, because the JIT
@@ -2676,9 +2686,11 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     """
     levers, runtimes, census_jsons, refused = {}, {}, {}, {}
     sigma, grid, drift, runtime_src = None, None, [], None
+    runtime_reps = {}
     sigma_rung = _size_ladder_sigma_rung(model)
+    gated = set(_size_ladder_exp_rungs(model))
     for rung in rungs:
-        reps = reps_sigma if rung == sigma_rung else reps_other
+        reps = reps_gated if rung in gated else reps_other
         runs = []
         guard = None
         for rep in range(reps + 1):
@@ -2728,6 +2740,12 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
         census_jsons[str(rung)] = runs[0]["census_json"]
         ts = [r["runtime_s"] for r in runs]
         runtimes[str(rung)] = round(statistics.median(ts), 2)
+        runtime_reps[str(rung)] = [round(t, 2) for t in ts]
+        if len(ts) > 1:
+            print(f"  [size-ladder] {model}/{rung}: "
+                  f"{' '.join(f'{t:.2f}' for t in ts)} s over {len(ts)} reps, "
+                  f"median {runtimes[str(rung)]:.2f}, min {min(ts):.2f}, "
+                  f"sigma {statistics.stdev(ts) / statistics.mean(ts):.1%}", flush=True)
         if rung == sigma_rung and len(ts) > 1:
             sigma = statistics.stdev(ts) / statistics.mean(ts)
     if not runtimes and refused:
@@ -2735,7 +2753,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                          f"model's size guard: {next(iter(refused.values()))}",
                 "refused": refused}
     return {"levers": levers, "runtime_s": runtimes, "sigma": sigma,
-            "runtime_src": runtime_src,
+            "runtime_reps": runtime_reps, "runtime_src": runtime_src,
             "census_jsons": census_jsons, "grid": grid, "drift": drift,
             "refused": refused}
 
@@ -3618,7 +3636,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 # changed but how many folds the number came from.
                 reps = (block or {}).get("reps", 1)
                 if reps > reps_other:
-                    again = [r for r in ladders[m] if r != _size_ladder_sigma_rung(m)]
+                    again = [r for r in ladders[m]
+                             if r not in _size_ladder_exp_rungs(m)]
                     print(f"  [size-ladder] {m}: sigma needs a median of {reps}, re-measuring "
                           f"{','.join(map(str, again))} at {reps} reps", flush=True)
                     m2 = _size_ladder_measure_model(m, again, workdir, reps, reps)
