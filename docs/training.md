@@ -239,14 +239,25 @@ not the collective. `perf/train_d_dp/` holds the harness and the raw results.
 Tensor parallelism is deliberately absent. A full replica is 14.8 % of one chip, so there is no
 memory argument for it, and it returns only if something later forces it.
 
-Multi-host has not run yet, and the reason is no longer that the arithmetic forbids it. Between
-our two boxes, exchanging the 28.4 MB gradient this model actually sends takes **1.94 s against a
-22.0 s step, about 9 %**, measured both directions at once with the real payload; the rank-order
-sum that keeps every rank's weights bit-identical returns the same digest on both hosts, across
-two different numpy majors. What is missing is a transport. `Mesh.auto()` reports one host today,
-and the interface does not change shape when that changes: an axis is an axis whether its chips
-share a host or not. Until it runs, the honest claim is multi-card on one host — and the 1.94 s is
-a WiFi number, since one of our two boxes has no ethernet cable in it.
+Multi-host runs, and it costs 21 % of the throughput the same two chips give inside one box.
+Two chips on two machines train one model at **1.493x, 74.6 % efficiency**, against **1.887x,
+94.3 %** for the same two chips in one box, on ABodyBuilder3 at global batch 64. Every rank's
+master weights stay **bit-identical across the boundary** — checked every step, including across
+two different Python and numpy versions on the two machines.
+
+The whole gap is the link, and ours is a bad one: **one of our two machines is on WiFi**. The
+gradient exchange is 28.4 MB each way and takes 1.7-2.8 s of a 14.1 s step, 12-20 % depending on
+where you draw the boundary. Over a wired gigabit link the same exchange is about 0.24 s each way,
+which would put it near 2 % of the step. **So the number to expect on wired hosts is much closer
+to the single-box one, and the 74.6 % here is close to a floor rather than a typical result.**
+
+Use a second machine when the alternative is leaving it idle, and wire your hosts before going
+past two.
+
+`Mesh(..., hosts=N)` is the way you ask for it. If your build still raises
+`NotImplementedError` there, the transport is present and the entry point is not yet wired to it;
+the shape of the call does not change when it is, because an axis is an axis whether its chips
+share a host or not.
 
 ## Featurisation is per model, on purpose
 
