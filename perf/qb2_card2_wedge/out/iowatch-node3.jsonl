@@ -1,0 +1,2 @@
+{"t": 1789709754.1, "utc": "05:35:54Z", "state": "R", "threads": 1, "syscr": 127, "syscw": 0, "rchar": 993845, "wchar": 0, "aiclk": 800, "watch_age_s": 0.0}
+{"t": 1789709769.1, "utc": "05:36:09Z", "state": "R", "threads": 28, "syscr": 249294, "syscw": 108118, "rchar": 3344704169, "wchar": 257428044, "aiclk": 1350, "watch_age_s": 6.6, "d_syscr": 249167, "d_syscw": 108118, "pcpu": 166.0}
