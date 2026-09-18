@@ -1,0 +1,25 @@
+{
+  "row": "c12-host-decomp",
+  "question": "decompose F, the clock-immune term of the Boltz-2 fold, into named line items",
+  "source_base": "d027835a81468da589f73d50398a9508f68b12bc",
+  "protocol": {
+    "inherits": "c10-bare-baseline, unchanged",
+    "fixture": "perf/size512/fixtures/cdk2x2_{512,298}.yaml + its committed 35-row a3m",
+    "sampling_steps": 200, "recycling_steps": 3, "diffusion_samples": 1, "seed": 0,
+    "templates": false, "warm": "one cold fold per process, discarded",
+    "timer": "synchronize_device; monotonic_ns; state.predict_one incl. CIF write; synchronize_device; monotonic_ns"
+  },
+  "clocks_MHz": [1350, 800],
+  "clock_evidence": "ARC FORCE_AICLK before EVERY label, ~1 kHz aiclk + board power sampled DURING the fold, scored against that fold's own target",
+  "reference": {
+    "fold_512_s": 14.881, "fold_298_s": 9.680,
+    "F_512_s": 3.9830, "F_512_bound_s": [3.665, 4.244],
+    "F_298_s": 1.9500, "F_298_bound_s": [1.831, 2.014],
+    "work_512_Mcycles": 14665.0, "work_298_Mcycles": 10403.4,
+    "F_size_ratio": 2.043, "token_ratio": 1.718,
+    "source": "c10-fixed-cost (28 accepted warm folds per size over four pinned clock arms)"
+  },
+  "closure_tolerance_pct": 10,
+  "instrument": "perf/b2x_host_residual/host_residual.py, imported not copied",
+  "production_code_change": "none; every patch is a timing wrapper installed in this process"
+}

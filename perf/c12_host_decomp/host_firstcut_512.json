@@ -1,0 +1,427 @@
+{
+  "what": "FIRST CUT, no card. Not the row's table and carries no clock arm.",
+  "provenance": {
+    "census": "perf/b2x_host_residual/residual_512_qb2c2.json",
+    "census_fold_s": 23.5521,
+    "census_unattributed_s": 0.0035,
+    "census_card": "2 p300c",
+    "census_commit": "1a79949b",
+    "census_loadavg": [
+      "2.34",
+      "1.49",
+      "0.72"
+    ],
+    "census_torch_threads": 8,
+    "census_timed_region": "predict_one (featurize + fold + CIF write)",
+    "remainder_source": "c12-profiled-fold composed.json, device 13.2090 s of 14.8810 s in situ at a held during-sampled 1350 MHz"
+  },
+  "census_split_s": {
+    "host_today": 0.561,
+    "mixed_upper_bound": 0.351,
+    "moved_to_device_since": 2.09643,
+    "device": 20.5401,
+    "sum": 23.54853
+  },
+  "closure_first_cut": {
+    "host_leaves_s": 0.561,
+    "mixed_leaf_upper_bound_s": 0.351,
+    "host_inside_device_units_s": 0.3372,
+    "named_total_s": [
+      0.8982,
+      1.2492
+    ],
+    "remainder_s": [
+      1.6489,
+      1.672
+    ],
+    "named_pct_of_remainder": [
+      53.7,
+      75.8
+    ],
+    "unnamed_s": [
+      0.3997,
+      0.7738
+    ],
+    "note": "a range because the `predict_step` leaf is an upper bound: part of it is host z_init that the default-on device path deleted. The low end assumes all of that leaf moved, the high end assumes none of it did."
+  },
+  "reducible_first_cut": {
+    "reducible_s": 0.0,
+    "bar_s": 0.849,
+    "fraction_of_bar": 0.0,
+    "shortfall_s": 0.849,
+    "extreme_fraction_of_bar": 0.526,
+    "pipelined_service_only_s": 0.05702,
+    "pipelined_service_only_argument": "the CIF write, 0.0570 s. Real, and a THROUGHPUT win only: in a multi-target service target N's write overlaps target N+1's fold, which is how JapanFold serves. Against the 12.5 s latency cell it is worth nothing, because the timed region ends with the file on disk and deferring the write stops the timer earlier instead of finishing sooner.",
+    "generous_ceiling_s": 0.09577,
+    "generous_argument": "crediting half of prepare, which is not priced. Neither the CIF write nor half of predict_step is credited: the write is inside the timed region by definition, and half of predict_step is half of a number that is partly gone to the device already.",
+    "extreme_ceiling_s": 0.44677,
+    "extreme_argument": "half of prepare AND the whole pre-port predict_step leaf credited. This is NOT a bound on what the host can give: the leaf's value today is unknown in BOTH directions. See UNNAMED_IS_THE_ANSWER.",
+    "UNNAMED_IS_THE_ANSWER": {
+      "claim": "every host item this row can NAME is irreducible or device-only, and the whole reducibility question collapses onto the 0.3997-0.7738 s that no named item accounts for. That block is Boltz2.forward's own body, and the pre-registered program-cache clear (0.0-2.3 s band) is the candidate that could occupy most of it.",
+      "why_the_mixed_leaf_is_not_an_upper_bound": "a port does not only subtract. perf/b2z2_hostzero's two committed trees differ by device-conditioning alone: turning it ON deleted diffusion_cond's 1.0665 s of children and RAISED `predict_step` exclusive from 0.46468 s to 0.72257 s, because the port adds the host glue that builds and uploads the device module's inputs. Net host win, but the leaf GREW 1.55x. Those two are Wormhole Galaxy at 40 s folds so the seconds do not transfer, and `rel_pos` survives in both, which dates them to device_zinit OFF. Today on qb2 both ports are on: zinit removes the host z_init build from that leaf and conditioning adds upload glue to it. The sign of the net is unknown.",
+      "hard_ceiling_that_does_not_depend_on_any_of_it": "c12-profiled-fold measured the device term in situ, so ALL exposed host time is 1.6489-1.6720 s however the leaf splits. Subtracting the 0.5610 s of identified pure-host leaves and the 0.3372 s of host inside the device units leaves at most 0.7738 s unnamed.",
+      "worst_case_s": 0.8696,
+      "worst_case_argument": "half of prepare (0.0958 s) plus ALL 0.7738 s of unnamed time credited as reducible is 0.8696 s, which would just clear the 0.8490 s bar. Nobody should bank that -- it assumes every unnamed second is deletable glue -- but it means this row must NOT claim the host cannot reach the bar. It claims something narrower and better supported: nothing the row can name reaches it, and one unmeasured item decides the rest.",
+      "never_instrumented": "the reason this block exists at all, and why no other row's data can substitute: Boltz2.forward's OWN BODY has never been instrumented by anyone. Every committed tree patches either predict_step, which is above it, or the device modules, which are below it, so forward's body has always fallen out as predict_step's exclusive remainder. Checked exhaustively: b2x_host_residual's 128/512 on-card trees, its CPU-only hostpath_512_pc (same six stages, no s_init / pair_mask / program-cache rows), the four whglx 512 aa trees, and c12-profiled-fold's per-unit book. decomp.py's install_extra is the first instrument that patches `forward`, which is what its own docstring says it was added for.",
+      "what_settles_it": "one A/B on TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE inside a fold-repeating process, plus brackets inside Boltz2.forward. That is the first thing the capture should run, ahead of the two-clock arms."
+    },
+    "fold_if_all_named_host_deleted_s": [
+      13.6318,
+      13.9828
+    ],
+    "extreme_shortfall_s": 0.4022
+  },
+  "rows": [
+    {
+      "item": "predict_step/trunk",
+      "calls": 1,
+      "excl_s": 12.93082,
+      "class": "device",
+      "why": "TrunkModule, the resident trunk. 12.93 s of device time.",
+      "reducible_s": 0.0,
+      "reducible_frac": null,
+      "reducible_argument": null
+    },
+    {
+      "item": "predict_step/sampler/denoiser/denoise_device",
+      "calls": 200,
+      "excl_s": 7.14491,
+      "class": "device",
+      "why": "DiffusionModule, 200 calls. Pass 2 priced its host share separately at 0.1782 s off bare walls, which is inside HOST_INSIDE_DEVICE_UNITS.",
+      "reducible_s": 0.0,
+      "reducible_frac": null,
+      "reducible_argument": null
+    },
+    {
+      "item": "predict_step/diffusion_cond",
+      "calls": 1,
+      "excl_s": 0.67899,
+      "class": "moved",
+      "why": "DiffusionConditioning.forward's own body. TT_BIO_DEVICE_CONDITIONING is default True on this tree and PairConditioningDevice owns this work; pass 2 measured its surviving host body at 0.1093 s, inside HOST_INSIDE_DEVICE_UNITS.",
+      "reducible_s": 0.0,
+      "reducible_frac": null,
+      "reducible_argument": null
+    },
+    {
+      "item": "predict_step/confidence",
+      "calls": 1,
+      "excl_s": 0.57107,
+      "class": "moved",
+      "why": "ConfidenceModule.forward's own body. TT_BIO_DEVICE_CONFIDENCE is default True and c12-profiled-fold bounds ConfidenceHeadsDevice at <= 0.0231 s.",
+      "reducible_s": 0.0,
+      "reducible_frac": null,
+      "reducible_argument": null
+    },
+    {
+      "item": "predict_step/diffusion_cond/pairwise_cond",
+      "calls": 1,
+      "excl_s": 0.51298,
+      "class": "moved",
+      "why": "PairwiseConditioning, folded into PairConditioningDevice by the same port.",
+      "reducible_s": 0.0,
+      "reducible_frac": null,
+      "reducible_argument": null
+    },
+    {
+      "item": "predict_step/confidence/pairformer_conf",
+      "calls": 1,
+      "excl_s": 0.46437,
+      "class": "device",
+      "why": "PairformerModule on the confidence path.",
+      "reducible_s": 0.0,
+      "reducible_frac": null,
+      "reducible_argument": null
+    },
+    {
+      "item": "predict_step",
+      "calls": 1,
+      "excl_s": 0.351,
+      "class": "mixed",
+      "why": "NOT all host today, and the first cut had this wrong. `predict_step` is a thin wrapper that calls `Boltz2.forward` and copies dict entries, and the census patched `predict_step` but NOT `forward`, so this leaf is `forward`'s own body. At the census commit `_device_zinit()` was off, so that body BUILT z_init on the host: z_init_1 + z_init_2 + token_bonds + contact_conditioning and five adds over a [1,n,n,token_z] tensor that is 134 MB at 512 tokens, plus a torch.zeros_like of the same. `_device_zinit()` is ON by default today (tt_bio/boltz2.py:1198), so `z_init is None` and that whole path is skipped; what it costs now is inside PairAssemblyDevice, whose host body pass 2 measured at 0.0224 s. What survives in this leaf is the program-cache clear, the reset_static_cache module walk, s_init, pair_mask, the gate evaluations and the progress emissions. The census cannot split the two and neither can this row without its own capture, so the leaf is an upper bound.",
+      "reducible_s": 0.0,
+      "reducible_frac": null,
+      "reducible_argument": null
+    },
+    {
+      "item": "prepare",
+      "calls": 1,
+      "excl_s": 0.19155,
+      "class": "host",
+      "why": "parse + MSA resolve + tokenize + featurize. Called ONCE per fold, in tt_bio/worker.py:764, BEFORE predict_step, so it is outside the recycle loop.",
+      "reducible_s": 0.0,
+      "reducible_frac": 0.0,
+      "reducible_argument": "real work that runs once. The brief's candidate was feature prep recomputed per recycle; that is refuted at source (one call, before predict_step, outside the recycle loop), so there is no invariant to hoist. Any win here needs a faster featuriser, which is not free and is not priced, so this row claims none of it until it is."
+    },
+    {
+      "item": "predict_step/diffusion_cond/atom_encoder",
+      "calls": 1,
+      "excl_s": 0.17165,
+      "class": "moved",
+      "why": "the z_to_p_trans projection PairConditioningDevice is constructed with (tt_bio/boltz2.py _tt_cond_module passes dc.atom_encoder.z_to_p_trans).",
+      "reducible_s": 0.0,
+      "reducible_frac": null,
+      "reducible_argument": null
+    },
+    {
+      "item": "predict_step/sampler",
+      "calls": 1,
+      "excl_s": 0.08583,
+      "class": "host",
+      "why": "AtomDiffusion.sample's own loop body, the per-step arithmetic between the 200 denoiser calls.",
+      "reducible_s": 0.0,
+      "reducible_frac": 0.0,
+      "reducible_argument": "per-step host arithmetic. Reducible only onto the device, and 200 tiny programs run into the per-program launch floor, so it is not obviously a win there."
+    },
+    {
+      "item": "predict_step/rel_pos",
+      "calls": 1,
+      "excl_s": 0.08425,
+      "class": "moved",
+      "why": "the trunk-path RelativePositionEncoder, same device unit.",
+      "reducible_s": 0.0,
+      "reducible_frac": null,
+      "reducible_argument": null
+    },
+    {
+      "item": "predict_step/sampler/align",
+      "calls": 200,
+      "excl_s": 0.08073,
+      "class": "host",
+      "why": "weighted_rigid_align, 200 calls of host torch.",
+      "reducible_s": 0.0,
+      "reducible_frac": 0.0,
+      "reducible_argument": "same: 200 calls of host torch, device-only route."
+    },
+    {
+      "item": "predict_step/confidence/rel_pos",
+      "calls": 1,
+      "excl_s": 0.07749,
+      "class": "moved",
+      "why": "RelativePositionEncoder on the confidence path; RelPosGather is a device unit in c12-profiled-fold's book, 2 calls, 0.0280 s of device time.",
+      "reducible_s": 0.0,
+      "reducible_frac": null,
+      "reducible_argument": null
+    },
+    {
+      "item": "write_result",
+      "calls": 1,
+      "excl_s": 0.05702,
+      "class": "host",
+      "why": "CIF write + metrics, inside the timed region (model_meta.timed_region names it: featurize + fold + CIF write).",
+      "reducible_s": 0.0,
+      "reducible_frac": 0.0,
+      "reducible_argument": "irreducible against the campaign's own timed region, which ends with the file on disk. Deferring it stops the timer earlier rather than finishing sooner. Worth 0.0570 s of THROUGHPUT in a pipelined multi-target service, recorded separately, and nothing against the 12.5 s latency cell."
+    },
+    {
+      "item": "predict_step/input_embedder/atom_encoder",
+      "calls": 1,
+      "excl_s": 0.05531,
+      "class": "host",
+      "why": "AtomEncoder on the input-embedder path, host torch.",
+      "reducible_s": 0.0,
+      "reducible_frac": 0.0,
+      "reducible_argument": "same."
+    },
+    {
+      "item": "predict_step/input_embedder",
+      "calls": 1,
+      "excl_s": 0.05161,
+      "class": "host",
+      "why": "InputEmbedder.forward's own body, host torch with no device implementation.",
+      "reducible_s": 0.0,
+      "reducible_frac": 0.0,
+      "reducible_argument": "host torch, no device implementation. Device-only route."
+    },
+    {
+      "item": "predict_step/sampler/randaug",
+      "calls": 200,
+      "excl_s": 0.0203,
+      "class": "host",
+      "why": "compute_random_augmentation, 200 calls of host torch.",
+      "reducible_s": 0.0,
+      "reducible_frac": 0.0,
+      "reducible_argument": "same."
+    },
+    {
+      "item": "predict_step/sampler/denoiser",
+      "calls": 200,
+      "excl_s": 0.01853,
+      "class": "host",
+      "why": "preconditioned_network_forward's own wrapper body, 200 calls.",
+      "reducible_s": 0.0,
+      "reducible_frac": 0.0,
+      "reducible_argument": "wrapper body, 18.5 ms over 200 calls."
+    },
+    {
+      "item": "to_batch",
+      "calls": 1,
+      "excl_s": 0.00012,
+      "class": "host",
+      "why": "unsqueeze + move. 0.12 ms, a row only so the table has no glue remainder.",
+      "reducible_s": 0.0,
+      "reducible_frac": 0.0,
+      "reducible_argument": "0.12 ms."
+    },
+    {
+      "item": "predict_step/sampler/digest",
+      "calls": 1,
+      "excl_s": 0.0,
+      "class": "host",
+      "why": "_write_sample_digest, not enabled on this protocol.",
+      "reducible_s": 0.0,
+      "reducible_frac": 0.0,
+      "reducible_argument": "zero."
+    }
+  ],
+  "scaling_first_cut": {
+    "compared_against": "preflight_128.json",
+    "small_fold_s": 4.9736,
+    "small_unattributed_s": 0.0004,
+    "small_size_tokens": 128,
+    "token_ratio": 4.0,
+    "small_loadavg": [
+      "5.91",
+      "6.63",
+      "5.30"
+    ],
+    "large_loadavg": null,
+    "caveat": "ratios are LOWER bounds: the 128 leg ran at loadavg 5.91 against 2.34, and host rows inflate under load. Only leaves in both trees are compared, and no exponent is fitted from two points.",
+    "host_s_512_that_grows": 0.59957,
+    "host_s_512_that_is_flat": 0.20539,
+    "reading": "the host seconds at 512 aa are dominated by items that grow with the problem, and the per-step sampler glue is near flat in size, so it does not get worse at the sizes the campaign cares about",
+    "rows": [
+      {
+        "item": "predict_step",
+        "s_512": 0.351,
+        "s_128": 0.11446,
+        "ratio": 3.067,
+        "verdict": "grows with the problem"
+      },
+      {
+        "item": "prepare",
+        "s_512": 0.19155,
+        "s_128": 0.03937,
+        "ratio": 4.865,
+        "verdict": "grows with the problem"
+      },
+      {
+        "item": "predict_step/sampler",
+        "s_512": 0.08583,
+        "s_128": 0.05936,
+        "ratio": 1.446,
+        "verdict": "flat in size"
+      },
+      {
+        "item": "predict_step/sampler/align",
+        "s_512": 0.08073,
+        "s_128": 0.06556,
+        "ratio": 1.231,
+        "verdict": "flat in size"
+      },
+      {
+        "item": "write_result",
+        "s_512": 0.05702,
+        "s_128": 0.01596,
+        "ratio": 3.573,
+        "verdict": "grows with the problem"
+      },
+      {
+        "item": "predict_step/input_embedder/atom_encoder",
+        "s_512": 0.05531,
+        "s_128": null,
+        "ratio": null,
+        "note": "absent from the preflight patch set"
+      },
+      {
+        "item": "predict_step/input_embedder",
+        "s_512": 0.05161,
+        "s_128": null,
+        "ratio": null,
+        "note": "absent from the preflight patch set"
+      },
+      {
+        "item": "predict_step/sampler/randaug",
+        "s_512": 0.0203,
+        "s_128": 0.01831,
+        "ratio": 1.109,
+        "verdict": "flat in size"
+      },
+      {
+        "item": "predict_step/sampler/denoiser",
+        "s_512": 0.01853,
+        "s_128": 0.01601,
+        "ratio": 1.157,
+        "verdict": "flat in size"
+      },
+      {
+        "item": "to_batch",
+        "s_512": 0.00012,
+        "s_128": 8e-05,
+        "ratio": 1.5,
+        "verdict": "too small to call"
+      },
+      {
+        "item": "predict_step/sampler/digest",
+        "s_512": 0.0,
+        "s_128": 0.0,
+        "ratio": null,
+        "verdict": "too small to call"
+      }
+    ]
+  },
+  "instrument_perturbation": {
+    "512": {
+      "plain_folds_s": [
+        23.5913,
+        23.5605
+      ],
+      "plain_median_s": 23.5759,
+      "attrib_s": 23.5521,
+      "attrib_ratio": 0.999,
+      "loadavg_plain": [
+        [
+          "2.05",
+          "1.29",
+          "0.61"
+        ],
+        [
+          "2.34",
+          "1.40",
+          "0.67"
+        ]
+      ],
+      "loadavg_attrib": [
+        "2.34",
+        "1.49",
+        "0.72"
+      ],
+      "aa_floor_pct": 0.16,
+      "reading": "0.9990x against a 0.16 % A/A floor from the two plain folds of the same process, so the bracket instrument's perturbation at 512 aa is UNRESOLVABLE: it is smaller than the session's own noise. The table's seconds are the fold's, not the instrument's."
+    },
+    "128": {
+      "plain_folds_s": [
+        5.1162
+      ],
+      "plain_median_s": 5.1162,
+      "attrib_s": 4.9736,
+      "attrib_ratio": 0.9721,
+      "loadavg_plain": [
+        [
+          "6.25",
+          "6.71",
+          "5.32"
+        ]
+      ],
+      "loadavg_attrib": [
+        "5.91",
+        "6.63",
+        "5.30"
+      ],
+      "sample_s": 5.0182,
+      "sample_ratio_vs_plain": 0.9808,
+      "sample_ratio_vs_attrib": 1.009,
+      "reading": "the instrumented folds come out FASTER than the plain one here, which is not a negative overhead. The plain fold ran first in the process and the box was at loadavg 6.25, so this is warm-up plus noise and the only honest statement is that the effect is below the noise at this size too. The stack sampler adds 1.0090x on top of the brackets, which is the one resolvable number in this block."
+    },
+    "still_owed": "the fold wall with cProfile and with py-spy attached at 512 aa. cProfile is the heaviest arm in decomp.py and nothing committed measures it, so PERTURBATION: stays unfilled."
+  }
+}
