@@ -1,0 +1,672 @@
+{
+  "capture": "perf/c14_bfp8/cap_PairformerLayer_512.json.gz",
+  "min_mb": 60.0,
+  "calls": 264,
+  "rate_gbs": 364.84,
+  "buffers": [
+    {
+      "buffer": 22,
+      "mb": 268.435456,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.generic_op",
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "ours",
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 4,
+      "deleted_Z": 7.5,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 276,
+      "mb": 268.435456,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.generic_op",
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "ours",
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 4,
+      "deleted_Z": 7.5,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 6,
+      "mb": 67.108864,
+      "producer": "(pre-existing)",
+      "emit": "pre-existing",
+      "consumers": [
+        "ttnn.layer_norm",
+        "ttnn.add_",
+        "ttnn.layer_norm",
+        "ttnn.add_",
+        "ttnn.reshape",
+        "ttnn.layer_norm",
+        "ttnn.add_",
+        "ttnn.reshape",
+        "ttnn.permute",
+        "ttnn.add_",
+        "ttnn.chunk",
+        "ttnn.add_"
+      ],
+      "consumer_verdicts": [
+        "yes",
+        "yes",
+        "yes",
+        "yes",
+        "inherits",
+        "yes",
+        "yes",
+        "inherits",
+        "lossy",
+        "yes",
+        "risky",
+        "yes"
+      ],
+      "blockers": [
+        "lossy",
+        "risky"
+      ],
+      "eligible": false,
+      "passes": 12,
+      "deleted_Z": 5.625,
+      "bucket": "accumulator_excluded_Z"
+    },
+    {
+      "buffer": 12,
+      "mb": 67.108864,
+      "producer": "ttnn.layer_norm",
+      "emit": "no-out-dtype",
+      "consumers": [
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 2,
+      "deleted_Z": 0.9375,
+      "bucket": "upstream_blocked_Z"
+    },
+    {
+      "buffer": 29,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.multiply_"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "no-kernel"
+      ],
+      "blockers": [
+        "no-kernel",
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "upstream_blocked_Z"
+    },
+    {
+      "buffer": 72,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.matmul"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "yes"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 100,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.matmul"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "yes"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 136,
+      "mb": 67.108864,
+      "producer": "ttnn.matmul",
+      "emit": "yes",
+      "consumers": [
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 2,
+      "deleted_Z": 0.9375,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 156,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.layer_norm"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "yes"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 195,
+      "mb": 67.108864,
+      "producer": "ttnn.layer_norm",
+      "emit": "no-out-dtype",
+      "consumers": [
+        "ttnn.linear"
+      ],
+      "consumer_verdicts": [
+        "yes"
+      ],
+      "blockers": [],
+      "eligible": false,
+      "passes": 2,
+      "deleted_Z": 0.9375,
+      "bucket": "upstream_blocked_Z"
+    },
+    {
+      "buffer": 266,
+      "mb": 67.108864,
+      "producer": "ttnn.layer_norm",
+      "emit": "no-out-dtype",
+      "consumers": [
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 2,
+      "deleted_Z": 0.9375,
+      "bucket": "upstream_blocked_Z"
+    },
+    {
+      "buffer": 283,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.multiply_"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "no-kernel"
+      ],
+      "blockers": [
+        "no-kernel",
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "upstream_blocked_Z"
+    },
+    {
+      "buffer": 326,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.matmul"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "yes"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 354,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.matmul"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "yes"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 390,
+      "mb": 67.108864,
+      "producer": "ttnn.matmul",
+      "emit": "yes",
+      "consumers": [
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 2,
+      "deleted_Z": 0.9375,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 410,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.layer_norm"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "yes"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 449,
+      "mb": 67.108864,
+      "producer": "ttnn.layer_norm",
+      "emit": "no-out-dtype",
+      "consumers": [
+        "ttnn.linear"
+      ],
+      "consumer_verdicts": [
+        "yes"
+      ],
+      "blockers": [],
+      "eligible": false,
+      "passes": 2,
+      "deleted_Z": 0.9375,
+      "bucket": "upstream_blocked_Z"
+    },
+    {
+      "buffer": 526,
+      "mb": 67.108864,
+      "producer": "ttnn.layer_norm",
+      "emit": "no-out-dtype",
+      "consumers": [
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 2,
+      "deleted_Z": 0.9375,
+      "bucket": "upstream_blocked_Z"
+    },
+    {
+      "buffer": 536,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 543,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 550,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 557,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.multiply_"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "no-kernel"
+      ],
+      "blockers": [
+        "no-kernel",
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "upstream_blocked_Z"
+    },
+    {
+      "buffer": 654,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.multiply_",
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "no-kernel",
+        "ours"
+      ],
+      "blockers": [
+        "no-kernel",
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 4,
+      "deleted_Z": 1.875,
+      "bucket": "upstream_blocked_Z"
+    },
+    {
+      "buffer": 832,
+      "mb": 67.108864,
+      "producer": "ttnn.layer_norm",
+      "emit": "no-out-dtype",
+      "consumers": [
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 2,
+      "deleted_Z": 0.9375,
+      "bucket": "upstream_blocked_Z"
+    },
+    {
+      "buffer": 845,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 852,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 859,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "ours"
+      ],
+      "blockers": [
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "ours_to_fix_Z"
+    },
+    {
+      "buffer": 866,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.multiply_"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "no-kernel"
+      ],
+      "blockers": [
+        "no-kernel",
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "upstream_blocked_Z"
+    },
+    {
+      "buffer": 963,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.multiply_",
+        "ttnn.generic_op"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "no-kernel",
+        "ours"
+      ],
+      "blockers": [
+        "no-kernel",
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 4,
+      "deleted_Z": 1.875,
+      "bucket": "upstream_blocked_Z"
+    },
+    {
+      "buffer": 1046,
+      "mb": 67.108864,
+      "producer": "ttnn.allocate_tensor_on_device",
+      "emit": "ours",
+      "consumers": [
+        "ttnn.generic_op",
+        "ttnn.permute"
+      ],
+      "consumer_verdicts": [
+        "ours",
+        "lossy"
+      ],
+      "blockers": [
+        "lossy",
+        "ours"
+      ],
+      "eligible": false,
+      "passes": 3,
+      "deleted_Z": 1.40625,
+      "bucket": "upstream_blocked_Z"
+    }
+  ],
+  "totals_Z_per_layer": {
+    "all_Z": 55.78125,
+    "ours_to_fix_Z": 33.75,
+    "accumulator_excluded_Z": 5.625,
+    "upstream_blocked_Z": 16.40625
+  },
+  "fold_gb": {
+    "all_Z": 988.26190848,
+    "ours_to_fix_Z": 597.93997824,
+    "accumulator_excluded_Z": 99.65666304,
+    "upstream_blocked_Z": 290.6652672
+  },
+  "fold_seconds_at_rate": {
+    "all_Z": 2.708754271680737,
+    "ours_to_fix_Z": 1.6389101475715382,
+    "accumulator_excluded_Z": 0.27315169126192307,
+    "upstream_blocked_Z": 0.7966924328472756
+  }
+}
