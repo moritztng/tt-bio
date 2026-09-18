@@ -190,7 +190,9 @@ def build_stack(a, device, adapt_all=True):
     rng = np.random.default_rng(a.seed)
     for i in idxs:
         b = PairTrackBlock(blocks_sd[i], device, n_heads=8, head_dim=32,
-                           dtype=ttnn.bfloat16, adapter_dtype=ttnn.float32,
+                           dtype=ttnn.bfloat16,
+                           adapter_dtype=(ttnn.bfloat16 if a.adapter_dtype == "bf16"
+                                          else ttnn.float32),
                            lora=lora, adapt=adapt, rng=rng,
                            chunk=a.chunk, q_chunk=a.q_chunk)
         blocks.append(b)
@@ -322,7 +324,8 @@ def arm_train(a, device):
     held = [p for p, r in target_set(a) if r == "heldout"]
     tg = {p: load_target(p) for p in train + val + held}
     print(f"# {len(train)} train / {len(val)} val / {len(held)} held-out, lr {a.lr}, "
-          f"wd {a.weight_decay}, {a.steps} steps, val every {a.eval_every}")
+          f"wd {a.weight_decay}, {a.steps} steps, val every {a.eval_every}, "
+          f"clip {a.clip_norm}, adapter {a.adapter_dtype} on device, host master fp32")
     hist, curve = [], []
 
     def evaluate(names, tag=None):
@@ -544,6 +547,14 @@ def main():
     # the fine-tune is owed; until it exists, do not quote the two configurations
     # against each other.
     ap.add_argument("--clip-norm", type=float, default=0.0)
+    # THE ADAPTER DTYPE IS NOT A FREE CHOICE and this default is the wrong one, kept only
+    # until the fine-tune is re-measured. perf/ptxft/single_track.py reads an fp32 weight
+    # against a bf16 activation at 2.13e-01 on a forward where bf16/bf16 reads 8.16e-03,
+    # and perf/ptxft/overfit.py shows what that costs end to end: two targets plateau at
+    # CE 1.10/1.50 with an fp32 device weight and reach 1.9e-04 with a bf16 one. The
+    # recorded 112-step fine-tune and its -4.04 % held-out improvement ran at fp32, so
+    # the default stays there until a bf16 run replaces the number it is quoted against.
+    ap.add_argument("--adapter-dtype", default="fp32", choices=["bf16", "fp32"])
     ap.add_argument("--steps", type=int, default=20)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--chunk", type=int, default=None)
