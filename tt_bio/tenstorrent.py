@@ -300,9 +300,27 @@ _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 # is silu-specific and program-config-invariant: a fused relu costs +2.4 us and a fused gelu +141.3
 # against its own 135.3 standalone, and the +174 holds across eight explicit
 # MatmulMultiCoreReuseMultiCast configs. So unfusing pays a full L1 round trip and still wins,
-# because the fused path runs silu at half the SFPU rate the standalone op reaches. Release-gated:
-# the unfused form applies silu to the bf16-packed matmul output rather than to the fp32 dest
-# accumulator, so it is not bit-exact.
+# because the fused path runs silu at half the SFPU rate the standalone op reaches.
+#
+# DEFAULT OFF, and held there by Moritz on measured accuracy, not on bit-exactness. On cdk2x2_512
+# with this flag on, Protenix-v2 loses 0.05088 and 0.07210 CA-lDDT per domain against 1HCL and the
+# two arms are fully rank-separated over four seeds: the worst flag-off fold scores 0.03905 and
+# 0.05107 above the best flag-on one. Boltz-2 (-0.00091 / -0.00265, four seeds) and OpenFold3
+# (-0.01238 / -0.00251, two seeds) are clean on the same fixture, which is why a Boltz-2-only
+# screen clears this lever and Protenix-v2 does not, and why a structural seed-floor reading
+# cannot see it: Protenix-v2 scatters widely on that fixture while landing at the same quality
+# every time, so only the comparison against the experimental answer separates the arms. Do not
+# reopen without a Protenix-v2 CA-lDDT-vs-1HCL re-score on the configuration you want to ship.
+# Set TT_BIO_UNFUSED_SILU=1 for the unfused form: at 512 aa cdk2x2 on a qb2 p300c at a forced
+# 1350 MHz it is worth +0.2336 s paired over 5 interleaved reps (95 % CI [+0.1024,+0.3648])
+# against that session's paired A/A floor of +0.0324 s +/-0.1087.
+#
+# SCOPE, because this one is wide and the flag's name does not say so: `Transition` is the shared
+# swiglu block, so the default reaches every model that builds it -- boltz-2, protenix
+# (protenix.py:911, :2110, :2143, :2472, :2502), openfold3's MSA embedder
+# (openfold3_msa_embedder.py:81) and the pairformer/msa stacks in this file. It is not a boltz-2
+# lever. openfold3's diffusion stack has its own _SwiGLUTransition and af2 its own ReluTransition,
+# neither of which reads this flag.
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
@@ -1393,9 +1411,27 @@ _ATOM_SHIFT_GATHER_OFF = not env_flag("TT_BIO_ATOM_SHIFT_GATHER", True)
 _ATOM_AXIS_BUCKET = env_flag("TT_BIO_ATOM_AXIS_BUCKET", True)
 ATOM_AXIS_BUCKET_STATS = [0, 0]      # [served, declined], one pair per fold
 
-# Boltz-2 diffusion, three levers under A/B. All three are boltz-2-exclusive by construction:
-# DiffusionTransformer is built only by tenstorrent.Diffusion, and atom_level=True AdaLN exists
-# nowhere else (protenix and openfold3 have their own classes and pass atom_level=False).
+# Three diffusion levers under A/B. Only ONE of them is boltz-2-exclusive; the earlier claim here
+# that all three were is wrong, and wrong in the direction that hides an unmeasured default.
+# The actual scope, checked against every construction site:
+#
+#   L7 BOLTZ2_BIAS_SLICE_HOIST   boltz-2 only. It lives in `DiffusionModule._hoist_layer_bias`,
+#                                and tenstorrent.DiffusionModule is built only by boltz2.py:4232
+#                                and main.py:3486. RF3, protenix and pxdesign each have their own
+#                                DiffusionModule class with a different signature.
+#   L6 BOLTZ2_ADALN_S_MEMO       NOT exclusive. It gates on `atom_level`, and RF3 passes
+#                                atom_level=True at rf3/atom_encoder.py:139 and
+#                                rf3/diffusion_atom_decoder.py:50. RF3 inherits this default today.
+#   L8 TT_BIO_DIT_COND_HOIST     NOT exclusive. It gates on `not atom_level`, and RF3 passes
+#                                atom_level=False at rf3/token_dit.py:84, which imports this very
+#                                class. Flipping L8's default flips it for RF3's token DiT too.
+#
+# `tenstorrent.DiffusionTransformer` is built at seven sites, not three: boltz-2's atom encoder
+# (:10628), token transformer (:10645) and atom decoder (:10658), RF3's token DiT, atom encoder
+# and atom decoder, and reference.py:1449. BoltzGen is genuinely out of scope, it has its own
+# torch DiffusionTransformer at boltzgen/model/modules/transformers.py:70, and so is openfold3
+# via OF3DiffusionTransformer. Keep the levers unified rather than gating them per model
+# (standing rule), but measure the models that inherit them before a default flips.
 #
 # L7: cut each layer's head-range out of the attention bias once per fold instead of once per
 # denoise step. The bias is uploaded by _populate_diffusion_cache and is constant across all
@@ -1419,9 +1455,30 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 # changes is the grouping of the launches and the order of one bf16 rounding.
 # Measured integrated over a whole step (perf/roof_difftx): 15.0004 -> 13.2218 ms on a Blackhole
 # p150a, 1.1345x, against a 0.27 % A/A floor -- and 1.0122x on Wormhole, where the concatenation
-# gain and the slice tax cancel. Default OFF: release-gated until a qb2 fold-level A/B and the
-# structure arm have run. Read at CALL time, not import time, so an interleaved A/B can flip it.
-_B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", False)
+# gain and the slice tax cancel. On a qb2 p300c at 1350 MHz, walling this block directly
+# (perf/c12_cond_hoist) reads 1.071x and 1.085x across two sessions: 0.213-0.257 s of a 14.9 s fold,
+# against a block A/A floor of 0.033-0.041 s. The FOLD cannot see that. Its A/A on a shared box is
+# 0.8-1.5 s and three fold-only sessions disagreed in sign, so measure this at the block.
+# The structure arm has run and is favourable on every cell (512 aa CA-lDDT 0.93755 -> 0.93935,
+# 298 aa CA-RMSD 0.77143 -> 0.76557 A), against a 0.60 A kill bar with a 1.84 A seed floor beside it.
+# The win holds across the size axis and decays with it: block delta +0.2809 s at 298 aa,
+# +0.2415 s at 512 aa and +0.1811 s at 768 aa (379.2, 326.0 and 244.6 Mcycles at 1350 MHz), each
+# above its own interleaved A/A and with the two arms' rep ranges not overlapping at any size.
+# The saving is a per-call fixed cost, not bandwidth: the deleted norm traffic grows 2.58x from
+# 298 to 768 aa while the saving falls to 0.64x, and the saving is 13.9x / 7.0x / 3.5x what those
+# bytes are worth at the measured 435.2 GB/s DRAM roof.
+# `_cond_weights()` is built in `__init__` when this is on, so its ~0.30 s lands at model load:
+# lazily it fell inside the first hoisted fold, which left a one-fold process worse off than
+# leaving the lever off.
+#
+# DEFAULT ON since 2026-09-18. Worth +0.2052 s at the 512 aa cdk2x2 fold, paired over 5
+# interleaved reps at a forced 1350 MHz (95 % CI [+0.1561,+0.2543], arm means 14.5880 -> 14.3920 s)
+# against that session's paired A/A floor of +0.0324 s +/-0.1087. That single-lever figure is the
+# one that ships. The same session also carried TT_BIO_UNFUSED_SILU and read +0.4798 s for the
+# pair, but that flag is held off on a Protenix-v2 accuracy regression, so the stack number does
+# not describe any default. Set TT_BIO_DIT_COND_HOIST=0 to get the per-step form back.
+# Read at CALL time, not import time, so an interleaved A/B can flip it.
+_B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", True)
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
@@ -9729,6 +9786,15 @@ class DiffusionTransformer(Module):
         self.atom_level = atom_level
         self.dim = dim
         self._cond_w = None
+        # L8. Build the concatenated conditioning blocks HERE when the lever is on, not at first
+        # use. The concatenation costs 0.54-0.57 s once per process (measured, perf/c12_cond_hoist
+        # sessions 2-4) against 0.21-0.28 s saved per fold, so paying it lazily charges the first
+        # fold for all of it and leaves a process that folds exactly once worse off. At model load
+        # it sits with the rest of the model's setup, where a one-time cost belongs.
+        # Still lazy-safe below: a run that flips the attribute after construction, which is how
+        # the interleaved A/B selects its arm, finds `_cond_w is None` and builds on demand.
+        if _B2_DIT_COND_HOIST and not atom_level:
+            self._cond_weights()
 
     def _cond_weights(self):
         """The 24 layers' conditioning projections, concatenated into two weight blocks.

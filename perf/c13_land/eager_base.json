@@ -1,0 +1,15 @@
+{
+ "arm": "base",
+ "size": "298",
+ "flag_at_import": false,
+ "model_load_s": 2.604,
+ "fold_s": [
+  10.0,
+  9.599
+ ],
+ "builds_at_load": [],
+ "builds_in_fold": [],
+ "n_builds_at_load": 0,
+ "n_builds_in_fold": 0
+}
+PASS base: 0 build(s) at load (0.0000s), 0 in fold

@@ -164,10 +164,18 @@ check("the diff adds executable code only inside the flag guard",
       and re.match(r"\s*if _B2_DIT_COND_HOIST and not atom_level:", code_added[0])
       and re.match(r"\s*self\._cond_weights\(\)", code_added[1]),
       f"code_added={code_added}")
-check("the flag's shipped default is still False",
-      re.search(r'_B2_DIT_COND_HOIST\s*=\s*env_flag\("TT_BIO_DIT_COND_HOIST",\s*False\)', src)
-      is not None,
-      "env_flag(..., False)")
+# The shipped default was False when this scope check was written, and c13-land-first flipped it
+# to True on 2026-09-18 after the fold re-measure and the accuracy re-score. So this reports the
+# default instead of asserting one value: a check that fails because the landing it was written to
+# clear actually happened is a landmine, not a finding. What the check above still enforces is the
+# thing that does not expire -- the added code sits inside the flag guard and nowhere else.
+_default = re.search(
+    r'_B2_DIT_COND_HOIST\s*=\s*env_flag\("TT_BIO_DIT_COND_HOIST",\s*(True|False)\)', src)
+check("the flag's shipped default is readable from source",
+      _default is not None,
+      "no env_flag(\"TT_BIO_DIT_COND_HOIST\", ...) line found")
+print(f"    shipped default: TT_BIO_DIT_COND_HOIST="
+      f"{_default.group(1) if _default else '?'}")
 
 # ---------------------------------------------------------------------------------------------
 # 4. WRONG vs IMPRECISE, settled from source. RF3 passes no_residual=True and a_to_b_gate=False.
