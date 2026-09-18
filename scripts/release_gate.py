@@ -3202,6 +3202,7 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dic
                                                     where))
     measured_k = {}
     drifted = False
+    fragile = set()
     for interval, be in (base_model.get("exponents") or {}).items():
         n1, n2 = (int(x) for x in interval.split("->"))
         t1 = meas["runtime_s"].get(str(n1))
@@ -3212,11 +3213,17 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dic
         measured_k[interval] = round(k, 3)
         if abs(k - be["k"]) > be["tol"]:
             drifted = True
+            fragile.add(interval)
             findings.append(f"{model} {interval}: exponent {be['k']:.2f} -> {k:.2f} "
                             f"outside ±{be['tol']:.2f}")
     if drifted:
         findings.append(_size_ladder_rung_localisation(
             model, base_model.get("runtime_s") or {}, meas["runtime_s"]))
+        for interval in sorted(fragile):
+            note = _size_ladder_denominator_fragility(
+                model, interval, base_model, base_model.get("runtime_s") or {})
+            if note:
+                findings.append(note)
     return {"model": model, "gate": not findings,
             "error": "; ".join(findings) or None, "findings": findings,
             "runtime_s": meas["runtime_s"], "exponents": measured_k,
@@ -3264,6 +3271,60 @@ def _size_ladder_lever_todo(entry: dict) -> str:
 #: p300c so far (openfold3 read 0.950-1.054x across six rungs on 2026-09-18 and passed), so 5 %
 #: flags a real shift without firing on ladder noise.
 SIZE_LADDER_RUNG_MOVED = 0.05
+
+
+def _size_ladder_denominator_fragility(model: str, interval: str, base_model: dict,
+                                       base_rt: dict) -> str | None:
+    """Say when a failed exponent's DENOMINATOR is too short and too single-shot to carry it.
+
+    An exponent k = ln(t2/t1)/ln(N2/N1) divides by the lower rung, so its sensitivity to that
+    rung is dk/dt1 = -1/(t1 * ln(N2/N1)) -- largest exactly where t1 is smallest. The ladder's
+    lowest rung folds in 4-9 s and is recorded single-shot (`reps: 1`), while sigma is measured at
+    the MIDDLE rung (512 aa on the fold arm). So a model can be perfectly quiet where its noise is
+    characterised and wildly variable where its exponent is divided, and the median-of-3 escape
+    hatch never fires because it is keyed off the sigma rung.
+
+    Measured, 2026-09-18, THIRD sighting of this class:
+      * boltz2 256 aa read 4.1 s recorded and 6.5 s checked. Re-measuring 3 reps interleaved with
+        the lever off and on gave 4.2/4.1/6.8 against 4.3/4.3/4.1 -- the slow mode hits BOTH arms,
+        minima 4.1 vs 4.1, so the lever's effect there is <= 0.1 s. Recomputed on the reproducible
+        4.1 the exponent is 1.410 against a baseline 1.411: PASS. Not a clock artifact either --
+        AICLK sampled at 4 Hz showed the SLOW draws at the HIGHER clock (6.8 s at 1174 MHz against
+        4.1 s at 1073 MHz), so that hypothesis was refuted rather than assumed.
+      * openbind is the mirror image: 6.5 s is the clean mode and the BASELINE's 9.3 s is the
+        contended draw, so that cell is stale rather than the check being wrong.
+      * openfold3 is the first sighting, documented at the re-measure below: "recorded 15.8 s at
+        256 and checked at 7.3 s on the same card and commit, failing its own 256->512 exponent by
+        0.96 with nothing changed but how many folds the number came from."
+
+    Diagnostic only, on purpose. Changing the estimator here would bias every recorded cell at
+    once -- contention is one-sided, so a min-of-N check against a single-shot baseline shifts
+    every exponent downward -- and a silent migration of the reference the whole fleet gates on is
+    worse than a loud finding. So this states the arithmetic and names the remedy.
+    """
+    try:
+        n1, n2 = (int(x) for x in interval.split("->"))
+    except ValueError:
+        return None
+    if n1 != min(_size_ladder_model_rungs(model)):
+        return None                      # only the denominator rung has this sensitivity
+    if (base_model.get("reps") or 1) > 1:
+        return None                      # already carries a median; not the single-shot case
+    t1 = base_rt.get(str(n1))
+    tol = ((base_model.get("exponents") or {}).get(interval) or {}).get("tol")
+    if not t1 or not tol:
+        return None
+    # The perturbation of t1 that alone consumes the whole tolerance.
+    dt = tol * t1 * math.log(n2 / n1)
+    return (f"{model} {interval}: the denominator is the {n1} aa rung at {t1:.1f} s recorded "
+            f"SINGLE-SHOT (reps 1), and sigma was measured at {_size_ladder_sigma_rung(model)} aa, "
+            f"not here. +/-{tol:.2f} on this exponent is equivalent to just {dt:.2f} s on that "
+            f"rung ({1 + dt / t1:.2f}x one fold), so one host event trips this check on its own. "
+            f"Third sighting of this class (openfold3, boltz2, openbind). Before attributing it to "
+            f"the change: re-measure {n1} aa with 3 reps interleaved off/on and compare MINIMA "
+            f"(host contention is one-sided, so the min is the robust statistic), and check the "
+            f"clock per fold rather than assuming -- the slow draws in the boltz2 case ran at the "
+            f"HIGHER clock. If the minima agree, the baseline cell is stale: re-record it.")
 
 
 def _size_ladder_rung_localisation(model: str, base_rt: dict, meas_rt: dict) -> str:
