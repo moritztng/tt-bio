@@ -114,6 +114,12 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=9)
     ap.add_argument("--warm", type=int, default=2)
     ap.add_argument("--min-fold-s", type=float, default=0.03)
+    # Which groups to screen, by the in0_block_w the FOLD resolves for them. Default 1, the
+    # starved ones. Pass 4 as well to screen groups the fold is NOT starved on -- needed because
+    #  fires on any short-M shape in its class, including the three
+    # DiT shapes the fold already runs at 4, and a config the lever CHANGES but nobody measured is
+    # how a win turns into a wash.
+    ap.add_argument("--fold-bw", default="1")
     ap.add_argument("--max-shapes", type=int, default=8)
     ap.add_argument("--clock", type=int, default=1350)
     ap.add_argument("--node", type=int, default=3)
@@ -123,8 +129,10 @@ def main() -> int:
     import torch
     from tt_bio import tenstorrent as T
 
+    want_bw = {int(x) for x in a.fold_bw.split(",") if x}
     groups = [g for g in json.loads(a.configs.read_text())
-              if g["in0_block_w"] == 1 and g["k_tiles"] > 1 and g["fold_s"] >= a.min_fold_s]
+              if g["in0_block_w"] in want_bw and g["k_tiles"] > 1
+              and g["fold_s"] >= a.min_fold_s]
     groups = groups[:a.max_shapes]
     print("screening %d starved groups, %.4f s of fold time"
           % (len(groups), sum(g["fold_s"] for g in groups)), flush=True)
@@ -220,7 +228,8 @@ def main() -> int:
         # in0 CB per core is per_core_M x bw tiles double buffered; keep it under 1 MB of the
         # 1.46 MB usable L1 so the ladder is refused by the DEVICE, not by this bench.
         cap = max(1, int(1.0e6 // (cfg["per_core_M"] * 2 * 2048)))
-        bws = divisors_upto(kt, min(kt, cap))
+        bws = sorted(set(divisors_upto(kt, min(kt, cap))) | {grp["in0_block_w"]})
+        ref = grp["in0_block_w"] if grp["in0_block_w"] in bws else bws[0]
         if len(bws) < 2:
             print("SKIP %s: kt=%d, per_core_M=%d leaves no wider block (cap %d)"
                   % (grp["shape"], kt, cfg["per_core_M"], cap), flush=True)
@@ -308,13 +317,13 @@ def main() -> int:
             if bias is not None:
                 ttnn.deallocate(bias)
             continue
-        base = rows[live[0]]["us_per_call"]
+        base = rows[ref if ref in rows else live[0]]["us_per_call"]
         for bw in live:
             rows[bw]["ratio_to_bw1"] = round(rows[bw]["us_per_call"] / base, 4)
         best = min(live, key=lambda bw: rows[bw]["us_per_call"])
         entry = {"shape": grp["shape"], "k_tiles": kt, "factory": fac, "cfg": cfg,
                  "mem": grp["mem"], "bias": grp["bias"], "cores": grp["cores"],
-                 "chain": chain, "cap": cap, "bws": live,
+                 "chain": chain, "cap": cap, "bws": live, "ref_bw": ref,
                  "fold_us_per_call": grp["us_per_call"], "fold_s": grp["fold_s"],
                  "calls": grp["calls"], "rows": rows, "best_bw": best,
                  "bench_reproduces_fold": round(base / grp["us_per_call"], 4),

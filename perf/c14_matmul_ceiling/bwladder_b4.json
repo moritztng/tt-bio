@@ -1,0 +1,702 @@
+{
+ "env": {
+  "node": 3,
+  "clock": 1350,
+  "grid": [
+   11,
+   10
+  ],
+  "tag": "b4",
+  "reps": 11,
+  "t_open": 1789738712.127203,
+  "ttnn": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/__init__.py",
+  "clk_end": 1350,
+  "t_close": 1789738734.0993674
+ },
+ "controls": {
+  "cube8192": {
+   "flops_route1": 1099511627776.0,
+   "flops_route2": 1099511627776.0,
+   "tflops": 115.658,
+   "band": [
+    112,
+    128
+   ],
+   "pass": true
+  },
+  "dram_add": {
+   "bytes": 402653184,
+   "gbs": 428.8,
+   "band": [
+    400,
+    460
+   ],
+   "pass": true
+  }
+ },
+ "groups": [
+  {
+   "shape": [
+    1,
+    512,
+    768,
+    1536
+   ],
+   "k_tiles": 24,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "cfg": {
+    "in0_block_w": 4,
+    "out_subblock_h": 1,
+    "out_subblock_w": 1,
+    "out_block_h": 2,
+    "out_block_w": 5,
+    "per_core_M": 2,
+    "per_core_N": 5,
+    "fuse_batch": 1,
+    "transpose_mcast": 0
+   },
+   "mem": [
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED"
+   ],
+   "bias": false,
+   "cores": 80,
+   "chain": 8,
+   "cap": 122,
+   "bws": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    8,
+    12,
+    24
+   ],
+   "ref_bw": null,
+   "fold_us_per_call": 22.628,
+   "fold_s": 0.34394,
+   "calls": 15200.0,
+   "rows": {
+    "1": {
+     "us_per_call": 33.526,
+     "min_us": 33.297,
+     "spread_pct": 4.337,
+     "ratio_to_bw1": 1.0,
+     "values": {
+      "equal": true,
+      "max_abs": 0.0
+     }
+    },
+    "2": {
+     "us_per_call": 28.143,
+     "min_us": 27.93,
+     "spread_pct": 4.601,
+     "ratio_to_bw1": 0.8394,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.0037313432835820895
+     }
+    },
+    "3": {
+     "us_per_call": 26.491,
+     "min_us": 26.189,
+     "spread_pct": 3.664,
+     "ratio_to_bw1": 0.7902,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.0037313432835820895
+     }
+    },
+    "4": {
+     "us_per_call": 25.632,
+     "min_us": 25.453,
+     "spread_pct": 2.565,
+     "ratio_to_bw1": 0.7645,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.0037313432835820895
+     }
+    },
+    "6": {
+     "us_per_call": 24.396,
+     "min_us": 24.288,
+     "spread_pct": 2.931,
+     "ratio_to_bw1": 0.7277,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.0037313432835820895
+     }
+    },
+    "8": {
+     "us_per_call": 23.815,
+     "min_us": 23.766,
+     "spread_pct": 2.84,
+     "ratio_to_bw1": 0.7103,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.0037313432835820895
+     }
+    },
+    "12": {
+     "us_per_call": 23.198,
+     "min_us": 23.015,
+     "spread_pct": 3.099,
+     "ratio_to_bw1": 0.6919,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.0037313432835820895
+     }
+    },
+    "24": {
+     "us_per_call": 27.339,
+     "min_us": 27.097,
+     "spread_pct": 4.416,
+     "ratio_to_bw1": 0.8155,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.0037313432835820895
+     }
+    }
+   },
+   "best_bw": 12,
+   "bench_reproduces_fold": 1.4816,
+   "fold_s_at_best": 0.35261,
+   "priceable": false,
+   "delta_s": 0.0,
+   "band_s_if_priceable": 0.10597
+  },
+  {
+   "shape": [
+    1,
+    512,
+    768,
+    768
+   ],
+   "k_tiles": 24,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "cfg": {
+    "in0_block_w": 4,
+    "out_subblock_h": 1,
+    "out_subblock_w": 3,
+    "out_block_h": 2,
+    "out_block_w": 3,
+    "per_core_M": 2,
+    "per_core_N": 3,
+    "fuse_batch": 1,
+    "transpose_mcast": 0
+   },
+   "mem": [
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED"
+   ],
+   "bias": true,
+   "cores": 64,
+   "chain": 8,
+   "cap": 122,
+   "bws": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    8,
+    12,
+    24
+   ],
+   "ref_bw": null,
+   "fold_us_per_call": 17.344,
+   "fold_s": 0.33647,
+   "calls": 19400.0,
+   "rows": {
+    "1": {
+     "us_per_call": 27.517,
+     "min_us": 26.524,
+     "spread_pct": 1007.451,
+     "ratio_to_bw1": 1.0,
+     "values": {
+      "equal": true,
+      "max_abs": 0.0
+     }
+    },
+    "2": {
+     "us_per_call": 20.719,
+     "min_us": 20.117,
+     "spread_pct": 30.633,
+     "ratio_to_bw1": 0.753,
+     "values": {
+      "equal": false,
+      "max_abs": 0.0625,
+      "rel": 0.0004496402877697842
+     }
+    },
+    "3": {
+     "us_per_call": 19.229,
+     "min_us": 18.629,
+     "spread_pct": 10.544,
+     "ratio_to_bw1": 0.6988,
+     "values": {
+      "equal": false,
+      "max_abs": 0.125,
+      "rel": 0.0008992805755395684
+     }
+    },
+    "4": {
+     "us_per_call": 18.51,
+     "min_us": 18.06,
+     "spread_pct": 33.66,
+     "ratio_to_bw1": 0.6727,
+     "values": {
+      "equal": false,
+      "max_abs": 0.125,
+      "rel": 0.0008992805755395684
+     }
+    },
+    "6": {
+     "us_per_call": 17.999,
+     "min_us": 17.502,
+     "spread_pct": 7.098,
+     "ratio_to_bw1": 0.6541,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.0017985611510791368
+     }
+    },
+    "8": {
+     "us_per_call": 17.811,
+     "min_us": 17.488,
+     "spread_pct": 23.435,
+     "ratio_to_bw1": 0.6473,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.0017985611510791368
+     }
+    },
+    "12": {
+     "us_per_call": 18.675,
+     "min_us": 18.433,
+     "spread_pct": 3.816,
+     "ratio_to_bw1": 0.6787,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.0017985611510791368
+     }
+    },
+    "24": {
+     "us_per_call": 20.995,
+     "min_us": 20.68,
+     "spread_pct": 7.385,
+     "ratio_to_bw1": 0.763,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.0017985611510791368
+     }
+    }
+   },
+   "best_bw": 8,
+   "bench_reproduces_fold": 1.5865,
+   "fold_s_at_best": 0.34553,
+   "priceable": false,
+   "delta_s": 0.0,
+   "band_s_if_priceable": 0.11867
+  },
+  {
+   "shape": [
+    1,
+    512,
+    768,
+    3072
+   ],
+   "k_tiles": 24,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "cfg": {
+    "in0_block_w": 4,
+    "out_subblock_h": 1,
+    "out_subblock_w": 3,
+    "out_block_h": 2,
+    "out_block_w": 9,
+    "per_core_M": 2,
+    "per_core_N": 9,
+    "fuse_batch": 1,
+    "transpose_mcast": 0
+   },
+   "mem": [
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED"
+   ],
+   "bias": true,
+   "cores": 88,
+   "chain": 8,
+   "cap": 122,
+   "bws": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    8,
+    12,
+    24
+   ],
+   "ref_bw": null,
+   "fold_us_per_call": 40.101,
+   "fold_s": 0.19248,
+   "calls": 4800.0,
+   "rows": {
+    "1": {
+     "us_per_call": 48.584,
+     "min_us": 48.22,
+     "spread_pct": 12.072,
+     "ratio_to_bw1": 1.0,
+     "values": {
+      "equal": true,
+      "max_abs": 0.0
+     }
+    },
+    "2": {
+     "us_per_call": 43.653,
+     "min_us": 43.486,
+     "spread_pct": 4.659,
+     "ratio_to_bw1": 0.8985,
+     "values": {
+      "equal": false,
+      "max_abs": 0.125,
+      "rel": 0.0008503401360544217
+     }
+    },
+    "3": {
+     "us_per_call": 43.481,
+     "min_us": 42.925,
+     "spread_pct": 2.411,
+     "ratio_to_bw1": 0.895,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.0017006802721088435
+     }
+    },
+    "4": {
+     "us_per_call": 43.174,
+     "min_us": 42.841,
+     "spread_pct": 19.484,
+     "ratio_to_bw1": 0.8886,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.0017006802721088435
+     }
+    },
+    "6": {
+     "us_per_call": 44.418,
+     "min_us": 43.972,
+     "spread_pct": 3.623,
+     "ratio_to_bw1": 0.9143,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.0017006802721088435
+     }
+    },
+    "8": {
+     "us_per_call": 45.134,
+     "min_us": 44.937,
+     "spread_pct": 1.354,
+     "ratio_to_bw1": 0.929,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.0017006802721088435
+     }
+    },
+    "12": {
+     "us_per_call": 48.083,
+     "min_us": 47.686,
+     "spread_pct": 2.516,
+     "ratio_to_bw1": 0.9897,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.0017006802721088435
+     }
+    },
+    "24": {
+     "us_per_call": 55.018,
+     "min_us": 54.183,
+     "spread_pct": 2.549,
+     "ratio_to_bw1": 1.1324,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.003401360544217687
+     }
+    }
+   },
+   "best_bw": 4,
+   "bench_reproduces_fold": 1.2115,
+   "fold_s_at_best": 0.20724,
+   "priceable": false,
+   "delta_s": 0.0,
+   "band_s_if_priceable": 0.02144
+  },
+  {
+   "shape": [
+    512,
+    512,
+    128,
+    128
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "cfg": {
+    "in0_block_w": 4,
+    "out_subblock_h": 1,
+    "out_subblock_w": 4,
+    "out_block_h": 5,
+    "out_block_w": 4,
+    "per_core_M": 75,
+    "per_core_N": 4,
+    "fuse_batch": 1,
+    "mcast_in0": 0,
+    "gather_in0": 0,
+    "num_global_cb_receivers": 1,
+    "untilize_out": 0
+   },
+   "mem": [
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_L1_INTERLEAVED"
+   ],
+   "bias": false,
+   "cores": 110,
+   "chain": 1,
+   "cap": 3,
+   "bws": [
+    1,
+    2,
+    4
+   ],
+   "ref_bw": null,
+   "fold_us_per_call": 310.851,
+   "fold_s": 0.17408,
+   "calls": 560.0,
+   "rows": {
+    "1": {
+     "us_per_call": 381.519,
+     "min_us": 375.608,
+     "spread_pct": 2.311,
+     "ratio_to_bw1": 1.0,
+     "values": {
+      "equal": true,
+      "max_abs": 0.0
+     }
+    },
+    "2": {
+     "us_per_call": 304.585,
+     "min_us": 299.745,
+     "spread_pct": 3.529,
+     "ratio_to_bw1": 0.7983,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.0038461538461538464
+     }
+    },
+    "4": {
+     "us_per_call": 317.188,
+     "min_us": 310.005,
+     "spread_pct": 4.763,
+     "ratio_to_bw1": 0.8314,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.0038461538461538464
+     }
+    }
+   },
+   "best_bw": 2,
+   "bench_reproduces_fold": 1.2273,
+   "fold_s_at_best": 0.17057,
+   "priceable": false,
+   "delta_s": 0.0,
+   "band_s_if_priceable": 0.03511
+  },
+  {
+   "shape": [
+    1,
+    512,
+    1536,
+    768
+   ],
+   "k_tiles": 48,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "cfg": {
+    "in0_block_w": 4,
+    "out_subblock_h": 1,
+    "out_subblock_w": 3,
+    "out_block_h": 2,
+    "out_block_w": 3,
+    "per_core_M": 2,
+    "per_core_N": 3,
+    "fuse_batch": 1,
+    "transpose_mcast": 0
+   },
+   "mem": [
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED"
+   ],
+   "bias": false,
+   "cores": 64,
+   "chain": 8,
+   "cap": 122,
+   "bws": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    8,
+    12,
+    16,
+    24,
+    48
+   ],
+   "ref_bw": null,
+   "fold_us_per_call": 23.282,
+   "fold_s": 0.12107,
+   "calls": 5200.0,
+   "rows": {
+    "1": {
+     "us_per_call": 44.637,
+     "min_us": 44.396,
+     "spread_pct": 10.277,
+     "ratio_to_bw1": 1.0,
+     "values": {
+      "equal": true,
+      "max_abs": 0.0
+     }
+    },
+    "2": {
+     "us_per_call": 31.904,
+     "min_us": 31.257,
+     "spread_pct": 3.666,
+     "ratio_to_bw1": 0.7147,
+     "values": {
+      "equal": false,
+      "max_abs": 1.0,
+      "rel": 0.005649717514124294
+     }
+    },
+    "3": {
+     "us_per_call": 28.595,
+     "min_us": 27.797,
+     "spread_pct": 6.854,
+     "ratio_to_bw1": 0.6406,
+     "values": {
+      "equal": false,
+      "max_abs": 1.0,
+      "rel": 0.005649717514124294
+     }
+    },
+    "4": {
+     "us_per_call": 26.583,
+     "min_us": 26.441,
+     "spread_pct": 4.778,
+     "ratio_to_bw1": 0.5955,
+     "values": {
+      "equal": false,
+      "max_abs": 1.0,
+      "rel": 0.005649717514124294
+     }
+    },
+    "6": {
+     "us_per_call": 25.002,
+     "min_us": 24.907,
+     "spread_pct": 3.065,
+     "ratio_to_bw1": 0.5601,
+     "values": {
+      "equal": false,
+      "max_abs": 1.0,
+      "rel": 0.005649717514124294
+     }
+    },
+    "8": {
+     "us_per_call": 24.697,
+     "min_us": 24.06,
+     "spread_pct": 5.294,
+     "ratio_to_bw1": 0.5533,
+     "values": {
+      "equal": false,
+      "max_abs": 1.0,
+      "rel": 0.005649717514124294
+     }
+    },
+    "12": {
+     "us_per_call": 24.862,
+     "min_us": 24.176,
+     "spread_pct": 5.863,
+     "ratio_to_bw1": 0.557,
+     "values": {
+      "equal": false,
+      "max_abs": 1.0,
+      "rel": 0.005649717514124294
+     }
+    },
+    "16": {
+     "us_per_call": 24.609,
+     "min_us": 24.528,
+     "spread_pct": 4.596,
+     "ratio_to_bw1": 0.5513,
+     "values": {
+      "equal": false,
+      "max_abs": 1.0,
+      "rel": 0.005649717514124294
+     }
+    },
+    "24": {
+     "us_per_call": 26.405,
+     "min_us": 26.11,
+     "spread_pct": 6.09,
+     "ratio_to_bw1": 0.5915,
+     "values": {
+      "equal": false,
+      "max_abs": 1.0,
+      "rel": 0.005649717514124294
+     }
+    },
+    "48": {
+     "us_per_call": 32.22,
+     "min_us": 31.591,
+     "spread_pct": 4.338,
+     "ratio_to_bw1": 0.7218,
+     "values": {
+      "equal": false,
+      "max_abs": 1.0,
+      "rel": 0.005649717514124294
+     }
+    }
+   },
+   "best_bw": 16,
+   "bench_reproduces_fold": 1.9172,
+   "fold_s_at_best": 0.12797,
+   "priceable": false,
+   "delta_s": 0.0,
+   "band_s_if_priceable": 0.05432
+  }
+ ],
+ "op_level_total_delta_s": 0.0
+}

@@ -4189,6 +4189,15 @@ def _pair_proj_program_config(
     )
 
 
+#: Tiles of in1 one inner block may cover, `in0_block_w * out_block_w`. ONE fitted parameter,
+#: scanned over every group the lever changes rather than picked off the best single shape:
+#: `perf/c14_matmul_ceiling/scan_c.py` sweeps it 6..120 against the five measured groups and 30 is
+#: both the argmax (+0.2102 s) and the largest value that regresses no group by more than 1.0071x.
+#: 24 nets +0.1927 s, 60 nets +0.2047 s with a 1.0288x group, and anything from 72 up collapses to
+#: +0.1104 s by widening the narrow-output shapes past their optimum. Re-check with
+#: `perf/c14_matmul_ceiling/bwladder.py --fold-bw 1,4`.
+_MM_IN1_BLOCK_TILES = 30
+
 #: Whether a SHORT-M 2-D projection gets a fitted `in0_block_w` instead of the 1 ttnn derives.
 #: Release-gated and default OFF: a wider inner block accumulates the contraction in a different
 #: order, so it is not bit-exact (measured, perf/c14_matmul_ceiling/bwladder_b3.json).
@@ -4217,12 +4226,29 @@ def _short_m_proj_program_config(m_tiles: int, k_tiles: int, n_tiles: int, elem_
     inside one capture -- same grid, same per-core blocking, same 64 cores, same DRAM operands --
     and reads 23,300 ns at `in0_block_w = 1` against 15,069 ns at 4.
 
-    `in0_block_w` is the largest divisor of `k_tiles` at or below `k_tiles // 2` whose circular
-    buffers fit. The half-K cap is measured, not taste: the whole contraction in one block is
-    SLOWER than half of it (0.7163x against 0.6234x at `k_tiles = 24`) and the ladder is flat
-    within 1 % from `k_tiles // 4` to `k_tiles // 2`, so the cap sits inside the plateau instead
-    of at its edge. Everything else -- grid, per-core blocking, drain block, subblocks -- is what
-    ttnn derives for this shape, so the only field that moves is the one being fitted.
+    `in0_block_w` holds the in1 BLOCK at a constant size: the largest divisor of `k_tiles` with
+    `in0_block_w * out_block_w <= _MM_IN1_BLOCK_TILES`, and whose circular buffers fit. The
+    constant is fitted on the ladder in `perf/c14_matmul_ceiling/bwladder_b{3,4}.json`, five
+    (shape, config) groups measured on the fold's own configs in two sessions, and it is what the
+    measured optima have in common -- they are NOT a fixed block width and they are NOT a fixed
+    fraction of K:
+
+        k_tiles  out_block_w  measured best in0_block_w   product
+             24            3                          8        24
+             24            5                       4-12     20-60
+             24            9                          4        36
+             48            3                       8-16     24-48
+
+    The first rule this code shipped, `k_tiles // 2`, ignored `out_block_w` and so widened the
+    narrow-output shapes correctly while over-widening the wide-output ones: measured against each
+    group's OWN current blocking it nets +0.1801 s but regresses `1,512,768,3072` by 1.114x. The
+    product rule at the fitted constant nets +0.2102 s with no group worse than 1.0071x. That is
+    the one-size-tuning defect class, and it was caught only by re-measuring the shapes the lever
+    CHANGES rather than the ones it was designed for -- three of the five are shapes the fold was
+    never starved on.
+
+    Everything else -- grid, per-core blocking, drain block, subblocks -- is what ttnn derives for
+    this shape, so the only field that moves is the one being fitted.
     """
     gx, gy = COMPUTE_GRID_MAIN
     if m_tiles >= gx * gy or k_tiles < 4:
@@ -4235,9 +4261,10 @@ def _short_m_proj_program_config(m_tiles: int, k_tiles: int, n_tiles: int, elem_
     sh = max((h for h in range(min(max(4 // sw, 1), per_core_M), 0, -1) if per_core_M % h == 0),
              default=1)
     bw = 0
-    for d in range(1, k_tiles // 2 + 1):
-        if k_tiles % d == 0 and _matmul_cb_bytes(d, per_core_M, per_core_N,
-                                                 elem_bytes) <= _matmul_cb_budget():
+    for d in range(1, k_tiles + 1):
+        if (k_tiles % d == 0 and d * per_core_N <= _MM_IN1_BLOCK_TILES
+                and _matmul_cb_bytes(d, per_core_M, per_core_N,
+                                     elem_bytes) <= _matmul_cb_budget()):
             bw = d
     if bw <= 1:
         return None                 # nothing wider fits, so today's behaviour is unchanged
