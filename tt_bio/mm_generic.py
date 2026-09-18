@@ -46,11 +46,19 @@ FAST_DTYPES = frozenset({ttnn.bfloat16, ttnn.bfloat8_b})
 def fast_dtypes_ok(*dtypes) -> bool:
     """True when every operand dtype is one a fast path covers AND they are all the same.
 
-    Uniformity is not required by the SDPA kernel -- `is_uniform_dataformat` is a compile-time
-    hint it takes either way -- but each transcription was verified with one format throughout,
-    so a mixed pair stays out of scope until it is measured. Every call site that used to demand
-    bf16 everywhere is a strict subset of this, so turning the test around cannot make a call
-    that is served today decline.
+    Uniformity is LOAD BEARING and this is the one clause here that is not merely a policy line.
+    It was previously documented the other way -- `is_uniform_dataformat` is passed as a
+    compile-time hint the SDPA kernel takes either way, so a mixed set reads as legal from the
+    source. It is not. MEASURED on qb1 card 1 at 512 aa, 110 cores, 1350 MHz, against an fp64
+    reference of the same operands (`perf/bfp8_sdpa/probe2_qb1c1.json`): bfp8 q/k/v with a bf16
+    mask is SERVED, returns a finite tensor, raises nothing, and scores **12.55 rel_rms against
+    0.0267 for the bf16 control** -- 470x the control, i.e. wrong values rather than imprecise
+    ones. Uniform bfp8 on the same path scores 0.0283, a 5.7 % debit and fine.
+
+    So do not relax this on a source read. The failure mode it protects against is silent: no
+    decline, no exception, no NaN. `tile_bytes` sizes the operand CBs per dtype correctly, but
+    `sdpa_generic.cb_table` pins the five intermediate CB groups to bf16 unconditionally
+    (`:231-233`), and the mask meets those intermediates in the score add.
     """
     seen = set(dtypes)
     return len(seen) == 1 and seen <= FAST_DTYPES
