@@ -1,0 +1,49 @@
+  512_base0_0                  4116 atoms  cdk2x2_512.cif
+  512_base1_0                  4116 atoms  cdk2x2_512.cif
+  512_base2_0                  4116 atoms  cdk2x2_512.cif
+  512_base3_0                  4116 atoms  cdk2x2_512.cif
+  512_on0_0                    4116 atoms  cdk2x2_512.cif
+  512_on1_0                    4116 atoms  cdk2x2_512.cif
+  512_on2_0                    4116 atoms  cdk2x2_512.cif
+  512_on3_0                    4116 atoms  cdk2x2_512.cif
+
+  atom identity identical across all 8 folds (4116 atoms), so the comparison is atom-for-atom
+
+  pairwise all-atom Kabsch RMSD, A:
+    A/B  512_base0_0                vs 512_base1_0                    0.000000
+    A/B  512_base0_0                vs 512_base2_0                    0.000000
+    A/B  512_base0_0                vs 512_base3_0                    0.000000
+    A/B  512_base0_0                vs 512_on0_0                      0.523934
+    A/B  512_base0_0                vs 512_on1_0                      0.523934
+    A/B  512_base0_0                vs 512_on2_0                      0.523934
+    A/B  512_base0_0                vs 512_on3_0                      0.523934
+    A/B  512_base1_0                vs 512_base2_0                    0.000000
+    A/B  512_base1_0                vs 512_base3_0                    0.000000
+    A/B  512_base1_0                vs 512_on0_0                      0.523934
+    A/B  512_base1_0                vs 512_on1_0                      0.523934
+    A/B  512_base1_0                vs 512_on2_0                      0.523934
+    A/B  512_base1_0                vs 512_on3_0                      0.523934
+    A/B  512_base2_0                vs 512_base3_0                    0.000000
+    A/B  512_base2_0                vs 512_on0_0                      0.523934
+    A/B  512_base2_0                vs 512_on1_0                      0.523934
+    A/B  512_base2_0                vs 512_on2_0                      0.523934
+    A/B  512_base2_0                vs 512_on3_0                      0.523934
+    A/B  512_base3_0                vs 512_on0_0                      0.523934
+    A/B  512_base3_0                vs 512_on1_0                      0.523934
+    A/B  512_base3_0                vs 512_on2_0                      0.523934
+    A/B  512_base3_0                vs 512_on3_0                      0.523934
+    A/B  512_on0_0                  vs 512_on1_0                      0.000000
+    A/B  512_on0_0                  vs 512_on2_0                      0.000000
+    A/B  512_on0_0                  vs 512_on3_0                      0.000000
+    A/B  512_on1_0                  vs 512_on2_0                      0.000000
+    A/B  512_on1_0                  vs 512_on3_0                      0.000000
+    A/B  512_on2_0                  vs 512_on3_0                      0.000000
+
+  vs the `on` arm:
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bfp8-region-t-fold/perf/other512/cif_rmsd.py", line 185, in <module>
+    main()
+  File "/home/ttuser/.coworker/wt/bfp8-region-t-fold/perf/other512/cif_rmsd.py", line 181, in main
+    print(f"    {arm:16s} {min(vals):9.6f} .. {max(vals):9.6f} A")
+                           ^^^^^^^^^
+ValueError: min() iterable argument is empty

@@ -685,6 +685,42 @@ is 227.5 GB/s against Blackhole's 424.7, so the deleted bytes are worth roughly 
 block A/B has not been run on Wormhole with the kernel built, so the flag ships off on every card.
 `perf/roof_gate_epilogue/FINDINGS.md` has the full record.
 
+## `TT_BIO_TRIATT_B8` — off
+
+Triangle attention's interior in `bfloat8_b`. The fused qkv+gate(+bias) matmul writes its five
+destinations in the block format, the fused SDPA's destination follows `q.dtype`, and the gate
+multiply runs on block-float operands. A bfp8 tile is 1088 bytes against bf16's 2048, and the two
+concatenated q/k/v/gate buffers are 268.4 MB each, the largest pair-scale tensors a Pairformer
+block moves.
+
+Three things deliberately stay bf16. The pair representation `z` and every update written back into
+it, because this model fails when block float quantises an accumulation rather than an operand: the
+whole-track arm cost 1.4965 Å and a single residual site cost 13.21 Å. The stored weights. And the
+normed pair tensor, because `ttnn.layer_norm` returns its input's format and narrowing there would
+need a cast that costs more than it saves. The out projection keeps the model dtype, so the region
+rounds once on the way out and the residual never sees block float.
+
+**Speed: 1.04588x, +0.6640 s at 512 residues.** One Blackhole processor of a p300c, `cdk2x2_512`,
+11x10 grid, production protocol (3 recycles, 200 sampling steps), AICLK held at 1350 MHz and sampled
+during every fold at min = max = 1350 over 1500 samples, arms interleaved block by block, 12 folds an
+arm: 15.135 s off against 14.471 s on. Every on-arm fold is faster than every off-arm fold. All 560
+triangle-attention calls per fold still serve on the fused SDPA and the fused qkv path with zero
+declines, so this is the same kernels on narrower operands and not a fallback
+(`perf/c14_bfp8/region_t_ab.json`).
+
+**Accuracy: 0.42886 Å worst at 512 residues against the 0.60 Å bar**, per pseudo-domain and
+hinge-free, four seeds, paired same seed, card-independent, with a negative control
+(`bfp8-accuracy-envelope`). Whole-molecule single-seed all-atom Kabsch between the two arms of the
+speed run reads 0.523934 Å with the same-arm floor at 0.000000 Å exactly; re-folding with a different
+seed moves the structure 1.02436-1.42336 Å, so the flag's effect is roughly half the variation the
+sampler already produces. plDDT moves by 0.000017. Bit-exactness is lost by construction, which is
+why it is a flag.
+
+**Why it is off.** The default has not been flipped and the number above is a single size with a
+single flag; 298 residues and any combination with `TT_BIO_TRIATT_BIAS_B8` are unmeasured, and block
+float composes worse on accuracy than on speed. Turn it on per run if you want the second and can
+accept a structure that is not bit-identical to the default.
+
 ## `TT_BIO_TRIMUL_MASK_L1` — on
 
 The triangle multiplication masks its pair input before the contraction. The mask is `[1, 1, L, L]`
