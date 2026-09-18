@@ -1,0 +1,31 @@
+# train-j-multihost: data-parallel ABodyBuilder3 across chips and across HOSTS
+# qb1 (4x p150a) rank 0, qb2 (4x p300c) rank 1, 2026-09-18. global batch 64 as micro 4,
+# 256 tokens, 8 blocks, 4 steps per arm, first step dropped as warmup.
+# Step time is the MAX across ranks: every step ends at a rendezvous.
+
+1 chip, qb1                        median  21.043 s   per step [21.61, 20.87, 21.04]   1.000x   100.0%
+2 chips, one host (qb1)            median  11.154 s   per step [11.15, 11.2, 11.15]   1.887x    94.3%
+2 chips, two hosts (qb1 + qb2)     median  14.096 s   per step [14.1, 14.1, 13.98]   1.493x    74.6%
+
+Per-rank stage breakdown, last step of each arm (seconds). 'optimizer' is the
+cross-rank exchange plus RAdam plus the master hash, which is where the host
+boundary shows up and nowhere else.
+  w1-l-r0 rank 0: forward 5.033, download 0.190, losses 2.375, host_backward 2.423, device_backward 10.657, optimizer 0.134, total 21.028
+      nodes [1] (from this rank's own /proc/<pid>/fd), AICLK 1350.0 med / 1350.0 min over 175 samples DURING, clean=True (0/49 foreign holders of OUR node, 0 elsewhere)
+  w2-l-r0 rank 0: forward 2.418, download 0.087, losses 1.568, host_backward 1.235, device_backward 5.332, optimizer 0.367, total 11.138
+      nodes [1] (from this rank's own /proc/<pid>/fd), AICLK 1350.0 med / 1350.0 min over 93 samples DURING, clean=True (0/26 foreign holders of OUR node, 0 elsewhere)
+  w2-l-r0 rank 1: forward 2.412, download 0.165, losses 1.577, host_backward 1.233, device_backward 5.305, optimizer 0.234, total 11.106
+      nodes [2] (from this rank's own /proc/<pid>/fd), AICLK 1350.0 med / 1350.0 min over 95 samples DURING, clean=True (0/27 foreign holders of OUR node, 0 elsewhere)
+  w2-x-r0 rank 0: forward 2.457, download 0.089, losses 1.336, host_backward 1.254, device_backward 5.301, optimizer 1.925, total 12.500
+      nodes [1] (from this rank's own /proc/<pid>/fd), AICLK 1350.0 med / 1350.0 min over 101 samples DURING, clean=True (0/28 foreign holders of OUR node, 0 elsewhere)
+  w2-x-r0 rank 1: forward 2.466, download 0.081, losses 1.407, host_backward 1.346, device_backward 5.784, optimizer 2.771, total 13.961
+      nodes [1] (from this rank's own /proc/<pid>/fd), AICLK 1350.0 med / 1343.0 min over 113 samples DURING, clean=False (0/31 foreign holders of OUR node, 29 elsewhere)
+
+w1-l-r0: ranks agree every step: True; digests ['a94a0651782fa794cf3ec573af8037b7', 'f1a1c22ae772b6e414bcbfbb4c82d7aa', '0cf0d72d7da996ac2f192a833adca018', 'c93510c753cd5a4b6eedfb9815aa886e']
+w2-l-r0: ranks agree every step: True; digests ['b71271d93bbda02e264493e294d05b77', '46ecedb9d47b8495e9fb8c50ecf975e6', '73cb86a1a9d400808f1d990a1fd5c1c5', '901cdd12c3740e8e900074102d5be9e8']
+w2-x-r0: ranks agree every step: True; digests ['aaa4d21fd49e246d3ae351fbf4c51b2a', 'ade542da481fdf6c8af586cf17d5c016', 'f611e8f16a0487be9b8419daadfeaeca', 'f5ec822adf0559a87ef981cccbb5c401']
+
+PASS: the per-rank master digests are bit-identical across the host boundary at every
+step, on numpy 1.26.4 / python 3.10.12 (qb1, p150a) and numpy 2.5.2 / python 3.12.3
+(qb2, p300c). CONTENDED: qb2's rank shared its host with a foreign holder of a
+different node for 29/31 samples, so the cross-host step is an upper bound.

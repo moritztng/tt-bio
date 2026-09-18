@@ -29,6 +29,7 @@ hash check exists to catch, arrived at deliberately.
 from __future__ import annotations
 
 import queue
+import shlex
 import shutil
 import subprocess
 import sys
@@ -95,9 +96,16 @@ def parse_rendezvous(spec) -> tuple:
 
 
 def _ssh_argv(dest: str, root: Path) -> list:
+    """ssh hands everything after the destination to a remote SHELL, joined by spaces.
+
+    So the receiver is quoted into ONE argument here. Passing it as separate argv entries looks
+    right and is not: the far shell re-splits the program on whitespace and python exits 2 on
+    the fragment it gets.
+    """
+    remote = " ".join(shlex.quote(x) for x in
+                      ["python3", "-u", "-c", _RECEIVER, str(root)])
     return ["ssh", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=30",
-            "-o", "ServerAliveCountMax=3", dest,
-            "python3", "-u", "-c", _RECEIVER, str(root)]
+            "-o", "ServerAliveCountMax=3", dest, remote]
 
 
 def _local_argv(dest: str, root: Path) -> list:
