@@ -1103,8 +1103,12 @@ def _msa_args(model: str) -> list:
 #: deliberately not project runtime dependencies -- scripts/opendde_dockq.py says so itself,
 #: "installed as an eval-time requirement into the run venv" -- so nothing in the install path
 #: puts them there and, before this check, nothing noticed when they were gone.
+#: (module, pin, user, interpreter). The interpreter is the one that will actually import the
+#: module at scoring time: opendde-abag shells its DockQ out to OPENDDE_DOCKQ_PYTHON, so checking
+#: the gate's own venv would answer a question nobody asked. None means the gate's own.
 _EVAL_SCORERS = {
-    "opendde-abag": ("DockQ.DockQ", "DockQ==2.1.3", "scripts/opendde_dockq.py"),
+    "opendde-abag": ("DockQ.DockQ", "DockQ==2.1.3", "scripts/opendde_dockq.py",
+                     OPENDDE_DOCKQ_PYTHON),
 }
 
 
@@ -1118,23 +1122,44 @@ def _preflight_eval_scorers(models: list) -> None:
     model was fine, no DockQ was ever computed, and the red arm sat on the critical path of a
     merge decision. An absent pip package must cost a second at startup, not six minutes of
     device time and a verdict that names a floor nobody evaluated.
+
+    The check must interrogate the interpreter that will do the importing, which is not always
+    this one. opendde-abag delegates its DockQ to OPENDDE_DOCKQ_PYTHON precisely so a host can
+    keep the scorer out of the gate venv, so an in-process import would fail that supported
+    configuration at startup and pass the one it cannot score.
     """
     import importlib
 
     missing = []
-    for arm, (mod, pin, user) in sorted(_EVAL_SCORERS.items()):
+    for arm, entry in sorted(_EVAL_SCORERS.items()):
+        mod, pin, user = entry[0], entry[1], entry[2]
+        interp = (entry[3] if len(entry) > 3 else None) or sys.executable
         if arm not in models:
             continue
+        if os.path.realpath(interp) == os.path.realpath(sys.executable):
+            try:
+                importlib.import_module(mod)
+            except Exception as exc:
+                missing.append(f"  {arm}: {user} needs `{mod}` ({pin}) in {interp} -- "
+                               f"{type(exc).__name__}: {exc}")
+            continue
         try:
-            importlib.import_module(mod)
+            r = subprocess.run([interp, "-c", f"import {mod}"], capture_output=True, text=True,
+                               timeout=120)
         except Exception as exc:
-            missing.append(f"  {arm}: {user} needs `{mod}` ({pin}) -- "
-                           f"{type(exc).__name__}: {exc}")
+            missing.append(f"  {arm}: {user} delegates `{mod}` ({pin}) to {interp}, which will "
+                           f"not run -- {type(exc).__name__}: {exc}")
+            continue
+        if r.returncode != 0:
+            why = (r.stderr or r.stdout or "").strip().splitlines()
+            missing.append(f"  {arm}: {user} needs `{mod}` ({pin}) in {interp} -- "
+                           f"{why[-1] if why else f'exited {r.returncode}'}")
     if missing:
         sys.exit("release gate: an eval-time scorer is not importable, so its arm could only "
                  "produce a FAIL that measures nothing.\n" + "\n".join(missing) +
-                 f"\n\nInstall it into the venv running this gate ({sys.executable}), or "
-                 f"deselect the arm with --models. Checked before any device work on purpose.")
+                 f"\n\nInstall it into the interpreter named above (this gate runs "
+                 f"{sys.executable}), or deselect the arm with --models. Checked before any "
+                 f"device work on purpose.")
 
 
 def _preflight_msa_cache(models: list) -> None:
@@ -3070,6 +3095,16 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
         return {"model": model, "gate": False, "error": meas["error"],
                 "findings": [meas["error"]],
                 "runtime_s": meas.get("runtime_s") or {}, "partial": True}
+    return _size_ladder_compare(base_model, meas, model, rungs)
+
+
+def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dict:
+    """Score a measured ladder against its baseline. Pure: no device, no folds.
+
+    Split out from _size_ladder_check_model so the arm's verdicts can be tested, and
+    reproduced from a past run's numbers, without a card. Every ladder red row this campaign
+    argued about was adjudicated by hand out of the log and the baseline fragment dir.
+    """
     findings = []
     b_grid, c_grid = base_model.get("grid"), meas.get("grid")
     if b_grid and c_grid and b_grid != c_grid:
@@ -3115,6 +3150,7 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
         findings.extend(_size_ladder_compare_levers(b_levers, meas["levers"][str(rung)],
                                                     where))
     measured_k = {}
+    drifted = False
     for interval, be in (base_model.get("exponents") or {}).items():
         n1, n2 = (int(x) for x in interval.split("->"))
         t1 = meas["runtime_s"].get(str(n1))
@@ -3124,8 +3160,12 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
         k = math.log(t2 / t1) / math.log(n2 / n1)
         measured_k[interval] = round(k, 3)
         if abs(k - be["k"]) > be["tol"]:
+            drifted = True
             findings.append(f"{model} {interval}: exponent {be['k']:.2f} -> {k:.2f} "
                             f"outside ±{be['tol']:.2f}")
+    if drifted:
+        findings.append(_size_ladder_rung_localisation(
+            model, base_model.get("runtime_s") or {}, meas["runtime_s"]))
     return {"model": model, "gate": not findings,
             "error": "; ".join(findings) or None, "findings": findings,
             "runtime_s": meas["runtime_s"], "exponents": measured_k,
@@ -3167,6 +3207,49 @@ def _size_ladder_lever_todo(entry: dict) -> str:
     clause = _size_ladder_clause_str(entry, top=3)
     return ("TODO: say why this is legitimate at this size"
             + (f" (declines on {clause})" if clause else ""))
+
+
+#: A rung is "moved" outside this band. 2 % is inside every clean reproduction measured on a
+#: p300c so far (openfold3 read 0.950-1.054x across six rungs on 2026-09-18 and passed), so 5 %
+#: flags a real shift without firing on ladder noise.
+SIZE_LADDER_RUNG_MOVED = 0.05
+
+
+def _size_ladder_rung_localisation(model: str, base_rt: dict, meas_rt: dict) -> str:
+    """Say WHICH rungs moved, because an exponent cannot.
+
+    An exponent is a ratio of two rungs, so a shift in either one moves it and the finding reads
+    the same either way. On 2026-09-18 that cost a campaign most of a pass: boltz2 came back
+    "256->512: exponent 1.41 -> 0.75" and openbind "1.60 -> 2.14", and the whole of both was the
+    256 aa rung (4.1->6.5 s and 9.3->6.5 s) while every rung at 512 aa and above reproduced the
+    baseline inside 2 %. The flip under test was a 512 aa lever, so the arm's two red rows were
+    pointing away from the regime anyone was changing -- and runtime_s carries a ~3 s
+    size-independent term, which the smallest rung is mostly made of, so the smallest rung is
+    where a constant shift shows up magnified. Reconstructing that needed the per-rung absolutes
+    out of the baseline fragment dir by hand. They are cheap to print, so print them.
+    """
+    cells, moved, held = [], [], []
+    for rung in sorted(int(r) for r in meas_rt):
+        b, m = base_rt.get(str(rung)), meas_rt.get(str(rung))
+        if b is None or m is None or not b:
+            continue
+        ratio = m / b
+        cells.append(f"{rung} {b:.1f}->{m:.1f} {ratio:.2f}x")
+        (moved if abs(ratio - 1.0) > SIZE_LADDER_RUNG_MOVED else held).append(rung)
+    if not cells:
+        return (f"{model}: no per-rung baseline absolutes to localise the drift against -- "
+                f"re-record so the next reader can attribute it")
+    note = f"{model} per-rung base->run: " + ", ".join(cells)
+    if moved and held:
+        note += (f" -- only {', '.join(f'{r} aa' for r in moved)} moved more than "
+                 f"{SIZE_LADDER_RUNG_MOVED:.0%}; {', '.join(f'{r}' for r in held)} aa "
+                 f"reproduce. Attribute the exponent to those rungs, not to the interval")
+    elif moved:
+        note += f" -- every rung moved; this is a whole-ladder shift, not one rung"
+    else:
+        note += (f" -- no rung moved more than {SIZE_LADDER_RUNG_MOVED:.0%}: the exponent "
+                 f"tolerance is tighter than the per-rung noise it is built from")
+    return note
 
 
 def run_size_ladder_fill_reasons(baseline_path: Path, models=None) -> dict:
