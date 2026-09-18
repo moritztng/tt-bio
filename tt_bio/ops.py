@@ -9,8 +9,9 @@ per-class wrappers keep only the defaults that class actually measured.
 
 The second reason it is one function. Training needs the same forward inference runs, not a
 copy of it, and a copy is what a differentiable second implementation becomes: the taped
-twin in ``perf/ptxft/tape_block.py`` had already drifted 2.56e-02 on the denoiser before
-anyone looked. So the call site dispatches. With no hook installed -- every inference path,
+twin under ``perf/ptxft`` had already drifted 2.56e-02 on the denoiser before anyone
+looked. The twin was deleted in commit 81eaa6a6a, which is where that reading is on the
+record. So the call site dispatches. With no hook installed -- every inference path,
 always -- ``linear`` is the ``ttnn.linear`` call that was written here before, same
 arguments, same kernel, same output bytes. ``tt_bio.autograd`` installs a hook when a user
 opts into training, and then the same call site records a tape node.

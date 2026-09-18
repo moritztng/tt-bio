@@ -20,15 +20,16 @@ are checked before anything is spawned rather than trusted.
 **The all-reduce goes through /dev/shm, deliberately not through the device.** The masters and
 both Adam moments already live on the host because ``ttnn.moreh_adamw`` cannot hold an fp32
 master, so the gradient has to cross PCIe to reach them whatever happens; an on-device
-collective would move it to the device and back for nothing. Measured on Protenix-v2 at 128
-tokens: a 24.1 MB exchange against a 13.3 s step, so 0.4 % of the step done naively.
+collective would move it to the device and back for nothing. Measured on two p150a by
+``perf/train_d_dp`` at 1350 MHz: the exchange is 1.01 ms of a 0.264 s step at LoRA rank 8
+(0.33 MB, 0.38 %) and 7.48 ms of a 0.329 s step at rank 128 (5.24 MB, 2.27 %).
 
 **Sum, never mean.** The divisor is the global batch the caller pinned. Dividing by the chip
 count here is the substitution that makes one recipe mean something different on a 2-chip box
 than on a 4-chip one, which is what ``accelerate`` does at ``data_loader.py:347-348`` and what
-:mod:`tt_bio.train.sharding` exists to refuse. ``perf/ptxft/dpscale.py``, the measured
-prototype this module promotes, averaged; that is the one thing about it that did not carry
-over.
+:mod:`tt_bio.train.sharding` exists to refuse. The measured prototype this module promotes
+averaged; that is the one thing about it that did not carry over. It was deleted in commit
+81eaa6a6a and rebuilt against this launcher as ``perf/train_d_dp``.
 
 **The ranks' masters are compared, not assumed equal.** Ranks start from one seed so their
 weights are identical at step 0, and a reduce before every step keeps them identical after

@@ -26,9 +26,14 @@ once from the bf16 weights (:28-30) with fp32 ``exp_avg``/``exp_avg_sq`` (:33-42
 weight the forward reads written back by typecasting the master down each step (:97-99), and
 beta powers carried multiplicatively (:64-65) rather than recomputed as ``pow(beta, step)``.
 
-Masters and moments live on the HOST in fp32 rather than in DRAM. That is a measured choice
-for an adapter and not a general one: see ``perf/ptxft/opt_cost.py``. ``ttnn.moreh_adamw``
-refuses an fp32 master, which is the other half of the reason.
+Masters and moments live on the HOST in fp32 rather than in DRAM. ``ttnn.moreh_adamw`` takes
+``param_in`` as bfloat16 or bfloat8_b only, so the device cannot express an fp32 master at all
+and the placement is forced rather than picked. What was measured is the price of it at adapter
+scale: ``perf/ptxft/optcheck.py --moreh`` times the host step at a median 7.83 ms for one
+block's adapter (72 tensors, 204,032 elements, 0.82 MB) at 1350 MHz, against a step measured in
+seconds, so the PCIe round trip is not worth optimising away. That is an adapter reading and not
+a general one. The script reproduces the number, it does not store it: the run it came from is
+``ptxft-build``'s.
 """
 
 from __future__ import annotations
