@@ -1,0 +1,6 @@
+Sep 17 21:55:44 tt-quietbox2 systemd-logind[1143]: New session 822 of user ttuser.
+Sep 17 21:55:44 tt-quietbox2 systemd[1]: Started session-822.scope - Session 822 of User ttuser.
+Sep 17 21:55:45 tt-quietbox2 systemd-logind[1143]: Session 822 logged out. Waiting for processes to exit.
+Sep 17 22:03:58 tt-quietbox2 systemd[1]: session-822.scope: Deactivated successfully.
+Sep 17 22:03:58 tt-quietbox2 systemd[1]: session-822.scope: Consumed 8min 15.422s CPU time, 1.9G memory peak, 0B memory swap peak.
+Sep 17 22:03:58 tt-quietbox2 systemd-logind[1143]: Removed session 822.

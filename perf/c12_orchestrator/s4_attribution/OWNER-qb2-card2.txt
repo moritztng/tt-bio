@@ -1,0 +1,9 @@
+card 2 is held by a LIVE detached timing session, not by an idle lease.
+  owner    worker:c12-compose-fold, session s3
+  pids     24238 (run.sh) -> 24253 (benchlock) -> 24290 (fold_compose.py, holds /dev/tenstorrent/2)
+  started  2026-09-17T20:39:46Z
+  ends     ~2026-09-17T21:42Z (240 warm folds at a measured 14.87 s/fold)
+Do not dispatch card 2 and do not load card 3: they are the two chips of board ...410D and a
+fold on card 3 contaminates this read through the shared board power budget. benchlock is held
+for the duration; a benchlock-respecting caller will already refuse. Remove this file after the
+session ends or if pid 24290 is gone.

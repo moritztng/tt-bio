@@ -1,0 +1,85 @@
+{
+ "census": "origin/wk/c10-fold-census:perf/c10_fold_census/runs/sweep2/replay.json",
+ "op_census": "origin/main:perf/roof_launch/op_census_512.json",
+ "bias1": "replay allocates all operands+outputs DRAM_MEMORY_CONFIG; fold runs many of these L1-resident -> replay overprices",
+ "bias2": "published linear/matmul seconds are the @grid110 arm; the fold does not pass a core_grid at these sites -> published underprices a bare fold site",
+ "rows": [
+  {
+   "class": "add",
+   "calls": 13728.0,
+   "bare_s": 0.14030632047347957,
+   "grid110_s": null,
+   "published_s": 0.14,
+   "published_arm": "bare",
+   "replay_B": 37492359168.0,
+   "fold_dram_B": 36254908416.0,
+   "byte_ratio": 1.03413195084652
+  },
+  {
+   "class": "add_",
+   "calls": 14616.0,
+   "bare_s": 0.847252157747451,
+   "grid110_s": null,
+   "published_s": 0.847,
+   "published_arm": "bare",
+   "replay_B": 358886670336.0,
+   "fold_dram_B": 271835463680.0,
+   "byte_ratio": 1.3202349151855888
+  },
+  {
+   "class": "layer_norm_w",
+   "calls": 35304.0,
+   "bare_s": 1.5326467473047782,
+   "grid110_s": null,
+   "published_s": 1.357,
+   "published_arm": "bare",
+   "replay_B": 344965586944.0,
+   "fold_dram_B": 282338263040.0,
+   "byte_ratio": 1.221816636645977
+  },
+  {
+   "class": "linear",
+   "calls": 108608.0,
+   "bare_s": 10.731639195109775,
+   "grid110_s": 4.661348371476336,
+   "published_s": 4.6604,
+   "published_arm": "grid110",
+   "replay_B": 744342757376.0,
+   "fold_dram_B": 405715697664.0,
+   "byte_ratio": 1.8346412565787371
+  },
+  {
+   "class": "matmul",
+   "calls": 1432.0,
+   "bare_s": 2.117415068449938,
+   "grid110_s": 1.4813800460274016,
+   "published_s": 1.479,
+   "published_arm": "grid110",
+   "replay_B": 205871906816.0,
+   "fold_dram_B": 139603476480.0,
+   "byte_ratio": 1.4746904017500868
+  },
+  {
+   "class": "multiply",
+   "calls": 12464.0,
+   "bare_s": 0.12558473023090824,
+   "grid110_s": null,
+   "published_s": 0.126,
+   "published_arm": "bare",
+   "replay_B": 31218511872.0,
+   "fold_dram_B": 31224758272.0,
+   "byte_ratio": 0.9997999536154744
+  },
+  {
+   "class": "multiply_",
+   "calls": 42720.0,
+   "bare_s": 1.751136531196774,
+   "grid110_s": null,
+   "published_s": 1.751,
+   "published_arm": "bare",
+   "replay_B": 728372871168.0,
+   "fold_dram_B": 326832750592.0,
+   "byte_ratio": 2.2285798159721777
+  }
+ ]
+}
