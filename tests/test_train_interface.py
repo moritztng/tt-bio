@@ -20,6 +20,9 @@ from __future__ import annotations
 import ast
 import dis
 import importlib.util
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -188,49 +191,6 @@ def test_tier0_recipe_names_match_the_recipes_module():
     raise AssertionError("recipes.py defines no annotated _RECIPES mapping to check against")
 
 
-def test_tier0_verb_is_registered_lazily_by_path():
-    """`tt-bio --help` and `tt-bio predict` must not import the training stack to exist.
-
-    Checked as AST because importing `tt_bio.main` needs the full inference dependency set.
-    What matters here is that the registration is a STRING: an import statement in main.py
-    would pull the tape in for every command, and the opt-in invariant test would catch that
-    -- this asserts the mechanism that keeps it true rather than just its absence.
-    """
-    main = (REPO_ROOT / "tt_bio" / "main.py").read_text()
-    tree = ast.parse(main)
-    lazy = None
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign) and any(
-                getattr(x, "id", None) == "LAZY" for x in node.targets):
-            lazy = ast.literal_eval(node.value)
-    assert lazy == {"finetune": "tt_bio.train.cli:finetune"}, (
-        f"the lazy command map is {lazy!r}. Tier 0's verb has to be registered by dotted "
-        f"path, not imported, or every tt-bio command pays for the tape.")
-    mod, attr = lazy["finetune"].split(":")
-    target = importlib.import_module(mod)
-    assert hasattr(target, attr), f"{mod} defines no {attr}"
-
-
-@pytest.mark.skipif(importlib.util.find_spec("einops") is None,
-                    reason="needs tt-bio's full inference dependency set")
-def test_tier0_verb_appears_on_the_cli_without_importing_the_tape():
-    import sys
-
-    import click
-
-    from tt_bio.main import cli
-
-    ctx = click.Context(cli)
-    assert "finetune" in cli.list_commands(ctx)
-    assert "tt_bio.train.cli" not in sys.modules, (
-        "listing the commands imported the training CLI; the whole point of the dotted path "
-        "is that naming a command is what loads it")
-    assert cli.get_command(ctx, "finetune").name == "finetune"
-    assert cli.get_command(ctx, "preflight").name == "preflight"
-
-
-# --------------------------------------------------------------- tier 1: no user `for`
-
 def test_tier0_a_model_with_no_featuriser_refuses_by_name():
     """The README's claim, asserted: a run stops with a named error, before a device opens.
 
@@ -280,19 +240,31 @@ def test_tier0_verb_is_registered_lazily_by_path():
 @pytest.mark.skipif(importlib.util.find_spec("einops") is None,
                     reason="needs tt-bio's full inference dependency set")
 def test_tier0_verb_appears_on_the_cli_without_importing_the_tape():
-    import sys
+    """Listing the commands must not import the training CLI. Naming one must.
 
-    import click
-
-    from tt_bio.main import cli
-
-    ctx = click.Context(cli)
-    assert "finetune" in cli.list_commands(ctx)
-    assert "tt_bio.train.cli" not in sys.modules, (
-        "listing the commands imported the training CLI; the whole point of the dotted path "
-        "is that naming a command is what loads it")
-    assert cli.get_command(ctx, "finetune").name == "finetune"
-    assert cli.get_command(ctx, "preflight").name == "preflight"
+    In a subprocess, because the claim is about what `list_commands` imports and any earlier
+    test that imports `tt_bio.train.cli` for its own reasons answers it first. Run in-process
+    this passes or fails on collection order, which is how it came to fail on a tree where
+    nothing was wrong with the CLI.
+    """
+    probe = textwrap.dedent("""
+        import sys
+        import click
+        from tt_bio.main import cli
+        ctx = click.Context(cli)
+        assert "finetune" in cli.list_commands(ctx)
+        assert "tt_bio.train.cli" not in sys.modules, (
+            "listing the commands imported the training CLI; the whole point of the dotted "
+            "path is that naming a command is what loads it")
+        assert cli.get_command(ctx, "finetune").name == "finetune"
+        assert cli.get_command(ctx, "preflight").name == "preflight"
+        assert "tt_bio.train.cli" in sys.modules, (
+            "naming the command did not load it, so the dotted path resolves to nothing")
+        print("OK")
+    """)
+    r = subprocess.run([sys.executable, "-c", probe], cwd=REPO_ROOT,
+                       capture_output=True, text=True)
+    assert r.returncode == 0 and r.stdout.strip().endswith("OK"), r.stdout + r.stderr
 
 
 # --------------------------------------------------------------- tier 1: no user `for`
