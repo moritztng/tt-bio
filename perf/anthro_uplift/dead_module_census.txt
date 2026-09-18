@@ -1,0 +1,18 @@
+== /home/moritz/.boltz/protenix-v2.pt
+   4174 tensors, 3351 leaf modules, 281 dead (max|w| <= 1e-30)
+   module.confidence_head.pairformer_stack  (4 blocks)
+      pair_transition            dead in 1/4 blocks: [1]
+      tri_att_end                dead in 4/4 blocks: [0, 1, 2, 3]
+      tri_att_start              dead in 3/4 blocks: [0, 1, 2]
+      tri_mul_in                 dead in 1/4 blocks: [0]
+      tri_mul_out                dead in 1/4 blocks: [0]
+   module.pairformer_stack  (48 blocks)
+      attention_pair_bias        dead in 18/48 blocks: [5, 9, 13, 18, 29, 31, 33, 34, 36, 37, 38, 41, 42, 43, 44, 45, 46, 47]
+      single_transition          dead in 13/48 blocks: [1, 2, 11, 13, 32, 33, 34, 36, 37, 39, 41, 42, 45]
+   dead block-units: 41
+== /home/moritz/.boltz/boltz2_conf.ckpt
+   5102 tensors, 3988 leaf modules, 0 dead (max|w| <= 1e-30)
+   dead block-units: 0
+== /home/moritz/.boltz/of3-p2-155k.pt
+   4935 tensors, 3956 leaf modules, 0 dead (max|w| <= 1e-30)
+   dead block-units: 0
