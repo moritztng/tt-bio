@@ -35,7 +35,7 @@ import ttnn
 
 from . import autograd as ag
 
-__all__ = ["LoraConfig", "lora_factors", "lora_linear", "AdamW",
+__all__ = ["LoraConfig", "lora_factors", "lora_linear", "AdamW", "af3_lr",
            "save_adapter", "load_adapter", "to_host", "to_device"]
 
 
@@ -113,6 +113,25 @@ def lora_linear(x: ag.Tensor, w: ag.Tensor, a: ag.Tensor, b: ag.Tensor,
     return ag.add(base, ag.scale(up, scaling))
 
 
+# --------------------------------------------------------------------- schedule
+
+def af3_lr(step: int, lr: float, *, warmup_steps: int = 1000,
+           decay_every_n_steps: int = 50000, decay_factor: float = 0.95) -> float:
+    """Protenix's `AlphaFold3LRScheduler`, `protenix/utils/lr_scheduler.py:85-91`.
+
+    Linear warmup to `lr` over `warmup_steps`, then a step decay of `decay_factor` every
+    `decay_every_n_steps`. Upstream's defaults are lr 1.8e-3 with warmup 1000
+    (`configs/configs_base.py:74-76`, and `train_demo.sh` runs lr 1e-3 warmup 2000).
+    The warmup is not decoration on a randomly initialised network: Adam's first update
+    has magnitude ~lr per element whatever the gradient is, so without it the first pass
+    over the data moves every weight the full step size before the second moment has any
+    history.
+    """
+    if step <= warmup_steps:
+        return step / warmup_steps * lr
+    return lr * (decay_factor ** (step // decay_every_n_steps))
+
+
 # --------------------------------------------------------------------- optimizer
 
 class AdamW:
@@ -130,10 +149,16 @@ class AdamW:
     """
 
     def __init__(self, params: Dict[str, ag.Tensor], *, lr: float = 3e-4,
-                 betas=(0.9, 0.999), eps: float = 1e-8, weight_decay: float = 0.01):
+                 betas=(0.9, 0.999), eps: float = 1e-8, weight_decay: float = 0.01,
+                 clip_norm: float = 10.0, schedule=None):
         import numpy as np
         self.params = params
         self.lr, self.eps, self.weight_decay = float(lr), float(eps), float(weight_decay)
+        # Upstream clips at 10 (`configs/configs_base.py:80`, applied by
+        # `torch.nn.utils.clip_grad_norm_` at `runner/train.py:572`). 0 disables it, which
+        # is upstream's own switch. `schedule` is a callable step -> lr; None holds lr.
+        self.clip_norm = float(clip_norm)
+        self.schedule = schedule
         self.beta1, self.beta2 = float(betas[0]), float(betas[1])
         self.steps = 0
         # Multiplicative beta powers rather than pow(beta, step): cheap, and exactly
@@ -155,11 +180,20 @@ class AdamW:
         self.beta2_pow *= self.beta2
         bc1 = 1.0 - self.beta1_pow
         bc2 = 1.0 - self.beta2_pow
+        lr = self.lr if self.schedule is None else float(self.schedule(self.steps))
+        # Global-norm clipping, computed once over every gradient before any of them is
+        # applied. Per-parameter clipping would be a different algorithm: it changes the
+        # DIRECTION of the update, not just its length.
+        gnorm = self.grad_norm()
+        clip = (min(1.0, self.clip_norm / gnorm)
+                if (self.clip_norm > 0 and gnorm > 0) else 1.0)
         report = {}
         for name, t in self.params.items():
             if t.grad is None:
                 continue
             g = to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)
+            if clip != 1.0:
+                g = g * clip
             m = self.exp_avg[name]
             v = self.exp_avg_sq[name]
             m *= self.beta1
@@ -167,8 +201,8 @@ class AdamW:
             v *= self.beta2
             v += (1.0 - self.beta2) * (g * g)
             theta = self.master[name]
-            upd = self.lr * ((m / bc1) / (np.sqrt(v / bc2) + self.eps)
-                             + self.weight_decay * theta)
+            upd = lr * ((m / bc1) / (np.sqrt(v / bc2) + self.eps)
+                        + self.weight_decay * theta)
             before = theta.copy()
             theta -= upd
             # The control the brief demands, measured rather than asserted: the step the
@@ -182,6 +216,7 @@ class AdamW:
             report[name] = {"master_step": want, "device_step": kept,
                             "kept": (kept / want) if want > 0 else float("nan"),
                             "grad_norm": float(np.linalg.norm(g))}
+        self.last_lr, self.last_clip, self.last_grad_norm = lr, clip, gnorm
         return report
 
     def grad_norm(self) -> float:
@@ -197,11 +232,11 @@ class AdamW:
     def state_dict(self) -> dict:
         return {"steps": self.steps, "lr": self.lr, "beta1": self.beta1,
                 "beta2": self.beta2, "eps": self.eps,
-                "weight_decay": self.weight_decay,
+                "weight_decay": self.weight_decay, "clip_norm": self.clip_norm,
                 "beta1_pow": self.beta1_pow, "beta2_pow": self.beta2_pow}
 
     def load_state_dict(self, d: dict) -> None:
-        for k in ("steps", "lr", "beta1", "beta2", "eps", "weight_decay",
+        for k in ("steps", "lr", "beta1", "beta2", "eps", "weight_decay", "clip_norm",
                   "beta1_pow", "beta2_pow"):
             if k in d:
                 setattr(self, k, d[k])

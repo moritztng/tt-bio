@@ -315,7 +315,8 @@ def arm_train(a, device):
     n_par = sum(int(np.prod([int(d) for d in v.value.shape])) for v in params.values())
     print(f"# --train: {len(params)} trainable tensors, {n_par:,} parameters "
           f"(rank {a.rank}, alpha {a.alpha}, scaling {lora.scaling}), depth {a.depth}")
-    opt = ft.AdamW(params, lr=a.lr, weight_decay=a.weight_decay)
+    opt = ft.AdamW(params, lr=a.lr, weight_decay=a.weight_decay,
+                   clip_norm=a.clip_norm)
     train = [p for p, r in target_set(a) if r == "train"]
     val = [p for p, r in target_set(a) if r == "val"]
     held = [p for p, r in target_set(a) if r == "heldout"]
@@ -483,7 +484,8 @@ def arm_roundtrip(a, device):
 
     print(f"# --roundtrip: {path} ({os.path.getsize(path):,} B), fresh process")
     before = losses()
-    opt = ft.AdamW(params, lr=a.lr, weight_decay=a.weight_decay)
+    opt = ft.AdamW(params, lr=a.lr, weight_decay=a.weight_decay,
+                   clip_norm=a.clip_norm)
     meta = ft.load_adapter(path, params, device, opt=opt)
     after = losses()
     print(f"# meta: {json.dumps(meta, sort_keys=True)}")
@@ -535,6 +537,13 @@ def main():
     ap.add_argument("--alpha", type=float, default=16.0)
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--weight-decay", type=float, default=0.01)
+    # Upstream clips the global gradient norm at 10 (configs_base.py:80). This defaults
+    # to 0 (off) ONLY so the recorded 112-step run stays reproducible from the defaults
+    # it actually ran under -- its gradient norms were 8.6e0 to 5.0e1, so a clip at 10
+    # would have been active and would have changed the trajectory. A clipped re-run of
+    # the fine-tune is owed; until it exists, do not quote the two configurations
+    # against each other.
+    ap.add_argument("--clip-norm", type=float, default=0.0)
     ap.add_argument("--steps", type=int, default=20)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--chunk", type=int, default=None)

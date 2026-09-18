@@ -90,7 +90,8 @@ class PairTrackBlock:
     def __init__(self, sd: Dict, device, *, n_heads: int = 8, head_dim: int = 32,
                  dtype=ttnn.bfloat16, adapter_dtype=ttnn.float32,
                  lora: Optional[ft.LoraConfig] = None, adapt=(), rng=None,
-                 chunk: Optional[int] = None, q_chunk: Optional[int] = None):
+                 chunk: Optional[int] = None, q_chunk: Optional[int] = None,
+                 train_base: bool = False):
         import numpy as np
         self.device, self.dtype = device, dtype
         self.n_heads, self.head_dim = n_heads, head_dim
@@ -132,6 +133,18 @@ class PairTrackBlock:
             take(f"transition_z.{n}")
         for n in ("fc1", "fc2", "fc3"):
             self.w[f"transition_z.{n}"] = _t2d(sd[f"transition_z.{n}.weight"], device, dtype)
+
+        # Full-parameter training: every base weight becomes a trainable fp32 leaf.
+        # Used by the overfit-from-random-init arm, where there is no pretrained weight
+        # for an adapter to sit beside, so LoRA would be adapting noise. fp32 for the
+        # same reason the adapters are: the update-magnitude control reads 0.767 of a
+        # step at lr 1e-5 on a bf16 leaf and 1.000 on an fp32 one.
+        if train_base:
+            for _n, _t in list(self.w.items()):
+                _new = ag.Tensor(ft.to_device(ft.to_host(_t.value), device,
+                                              dtype=adapter_dtype), requires_grad=True)
+                self.w[_n] = _new
+                self.params[_n] = _new
 
         # Adapters, after every base weight exists so `in`/`out` come from the real shapes.
         self.adapters: Dict[str, tuple] = {}
