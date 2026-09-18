@@ -27,16 +27,18 @@ Same census, decline reasons read off the levers' own counters:
 | `TRIATT_PERSISTENT_MASK` (fused SDPA) | `triatt_sdpa.py:338` | **560 / 0** | serves; reachable |
 | `TRIATT_HEAD_MAJOR_QKV` | `triatt_qkv.py:53` | **560 / 0** | serves; reachable |
 | `TRIATT_HEAD_MAJOR_TAIL` | `triatt_qkv.py` (`out_proj`) | **560 / 0** | serves; reachable |
-| `TRIMUL_IN_PROJ_DUAL_NOC` | `mm_dualnoc.py:86` | 0 / **2240** | **`memory`**, 2240 of 2240 — the dtype clause is never reached |
+| `TRIMUL_IN_PROJ_DUAL_NOC` | `mm_dualnoc.py:86` | 0 / **2240** at 298 aa but **560 / 0** at 512 aa | `memory` at 298 aa; **serves every call at the cell** |
 | `TRIMUL_TAIL_F1` | `trimul_tail.py:128` | 0 / **560** | **`k_tiles=4`**, 560 of 560 — c_z = 128 gives kt = 4 and the fork wants 8 |
 | `PAIR_TRANSPOSE_VIA_ROW_MAJOR` | `reblock_permute` | 0 / **560** | `l1_dest_is_faster:320x320x128` — a deliberate choice, not a dtype |
 
 Two consequences for the re-cut, offered rather than acted on:
 
-* **`mm_dualnoc.py:86` is a null on Boltz-2** at this size. It is inside `bfp8-qkv-matmul`'s slice
-  and widening it cannot change a call, because the gate returns on `memory` before it looks at a
-  dtype. Worth confirming at 512 aa before spending a pass on it — `_triangle_mul_memory_config(H)`
-  is H-dependent, so the `memory` decline may not hold at the cell.
+* **`mm_dualnoc.py:86` is NOT a null — widen it.** The 298 aa census alone would have retired it:
+  0 served, 2240 declined, every one on `memory`, never reaching the dtype clause. At **512 aa it
+  serves 560 of 560**. `_triangle_mul_memory_config(H)` is H-dependent and the decline does not
+  survive to the cell, so a row that screened this gate at 298 aa only would have dropped a
+  reachable site. That is the same shape of error as scoring a precision change at 298 aa: the
+  control size does not cover the cell, in either direction.
 * **`trimul_tail.py` and `tt_bio/tenstorrent.py` have no owner in the re-cut table**, which is
   therefore not gap-free over our bf16 gates. The good news is the gap is worthless: `trimul_tail`
   declines 560 of 560 on `k_tiles`, the same structural reason that made the ~1.17x once credited to
@@ -101,3 +103,41 @@ And the orchestrator's correction is right that `tile_bytes` **raised `ValueErro
 than being generic; my pass-1 table named the missing `_TILE_BYTES` entry as a blocker but my prose
 around it said "the machinery underneath is already dtype-generic", which overstates it. Parameterised
 but floored on bf16/fp32 is the accurate description.
+
+
+## The accuracy result, which is what the region dies of
+
+Measured after the re-cut, on the structures the two censuses wrote, all-atom Kabsch
+(`perf/other512/cif_rmsd.py`, the lineage's own scorer):
+
+| | off vs on | A/A control | plDDT off -> on | vs the bar |
+|---|---|---|---|---|
+| 298 aa | **0.602376 A** | — | 0.897201 -> 0.893966 | at/over the 0.60 A hold line |
+| 512 aa | **1.216172 A** | **0.000000 A** exactly (two independent base processes, bit-identical CIFs) | 0.850185 -> 0.844167 | **2.03x over the 0.60 A kill bar** |
+
+Context the standing policy requires beside it: the 512 aa **seed floor is 1.82527 A** (the reference
+compared to itself with only the noise realisation changed, `perf/roof_shared`), so 1.216172 A is
+**0.67x of variation already accepted** — but the bar is 0.60 A and this is over it, so the region
+does not ship as scoped. For proportion: full-track bfp8 read **1.4965 A at 298 aa** where this reads
+0.602376, and b2z's union read **13.07 A at 512 aa**. plDDT FALLS slightly here rather than rising,
+which is the tell that this is the same fold perturbed and not the different global arrangement that
+b2z's `transition` site produced.
+
+**The obvious next narrowing, for whoever owns the destination.** The region currently carries q, k,
+v, gate, bias AND the SDPA's own output in bfp8. The output is the one rounding that lands directly
+on the path to `z_update`; q/k/v feed a softmax that attenuates. Splitting them — q/k/v/bias in bfp8,
+the SDPA destination back to bf16 — is legal precisely because `_uniform_dataformat` is a hint and
+not a precondition, and it keeps three of the four pair tensors in the 268.4 MB buffer narrow. That
+arm is one line in `triatt_sdpa.py` (the destination presently follows `q.dtype`) and belongs to
+`bfp8-sdpa-unlock` with `bfp8-accuracy-envelope` scoring it. This row cannot run it without a re-cut.
+
+## What is still unmeasured, and it is the timed arm
+
+No trustworthy fold A/B of the region exists. The 298 aa session read **1.01174x against its own A/A
+floor of 1.00834** — a null inside noise, and doubly unusable: the box was co-tenanted (benchlock
+recorded `WARNING after 300s load=1.82 foreign_folds=1`) and the clock was not pinned, sampling
+1312-1350 MHz. The 512 aa timed arm was deliberately not run, because a release gate has been folding
+since 12:14Z. Priced instead from this row's own measured realization and byte census, as a **band and
+not a book entry**: the two 268.4 MB qkv buffers are 15.0 Z a layer, 265.7 GB a fold, **0.70 s** at
+the 380.77 GB/s this card measures, times the 0.84-0.98 realization = **0.59-0.68 s**. The full
+ours-to-fix bucket, if every one of our gates were widened, is 29.062 Z a layer = 1.14-1.32 s.
