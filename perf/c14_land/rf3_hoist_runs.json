@@ -1,0 +1,71 @@
+{
+ "host": "tt-quietbox2",
+ "model": "rf3",
+ "flag": "TT_BIO_DIT_COND_HOIST",
+ "env": {
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:c14-land-tail",
+  "TT_METAL_CACHE": "/home/ttuser/.cache/tt-metal-cache-tt-bio/ttnn-0.68.0",
+  "TT_METAL_LOGGER_LEVEL": "FATAL",
+  "TT_VISIBLE_DEVICES": "1"
+ },
+ "runs": [
+  {
+   "target": "cdk2x2_512",
+   "tag": "base-s0",
+   "arm": "base",
+   "seed": 0,
+   "plddt": 0.779289,
+   "sha256": "9dbbe8476e2857de83659f5f8ea5ba460337ee22af52a658c843c7ce917490e7",
+   "fold_s_NOT_A_MEASUREMENT": 76.183,
+   "fold_s": 76.183
+  },
+  {
+   "target": "cdk2x2_512",
+   "tag": "on-s0",
+   "arm": "on",
+   "seed": 0,
+   "plddt": 0.779324,
+   "sha256": "d3327eebefe60667f0d089465156f4d80bf532f417d2d21e406e98db6764d46a",
+   "fold_s_NOT_A_MEASUREMENT": 59.277,
+   "fold_s": 59.277
+  },
+  {
+   "target": "cdk2x2_512",
+   "tag": "base-s1",
+   "arm": "base",
+   "seed": 1,
+   "plddt": 0.779432,
+   "sha256": "4e49365b0c740f298e194d00905287979cc88bf871eaaf8e4a9ba5c67986f2a8",
+   "fold_s_NOT_A_MEASUREMENT": 61.763,
+   "fold_s": 61.763
+  },
+  {
+   "target": "cdk2x2_512",
+   "tag": "on-s1",
+   "arm": "on",
+   "seed": 1,
+   "plddt": 0.779443,
+   "sha256": "7245ab3dbce5bbee40c4ab1f04ea2ff516cb89123538c159e4cb7f17b9b71e55",
+   "fold_s_NOT_A_MEASUREMENT": 64.372,
+   "fold_s": 64.372
+  },
+  {
+   "target": "cdk2x2_512",
+   "tag": "base-s0_r1",
+   "arm": "base",
+   "seed": 0,
+   "plddt": 0.779289,
+   "sha256": "9dbbe8476e2857de83659f5f8ea5ba460337ee22af52a658c843c7ce917490e7",
+   "fold_s_NOT_A_MEASUREMENT": 61.293,
+   "fold_s": 61.293
+  }
+ ],
+ "arms_differ": {
+  "512 s0": true,
+  "512 s1": true
+ },
+ "aa_bitexact": {
+  "base-s0_r1": true
+ }
+}
