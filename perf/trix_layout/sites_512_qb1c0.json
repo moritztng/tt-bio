@@ -1,0 +1,210 @@
+{
+  "n": 512,
+  "host": "qb1c0",
+  "grid": [
+    11,
+    10
+  ],
+  "census": [
+    {
+      "label": "start",
+      "wall_ms": 6.1978,
+      "taped_sum_ms": 8.2365,
+      "by_class": {
+        "COMPUTE": 5.5304,
+        "FUSED-LAYOUT": 1.7336,
+        "LAYOUT": 0.9725
+      },
+      "ops": [
+        {
+          "key": "generic_minimal_matmul",
+          "cls": "COMPUTE",
+          "tag": "[1x1@1x512x512x128]",
+          "n": 1,
+          "ms": 1.8734,
+          "share": 0.2275
+        },
+        {
+          "key": "REBLOCK_gated",
+          "cls": "FUSED-LAYOUT",
+          "tag": "[1x512x512x512]c128->DRAM",
+          "n": 2,
+          "ms": 1.7336,
+          "share": 0.2105
+        },
+        {
+          "key": "layer_norm",
+          "cls": "COMPUTE",
+          "tag": "[1x512x512x128]",
+          "n": 2,
+          "ms": 1.2497,
+          "share": 0.1517
+        },
+        {
+          "key": "matmul",
+          "cls": "COMPUTE",
+          "tag": "[1x128x512x512@1x128x512x512]->DRAM",
+          "n": 1,
+          "ms": 0.8954,
+          "share": 0.1087
+        },
+        {
+          "key": "REBLOCK_back",
+          "cls": "LAYOUT",
+          "tag": "(0,2,3,1)[1x128x512x512]->-",
+          "n": 1,
+          "ms": 0.8035,
+          "share": 0.0976
+        },
+        {
+          "key": "multiply_",
+          "cls": "COMPUTE",
+          "tag": "[1x512x512x128]",
+          "n": 1,
+          "ms": 0.6122,
+          "share": 0.0743
+        },
+        {
+          "key": "multiply_",
+          "cls": "COMPUTE",
+          "tag": "[1x128x512x512]",
+          "n": 1,
+          "ms": 0.4971,
+          "share": 0.0604
+        },
+        {
+          "key": "linear",
+          "cls": "COMPUTE",
+          "tag": "[1x512x512x128@128x128]->L1",
+          "n": 1,
+          "ms": 0.4026,
+          "share": 0.0489
+        },
+        {
+          "key": "to_memory_config",
+          "cls": "LAYOUT",
+          "tag": "[1x1x512x512]",
+          "n": 1,
+          "ms": 0.1099,
+          "share": 0.0133
+        },
+        {
+          "key": "unsqueeze",
+          "cls": "LAYOUT",
+          "tag": "[1x512x512]dim1",
+          "n": 1,
+          "ms": 0.059,
+          "share": 0.0072
+        }
+      ]
+    },
+    {
+      "label": "end",
+      "wall_ms": 6.4176,
+      "taped_sum_ms": 7.5732,
+      "by_class": {
+        "COMPUTE": 5.3168,
+        "FUSED-LAYOUT": 1.5338,
+        "LAYOUT": 0.7226
+      },
+      "ops": [
+        {
+          "key": "generic_minimal_matmul",
+          "cls": "COMPUTE",
+          "tag": "[1x1@1x512x512x128]",
+          "n": 1,
+          "ms": 1.6107,
+          "share": 0.2127
+        },
+        {
+          "key": "REBLOCK_gated",
+          "cls": "FUSED-LAYOUT",
+          "tag": "[1x512x512x512]c128->DRAM",
+          "n": 2,
+          "ms": 1.5338,
+          "share": 0.2025
+        },
+        {
+          "key": "layer_norm",
+          "cls": "COMPUTE",
+          "tag": "[1x512x512x128]",
+          "n": 2,
+          "ms": 1.3256,
+          "share": 0.175
+        },
+        {
+          "key": "matmul",
+          "cls": "COMPUTE",
+          "tag": "[1x128x512x512@1x128x512x512]->DRAM",
+          "n": 1,
+          "ms": 0.9832,
+          "share": 0.1298
+        },
+        {
+          "key": "REBLOCK_back",
+          "cls": "LAYOUT",
+          "tag": "(0,2,3,1)[1x128x512x512]->-",
+          "n": 1,
+          "ms": 0.6234,
+          "share": 0.0823
+        },
+        {
+          "key": "multiply_",
+          "cls": "COMPUTE",
+          "tag": "[1x512x512x128]",
+          "n": 1,
+          "ms": 0.5737,
+          "share": 0.0758
+        },
+        {
+          "key": "multiply_",
+          "cls": "COMPUTE",
+          "tag": "[1x128x512x512]",
+          "n": 1,
+          "ms": 0.458,
+          "share": 0.0605
+        },
+        {
+          "key": "linear",
+          "cls": "COMPUTE",
+          "tag": "[1x512x512x128@128x128]->L1",
+          "n": 1,
+          "ms": 0.3657,
+          "share": 0.0483
+        },
+        {
+          "key": "to_memory_config",
+          "cls": "LAYOUT",
+          "tag": "[1x1x512x512]",
+          "n": 1,
+          "ms": 0.0658,
+          "share": 0.0087
+        },
+        {
+          "key": "unsqueeze",
+          "cls": "LAYOUT",
+          "tag": "[1x512x512]dim1",
+          "n": 1,
+          "ms": 0.0333,
+          "share": 0.0044
+        }
+      ]
+    }
+  ],
+  "clock": {
+    "0": {
+      "min": 1350,
+      "max": 1350,
+      "median": 1350,
+      "n": 1
+    }
+  },
+  "branch_stats": {
+    "('gated-move', 'defer')": 20
+  },
+  "reblock_stats": {
+    "served": 0,
+    "declined": 0,
+    "gated": 40
+  }
+}
