@@ -79,7 +79,15 @@ def main() -> int:
     for env, attr in (("TT_BIO_DIT_COND_HOIST", "_B2_DIT_COND_HOIST"),
                       ("TT_BIO_UNFUSED_SILU", "_UNFUSED_SILU")):
         assert env not in os.environ, f"{env} may not be pinned; the arm is set in-process"
-        assert getattr(T, attr) is False, f"{attr} must ship off for base to be the default"
+    # The arm is assigned in-process below, so the module default only decides the state the
+    # model is BUILT under. This used to assert the default was False, which made the harness
+    # refuse to run the moment TT_BIO_DIT_COND_HOIST landed default-ON -- the harness written to
+    # clear a landing, disabled by that landing. Pin the pre-arm state off instead: that is what
+    # every earlier reading in this directory was taken under, so old and new arms stay
+    # comparable, and record what the tree actually ships so the artifact names its own tree.
+    shipped_defaults = {"_B2_DIT_COND_HOIST": T._B2_DIT_COND_HOIST,
+                        "_UNFUSED_SILU": T._UNFUSED_SILU}
+    T._B2_DIT_COND_HOIST = T._UNFUSED_SILU = False
 
     dev = get_device()
     nodes = clk.nodes_open_by_this_process()
@@ -144,14 +152,19 @@ def main() -> int:
     def rms_ca(a, b):
         return round(kabsch_rmsd(xyz[a][ca], xyz[b][ca]), 5)
 
-    lever = [{"seed": s, "pair": f"s{s}_base vs s{s}_both",
-              "all_atom_A": rms(f"s{s}_base", f"s{s}_both"),
-              "ca_A": rms_ca(f"s{s}_base", f"s{s}_both"),
+    # Score every non-base arm --arms asked for, not just "both". This used to name "both"
+    # literally, so `--arms base,hoist` folded correctly and then reported nothing at all --
+    # and hoist ALONE is what ships now that TT_BIO_UNFUSED_SILU was withdrawn. A harness that
+    # can only score the arm it was written for cannot re-score a landing that changed shape.
+    lever = [{"seed": s, "arm": a, "pair": f"s{s}_base vs s{s}_{a}",
+              "all_atom_A": rms(f"s{s}_base", f"s{s}_{a}"),
+              "ca_A": rms_ca(f"s{s}_base", f"s{s}_{a}"),
               "plddt_base": folds[f"s{s}_base"]["plddt"],
-              "plddt_both": folds[f"s{s}_both"]["plddt"],
-              "plddt_delta": round(folds[f"s{s}_both"]["plddt"]
+              "plddt_arm": folds[f"s{s}_{a}"]["plddt"],
+              "plddt_delta": round(folds[f"s{s}_{a}"]["plddt"]
                                    - folds[f"s{s}_base"]["plddt"], 6)}
-             for s in seeds if f"s{s}_both" in folds]
+             for s in seeds for a in arms
+             if a != "base" and f"s{s}_{a}" in folds]
     floor = [{"pair": f"base s{a} vs base s{b}",
               "all_atom_A": rms(f"s{a}_base", f"s{b}_base"),
               "ca_A": rms_ca(f"s{a}_base", f"s{b}_base"),
@@ -168,6 +181,7 @@ def main() -> int:
     worst = max((x["all_atom_A"] for x in lever), default=None)
     res = {
         "doc": __doc__, "size": args.size, "seeds": seeds, "arms": arms,
+        "shipped_defaults": shipped_defaults,
         "host": socket.gethostname(), "card_node": nodes[0], "clock_forced_mhz": args.mhz,
         "commit": os.popen(f"git -C {REPO} rev-parse HEAD").read().strip(),
         "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
