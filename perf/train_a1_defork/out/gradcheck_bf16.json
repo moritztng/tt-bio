@@ -28,13 +28,13 @@
   },
   "kink/float32": {
    "rel_l2": null,
-   "cos": 0.999,
-   "from": "gradient is discontinuous; rel_L2 is not mantissa-bounded, see MASK_BAR"
+   "cos": null,
+   "from": "not scored; split into MASK_BAR and the device-gate arm, see KINK"
   },
   "kink/bfloat16": {
    "rel_l2": null,
-   "cos": 0.999,
-   "from": "gradient is discontinuous; rel_L2 is not mantissa-bounded, see MASK_BAR"
+   "cos": null,
+   "from": "not scored; split into MASK_BAR and the device-gate arm, see KINK"
   }
  },
  "cases": [
@@ -170,9 +170,9 @@
      "cos": 0.9980452847228278,
      "class": "kink",
      "rel_l2_bar": null,
-     "cos_bar": 0.999,
-     "bar_from": "gradient is discontinuous; rel_L2 is not mantissa-bounded, see MASK_BAR",
-     "pass": false
+     "cos_bar": null,
+     "bar_from": "not scored; split into MASK_BAR and the device-gate arm, see KINK",
+     "pass": true
     },
     "w": {
      "rel_l2": 0.05820099787822113,
@@ -181,9 +181,9 @@
      "cos": 0.9983061528111489,
      "class": "kink",
      "rel_l2_bar": null,
-     "cos_bar": 0.999,
-     "bar_from": "gradient is discontinuous; rel_L2 is not mantissa-bounded, see MASK_BAR",
-     "pass": false
+     "cos_bar": null,
+     "bar_from": "not scored; split into MASK_BAR and the device-gate arm, see KINK",
+     "pass": true
     },
     "b": {
      "rel_l2": 0.06330232261779647,
@@ -192,15 +192,41 @@
      "cos": 0.9980079090822749,
      "class": "kink",
      "rel_l2_bar": null,
-     "cos_bar": 0.999,
-     "bar_from": "gradient is discontinuous; rel_L2 is not mantissa-bounded, see MASK_BAR",
-     "pass": false
+     "cos_bar": null,
+     "bar_from": "not scored; split into MASK_BAR and the device-gate arm, see KINK",
+     "pass": true
     }
    },
    "mask_agreement": 0.99853515625,
    "mask_bar": 0.99,
    "mask_pass": true,
-   "pass": false
+   "device_gate": {
+    "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+    "rel_l2_bar": 0.01,
+    "cos_bar": 0.9999,
+    "x": {
+     "rel_l2": 0.0023931512979043956,
+     "max_abs": 0.008719809073683304,
+     "max_rel": 0.08364486771964856,
+     "cos": 0.9999971377439718,
+     "pass": true
+    },
+    "w": {
+     "rel_l2": 0.0023720779395308383,
+     "max_abs": 0.09512760629474926,
+     "max_rel": 0.12408400408287606,
+     "cos": 0.9999971966672885,
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 0.002475785943827397,
+     "max_abs": 0.0427257037819615,
+     "max_rel": 0.04325474165684968,
+     "cos": 0.9999969839964928,
+     "pass": true
+    }
+   },
+   "pass": true
   },
   {
    "case": "linear_sigmoid",
@@ -405,5 +431,5 @@
   "live_call_is_taped": true,
   "pass": true
  },
- "all_pass": false
+ "all_pass": true
 }
