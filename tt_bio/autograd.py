@@ -362,6 +362,23 @@ def add(a: Tensor, b: Tensor) -> Tensor:
     return _tape(out_v, [a, b], make)
 
 
+def relu(x: Tensor) -> Tensor:
+    """ReLU. The denoiser applies one between the atom encoder and the token aggregation
+    (``protenix.py:1110``), and it is the only activation in that path the tape lacked.
+
+    The backward gates on the OUTPUT rather than the input: relu(x) > 0 exactly where
+    x > 0, and the output is already materialised, so the input need not be retained.
+    """
+    out_v = ttnn.relu(x.value)
+
+    def make():
+        def bw(g):
+            x.add_grad(ttnn.multiply(g, ttnn.gtz(out_v)))
+        return bw
+
+    return _tape(out_v, [x], make)
+
+
 def sigmoid(x: Tensor) -> Tensor:
     """Sigmoid. Backward ``y * (1 - y)``, computed from the retained output."""
     y = ttnn.sigmoid(x.value)

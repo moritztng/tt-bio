@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The three ops the atom transformer needed: narrow, concat and the window build.
+"""The ops the diffusion module needed: narrow, concat, the window build and relu.
 
 Checked against torch float64 autograd, forward and gradient. Small, but two of them are
 the kind of op where the forward is obviously right and the backward is quietly wrong:
@@ -70,6 +70,19 @@ def main():
         (ref * torch.tensor(g, dtype=torch.float64)).sum().backward()
         check("narrow forward", got, ref.detach().numpy())
         check("narrow d/dx", ft.to_host(xt.grad).reshape(96, a.c), xr.grad.numpy())
+
+        # ---- relu, whose backward gates on the output
+        x = (rng.standard_normal((64, a.c)) * 0.5).astype(np.float32)
+        g = (rng.standard_normal((64, a.c)) * 0.5).astype(np.float32)
+        xt = ag.Tensor(ft.to_device(x, dev, dtype=dt), requires_grad=True)
+        out = ag.relu(xt)
+        got = ft.to_host(out.value).reshape(64, a.c)
+        out.backward(seed=ft.to_device(g, dev, dtype=dt))
+        xr = torch.tensor(x, dtype=torch.float64, requires_grad=True)
+        ref = torch.relu(xr)
+        (ref * torch.tensor(g, dtype=torch.float64)).sum().backward()
+        check("relu forward", got, ref.detach().numpy())
+        check("relu d/dx", ft.to_host(xt.grad).reshape(64, a.c), xr.grad.numpy())
 
         # ---- concat of distinct tensors
         parts = [(rng.standard_normal((4, 32, a.c)) * 0.5).astype(np.float32)

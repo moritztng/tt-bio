@@ -540,21 +540,16 @@ def main():
     ap.add_argument("--alpha", type=float, default=16.0)
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--weight-decay", type=float, default=0.01)
-    # Upstream clips the global gradient norm at 10 (configs_base.py:80). This defaults
-    # to 0 (off) ONLY so the recorded 112-step run stays reproducible from the defaults
-    # it actually ran under -- its gradient norms were 8.6e0 to 5.0e1, so a clip at 10
-    # would have been active and would have changed the trajectory. A clipped re-run of
-    # the fine-tune is owed; until it exists, do not quote the two configurations
-    # against each other.
-    ap.add_argument("--clip-norm", type=float, default=0.0)
-    # THE ADAPTER DTYPE IS NOT A FREE CHOICE and this default is the wrong one, kept only
-    # until the fine-tune is re-measured. perf/ptxft/single_track.py reads an fp32 weight
-    # against a bf16 activation at 2.13e-01 on a forward where bf16/bf16 reads 8.16e-03,
-    # and perf/ptxft/overfit.py shows what that costs end to end: two targets plateau at
-    # CE 1.10/1.50 with an fp32 device weight and reach 1.9e-04 with a bf16 one. The
-    # recorded 112-step fine-tune and its -4.04 % held-out improvement ran at fp32, so
-    # the default stays there until a bf16 run replaces the number it is quoted against.
-    ap.add_argument("--adapter-dtype", default="fp32", choices=["bf16", "fp32"])
+    # Upstream's own value (configs_base.py:80), and now also what the recorded run used.
+    ap.add_argument("--clip-norm", type=float, default=10.0)
+    # THE ADAPTER DTYPE IS NOT A FREE CHOICE. An fp32 weight against a bf16 activation
+    # reads 2.13e-01 on a forward where bf16/bf16 reads 8.16e-03
+    # (perf/ptxft/single_track.py), and end to end that is the difference between two
+    # targets plateauing at CE 1.10/1.50 and reaching 1.9e-04
+    # (perf/ptxft/overfit.py). bf16 on device with the fp32 master on host is
+    # tt-train's arrangement and is now also the configuration the recorded held-out
+    # number was measured on, so it is the default.
+    ap.add_argument("--adapter-dtype", default="bf16", choices=["bf16", "fp32"])
     ap.add_argument("--steps", type=int, default=20)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--chunk", type=int, default=None)
