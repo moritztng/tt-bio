@@ -882,6 +882,55 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 
 Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card locally, or one design per card across a fleet with `--controller http://host:8765`. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
 
+## Training
+
+Fine-tune a model you can already run, with the same forward the inference path uses. The
+surface has four levels and you pick the one that matches what you want to write, not how much
+configuration you are willing to tolerate.
+
+| Level | You write | You own |
+|---|---|---|
+| `tt-bio finetune ...` | a command line | the config |
+| `train.finetune(...)` | one call | the objective |
+| `plan`, `batches`, `objectives`, `AdamW`, `Checkpointer`, `Mesh`, `LoraConfig` | the loop | the `for` statement |
+| `tt_bio.autograd` + `train.gradcheck` | an op and its backward | the gradient |
+
+Dropping a level is not a rewrite. `train.recipes.source("lora")` prints the body the one-call
+version runs, written only in names the level below exports, and a test keeps it that way: if
+the recipe ever needed a private hook, the test fails and the hook becomes public.
+
+```bash
+# will this fit, and how long? answered without opening a card
+tt-bio finetune data/ --model protenix-v2 --out runs/a     --global-batch 8 --steps 2000 --tokens 256 --dry-run
+
+tt-bio finetune --show-recipe        # the loop it would run, as source you can edit
+tt-bio finetune --list-objectives    # the named loss rows
+```
+
+**What works today:** the interface, the dry run, the LoRA adapters, the optimizer, gradient
+checking, checkpoints and single-box data parallelism up to 4 chips. **What does not:** no
+model ships a training featuriser yet, so a real `tt-bio finetune` run stops with a named error
+at the point it would read your data. Featurisation is per model on purpose, and a model
+registers its own with `tt_bio.train.catalogue.register`.
+
+Four things the API enforces rather than documents, because each is a bug we hit:
+
+- `plan()` answers from measured numbers or returns `UNMEASURED`. It refuses a crop size whose
+  forward is measured to run out of memory instead of estimating one, and it will not report a
+  4-chip step time from a 2-chip measurement.
+- The optimizer refuses a bfloat16 master copy of the weights. An update accumulated at
+  bfloat16 stops moving the weight while the gradient still looks healthy.
+- `opt.step()` raises if you spread training over several chips and never gave it a way to
+  combine their gradients. Otherwise you train one model per chip and see one loss curve.
+- Every run records the clock it actually ran at, sampled during the work, plus the seed and
+  the commit. A time without its clock is not a measurement on this hardware.
+
+Global batch is always yours to set and is never derived from how many chips you have, so a
+recipe means the same thing on a bigger box.
+
+Tiers, cut lines, the escape-hatch test and where `plan()` gets its numbers:
+[`docs/training.md`](docs/training.md).
+
 ## Cite
 
 If you use this code or the models in your research, please cite the following papers:

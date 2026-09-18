@@ -36,7 +36,7 @@ def adapter_params(device, cfg, dtype, rng):
     transition. Sized so the cost numbers below are the cost of a real block, not of a
     toy.
     """
-    from tt_bio import finetune as ft
+    from tt_bio import train as ft
     sites = ([("trimul_%d" % i, 256, 256) for i in range(12)]
              + [("triatt_mha_%d" % i, 256, 256) for i in range(10)]
              + [("triatt_bias_%d" % i, 256, 8) for i in range(2)]
@@ -55,7 +55,7 @@ def adapter_params(device, cfg, dtype, rng):
 
 def fake_grads(params, rng, device, dtype, scale=1.0):
     """Gradients of a plausible magnitude, so the magnitude control is not measuring zero."""
-    from tt_bio import finetune as ft
+    from tt_bio import train as ft
     for t in params.values():
         shp = tuple(int(d) for d in t.value.shape)
         g = (rng.standard_normal(shp) * scale / math.sqrt(shp[0])).astype(np.float32)
@@ -64,7 +64,7 @@ def fake_grads(params, rng, device, dtype, scale=1.0):
 
 def arm_moreh(device, dtype, args):
     import ttnn
-    from tt_bio import finetune as ft
+    from tt_bio import train as ft
     print("# --moreh: does ttnn.moreh_adamw agree with the host step, and what does each cost?")
     print(f"# signature: {(ttnn.moreh_adamw.__doc__ or '').strip().splitlines()[1:8]}")
     cfg = ft.LoraConfig(rank=args.rank)
@@ -161,7 +161,7 @@ def arm_moreh(device, dtype, args):
 
 def arm_magnitude(device, dtype, args):
     """The control the brief calls non-negotiable: does the step survive the cast?"""
-    from tt_bio import finetune as ft
+    from tt_bio import train as ft
     print("# --magnitude: the update-magnitude control.")
     print("# `kept` is ||w_after - w_before|| on the DEVICE tensor the forward reads,")
     print("# over ||master_after - master_before||. hallgrad-build measured 0.209 for an")
@@ -211,7 +211,7 @@ def arm_magnitude(device, dtype, args):
 
 def arm_roundtrip(device, dtype, args):
     """Save an adapter mid-training and prove a reload is exact. Cross-process: --verify."""
-    from tt_bio import finetune as ft
+    from tt_bio import train as ft
     print("# --roundtrip: save the adapter, then reload it and compare.")
     cfg = ft.LoraConfig(rank=args.rank)
     rng = np.random.default_rng(23)
@@ -241,7 +241,7 @@ def arm_roundtrip(device, dtype, args):
 
 
 def arm_verify(device, dtype, args):
-    from tt_bio import finetune as ft
+    from tt_bio import train as ft
     import tt_bio.autograd as ag
     print("# --verify: a FRESH process reloads the adapter and re-runs the probe forward.")
     cfg = ft.LoraConfig(rank=args.rank)
