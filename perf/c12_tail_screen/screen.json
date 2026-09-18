@@ -1,0 +1,1981 @@
+{
+ "source": {
+  "ref": "a63d6d8e3749843c1c58814cbabf87cd19a3bc17",
+  "dir": "perf/c12_profiled_fold/runs",
+  "runs": [
+   "dm_prof",
+   "msal_prof",
+   "pfl_prof2",
+   "stage_prof"
+  ]
+ },
+ "clock_MHz": 1350.0,
+ "fold_s": 14.881,
+ "device_s": 13.209,
+ "roofs": {
+  "bw_add8192_GB_s": 435.7261026435504,
+  "bw_clone_GB_s": 393.3089503261313,
+  "cube4096_TFLOP_s": 113.68334140686571,
+  "balance_FLOP_B": 260.9055108637028,
+  "from": "perf/c12_genop_rate/runs/roofs_qb2c3_r40.json"
+ },
+ "controls": {
+  "KA1_all_units_reproduce_composed": true,
+  "KA2_table_total_s": 13.20896,
+  "KA2_tail_total_s": 1.56726
+ },
+ "per_unit": [
+  {
+   "unit": "PairformerLayer",
+   "run": "pfl_prof2",
+   "reps": 3,
+   "calls_per_fold": 264,
+   "device_ms_per_call": 30.65493,
+   "programs_per_call": 137.0,
+   "s_per_fold": 8.0929,
+   "KA1_device_ms_matches_composed": true,
+   "KA1_programs_matches_composed": true
+  },
+  {
+   "unit": "MSALayer",
+   "run": "msal_prof",
+   "reps": 5,
+   "calls_per_fold": 16,
+   "device_ms_per_call": 59.17096,
+   "programs_per_call": 227.0,
+   "s_per_fold": 0.9467,
+   "KA1_device_ms_matches_composed": true,
+   "KA1_programs_matches_composed": true
+  },
+  {
+   "unit": "DiffusionModule",
+   "run": "dm_prof",
+   "reps": 3,
+   "calls_per_fold": 200,
+   "device_ms_per_call": 20.33434,
+   "programs_per_call": 1096.0,
+   "s_per_fold": 4.0669,
+   "KA1_device_ms_matches_composed": true,
+   "KA1_programs_matches_composed": true
+  },
+  {
+   "unit": "PairConditioningDevice",
+   "run": "stage_prof",
+   "reps": 5,
+   "calls_per_fold": 1,
+   "device_ms_per_call": 21.28959,
+   "programs_per_call": 19.0,
+   "s_per_fold": 0.0213,
+   "KA1_device_ms_matches_composed": true,
+   "KA1_programs_matches_composed": true
+  },
+  {
+   "unit": "RelPosGather",
+   "run": "stage_prof",
+   "reps": 10,
+   "calls_per_fold": 2,
+   "device_ms_per_call": 13.99937,
+   "programs_per_call": 7.0,
+   "s_per_fold": 0.028,
+   "KA1_device_ms_matches_composed": true,
+   "KA1_programs_matches_composed": true
+  },
+  {
+   "unit": "PairAssemblyDevice",
+   "run": "stage_prof",
+   "reps": 5,
+   "calls_per_fold": 2,
+   "device_ms_per_call": 26.58147,
+   "programs_per_call": 27.0,
+   "s_per_fold": 0.0532,
+   "KA1_device_ms_matches_composed": true,
+   "KA1_programs_matches_composed": true
+  }
+ ],
+ "tail": [
+  {
+   "op": "SDPAOperation",
+   "s_per_fold": 0.43348,
+   "programs_per_fold": 6000.0,
+   "Mcycles": 585.2,
+   "priced": true,
+   "traffic_model": "sdpa",
+   "mix": "2R1W",
+   "model_note": "Q, the bias and O once; K and V ONCE PER Q CHUNK, with the chunk count taken from the q_chunk_size in the row's own executed program_config. Charging every operand once understates the token site by 1.50x and put it at 37.4 % of roof when it is at 56.0 %",
+   "dram_GB": 109.8646,
+   "l1_GB": 0.0,
+   "recorded_operand_GB": 79.6656,
+   "charged_frac_of_recorded_pct": 137.9,
+   "roof_GB_s": 435.73,
+   "floor_s": 0.25214,
+   "pct_of_roof": 58.17,
+   "GB_s": 253.45,
+   "TFLOP_s": 12.7024,
+   "AI_FLOP_per_B": 50.12,
+   "bound": "traffic",
+   "recoverable_to_roof_s": 0.18134,
+   "cores": {
+    "110": 6000.0
+   }
+  },
+  {
+   "op": "NlpCreateHeadsDeviceOperation",
+   "s_per_fold": 0.30067,
+   "programs_per_fold": 6264.0,
+   "Mcycles": 405.9,
+   "priced": true,
+   "traffic_model": "io",
+   "mix": "1R1W",
+   "model_note": "packed qkv read, three head-major views written; equal volume, zero FLOP",
+   "dram_GB": 64.0596,
+   "l1_GB": 0.0,
+   "recorded_operand_GB": 64.0596,
+   "charged_frac_of_recorded_pct": 100.0,
+   "roof_GB_s": 393.31,
+   "floor_s": 0.16287,
+   "pct_of_roof": 54.17,
+   "GB_s": 213.06,
+   "TFLOP_s": 0.0,
+   "AI_FLOP_per_B": 0.0,
+   "bound": "traffic",
+   "recoverable_to_roof_s": 0.1378,
+   "cores": {
+    "16": 5064.0,
+    "110": 1200.0
+   }
+  },
+  {
+   "op": "SliceDeviceOperation",
+   "s_per_fold": 0.19167,
+   "programs_per_fold": 15856.0,
+   "Mcycles": 258.8,
+   "priced": true,
+   "traffic_model": "out2",
+   "mix": "1R1W",
+   "model_note": "reads only the extent it returns",
+   "dram_GB": 63.361,
+   "l1_GB": 0.1342,
+   "recorded_operand_GB": 256.7075,
+   "charged_frac_of_recorded_pct": 24.7,
+   "roof_GB_s": 393.31,
+   "floor_s": 0.1611,
+   "pct_of_roof": 84.05,
+   "GB_s": 330.58,
+   "TFLOP_s": 0.0,
+   "AI_FLOP_per_B": 0.0,
+   "bound": "traffic",
+   "recoverable_to_roof_s": 0.03057,
+   "cores": {
+    "110": 15472.0,
+    "2": 384.0
+   }
+  },
+  {
+   "op": "ReshapeViewDeviceOperation",
+   "s_per_fold": 0.15706,
+   "programs_per_fold": 5082.0,
+   "Mcycles": 212.0,
+   "priced": true,
+   "traffic_model": "io",
+   "mix": "1R1W",
+   "model_note": "equal volume in and out",
+   "dram_GB": 26.2388,
+   "l1_GB": 0.0,
+   "recorded_operand_GB": 26.2388,
+   "charged_frac_of_recorded_pct": 100.0,
+   "roof_GB_s": 393.31,
+   "floor_s": 0.06671,
+   "pct_of_roof": 42.48,
+   "GB_s": 167.06,
+   "TFLOP_s": 0.0,
+   "AI_FLOP_per_B": 0.0,
+   "bound": "traffic",
+   "recoverable_to_roof_s": 0.09035,
+   "cores": {
+    "110": 5082.0
+   }
+  },
+  {
+   "op": "PadDeviceOperation",
+   "s_per_fold": 0.08641,
+   "programs_per_fold": 3600.0,
+   "Mcycles": 116.6,
+   "priced": true,
+   "traffic_model": "io",
+   "mix": "1R1W",
+   "model_note": "input read, larger padded output written",
+   "dram_GB": 20.1425,
+   "l1_GB": 0.0,
+   "recorded_operand_GB": 20.1425,
+   "charged_frac_of_recorded_pct": 100.0,
+   "roof_GB_s": 393.31,
+   "floor_s": 0.05121,
+   "pct_of_roof": 59.27,
+   "GB_s": 233.11,
+   "TFLOP_s": 0.0,
+   "AI_FLOP_per_B": 0.0,
+   "bound": "traffic",
+   "recoverable_to_roof_s": 0.03519,
+   "cores": {
+    "110": 3600.0
+   }
+  },
+  {
+   "op": "PermuteDeviceOperation",
+   "s_per_fold": 0.08226,
+   "programs_per_fold": 872.0,
+   "Mcycles": 111.0,
+   "priced": true,
+   "traffic_model": "io",
+   "mix": "1R1W",
+   "model_note": "equal volume in and out",
+   "dram_GB": 10.7039,
+   "l1_GB": 6.9793,
+   "recorded_operand_GB": 17.6832,
+   "charged_frac_of_recorded_pct": 100.0,
+   "roof_GB_s": 393.31,
+   "floor_s": 0.02721,
+   "pct_of_roof": 33.09,
+   "GB_s": 130.13,
+   "TFLOP_s": 0.0,
+   "AI_FLOP_per_B": 0.0,
+   "bound": "traffic",
+   "recoverable_to_roof_s": 0.05504,
+   "cores": {
+    "110": 872.0
+   }
+  },
+  {
+   "op": "ConcatDeviceOperation",
+   "s_per_fold": 0.07479,
+   "programs_per_fold": 1481.0,
+   "Mcycles": 101.0,
+   "priced": true,
+   "traffic_model": "io",
+   "mix": "1R1W",
+   "model_note": "every input read once, output written once",
+   "dram_GB": 29.2039,
+   "l1_GB": 18.7905,
+   "recorded_operand_GB": 47.9944,
+   "charged_frac_of_recorded_pct": 100.0,
+   "roof_GB_s": 393.31,
+   "floor_s": 0.07425,
+   "pct_of_roof": 99.28,
+   "GB_s": 390.46,
+   "TFLOP_s": 0.0,
+   "AI_FLOP_per_B": 0.0,
+   "bound": "traffic",
+   "recoverable_to_roof_s": 0.00054,
+   "cores": {
+    "110": 1481.0
+   }
+  },
+  {
+   "op": "UntilizeDeviceOperation",
+   "s_per_fold": 0.05904,
+   "programs_per_fold": 1232.0,
+   "Mcycles": 79.7,
+   "priced": true,
+   "traffic_model": "io",
+   "mix": "1R1W",
+   "model_note": "equal volume, layout only",
+   "dram_GB": 19.7832,
+   "l1_GB": 0.0,
+   "recorded_operand_GB": 19.7832,
+   "charged_frac_of_recorded_pct": 100.0,
+   "roof_GB_s": 393.31,
+   "floor_s": 0.0503,
+   "pct_of_roof": 85.2,
+   "GB_s": 335.08,
+   "TFLOP_s": 0.0,
+   "AI_FLOP_per_B": 0.0,
+   "bound": "traffic",
+   "recoverable_to_roof_s": 0.00874,
+   "cores": {
+    "65": 1200.0,
+    "103": 16.0,
+    "100": 16.0
+   }
+  },
+  {
+   "op": "EmbeddingsDeviceOperation",
+   "s_per_fold": 0.05713,
+   "programs_per_fold": 18.0,
+   "Mcycles": 77.1,
+   "priced": true,
+   "traffic_model": "write",
+   "mix": "1R1W",
+   "model_note": "index tensor read and output written; the weight table is 2-66 rows x 128 and is L1-resident, so its reads are not DRAM traffic",
+   "dram_GB": 1.2268,
+   "l1_GB": 0.0,
+   "recorded_operand_GB": 1.227,
+   "charged_frac_of_recorded_pct": 100.0,
+   "roof_GB_s": 393.31,
+   "floor_s": 0.00312,
+   "pct_of_roof": 5.46,
+   "GB_s": 21.47,
+   "TFLOP_s": 0.0,
+   "AI_FLOP_per_B": 0.0,
+   "bound": "traffic",
+   "recoverable_to_roof_s": 0.05401,
+   "cores": {
+    "110": 18.0
+   }
+  },
+  {
+   "op": "TilizeDeviceOperation",
+   "s_per_fold": 0.05358,
+   "programs_per_fold": 1232.0,
+   "Mcycles": 72.3,
+   "priced": true,
+   "traffic_model": "io",
+   "mix": "1R1W",
+   "model_note": "equal volume, layout only",
+   "dram_GB": 20.0781,
+   "l1_GB": 0.0,
+   "recorded_operand_GB": 20.0781,
+   "charged_frac_of_recorded_pct": 100.0,
+   "roof_GB_s": 393.31,
+   "floor_s": 0.05105,
+   "pct_of_roof": 95.28,
+   "GB_s": 374.74,
+   "TFLOP_s": 0.0,
+   "AI_FLOP_per_B": 0.0,
+   "bound": "traffic",
+   "recoverable_to_roof_s": 0.00253,
+   "cores": {
+    "72": 1200.0,
+    "103": 16.0,
+    "110": 16.0
+   }
+  },
+  {
+   "op": "SoftmaxDeviceOperation",
+   "s_per_fold": 0.03228,
+   "programs_per_fold": 280.0,
+   "Mcycles": 43.6,
+   "priced": true,
+   "traffic_model": "io",
+   "mix": "1R1W",
+   "model_note": "equal volume in and out",
+   "dram_GB": 4.4292,
+   "l1_GB": 0.1342,
+   "recorded_operand_GB": 4.5634,
+   "charged_frac_of_recorded_pct": 100.0,
+   "roof_GB_s": 393.31,
+   "floor_s": 0.01126,
+   "pct_of_roof": 34.89,
+   "GB_s": 137.23,
+   "TFLOP_s": 0.1767,
+   "AI_FLOP_per_B": 1.29,
+   "bound": "traffic",
+   "recoverable_to_roof_s": 0.02101,
+   "cores": {
+    "110": 280.0
+   }
+  },
+  {
+   "op": "CopyDeviceOperation",
+   "s_per_fold": 0.02429,
+   "programs_per_fold": 5328.0,
+   "Mcycles": 32.8,
+   "priced": true,
+   "traffic_model": "io",
+   "mix": "1R1W",
+   "model_note": "L1<->DRAM copy; only the DRAM side is charged, by operand location",
+   "dram_GB": 5.7818,
+   "l1_GB": 5.7818,
+   "recorded_operand_GB": 11.5637,
+   "charged_frac_of_recorded_pct": 100.0,
+   "roof_GB_s": 393.31,
+   "floor_s": 0.0147,
+   "pct_of_roof": 60.53,
+   "GB_s": 238.05,
+   "TFLOP_s": 0.0,
+   "AI_FLOP_per_B": 0.0,
+   "bound": "traffic",
+   "recoverable_to_roof_s": 0.00959,
+   "cores": {
+    "110": 5328.0
+   }
+  },
+  {
+   "op": "NLPConcatHeadsDeviceOperation",
+   "s_per_fold": 0.01309,
+   "programs_per_fold": 1200.0,
+   "Mcycles": 17.7,
+   "priced": true,
+   "traffic_model": "io",
+   "mix": "1R1W",
+   "model_note": "equal volume, layout only",
+   "dram_GB": 2.7525,
+   "l1_GB": 0.0,
+   "recorded_operand_GB": 2.7525,
+   "charged_frac_of_recorded_pct": 100.0,
+   "roof_GB_s": 393.31,
+   "floor_s": 0.007,
+   "pct_of_roof": 53.45,
+   "GB_s": 210.23,
+   "TFLOP_s": 0.0,
+   "AI_FLOP_per_B": 0.0,
+   "bound": "traffic",
+   "recoverable_to_roof_s": 0.00609,
+   "cores": {
+    "110": 1200.0
+   }
+  },
+  {
+   "op": "UnaryNgDeviceOperation",
+   "s_per_fold": 0.00152,
+   "programs_per_fold": 202.0,
+   "Mcycles": 2.0,
+   "priced": false,
+   "why": "UNPRICED. Three of this class's 202 programs carry a [1,512,512,128] bf16 operand (67.1 MB) and complete in 2.2-3.0 us on 110 cores, 70x faster than the part's DRAM roof allows for that volume, while the same op on the same shape in PairAssemblyDevice takes 485 us (276 GB/s, plausible). Either the shape or the duration is wrong on those rows, so this class is reported and not priced. It is 0.0015 s of 13.2090 s"
+  }
+ ],
+ "signatures": [
+  {
+   "op": "SDPAOperation",
+   "s_per_fold": 0.37106,
+   "programs_per_fold": 4800.0,
+   "cores": 110,
+   "dram_GB": 90.597,
+   "floor_s": 0.20792,
+   "pct_of_roof": 56.03,
+   "AI_FLOP_per_B": 56.89,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      16,
+      512,
+      64
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_1",
+     [
+      1,
+      16,
+      512,
+      64
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_2",
+     [
+      1,
+      16,
+      512,
+      64
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_3",
+     [
+      1,
+      16,
+      512,
+      512
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      16,
+      512,
+      64
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "SDPAOperation",
+   "s_per_fold": 0.06242,
+   "programs_per_fold": 1200.0,
+   "cores": 110,
+   "dram_GB": 19.2676,
+   "floor_s": 0.04422,
+   "pct_of_roof": 70.84,
+   "AI_FLOP_per_B": 18.29,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      560,
+      32,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_1",
+     [
+      1,
+      560,
+      128,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_2",
+     [
+      1,
+      560,
+      128,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_3",
+     [
+      1,
+      560,
+      32,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      560,
+      32,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "NlpCreateHeadsDeviceOperation",
+   "s_per_fold": 0.2047,
+   "programs_per_fold": 4800.0,
+   "cores": 16,
+   "dram_GB": 30.199,
+   "floor_s": 0.07678,
+   "pct_of_roof": 37.51,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      1,
+      512,
+      3072
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      16,
+      512,
+      64
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_1",
+     [
+      1,
+      16,
+      512,
+      64
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_2",
+     [
+      1,
+      16,
+      512,
+      64
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "NlpCreateHeadsDeviceOperation",
+   "s_per_fold": 0.09016,
+   "programs_per_fold": 1200.0,
+   "cores": 110,
+   "dram_GB": 33.0301,
+   "floor_s": 0.08398,
+   "pct_of_roof": 93.14,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      140,
+      1,
+      128,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_1",
+     [
+      140,
+      1,
+      128,
+      256
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      140,
+      4,
+      128,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_1",
+     [
+      140,
+      4,
+      128,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_2",
+     [
+      140,
+      4,
+      128,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "NlpCreateHeadsDeviceOperation",
+   "s_per_fold": 0.00581,
+   "programs_per_fold": 264.0,
+   "cores": 16,
+   "dram_GB": 0.8305,
+   "floor_s": 0.00211,
+   "pct_of_roof": 36.35,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      1,
+      512,
+      1536
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      16,
+      512,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_1",
+     [
+      1,
+      16,
+      512,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_2",
+     [
+      1,
+      16,
+      512,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "PairformerLayer"
+   ]
+  },
+  {
+   "op": "SliceDeviceOperation",
+   "s_per_fold": 0.09453,
+   "programs_per_fold": 2800.0,
+   "cores": 110,
+   "dram_GB": 34.4982,
+   "floor_s": 0.08771,
+   "pct_of_roof": 92.78,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      512,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      47,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "MSALayer",
+    "PairformerLayer"
+   ]
+  },
+  {
+   "op": "SliceDeviceOperation",
+   "s_per_fold": 0.03079,
+   "programs_per_fold": 4800.0,
+   "cores": 110,
+   "dram_GB": 10.145,
+   "floor_s": 0.02579,
+   "pct_of_roof": 83.78,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      144,
+      32,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      129,
+      32,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "SliceDeviceOperation",
+   "s_per_fold": 0.03056,
+   "programs_per_fold": 4800.0,
+   "cores": 110,
+   "dram_GB": 10.0663,
+   "floor_s": 0.02559,
+   "pct_of_roof": 83.76,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      16,
+      512,
+      64
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      16,
+      512,
+      64
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "SliceDeviceOperation",
+   "s_per_fold": 0.01688,
+   "programs_per_fold": 1200.0,
+   "cores": 110,
+   "dram_GB": 2.7525,
+   "floor_s": 0.007,
+   "pct_of_roof": 41.47,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      560,
+      128,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      560,
+      32,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "SliceDeviceOperation",
+   "s_per_fold": 0.00961,
+   "programs_per_fold": 280.0,
+   "cores": 110,
+   "dram_GB": 3.0828,
+   "floor_s": 0.00784,
+   "pct_of_roof": 81.6,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      512,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      42,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "MSALayer",
+    "PairformerLayer"
+   ]
+  },
+  {
+   "op": "SliceDeviceOperation",
+   "s_per_fold": 0.00774,
+   "programs_per_fold": 1200.0,
+   "cores": 110,
+   "dram_GB": 2.5362,
+   "floor_s": 0.00645,
+   "pct_of_roof": 83.35,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      1,
+      4480,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      1,
+      4128,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "ReshapeViewDeviceOperation",
+   "s_per_fold": 0.10483,
+   "programs_per_fold": 4800.0,
+   "cores": 110,
+   "dram_GB": 8.808,
+   "floor_s": 0.02239,
+   "pct_of_roof": 21.36,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      16,
+      64,
+      512
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      1,
+      768,
+      512
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "ReshapeViewDeviceOperation",
+   "s_per_fold": 0.04892,
+   "programs_per_fold": 16.0,
+   "cores": 110,
+   "dram_GB": 17.1799,
+   "floor_s": 0.04368,
+   "pct_of_roof": 89.3,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      1,
+      16384,
+      16384
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      1,
+      524288,
+      512
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "MSALayer"
+   ]
+  },
+  {
+   "op": "PadDeviceOperation",
+   "s_per_fold": 0.0357,
+   "programs_per_fold": 1200.0,
+   "cores": 110,
+   "dram_GB": 10.5775,
+   "floor_s": 0.02689,
+   "pct_of_roof": 75.33,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      129,
+      128,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      140,
+      128,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "PadDeviceOperation",
+   "s_per_fold": 0.02968,
+   "programs_per_fold": 1200.0,
+   "cores": 110,
+   "dram_GB": 6.8813,
+   "floor_s": 0.0175,
+   "pct_of_roof": 58.96,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      140,
+      32,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      140,
+      128,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "PadDeviceOperation",
+   "s_per_fold": 0.02103,
+   "programs_per_fold": 1200.0,
+   "cores": 110,
+   "dram_GB": 2.6837,
+   "floor_s": 0.00682,
+   "pct_of_roof": 32.45,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      1,
+      4128,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      1,
+      4608,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "PermuteDeviceOperation",
+   "s_per_fold": 0.04055,
+   "programs_per_fold": 560.0,
+   "cores": 110,
+   "dram_GB": 10.5696,
+   "floor_s": 0.02687,
+   "pct_of_roof": 66.27,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      512,
+      512,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      4,
+      512,
+      512
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "MSALayer",
+    "PairformerLayer"
+   ]
+  },
+  {
+   "op": "PermuteDeviceOperation",
+   "s_per_fold": 0.0347,
+   "programs_per_fold": 264.0,
+   "cores": 110,
+   "dram_GB": 0.0,
+   "floor_s": 0.0,
+   "pct_of_roof": 0.0,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      512,
+      512,
+      32
+     ],
+     "BFLOAT16",
+     "L1"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      16,
+      512,
+      512
+     ],
+     "BFLOAT16",
+     "L1"
+    ]
+   ],
+   "units": [
+    "PairformerLayer"
+   ]
+  },
+  {
+   "op": "ConcatDeviceOperation",
+   "s_per_fold": 0.04624,
+   "programs_per_fold": 280.0,
+   "cores": 110,
+   "dram_GB": 18.7905,
+   "floor_s": 0.04778,
+   "pct_of_roof": 103.32,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      47,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_1",
+     [
+      1,
+      47,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_2",
+     [
+      1,
+      47,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_3",
+     [
+      1,
+      47,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_4",
+     [
+      1,
+      47,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_5",
+     [
+      1,
+      47,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_6",
+     [
+      1,
+      47,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_7",
+     [
+      1,
+      47,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_8",
+     [
+      1,
+      47,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_9",
+     [
+      1,
+      47,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_10",
+     [
+      1,
+      42,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      512,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "L1"
+    ]
+   ],
+   "units": [
+    "MSALayer",
+    "PairformerLayer"
+   ]
+  },
+  {
+   "op": "ConcatDeviceOperation",
+   "s_per_fold": 0.02785,
+   "programs_per_fold": 1200.0,
+   "cores": 110,
+   "dram_GB": 10.145,
+   "floor_s": 0.02579,
+   "pct_of_roof": 92.62,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      129,
+      32,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_1",
+     [
+      1,
+      129,
+      32,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_2",
+     [
+      1,
+      129,
+      32,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "INPUT_3",
+     [
+      1,
+      129,
+      32,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      129,
+      128,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "UntilizeDeviceOperation",
+   "s_per_fold": 0.0453,
+   "programs_per_fold": 16.0,
+   "cores": 100,
+   "dram_GB": 17.1799,
+   "floor_s": 0.04368,
+   "pct_of_roof": 96.42,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      1,
+      16384,
+      16384
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      1,
+      16384,
+      16384
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "MSALayer"
+   ]
+  },
+  {
+   "op": "UntilizeDeviceOperation",
+   "s_per_fold": 0.01349,
+   "programs_per_fold": 1200.0,
+   "cores": 65,
+   "dram_GB": 2.5362,
+   "floor_s": 0.00645,
+   "pct_of_roof": 47.81,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      1,
+      4128,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      1,
+      4128,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "EmbeddingsDeviceOperation",
+   "s_per_fold": 0.02463,
+   "programs_per_fold": 8.0,
+   "cores": 110,
+   "dram_GB": 0.5453,
+   "floor_s": 0.00139,
+   "pct_of_roof": 5.63,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      512,
+      1,
+      1,
+      512
+     ],
+     "UINT32",
+     "DRAM"
+    ],
+    [
+     "INPUT_1",
+     [
+      1,
+      1,
+      66,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      512,
+      1,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "PairAssemblyDevice",
+    "RelPosGather"
+   ]
+  },
+  {
+   "op": "EmbeddingsDeviceOperation",
+   "s_per_fold": 0.01301,
+   "programs_per_fold": 4.0,
+   "cores": 110,
+   "dram_GB": 0.2726,
+   "floor_s": 0.00069,
+   "pct_of_roof": 5.33,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      512,
+      1,
+      1,
+      512
+     ],
+     "UINT32",
+     "DRAM"
+    ],
+    [
+     "INPUT_1",
+     [
+      1,
+      1,
+      6,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      512,
+      1,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "PairAssemblyDevice",
+    "RelPosGather"
+   ]
+  },
+  {
+   "op": "EmbeddingsDeviceOperation",
+   "s_per_fold": 0.01299,
+   "programs_per_fold": 4.0,
+   "cores": 110,
+   "dram_GB": 0.2726,
+   "floor_s": 0.00069,
+   "pct_of_roof": 5.34,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      512,
+      1,
+      1,
+      512
+     ],
+     "UINT32",
+     "DRAM"
+    ],
+    [
+     "INPUT_1",
+     [
+      1,
+      1,
+      2,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      512,
+      1,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "PairAssemblyDevice",
+    "RelPosGather"
+   ]
+  },
+  {
+   "op": "EmbeddingsDeviceOperation",
+   "s_per_fold": 0.0065,
+   "programs_per_fold": 2.0,
+   "cores": 110,
+   "dram_GB": 0.1363,
+   "floor_s": 0.00035,
+   "pct_of_roof": 5.33,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      512,
+      1,
+      1,
+      512
+     ],
+     "UINT32",
+     "DRAM"
+    ],
+    [
+     "INPUT_1",
+     [
+      1,
+      1,
+      7,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      512,
+      1,
+      512,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "PairAssemblyDevice"
+   ]
+  },
+  {
+   "op": "TilizeDeviceOperation",
+   "s_per_fold": 0.03876,
+   "programs_per_fold": 16.0,
+   "cores": 110,
+   "dram_GB": 17.1799,
+   "floor_s": 0.04368,
+   "pct_of_roof": 112.71,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      512,
+      1024,
+      512
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      512,
+      1024,
+      512
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "MSALayer"
+   ]
+  },
+  {
+   "op": "TilizeDeviceOperation",
+   "s_per_fold": 0.01426,
+   "programs_per_fold": 1200.0,
+   "cores": 72,
+   "dram_GB": 2.8312,
+   "floor_s": 0.0072,
+   "pct_of_roof": 50.46,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      1,
+      4608,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      1,
+      4608,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "SoftmaxDeviceOperation",
+   "s_per_fold": 0.0311,
+   "programs_per_fold": 264.0,
+   "cores": 110,
+   "dram_GB": 4.4292,
+   "floor_s": 0.01126,
+   "pct_of_roof": 36.21,
+   "AI_FLOP_per_B": 1.25,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      16,
+      512,
+      512
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      16,
+      512,
+      512
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "PairformerLayer"
+   ]
+  },
+  {
+   "op": "CopyDeviceOperation",
+   "s_per_fold": 0.01243,
+   "programs_per_fold": 2400.0,
+   "cores": 110,
+   "dram_GB": 2.7525,
+   "floor_s": 0.007,
+   "pct_of_roof": 56.32,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      140,
+      32,
+      128
+     ],
+     "BFLOAT16",
+     "L1"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      140,
+      32,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "CopyDeviceOperation",
+   "s_per_fold": 0.01025,
+   "programs_per_fold": 2400.0,
+   "cores": 110,
+   "dram_GB": 2.7525,
+   "floor_s": 0.007,
+   "pct_of_roof": 68.24,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      1,
+      140,
+      32,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      1,
+      140,
+      32,
+      128
+     ],
+     "BFLOAT16",
+     "L1"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  },
+  {
+   "op": "NLPConcatHeadsDeviceOperation",
+   "s_per_fold": 0.01309,
+   "programs_per_fold": 1200.0,
+   "cores": 110,
+   "dram_GB": 2.7525,
+   "floor_s": 0.007,
+   "pct_of_roof": 53.45,
+   "AI_FLOP_per_B": 0.0,
+   "operands": [
+    [
+     "INPUT_0",
+     [
+      140,
+      4,
+      32,
+      32
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ],
+    [
+     "OUTPUT_0",
+     [
+      140,
+      1,
+      32,
+      128
+     ],
+     "BFLOAT16",
+     "DRAM"
+    ]
+   ],
+   "units": [
+    "DiffusionModule"
+   ]
+  }
+ ],
+ "worked_five": {
+  "MatmulDeviceOperation": {
+   "s_per_fold": 3.97049,
+   "programs_per_fold": 89601.0
+  },
+  "GenericOpDeviceOperation": {
+   "s_per_fold": 3.383,
+   "programs_per_fold": 3920.0
+  },
+  "BinaryNgDeviceOperation": {
+   "s_per_fold": 2.38995,
+   "programs_per_fold": 76674.0
+  },
+  "LayerNormDeviceOperation": {
+   "s_per_fold": 1.3808,
+   "programs_per_fold": 28421.0
+  },
+  "TransposeDeviceOperation": {
+   "s_per_fold": 0.51745,
+   "programs_per_fold": 11824.0
+  }
+ }
+}
