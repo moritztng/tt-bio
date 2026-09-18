@@ -1341,6 +1341,14 @@ def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConf
 
 # Circular-buffer budgets that a q_chunk overflowed on THIS device, so the first fold pays at most
 # one throw per shape and every later call skips straight to a config that fits.
+# Keyed by operand dtype as well as shape. An L1 refusal is a statement about a CB
+# footprint, and `sdpa_generic.cb_table` sizes q/k/v/mask/out from `tile_bytes(<operand dtype>)`,
+# so the same (shape, chunk) costs 0.62-0.77x as much L1 in bfp8 as in bf16 (the five intermediate
+# CB groups stay bf16, which is what keeps it well above the 0.53 tile-byte ratio -- measured over
+# the whole surface in perf/bfp8_l1chunk/l1_surface.json). Without the dtype a bf16 refusal retires
+# a chunk bfp8 fits: at padded 1024 bf16 holds q512 only to k64 while bfp8 reaches k512, so one
+# bf16 throw would have barred the whole wider ladder. The leak is one-directional -- bfp8 fits a
+# strict superset, so a bfp8 refusal barring bf16 costs at most one extra device throw.
 _SDPA_Q_CHUNK_OVER_L1: set = set()
 
 # Kill switch so a fold-level A/B can run both arms without a checkout. Bit-exact either way.
@@ -1796,12 +1804,70 @@ def _dividing_k_chunks(q_len: int, k_len: int) -> tuple:
     return tuple(wider) + (prod,)
 
 
-def _tri_att_k_chunks(q_len: int, k_len: int) -> tuple:
+# Dividing k_chunks WIDER than the shipped pick, offered only where the fused kernel's CB set
+# actually fits at the call's operand dtype. OFF by default.
+#
+# `_dividing_k_chunks` returns the shipped pick alone whenever that pick divides the padded
+# sequence, and at every production length it does, so the k axis has no upward rung today. It has
+# one under bfp8. At padded 512 the fused kernel holds (q512, k256) in 1153024 B of CB and
+# (q512, k512) in 1480704 B against a 1463808 B budget: 16896 B over in bf16 and 337920 B under in
+# bfp8. The bf16 refusal is the device's, not a model of it -- it throws at 1591808 B against the
+# 1572864 B cap (perf/bfp8_l1chunk/chunk_decomp_qb2c1.json, negative control).
+#
+# MEASURED on qb2 card 1, 1350 MHz sampled min = max during the run, A/A floor 0.0086 %, 15 reps
+# interleaved ABBA, 150 of 150 calls served on every arm: the wider k is 1.1554x over the SAME
+# dtype at the shipped k, because k_num_chunks drops 2 -> 1 and the online-softmax rescale pass
+# disappears. `per_core_cost` ranks that step at 1.001x, so the ladder's own cost model is what is
+# wrong about this axis, not the axis that is small -- do not screen the k rung with it.
+#
+# Filtered on the HOST rather than by a device throw. The loop in `_tri_att_sdpa_at` answers a
+# fused refusal with the STOCK op at the same config, and at bf16 (q512, k512) the stock op both
+# fits and is slower than today's pick, so a throw-driven filter would hand bf16 a regression. A
+# host filter never offers it the rung.
+_SDPA_WIDE_K_UP = env_flag("TT_BIO_SDPA_WIDE_K_UP", False)
+
+
+def _k_chunks_up(q_len: int, k_len: int, heads: int, head_dim: int, dtype) -> tuple:
+    """Wider dividing k_chunks whose CBs fit at `dtype`, widest first. Empty when none do.
+
+    Fit is tested at the WIDEST dividing q_chunk, which is the q the loop pairs a wide k with
+    first, so a rung offered here is a rung that config can actually take.
+    """
+    from . import sdpa_generic as SG
+    from . import triatt_sdpa as _TS
+    prod = _sdpa_chunks_shipped(q_len, k_len)[1]
+    padded = _padded_sdpa_len(k_len)
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    qs = [qc for qc in _tri_att_q_chunks(q_len, k_len) if padded % qc == 0]
+    if not qs:
+        return ()
+    qc = qs[0]
+    out = []
+    for kc in range(padded, prod, -SDPA_CHUNK_TILE):
+        if padded % kc:
+            continue
+        q_pf = _TS.q_parallel_factor(padded, heads, qc, cores, cap=0)
+        p = SG.plan_for_shape(padded, heads, head_dim, qc, kc, grid=(cores, 1), split=(
+            max(cores // (heads * q_pf), 1), heads, q_pf), dtype=dtype)
+        if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"]:
+            continue
+        pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
+        if SG.cb_fits_l1(p, mask_cb_tiles=pers,
+                         **{f"{o}_dtype": dtype for o in ("q", "k", "v", "mask", "out")}):
+            out.append(kc)
+    return tuple(out)
+
+
+def _tri_att_k_chunks(q_len: int, k_len: int, heads=None, head_dim=None, dtype=None) -> tuple:
     """k_chunks to try, widest first, production pick last. One entry unless the shipped pick fails
-    to divide the padded sequence, which is the only case K5 changes."""
+    to divide the padded sequence -- the only case K5 changes -- or `_SDPA_WIDE_K_UP` adds a rung
+    above it that fits at this operand dtype."""
+    up = ()
+    if _SDPA_WIDE_K_UP and None not in (heads, head_dim, dtype):
+        up = _k_chunks_up(q_len, k_len, heads, head_dim, dtype)
     if not _sdpa_wide_k():
-        return (_sdpa_chunks_shipped(q_len, k_len)[1],)
-    return _dividing_k_chunks(q_len, k_len)
+        return up + (_sdpa_chunks_shipped(q_len, k_len)[1],)
+    return up + _dividing_k_chunks(q_len, k_len)
 
 
 # [calls served at a k_chunk wider than the shipped pick, calls that fell back to the shipped pick].
@@ -1830,7 +1896,7 @@ def _sdpa_pick(q_len, k_len, q_chunk, k_chunk, route: str):
     SDPA_CHUNK_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, route]
     SDPA_ROUTE_COUNTS[route] += 1
 # Circular-buffer refusals on the wide-k path, keyed by the FULL config. Deliberately not
-# `_SDPA_Q_CHUNK_OVER_L1`: that set is keyed on q_chunk alone, so writing a (q, wide k) refusal into
+# `_SDPA_Q_CHUNK_OVER_L1`: that set carries no k_chunk, so writing a (q, wide k) refusal into
 # it would retire a q_chunk the shipped k runs perfectly well.
 _SDPA_QK_OVER_L1: set = set()
 
@@ -1887,7 +1953,8 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         # Above the cap and eligible, and no pair ran: an L1 refusal, or a token count with no
         # 32-aligned divisor. Counted so the census reads a reach, not just a default.
         SDPA_FUSED_LARGE_S_STATS[1] += 1
-    k_chunks = _tri_att_k_chunks(q_len, k_len)
+    k_chunks = _tri_att_k_chunks(q_len, k_len, int(q.shape[1]), int(q.shape[3]),
+                                 q.dtype)
     if len(k_chunks) > 1:
         # Only q_chunks that DIVIDE the padded sequence are offered against a wide k. The q ladder's
         # last entry is the production cap, which is the one entry that need not divide, and pairing
@@ -1902,7 +1969,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
                     if _padded_sdpa_len(q_len) % qc == 0)
         for k_chunk in k_chunks[:-1]:
             for q_chunk in _qs:
-                cfg = (q_len, k_len, q_chunk, k_chunk)
+                cfg = (q_len, k_len, q_chunk, k_chunk, q.dtype)
                 if cfg in _SDPA_QK_OVER_L1:
                     continue
                 o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
@@ -1927,7 +1994,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         SDPA_K_CHUNK_STATS[1] += 1
     k_chunk = k_chunks[-1]
     fits = [qc for qc in _tri_att_q_chunks(q_len, k_len)
-            if (q_len, k_len, qc) not in _SDPA_Q_CHUNK_OVER_L1]
+            if (q_len, k_len, qc, q.dtype) not in _SDPA_Q_CHUNK_OVER_L1]
     # The bias is re-read once per batch row by the stock reader; hold it instead. Same
     # preference order as the stock loop below -- `fits` is widest first, production pick last, and
     # the wide q_chunk is worth 1.08-1.81x on its own, so K2 must not silently take the narrow one.
@@ -1951,7 +2018,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
             return o
         except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
             absorb_l1_refusal("tri_att_sdpa/q_chunk", exc)
-            _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, q_chunk))
+            _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, q_chunk, q.dtype))
     # The last rung, guarded like every rung above it. It used to be issued bare, so an L1
     # refusal HERE was fatal where the identical refusal one rung up was absorbed -- and the
     # last rung is the one a single-entry ladder leaves, which is what a padded length with a
@@ -1974,7 +2041,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         return o
     except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
         absorb_l1_refusal("tri_att_sdpa/last_q_chunk", exc)
-        _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, fits[-1]))
+        _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, fits[-1], q.dtype))
         _latch("sdpa_q_chunk", "refused", exc)
     o = ttnn.transformer.scaled_dot_product_attention(
         q, k, v, attn_mask=bias, is_causal=False, scale=scale)
@@ -2252,7 +2319,7 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
             # 3.46x the 18944 B that refused the widest q there. Bit-identical, and measured
             # perf-neutral (1.167x vs 1.177x at 768, same q and k). Only offered at one k chunk.
             for kv_bf in ((2, 1) if wide else (2,)):
-                cfg = (q_len, k_len, q_chunk, k_chunk, kv_bf)
+                cfg = (q_len, k_len, q_chunk, k_chunk, kv_bf, q.dtype)
                 if cfg in _TRIATT_HIFI_OVER_L1:
                     continue
                 try:
