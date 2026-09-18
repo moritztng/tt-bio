@@ -21,20 +21,7 @@ SHAPES = [
 ]
 
 
-def sample_aiclk(stop, out):
-    """Sample AICLK while the work runs. A number without a clock is not a measurement."""
-    while not stop.is_set():
-        try:
-            r = subprocess.run(["/home/ttuser/.local/bin/tt-smi", "-s"],
-                               capture_output=True, text=True, timeout=25)
-            d = json.loads(r.stdout)
-            for i, dev in enumerate(d.get("device_info", [])):
-                clk = dev.get("telemetry", {}).get("aiclk")
-                if clk is not None:
-                    out.setdefault(i, []).append(int(clk))
-        except Exception:
-            pass
-        time.sleep(2.0)
+from perf.clocksample import sample_aiclk  # was a local copy; now shared
 
 
 def main():
