@@ -175,6 +175,67 @@ def test_it_runs_before_the_msa_preflight_and_before_any_fold():
     assert i_eval < i_esmc < i_msa < i_rows, (i_eval, i_esmc, i_msa, i_rows)
 
 
+
+
+def test_an_explicit_dockq_python_always_wins():
+    saved = os.environ.get("OPENDDE_DOCKQ_PYTHON")
+    try:
+        os.environ["OPENDDE_DOCKQ_PYTHON"] = "/some/explicit/python"
+        assert rg._resolve_dockq_python() == "/some/explicit/python"
+    finally:
+        if saved is None:
+            os.environ.pop("OPENDDE_DOCKQ_PYTHON", None)
+        else:
+            os.environ["OPENDDE_DOCKQ_PYTHON"] = saved
+
+
+def test_the_gate_venv_is_preferred_when_it_carries_the_scorer():
+    """The documented zero-config case: probing `json` stands in for a venv that has DockQ."""
+    saved = os.environ.pop("OPENDDE_DOCKQ_PYTHON", None)
+    try:
+        assert rg._resolve_dockq_python(module="json") == sys.executable
+    finally:
+        if saved is not None:
+            os.environ["OPENDDE_DOCKQ_PYTHON"] = saved
+
+
+def test_a_candidate_venv_that_has_the_module_is_discovered():
+    """qb2 carries DockQ 2.1.3 in ~/dockqenv and exports the variable nowhere persistent."""
+    saved = os.environ.pop("OPENDDE_DOCKQ_PYTHON", None)
+    try:
+        got = rg._resolve_dockq_python(module="no_such_module_xyz",
+                                       candidates=(sys.executable,))
+        assert got == sys.executable, got
+    finally:
+        if saved is not None:
+            os.environ["OPENDDE_DOCKQ_PYTHON"] = saved
+
+
+def test_a_candidate_that_cannot_import_is_skipped_not_returned():
+    """The negative control. /bin/false exists and imports nothing, so it must be passed over."""
+    saved = os.environ.pop("OPENDDE_DOCKQ_PYTHON", None)
+    try:
+        got = rg._resolve_dockq_python(module="no_such_module_xyz",
+                                       candidates=("/bin/false",))
+        assert got == sys.executable, (
+            "a candidate that fails the import must fall through to the interpreter the "
+            "preflight can name, not be returned as if it worked")
+    finally:
+        if saved is not None:
+            os.environ["OPENDDE_DOCKQ_PYTHON"] = saved
+
+
+def test_a_candidate_path_that_does_not_exist_costs_no_subprocess():
+    saved = os.environ.pop("OPENDDE_DOCKQ_PYTHON", None)
+    try:
+        got = rg._resolve_dockq_python(module="no_such_module_xyz",
+                                       candidates=("/no/such/python", "/also/not/here"))
+        assert got == sys.executable, got
+    finally:
+        if saved is not None:
+            os.environ["OPENDDE_DOCKQ_PYTHON"] = saved
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

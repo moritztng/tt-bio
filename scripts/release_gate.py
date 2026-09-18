@@ -483,7 +483,48 @@ OPENDDE_ABAG_MIN_DOCKQ = 0.50
 # python running scripts/opendde_dockq.py; defaults to the gate's own python so a host
 # that carries DockQ in the gate venv needs no extra config, and a host that does not
 # sets OPENDDE_DOCKQ_PYTHON to a venv that does (mirrors the ESMC leg's ESM_ROOT).
-OPENDDE_DOCKQ_PYTHON = os.environ.get("OPENDDE_DOCKQ_PYTHON", sys.executable)
+#: Candidate DockQ venvs, probed in order when OPENDDE_DOCKQ_PYTHON is unset. qb2 carries
+#: DockQ 2.1.3 in ~/dockqenv and exports the variable nowhere persistent, so the leg passed
+#: once (global DockQ 0.845 on 2026-09-18 15:57Z) and then failed the next run that forgot it.
+DOCKQ_VENV_CANDIDATES = ("~/dockqenv/bin/python", "~/dockq_venv/bin/python")
+
+
+def _resolve_dockq_python(module: str = "DockQ", candidates=None) -> str:
+    """The interpreter that will import DockQ, discovered rather than assumed.
+
+    Order: an explicit OPENDDE_DOCKQ_PYTHON always wins, then the gate's own venv if it carries
+    DockQ (the documented zero-config case), then the known venvs. Falling back to sys.executable
+    when nothing has it is deliberate -- _preflight_eval_scorers then names the arm, the module
+    and the pin, which is a better failure than a silent one.
+
+    Discovery exists because the variable is the single point of failure for this arm and is not
+    persisted on the release host: the same 1ahw fold was scored PASS at 0.845 and reported as
+    "missed parse or the DockQ floor" on the same box on the same day, the difference being one
+    inline env var. Cheap by construction -- the gate venv is checked in-process, and a candidate
+    path that does not exist costs a stat, not a subprocess.
+    """
+    env = os.environ.get("OPENDDE_DOCKQ_PYTHON")
+    if env:
+        return env
+    try:
+        if importlib.util.find_spec(module) is not None:
+            return sys.executable
+    except (ImportError, ValueError):
+        pass
+    for cand in (DOCKQ_VENV_CANDIDATES if candidates is None else candidates):
+        path = Path(cand).expanduser()
+        if not path.is_file():
+            continue
+        try:
+            if subprocess.run([str(path), "-c", f"import {module}"], capture_output=True,
+                              timeout=60).returncode == 0:
+                return str(path)
+        except Exception:
+            continue
+    return sys.executable
+
+
+OPENDDE_DOCKQ_PYTHON = _resolve_dockq_python()
 # ...and bounded like every fold this gate launches, for the same reason: an unbounded wait on
 # an external tool blocks the whole gate run, not just its own leg. DockQ scores the 1ahw
 # fixture in ~1 s on this hardware, so 300 s is ~300x headroom and still fails loud in five
