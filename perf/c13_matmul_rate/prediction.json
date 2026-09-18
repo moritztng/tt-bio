@@ -1,0 +1,29 @@
+{
+ "row": "c13-matmul-rate",
+ "registered_utc": "2026-09-18T13:0xZ, before any device arm ran",
+ "host": "qb2", "node": 3, "board": "000004613193410D", "clock_mhz": 1350,
+ "session_controls_must_reproduce": {
+  "ctl_cube8192_tflops": {"expect": 122.29, "allow": [112, 132], "source": "c10-fold-census same-card cube, 122.27/122.30 at both ends of its session"},
+  "ctl_cube2048_ms": {"expect": 0.1528, "allow": [0.140, 0.175], "source": "two prior sessions on THIS card, 0.1520-0.1537 ms"},
+  "ctl_bwadd_gbs": {"expect": 442.9, "allow": [400, 470], "source": "campaign DRAM roof"},
+  "A_ship_tflops": {"expect": 16.49, "allow": [14.0, 19.0], "source": "c10-fold-census per-key rate for 1x16x512x512 K=128"},
+  "B_ship_tflops": {"expect": 12.15, "allow": [10.3, 14.0], "source": "c10-fold-census per-key rate for 1x16x512x128 K=512"}
+ },
+ "shape_ceiling_arithmetic_registered_before_measuring": {
+  "compulsory_bytes_per_call": 10616832,
+  "flops_per_call": 1073741824,
+  "arithmetic_intensity_flop_per_byte": 101.14,
+  "crossover_AI_at_122.29TFs_and_442.9GBs": 276.1,
+  "traffic_roof_tflops": 44.79,
+  "note": "AI is below the crossover, so the binding roof for these two shapes is TRAFFIC, not arithmetic. The dense 122.29 cube is NOT their ceiling. 35.49 needs 79.2 % of the measured DRAM roof at this AI."
+ },
+ "decision_rules": {
+  "dram_path_is_the_term": "both_l1 lifts A_ship above 35.49 TFLOP/s -> the DRAM path binds and a residency/fusion mechanism exists; campaign continues.",
+  "math_is_the_term": "fid_lofi lifts A_ship by more than 1.5x -> the FPU is issuing at its fidelity limit and math binds.",
+  "neither": "no arm lifts A_ship above 25 TFLOP/s -> the term is per-output-tile pipeline cost, not bandwidth and not FPU issue. Report the measured ceiling and STOP.",
+  "thin_k_structural": "the K ladder asymptote is the achievable rate at these M,N. Asymptote > 2x the K=128 rate CONFIRMS thin-K as structural; within 20 % of it REFUTES thin-K as the term.",
+  "batch_loop": "flat2d moves A_ship by more than 10 % -> the leading batch dim, not K, carries the loss (same FLOPs, same compulsory bytes, no batch loop)."
+ },
+ "predicted_model_cycles_saved_this_pass": 0,
+ "ships_nothing": "This row changes no model code, no default, no dependency. Diagnosis only."
+}
