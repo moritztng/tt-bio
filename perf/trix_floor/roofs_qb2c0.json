@@ -1,0 +1,313 @@
+{
+ "_meta": {
+  "node": 0,
+  "forced_mhz": 1350,
+  "grid": [
+   11,
+   10
+  ],
+  "ttnn": "?",
+  "loadavg": [
+   1.93896484375,
+   1.0263671875,
+   1.2744140625
+  ],
+  "t0": 1789774467.1728911,
+  "clock_session": {
+   "min": 1350,
+   "median": 1350,
+   "max": 1350,
+   "n": 24
+  },
+  "loadavg_end": [
+   3.24609375,
+   1.33837890625,
+   1.37353515625
+  ],
+  "t1": 1789774475.066962
+ },
+ "control/2048cube_shipped_dram": {
+  "pipe_ms": 0.17687650006337208,
+  "serial_med_ms": 0.1937990000442369,
+  "serial_min_ms": 0.19352799972693902,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.1764307498888229,
+  "aa_spread_pct": 0.2526488012039075,
+  "tflops_pipe": 97.12917870856062,
+  "tflops_serial": 88.6478732092451
+ },
+ "compute/2048cube/SHIPPED_fp32T_pl1T": {
+  "pipe_ms": 0.17689674996290705,
+  "serial_med_ms": 0.19349799913470633,
+  "serial_min_ms": 0.19257600069977343,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.1765157503541559,
+  "aa_spread_pct": 0.21584453964404163,
+  "tflops_pipe": 97.11806004125228,
+  "tflops_serial": 88.78577174351035
+ },
+ "compute/2048cube/fp32F_pl1T": {
+  "pipe_ms": 0.18034249978882144,
+  "serial_med_ms": 0.1970470002561342,
+  "serial_min_ms": 0.196826000319561,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.18032224988928647,
+  "aa_spread_pct": 0.011229839660611599,
+  "tflops_pipe": 95.26245451913657,
+  "tflops_serial": 87.18665679593455
+ },
+ "compute/2048cube/fp32T_pl1F": {
+  "pipe_ms": 0.19643050018203212,
+  "serial_med_ms": 0.2135560007445747,
+  "serial_min_ms": 0.21324500085029285,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.19649075011329842,
+  "aa_spread_pct": 0.030672391105487647,
+  "tflops_pipe": 87.46029342734157,
+  "tflops_serial": 80.44667030709249
+ },
+ "compute/2048cube/fp32F_pl1F": {
+  "pipe_ms": 0.2124937500411761,
+  "serial_med_ms": 0.22978400011197664,
+  "serial_min_ms": 0.2292930003022775,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.21221800034254557,
+  "aa_spread_pct": 0.12993699789152696,
+  "tflops_pipe": 80.84882110966069,
+  "tflops_serial": 74.76529773886794
+ },
+ "compute/4096cube/SHIPPED_fp32T_pl1T": {
+  "pipe_ms": 1.1114994999843475,
+  "serial_med_ms": 1.1339169996062992,
+  "serial_min_ms": 1.1299180005153175,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 1.1111307499049872,
+  "aa_spread_pct": 0.03318692056644609,
+  "tflops_pipe": 123.65183562739836,
+  "tflops_serial": 121.20724314012347
+ },
+ "compute/4096cube/fp32F_pl1T": {
+  "pipe_ms": 1.106221749978431,
+  "serial_med_ms": 1.123191999795381,
+  "serial_min_ms": 1.122981999287731,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 1.1056855000788346,
+  "aa_spread_pct": 0.04849931554300091,
+  "tflops_pipe": 124.24177473881684,
+  "tflops_serial": 122.36461219189428
+ },
+ "compute/4096cube/fp32T_pl1F": {
+  "pipe_ms": 1.2722777501039673,
+  "serial_med_ms": 1.2897670003439998,
+  "serial_min_ms": 1.284615000258782,
+  "clock": {
+   "min": 1350,
+   "median": 1350,
+   "max": 1350,
+   "n": 1
+  },
+  "clock_serial": null,
+  "pipe_ms_aa": 1.2703257502835186,
+  "aa_spread_pct": 0.1536613596955767,
+  "tflops_pipe": 108.02590351106025,
+  "tflops_serial": 106.56107144572857
+ },
+ "compute/4096cube/fp32F_pl1F": {
+  "pipe_ms": 1.2238982499184203,
+  "serial_med_ms": 1.2436979995982256,
+  "serial_min_ms": 1.2400590003380785,
+  "clock": null,
+  "clock_serial": {
+   "min": 1350,
+   "median": 1350,
+   "max": 1350,
+   "n": 1
+  },
+  "pipe_ms_aa": 1.2231137498019962,
+  "aa_spread_pct": 0.06413958771628299,
+  "tflops_pipe": 112.2960617691553,
+  "tflops_serial": 110.50830146578944
+ },
+ "dram/combined_clone_24MiB": {
+  "pipe_ms": 0.13685175008504302,
+  "serial_med_ms": 0.1506670014350675,
+  "serial_min_ms": 0.14940399887564126,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.1368117500533117,
+  "aa_spread_pct": 0.029237278023077243,
+  "gbs_pipe": 342.52393535976506,
+  "gbs_serial": 311.11656536286466
+ },
+ "dram/combined_clone_48MiB": {
+  "pipe_ms": 0.25843499997790786,
+  "serial_med_ms": 0.26978999994753394,
+  "serial_min_ms": 0.26854600037040655,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.25944749995687744,
+  "aa_spread_pct": 0.3917812908685453,
+  "gbs_pipe": 362.76046204273473,
+  "gbs_serial": 347.49249422970297
+ },
+ "dram/combined_clone_128MiB": {
+  "pipe_ms": 0.671145500291459,
+  "serial_med_ms": 0.6885420007165521,
+  "serial_min_ms": 0.6834600008005509,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.6711255000482197,
+  "aa_spread_pct": 0.002980104799758105,
+  "gbs_pipe": 372.4974687179341,
+  "gbs_serial": 363.086056827078
+ },
+ "dram/combined_clone_256MiB": {
+  "pipe_ms": 1.3600132501778717,
+  "serial_med_ms": 1.3853630007361062,
+  "serial_min_ms": 1.3523749985324685,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 1.3469272498696228,
+  "aa_spread_pct": 0.9715446999469041,
+  "gbs_pipe": 367.6434769548066,
+  "gbs_serial": 360.916236202589
+ },
+ "dram/read_DRAM_to_L1_24MiB": {
+  "pipe_ms": 0.07138925002436736,
+  "serial_med_ms": 0.08414900003117509,
+  "serial_min_ms": 0.08330799937539268,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.07076525025695446,
+  "aa_spread_pct": 0.8817883991748812,
+  "gbs_pipe": 328.30573219357336,
+  "gbs_serial": 278.52380885473383
+ },
+ "dram/write_L1_to_DRAM_24MiB": {
+  "pipe_ms": 0.09919500007526949,
+  "serial_med_ms": 0.11310899935779162,
+  "serial_min_ms": 0.11084300058428198,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.09880924972094363,
+  "aa_spread_pct": 0.39039903188749825,
+  "gbs_pipe": 236.27702991295476,
+  "gbs_serial": 207.21162889843464
+ },
+ "dram/read_DRAM_to_L1_48MiB": {
+  "pipe_ms": 0.13644299997395137,
+  "serial_med_ms": 0.1443719993403647,
+  "serial_min_ms": 0.1430489992344519,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.13537099948734976,
+  "aa_spread_pct": 0.7918981839989936,
+  "gbs_pipe": 343.5500539342363,
+  "gbs_serial": 324.68207279923917
+ },
+ "dram/write_L1_to_DRAM_48MiB": {
+  "pipe_ms": 0.19119049966320745,
+  "serial_med_ms": 0.20472500000323635,
+  "serial_min_ms": 0.20188800044707023,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.1911955000650778,
+  "aa_spread_pct": 0.002615402898761205,
+  "gbs_pipe": 245.17431610133812,
+  "gbs_serial": 228.96568567228715
+ },
+ "dram/add3_64MiB": {
+  "pipe_ms": 0.4581609996421321,
+  "serial_med_ms": 0.48104000052262563,
+  "serial_min_ms": 0.4780730014317669,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.45953674998600036,
+  "aa_spread_pct": 0.30027661563137625,
+  "gbs_pipe": 409.2447854497777,
+  "gbs_serial": 389.78047521264494
+ },
+ "dram/add3_128MiB": {
+  "pipe_ms": 0.9139260000665672,
+  "serial_med_ms": 0.9294730007241014,
+  "serial_min_ms": 0.9232880001945887,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.9162640003523848,
+  "aa_spread_pct": 0.2558194301997373,
+  "gbs_pipe": 410.3176843340558,
+  "gbs_serial": 403.4544303146601
+ },
+ "class/in_proj_G1_[1,512,512,256]@[256,128]": {
+  "pipe_ms": 0.8553303329487486,
+  "serial_med_ms": 0.8892170008039102,
+  "serial_min_ms": 0.878302000273834,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.8570879999751924,
+  "aa_spread_pct": 0.2054956966607513,
+  "tflops_pipe": 20.085654070951108,
+  "tflops_serial": 19.320221237862384
+ },
+ "class/in_proj_G8_[1,512,512,256]@[256,1024]": {
+  "pipe_ms": 2.4012876662406293,
+  "serial_med_ms": 2.4340689997188747,
+  "serial_min_ms": 2.3870670011092443,
+  "clock": {
+   "min": 1350,
+   "median": 1350,
+   "max": 1350,
+   "n": 1
+  },
+  "clock_serial": null,
+  "pipe_ms_aa": 2.4307043331646128,
+  "aa_spread_pct": 1.2250371889027845,
+  "tflops_pipe": 57.2355221759705,
+  "tflops_serial": 56.46469080698766
+ },
+ "class/contraction_C32_[1,32,512,512]sq": {
+  "pipe_ms": 0.21799650039611151,
+  "serial_med_ms": 0.2280610005982453,
+  "serial_min_ms": 0.22174599871505052,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.21283449950715294,
+  "aa_spread_pct": 2.425359093996455,
+  "tflops_pipe": 39.40400224953896,
+  "tflops_serial": 37.66507456104747
+ },
+ "class/contraction_C256_[1,256,512,512]sq": {
+  "pipe_ms": 1.5585339988319902,
+  "serial_med_ms": 1.6645249997964129,
+  "serial_min_ms": 1.5588540009048302,
+  "clock": null,
+  "clock_serial": {
+   "min": 1350,
+   "median": 1350,
+   "max": 1350,
+   "n": 1
+  },
+  "pipe_ms_aa": 1.5621630009263754,
+  "aa_spread_pct": 0.23284715618041646,
+  "tflops_pipe": 44.092382192175684,
+  "tflops_serial": 41.2847369336027
+ },
+ "class/out_proj_[1,512,512,256]@[256,256]": {
+  "pipe_ms": 0.7653873332553,
+  "serial_med_ms": 0.7898920011939481,
+  "serial_min_ms": 0.7793170007062145,
+  "clock": null,
+  "clock_serial": null,
+  "pipe_ms_aa": 0.7583106665454883,
+  "aa_spread_pct": 0.933214712915707,
+  "tflops_pipe": 44.89196107004175,
+  "tflops_serial": 43.499286378472135
+ }
+}

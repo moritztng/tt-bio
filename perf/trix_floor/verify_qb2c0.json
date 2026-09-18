@@ -1,0 +1,74 @@
+{
+ "parity_N128": {
+  "N": 128,
+  "c_z": 256,
+  "ref_dtype": "torch.float64",
+  "max_abs": 0.014258027076721191,
+  "mean_abs": 0.0013985693221911788,
+  "ref_absmax": 1.7017089128494263,
+  "rel_max": 0.008378652170803313,
+  "pcc": 0.9999954104423523,
+  "chunk_size": 256,
+  "memcfg": "BufferType.L1",
+  "branches": {
+   "('four-way-split', 'defer')": 1
+  }
+ },
+ "parity_N512": {
+  "N": 512,
+  "c_z": 256,
+  "ref_dtype": "torch.float32",
+  "max_abs": 0.01648402214050293,
+  "mean_abs": 0.0013999228831380606,
+  "ref_absmax": 1.8485506772994995,
+  "rel_max": 0.008917268183625897,
+  "pcc": 1.0,
+  "chunk_size": 32,
+  "memcfg": "BufferType.DRAM",
+  "branches": {
+   "('gated-move', 'defer')": 1
+  },
+  "n_pairs": 8,
+  "group": 8
+ },
+ "tape_512": {
+  "sum_ms": 6.2021479971008375,
+  "n_ops": 5,
+  "rows": {
+   "layer_norm[1x512x512x256]": {
+    "n": 2,
+    "ms": 1.9545110008039046
+   },
+   "reblock_permute_gated[1x512x512x1024]": {
+    "n": 2,
+    "ms": 2.6145369993173517
+   },
+   "matmul[1x256x512x512]": {
+    "n": 1,
+    "ms": 1.6330999969795812
+   }
+  }
+ },
+ "flags": {
+  "_TRIMUL_CHUNK_CAP": 0,
+  "_TRIMUL_FUSED_GOUT": true,
+  "_TRIMUL_GP_BANK_SPLIT": true,
+  "_TRIMUL_IN0_BLOCK_W_BAND": 10,
+  "_TRIMUL_INPROJ_FUSED_BYTES": 1073741824,
+  "_TRIMUL_INPROJ_GROUP": 12,
+  "_TRIMUL_INPROJ_ROWBLOCK": false,
+  "_TRIMUL_INPROJ_ROWBLOCK_R": 128,
+  "_TRIMUL_MASK_AFTER_MOVE": true,
+  "_TRIMUL_MASK_L1": true,
+  "_TRIMUL_MIN_CHUNK": 32,
+  "_TRIMUL_MM_OUT": false,
+  "_TRIMUL_MM_TRANSPOSE": true,
+  "_TRIMUL_OUT_L1": false,
+  "_TRIMUL_OUT_MOVE_DRAM": false,
+  "_TRIMUL_RAW_CHANNEL_MOVES": false,
+  "_TRIMUL_TAIL_F1": true,
+  "_TRIMUL_TAIL_F1_L1_OUT": true,
+  "_TRIMUL_TAIL_L1": false,
+  "_TRIMUL_TAIL_L1_LIVE": 3
+ }
+}
