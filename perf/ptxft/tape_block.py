@@ -345,6 +345,92 @@ class DistogramHead:
         return ag.linear(z, self.w, self.b)
 
 
+def gathered_head(x, W, idx):
+    """``einsum("nc,ncb->nb", x, W[idx])`` in float64 on host, plus its exact gradients.
+
+    This is what pLDDT and the experimentally-resolved head do: each atom picks one
+    ``(c_s, n_bins)`` matrix out of 24 by its token-atom type
+    (`ConfidenceHead.confidence`, protenix.py:1495-1497). A gather is the one op this tape
+    does not have, and adding one for a head whose whole cost is 24 x 384 x 50 = 460,800
+    parameters would be the wrong trade: the head runs on host in float64 and hands the
+    tape the exact analytic gradient of its input, which is the same arrangement the
+    distogram loss already uses. Nothing differentiates an approximation.
+
+    Returns ``(logits, backward)`` where ``backward(g)`` gives ``(dx, dW)``; dW accumulates
+    over the atoms that share a type, which `np.add.at` does and a plain fancy-index
+    assignment silently would not.
+    """
+    import numpy as np
+    x = np.asarray(x, np.float64)
+    W = np.asarray(W, np.float64)
+    idx = np.asarray(idx, np.int64)
+    Wi = W[idx]
+    logits = np.einsum("nc,ncb->nb", x, Wi)
+
+    def backward(g):
+        g = np.asarray(g, np.float64)
+        dx = np.einsum("nb,ncb->nc", g, Wi)
+        dW = np.zeros_like(W)
+        np.add.at(dW, idx, np.einsum("nc,nb->ncb", x, g))
+        return dx, dW
+
+    return logits, backward
+
+
+class ConfidenceHeads:
+    """Protenix v2's four confidence heads on the tape: PAE, PDE, pLDDT, resolved.
+
+    Read off `ConfidenceHead.confidence` (protenix.py:1463-1500) rather than from the
+    paper. The pair heads are a layer norm and one linear each, and the only structural
+    detail is that PDE symmetrises its INPUT (`zf + zf.transpose(0, 1)`) where the
+    distogram head symmetrises its OUTPUT logits -- different tensors, and swapping them
+    optimises a head Protenix does not have.
+
+    The two per-atom heads end in a gathered matmul, which `gathered_head` does on host;
+    everything up to and including their layer norm is taped, so the gradient reaches
+    s_single and from there the whole pairformer stack.
+    """
+
+    def __init__(self, sd: Dict, device, *, dtype=ttnn.bfloat16,
+                 param_dtype=ttnn.float32, trainable: bool = True):
+        import numpy as np
+        self.device = device
+        dt = param_dtype if trainable else dtype
+        self.params: Dict[str, ag.Tensor] = {}
+        self.w: Dict[str, ag.Tensor] = {}
+        self.host: Dict[str, "np.ndarray"] = {}
+        for n in ("pae_ln", "pde_ln", "plddt_ln", "resolved_ln"):
+            for part in ("weight", "bias"):
+                t = _t2d(sd[f"{n}.{part}"], device, dt)
+                t.requires_grad = trainable
+                self.w[f"{n}.{part}"] = t
+                if trainable:
+                    self.params[f"{n}.{part}"] = t
+        for n in ("linear_no_bias_pae", "linear_no_bias_pde"):
+            t = _t2d(sd[f"{n}.weight"], device, dt)
+            t.requires_grad = trainable
+            self.w[n] = t
+            if trainable:
+                self.params[n] = t
+        # The gathered weights stay on host in float64, where their head runs.
+        for n in ("plddt_weight", "resolved_weight"):
+            self.host[n] = sd[n].detach().to("cpu").double().numpy()
+
+    def pae(self, z: ag.Tensor) -> ag.Tensor:
+        zn = ag.layer_norm(z, self.w["pae_ln.weight"], self.w["pae_ln.bias"], eps=EPS)
+        return ag.linear(zn, self.w["linear_no_bias_pae"])
+
+    def pde(self, z: ag.Tensor) -> ag.Tensor:
+        zs = ag.add(z, ag.permute(z, (1, 0, 2)))
+        zn = ag.layer_norm(zs, self.w["pde_ln.weight"], self.w["pde_ln.bias"], eps=EPS)
+        return ag.linear(zn, self.w["linear_no_bias_pde"])
+
+    def atom_norm(self, s: ag.Tensor, head: str) -> ag.Tensor:
+        """The taped half of a per-atom head: its layer norm over the single track."""
+        return ag.layer_norm(s, self.w[f"{head}_ln.weight"], self.w[f"{head}_ln.bias"],
+                             eps=EPS)
+
+
 def symmetrize_bins(t):
     """The distogram is over UNORDERED pairs, so the head's output is symmetrised.
 

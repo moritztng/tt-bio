@@ -102,7 +102,9 @@ def build(a, device):
     blocks, params = [], {}
     for i in range(a.depth):
         b = PairTrackBlock(random_block_sd(shapes, rng), device, n_heads=8, head_dim=32,
-                           dtype=ttnn.bfloat16, adapter_dtype=ttnn.float32,
+                           dtype=ttnn.bfloat16,
+                           adapter_dtype=(ttnn.bfloat16 if a.param_dtype == "bf16"
+                                          else ttnn.float32),
                            train_base=True, chunk=a.chunk, q_chunk=a.q_chunk)
         blocks.append(b)
         for k, v in b.params.items():
@@ -121,6 +123,14 @@ def main():
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--weight-decay", type=float, default=0.0)
+    ap.add_argument("--param-dtype", default="fp32", choices=["bf16", "fp32"],
+                    help="dtype of the trainable weight the FORWARD reads. The fp32 "
+                         "master always lives on the host either way, which is "
+                         "tt-train's arrangement (adamw_full_precision.cpp:97-99 "
+                         "typecasts it down each step). perf/ptxft/single_track.py "
+                         "measured an fp32 weight against a bf16 activation at 2.13e-01 "
+                         "on the forward where bf16/bf16 reads 8.16e-03, so this is not "
+                         "a free choice.")
     ap.add_argument("--clip-norm", type=float, default=10.0,
                     help="upstream's own value, configs_base.py:80")
     ap.add_argument("--accum", type=int, default=0,
@@ -156,7 +166,8 @@ def main():
         print(f"# --overfit: RANDOM INIT, {a.depth} blocks, every weight trainable, "
               f"{len(params)} tensors, {n_par:,} parameters")
         print(f"# {len(names)} targets {names}, lr {a.lr}, wd {a.weight_decay}, "
-              f"{a.steps} steps, seed {a.seed}, clip {a.clip_norm}, warmup {a.warmup}")
+              f"{a.steps} steps, seed {a.seed}, clip {a.clip_norm}, warmup {a.warmup}, "
+              f"device weights {a.param_dtype}, host master fp32")
         print(f"# uniform distogram CE = ln(64) = {np.log(64):.5f}; a zero-initialised "
               f"head must start exactly there")
         opt = ft.AdamW(params, lr=a.lr, weight_decay=a.weight_decay,
@@ -234,10 +245,28 @@ def main():
         if worst > a.near_zero:
             failures.append(f"worst final CE {worst:.5f} did not reach the near-zero bar "
                             f"{a.near_zero}")
+        # THE UPDATE CONTROL, and which one applies depends on where the accumulator is.
+        # An fp32 device weight IS the accumulator, so every step must survive the cast
+        # and the per-step ratio is the control. A bf16 device weight behind an fp32 host
+        # master is tt-train's arrangement, where a single step below bf16 spacing is
+        # MEANT to round away and the per-step ratio scatters -- it read 9.358 at step 600
+        # of a run that drove the loss to 1.7e-04. What must hold there is cumulative:
+        # the weight the forward reads has to have travelled as far as the master did.
+        disp = opt.displacement()
+        print(f"UPDATE: master travelled {disp['master']:.4e}, the device weight "
+              f"{disp['device']:.4e}, ratio {disp['ratio']:.4f}")
         bad_kept = [h["step"] for h in hist if not (0.95 <= h["kept"] <= 1.05)]
-        if bad_kept:
-            failures.append(f"the device step left the master step at {len(bad_kept)} of "
-                            f"{len(hist)} steps (first at {bad_kept[0]})")
+        if a.param_dtype == "fp32":
+            if bad_kept:
+                failures.append(f"the device step left the master step at "
+                                f"{len(bad_kept)} of {len(hist)} steps "
+                                f"(first at {bad_kept[0]})")
+        else:
+            print(f"# per-step kept left [0.95, 1.05] at {len(bad_kept)} of "
+                  f"{len(hist)} steps, which is expected for a bf16 device weight")
+            if not (0.95 <= disp["ratio"] <= 1.05):
+                failures.append(f"cumulative displacement ratio {disp['ratio']:.4f}: the "
+                                f"device weight did not travel as far as the master")
         with open(os.path.join(ART, "overfit_hist.json"), "w") as fh:
             json.dump({"hist": hist, "final": final, "uniform": uni, "depth": a.depth,
                        "lr": a.lr, "steps": a.steps, "params": n_par}, fh, indent=2)

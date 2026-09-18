@@ -165,6 +165,16 @@ class AdamW:
         # reproducible across a reload because the powers themselves are checkpointed.
         self.beta1_pow, self.beta2_pow = 1.0, 1.0
         self.master = {n: to_host(t.value).astype(np.float32) for n, t in params.items()}
+        # Kept for the CUMULATIVE update control. The per-step kept ratio answers
+        # "did this one step survive the cast", which is the right question only when the
+        # weight the forward reads IS the accumulator. With an fp32 master behind a bf16
+        # device copy -- tt-train's arrangement -- a single step below bf16 spacing is
+        # SUPPOSED to round to 0 or to a whole spacing, so the per-step ratio scatters far
+        # from 1 while the run is working perfectly. What has to hold is that the device
+        # weight has travelled as far as the master has, over the run.
+        self.init_master = {n: v.copy() for n, v in self.master.items()}
+        self.init_device = {n: to_host(t.value).astype(np.float32).reshape(
+            self.master[n].shape) for n, t in params.items()}
         self.exp_avg = {n: np.zeros_like(v) for n, v in self.master.items()}
         self.exp_avg_sq = {n: np.zeros_like(v) for n, v in self.master.items()}
 
@@ -218,6 +228,22 @@ class AdamW:
                             "grad_norm": float(np.linalg.norm(g))}
         self.last_lr, self.last_clip, self.last_grad_norm = lr, clip, gnorm
         return report
+
+    def displacement(self) -> dict:
+        """How far the master and the device weight have moved since construction.
+
+        ratio near 1 says every increment the master accumulated reached the weight
+        the forward actually reads. This is the control that survives a bf16 device copy;
+        the per-step one does not.
+        """
+        import numpy as np
+        m = d = 0.0
+        for n, t in self.params.items():
+            m += float(np.sum((self.master[n] - self.init_master[n]) ** 2))
+            cur = to_host(t.value).astype(np.float32).reshape(self.master[n].shape)
+            d += float(np.sum((cur - self.init_device[n]) ** 2))
+        m, d = math.sqrt(m), math.sqrt(d)
+        return {"master": m, "device": d, "ratio": (d / m) if m > 0 else float("nan")}
 
     def grad_norm(self) -> float:
         """Global L2 norm of the gradients, for clipping and for the trajectory log."""
