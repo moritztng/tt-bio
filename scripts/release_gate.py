@@ -1099,6 +1099,44 @@ def _msa_args(model: str) -> list:
     return ["--msa_dir", MSA_DIR] if MSA_DIR else ["--use_msa_server"]
 
 
+#: Third-party scorers that only the GATE needs, keyed by the arm that needs one. These are
+#: deliberately not project runtime dependencies -- scripts/opendde_dockq.py says so itself,
+#: "installed as an eval-time requirement into the run venv" -- so nothing in the install path
+#: puts them there and, before this check, nothing noticed when they were gone.
+_EVAL_SCORERS = {
+    "opendde-abag": ("DockQ.DockQ", "DockQ==2.1.3", "scripts/opendde_dockq.py"),
+}
+
+
+def _preflight_eval_scorers(models: list) -> None:
+    """Fail before any device work if an arm's scorer cannot be imported.
+
+    The same failure class _preflight_msa_cache below was written for, and it recurred on
+    2026-09-18 in a different costume. The opendde-abag arm folded 1ahw_abag successfully --
+    "1 ok, 0 failed", 348.5 s of device time -- and then died on `from DockQ.DockQ import ...`.
+    The gate rendered that as "GATE FAIL - opendde-abag missed parse or the DockQ floor". The
+    model was fine, no DockQ was ever computed, and the red arm sat on the critical path of a
+    merge decision. An absent pip package must cost a second at startup, not six minutes of
+    device time and a verdict that names a floor nobody evaluated.
+    """
+    import importlib
+
+    missing = []
+    for arm, (mod, pin, user) in sorted(_EVAL_SCORERS.items()):
+        if arm not in models:
+            continue
+        try:
+            importlib.import_module(mod)
+        except Exception as exc:
+            missing.append(f"  {arm}: {user} needs `{mod}` ({pin}) -- "
+                           f"{type(exc).__name__}: {exc}")
+    if missing:
+        sys.exit("release gate: an eval-time scorer is not importable, so its arm could only "
+                 "produce a FAIL that measures nothing.\n" + "\n".join(missing) +
+                 f"\n\nInstall it into the venv running this gate ({sys.executable}), or "
+                 f"deselect the arm with --models. Checked before any device work on purpose.")
+
+
 def _preflight_msa_cache(models: list) -> None:
     """Fail before any device work if the offline MSA dir cannot serve a target it will fold.
 
@@ -4192,6 +4230,7 @@ def main() -> int:
     want_rfd3_fusion = "rfd3-fusion" in models
     want_size_ladder = "size-ladder" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
+    _preflight_eval_scorers(models)
     _preflight_msa_cache(models)
 
     rows = []
