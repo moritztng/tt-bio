@@ -246,6 +246,14 @@ def atom_qkv_heads(s, w_q, b_q, s_kv, w_kv, ckc, n_heads, head_dim, dtype, cfg_q
     if head_dim % TILE or n_heads * head_dim != int(w_q.shape[-1]) \
             or n_heads * head_dim * 2 != int(w_kv.shape[-1]):
         return _atom_reject("head_dim_or_width", shape)
+    dt = head_dim // TILE
+    if dt != 1:
+        # q is ONE output, so its writer is `write_block_sync`, which reads MM_OUT_TILE_ID -- and
+        # only MM_SPLIT_TILE_ID was generalised to (head, channel). A single-output head-major
+        # write is therefore expressible at one tile per head only. Reported BEFORE the block-entry
+        # guard on purpose: this is a capability limit that no table row can lift, where
+        # `no_block_entry` is a tuning gap that one can.
+        return _atom_reject("multi_tile_head_on_single_output", shape)
     if not (_common_ok(s, w_q, dtype, rank=4) and _common_ok(s_kv, w_kv, dtype, rank=4)):
         return _atom_reject("dtype_or_memory", shape)
     if b_q is not None and (b_q.dtype != ttnn.bfloat16
@@ -270,19 +278,11 @@ def atom_qkv_heads(s, w_q, b_q, s_kv, w_kv, ckc, n_heads, head_dim, dtype, cfg_q
     dev = s.device()
     b, k, w = shape[0], shape[1], shape[-2]
     rows_kv = int(s_kv.shape[-2])
-    dt = head_dim // TILE
 
-    # q is ONE output, and at N_chunks == 1 the kernel takes `write_block_sync`, which reads
-    # `MM_OUT_TILE_ID` -- a different macro from the split writer's `MM_SPLIT_TILE_ID`. So q's
-    # define is HEAD_MAJOR_OUT_MT, the one `gate_proj` uses for its single output, and not
-    # HEAD_MAJOR_MT, which that writer never looks at. Passing the wrong one is inert rather than
-    # loud, and at the atom window it would even give the right answer by accident, because MT is 1
-    # there and the head-major id IS the plain id.
-    if dt != 1:
-        # Only MM_SPLIT_TILE_ID was generalised to a multi-tile head; MM_OUT_TILE_ID carries no DT,
-        # so a single-output head-major write is only expressible at one tile per head.
-        return _atom_reject("multi_tile_head_on_single_output", shape)
-
+    # q's define is HEAD_MAJOR_OUT_MT, the one `gate_proj` uses for its single output, and not
+    # HEAD_MAJOR_MT, which `write_block_sync` never looks at. Passing the wrong one is inert rather
+    # than loud, and at the atom window it would even give the right answer by accident, because MT
+    # is 1 there and the head-major id IS the plain id.
     # kv is TWO outputs, so that call takes the split writer and HEAD_MAJOR_MT is the define it
     # reads. No HEAD_MAJOR_DT: the guard above already refused a multi-tile head here.
     def split_defines(rows):

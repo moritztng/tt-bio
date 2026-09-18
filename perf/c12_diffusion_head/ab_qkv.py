@@ -45,6 +45,48 @@ SIGS = [
 ATOM = ("atom_block", 1, 140, 32, 128, 128, 4, 32, 1200, 0.09016)
 
 
+def _compare(ref, got):
+    """`torch.equal` per tensor plus the worst absolute difference, or the shapes if they differ.
+
+    A shape mismatch is a finding -- the transcription produced the wrong destination -- so report
+    it instead of raising, and never let `max()` see an empty sequence.
+    """
+    import torch
+    shapes_ok = len(ref) == len(got) and all(tuple(r.shape) == tuple(g.shape)
+                                             for r, g in zip(ref, got))
+    if not shapes_ok:
+        return {"torch_equal_A1_vs_B": False, "max_abs_A1_vs_B": None,
+                "shape_mismatch": {"A1": [list(r.shape) for r in ref],
+                                   "B": [list(g.shape) for g in got]}}
+    return {"torch_equal_A1_vs_B": all(torch.equal(r, g) for r, g in zip(ref, got)),
+            "max_abs_A1_vs_B": max((float((r.float() - g.float()).abs().max())
+                                    for r, g in zip(ref, got)), default=None),
+            "shape_mismatch": None}
+
+
+def _timed(device, arms, reps):
+    """Interleaved rep by rep, cold rep discarded PER ARM, median of the rest."""
+    import ttnn
+    times: dict = {k: [] for k in arms}
+    for rep in range(reps + 1):                    # rep 0 is the cold rep, discarded PER ARM
+        for key, fn in arms.items():
+            ttnn.synchronize_device(device)
+            t0 = time.perf_counter()
+            outs = fn()
+            ttnn.synchronize_device(device)
+            dt = (time.perf_counter() - t0) * 1e3
+            for o in outs:
+                ttnn.deallocate(o)
+            if rep:
+                times[key].append(dt)
+    med = {k: sorted(v)[len(v) // 2] for k, v in times.items()}
+    a0, a1, b, aa = (med["A0_linear_split"], med["A1_mm_split"], med["B_head_major"],
+                     med["AA_control"])
+    return {"ms_per_call": med, "reps": reps, "raw_ms": times,
+            "aa_floor_pct": abs(aa - a0) / a0 * 100.0,
+            "B_over_A1": a1 / b, "A1_over_A0": a0 / a1}
+
+
 def plan(grid=(11, 10)):
     """The descriptor geometry for each signature, from shapes alone."""
     sys.path.insert(0, str(OUT.parents[1]))
@@ -227,31 +269,8 @@ def _arms(device, sig, reps):
     arms = {"A0_linear_split": a0, "A1_mm_split": a1, "B_head_major": arm_b,
             "AA_control": a0}
     # torch.equal(A1, B) BEFORE any timing, so a wrong transcription never reaches a number.
-    ref = [ttnn.to_torch(t) for t in a1()]
-    got = [ttnn.to_torch(t) for t in arm_b()]
-    equal = all(torch.equal(r, g) for r, g in zip(ref, got))
-    maxabs = max(float((r.float() - g.float()).abs().max()) for r, g in zip(ref, got))
-
-    times: dict = {k: [] for k in arms}
-    for rep in range(reps + 1):                    # rep 0 is the cold rep, discarded PER ARM
-        for key, fn in arms.items():
-            ttnn.synchronize_device(device)
-            t0 = time.perf_counter()
-            outs = fn()
-            ttnn.synchronize_device(device)
-            dt = (time.perf_counter() - t0) * 1e3
-            for o in outs:
-                ttnn.deallocate(o)
-            if rep:
-                times[key].append(dt)
-    med = {k: sorted(v)[len(v) // 2] for k, v in times.items()}
-    return {"sig": name, "torch_equal_A1_vs_B": equal, "max_abs_A1_vs_B": maxabs,
-            "ms_per_call": med, "reps": reps,
-            "aa_floor_pct": abs(med["AA_control"] - med["A0_linear_split"])
-            / med["A0_linear_split"] * 100.0,
-            "B_over_A1": med["A1_mm_split"] / med["B_head_major"],
-            "A1_over_A0": med["A0_linear_split"] / med["A1_mm_split"],
-            "raw_ms": times}
+    cmp = _compare([ttnn.to_torch(x) for x in a1()], [ttnn.to_torch(x) for x in arm_b()])
+    return {"sig": name, **cmp, **_timed(device, arms, reps)}
 
 
 def _atom_arms(device, reps):
@@ -312,32 +331,8 @@ def _atom_arms(device, reps):
         return out
 
     arms = {"A0_linear_split": a0, "A1_mm_split": a1, "B_head_major": arm_b, "AA_control": a0}
-    ref = [ttnn.to_torch(x) for x in a1()]
-    got = [ttnn.to_torch(x) for x in arm_b()]
-    equal = all(r.shape == g.shape and torch.equal(r, g) for r, g in zip(ref, got))
-    maxabs = max(float((r.float() - g.float()).abs().max())
-                 for r, g in zip(ref, got) if r.shape == g.shape) if equal else float("nan")
-
-    times: dict = {k: [] for k in arms}
-    for rep in range(reps + 1):
-        for key, fn in arms.items():
-            ttnn.synchronize_device(device)
-            t0 = time.perf_counter()
-            outs = fn()
-            ttnn.synchronize_device(device)
-            dt = (time.perf_counter() - t0) * 1e3
-            for o in outs:
-                ttnn.deallocate(o)
-            if rep:
-                times[key].append(dt)
-    med = {k: sorted(v)[len(v) // 2] for k, v in times.items()}
-    return {"sig": "atom_block", "torch_equal_A1_vs_B": equal, "max_abs_A1_vs_B": maxabs,
-            "ms_per_call": med, "reps": reps,
-            "aa_floor_pct": abs(med["AA_control"] - med["A0_linear_split"])
-            / med["A0_linear_split"] * 100.0,
-            "B_over_A1": med["A1_mm_split"] / med["B_head_major"],
-            "A1_over_A0": med["A0_linear_split"] / med["A1_mm_split"],
-            "raw_ms": times}
+    cmp = _compare([ttnn.to_torch(x) for x in a1()], [ttnn.to_torch(x) for x in arm_b()])
+    return {"sig": "atom_block", **cmp, **_timed(device, arms, reps)}
 
 
 def _device_main(args):
@@ -352,8 +347,9 @@ def _device_main(args):
     rec = {"clock_MHz_before": clk_before, "clock_MHz_after": clk_after,
            "device_id": args.device_id, "signatures": rows}
     for r in rows:
+        ma = r["max_abs_A1_vs_B"]
         print(f"{r['sig']:<11} torch.equal(A1,B)={r['torch_equal_A1_vs_B']} "
-              f"maxabs={r['max_abs_A1_vs_B']:.3e} "
+              f"maxabs={'n/a' if ma is None else f'{ma:.3e}'} "
               + " ".join(f"{k}={v:.4f}ms" for k, v in r["ms_per_call"].items())
               + f" B/A1={r['B_over_A1']:.4f}x A1/A0={r['A1_over_A0']:.4f}x "
               f"A/A={r['aa_floor_pct']:.2f}%")
