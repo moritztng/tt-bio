@@ -17,6 +17,11 @@ Two checks, neither of which needs a device:
 Shapes are the four executed signatures from `perf/c12_tail_screen/leads.json` plus the triangle
 attention's own shapes, which must not move: HEAD_MAJOR_DT defaults to 1 and the expression has to
 collapse to what ships today.
+
+`equals_plain_writer` is the atom block's q reading in one column: at MT = 1 and DT = 1 the
+head-major id IS the plain writer's, so that projection is head-major by choosing its destination's
+shape and compiles no define. It is True at `atom_q_512aa` and False everywhere else, which is the
+control on the claim rather than a restatement of it.
 """
 
 from __future__ import annotations
@@ -39,6 +44,7 @@ SHAPES = [
     ("dit_token_512aa", 1, 512, 16, 64, 3),     # 4800 progs, 0.20470 s   DiffusionModule
     ("apb_trunk_512aa", 1, 512, 16, 32, 3),     #  264 progs, 0.00581 s   PairformerLayer
     ("atom_kv_512aa", 140, 128, 4, 32, 2),      # the kv half of the 1200-prog atom signature
+    ("atom_q_512aa", 140, 32, 4, 32, 1),        # the q half -- one row tile per window, MT = 1
     # --- shipped triangle attention, must be unchanged ----------------------------------------
     ("triatt_512aa_qkv", 512, 512, 8, 32, 3),
     ("triatt_512aa_qkvg", 512, 512, 8, 32, 4),
@@ -144,6 +150,10 @@ def check(name, batch, seq, heads, pdim, chunks):
     ids_closed = closed_form_ids(mt, dt, rows, d1)
     macro_ok = ids_macro == ids_closed
     onto = sorted(ids_macro) == list(range(rows * d1))
+    # Whether the head-major id IS the plain writer's `row * logical_d1 + tidx`. True exactly when
+    # MT = 1 and DT = 1, which is the atom block's q: a 32-row window is one row tile, so that
+    # projection is head-major by choosing its destination's shape and needs no define at all.
+    plain = ids_macro == [row * d1 + tidx for row in range(rows) for tidx in range(d1)]
 
     # LAYOUT: one chunk is enough -- the writer's chunk index only selects the destination tensor.
     torch.manual_seed(0)
@@ -164,7 +174,8 @@ def check(name, batch, seq, heads, pdim, chunks):
             "HEAD_MAJOR_MT": mt, "HEAD_MAJOR_DT": dt,
             "DT_define_passed": dt_define, "n_chunks": chunks,
             "tiles_per_chunk": rows * d1, "macro_equals_closed_form": macro_ok,
-            "map_is_a_permutation": onto, "torch_equal_vs_create_heads": layout_ok}
+            "map_is_a_permutation": onto, "torch_equal_vs_create_heads": layout_ok,
+            "equals_plain_writer": plain}
 
 
 def main() -> int:
@@ -174,7 +185,8 @@ def main() -> int:
     for r in rows:
         print(f"{r['shape']:<20} MT={r['HEAD_MAJOR_MT']:<4} DT={r['HEAD_MAJOR_DT']} "
               f"tiles={r['tiles_per_chunk']:<7} macro={r['macro_equals_closed_form']} "
-              f"perm={r['map_is_a_permutation']} torch.equal={r['torch_equal_vs_create_heads']}")
+              f"perm={r['map_is_a_permutation']} torch.equal={r['torch_equal_vs_create_heads']} "
+              f"plain={r['equals_plain_writer']}")
     ok = all(r["macro_equals_closed_form"] and r["map_is_a_permutation"]
              and r["torch_equal_vs_create_heads"] for r in rows)
     if NEGCTRL:

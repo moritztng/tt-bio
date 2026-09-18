@@ -6885,6 +6885,12 @@ _MM_BLOCK = {
     # projection's op class; `APB_HEAD_MAJOR_QKV` is the gate on that and ships off.
     (24, 96): _MM_DEFAULT,
     (12, 48): _MM_DEFAULT,
+    # boltz2's atom-block kv projection, c_s = 128 into 2 x 4 x 32 (`triatt_qkv.atom_qkv_heads`).
+    # Its q sibling is c_s = 128 into 4 x 32, which is the (4, 4) key already above -- a SWEPT
+    # entry, so the atom q rides a config tuned for the triangle attention's gate. Bit-exact there
+    # for the same reason it is there (K_block = kt = 4 is the whole contraction) but it blocks N
+    # one tile at a time, so the arm has to price it rather than assume it.
+    (4, 8): _MM_DEFAULT,
 }
 
 
@@ -7952,6 +7958,20 @@ class AttentionPairBias(Module):
             self.dtype, _qkv_mm_config(s, self.qkv_weight), bias=self.qkv_bias,
             allow_m_le_n=True, site="apb", refuse="kq_norm" if self.kq_norm else None)
 
+    def _atom_qkv_head_major(self, s: ttnn.Tensor, s_kv: ttnn.Tensor):
+        """`(q, k, v)` for the atom block, written head-major, or None for today's six ops.
+
+        Declines while `kq_norm` is live for the same reason the token site does: the norm slices
+        the fused kv on its channel axis between the projection and the split.
+        """
+        if not _triatt_qkv.atom_enabled():
+            return None
+        return _triatt_qkv.atom_qkv_heads(
+            s, self.q_weight, self.q_bias, s_kv, self.kv_weight, self.compute_kernel_config,
+            self.n_heads, self.head_dim, _dtype(),
+            _qkv_mm_config(s, self.q_weight), _qkv_mm_config(s_kv, self.kv_weight),
+            refuse="kq_norm" if self.kq_norm else None)
+
     def _apply_kq_norm(self, qkv: ttnn.Tensor) -> ttnn.Tensor:
         """Norm the Q and K slices of the fused qkv, in place of an unfused split."""
         width = self.n_heads * getattr(self, "padded_head_dim", self.head_dim)
@@ -8149,39 +8169,46 @@ class AttentionPairBias(Module):
                 s_kv = ttnn.permute(s_kv, (0, 3, 1, 2))
                 s_kv = ttnn.reshape(s_kv, (B, K, -1, D_S))
 
-            q = ttnn.linear(
-                s,
-                self.q_weight,
-                bias=self.q_bias,
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-                dtype=_dtype(),
-            )
-            kv = ttnn.linear(
-                s_kv,
-                self.kv_weight,
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-                dtype=_dtype(),
-            )
-
-            if self.kq_norm:
-                q, kv = self._apply_kq_norm_atom(q, kv)
-
-            if _ATOM_PAD_IN_TILE:
-                q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
+            head_major = self._atom_qkv_head_major(s, s_kv)
+            if head_major is not None:
+                # Already (B, K * n_heads, rows, head_dim): the pad, the two reshapes, the split
+                # and the slice below all exist only to get here.
+                q, k, v = head_major
+                H, D_Q = self.n_heads, self.head_dim
             else:
-                q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
-                q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
-                q = ttnn.to_layout(q, ttnn.TILE_LAYOUT, dtype=_dtype())
-            q = ttnn.reshape(q, (B * K, 1, ATOM_DIM, -1))
-            kv = ttnn.reshape(kv, (B * K, 1, ATOM_DIM, -1))
-            q, k, v = ttnn.experimental.nlp_create_qkv_heads(q, kv, num_heads=self.n_heads, num_kv_heads=self.n_heads, transpose_k_heads=False)
-            _, H, S, D_Q = q.shape
-            q = ttnn.reshape(q, (B, K * H, S, D_Q))
-            k = ttnn.reshape(k, (B, K * H, S, D_Q))
-            v = ttnn.reshape(v, (B, K * H, S, D_Q))
-            q = q[:, :, :ATOM_WINDOW, :]
+                q = ttnn.linear(
+                    s,
+                    self.q_weight,
+                    bias=self.q_bias,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                    dtype=_dtype(),
+                )
+                kv = ttnn.linear(
+                    s_kv,
+                    self.kv_weight,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                    dtype=_dtype(),
+                )
+
+                if self.kq_norm:
+                    q, kv = self._apply_kq_norm_atom(q, kv)
+
+                if _ATOM_PAD_IN_TILE:
+                    q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
+                else:
+                    q = ttnn.to_layout(q, ttnn.ROW_MAJOR_LAYOUT)
+                    q = ttnn.pad(q, [[0, 0], [0, 0], [0, ATOM_DIM - ATOM_WINDOW], [0, 0]], 0.0)
+                    q = ttnn.to_layout(q, ttnn.TILE_LAYOUT, dtype=_dtype())
+                q = ttnn.reshape(q, (B * K, 1, ATOM_DIM, -1))
+                kv = ttnn.reshape(kv, (B * K, 1, ATOM_DIM, -1))
+                q, k, v = ttnn.experimental.nlp_create_qkv_heads(q, kv, num_heads=self.n_heads, num_kv_heads=self.n_heads, transpose_k_heads=False)
+                _, H, S, D_Q = q.shape
+                q = ttnn.reshape(q, (B, K * H, S, D_Q))
+                k = ttnn.reshape(k, (B, K * H, S, D_Q))
+                v = ttnn.reshape(v, (B, K * H, S, D_Q))
+                q = q[:, :, :ATOM_WINDOW, :]
             z = ttnn.reshape(z, (1, -1, z.shape[2], z.shape[3]))
             o = self._attention(q, k, v, z)
             o = ttnn.reshape(o, (B * K, H, W, D_Q))

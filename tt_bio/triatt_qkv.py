@@ -92,11 +92,23 @@ def _reject(reason, shape, site="triatt"):
     return None
 
 
-def _common_ok(x, w, dtype):
+def _m_rows(t):
+    """The matmul M the factory infers from this activation: the product of every dim but the last.
+
+    Written once because two call sites need it and one of them used to spell it `pad[0]*pad[-2]`,
+    which is the same number only at rank 3 and is 140x too small for the rank-4 atom activation.
+    """
+    m = 1
+    for d in t.padded_shape[:-1]:
+        m *= int(d)
+    return m
+
+
+def _common_ok(x, w, dtype, rank=3):
     """The dtype, layout and memory-config conditions the transcription was verified under."""
     if dtype != ttnn.bfloat16 or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
         return False
-    if x.layout != ttnn.TILE_LAYOUT or len(x.shape) != 3:
+    if x.layout != ttnn.TILE_LAYOUT or len(x.shape) != rank:
         return False
     xmc, wmc = x.memory_config(), w.memory_config()
     return (xmc.buffer_type == ttnn.BufferType.DRAM
@@ -143,7 +155,7 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config, bias=None,
         return _reject("no_block_entry", shape, site)
 
     pad = [int(d) for d in x.padded_shape]
-    if pad[0] * pad[-2] <= int(w.shape[-1]) and not allow_m_le_n:
+    if _m_rows(x) <= int(w.shape[-1]) and not allow_m_le_n:
         # transpose_core_grid is false there, a core-grid orientation this has never been run on
         return _reject("m_le_n", shape, site)
 
@@ -159,6 +171,123 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config, bias=None,
         defines, KERNEL_DIR, bias=bias)
     stats[0] += 1
     return tuple(outs)
+
+
+# --- the atom block's split, where head-major and plain coincide for q ----------------------------
+#
+# The remaining 0.09016 s / 121.7 Mcycles of the tail screen's lead, 1200 programs per 512 aa fold.
+# The shipped chain is six ops for a split that computes nothing:
+#
+#     q  = linear(s, Wq, bq)                 [B, K, 32, 128]
+#     kv = linear(s_kv, Wkv)                 [B, K, 128, 256]
+#     pad q from 32 rows to ATOM_DIM=128     so nlp_create_qkv_heads sees matching row counts
+#     reshape q, kv to [B*K, 1, 128, .]
+#     nlp_create_qkv_heads(q, kv)            3 x [B*K, 4, 128, 32]
+#     q = q[:, :, :ATOM_WINDOW, :]           throws the 96 padded rows straight back away
+#
+# The pad and the slice exist ONLY to satisfy the split's requirement that q and kv carry the same
+# row count. A destination written per head does not have that requirement, so both go with it.
+#
+# The q half needs no tile transform at all, and that is worth stating because it is not obvious:
+# the atom window is 32 rows, exactly ONE row tile, so `HEAD_MAJOR_MT` is 1 and the head-major
+# expression collapses to `row * logical_d1 + tidx` -- the plain writer's own. `[B, K, 32, 128]` and
+# `[B*K, 4, 32, 32]` are the SAME 560-tile buffer in the same order: tile (window, col) of the first
+# holds window `w`, rows 0..31, channels 32*col..32*col+31, and tile (window, head) of the second
+# holds window `w`, rows 0..31, head `col`'s 32 channels. Only the ttnn Shape differs. So q is
+# head-major by choosing its destination's shape, with no define and no kernel involved.
+# (`ttnn.reshape` cannot do this: it reads the last dim going 128 -> 32 as a re-tiling and moves the
+# data, which is what makes L2's merge expensive. Writing the destination is what is free.)
+#
+# The kv half does need the transform, at `HEAD_MAJOR_MT = ATOM_DIM / 32 = 4`, and that is the shape
+# `perf/c12_diffusion_head/tile_map.py` checks as `atom_kv_512aa`.
+#
+# Separate flag from the token/trunk site: same mechanism, but two projections instead of one, two
+# op-class changes instead of one, and its own deleted pad and slice, so it earns its own arm.
+APB_ATOM_HEAD_MAJOR_QKV = False
+_ATOM_ENABLED = os.environ.get(
+    "TT_BIO_APB_ATOM_HEAD_MAJOR_QKV", "1" if APB_ATOM_HEAD_MAJOR_QKV else "0") == "1"
+
+ATOM_STATS = [0, 0]
+ATOM_REJECTS: dict = {}
+
+
+def atom_enabled():
+    """Whether the atom-block gate is on, so the caller can skip building two configs per call."""
+    return _ATOM_ENABLED
+
+
+def _atom_reject(reason, shape):
+    k = (reason, tuple(shape))
+    ATOM_REJECTS[k] = ATOM_REJECTS.get(k, 0) + 1
+    ATOM_STATS[1] += 1
+    return None
+
+
+def atom_qkv_heads(s, w_q, b_q, s_kv, w_kv, ckc, n_heads, head_dim, dtype, cfg_q, cfg_kv,
+                   refuse=None):
+    """The atom block's q and kv projections written head-major, or `None` to leave all six ops.
+
+    Returns `(q, k, v)`, q as `[B, K * n_heads, W, head_dim]` and k, v as
+    `[B, K * n_heads, ATOM_DIM, head_dim]` -- exactly the three tensors the shipped chain hands
+    `_attention`, minus the pad and the slice.
+    """
+    if not _ATOM_ENABLED:
+        return None
+    shape = [int(d) for d in s.shape]
+    if refuse:
+        return _atom_reject(refuse, shape)
+    if len(shape) != 4 or len(s_kv.shape) != 4:
+        return _atom_reject("rank", shape)
+    if head_dim % TILE or n_heads * head_dim != int(w_q.shape[-1]) \
+            or n_heads * head_dim * 2 != int(w_kv.shape[-1]):
+        return _atom_reject("head_dim_or_width", shape)
+    if not (_common_ok(s, w_q, dtype, rank=4) and _common_ok(s_kv, w_kv, dtype, rank=4)):
+        return _atom_reject("dtype_or_memory", shape)
+    if b_q is not None and (b_q.dtype != ttnn.bfloat16
+                            or b_q.memory_config().buffer_type != ttnn.BufferType.DRAM
+                            or int(b_q.padded_shape[-1]) != int(w_q.shape[-1])):
+        return _atom_reject("bias_dtype_or_width", shape)
+    if cfg_q is None or cfg_kv is None:
+        return _atom_reject("no_mm_config", shape)
+
+    from .tenstorrent import _mm_block_for, COMPUTE_GRID_MAIN
+    blk_q, blk_kv = _mm_block_for(w_q), _mm_block_for(w_kv)
+    if blk_q is None or blk_kv is None:
+        return _atom_reject("no_block_entry", shape)
+
+    if shape[-2] % TILE or int(s_kv.shape[-2]) % TILE:
+        # A ragged row count would make the destination's rows and the matmul's M disagree
+        return _atom_reject("rows_not_whole_tiles", shape)
+    if _m_rows(s) <= int(w_q.shape[-1]) or _m_rows(s_kv) <= int(w_kv.shape[-1]):
+        # transpose_core_grid false, the orientation the token/trunk site runs and this one does not
+        return _atom_reject("m_le_n", shape)
+
+    dev = s.device()
+    b, k, w = shape[0], shape[1], shape[-2]
+    rows_kv = int(s_kv.shape[-2])
+    dt = head_dim // TILE
+
+    def defines(mt):
+        d = {"HEAD_MAJOR_MT": mt // TILE}
+        if dt != 1:
+            d["HEAD_MAJOR_DT"] = dt
+        return d
+
+    def alloc(rows):
+        return ttnn.allocate_tensor_on_device(
+            ttnn.Shape([b * k, n_heads, rows, head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+            dev, ttnn.DRAM_MEMORY_CONFIG)
+
+    q = alloc(w)
+    G.generic_minimal_matmul(dev, s, w_q, [q], (blk_q, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
+                             defines(w), KERNEL_DIR, bias=b_q)
+    kv = [alloc(rows_kv), alloc(rows_kv)]
+    G.generic_minimal_matmul(dev, s_kv, w_kv, kv, (blk_kv, tuple(COMPUTE_GRID_MAIN)),
+                             G.ckc_args(ckc), defines(rows_kv), KERNEL_DIR)
+
+    out = [ttnn.reshape(t, (b, k * n_heads, int(t.shape[-2]), head_dim)) for t in (q, *kv)]
+    ATOM_STATS[0] += 1
+    return tuple(out)
 
 
 # --- K1b: the tail stays head-major, so nlp_concat_heads never runs -------------------------------

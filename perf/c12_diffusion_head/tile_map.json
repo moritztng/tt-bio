@@ -14,7 +14,8 @@
    "tiles_per_chunk": 512,
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
-   "torch_equal_vs_create_heads": true
+   "torch_equal_vs_create_heads": true,
+   "equals_plain_writer": false
   },
   {
    "shape": "apb_trunk_512aa",
@@ -29,7 +30,8 @@
    "tiles_per_chunk": 256,
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
-   "torch_equal_vs_create_heads": true
+   "torch_equal_vs_create_heads": true,
+   "equals_plain_writer": false
   },
   {
    "shape": "atom_kv_512aa",
@@ -44,7 +46,24 @@
    "tiles_per_chunk": 2240,
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
-   "torch_equal_vs_create_heads": true
+   "torch_equal_vs_create_heads": true,
+   "equals_plain_writer": false
+  },
+  {
+   "shape": "atom_q_512aa",
+   "batch": 140,
+   "seq": 32,
+   "n_heads": 4,
+   "padded_head_dim": 32,
+   "HEAD_MAJOR_MT": 1,
+   "HEAD_MAJOR_DT": 1,
+   "DT_define_passed": null,
+   "n_chunks": 1,
+   "tiles_per_chunk": 560,
+   "macro_equals_closed_form": true,
+   "map_is_a_permutation": true,
+   "torch_equal_vs_create_heads": true,
+   "equals_plain_writer": true
   },
   {
    "shape": "triatt_512aa_qkv",
@@ -59,7 +78,8 @@
    "tiles_per_chunk": 65536,
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
-   "torch_equal_vs_create_heads": true
+   "torch_equal_vs_create_heads": true,
+   "equals_plain_writer": false
   },
   {
    "shape": "triatt_512aa_qkvg",
@@ -74,7 +94,8 @@
    "tiles_per_chunk": 65536,
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
-   "torch_equal_vs_create_heads": true
+   "torch_equal_vs_create_heads": true,
+   "equals_plain_writer": false
   },
   {
    "shape": "triatt_298aa_qkv",
@@ -89,7 +110,8 @@
    "tiles_per_chunk": 23840,
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
-   "torch_equal_vs_create_heads": true
+   "torch_equal_vs_create_heads": true,
+   "equals_plain_writer": false
   },
   {
    "shape": "dt4_synthetic",
@@ -104,7 +126,8 @@
    "tiles_per_chunk": 72,
    "macro_equals_closed_form": true,
    "map_is_a_permutation": true,
-   "torch_equal_vs_create_heads": true
+   "torch_equal_vs_create_heads": true,
+   "equals_plain_writer": false
   }
  ]
 }

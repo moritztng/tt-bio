@@ -77,5 +77,67 @@
    "padded_head_dim_is_whole_tiles": true,
    "head_dim_is_whole_tiles": true
   }
- ]
+ ],
+ "atom": {
+  "calls_per_fold": 1200,
+  "in_situ_s": 0.09016,
+  "parts": [
+   {
+    "part": "q",
+    "M": 4480,
+    "K": 128,
+    "N": 128,
+    "M_tiles": 140,
+    "K_tiles": 4,
+    "N_tiles": 4,
+    "n_chunks": 1,
+    "block": [
+     4,
+     4,
+     1,
+     4,
+     1
+    ],
+    "is_MM_DEFAULT": false,
+    "transpose_core_grid": true,
+    "M_tiles_per_core": 13,
+    "N_tiles_per_core": 1,
+    "K_blocks": 1,
+    "HEAD_MAJOR_MT": 1,
+    "HEAD_MAJOR_DT": 1,
+    "needs_no_define": true,
+    "chunks_divide_N": true,
+    "chunk_is_heads_times_DT": true,
+    "guards_pass": true
+   },
+   {
+    "part": "kv",
+    "M": 17920,
+    "K": 128,
+    "N": 256,
+    "M_tiles": 560,
+    "K_tiles": 4,
+    "N_tiles": 8,
+    "n_chunks": 2,
+    "block": [
+     8,
+     8,
+     8,
+     2,
+     2
+    ],
+    "is_MM_DEFAULT": true,
+    "transpose_core_grid": true,
+    "M_tiles_per_core": 51,
+    "N_tiles_per_core": 1,
+    "K_blocks": 1,
+    "HEAD_MAJOR_MT": 4,
+    "HEAD_MAJOR_DT": 1,
+    "needs_no_define": false,
+    "chunks_divide_N": true,
+    "chunk_is_heads_times_DT": true,
+    "guards_pass": true
+   }
+  ]
+ }
 }
