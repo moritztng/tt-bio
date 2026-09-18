@@ -1681,9 +1681,7 @@ class ConfidenceHead:
         plddt_atom = (torch.softmax(plddt_logits, -1) * ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb)).sum(-1)
         out = {"plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom, "pae": pae, "pde": pde,
                "ptm": ptm, "iptm": iptm}
-        chain_ptm, chain_iptm = self._chain_ptm_iptm(pae_logits, feats.get("asym_id"))
-        if chain_ptm is not None:
-            out["chain_ptm"], out["chain_iptm"] = chain_ptm, chain_iptm
+        out.update(self._chain_confidence(pae_logits, feats.get("asym_id")))
         return out
 
     @staticmethod
@@ -1714,29 +1712,38 @@ class ConfidenceHead:
         return round(ptm, 6), round(iptm, 6)
 
     @staticmethod
-    def _chain_ptm_iptm(pae_logits, asym_id, max_a: float = 32.0):
-        """Per-chain pTM and ipTM, protenix's `calculate_chain_based_ptm`.
+    def _chain_confidence(pae_logits, asym_id, max_a: float = 32.0):
+        """The chain-level confidence keys, protenix's `calculate_chain_based_ptm`.
 
         `chain_ptm[c]` is pTM computed inside chain c alone, so its TM normalisation uses that
         chain's own token count rather than the complex's -- which is why it cannot be read off
         the global pTM. `chain_iptm[c]` averages, over the chain pairs that involve c, the ipTM
         of that pair computed on those two chains alone; for a two-chain complex both chains
         therefore carry the same number. A binder filter reads exactly these two, as
-        `ptm_binder` and `iptm_binder`.
+        `ptm_binder` and `iptm_binder`. Both lists are indexed by the sorted unique `asym_id`,
+        so the binder is the last entry when the binder is the last chain.
 
-        Returns `(None, None)` for a single-chain input. Both lists are indexed by the sorted
-        unique `asym_id`, so the binder is the last entry when the binder is the last chain.
+        `pair_chains_iptm[i][j]` is the matrix both reductions are taken over, kept instead of
+        dropped: selectivity-aware scoring and hallucination score one named interface of a
+        multi-chain complex, which a per-chain average cannot express. It is the FULL square
+        matrix, diagonal included -- Boltz-2's shape, whose writer reads `pci[i][i]` for
+        `chains_ptm` (`tt_bio.main._pair_chains`), so one consumer reads either model. The
+        diagonal is that chain's own `chain_ptm`. Every entry carries protenix's per-subset TM
+        normalisation, so the numbers are comparable within a model and not across models,
+        exactly as the global pTM/ipTM already are. None of it is new computation.
+
+        Returns `{}` when there are no chain pairs (single chain, or no `asym_id`).
         `has_frame` is not modelled: every polymer token has a frame, and this path has no
         ligand tokens.
         """
         import torch
 
         if asym_id is None:
-            return None, None
+            return {}
         a = asym_id.long().reshape(-1)
         ids = [int(x) for x in torch.unique(a)]
         if a.numel() != pae_logits.shape[0] or len(ids) < 2:
-            return None, None
+            return {}
         nb = pae_logits.shape[-1]
         centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
         probs = torch.softmax(pae_logits.float(), -1)
@@ -1748,16 +1755,18 @@ class ConfidenceHead:
             return (sub * (1.0 / (1.0 + (centers / d0) ** 2))).sum(-1)
 
         chain_ptm = [float(pair_tm(a == c).mean(dim=-1).max()) for c in ids]
-        pair_iptm = {}
+        pair = {(c, c): p for c, p in zip(ids, chain_ptm)}     # diagonal: the chain's own pTM
         for i, ci in enumerate(ids):
             for cj in ids[i + 1:]:
                 m = (a == ci) | (a == cj)
                 cross = (a[m][None, :] != a[m][:, None])
                 row = (pair_tm(m) * cross).sum(-1) / (1e-8 + cross.sum(-1))
-                pair_iptm[ci, cj] = pair_iptm[cj, ci] = float(row.max())
-        chain_iptm = [sum(pair_iptm[c, o] for o in ids if o != c) / (len(ids) - 1)
-                      for c in ids]
-        return [round(x, 6) for x in chain_ptm], [round(x, 6) for x in chain_iptm]
+                pair[ci, cj] = pair[cj, ci] = float(row.max())
+        chain_iptm = [sum(pair[c, o] for o in ids if o != c) / (len(ids) - 1) for c in ids]
+        return {"chain_ptm": [round(x, 6) for x in chain_ptm],
+                "chain_iptm": [round(x, 6) for x in chain_iptm],
+                "pair_chains_iptm": {ci: {cj: round(pair[ci, cj], 6) for cj in ids}
+                                     for ci in ids}}
 
     def plddt(self, s_inputs, s_trunk, z_trunk, coords, feats):
         """Mean pLDDT in [0,1] (back-compat thin wrapper over confidence())."""
