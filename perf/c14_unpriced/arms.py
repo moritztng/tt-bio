@@ -95,11 +95,44 @@ def build(key, entry):
         if got is None:
             return refuse("output is not a permutation of any recorded input")
         perm, ambiguous = got
+        if tuple(perm) == tuple(range(len(out))):
+            # A shape-preserving permute reads as the identity here. It is not the identity --
+            # the fold would not launch a program for that -- so the real order swaps two
+            # equal-sized dims and the capture cannot say which. Take the first equal pair.
+            pair = next(((i, j) for i in range(len(out)) for j in range(i + 1, len(out))
+                         if out[i] == out[j] and out[i] > 1), None)
+            if pair is None:
+                return refuse("shape-preserving permute with no equal dim pair to swap")
+            i, j = pair
+            p2 = list(range(len(out)))
+            p2[i], p2[j] = p2[j], p2[i]
+            perm, ambiguous = tuple(p2), True
         base["params"] = {"dims": list(perm), "src": list(src)}
         base["pinned"] = not ambiguous
         base["derivation"] = ("permutation order INFERRED from %s -> %s%s"
                               % (src, out, "; repeated dim sizes make it non-unique"
                                  if ambiguous else "; unique"))
+        return base
+
+    if arm == "matmul":
+        # the census refused this key for having no recorded K, which is true of
+        # `op_shape_rows` and not of the capture: the two operands contract on a dim neither
+        # of them carries as its last, i.e. the call transposes one of them.
+        pair = [(x, y) for x in ins for y in ins
+                if x is not y and len(x) == len(y) == len(out)
+                and x[-1] == out[-2] and y[-1] == out[-1] and x[-2] == y[-2]]
+        if not pair:
+            return refuse("no operand pair contracts to the output shape")
+        x, y = pair[0]
+        K = x[-2]
+        base["params"] = {"a": list(out[:-1]) + [K], "b": list(out[:-2]) + [K, out[-1]],
+                          "K": K, "recorded_a": list(x), "recorded_b": list(y),
+                          "flops": 2 * _numel(out) * K}
+        base["pinned"] = False
+        base["derivation"] = ("K=%d DERIVED from the operand pair %s x %s -> %s, which "
+                              "contracts on a dim neither operand carries last, so the call "
+                              "transposes one of them. The arm runs it untransposed."
+                              % (K, x, y, out))
         return base
 
     if arm == "reshape":
@@ -114,6 +147,21 @@ def build(key, entry):
         cand = [s for s in ins
                 if len(s) == len(out) and all(a >= b for a, b in zip(s, out)) and s != out]
         if not cand:
+            # Every recorded operand already has the sliced extent. The capture keeps distinct
+            # (address, shape) pairs, so the PARENT tensor this was a view of never appears:
+            # its extent is structurally unrecorded. corrected_traffic charges this key one
+            # read plus one write of the OUT shape, so a full-extent slice is the arm that
+            # matches the byte column, and it is a lower bound on the read side.
+            if any(tuple(s) == out for s in ins):
+                base["params"] = {"src": list(out), "starts": [0] * len(out),
+                                  "ends": list(out)}
+                base["pinned"] = False
+                base["derivation"] = ("source extent NOT RECORDED -- every operand already "
+                                      "carries the sliced shape %s, so the parent tensor is "
+                                      "outside the capture. Run at full extent, which matches "
+                                      "the byte column and is a lower bound on the read side. "
+                                      "aligned_out=%s" % (list(out), tile_aligned(out)))
+                return base
             return refuse("no input shape dominates the output on every axis")
         src = max(cand, key=_numel)
         base["params"] = {"src": list(src), "starts": [0] * len(src), "ends": list(out)}
