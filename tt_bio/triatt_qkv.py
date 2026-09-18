@@ -98,9 +98,13 @@ def _m_rows(t):
     Written once because two call sites need it and one of them used to spell it `pad[0]*pad[-2]`,
     which is the same number only at rank 3 and is 140x too small for the rank-4 atom activation.
     """
+    # `padded_shape` is a ttnn Shape, and this wheel's __getitem__ takes an int only -- slicing it
+    # raises TypeError. Materialise the dims first, which is the idiom everywhere else in the tree
+    # (mm_generic.py:176, mm_dualnoc.py:90).
+    pad = [int(d) for d in t.padded_shape]
     m = 1
-    for d in t.padded_shape[:-1]:
-        m *= int(d)
+    for d in pad[:-1]:
+        m *= d
     return m
 
 

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -43,6 +44,36 @@ SIGS = [
 # (name, B, K, W, ATOM_DIM, D_S, n_heads, head_dim, calls_per_fold, in_situ_s)
 # in_situ_s is the create signature only; the 0.01309 s concat is the tail and is not this arm.
 ATOM = ("atom_block", 1, 140, 32, 128, 128, 4, 32, 1200, 0.09016)
+
+
+def _one_arm(device, name, arms, arm_only):
+    """Run ONE arm once and read it back, so a device hang is attributed to an arm rather than to
+    `_compare`, which calls two arms in one expression. Each arm gets its own process (the driver
+    applies the timeout): a hung `to_host` blocks on a condition variable inside
+    FDMeshCommandQueue::finish_nolock, and nothing in-process can time that out.
+    """
+    import ttnn
+    if arm_only not in arms:
+        raise SystemExit(f"--arm {arm_only} unknown; have {','.join(arms)}")
+    _say(f"{name}/{arm_only}: enqueueing")
+    outs = arms[arm_only]()
+    _say(f"{name}/{arm_only}: enqueued, synchronizing")
+    ttnn.synchronize_device(device)
+    _say(f"{name}/{arm_only}: synchronized, reading back {len(outs)} tensors")
+    shapes = []
+    for i, o in enumerate(outs):
+        t = ttnn.to_torch(o)
+        shapes.append(list(t.shape))
+        _say(f"{name}/{arm_only}: tensor {i} read, shape {list(t.shape)}")
+    _say(f"{name}/{arm_only}: OK")
+    return {"sig": name, "arm": arm_only, "ok": True, "shapes": shapes}
+
+
+def _say(msg):
+    """Flushed progress. A p300c host-spin wedge writes nothing more, so the LAST line printed is
+    the localisation: without this the whole run is one silent block and a wedge costs a blind
+    retry to place (it cost exactly one here, on card 3, 5m18s)."""
+    print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
 def _compare(ref, got):
@@ -206,17 +237,29 @@ def _plan_main(args):
 # --- the device arms -----------------------------------------------------------------------------
 
 def _clock_mhz():
-    """AICLK sampled now. Every number this script prints carries it."""
-    import subprocess
-    try:
-        out = subprocess.run(["tt-smi", "-s"], capture_output=True, text=True, timeout=30).stdout
-        d = json.loads(out)
-        return [int(c["board_info"]["aiclk"]) for c in d.get("device_info", [])]
-    except Exception as e:                                                   # noqa: BLE001
-        return f"unavailable: {e}"
+    """AICLK sampled now, off the same sysfs file clk.py reads.
+
+    Was `tt-smi -s` parsed as `board_info.aiclk`: tt-smi is not on the venv PATH on qb2 AND that
+    key does not exist in its output, so the artifact recorded "unavailable" and could not state
+    its own clock. `/sys/class/tenstorrent/tenstorrent!<n>/tt_aiclk` is what the canonical clk.py
+    sampler uses, needs no external binary, and is per NODE -- so this reports the nodes this
+    process can actually see. The runner's clk.py jsonl stays the number of record; this is the
+    in-process corroboration that lands inside the JSON.
+    """
+    nodes = [n for n in (os.environ.get("TT_VISIBLE_DEVICES", "").split(",")) if n.strip()]
+    if not nodes:
+        nodes = sorted(d.name.split("!")[-1] for d in Path("/sys/class/tenstorrent").glob("tenstorrent!*")) \
+            if Path("/sys/class/tenstorrent").is_dir() else []
+    out = {}
+    for n in nodes:
+        try:
+            out[n] = int(Path(f"/sys/class/tenstorrent/tenstorrent!{n.strip()}/tt_aiclk").read_text())
+        except OSError as e:                                                 # noqa: PERF203
+            out[n] = f"unavailable: {e}"
+    return out or "unavailable: no tenstorrent nodes visible"
 
 
-def _arms(device, sig, reps):
+def _arms(device, sig, reps, arm_only=None):
     import torch
     import ttnn
     sys.path.insert(0, str(OUT.parents[1]))
@@ -269,11 +312,17 @@ def _arms(device, sig, reps):
     arms = {"A0_linear_split": a0, "A1_mm_split": a1, "B_head_major": arm_b,
             "AA_control": a0}
     # torch.equal(A1, B) BEFORE any timing, so a wrong transcription never reaches a number.
+    if arm_only:
+        return _one_arm(device, name, arms, arm_only)
+    _say(f"{name}: arms built, comparing A1 vs B")
     cmp = _compare([ttnn.to_torch(x) for x in a1()], [ttnn.to_torch(x) for x in arm_b()])
-    return {"sig": name, **cmp, **_timed(device, arms, reps)}
+    _say(f"{name}: torch.equal(A1,B)={cmp['torch_equal_A1_vs_B']}, timing {reps} reps")
+    r = _timed(device, arms, reps)
+    _say(f"{name}: done")
+    return {"sig": name, **cmp, **r}
 
 
-def _atom_arms(device, reps):
+def _atom_arms(device, reps, arm_only=None):
     """The atom block's three arms. A1 vs B is the tile re-point; A0 vs A1 is the op class."""
     import torch
     import ttnn
@@ -331,21 +380,52 @@ def _atom_arms(device, reps):
         return out
 
     arms = {"A0_linear_split": a0, "A1_mm_split": a1, "B_head_major": arm_b, "AA_control": a0}
+    if arm_only:
+        return _one_arm(device, "atom_block", arms, arm_only)
+    _say("atom_block: arms built, comparing A1 vs B")
     cmp = _compare([ttnn.to_torch(x) for x in a1()], [ttnn.to_torch(x) for x in arm_b()])
-    return {"sig": "atom_block", **cmp, **_timed(device, arms, reps)}
+    _say(f"atom_block: torch.equal(A1,B)={cmp['torch_equal_A1_vs_B']}, timing {reps} reps")
+    r = _timed(device, arms, reps)
+    _say("atom_block: done")
+    return {"sig": "atom_block", **cmp, **r}
 
 
 def _device_main(args):
-    import ttnn
-    dev = ttnn.open_device(device_id=args.device_id)
+    import ttnn                                                              # noqa: F401
+    sys.path.insert(0, str(OUT.parents[1]))
+    # NOT ttnn.open_device(). A lone P300 chip is a CUSTOM cluster topology and a bare open is a
+    # TT_FATAL ("Custom fabric mesh graph descriptor path must be specified"), which is exactly
+    # what this script hit on qb2 card 3. tt_bio.tenstorrent already owns the fix and says in its
+    # own comment that every ad-hoc tool under perf/ needs it: get_device() calls
+    # ensure_p300_mesh_descriptor(), takes the host-local CardSetLease over every VISIBLE card
+    # (so TT_BIO_LEASE_CARDS is enforced at the open rather than trusted), and runs
+    # _configure_active_compute_grid -- without which CORE_GRID_MAIN in the A0 arm is not the grid
+    # the real fold uses and A0 would not be the shipped path.
+    from tt_bio import tenstorrent as TT
+    _say("opening device via tt_bio.tenstorrent.get_device()")
+    dev = TT.get_device()
+    _say(f"device open, arch={dev.arch()}")
     try:
         clk_before = _clock_mhz()
-        rows = [_arms(dev, s, args.reps) for s in SIGS] + [_atom_arms(dev, args.reps)]
+        want = None if not args.only else set(args.only.split(","))
+        ao = args.arm or None
+        rows = [_arms(dev, sg, args.reps, arm_only=ao) for sg in SIGS
+                if want is None or sg[0] in want]
+        if want is None or "atom_block" in want:
+            rows.append(_atom_arms(dev, args.reps, arm_only=ao))
+        if not rows:
+            raise SystemExit(f"--only {args.only} matched no signature; have "
+                             + ",".join([sg[0] for sg in SIGS] + ["atom_block"]))
         clk_after = _clock_mhz()
     finally:
-        ttnn.close_device(dev)
+        TT.cleanup() if hasattr(TT, "cleanup") else ttnn.close_device(dev)
     rec = {"clock_MHz_before": clk_before, "clock_MHz_after": clk_after,
            "device_id": args.device_id, "signatures": rows}
+    if args.arm:
+        out = OUT / args.out
+        out.write_text(json.dumps({"arm": args.arm, "rows": rows}, indent=1) + "\n")
+        print(f"ARM PROBE OK: {args.arm} -> {out}")
+        return 0
     for r in rows:
         ma = r["max_abs_A1_vs_B"]
         print(f"{r['sig']:<11} torch.equal(A1,B)={r['torch_equal_A1_vs_B']} "
@@ -365,6 +445,8 @@ def main() -> int:
     ap.add_argument("--reps", type=int, default=7)
     ap.add_argument("--device-id", type=int, default=0)
     ap.add_argument("--out", default="ab_qkv.json")
+    ap.add_argument("--only", default="", help="comma list of signatures to run (bisects a wedge)")
+    ap.add_argument("--arm", default="", help="run ONE arm once and read it back, no timing")
     args = ap.parse_args()
     return _plan_main(args) if args.plan else _device_main(args)
 
