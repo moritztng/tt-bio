@@ -64,6 +64,15 @@ PAIR_TRACK_TARGETS = tuple(
     + [f"transition_z.{n}" for n in ("fc1", "fc2", "fc3")]
 )
 
+# The other 52.9 % of a block. A distogram objective cannot reach these -- z is a closed
+# autoregression, measured by `block_parity.py --s-independence` -- but the confidence
+# head's pLDDT reads s_single, so a complete block backward needs them.
+SINGLE_TRACK_TARGETS = tuple(
+    [f"attention.proj_{n}" for n in ("q", "k", "v", "g", "o")]
+    + ["attention.proj_z.1"]
+    + [f"transition_s.{n}" for n in ("fc1", "fc2", "fc3")]
+)
+
 
 def _t2d(t, device, dtype):
     """A checkpoint tensor (out, in) -> a frozen tape Tensor in ttnn's (in, out) layout.
@@ -134,6 +143,56 @@ class PairTrackBlock:
         for n in ("fc1", "fc2", "fc3"):
             self.w[f"transition_z.{n}"] = _t2d(sd[f"transition_z.{n}.weight"], device, dtype)
 
+        # The single track. attention.proj_q is the block's only linear WITH a bias, and
+        # proj_z.1 is stored unscaled here: production folds sqrt(head_dim) into that
+        # weight because its fused kernel computes exp((qk + bias)/sqrt(d)), while this
+        # adds the raw bias to an already-scaled qk. Same arithmetic, different place to
+        # put the constant, and getting it wrong makes the softmax sqrt(d) too peaky.
+        for n in ("pre_norm_s.weight", "pre_norm_s.bias",
+                  "attention.proj_z.0.weight", "attention.proj_z.0.bias",
+                  "transition_s.norm.weight", "transition_s.norm.bias"):
+            take(n)
+        zw = sd["attention.proj_z.1.weight"]
+        self.s_heads = H = int(zw.shape[0])
+        self.s_head_dim = hd = int(sd["attention.proj_q.weight"].shape[0]) // H
+        # THE HEAD DIMENSION IS 24, WHICH IS NOT A TILE. 384 channels over 16 heads gives
+        # 24 lanes per head, and a ttnn tile is 32x32, so [1, H, S, 24] in TILE_LAYOUT is
+        # a padded tensor whose last 8 lanes are not defined by us. Production solves this
+        # at load time -- `head_dim_padding = -head_dim % 32` and `_pad_head_lanes` in
+        # `tenstorrent.AttentionPairBias.__init__` -- and the twin has to solve it the same
+        # way, because the alternative is a matmul over 32 lanes of which 8 are whatever
+        # the allocator left there. Unpadded, this reads 1.51e-01 relative against a
+        # float64 reference on a forward that is otherwise correct.
+        # q/k/v gain zero lanes on their OUTPUT axis, o gains zero ROWS on its INPUT axis
+        # so the pad contributes nothing, and g is re-laned to line up with them.
+        self.s_pad_dim = pd = hd + (-hd % 32)
+
+        def _lanes(w, axis):
+            """Pad each head's block from hd to pd lanes with zeros, along `axis`."""
+            import torch as _t
+            if pd == hd:
+                return w
+            shp = list(w.shape)
+            shp[axis:axis + 1] = [H, hd]
+            w = w.reshape(shp)
+            pad = [0] * (2 * len(shp))
+            pad[2 * (len(shp) - 1 - (axis + 1))] = 0
+            pad[2 * (len(shp) - 1 - (axis + 1)) + 1] = pd - hd
+            w = _t.nn.functional.pad(w, pad)
+            shp[axis:axis + 2] = [H * pd]
+            return w.reshape(shp)
+
+        self.w["attention.proj_q.bias"] = _t2d(_lanes(sd["attention.proj_q.bias"], 0),
+                                               device, dtype)
+        for n in ("q", "k", "v", "g"):
+            self.w[f"attention.proj_{n}"] = _t2d(
+                _lanes(sd[f"attention.proj_{n}.weight"], 0), device, dtype)
+        self.w["attention.proj_o"] = _t2d(_lanes(sd["attention.proj_o.weight"], 1),
+                                          device, dtype)
+        self.w["attention.proj_z.1"] = _t2d(sd["attention.proj_z.1.weight"], device, dtype)
+        for n in ("fc1", "fc2", "fc3"):
+            self.w[f"transition_s.{n}"] = _t2d(sd[f"transition_s.{n}.weight"], device, dtype)
+
         # Full-parameter training: every base weight becomes a trainable fp32 leaf.
         # Used by the overfit-from-random-init arm, where there is no pretrained weight
         # for an adapter to sit beside, so LoRA would be adapting noise. fp32 for the
@@ -160,13 +219,14 @@ class PairTrackBlock:
 
     # ------------------------------------------------------------------ pieces
 
-    def _lin(self, x: ag.Tensor, name: str) -> ag.Tensor:
+    def _lin(self, x: ag.Tensor, name: str, bias: Optional[str] = None) -> ag.Tensor:
         """The base linear, adapted if this site has an adapter."""
         w = self.w[name]
+        b0 = self.w[bias] if bias else None
         if name in self.adapters:
             a, b = self.adapters[name]
-            return ft.lora_linear(x, w, a, b, scaling=self.lora.scaling)
-        return ag.linear(x, w)
+            return ft.lora_linear(x, w, a, b, b0, scaling=self.lora.scaling)
+        return ag.linear(x, w, b0)
 
     def _ln(self, x: ag.Tensor, prefix: str) -> ag.Tensor:
         return ag.layer_norm(x, self.w[f"{prefix}.weight"], self.w[f"{prefix}.bias"],
@@ -207,11 +267,47 @@ class PairTrackBlock:
         out = self._lin(o, f"{p}.mha.linear_o")
         return ag.permute(out, (1, 0, 2)) if ending else out
 
-    def transition(self, z: ag.Tensor) -> ag.Tensor:
-        zn = self._ln(z, "transition_z.norm")
-        x1 = self._silu(self._lin(zn, "transition_z.fc1"))
-        x2 = self._lin(zn, "transition_z.fc2")
-        return self._lin(ag.mul(x1, x2), "transition_z.fc3")
+    def transition(self, z: ag.Tensor, p: str = "transition_z") -> ag.Tensor:
+        zn = self._ln(z, f"{p}.norm")
+        x1 = self._silu(self._lin(zn, f"{p}.fc1"))
+        x2 = self._lin(zn, f"{p}.fc2")
+        return self._lin(ag.mul(x1, x2), f"{p}.fc3")
+
+    def attention_pair_bias(self, s: ag.Tensor, z: ag.Tensor) -> ag.Tensor:
+        """`AttentionPairBias` over the single representation, biased by the pair one.
+
+        The same shape as `triatt` with the pair-row axis collapsed to 1: q/k/v are
+        [1, H, S, d] and the bias is [1, H, S, S], so it reuses the tape'"'"'s already
+        gradchecked triangle_attention rather than adding a second attention backward.
+        """
+        H, d, pd = self.s_heads, self.s_head_dim, self.s_pad_dim
+        S = int(s.value.shape[-2])
+        sn = self._ln(s, "pre_norm_s")
+
+        def heads(name, bias=None):
+            x = self._lin(sn, f"attention.proj_{name}", bias=bias)
+            return ag.permute(ag.reshape(x, [1, S, H, pd]), (0, 2, 1, 3))
+
+        # s carries a leading batch axis, [1, S, c_s], because every layer-norm gain in
+        # this tree is stored as (1, 1, C) by _t2d and broadcasting one against a rank-2
+        # input silently promotes the OUTPUT to rank 3, which then fails the residual add
+        # with a shape error one op later rather than where it happened.
+
+        q = heads("q", bias="attention.proj_q.bias")
+        k, v = heads("k"), heads("v")
+        zn = self._ln(z, "attention.proj_z.0")
+        bias = ag.reshape(ag.permute(self._lin(zn, "attention.proj_z.1"), (2, 0, 1)),
+                          [1, H, S, S])
+        o = ag.triangle_attention(q, k, v, bias, scale=d ** -0.5,
+                                  chunk=self.chunk, q_chunk=self.q_chunk)
+        o = ag.reshape(ag.permute(o, (0, 2, 1, 3)), [1, S, H * pd])
+        o = ag.mul(o, ag.sigmoid(self._lin(sn, "attention.proj_g")))
+        return self._lin(o, "attention.proj_o")
+
+    def single(self, s: ag.Tensor, z: ag.Tensor) -> ag.Tensor:
+        """The two s updates, in the production layer'"'"'s order (tenstorrent.py:9300-9316)."""
+        s = ag.add(s, self.attention_pair_bias(s, z))
+        return ag.add(s, self.transition(s, "transition_s"))
 
     # ------------------------------------------------------------------ the block
 
