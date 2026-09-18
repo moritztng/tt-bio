@@ -26,6 +26,22 @@ run leaves the PREVIOUS run's artifacts sitting in place for every model it has 
 reached yet. Scoring those as if they were this run's is the one way this tool can lie, so
 every row carries the wall-clock span of the artifacts it read and --since drops anything
 older than the run you mean.
+
+WHAT A PASS HERE DOES NOT COVER, because a pre-read that is mistaken for the verdict is
+worse than no pre-read. This reproduces the COMPARISON — every lever, exemption, decline
+clause, moved ceiling and exponent `_size_ladder_compare` scores. It does not reproduce the
+two ways the arm can red before the comparison runs:
+
+  * `_size_ladder_precondition(model)`, which the arm checks first and which depends on the
+    folding host's environment, not on any artifact. Deliberately not called: this tool is
+    meant to score a remote run from a different box, where the local answer would be the
+    wrong one.
+  * a fold that errored or timed out, which leaves the arm with `{"error": ..., "partial":
+    True}` for that model. Here the rung simply has no artifact and reads as `pending`.
+
+So a PASS means "nothing in this model's measurement drifted from its baseline", which is
+what the arm spends three hours deciding. It does not mean the arm will print PASS if the
+model never finished folding.
 """
 import argparse
 import json
