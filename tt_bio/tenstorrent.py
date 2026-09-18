@@ -6876,6 +6876,15 @@ _MM_BLOCK = {
     # instead; swap these two values for it and the tail guard in triatt_qkv.py turns itself on.
     (12, 36): (4, 12, 1, 2, 1),
     (12, 12): (8, 12, 1, 2, 1),
+    # The AttentionPairBias qkv projections the head-major writer converts (`triatt_qkv.qkv_heads`
+    # at site "apb"): boltz2's diffusion token transformer at c_s = 768 into 3 x 16 x 64, and the
+    # Pairformer / MSA trunk attention at c_s = 384 into 3 x 16 x 32. Both are `_MM_DEFAULT`, so
+    # each is byte-identical to `config=None` and buys the matmul itself nothing -- it exists only
+    # so the transcription has a descriptor, which is exactly why opendde's two entries above are
+    # `_MM_DEFAULT` as well. These sites run `ttnn.linear` today, so serving them DOES change the
+    # projection's op class; `APB_HEAD_MAJOR_QKV` is the gate on that and ships off.
+    (24, 96): _MM_DEFAULT,
+    (12, 48): _MM_DEFAULT,
 }
 
 
@@ -7924,6 +7933,21 @@ class AttentionPairBias(Module):
         x = ttnn.concat([x, z], dim=-1)
         return ttnn.reshape(x, lead + (self.n_heads * self.padded_head_dim,))
 
+    def _qkv_head_major(self, s: ttnn.Tensor):
+        """`(q, k, v)` written head-major by the projection itself, or None for today's two ops.
+
+        The three tensors are the same `[batch, n_heads, seq, padded_head_dim]` either way, so
+        nothing downstream can tell which path ran -- the whole change is the address the matmul's
+        writer sends each output tile to, which deletes `nlp_create_qkv_heads`.
+
+        Declines while `kq_norm` is live: that norm slices the fused qkv on its channel axis
+        between the projection and the split, and a head-major result no longer carries that axis.
+        """
+        return _triatt_qkv.qkv_heads(
+            s, self.qkv_weight, self.compute_kernel_config, self.n_heads, self.padded_head_dim,
+            self.dtype, _qkv_mm_config(s, self.qkv_weight), bias=self.qkv_bias,
+            allow_m_le_n=True, site="apb", refuse="kq_norm" if self.kq_norm else None)
+
     def _apply_kq_norm(self, qkv: ttnn.Tensor) -> ttnn.Tensor:
         """Norm the Q and K slices of the fused qkv, in place of an unfused split."""
         width = self.n_heads * getattr(self, "padded_head_dim", self.head_dim)
@@ -7968,23 +7992,27 @@ class AttentionPairBias(Module):
     ) -> ttnn.Tensor:
         self._load_kq_norm()
         if not self.atom_level:
-            qkv = ttnn.linear(
-                s,
-                self.qkv_weight,
-                bias=self.qkv_bias,
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-            )
-            if self.kq_norm:
-                qkv = self._apply_kq_norm(qkv)
-            qkv = ttnn.unsqueeze(qkv, 1)
-            q, k, v = ttnn.experimental.nlp_create_qkv_heads(
-                qkv,
-                num_heads=self.n_heads,
-                num_kv_heads=self.n_heads,
-                transpose_k_heads=False,
-            )
-            ttnn.deallocate(qkv)
+            head_major = self._qkv_head_major(s)
+            if head_major is not None:
+                q, k, v = head_major
+            else:
+                qkv = ttnn.linear(
+                    s,
+                    self.qkv_weight,
+                    bias=self.qkv_bias,
+                    compute_kernel_config=self.compute_kernel_config,
+                    core_grid=CORE_GRID_MAIN,
+                )
+                if self.kq_norm:
+                    qkv = self._apply_kq_norm(qkv)
+                qkv = ttnn.unsqueeze(qkv, 1)
+                q, k, v = ttnn.experimental.nlp_create_qkv_heads(
+                    qkv,
+                    num_heads=self.n_heads,
+                    num_kv_heads=self.n_heads,
+                    transpose_k_heads=False,
+                )
+                ttnn.deallocate(qkv)
             # bias_precomputed: z is ALREADY the (1,n_heads,S,S) bias from compute_bias() -> skip recompute
             if self.compute_pair_bias and not bias_precomputed:
                 # The z->bias projection below reads this whole tensor (48.82 MB at 298 aa) to

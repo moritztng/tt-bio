@@ -40,11 +40,50 @@ TRIATT_HEAD_MAJOR_QKV = True
 _ENABLED = os.environ.get(
     "TT_BIO_TRIATT_HEAD_MAJOR_QKV", "1" if TRIATT_HEAD_MAJOR_QKV else "0") == "1"
 
+# --- the same writer at the diffusion / trunk AttentionPairBias site ------------------------------
+#
+# `c12-tail-classes-screen` priced the diffusion side's own head split at 0.31376 s / 423.6 Mcycles
+# per 512 aa fold, 7464 programs that compute nothing. Two of its four signatures are this one
+# projection: the token transformer's 4800 calls at 0.20470 s and the trunk's 264 at 0.00581 s, both
+# `AttentionPairBias` with `atom_level=False`. The atom-level pair (0.09016 s create + 0.01309 s
+# concat) is a different mechanism -- its q comes from a second matmul and is row-padded from the
+# 32-row window to 128 between the projection and the split -- and is not served here.
+#
+# Two things had to grow for it, both parameters rather than second code paths:
+#   * head_dim is 64 there, TWO tiles, so the chunk's N tile index splits as (head, channel).
+#     `HEAD_MAJOR_DT` carries that and defaults to 1, which is what the triangle attention compiles.
+#   * the projection carries a bias where the triangle attention's does not. `mm_generic` gained the
+#     wheel's own `FUSE_BIAS` branch, which adds the row in the fp32 accumulator before the pack --
+#     the same place `ttnn.linear(bias=...)` adds it today.
+#
+# The tile re-point is bit-exact against `minimal_matmul + nlp_create_qkv_heads` by construction and
+# is checked on the CPU at every converted shape (`perf/c12_diffusion_head/tile_map.py`). What is NOT
+# bit-exact is the op class: this site runs `ttnn.linear(core_grid=CORE_GRID_MAIN)` today, and
+# serving it means the projection becomes a `minimal_matmul` at the op's own default blocking. That
+# is the same two-step opendde's tri-attention took (`_MM_DEFAULT` in tenstorrent.py), it needs an
+# Angstrom reading against the seed-scatter floor, and it is why this ships OFF until the fold has
+# measured it.
+APB_HEAD_MAJOR_QKV = False
+_APB_ENABLED = os.environ.get(
+    "TT_BIO_APB_HEAD_MAJOR_QKV", "1" if APB_HEAD_MAJOR_QKV else "0") == "1"
 
-def _reject(reason, shape):
+# (served, declined) and the reject reasons at the AttentionPairBias site, kept apart from the
+# triangle attention's so a dark gate at one site cannot be read off the other's counter.
+APB_STATS = [0, 0]
+APB_REJECTS: dict = {}
+
+_SITES = {"triatt": (STATS, REJECTS), "apb": (APB_STATS, APB_REJECTS)}
+
+
+def _enabled(site):
+    return _ENABLED if site == "triatt" else _APB_ENABLED
+
+
+def _reject(reason, shape, site="triatt"):
+    stats, rejects = _SITES[site]
     k = (reason, tuple(shape))
-    REJECTS[k] = REJECTS.get(k, 0) + 1
-    STATS[1] += 1
+    rejects[k] = rejects.get(k, 0) + 1
+    stats[1] += 1
     return None
 
 
@@ -60,40 +99,60 @@ def _common_ok(x, w, dtype):
             and wmc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
 
-def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config):
-    """`nlp_create_qkv_heads(minimal_matmul(x, w))` as one op, or `None` to leave it alone.
+def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config, bias=None,
+              allow_m_le_n=False, site="triatt", refuse=None):
+    """`nlp_create_qkv_heads(minimal_matmul(x, w, bias))` as one op, or `None` to leave it alone.
 
     Returns `(q, k, v)`, each `[batch, n_heads, seq, head_dim]`, byte-identical to what the two
-    stock ops produce.
+    stock ops produce. `head_dim` is in ELEMENTS and must be a whole number of tiles in the padded
+    form the projection writes -- 32 for the triangle attention and the trunk, 64 for the diffusion
+    token transformer. A head that is not a whole number of tiles cannot be served at all: elements
+    would move inside a tile, which is a different op and not this one's destination change.
+
+    `allow_m_le_n` opens the other core-grid orientation (`transpose_core_grid` false), which the
+    AttentionPairBias shapes need and the triangle attention has never run.
+
+    `refuse` is the caller's own precondition, recorded in this site's reject dict so a guard that
+    lives at the call site still says why it fired.
     """
-    if not _ENABLED:
+    if not _enabled(site):
         return None
+    stats, _ = _SITES[site]
     shape = [int(d) for d in x.shape]
-    if head_dim != TILE or n_heads * head_dim * 3 != int(w.shape[-1]):
-        return _reject("head_dim_or_width", shape)
+    if refuse:
+        return _reject(refuse, shape, site)
+    if head_dim % TILE or n_heads * head_dim * 3 != int(w.shape[-1]):
+        return _reject("head_dim_or_width", shape, site)
     if not _common_ok(x, w, dtype):
-        return _reject("dtype_or_memory", shape)
+        return _reject("dtype_or_memory", shape, site)
+    if bias is not None and (bias.dtype != ttnn.bfloat16
+                             or bias.memory_config().buffer_type != ttnn.BufferType.DRAM
+                             or int(bias.padded_shape[-1]) != int(w.shape[-1])):
+        return _reject("bias_dtype_or_width", shape, site)
     # The descriptor is a transcription of the factory for the shipped block entry only.
     if mm_config is None:
-        return _reject("no_mm_config", shape)
+        return _reject("no_mm_config", shape, site)
     from .tenstorrent import _mm_block_for, COMPUTE_GRID_MAIN
     blk = _mm_block_for(w)
     if blk is None:
-        return _reject("no_block_entry", shape)
+        return _reject("no_block_entry", shape, site)
 
     pad = [int(d) for d in x.padded_shape]
-    if pad[0] * pad[-2] <= int(w.shape[-1]):
+    if pad[0] * pad[-2] <= int(w.shape[-1]) and not allow_m_le_n:
         # transpose_core_grid is false there, a core-grid orientation this has never been run on
-        return _reject("m_le_n", shape)
+        return _reject("m_le_n", shape, site)
 
     dev = x.device()
     outs = [ttnn.allocate_tensor_on_device(
         ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
         dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
+    defines = {"HEAD_MAJOR_MT": pad[-2] // TILE}
+    if head_dim != TILE:
+        defines["HEAD_MAJOR_DT"] = head_dim // TILE
     G.generic_minimal_matmul(
         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
-        {"HEAD_MAJOR_MT": pad[-2] // TILE}, KERNEL_DIR)
-    STATS[0] += 1
+        defines, KERNEL_DIR, bias=bias)
+    stats[0] += 1
     return tuple(outs)
 
 

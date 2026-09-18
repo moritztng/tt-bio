@@ -109,6 +109,12 @@ LEVERS = [
      "tt_bio.triatt_qkv.TAIL_STATS", "stats"),
     ("TRIATT_TAIL_OVER_L1", "tt_bio.triatt_qkv", "_TAIL_OVER_L1",
      "tt_bio.triatt_qkv.TAIL_STATS", "stats-shared"),
+    # The same head-major writer at the AttentionPairBias qkv projection: the diffusion token
+    # transformer's 4800 calls and the trunk's 264, 0.21051 s / 284.2 Mcycles per 512 aa fold
+    # (perf/c12_tail_screen/leads.json, 1350 MHz). Ships OFF -- it changes the projection's op
+    # class from ttnn.linear to minimal_matmul and owes a fold.
+    ("APB_HEAD_MAJOR_QKV", "tt_bio.triatt_qkv", "_APB_ENABLED",
+     "tt_bio.triatt_qkv.APB_STATS", "stats"),
     # Boltz-2 diffusion, landed 6c07446f. L7 and L6 default ON, S6 default OFF (not bit-exact).
     # L7 fires once per bias per fold by design, so a served count of 2-3 is the whole win --
     # what it replaces is 6000 per-step slices, which the counter cannot see.
@@ -167,6 +173,7 @@ REJECTS_ATTR = {
     "TRIATT_PERSISTENT_MASK": "tt_bio.triatt_sdpa.REJECTS",
     "TRIATT_HEAD_MAJOR_QKV": "tt_bio.triatt_qkv.REJECTS",
     "TRIATT_HEAD_MAJOR_TAIL": "tt_bio.triatt_qkv.TAIL_REJECTS",
+    "APB_HEAD_MAJOR_QKV": "tt_bio.triatt_qkv.APB_REJECTS",
     "RFD3_SPARSE_BIAS": "tt_bio.rfd3_bias.REJECTS",
     "RFD3_FUSED_SCORES": "tt_bio.rfd3_bias.REJECTS",
     # These two key by reason INCLUDING the shape, where the six above drop it. Deliberate: the
