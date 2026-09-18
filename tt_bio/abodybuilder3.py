@@ -284,6 +284,17 @@ class DeviceIPA:
         assert at == out_w.shape[1], (at, out_w.shape)
         self.w_out = blocks
         self.b_out = to_device(weights["linear_out.bias"])
+        #: 1 on the real point channels of each head, 0 on the tile padding. It is not redundant
+        #: with the zero weight rows that read those channels, and the step gate caught exactly
+        #: that: a padded channel of `o_pt` is `-R^T t` rather than 0, because the inverse rotation
+        #: subtracts the translation from a zero point, and a padded channel of `o_pt_norm` is
+        #: `sqrt(eps)` = 3.16e-04 for the same reason. Those feed `linear_out`'s padded weight ROWS,
+        #: whose gradient is `input^T @ dout` -- nonzero -- so an optimizer updating the device
+        #: layout in place moves rows that are supposed to stay zero, and once they move the padding
+        #: contributes to the forward. Measured drift before this mask: 3.089e-06 after one step.
+        point_keep = torch.zeros(1, 1, 1, TILE)
+        point_keep[..., :pv] = 1.0
+        self.point_keep = to_device_fp32(point_keep)
         self.head_weight_scale = (1.0 / (3 * (pq * 9.0 / 2))) ** 0.5
         self.head_weights_host = weights["head_weights"].detach().clone()
         self.head_weight = to_device(
@@ -419,11 +430,13 @@ class DeviceIPA:
                                for w, bias in zip(self.w_vp, self.b_vp)],
                        frame.column, invert=False)
         o_pt = _apply(frame, [ops.matmul(attn, p) for p in v_pts], frame.column, invert=True)
+        o_pt = [ops.mul(p, self.point_keep) for p in o_pt]
         o_pt_norm = None
         for p in o_pt:
             term = ops.mul(p, p)
             o_pt_norm = term if o_pt_norm is None else ops.add(o_pt_norm, term)
-        o_pt_norm = ops.sqrt_plus(o_pt_norm, cfg.epsilon)
+        # Masked AFTER the norm as well: `sqrt(0 + eps)` is 3.16e-04, not 0.
+        o_pt_norm = ops.mul(ops.sqrt_plus(o_pt_norm, cfg.epsilon), self.point_keep)
         flat = [ops.reshape(ops.permute(p, [0, 2, 1, 3]), [b, n_tok, h * TILE])
                 for p in (*o_pt, o_pt_norm)]
 
@@ -637,6 +650,20 @@ class DeviceABB3:
         #: The one-hot that puts the distance into the pair tensor's last channel.
         self.dist_channel = to_device_fp32(
             torch.eye(self.cfg.embed_dim)[-1].reshape(1, 1, 1, self.cfg.embed_dim))
+        #: Its complement, masking `linear_in_edge`'s widened column on the way OUT.
+        #:
+        #: The weight's last column is zero, so the channel's VALUE is already zero -- and that is
+        #: not enough. The gradient of the pair tensor's last channel is nonzero (it is the distance
+        #: feature's), it reaches this linear through the add, and it lands on the weight column
+        #: that is supposed to stay zero: measured 3.745e-03 of gradient and 1.872e-06 of drift
+        #: after one optimizer step, caught by `scripts/abb3_port/step_gate.py`. Masking the
+        #: forward output is what makes the backward see a zero there too.
+        #:
+        #: The general form, since this is the second instance in this file: a structurally-zero
+        #: channel still routes gradient into whatever produced it. Zeroing the weight is a
+        #: statement about the forward; the backward needs the OUTPUT masked.
+        self.edge_keep = to_device_fp32(
+            1.0 - torch.eye(self.cfg.embed_dim)[-1].reshape(1, 1, 1, self.cfg.embed_dim))
 
         self.ipa, self.ln, self.transition, self.bb_update, self.angles = [], [], [], [], []
         for i in range(self.cfg.no_blocks):
@@ -673,7 +700,7 @@ class DeviceABB3:
         """
         cfg = self.cfg
         batch, n_tok = [int(d) for d in single.shape][:2]
-        z_initial = ops.linear(pair, self.w_edge, self.b_edge)
+        z_initial = ops.mul(ops.linear(pair, self.w_edge, self.b_edge), self.edge_keep)
         s = ops.linear(single, self.w_node, self.b_node)
         s_initial = s
         rigid = Rigid.identity(batch, n_tok, upload=self.upload)

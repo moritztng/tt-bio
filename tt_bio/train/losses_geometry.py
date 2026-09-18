@@ -177,6 +177,120 @@ def sidechain_fape(sidechain_frames: torch.Tensor, sidechain_atom_pos: torch.Ten
                         l1_clamp_distance_large=intercdr_distance, cdr_mask=pair_mask, eps=eps)
 
 
+def compute_renamed_ground_truth_dense(batch: dict, atom14_pred_positions: torch.Tensor,
+                                       eps: float = 1e-10) -> dict:
+    """Alg. 26, renameSymmetricGroundTruthAtoms: pick the better of two ground-truth namings.
+
+    A handful of residue types have a symmetric pair of side-chain atoms whose labels are
+    arbitrary (ASP's two carboxyl oxygens, and so on). Scoring against the wrong labelling pulls
+    the prediction toward a mirror of itself, so every loss uses whichever of the two the
+    prediction is already closer to. `atom14_alt_gt_positions` and `atom14_atom_is_ambiguous` are
+    in their dataset, so this is a selection and not a search.
+
+    **This is upstream's dense form and it is expensive: O(N^2 x 14^2).** It builds
+    `[B, N, N, 14, 14]` distance tensors -- three of them, plus two lddt tensors and a mask -- which
+    at micro-batch 8 and 256 tokens is 102M elements each, 410 MB per tensor in fp32. On a GPU that
+    is nothing; in host torch it is the single most expensive part of a step. The mask is zero
+    except where `atom14_atom_is_ambiguous` is 1, which is two atoms on a few residue types, so the
+    computation restricts by about two orders of magnitude -- but the restriction has to be verified
+    against this form, so this form exists first and the step measurement prices it.
+    """
+    def pair_dists(x):
+        return torch.sqrt(eps + torch.sum(
+            (x[..., None, :, None, :] - x[..., None, :, None, :, :]) ** 2, dim=-1))
+
+    # `no_grad` around the whole thing, and it is exact rather than an approximation: every output
+    # of this function is either a ground-truth tensor or derived from one through
+    # `alt_per_res < per_res`, a comparison, so nothing here has a gradient path to the prediction.
+    # Upstream builds the graph anyway and pays nothing for it on a GPU. In host torch it was
+    # measured at 25.12 s of a 69 s step, plus its share of the 13.4 s host backward, for
+    # intermediates whose gradient is discarded.
+    with torch.no_grad():
+        pred = pair_dists(atom14_pred_positions)
+        gt = pair_dists(batch["atom14_gt_positions"])
+        alt = pair_dists(batch["atom14_alt_gt_positions"])
+        lddt = torch.sqrt(eps + (pred - gt) ** 2)
+        alt_lddt = torch.sqrt(eps + (pred - alt) ** 2)
+
+        exists = batch["atom14_gt_exists"]
+        ambiguous = batch["atom14_atom_is_ambiguous"]
+        mask = (exists[..., None, :, None] * ambiguous[..., None, :, None]
+                * exists[..., None, :, None, :] * (1.0 - ambiguous[..., None, :, None, :]))
+        per_res = torch.sum(mask * lddt, dim=(-1, -2, -3))
+        alt_per_res = torch.sum(mask * alt_lddt, dim=(-1, -2, -3))
+        better = (alt_per_res < per_res).to(atom14_pred_positions.dtype)
+    return {
+        "alt_naming_is_better": better,
+        "renamed_atom14_gt_positions": ((1.0 - better[..., None, None])
+                                        * batch["atom14_gt_positions"]
+                                        + better[..., None, None]
+                                        * batch["atom14_alt_gt_positions"]),
+        "renamed_atom14_gt_exists": ((1.0 - better[..., None]) * exists
+                                     + better[..., None] * batch["atom14_alt_gt_exists"]),
+    }
+
+
+def compute_renamed_ground_truth(batch: dict, atom14_pred_positions: torch.Tensor,
+                                 eps: float = 1e-10) -> dict:
+    """Alg. 26, restricted to the atom pairs that can contribute. Exactly the dense result.
+
+    The dense form is 71 % of the loss stage and 36 % of a complete step -- 25.26 s of 67.1 s at
+    batch 64 and 256 tokens -- because it builds `[B, N, N, 14, 14]` tensors, about 1.2 GB of
+    intermediates per micro-batch, and host torch is memory-bound on them. `no_grad` around it
+    changes nothing (measured: 25.12 -> 25.26 s), because the cost is the traffic and not the graph.
+
+    What makes it restrictable is the mask, not an approximation. A term survives only where the
+    FIRST atom is ambiguous and exists (`exists * ambiguous`) and the second exists and is NOT
+    ambiguous, and ambiguity is a property of a handful of residue types -- two carboxyl oxygens,
+    two ring carbons. So the first index runs over the ambiguous atoms that are actually present,
+    typically a few hundred of the `N * 14` slots, rather than all of them. Everything else is the
+    same arithmetic in the same order per term, including the epsilon inside each distance.
+
+    `compute_renamed_ground_truth_dense` is kept and `scripts/abb3_port/loss_gate.py` scores this
+    against it, because a restriction that quietly drops a contributing pair is exactly the kind of
+    optimisation that looks like a speedup and is a silent loss change.
+    """
+    exists = batch["atom14_gt_exists"]
+    ambiguous = batch["atom14_atom_is_ambiguous"]
+    gt_pos = batch["atom14_gt_positions"]
+    alt_pos = batch["atom14_alt_gt_positions"]
+    dtype = atom14_pred_positions.dtype
+
+    with torch.no_grad():
+        first = (exists * ambiguous) > 0                      # [B, N, 14] the ambiguous side
+        second = exists * (1.0 - ambiguous)                   # [B, N, 14] the reference side
+        idx = first.nonzero(as_tuple=False)                   # [K, 3] -> (b, i, a)
+        per_res = torch.zeros(exists.shape[:-1], dtype=dtype, device=exists.device)
+        alt_per_res = torch.zeros_like(per_res)
+        if len(idx):
+            b, i, a = idx[:, 0], idx[:, 1], idx[:, 2]
+
+            def dists(x_sel, x_all):
+                return torch.sqrt(eps + torch.sum(
+                    (x_sel[:, None, None, :] - x_all) ** 2, dim=-1))
+
+            d_pred = dists(atom14_pred_positions[b, i, a], atom14_pred_positions[b])
+            d_gt = dists(gt_pos[b, i, a], gt_pos[b])
+            d_alt = dists(alt_pos[b, i, a], alt_pos[b])
+            weight = second[b]                                # [K, N, 14]
+            flat = per_res.reshape(-1)
+            offset = b * per_res.shape[1] + i
+            flat.index_add_(0, offset,
+                            (weight * torch.sqrt(eps + (d_pred - d_gt) ** 2)).sum(dim=(-1, -2)))
+            alt_per_res.reshape(-1).index_add_(
+                0, offset,
+                (weight * torch.sqrt(eps + (d_pred - d_alt) ** 2)).sum(dim=(-1, -2)))
+        better = (alt_per_res < per_res).to(dtype)
+
+    return {
+        "alt_naming_is_better": better,
+        "renamed_atom14_gt_positions": ((1.0 - better[..., None, None]) * gt_pos
+                                        + better[..., None, None] * alt_pos),
+        "renamed_atom14_gt_exists": ((1.0 - better[..., None]) * exists
+                                     + better[..., None] * batch["atom14_alt_gt_exists"]),
+    }
+
+
 def fape_loss(out: dict, batch: dict, *, backbone_weight: float = 0.5,
               sidechain_weight: float = 1.0) -> torch.Tensor:
     """`params.yaml` `loss.fape`: backbone 0.5 and sidechain 1.0, the pair weighted 1.0 overall."""

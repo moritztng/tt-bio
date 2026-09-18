@@ -23,7 +23,8 @@ import torch
 import ttnn
 
 from . import antibody_rmsd
-from .abodybuilder3_reference import frames_to_atom14_positions, torsion_angles_to_frames
+from .abodybuilder3_reference import (frames_to_atom14_positions, frames_to_tensor_4x4,
+                                       torsion_angles_to_frames)
 from .af2_reference import QuatAffine
 from ._vendor.esm.utils import residue_constants as _rc
 
@@ -112,6 +113,19 @@ def device_outputs_to_host(out: dict, n_angles: int, *, taped: bool, block: int 
     }
 
 
+def geometry_tail(frames: torch.Tensor, angles: torch.Tensor, aatype: torch.Tensor
+                  ) -> tuple[torch.Tensor, torch.Tensor]:
+    """`(atom14 positions, the 8 rigid-group frames as 4x4)` from a block's frames and angles.
+
+    Both, because the loss set needs both: the sidechain FAPE scores the rigid-group FRAMES against
+    the renamed ground truth and the positions against it too, and recomputing the frames to get
+    the second would run the torsion chain twice.
+    """
+    affine = QuatAffine(frames[..., :4], frames[..., 4:], normalize=False)
+    rot, trans = torsion_angles_to_frames(aatype, affine.rotation, affine.translation, angles)
+    return frames_to_atom14_positions(aatype, rot, trans), frames_to_tensor_4x4(rot, trans)
+
+
 def atom14_from_frames(frames: torch.Tensor, angles: torch.Tensor,
                        aatype: torch.Tensor) -> torch.Tensor:
     """The geometry tail: torsion angles to frames, then frames and literature positions to atom14.
@@ -122,6 +136,4 @@ def atom14_from_frames(frames: torch.Tensor, angles: torch.Tensor,
     the host is what lets the four losses be compared against upstream's own `loss.py` without a
     device port of each.
     """
-    affine = QuatAffine(frames[..., :4], frames[..., 4:])
-    rot, trans = torsion_angles_to_frames(aatype, affine.rotation, affine.translation, angles)
-    return frames_to_atom14_positions(aatype, rot, trans)
+    return geometry_tail(frames, angles, aatype)[0]

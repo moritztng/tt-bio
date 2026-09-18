@@ -89,6 +89,15 @@ def synthetic_batch(batch: int, n_tok: int, blocks: int, seed: int) -> tuple[dic
         "use_clamped_fape": torch.ones(1, dtype=DT),
         "atom14_gt_positions": rand(batch, n_tok, 14, 3, scale=8.0),
         "atom14_atom_exists": atom_exists,
+        # Alg. 26's inputs. `atom14_atom_is_ambiguous` marks the symmetric side-chain pairs, so it
+        # is sparse in reality; a random quarter of the slots is used here because what the check
+        # needs is for `alt_naming_is_better` to come back MIXED -- an all-zero or all-one verdict
+        # would agree with upstream for the wrong reason.
+        "atom14_alt_gt_positions": rand(batch, n_tok, 14, 3, scale=8.0),
+        "atom14_gt_exists": atom_exists,
+        "atom14_alt_gt_exists": (torch.rand(batch, n_tok, 14, generator=g, dtype=DT) > 0.2).to(DT),
+        "atom14_atom_is_ambiguous": (torch.rand(batch, n_tok, 14, generator=g,
+                                                dtype=DT) > 0.75).to(DT),
         "resolution": torch.full((batch,), 2.0, dtype=DT),
     }
     b["cdr_mask"] = b["cdr_mask"].expand(batch, n_tok).clone()
@@ -148,6 +157,26 @@ def main() -> int:
         want_plddt = up.lddt_loss(out["plddt"], out["positions"][-1], b["atom14_gt_positions"],
                                   b["atom14_atom_exists"], b["resolution"])
         rows.append((f"pLDDT           [batch {batch}]", got_plddt, want_plddt))
+
+        # Alg. 26's renaming, which the sidechain FAPE consumes. Scored on all three outputs it
+        # returns, because a wrong `alt_naming_is_better` is a silent sign flip on the symmetric
+        # residues rather than an error.
+        got_ren = ours.compute_renamed_ground_truth(b, out["positions"][-1])
+        with floor:
+            want_ren = up.compute_renamed_ground_truth(b, out["positions"][-1])
+        # The restricted form against our own dense form as well as against upstream, because a
+        # restriction that drops a contributing pair agrees with neither and must be caught by both.
+        dense = ours.compute_renamed_ground_truth_dense(b, out["positions"][-1])
+        assert torch.equal(got_ren["alt_naming_is_better"], dense["alt_naming_is_better"]), (
+            "the restricted Alg. 26 chose a different naming than the dense form")
+        frac = got_ren["alt_naming_is_better"].mean().item()
+        assert 0.05 < frac < 0.95, (
+            f"alt_naming_is_better came back {frac:.2f} -- an all-or-nothing verdict agrees with "
+            f"upstream without testing the selection")
+        for key in ("alt_naming_is_better", "renamed_atom14_gt_positions",
+                    "renamed_atom14_gt_exists"):
+            rows.append((f"renamed gt {key.split('_')[-1]:<10}[batch {batch}]",
+                         got_ren[key].sum(), want_ren[key].sum()))
 
         got_fin = ours.final_output_backbone_loss(out, b)
         with floor:
