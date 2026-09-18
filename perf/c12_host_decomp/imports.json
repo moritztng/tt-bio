@@ -1,0 +1,12 @@
+{
+  "why": "what this row reuses, and the one file it had to change, so the drift is visible rather than silent",
+  "verbatim": {
+    "force_aiclk.py": "origin/wk/c10-fixed-cost:perf/c10_fixed_cost/force_aiclk.py, byte-identical"
+  },
+  "imported_not_copied": {
+    "perf/b2x_host_residual/host_residual.py": "Regions, StackSampler, GCTimer, install_regions. Imported at run time so this row and the b2z2-host-residual-round2 census share one instrument."
+  },
+  "changed": {
+    "evidence.py": "generalised from origin/wk/c10-bare-baseline:perf/c10_bare_baseline/control.py. That file hardcodes device node 0 and a 1350 MHz target inside coverage(); this row needs a node argument (qb2 lost node 1 on 2026-09-17) and a per-fold clock target, because an 800 MHz arm must pass at 800 and FAIL at 1350 or the two-clock control proves nothing. Both directions are in controls.py."
+  }
+}

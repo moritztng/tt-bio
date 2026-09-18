@@ -1,0 +1,53 @@
+{
+  "row": "c14-host-cache",
+  "question": "price the per-forward device program-cache clear+rebuild at tt_bio/boltz2.py:5731, and ship it if it wins",
+  "registered_utc": "2026-09-18T13:0xZ",
+  "registered_before_any_measurement": true,
+  "lever": {
+    "site": "tt_bio/boltz2.py:5731",
+    "added_by": "8859d7e1, 'to avoid stale program-cache state across variable-shape sweeps'",
+    "flag": "TT_BIO_BOLTZ2_KEEP_PROGRAM_CACHE",
+    "shipped_default": "clear on EVERY Boltz2.forward",
+    "candidate_default": "keep the cache; clear only on a shape change, or not at all"
+  },
+  "predicted_fold_delta_s": 0.05,
+  "band_s": [0.0, 0.20],
+  "band_basis": [
+    "c12-host-decomp measured the clear+enable CALL at 0.0174 s for two cycles at both 1350 and 800 MHz, i.e. 0.0087 s per forward and clock-immune. That is the floor of what the flag can return.",
+    "c12-host-decomp's one clean 1350 MHz rep read 0.0524 s (bare 14.9207 s vs keepcache 14.8683 s). One rep per arm, so no spread to score it against: UNRESOLVED, not 0.0524 s.",
+    "the band top of 0.20 s is 4x that single rep, not the 2.3 s the brief inherited."
+  ],
+  "band_top_retracted": {
+    "inherited": "0.0-2.3 s, from perf/boltz2-affinity-fixedcost screen_walls.txt at 256 aa: structure 15.1 s with the clear vs 12.8 s with it suppressed",
+    "why_retracted": "that screen's 2.3 s exceeds the ENTIRE measured non-device remainder of a 512 aa fold (1.6489-1.6720 s, c12-profiled-fold), and a program-cache rebuild is host program assembly plus a binary write, not 2.3 s of it. The same screen's cold first target moved 27.7 -> 13.7 s, which cannot be a clear-vs-no-clear effect on a cold cache, so its warm figure is not trusted either.",
+    "carried_forward_as": "an explicit falsifier: if this row measures anything above 0.20 s, the inherited screen was right and the retraction was wrong. Recorded so the retraction is scored, not assumed."
+  },
+  "what_would_make_it_negative": [
+    "a FULL program cache makes every op's cache LOOKUP dearer -- the hit path hashes the operand specs against N resident entries, where the cleared arm probes a table that starts empty and grows through the fold. If lookup cost scales with occupancy, keepcache pays on every op while bare pays only on the misses.",
+    "programs that persist hold their L1/DRAM program buffers, so the keepcache arm runs the fold's tensor allocations against a more fragmented heap.",
+    "the effect is the same order as the session noise floor, so a single rep can land either sign -- which is exactly what c12 saw at 800 MHz (-0.4154 s, keepcache reps spanning 0.9486 s)."
+  ],
+  "mass_filter_tier": "0.05 s -- 'building a lever whose mechanism is KNOWN'. The mechanism is a measured flag that already exists in production code and the build cost is flipping one default, so the 0.3 s speculative tier does not apply.",
+  "protocol": {
+    "harness": "perf/c12_host_decomp/decomp.py, reused not forked (holder parameterized, A/A arm and program-cache census added)",
+    "arms": "bare / bare2 / keepcache -- bare2 is bare under a second label, an explicit A/A pair measured in the same session",
+    "interleaving": "arms interleaved rep by rep AND the arm order rotated per rep, so a monotone drift inside a rep cannot land on one arm",
+    "why_interleaving_is_valid_here": "the clear runs at the START of forward. A bare fold clears, then rebuilds, then leaves a FULL cache. The keepcache fold that follows it therefore hits every program it needs. So the bare-minus-keepcache delta is the rebuild, and the one-warm-process interleave is the most favourable protocol this lever can get.",
+    "clock": "1350 MHz forced through ARC FORCE_AICLK before every label and sampled at ~1 kHz DURING each fold; min=max=target required or the label is rejected",
+    "fixture": "perf/size512/fixtures/cdk2x2_512, 200 sampling steps, 3 recycles, 1 sample, seed 0, no templates",
+    "pair": "node 3, sibling node 2 verified idle by perf/c12_orchestrator/pair_guard/pair_idle.py before the read",
+    "benchlock": "yes",
+    "reps": 6
+  },
+  "instrument_control": {
+    "flag_witness": "env_flag is wrapped, so every label records which BRANCH ran rather than which environment was requested. A label whose queries disagree with its arm is a hard error.",
+    "cache_census": "dev.num_program_cache_entries() after every fold. A bare fold and a keepcache fold must leave the SAME count; if they do not, the arms are not folding the same graph and the delta is not a rebuild.",
+    "known_answer": "a bare fold's count taken immediately after the fold is the number of distinct programs a rebuild rebuilds. delta_s divided by that count is the per-program cost, and it has to be plausible host work (order 0.1-1 ms), not 10 ms."
+  },
+  "correctness_registered_before_running": {
+    "why_it_is_not_free": "8859d7e1 added the clear deliberately. The risk case is the SECOND fold in one process on a DIFFERENT-sized target, which is what the platform worker loop does.",
+    "firing_test_not_a_grep": "ttnn exposes set_program_cache_misses_allowed(False). Fold target A, forbid misses, re-fold A: no throw proves every program hit. Then fold a different-sized target B with misses still forbidden: it MUST throw, which proves new shapes take NEW cache keys instead of silently reusing A's programs.",
+    "digest_test": "one process, sequence 512 -> 298 -> 512 -> 256 with KEEP=1, every CIF digest and plddt compared against the same sequence run with the production clear. A cache change must not move a digest at all, so bit-exactness IS the cheap check here and it is taken.",
+    "kill_condition": "any digest difference, or a miss-forbidden re-fold of the same target that throws"
+  }
+}
