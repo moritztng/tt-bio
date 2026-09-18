@@ -26,8 +26,15 @@ Scoped to the class the fold issues at 512 aa: bf16 in and out, both weights the
 layout, no bias, one K block whose (kt, nt) key is in `SWIGLU_BLOCK_KEYS`. Outside that
 `fused_swiglu` returns None and the caller keeps today's three ops.
 
-OFF by default. `TT_BIO_SWIGLU_FUSED=1` turns it on; it is release-gated until a fold A/B on qb2
-and a five-model gate have run.
+NOTHING IN THE MODEL CALLS THIS, deliberately. The kernel is correct -- closer to a float64
+reference than the three ops it replaces -- and the fusion works: 0.5018-0.5134x against its own
+unfused two-matmul control, in two sessions at a during-sampled 1350 MHz. It is still
+1.377-1.409x SLOWER than production, because `generic_op` can only re-drive kernels the wheel
+already ships and `minimal_matmul`, the only forkable matmul, is about 6.5x off the multicast
+matmul `ttnn.linear` picks at this shape: mt = 256, nt = 16, kt = 4 over 110 cores is 24 M tiles
+and 2 N tiles per core, and its semaphore-chained dataflow never amortises there. Kept as the
+record of a measured NO-GO, not as a lever. `perf/c14_swiglu/`,
+`~/.coworker/state/c14-swiglu-kernel.md`.
 """
 
 from __future__ import annotations
@@ -38,7 +45,6 @@ import ttnn
 
 from . import mm_generic as MG
 from . import trimul_tail as TTAIL
-from .envflags import env_flag
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "swiglu_fused"
 
@@ -57,8 +63,6 @@ ROUND = 2
 #: models a block these kernels have not been swept at, and (12, 12) is the recorded case where
 #: that returns wrong numbers at N = 32 and then hangs the device.
 SWIGLU_BLOCK_KEYS = {(4, 16)}
-
-ENABLED = env_flag("TT_BIO_SWIGLU_FUSED", False)
 
 STATS = [0, 0]          # served, declined
 REJECTS: dict = {}      # (reason, shape) -> count, so a decline is diagnosable from the fold JSON
