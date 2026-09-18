@@ -7943,6 +7943,10 @@ class AttentionPairBias(Module):
         Declines while `kq_norm` is live: that norm slices the fused qkv on its channel axis
         between the projection and the split, and a head-major result no longer carries that axis.
         """
+        if not _triatt_qkv.enabled("apb"):
+            # With the gate off this site runs exactly today's code and builds nothing extra;
+            # `_qkv_mm_config` would otherwise construct a discarded config on all 5064 calls.
+            return None
         return _triatt_qkv.qkv_heads(
             s, self.qkv_weight, self.compute_kernel_config, self.n_heads, self.padded_head_dim,
             self.dtype, _qkv_mm_config(s, self.qkv_weight), bias=self.qkv_bias,

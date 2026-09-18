@@ -75,7 +75,12 @@ APB_REJECTS: dict = {}
 _SITES = {"triatt": (STATS, REJECTS), "apb": (APB_STATS, APB_REJECTS)}
 
 
-def _enabled(site):
+def enabled(site):
+    """Whether this site's gate is on at all, so a caller can skip building its arguments.
+
+    `qkv_heads` checks it again; this exists so the off arm is byte-for-byte today's code path and
+    not today's path plus a discarded `MinimalMatmulConfig` per call.
+    """
     return _ENABLED if site == "triatt" else _APB_ENABLED
 
 
@@ -115,7 +120,7 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config, bias=None,
     `refuse` is the caller's own precondition, recorded in this site's reject dict so a guard that
     lives at the call site still says why it fired.
     """
-    if not _enabled(site):
+    if not enabled(site):
         return None
     stats, _ = _SITES[site]
     shape = [int(d) for d in x.shape]
