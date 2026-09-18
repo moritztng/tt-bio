@@ -17,11 +17,12 @@
 set -u
 UNIT="${1:?unit}"; LOG="${2:?log}"; shift 2
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-case "$1" in
-  /*) : ;;
-  *) echo "launch_unit.sh: the command must be an ABSOLUTE path -- the unit runs in the repo" >&2
-     echo "launch_unit.sh: root, not your cwd. Got: $1" >&2; exit 2 ;;
-esac
+for a in "$@"; do
+  case "$a" in
+    ./*|../*) echo "launch_unit.sh: '$a' is relative to YOUR cwd, and the unit runs in the repo" >&2
+              echo "launch_unit.sh: root. Use an absolute path." >&2; exit 2 ;;
+  esac
+done
 systemctl --user reset-failed "$UNIT" 2>/dev/null || true
 systemd-run --user --unit="$UNIT" --collect \
   --working-directory=/home/ttuser/.coworker/wt/c12-compose-fold \

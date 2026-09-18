@@ -72,7 +72,10 @@ EFLAGS = {"cond_muladd": ("TT_BIO_FUSE_COND_MULADD", "FUSE_COND_MULADD"),
 # rather than a value this driver sets, which is the only arm that can say what the default does.
 ARMS = {"base": (False, False, False), "silu": (False, True, False),
         "hoist": (True, False, False), "both": (True, True, False),
-        "eltwise": (False, False, True), "all3": (True, True, True), "default": None}
+        "eltwise": (False, False, True), "all3": (True, True, True),
+        # Pairwise, to localise which two levers break the three-lever stack. `all3` collapses
+        # plDDT 0.864 -> 0.368 reproducibly, so one of these two pairs carries it.
+        "hoist_elt": (True, False, True), "silu_elt": (False, True, True), "default": None}
 
 
 def check(arms, T):

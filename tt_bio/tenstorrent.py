@@ -9748,6 +9748,20 @@ class DiffusionTransformer(Module):
         # projections and 48 layer_norms. Read at call time so an interleaved A/B can flip it.
         cond_all = None
         if _B2_DIT_COND_HOIST and not self.atom_level:
+            # The hoisted path hands AdaLN its `s_scale` as a slice of the concatenated `o_ad`
+            # linear, which carries NO activation -- the AdaLN gate's sigmoid stays on the
+            # multiply in `AdaLN.__call__`. `FUSE_COND_MULADD` replaces that multiply with an
+            # addcmul and relies on the sigmoid having been baked into `s_scale` by
+            # `AdaLN.s_terms()`, which the hoisted path never calls. Together they therefore drop
+            # the gate's sigmoid entirely and use raw pre-activations as a multiplicative scale:
+            # no crash, plausible runtime, plDDT 0.864 -> 0.368 at 512 aa (measured, session s6,
+            # reproducible to the digest). Each lever is correct alone. Refuse the pair loudly
+            # rather than return a broken structure.
+            if _eltwise_fusion.FUSE_COND_MULADD:
+                raise RuntimeError(
+                    "TT_BIO_DIT_COND_HOIST and TT_BIO_FUSE_COND_MULADD cannot be combined: the "
+                    "hoisted conditioning projection carries no sigmoid and the fused addcmul "
+                    "does not apply one, so the AdaLN gate loses its activation. Turn one off.")
             adw, adb, opw, opb = self._cond_weights()
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
                                     compute_kernel_config=self.compute_kernel_config)
