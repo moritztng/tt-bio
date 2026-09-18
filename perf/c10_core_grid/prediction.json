@@ -1,0 +1,15 @@
+{
+  "recorded_utc": "2026-09-17T03:25:00+00:00",
+  "written_before": "any fold of this row",
+  "question": "Do the bare ttnn.linear/ttnn.matmul sites on Boltz-2's default path leave fold seconds on the table, or is ttnn's default grid already right for their shapes?",
+  "inherited_number_that_is_NOT_a_prediction": "c10-fold-census measured 4.908 s / 6626 Mcycles between two of ITS OWN replay configurations on 27 of 33 matmul keys. That is a replay gap, not a fold saving, and this row does not carry it forward.",
+  "predicted": {
+    "node1_anchor_512_s": "within 0.30 s of the 14.881 s node-0 number of record at a during-sampled 1350 MHz; a larger gap is a chip difference and must be reported as one, not folded into the A/B",
+    "eligible_sites": "fewer than the 18 named, because several bare-of-core_grid sites pass an explicit program_config, which is the stronger parallelisation decision and makes core_grid inapplicable there",
+    "fold_delta_512_s": "0.0 to 0.4 s, i.e. at most 540 Mcycles at 1350 MHz. The census 4.908 s cannot survive the call census: the five named keys are thin small-K shapes whose share of the fold is small, and the fold's top-FLOP matmuls already pass core_grid or a program_config",
+    "sign": "not uniformly positive. The one-size-tuning class is standing on this fleet, and AdaLN already carries a commented-out core_grid with the note CAUSES ACCURACY ISSUE, so at least one site is expected to lose or to move the structure",
+    "298_vs_512": "any site that wins at 512 is not assumed to win at 298; a split sign is a finding, not a lever"
+  },
+  "kill_criterion": "if the all-eligible-sites arm does not beat arm A by more than the session's own A-to-A adjacent spread at 512 aa, the defaults are already correct and this lead closes as a confirmed non-lever.",
+  "accuracy_bars_A": {"512": 0.6, "298": 0.35, "seed_floor_512": 1.84, "upstream_seed_spread_298": [0.741, 0.847]}
+}

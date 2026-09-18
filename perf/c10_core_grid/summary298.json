@@ -1,0 +1,106 @@
+[
+ {
+  "run": "perf/c10_core_grid/runs/ab298",
+  "size": 298,
+  "node": "1",
+  "MHz": 1350,
+  "completed": true,
+  "errors": [],
+  "reps": 3,
+  "A_spread_s": 0.033171098999998705,
+  "arms": {
+   "A": {
+    "n": 3,
+    "median_s": 9.6642,
+    "min_s": 9.6554,
+    "max_s": 9.6885,
+    "delta_s": 0.0,
+    "delta_Mcycles": -0.0,
+    "injected": 0,
+    "refused": 0,
+    "cifs": [
+     "24c4b534d763"
+    ],
+    "rmsd_vs_A0_A": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "plddt": [
+     0.908,
+     0.908,
+     0.908
+    ]
+   },
+   "B": {
+    "n": 3,
+    "median_s": 9.4811,
+    "min_s": 9.4733,
+    "max_s": 9.5013,
+    "delta_s": -0.1831,
+    "delta_Mcycles": 247.2,
+    "injected": 19224,
+    "refused": 0,
+    "cifs": [
+     "5a7ecfef73b6"
+    ],
+    "rmsd_vs_A0_A": [
+     0.3327,
+     0.3327,
+     0.3327
+    ],
+    "plddt": [
+     0.9109,
+     0.9109,
+     0.9109
+    ]
+   },
+   "C": {
+    "n": 3,
+    "median_s": 9.6644,
+    "min_s": 9.6607,
+    "max_s": 10.8901,
+    "delta_s": 0.0002,
+    "delta_Mcycles": -0.2,
+    "injected": 416,
+    "refused": 0,
+    "cifs": [
+     "78f60dd505ee"
+    ],
+    "rmsd_vs_A0_A": [
+     0.3648,
+     0.3648,
+     0.3648
+    ],
+    "plddt": [
+     0.9109,
+     0.9109,
+     0.9109
+    ]
+   },
+   "D": {
+    "n": 3,
+    "median_s": 9.5193,
+    "min_s": 9.4908,
+    "max_s": 9.5485,
+    "delta_s": -0.1449,
+    "delta_Mcycles": 195.6,
+    "injected": 19640,
+    "refused": 0,
+    "cifs": [
+     "faacd7b15a40"
+    ],
+    "rmsd_vs_A0_A": [
+     0.1948,
+     0.1948,
+     0.1948
+    ],
+    "plddt": [
+     0.9085,
+     0.9085,
+     0.9085
+    ]
+   }
+  }
+ }
+]

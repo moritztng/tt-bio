@@ -1,0 +1,4270 @@
+{
+  "pid": 42863,
+  "host": "tt-quietbox2",
+  "node": "1",
+  "size": 512,
+  "reps": 0,
+  "rows": [
+    {
+      "label": "cold",
+      "arm": "A",
+      "start_monotonic_ns": 2369386657201,
+      "end_monotonic_ns": 2388097797743,
+      "elapsed_s": 18.711140542,
+      "plddt": 0.845919,
+      "before": {
+        "monotonic_ns": 2369364974044,
+        "utc_ns": 1789614786969096573,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 42863,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 455,
+            "stime_ticks": 100,
+            "starttime_ticks": 236423,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "after": {
+        "monotonic_ns": 2388097801811,
+        "utc_ns": 1789614805701924189,
+        "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+        "module_srcversion": "A10759A24565BC5BBE903C5",
+        "containment": "active",
+        "holders": [
+          {
+            "pid": 42863,
+            "nodes": [
+              "/dev/tenstorrent/1"
+            ],
+            "state": "S",
+            "utime_ticks": 2211,
+            "stime_ticks": 234,
+            "starttime_ticks": 236423,
+            "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+            "env": {
+              "TT_VISIBLE_DEVICES": "1",
+              "TT_BIO_LEASE_CARDS": "1",
+              "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+            }
+          }
+        ],
+        "own_nodes": [
+          "/dev/tenstorrent/1"
+        ]
+      },
+      "injected": {},
+      "refused": {},
+      "above_cap_sdpa_counts": [
+        0,
+        0
+      ],
+      "valid": false,
+      "cif_sha256": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+      "clock": {
+        "samples": 17555,
+        "min_MHz": 1350,
+        "max_MHz": 1350,
+        "max_gap_ns": 1186731,
+        "first_offset_ns": 857234,
+        "last_offset_ns": 207002,
+        "sample_span_fraction": 0.99994312286856,
+        "errors": [],
+        "pass": true
+      },
+      "holders": {
+        "samples": 153,
+        "max_gap_ns": 129423771,
+        "bad": [
+          {
+            "monotonic_ns": 2369419880250,
+            "utc_ns": 1789614787024002428,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 460,
+                "stime_ticks": 100,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2369540937698,
+            "utc_ns": 1789614787145059976,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 473,
+                "stime_ticks": 104,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2369663849836,
+            "utc_ns": 1789614787267972154,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 487,
+                "stime_ticks": 109,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2369791160324,
+            "utc_ns": 1789614787395282602,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 506,
+                "stime_ticks": 115,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2369919144633,
+            "utc_ns": 1789614787523267152,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 530,
+                "stime_ticks": 122,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2370046616624,
+            "utc_ns": 1789614787650739072,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 546,
+                "stime_ticks": 127,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2370170776266,
+            "utc_ns": 1789614787774898725,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 565,
+                "stime_ticks": 133,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2370296150882,
+            "utc_ns": 1789614787900273531,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 565,
+                "stime_ticks": 133,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2370421793697,
+            "utc_ns": 1789614788025916055,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 566,
+                "stime_ticks": 133,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2370548683371,
+            "utc_ns": 1789614788152805660,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 566,
+                "stime_ticks": 133,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2370672530353,
+            "utc_ns": 1789614788276653363,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 567,
+                "stime_ticks": 133,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2370800439896,
+            "utc_ns": 1789614788404562325,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 567,
+                "stime_ticks": 133,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2370927222610,
+            "utc_ns": 1789614788531345039,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 567,
+                "stime_ticks": 133,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2371050098174,
+            "utc_ns": 1789614788654220793,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 568,
+                "stime_ticks": 133,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2371174487581,
+            "utc_ns": 1789614788778610400,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 570,
+                "stime_ticks": 134,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2371301036538,
+            "utc_ns": 1789614788905158946,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 570,
+                "stime_ticks": 134,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2371427563360,
+            "utc_ns": 1789614789031685889,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 575,
+                "stime_ticks": 135,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2371552906174,
+            "utc_ns": 1789614789157028603,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 575,
+                "stime_ticks": 135,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2371678993201,
+            "utc_ns": 1789614789283115720,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 575,
+                "stime_ticks": 135,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2371803826062,
+            "utc_ns": 1789614789407948690,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 576,
+                "stime_ticks": 135,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2371928409655,
+            "utc_ns": 1789614789532532204,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 577,
+                "stime_ticks": 135,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2372054829886,
+            "utc_ns": 1789614789658952324,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 577,
+                "stime_ticks": 135,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2372180208307,
+            "utc_ns": 1789614789784330765,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 577,
+                "stime_ticks": 135,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2372306404899,
+            "utc_ns": 1789614789910527538,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 577,
+                "stime_ticks": 136,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2372432886459,
+            "utc_ns": 1789614790037009178,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 577,
+                "stime_ticks": 136,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2372558376333,
+            "utc_ns": 1789614790162499042,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 577,
+                "stime_ticks": 136,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2372685136153,
+            "utc_ns": 1789614790289258752,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 578,
+                "stime_ticks": 136,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2372808664116,
+            "utc_ns": 1789614790412786394,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 578,
+                "stime_ticks": 136,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2372934010812,
+            "utc_ns": 1789614790538133341,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 578,
+                "stime_ticks": 136,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2373059831665,
+            "utc_ns": 1789614790663954024,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 579,
+                "stime_ticks": 136,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2373184789834,
+            "utc_ns": 1789614790788912634,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 580,
+                "stime_ticks": 136,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2373310881314,
+            "utc_ns": 1789614790915003592,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 580,
+                "stime_ticks": 136,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2373436359380,
+            "utc_ns": 1789614791040481919,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 581,
+                "stime_ticks": 136,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2373561843758,
+            "utc_ns": 1789614791165966177,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 599,
+                "stime_ticks": 141,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2373688524063,
+            "utc_ns": 1789614791292646371,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 616,
+                "stime_ticks": 141,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2373811434355,
+            "utc_ns": 1789614791415556664,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 630,
+                "stime_ticks": 141,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2373933030529,
+            "utc_ns": 1789614791537152818,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 645,
+                "stime_ticks": 141,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2374054397905,
+            "utc_ns": 1789614791658520214,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 660,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2374175388887,
+            "utc_ns": 1789614791779511266,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 675,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2374296970675,
+            "utc_ns": 1789614791901093003,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 690,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2374418438195,
+            "utc_ns": 1789614792022560554,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 704,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2374539595744,
+            "utc_ns": 1789614792143718092,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 719,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2374660777037,
+            "utc_ns": 1789614792264899465,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 734,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2374781901523,
+            "utc_ns": 1789614792386023952,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 749,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2374902941632,
+            "utc_ns": 1789614792507063951,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 764,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2375024210569,
+            "utc_ns": 1789614792628332918,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 778,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2375144859466,
+            "utc_ns": 1789614792748981744,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 793,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2375265729246,
+            "utc_ns": 1789614792869851525,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 808,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2375386416876,
+            "utc_ns": 1789614792990539505,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 821,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2375507838424,
+            "utc_ns": 1789614793111960853,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 833,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2375628838053,
+            "utc_ns": 1789614793232960341,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 845,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2375751659539,
+            "utc_ns": 1789614793355781847,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 857,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2375873848913,
+            "utc_ns": 1789614793477971391,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 869,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2375994599505,
+            "utc_ns": 1789614793598721913,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 881,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2376115370265,
+            "utc_ns": 1789614793719492674,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 893,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2376235869427,
+            "utc_ns": 1789614793839991716,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 905,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2376356549147,
+            "utc_ns": 1789614793960671736,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 917,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2376477432508,
+            "utc_ns": 1789614794081555257,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 929,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2376597822872,
+            "utc_ns": 1789614794201945170,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 941,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2376717666564,
+            "utc_ns": 1789614794321789002,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 953,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2376838195727,
+            "utc_ns": 1789614794442318146,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 966,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2376958560824,
+            "utc_ns": 1789614794562683162,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 978,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2377078682776,
+            "utc_ns": 1789614794682805294,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 990,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2377199685024,
+            "utc_ns": 1789614794803807392,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1002,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2377319541549,
+            "utc_ns": 1789614794923663888,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1014,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2377440138935,
+            "utc_ns": 1789614795044261263,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1026,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2377560658406,
+            "utc_ns": 1789614795164780974,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1038,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2377682007679,
+            "utc_ns": 1789614795286130017,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1050,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2377804576672,
+            "utc_ns": 1789614795408699121,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1062,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2377926048214,
+            "utc_ns": 1789614795530170512,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1074,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2378046539782,
+            "utc_ns": 1789614795650662010,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1086,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2378166389991,
+            "utc_ns": 1789614795770512300,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1098,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2378286689802,
+            "utc_ns": 1789614795890812080,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1110,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2378407228227,
+            "utc_ns": 1789614796011350615,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1123,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2378528048586,
+            "utc_ns": 1789614796132170804,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1135,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2378649068979,
+            "utc_ns": 1789614796253191177,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1147,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2378770236908,
+            "utc_ns": 1789614796374359337,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1159,
+                "stime_ticks": 142,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2378890699969,
+            "utc_ns": 1789614796494822297,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1171,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2379011445909,
+            "utc_ns": 1789614796615568357,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1183,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2379131928115,
+            "utc_ns": 1789614796736050393,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1195,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2379252667443,
+            "utc_ns": 1789614796856789741,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1207,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2379373275515,
+            "utc_ns": 1789614796977398013,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1219,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2379494028977,
+            "utc_ns": 1789614797098151286,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1231,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2379614612439,
+            "utc_ns": 1789614797218734737,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1243,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2379735225747,
+            "utc_ns": 1789614797339348265,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1255,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2379857636185,
+            "utc_ns": 1789614797461758483,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1267,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2379978237079,
+            "utc_ns": 1789614797582359537,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1279,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2380099205370,
+            "utc_ns": 1789614797703327758,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1292,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2380220387311,
+            "utc_ns": 1789614797824509659,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1304,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2380341775257,
+            "utc_ns": 1789614797945897455,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1316,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2380462148527,
+            "utc_ns": 1789614798066270755,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1328,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2380582330724,
+            "utc_ns": 1789614798186453043,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1340,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2380703666178,
+            "utc_ns": 1789614798307788607,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1352,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2380825187429,
+            "utc_ns": 1789614798429309868,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1364,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2380946558759,
+            "utc_ns": 1789614798550681308,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1376,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2381067359373,
+            "utc_ns": 1789614798671481691,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1388,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2381187229206,
+            "utc_ns": 1789614798791351544,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1400,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2381307416453,
+            "utc_ns": 1789614798911538741,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1412,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2381427860075,
+            "utc_ns": 1789614799031982383,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1424,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2381548571547,
+            "utc_ns": 1789614799152693936,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1436,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2381669175139,
+            "utc_ns": 1789614799273297667,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1449,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2381791511139,
+            "utc_ns": 1789614799395633337,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1461,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2381913790052,
+            "utc_ns": 1789614799517912440,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 1473,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2382035181486,
+            "utc_ns": 1789614799639303784,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 1485,
+                "stime_ticks": 143,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2382155495125,
+            "utc_ns": 1789614799759617313,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1497,
+                "stime_ticks": 144,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2382277244839,
+            "utc_ns": 1789614799881367157,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1508,
+                "stime_ticks": 155,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2382406668610,
+            "utc_ns": 1789614800010791179,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1514,
+                "stime_ticks": 169,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2382531394444,
+            "utc_ns": 1789614800135516782,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1530,
+                "stime_ticks": 175,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2382660138180,
+            "utc_ns": 1789614800264260639,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1552,
+                "stime_ticks": 178,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2382784076472,
+            "utc_ns": 1789614800388198810,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1575,
+                "stime_ticks": 180,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2382911118446,
+            "utc_ns": 1789614800515241095,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 1593,
+                "stime_ticks": 189,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2383035849800,
+            "utc_ns": 1789614800639972319,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1602,
+                "stime_ticks": 196,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2383161825161,
+            "utc_ns": 1789614800765947619,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 1630,
+                "stime_ticks": 201,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2383286677632,
+            "utc_ns": 1789614800890799920,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1657,
+                "stime_ticks": 208,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2383410749281,
+            "utc_ns": 1789614801014871559,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1671,
+                "stime_ticks": 208,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2383534289294,
+            "utc_ns": 1789614801138411712,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 1685,
+                "stime_ticks": 208,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2383657483530,
+            "utc_ns": 1789614801261605948,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1700,
+                "stime_ticks": 208,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2383780523337,
+            "utc_ns": 1789614801384645866,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1714,
+                "stime_ticks": 209,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2383904266460,
+            "utc_ns": 1789614801508388949,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 1728,
+                "stime_ticks": 209,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2384027456909,
+            "utc_ns": 1789614801631579178,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1743,
+                "stime_ticks": 210,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2384150598978,
+            "utc_ns": 1789614801754721416,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 1757,
+                "stime_ticks": 210,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2384273427841,
+            "utc_ns": 1789614801877550129,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1772,
+                "stime_ticks": 210,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2384396572174,
+            "utc_ns": 1789614802000694362,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1786,
+                "stime_ticks": 210,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2384519798466,
+            "utc_ns": 1789614802123920734,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1800,
+                "stime_ticks": 211,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2384642370134,
+            "utc_ns": 1789614802246492312,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1814,
+                "stime_ticks": 212,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2384765471603,
+            "utc_ns": 1789614802369593791,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 1828,
+                "stime_ticks": 212,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2384888372086,
+            "utc_ns": 1789614802492494374,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1843,
+                "stime_ticks": 212,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2385011007213,
+            "utc_ns": 1789614802615129531,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1857,
+                "stime_ticks": 213,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2385134103261,
+            "utc_ns": 1789614802738225550,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1871,
+                "stime_ticks": 213,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2385256621169,
+            "utc_ns": 1789614802860743357,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1885,
+                "stime_ticks": 214,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2385379885813,
+            "utc_ns": 1789614802984007991,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 1899,
+                "stime_ticks": 215,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2385502662693,
+            "utc_ns": 1789614803106784951,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1914,
+                "stime_ticks": 215,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2385625650515,
+            "utc_ns": 1789614803229773074,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1928,
+                "stime_ticks": 216,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2385748181253,
+            "utc_ns": 1789614803352303521,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1942,
+                "stime_ticks": 216,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2385871398224,
+            "utc_ns": 1789614803475520492,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1956,
+                "stime_ticks": 217,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2385994941594,
+            "utc_ns": 1789614803599064203,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 1971,
+                "stime_ticks": 217,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2386118149128,
+            "utc_ns": 1789614803722271406,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 1986,
+                "stime_ticks": 217,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2386245377246,
+            "utc_ns": 1789614803849499434,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 2000,
+                "stime_ticks": 218,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2386369526339,
+            "utc_ns": 1789614803973648618,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 2014,
+                "stime_ticks": 218,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2386492104335,
+            "utc_ns": 1789614804096226783,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 2028,
+                "stime_ticks": 219,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2386615068379,
+            "utc_ns": 1789614804219190587,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 2042,
+                "stime_ticks": 220,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2386737988120,
+            "utc_ns": 1789614804342110308,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 2056,
+                "stime_ticks": 220,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2386861142570,
+            "utc_ns": 1789614804465264878,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 2071,
+                "stime_ticks": 220,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2386983777419,
+            "utc_ns": 1789614804587899857,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 2085,
+                "stime_ticks": 221,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2387106812095,
+            "utc_ns": 1789614804710934914,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 2099,
+                "stime_ticks": 222,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2387229640675,
+            "utc_ns": 1789614804833763194,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 2113,
+                "stime_ticks": 222,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2387352887939,
+            "utc_ns": 1789614804957010357,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 2127,
+                "stime_ticks": 223,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2387475764330,
+            "utc_ns": 1789614805079886678,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 2141,
+                "stime_ticks": 224,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2387599295510,
+            "utc_ns": 1789614805203417849,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 2155,
+                "stime_ticks": 224,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2387722541177,
+            "utc_ns": 1789614805326663595,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 2172,
+                "stime_ticks": 228,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2387846615843,
+            "utc_ns": 1789614805450738352,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 2185,
+                "stime_ticks": 228,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2387969485026,
+            "utc_ns": 1789614805573607384,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "R",
+                "utime_ticks": 2201,
+                "stime_ticks": 230,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          },
+          {
+            "monotonic_ns": 2388094544513,
+            "utc_ns": 1789614805698667061,
+            "holders": [
+              {
+                "pid": 42863,
+                "nodes": [
+                  "/dev/tenstorrent/1"
+                ],
+                "state": "S",
+                "utime_ticks": 2211,
+                "stime_ticks": 234,
+                "starttime_ticks": 236423,
+                "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+                "env": {
+                  "TT_VISIBLE_DEVICES": "1",
+                  "TT_BIO_LEASE_CARDS": "1",
+                  "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+                }
+              }
+            ],
+            "owner_nodes": [
+              "/dev/tenstorrent/1"
+            ]
+          }
+        ],
+        "passed": false
+      }
+    }
+  ],
+  "errors": [
+    "RuntimeError('co-tenancy or incomplete holder coverage')"
+  ],
+  "arms": {
+    "note": "census only: one cold fold on the untouched default path, recording per-site shapes and call counts",
+    "arms": [
+      {
+        "name": "A",
+        "lines": []
+      }
+    ]
+  },
+  "arms_digest": {
+    "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/arms_census.json",
+    "sha256": "61744fe5f26368f29012a7b38a1d1b0c16423318beef5425f2940c3e1f9f3edc",
+    "bytes": 182
+  },
+  "criterion": {
+    "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/criterion.json",
+    "sha256": "7f21ac678ea35343c13ba47b8f108113ecbd7bfc822b060cea17a192059470a7",
+    "bytes": 3633
+  },
+  "source_commit": "e6004abba460550a650ffa42a90e795ab3e5f20d",
+  "source_base": "e6004abba460550a650ffa42a90e795ab3e5f20d",
+  "dirty_status": "?? perf/c10_core_grid/\n",
+  "production_diff": "",
+  "started_utc_ns": 1789614781912272707,
+  "completed": false,
+  "before": {
+    "monotonic_ns": 2364308164084,
+    "utc_ns": 1789614781912286433,
+    "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [],
+    "own_nodes": []
+  },
+  "dirty_diff": "",
+  "environment": {
+    "PYTHONPATH": "/home/ttuser/.coworker/wt/c10-core-grid",
+    "OMP_NUM_THREADS": "2",
+    "C10_NODE": "1",
+    "TT_VISIBLE_DEVICES": "1",
+    "TT_BIO_LEASE_CARDS": "1",
+    "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+  },
+  "ttnn_version": "0.68.0",
+  "ttnn_path": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/__init__.py",
+  "tt_bio_path": "/home/ttuser/.coworker/wt/c10-core-grid/tt_bio/tenstorrent.py",
+  "core_grid_main": {
+    "x": 11,
+    "y": 10
+  },
+  "assigned_node_sysfs": {
+    "resolved": "/sys/devices/pci0000:00/0000:00:01.3/0000:02:00.0/tenstorrent/tenstorrent!1",
+    "device": "/sys/devices/pci0000:00/0000:00:01.3/0000:02:00.0",
+    "tt_asic_id": "380F6B89681D36A4",
+    "tt_card_type": "p300c",
+    "tt_fw_bundle_ver": "19.15.0.0",
+    "tt_m3app_fw_ver": "0.31.0.0",
+    "tt_serial": "0000046131934103"
+  },
+  "inputs": [
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/size512/fixtures/cdk2x2_512.yaml",
+      "sha256": "24d8b2d8c06e4409995abae024766e316da3175dde7596073b68c7963d2df398",
+      "bytes": 813
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/size512/fixtures/cdk2x2_512.a3m",
+      "sha256": "ef2301402e7716e9df368987210456194b108c8ae7e144b7bf09a3dd6f40bf5e",
+      "bytes": 20418
+    }
+  ],
+  "opened": {
+    "monotonic_ns": 2369133852290,
+    "utc_ns": 1789614786737975490,
+    "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [
+      {
+        "pid": 42863,
+        "nodes": [
+          "/dev/tenstorrent/1"
+        ],
+        "state": "S",
+        "utime_ticks": 455,
+        "stime_ticks": 100,
+        "starttime_ticks": 236423,
+        "argv": "python3 perf/c10_core_grid/capture_ab.py --size 512 --out /home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512 --arms perf/c10_core_grid/arms_census.json --reps 0 ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "1",
+          "TT_BIO_LEASE_CARDS": "1",
+          "TT_BIO_LEASE_HOLDER": "worker:c10-core-grid"
+        }
+      }
+    ],
+    "own_nodes": [
+      "/dev/tenstorrent/1"
+    ]
+  },
+  "model_meta": {
+    "hardware": "blackhole",
+    "grid": [
+      11,
+      10
+    ],
+    "recycling_steps": 3,
+    "load_s": 3.11,
+    "n_msa": 35,
+    "msa_dir": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512/msa",
+    "diffusion_samples": 1,
+    "job_cfg": {
+      "model": "boltz2",
+      "fast": false,
+      "output_format": "cif",
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0,
+      "trace": false,
+      "msa_dir": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512/msa",
+      "struct_dir": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/tmp/ttbase-boltz2-st19hp09/out",
+      "use_msa_server": true,
+      "msa_db_path": null,
+      "use_envdb": false,
+      "msa_endpoint": null,
+      "single_sequence": false,
+      "msa_server_url": "https://api.colabfold.com",
+      "msa_pairing_strategy": "greedy",
+      "msa_server_username": null,
+      "msa_server_password": null,
+      "api_key_value": null,
+      "max_msa_seqs": 8192,
+      "write_pae": false,
+      "write_pde": false,
+      "write_embeddings": false,
+      "method": null,
+      "template_structures": "/home/ttuser/.boltz/of3_template_structures",
+      "conf_ckpt": "/home/ttuser/.boltz/boltz2_conf.ckpt",
+      "aff_ckpt": "/home/ttuser/.boltz/boltz2_aff.ckpt",
+      "mol_dir": "/home/ttuser/.boltz/mols",
+      "conf_kwargs": {
+        "predict_args": {
+          "recycling_steps": 3,
+          "sampling_steps": 200,
+          "diffusion_samples": 1,
+          "max_parallel_samples": null
+        },
+        "diffusion_process_args": {
+          "step_scale": 1.5,
+          "gamma_0": 0.8,
+          "gamma_min": 1.0,
+          "noise_scale": 1.003,
+          "rho": 7,
+          "sigma_min": 0.0001,
+          "sigma_max": 160.0,
+          "sigma_data": 16.0,
+          "P_mean": -1.2,
+          "P_std": 1.5,
+          "coordinate_augmentation": true,
+          "alignment_reverse_diff": true,
+          "synchronize_sigmas": true
+        },
+        "pairformer_args": {
+          "num_blocks": 64,
+          "num_heads": 16,
+          "dropout": 0.0,
+          "v2": true
+        },
+        "msa_args": {
+          "subsample_msa": true,
+          "num_subsampled_msa": 1024,
+          "use_paired_feature": true,
+          "msa_s": 64,
+          "msa_blocks": 4,
+          "msa_dropout": 0.15,
+          "z_dropout": 0.25,
+          "pairwise_head_width": 32,
+          "pairwise_num_heads": 4,
+          "activation_checkpointing": true
+        },
+        "steering_args": {
+          "fk_steering": false,
+          "physical_guidance_update": false,
+          "contact_guidance_update": true,
+          "num_particles": 3,
+          "fk_lambda": 4.0,
+          "fk_resampling_interval": 3,
+          "num_gd_steps": 20
+        },
+        "use_kernels": true,
+        "use_tenstorrent": true,
+        "trace": false,
+        "diffusion_trace": false
+      },
+      "aff_kwargs": {
+        "predict_args": {
+          "recycling_steps": 5,
+          "sampling_steps": 200,
+          "diffusion_samples": 5,
+          "max_parallel_samples": 1
+        },
+        "diffusion_process_args": {
+          "step_scale": 1.5,
+          "gamma_0": 0.8,
+          "gamma_min": 1.0,
+          "noise_scale": 1.003,
+          "rho": 7,
+          "sigma_min": 0.0001,
+          "sigma_max": 160.0,
+          "sigma_data": 16.0,
+          "P_mean": -1.2,
+          "P_std": 1.5,
+          "coordinate_augmentation": true,
+          "alignment_reverse_diff": true,
+          "synchronize_sigmas": true
+        },
+        "pairformer_args": {
+          "num_blocks": 64,
+          "num_heads": 16,
+          "dropout": 0.0,
+          "v2": true
+        },
+        "msa_args": {
+          "subsample_msa": true,
+          "num_subsampled_msa": 1024,
+          "use_paired_feature": true,
+          "msa_s": 64,
+          "msa_blocks": 4,
+          "msa_dropout": 0.15,
+          "z_dropout": 0.25,
+          "pairwise_head_width": 32,
+          "pairwise_num_heads": 4,
+          "activation_checkpointing": true
+        },
+        "steering_args": {
+          "fk_steering": false,
+          "physical_guidance_update": false,
+          "contact_guidance_update": false,
+          "num_particles": 3,
+          "fk_lambda": 4.0,
+          "fk_resampling_interval": 3,
+          "num_gd_steps": 20
+        },
+        "affinity_mw_correction": false,
+        "use_tenstorrent": true,
+        "trace": false,
+        "diffusion_trace": false
+      },
+      "use_potentials": false
+    },
+    "struct_dir": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/tmp/ttbase-boltz2-st19hp09/out",
+    "timed_region": "predict_one (featurize + fold + CIF write)",
+    "phase_times": null,
+    "assigned_node_sysfs": {
+      "resolved": "/sys/devices/pci0000:00/0000:00:01.3/0000:02:00.0/tenstorrent/tenstorrent!1",
+      "device": "/sys/devices/pci0000:00/0000:00:01.3/0000:02:00.0",
+      "tt_asic_id": "380F6B89681D36A4",
+      "tt_card_type": "p300c",
+      "tt_fw_bundle_ver": "19.15.0.0",
+      "tt_m3app_fw_ver": "0.31.0.0",
+      "tt_serial": "0000046131934103"
+    }
+  },
+  "model_predict_args": {
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "diffusion_samples": 1,
+    "max_parallel_samples": null
+  },
+  "acquisition_sources": [
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/ambient.py",
+      "sha256": "56fefb64f05793d20d8d73033a58501ea1c29f6567ee973196d726fcf090076e",
+      "bytes": 1798
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/arm.py",
+      "sha256": "2eae5b5107475755f827f8563189423dc92ca0d73004f5f35aa921913a69a8fc",
+      "bytes": 2975
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/audit_accuracy.py",
+      "sha256": "ea5e820a97b86a63edcbf14f30fe5f5c93880728b9e5bd5650f270da620c08c1",
+      "bytes": 4310
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/audit_prerequisites.py",
+      "sha256": "452221b86bb2fa3939215844f617e8a24349d9b765a3a61e4f3db096cc0184ac",
+      "bytes": 3342
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/capture.py",
+      "sha256": "729fa462cd7d19782e9339354c43a561cdaca5764f5c066d151f349f8301d15a",
+      "bytes": 11847
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/capture_ab.py",
+      "sha256": "158a3f7f6aca8f71fb24f0c033df34598baeddc99e749ba1b71a6cfd6a8e1e35",
+      "bytes": 12363
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/control.py",
+      "sha256": "cb0394ca480059971c642ae6a36dffead5803705e9092e51a3c13aaaae47186f",
+      "bytes": 4463
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/force_aiclk.py",
+      "sha256": "f8cad754361c724498de52f4e21164705e0667caa710c317076da0312dfb314d",
+      "bytes": 2572
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/reduce.py",
+      "sha256": "a8754c80dbc9553c8877f8be5db59795dd39acfd5a63dc0358dd02ac2274fcf8",
+      "bytes": 10043
+    },
+    {
+      "path": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/sites.py",
+      "sha256": "6002db2048e22c9cab0d4620e500b3d756abc1cdb557001224386dc1e66755e7",
+      "bytes": 1852
+    }
+  ],
+  "sdpa_cap": 1024,
+  "force_response": [
+    0,
+    0
+  ],
+  "site_census": "/home/ttuser/.coworker/wt/c10-core-grid/perf/c10_core_grid/runs/census512/site_census.json",
+  "release_response": [
+    0,
+    0
+  ],
+  "sampler_returncode": 0,
+  "after": {
+    "monotonic_ns": 2388521469427,
+    "utc_ns": 1789614806125592046,
+    "boot_id": "1dd789b3-2a6b-4339-9ea6-b103a251cf2c",
+    "module_srcversion": "A10759A24565BC5BBE903C5",
+    "containment": "active",
+    "holders": [],
+    "own_nodes": []
+  },
+  "co_tenants": [],
+  "finished_utc_ns": 1789614806193378818
+}

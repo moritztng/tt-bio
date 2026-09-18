@@ -1,0 +1,9 @@
+{
+  "note": "census only: one cold fold on the untouched default path, recording per-site shapes and call counts",
+  "arms": [
+    {
+      "name": "A",
+      "lines": []
+    }
+  ]
+}
