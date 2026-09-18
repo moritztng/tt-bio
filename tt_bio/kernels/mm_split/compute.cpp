@@ -305,18 +305,22 @@ void gate_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
     constexpr uint32_t G_DST = 1;
     pack_reconfig_data_format(out_cb);
     reconfig_data_format_srca(in_cb);
+    // All three inits are loop-invariant and belong OUT here, which is where the stock copy_block
+    // puts its own copy_tile_to_dst_init_short. Calling them per tile reprograms the unpacker and
+    // the SFPU 3x per output tile, 32 times a block, and measured 7.5199 ms/call against the
+    // ungated arm's 1.2252 ms -- 6.1x, and 6.7x over this row's own kill bar.
+    copy_tile_to_dst_init_short(in_cb);
+    sigmoid_tile_init();
+    mul_binary_tile_init();
 
     const uint32_t out_N_block_tiles = N_block_tiles >> 1;
     uint32_t tile_id = 0;
     for (uint32_t m = 0; m < M_block_tiles; m++) {
         for (uint32_t n = 0; n < out_N_block_tiles; n++) {
             tile_regs_acquire();
-            copy_tile_to_dst_init_short(in_cb);
             copy_tile(in_cb, tile_id, P_DST);
             copy_tile(in_cb, tile_id + 1, G_DST);
-            sigmoid_tile_init();
             sigmoid_tile(G_DST);
-            mul_binary_tile_init();
             mul_binary_tile(P_DST, G_DST, P_DST);
             tile_regs_commit();
             tile_regs_wait();

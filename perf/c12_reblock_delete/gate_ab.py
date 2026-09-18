@@ -88,6 +88,13 @@ def main():
     ap.add_argument("--inner", type=int, default=20, help="op invocations per timed block")
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", 0)))
     ap.add_argument("--out", default=None)
+    # DIAGNOSTIC AXIS, not a shipping knob. fp32_dest_acc_en is a per-KERNEL compile config, so a
+    # gate fused into the matmul inherits whatever the matmul needs. calculate_sigmoid branches on
+    # it at compile time and takes the accurate (expensive) path when it is True, where the
+    # standalone reblock_permute_gated op sets its own config and gets the cheap one. Turning it
+    # off here changes the matmul's accumulation precision and is therefore NOT a candidate
+    # configuration -- it exists only to attribute the 6.07x.
+    ap.add_argument("--fp32acc", type=int, default=1)
     a = ap.parse_args()
 
     C = a.slice_c // a.group
@@ -104,13 +111,13 @@ def main():
     from tt_bio.tenstorrent import get_device, _MM_DEFAULT, COMPUTE_GRID_MAIN
     dev = get_device()
     res = {"shape": {"h": a.h, "k": a.k, "N": N, "M": M, "C": C},
-           "card": a.card, "reps": a.reps, "inner": a.inner,
+           "card": a.card, "reps": a.reps, "inner": a.inner, "fp32acc": bool(a.fp32acc),
            "protocol": "interleaved A/B/A' in one session, own A/A floor, clock sampled during, "
                        "pair guard before and after each rep, void reps excluded"}
     try:
         ckc = ttnn.init_device_compute_kernel_config(
             dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi2,
-            fp32_dest_acc_en=True, packer_l1_acc=True)
+            fp32_dest_acc_en=bool(a.fp32acc), packer_l1_acc=True)
         cfg = (_MM_DEFAULT, tuple(COMPUTE_GRID_MAIN))
         res["cfg"] = {"block": list(_MM_DEFAULT), "grid": list(COMPUTE_GRID_MAIN)}
 

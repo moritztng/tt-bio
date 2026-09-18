@@ -1,0 +1,248 @@
+{
+  "shape": {
+    "h": 512,
+    "k": 128,
+    "N": 512,
+    "M": 262144,
+    "C": 32
+  },
+  "card": 3,
+  "reps": [
+    {
+      "rep": 0,
+      "ref_s": 0.0012279200000193669,
+      "gate_s": 0.007522088049972809,
+      "ref2_s": 0.0012234554499627847,
+      "aa_spread_s": 4.464550056582127e-06,
+      "clock_mhz": [
+        1350,
+        1350
+      ],
+      "clock_min": 1350,
+      "sibling_busy_before": false,
+      "sibling_busy_after": false,
+      "void": false,
+      "guard_before": "my card 3: [302359]\n    302359       00:03 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+      "guard_after": "my card 3: [302359]\n    302359       00:03 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number."
+    },
+    {
+      "rep": 1,
+      "ref_s": 0.0012280176500098605,
+      "gate_s": 0.007522306450027827,
+      "ref2_s": 0.0012133265499869594,
+      "aa_spread_s": 1.4691100022901039e-05,
+      "clock_mhz": [
+        1350,
+        1350
+      ],
+      "clock_min": 1350,
+      "sibling_busy_before": false,
+      "sibling_busy_after": false,
+      "void": false,
+      "guard_before": "my card 3: [302359]\n    302359       00:03 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+      "guard_after": "my card 3: [302359]\n    302359       00:03 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number."
+    },
+    {
+      "rep": 2,
+      "ref_s": 0.0012286418499570574,
+      "gate_s": 0.007520951849983248,
+      "ref2_s": 0.0012278413500098396,
+      "aa_spread_s": 8.004999472177587e-07,
+      "clock_mhz": [
+        1350,
+        1350
+      ],
+      "clock_min": 1350,
+      "sibling_busy_before": false,
+      "sibling_busy_after": false,
+      "void": false,
+      "guard_before": "my card 3: [302359]\n    302359       00:03 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+      "guard_after": "my card 3: [302359]\n    302359       00:04 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number."
+    },
+    {
+      "rep": 3,
+      "ref_s": 0.0012165607000497402,
+      "gate_s": 0.007521051999992779,
+      "ref2_s": 0.0012207908500386111,
+      "aa_spread_s": 4.230149988870965e-06,
+      "clock_mhz": [
+        1350,
+        1350
+      ],
+      "clock_min": 1350,
+      "sibling_busy_before": false,
+      "sibling_busy_after": false,
+      "void": false,
+      "guard_before": "my card 3: [302359]\n    302359       00:04 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+      "guard_after": "my card 3: [302359]\n    302359       00:04 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number."
+    },
+    {
+      "rep": 4,
+      "ref_s": 0.0012282331000278645,
+      "gate_s": 0.007522515300024679,
+      "ref2_s": 0.0012123677000090538,
+      "aa_spread_s": 1.5865400018810717e-05,
+      "clock_mhz": [
+        1350,
+        1350
+      ],
+      "clock_min": 1350,
+      "sibling_busy_before": false,
+      "sibling_busy_after": false,
+      "void": false,
+      "guard_before": "my card 3: [302359]\n    302359       00:04 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+      "guard_after": "my card 3: [302359]\n    302359       00:04 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number."
+    },
+    {
+      "rep": 5,
+      "ref_s": 0.0012209145999804605,
+      "gate_s": 0.007519779549966188,
+      "ref2_s": 0.0012207367499286192,
+      "aa_spread_s": 1.778500518412763e-07,
+      "clock_mhz": [
+        1350,
+        1350
+      ],
+      "clock_min": 1350,
+      "sibling_busy_before": false,
+      "sibling_busy_after": false,
+      "void": false,
+      "guard_before": "my card 3: [302359]\n    302359       00:04 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+      "guard_after": "my card 3: [302359]\n    302359       00:04 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number."
+    },
+    {
+      "rep": 6,
+      "ref_s": 0.001217796100081614,
+      "gate_s": 0.00751966990001165,
+      "ref2_s": 0.001233203650008363,
+      "aa_spread_s": 1.5407549926749154e-05,
+      "clock_mhz": [
+        1350,
+        1337
+      ],
+      "clock_min": 1337,
+      "sibling_busy_before": false,
+      "sibling_busy_after": false,
+      "void": false,
+      "guard_before": "my card 3: [302359]\n    302359       00:04 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+      "guard_after": "my card 3: [302359]\n    302359       00:05 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number."
+    },
+    {
+      "rep": 7,
+      "ref_s": 0.0012232355000378447,
+      "gate_s": 0.0075195681500190405,
+      "ref2_s": 0.001217017599992687,
+      "aa_spread_s": 6.217900045157746e-06,
+      "clock_mhz": [
+        1337,
+        1350
+      ],
+      "clock_min": 1337,
+      "sibling_busy_before": false,
+      "sibling_busy_after": false,
+      "void": false,
+      "guard_before": "my card 3: [302359]\n    302359       00:05 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+      "guard_after": "my card 3: [302359]\n    302359       00:05 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number."
+    },
+    {
+      "rep": 8,
+      "ref_s": 0.0012254823000148463,
+      "gate_s": 0.0075191262500084125,
+      "ref2_s": 0.0012173848000202269,
+      "aa_spread_s": 8.09749999461937e-06,
+      "clock_mhz": [
+        1350,
+        1350
+      ],
+      "clock_min": 1350,
+      "sibling_busy_before": false,
+      "sibling_busy_after": false,
+      "void": false,
+      "guard_before": "my card 3: [302359]\n    302359       00:05 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+      "guard_after": "my card 3: [302359]\n    302359       00:05 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number."
+    },
+    {
+      "rep": 9,
+      "ref_s": 0.0012229630000547332,
+      "gate_s": 0.007519995450002171,
+      "ref2_s": 0.0012173808499937877,
+      "aa_spread_s": 5.58215006094551e-06,
+      "clock_mhz": [
+        1350,
+        1350
+      ],
+      "clock_min": 1350,
+      "sibling_busy_before": false,
+      "sibling_busy_after": false,
+      "void": false,
+      "guard_before": "my card 3: [302359]\n    302359       00:05 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+      "guard_after": "my card 3: [302359]\n    302359       00:06 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number."
+    },
+    {
+      "rep": 10,
+      "ref_s": 0.0012269020499843463,
+      "gate_s": 0.007519875250000041,
+      "ref2_s": 0.0012218573499922058,
+      "aa_spread_s": 5.044699992140479e-06,
+      "clock_mhz": [
+        1350,
+        1350
+      ],
+      "clock_min": 1350,
+      "sibling_busy_before": false,
+      "sibling_busy_after": false,
+      "void": false,
+      "guard_before": "my card 3: [302359]\n    302359       00:06 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+      "guard_after": "my card 3: [302359]\n    302359       00:06 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number."
+    },
+    {
+      "rep": 11,
+      "ref_s": 0.0012252288499439601,
+      "gate_s": 0.007519555100043362,
+      "ref2_s": 0.001215389499975572,
+      "aa_spread_s": 9.839349968388022e-06,
+      "clock_mhz": [
+        1350,
+        1350
+      ],
+      "clock_min": 1350,
+      "sibling_busy_before": false,
+      "sibling_busy_after": false,
+      "void": false,
+      "guard_before": "my card 3: [302359]\n    302359       00:06 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+      "guard_after": "my card 3: [302359]\n    302359       00:06 /home/ttuser/scratch/i14venv/bin/python3 perf/c12_reblock_delete/gate_ab.py --card 3 --reps 12 --inne\nsibling 2: no fd\n\nsibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number."
+    }
+  ],
+  "inner": 20,
+  "protocol": "interleaved A/B/A' in one session, own A/A floor, clock sampled during, pair guard before and after each rep, void reps excluded",
+  "cfg": {
+    "block": [
+      8,
+      8,
+      8,
+      2,
+      2
+    ],
+    "grid": [
+      11,
+      10
+    ]
+  },
+  "complete": true,
+  "void_count": 0,
+  "summary": {
+    "n_good": 12,
+    "ref_ms": 1.2253555749794032,
+    "gate_ms": 7.519935350001107,
+    "delta_ms": -6.2945797750217025,
+    "aa_floor_ms": 0.005900025053051628,
+    "speedup": 0.16294762094985601,
+    "delta_over_floor": -1066.873397726676,
+    "clock_min_mhz": 1337,
+    "gate_mcycles": 10.054153562951479
+  },
+  "notes": [
+    "NOT A RESULT: delta -6.2946 ms is under 3x this session's own A/A floor 0.0059 ms",
+    "KILL: gated op 7.5199 ms/call exceeds the pre-registered 1.1206 ms/call pessimistic bound, no tuning rescue"
+  ]
+}
