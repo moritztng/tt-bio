@@ -48,7 +48,7 @@ import ttnn  # noqa: E402
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--part", choices=("ladder", "prod", "prodclean", "acc"), required=True)
+ap.add_argument("--part", choices=("ladder", "prod", "prodclean", "scatter", "acc"), required=True)
 ap.add_argument("--out", default=None)
 ap.add_argument("--reps", type=int, default=9)
 ap.add_argument("--mhz", type=int, default=1350)
@@ -419,6 +419,91 @@ elif A.part == "prodclean":
                     "ttnn.generic_op, block %s, grid %s, defines %s, three DRAM destinations"
                     % (res["block_qkv"], list(GRID), DEFS)),
         "note": "same descriptor qkv_heads builds; only the destination allocation moved out",
+    }
+    finish()
+
+# ---------------------------------------------------------------------------- scatter
+elif A.part == "scatter":
+    # Why this part exists. `--part prodclean` measured the production key with the destinations
+    # preallocated and still returned 0.9509x on 0.6486x the bytes, while `--part ladder` returned
+    # 0.7298x at the same kt with a destination preallocated the same way. So the invariant term is
+    # NOT the per-call allocation (measured at 7.02 % of the call, `alloc_b16`) and not a generic
+    # per-output-tile cost either. The two keys differ in TWO things at once: their m/n geometry,
+    # and whether the write is one contiguous destination or three head-major ones.
+    #
+    # This part holds the geometry fixed and varies only the write. Both arms take the same in0,
+    # the same in1, the same block entry, the same grid, the same number of output ELEMENTS and a
+    # destination preallocated outside the timed region. `plain_*` writes one [S*S, W_QKV] tensor;
+    # `hm_*` writes the three [S, H, S, D] head-major tensors the shipped projection writes. If the
+    # head-major write is what refuses to narrow, plain narrows and hm does not.
+    S, C, H, D = A.n, A.cz, A.heads, A.head_dim
+    W_QKV = 3 * H * D
+    X3 = {dt: t((S, S, C), dt) for dt in (B16, B8)}
+    X2 = {dt: t((S * S, C), dt) for dt in (B16, B8)}
+    Wq = {dt: t((C, W_QKV), dt, scale=0.05) for dt in (B16, B8)}
+    blk = _mm_block_for(Wq[B16])
+    cfg = (blk, GRID)
+    DEFS = {"HEAD_MAJOR_MT": int(X3[B16].padded_shape[-2]) // TILE}
+    res.update({"w_qkv": [C, W_QKV], "block_qkv": list(blk or ()), "defines": DEFS,
+                "out_elems": S * S * W_QKV})
+    HM = {dt: [ttnn.allocate_tensor_on_device(
+        ttnn.Shape([S, H, S, D]), dt, ttnn.TILE_LAYOUT, dev, DRAM) for _ in range(3)]
+        for dt in (B16, B8)}
+    PL = {dt: ttnn.allocate_tensor_on_device(
+        ttnn.Shape([S * S, W_QKV]), dt, ttnn.TILE_LAYOUT, dev, DRAM) for dt in (B16, B8)}
+
+    def nbytes(xdt, wdt, odt):
+        return (WIDTH[xdt] * S * S * C + WIDTH[wdt] * C * W_QKV
+                + WIDTH[odt] * S * S * W_QKV)
+
+    def hm(xdt, wdt, odt):
+        def f():
+            G.generic_minimal_matmul(dev, X3[xdt], Wq[wdt], HM[odt], cfg, CK, DEFS,
+                                     Q.KERNEL_DIR)
+        return f, nbytes(xdt, wdt, odt)
+
+    def plain(xdt, wdt, odt):
+        def f():
+            G.generic_minimal_matmul(dev, X2[xdt], Wq[wdt], PL[odt], cfg, CK)
+        return f, nbytes(xdt, wdt, odt)
+
+    ARMS = [
+        ("hm_b16",) + hm(B16, B16, B16),
+        ("plain_b16",) + plain(B16, B16, B16),
+        ("hm_b8dest",) + hm(B16, B16, B8),
+        ("plain_b8dest",) + plain(B16, B16, B8),
+        ("hm_b8all",) + hm(B8, B8, B8),
+        ("plain_b8all",) + plain(B8, B8, B8),
+        ("hm_b16_aa",) + hm(B16, B16, B16),
+        ("plain_b16_aa",) + plain(B16, B16, B16),
+    ]
+    held, sampler = force_clock()
+    run_arms(ARMS)
+    res["clock"] = sampler.stop()
+    res["aiclk_after"] = {nd: clk.aiclk(nd) for nd in held}
+    res["aa_floor_pct"] = {}
+    for fam in ("hm", "plain"):
+        b = res["arms"].get(fam + "_b16", {}).get("ms_med")
+        a = res["arms"].get(fam + "_b16_aa", {}).get("ms_med")
+        if b and a:
+            res["aa_floor_pct"][fam] = abs(a - b) / b * 100
+    res["ratios"] = {}
+    for fam in ("hm", "plain"):
+        b = res["arms"].get(fam + "_b16", {}).get("ms_med")
+        for suf in ("b8dest", "b8all"):
+            k = "%s_%s" % (fam, suf)
+            if k in res["arms"] and b:
+                r = res["arms"][k]["ms_med"] / b
+                br = res["arms"][k]["bytes"] / res["arms"][fam + "_b16"]["bytes"]
+                res["ratios"][k] = {"time": r, "byte_ratio": br,
+                                    "realization": (1 - r) / (1 - br)}
+    res["kernel_path"] = {
+        "hm": ("dm_in0_sender.cpp + dm_in1_sender_out.cpp through ttnn.generic_op, "
+               "HEAD_MAJOR_MT define, three [S,H,S,D] DRAM destinations"),
+        "plain": ("the same generic_minimal_matmul with no defines and no kernel_dir, "
+                  "one contiguous [S*S, W_QKV] DRAM destination"),
+        "held_fixed": "in0, in1, block entry %s, grid %s, output elements %d, all preallocated"
+                      % (list(blk or ()), list(GRID), S * S * W_QKV),
     }
     finish()
 
