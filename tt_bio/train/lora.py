@@ -8,7 +8,7 @@ with its own shapes; a call that does not route through it is not adaptable, and
 says so by not listing it. That is a discovery mechanism rather than a hand-maintained list,
 which matters because a hand-maintained list is wrong the first time a module is retuned.
 
-Sites are named by call site -- ``file:line:qualname`` of the first frame above ``ops`` -- and
+Sites are named by call site -- ``file:line:qualname`` of the first frame above the dispatch -- and
 not by weight identity, because the same weight object is read at one site while two different
 weights are read at one shared helper. The call site is the thing a user can find and target.
 
@@ -127,7 +127,13 @@ class LoraSite:
 
 # The frames to skip when naming a site: the dispatch itself and this module. Named by file
 # suffix rather than by module object so a reload cannot desynchronise it.
-_INTERNAL = ("tt_bio/ops.py", "tt_bio/train/lora.py", "tt_bio/autograd.py")
+#
+# `dispatch.py` is on this list because the hook is no longer called from `ops.py`. The op
+# offers itself to the hook from inside `OpSurface.dispatching`'s wrapper, so that wrapper's
+# frame sits between the real caller and us; without it every site names itself
+# `tt_bio/dispatch.py:<line>:call` and the census collapses to one entry.
+_INTERNAL = ("tt_bio/ops.py", "tt_bio/dispatch.py", "tt_bio/train/lora.py",
+             "tt_bio/autograd.py")
 
 
 def _site_name() -> str:
@@ -147,23 +153,42 @@ def _site_name() -> str:
     return "<unknown>"
 
 
+def _linear_operands(args, kwargs):
+    """``(x, w, bias)`` from a dispatched ``ops.linear`` call, however it was passed.
+
+    The hook is handed the call's ``args`` and ``kwargs`` untouched, and ``bias`` is
+    positional at some sites and a keyword at others, so it is bound by position first and
+    name second. Same binding `tt_bio.autograd._taped_linear` does, for the same reason.
+    """
+    args = list(args) + [None] * (3 - len(args))
+    return args[0], args[1], (args[2] if args[2] is not None else kwargs.get("bias"))
+
+
 class _Census:
     """A grad hook that records every ``ops.linear`` it sees and declines all of them.
 
-    Declining is what makes it safe to run on the real forward: ``ops.linear`` falls through
-    to ``shipped_linear``, so a census pass computes exactly what an inference pass computes
-    and the output is comparable byte for byte. It is a listener, not a substitute.
+    Declining is what makes it safe to run on the real forward: the dispatch falls through to
+    ``linear.shipped``, so a census pass computes exactly what an inference pass computes and
+    the output is comparable byte for byte. It is a listener, not a substitute.
+
+    Only ``linear`` is recorded. Layer norm has no low-rank factorisation to add -- its
+    parameters are one vector per feature, so a rank-r decomposition of them is larger than
+    they are -- and it declines along with every other op by falling through the name test.
     """
 
     def __init__(self):
         self.sites: Dict[str, LoraSite] = {}
 
-    def linear(self, x, w, bias, *, activation=None, **kw):
-        name = _site_name()
+    def __call__(self, name, shipped, args, kwargs):
+        if name != "linear":
+            return None
+        _, w, bias = _linear_operands(args, kwargs)
+        activation = kwargs.get("activation")
+        site = _site_name()
         shape = tuple(w.shape)
-        prev = self.sites.get(name)
+        prev = self.sites.get(site)
         if prev is None:
-            self.sites[name] = LoraSite(name=name, in_features=int(shape[-2]),
+            self.sites[site] = LoraSite(name=site, in_features=int(shape[-2]),
                                         out_features=int(shape[-1]),
                                         has_bias=bias is not None, activation=activation)
         elif (prev.in_features, prev.out_features) != (int(shape[-2]), int(shape[-1])):
@@ -171,18 +196,13 @@ class _Census:
             # site would be the wrong shape for one of them, and picking either silently is
             # how a run trains a factor that never matches its operand.
             raise ValueError(
-                f"site {name} was reached with two weight shapes: "
+                f"site {site} was reached with two weight shapes: "
                 f"{prev.in_features}x{prev.out_features} and {shape[-2]}x{shape[-1]}. "
                 f"Split the call site or target the callers instead")
         else:
-            self.sites[name] = LoraSite(
-                name=name, in_features=prev.in_features, out_features=prev.out_features,
+            self.sites[site] = LoraSite(
+                name=site, in_features=prev.in_features, out_features=prev.out_features,
                 calls=prev.calls + 1, has_bias=prev.has_bias, activation=prev.activation)
-        return None
-
-    def layer_norm(self, x, weight, bias, **kw):
-        # Layer norm has no low-rank factorisation to add: its parameters are one vector per
-        # feature, so a rank-r decomposition of them is larger than they are.
         return None
 
 
@@ -259,15 +279,23 @@ def attach(factors: Dict[str, Tuple[ag.Tensor, ag.Tensor]], cfg: LoraConfig):
     scaling = cfg.scaling
 
     class _Adapter:
+        """Adapt the selected ``linear`` sites; hand everything else to ``base`` verbatim.
+
+        Every op that is not an adapted linear -- layer norm, an unselected site, a future
+        op this module has never heard of -- is delegated with the arguments exactly as the
+        dispatch passed them, so composing over the tape cannot drop a keyword the way
+        re-spelling the signature here once could.
+        """
+
         def __init__(self, base):
             self.base = base
 
-        def linear(self, x, w, bias, *, activation=None, compute_kernel_config=None, **kw):
-            pair = factors.get(_site_name())
+        def __call__(self, name, shipped, args, kwargs):
+            pair = factors.get(_site_name()) if name == "linear" else None
             if pair is None:
-                return None if self.base is None else self.base.linear(
-                    x, w, bias, activation=activation,
-                    compute_kernel_config=compute_kernel_config, **kw)
+                return None if self.base is None else self.base(name, shipped, args, kwargs)
+            x, w, bias = _linear_operands(args, kwargs)
+            activation = kwargs.get("activation")
             if activation is not None:
                 # `ttnn.linear` fuses the activation into the packer, so `base + up*scaling`
                 # would be added AFTER it rather than inside it -- a different function, not a
@@ -281,10 +309,8 @@ def attach(factors: Dict[str, Tuple[ag.Tensor, ag.Tensor]], cfg: LoraConfig):
                                a, b,
                                None if bias is None else
                                (bias if isinstance(bias, ag.Tensor) else ag.Tensor(bias)),
-                               scaling=scaling, config=compute_kernel_config)
-
-        def layer_norm(self, x, weight, bias, **kw):
-            return None if self.base is None else self.base.layer_norm(x, weight, bias, **kw)
+                               scaling=scaling,
+                               config=kwargs.get("compute_kernel_config"))
 
     prev = ops.grad_hook()
     ops.set_grad_hook(_Adapter(prev))
