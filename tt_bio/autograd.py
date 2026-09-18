@@ -503,6 +503,100 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
     return _tape(out_v, parents, make)
 
 
+def _axis(dim: int, rank: int) -> int:
+    return dim + rank if dim < 0 else dim
+
+
+def narrow(x: Tensor, dim: int, start: int, length: int) -> Tensor:
+    """``x[..., start:start+length, ...]`` along ``dim``, with a zero-padding backward.
+
+    Added for the atom transformer's local attention window, which upstream builds with
+    ``unfold(dim, size=n_keys, step=n_queries)`` (primitives.py:371). Because n_keys is
+    exactly 4 x n_queries, that unfold is four shifted slices concatenated rather than a
+    general gather, so a slice and a concat are the only two ops the tape was missing.
+
+    KEEP THE SLICED AXIS TILE-ALIGNED. Every use here slices the leading trunk axis or a
+    32-multiple of the key axis; a sub-tile slice of the LAST axis is the documented
+    Blackhole wedge and is not what this is for.
+    """
+    shape = [int(d) for d in x.value.shape]
+    ax = _axis(dim, len(shape))
+    starts = [0] * len(shape)
+    ends = list(shape)
+    starts[ax], ends[ax] = start, start + length
+    out_v = ttnn.slice(x.value, starts, ends)
+    before, after = start, shape[ax] - (start + length)
+
+    def make():
+        def bw(g):
+            parts = []
+            if before:
+                z = list(shape)
+                z[ax] = before
+                parts.append(ttnn.zeros(z, dtype=g.dtype, layout=ttnn.TILE_LAYOUT,
+                                        device=g.device()))
+            parts.append(g)
+            if after:
+                z = list(shape)
+                z[ax] = after
+                parts.append(ttnn.zeros(z, dtype=g.dtype, layout=ttnn.TILE_LAYOUT,
+                                        device=g.device()))
+            x.add_grad(parts[0] if len(parts) == 1 else ttnn.concat(parts, dim=ax))
+        return bw
+
+    return _tape(out_v, [x], make)
+
+
+def concat(xs: Sequence[Tensor], dim: int = -2) -> Tensor:
+    """Concatenate along ``dim``. The backward is the slice this op is the inverse of.
+
+    A tensor may appear more than once in ``xs`` -- the window build concatenates four
+    overlapping slices of the same padded key tensor -- so each occurrence adds its own
+    contribution rather than overwriting, which ``add_grad`` already does.
+    """
+    xs = list(xs)
+    shape = [int(d) for d in xs[0].value.shape]
+    ax = _axis(dim, len(shape))
+    sizes = [int(x.value.shape[ax]) for x in xs]
+    out_v = ttnn.concat([x.value for x in xs], dim=ax)
+
+    def make():
+        def bw(g):
+            off = 0
+            gs = [int(d) for d in g.shape]
+            for x, n in zip(xs, sizes):
+                if x.requires_grad:
+                    starts = [0] * len(gs)
+                    ends = list(gs)
+                    starts[ax], ends[ax] = off, off + n
+                    x.add_grad(ttnn.slice(g, starts, ends))
+                off += n
+        return bw
+
+    return _tape(out_v, xs, make)
+
+
+def windows(x: Tensor, n_queries: int, n_keys: int, n_trunks: int,
+            pad_left: int) -> Tensor:
+    """The local-attention key window: ``[n_trunks, n_keys, c]`` out of ``[n_pad, c]``.
+
+    ``x`` must ALREADY be padded to ``n_trunks * n_queries + pad_left + pad_right`` rows,
+    and ``n_keys`` must be a multiple of ``n_queries`` -- upstream runs 128 and 32
+    (primitives.py:366-372), so window i is exactly the four consecutive query-blocks
+    starting at block i of the padded tensor. That is why this needs no gather.
+    """
+    if n_keys % n_queries:
+        raise ValueError(f"n_keys {n_keys} is not a multiple of n_queries {n_queries}")
+    per = n_keys // n_queries
+    c = int(x.value.shape[-1])
+    n_blocks = int(x.value.shape[-2]) // n_queries
+    if n_blocks < n_trunks + per - 1:
+        raise ValueError(f"padded length {n_blocks * n_queries} is too short for "
+                         f"{n_trunks} trunks of {n_keys} keys")
+    blocks = reshape(x, [n_blocks, n_queries, c])
+    return concat([narrow(blocks, 0, i, n_trunks) for i in range(per)], dim=1)
+
+
 def permute(x: Tensor, dims: Sequence[int]) -> Tensor:
     """Permute axes. The backward is the inverse permutation, so no kernel work but a real
     data movement, which is why the trimul contraction below pays for two of them."""
