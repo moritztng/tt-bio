@@ -903,15 +903,26 @@ the recipe ever needed a private hook, the test fails and the hook becomes publi
 # will this fit, and how long? answered without opening a card
 tt-bio finetune data/ --model protenix-v2 --out runs/a     --global-batch 8 --steps 2000 --tokens 256 --dry-run
 
+# the fit is measured; the duration comes back UNMEASURED until you supply a step time you
+# measured yourself, because we have not timed a Protenix-v2 training step on this hardware
+tt-bio finetune data/ --model protenix-v2 --out runs/a     --global-batch 8 --steps 2000 --tokens 256 --chips 2 --seconds-per-step 4.1 --dry-run
+
 tt-bio finetune --show-recipe        # the loop it would run, as source you can edit
 tt-bio finetune --list-objectives    # the named loss rows
 ```
 
 **What works today:** the interface, the dry run, the LoRA adapters, the optimizer, gradient
-checking, checkpoints, and data parallelism across the chips in one box. **What does not:** no
-model ships a training featuriser yet, so a real `tt-bio finetune` run stops with a named error
-at the point it would read your data. Featurisation is per model on purpose, and a model
+checking, checkpoints, data parallelism across the chips in one box, and ABodyBuilder3 end to
+end, which ships a training featuriser and reads real structures. **What does not:** the other
+models have no training featuriser, so `tt-bio finetune --model protenix-v2` stops with a named
+error at the point it would read your data. Featurisation is per model on purpose, and a model
 registers its own with `tt_bio.train.catalogue.register`.
+
+ABodyBuilder3 wants its data staged first: `data.tar.gz` from Zenodo `10.5281/zenodo.11354577`,
+extracted so that `structures/structures/*.pt` sits under the path you pass. Fine-tuning also
+wants their checkpoint beside it; without one the command refuses rather than adapting a random
+initialisation. To train from scratch instead, `scripts/abb3_port/repro.py` is the reproduction's
+own entry point.
 
 Four things the API enforces rather than documents, because each is a bug we hit:
 

@@ -23,7 +23,15 @@ except (ImportError, ModuleNotFoundError, FileNotFoundError) as exc:
 from tt_bio.tenstorrent import WeightScope, get_device  # noqa: E402
 from tt_bio import esmc as tt_esmc  # noqa: E402
 
-torch.set_grad_enabled(False)
+
+# Autograd stays off for these tests, but scoped to them rather than to the process.
+# `torch.set_grad_enabled(False)` at module level is a process-wide switch nothing restores,
+# and it fires on import even when every test here skips. It broke
+# tests/test_train_interface.py's gradcheck invariants in full-suite runs.
+@pytest.fixture(autouse=True)
+def _grad_off():
+    with torch.no_grad():
+        yield
 torch.manual_seed(893)
 
 D_MODEL = ESMC_300M["d_model"]
