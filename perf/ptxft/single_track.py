@@ -83,6 +83,9 @@ def main():
     ap.add_argument("--bar", type=float, default=1.0e-2)
     ap.add_argument("--cos-bar", type=float, default=0.9999)
     ap.add_argument("--dtype", default="bf16", choices=["bf16", "fp32"])
+    ap.add_argument("--parts", action="store_true",
+                    help="compare the attention's intermediates one at a time, which is "
+                         "what localises a whole-block disagreement")
     a = ap.parse_args()
 
     import ttnn
@@ -120,6 +123,53 @@ def main():
 
         want, gref, gs, gz = reference(sd, s_np[0], z_np, seed_np[0],
                                        heads=blk.s_heads, head_dim=blk.s_head_dim)
+
+        if a.parts:
+            # Walk the same chain on both sides and print where they first separate. A
+            # single end-to-end number cannot say whether the twin or the transcription
+            # is wrong, and it cannot say WHICH op.
+            import torch
+            import torch.nn.functional as F
+            H, hd, pd = blk.s_heads, blk.s_head_dim, blk.s_pad_dim
+            Wt = {k: torch.tensor(v.numpy(), dtype=torch.float64) for k, v in sd.items()}
+            st64 = torch.tensor(s_np[0], dtype=torch.float64)
+            zt64 = torch.tensor(z_np, dtype=torch.float64)
+            rsn = (F.layer_norm(st64, (c_s,), eps=1e-5) * Wt["pre_norm_s.weight"]
+                   + Wt["pre_norm_s.bias"])
+            rq = (rsn @ Wt["attention.proj_q.weight"].T
+                  + Wt["attention.proj_q.bias"]).view(S, H, hd).permute(1, 0, 2)
+            rk = (rsn @ Wt["attention.proj_k.weight"].T).view(S, H, hd).permute(1, 0, 2)
+            rv = (rsn @ Wt["attention.proj_v.weight"].T).view(S, H, hd).permute(1, 0, 2)
+            rzn = (F.layer_norm(zt64, (c_z,), eps=1e-5) * Wt["attention.proj_z.0.weight"]
+                   + Wt["attention.proj_z.0.bias"])
+            rb = (rzn @ Wt["attention.proj_z.1.weight"].T).permute(2, 0, 1)
+            ratt = (torch.softmax(rq @ rk.transpose(-1, -2) * (hd ** -0.5) + rb, -1) @ rv)
+            tsn = blk._ln(st, "pre_norm_s")
+
+            def th(name, bias=None):
+                x = blk._lin(tsn, f"attention.proj_{name}", bias=bias)
+                return ag.permute(ag.reshape(x, [1, S, H, pd]), (0, 2, 1, 3))
+
+            tq = th("q", bias="attention.proj_q.bias")
+            tk, tv = th("k"), th("v")
+            tzn = blk._ln(zt, "attention.proj_z.0")
+            tb = ag.reshape(ag.permute(blk._lin(tzn, "attention.proj_z.1"), (2, 0, 1)),
+                            [1, H, S, S])
+            tatt = ag.triangle_attention(tq, tk, tv, tb, scale=hd ** -0.5)
+            un = lambda t: ft.to_host(t.value).reshape(1, H, S, pd)[0, :, :, :hd]
+            print()
+            print(f"{'intermediate':<28} {'rel L2':>10} {'cos':>10}")
+            for nm, g, r in (("s LN", ft.to_host(tsn.value).reshape(S, c_s), rsn.numpy()),
+                             ("q heads", un(tq), rq.numpy()),
+                             ("k heads", un(tk), rk.numpy()),
+                             ("v heads", un(tv), rv.numpy()),
+                             ("z LN", ft.to_host(tzn.value).reshape(S, S, c_z),
+                              rzn.numpy()),
+                             ("pair bias", ft.to_host(tb.value).reshape(H, S, S),
+                              rb.numpy()),
+                             ("attention out", un(tatt), ratt.numpy())):
+                print(f"{nm:<28} {rel_l2(g, r):>10.3e} {cos(g, r):>10.6f}")
+            print()
 
         print(f"# --single-track: {S} tokens, c_s {c_s}, c_z {c_z}, "
               f"{blk.s_heads} heads x {blk.s_head_dim}, {a.dtype}, seed {a.seed}")

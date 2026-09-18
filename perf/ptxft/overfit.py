@@ -74,10 +74,12 @@ def random_block_sd(shapes, rng):
     out = {}
     for k, shp in shapes.items():
         if len(shp) == 1:
-            # Layer-norm gain and every bias. A gain is ones, everything else zeros --
-            # `Linear._init_params` zero-inits its bias unconditionally (primitives.py:71).
-            a = (np.ones if ("norm" in k and k.endswith("weight")) else np.zeros)(
-                shp, np.float32)
+            # Every 1-D weight in a remapped block is a layer-norm gain -- every linear
+            # weight is 2-D -- so the rule is on RANK, not on the name. Matching "norm" in
+            # the name instead missed `attention.proj_z.0.weight`, which is the pair
+            # bias's layer norm under a name that does not say so, and a zero gain there
+            # silently removes the attention bias from every test that uses these weights.
+            a = (np.ones if k.endswith("weight") else np.zeros)(shp, np.float32)
         elif k.endswith("transition_z.fc3.weight"):
             a = np.zeros(shp, np.float32)            # primitives.py:187, zeros
         elif k.endswith("transition_z.fc1.weight") or k.endswith("transition_z.fc2.weight"):
