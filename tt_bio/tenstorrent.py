@@ -1384,17 +1384,9 @@ _ATOM_SHIFT_GATHER_OFF = not env_flag("TT_BIO_ATOM_SHIFT_GATHER", True)
 _ATOM_AXIS_BUCKET = env_flag("TT_BIO_ATOM_AXIS_BUCKET", True)
 ATOM_AXIS_BUCKET_STATS = [0, 0]      # [served, declined], one pair per fold
 
-# Boltz-2 diffusion, three levers. Only L7 is boltz-2-exclusive; the other two are NOT, and the
-# claim that they were stood here unchecked until 2026-09-18. Read off the constructors:
-#
-#   rf3/token_dit.py:85             DiffusionTransformer(atom_level=False)  -> reaches L8
-#   rf3/atom_encoder.py:140         DiffusionTransformer(atom_level=True)   -> reaches L6
-#   rf3/diffusion_atom_decoder.py:51  DiffusionTransformer(atom_level=True) -> reaches L6
-#
-# All three import this module's DiffusionTransformer, so a default here is a default for RF3.
-# Protenix and OpenFold3 do have their own classes, which is what made the old claim look right.
-# L7 stays boltz-2-only for a different reason than the one written here before: it is applied by
-# `Diffusion._hoist_layer_bias`, a method of the caller, and RF3 builds its own per-layer biases.
+# Boltz-2 diffusion, three levers under A/B. All three are boltz-2-exclusive by construction:
+# DiffusionTransformer is built only by tenstorrent.Diffusion, and atom_level=True AdaLN exists
+# nowhere else (protenix and openfold3 have their own classes and pass atom_level=False).
 #
 # L7: cut each layer's head-range out of the attention bias once per fold instead of once per
 # denoise step. The bias is uploaded by _populate_diffusion_cache and is constant across all
@@ -1409,15 +1401,7 @@ _B2_BIAS_SLICE_HOIST = env_flag("BOLTZ2_BIAS_SLICE_HOIST", True)
 # 717d36712 (openfold3's atom transformer, -1.565 s at 512 aa, bit-exact) applied to boltz-2.
 # The pair is held in DRAM: 24 retained L1 tensors of 1.83 MB would keep ~44 MB of L1 for the
 # whole rollout and clash with a later op's circular buffers.
-# ON by default, and it reaches RF3's atom encoder and atom decoder (see the scope note above),
-# which rebuild their `s` per call and so can never hit it. `s_terms` therefore retains on the
-# SECOND sighting of an `s`, not the first: Boltz-2 gives up 1 hit of 400 and RF3 stops paying
-# two DRAM copies per call for a pair nothing reads.
 _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
-# Measurement control for the line above and nothing else: it restores the pre-2026-09-18 eager
-# retain, so the hit-driven change has an arm to be compared against inside ONE tree instead of
-# two checkouts. It is the arm the change exists to beat, so it has no production use.
-_B2_ADALN_MEMO_EAGER = env_flag("TT_BIO_ADALN_MEMO_EAGER", False)
 # L8. Hoist the token DiT's conditioning half out of the 24-layer loop: every layer in a sampling
 # step reads the SAME `s` through six [S,768]x[768,768] projections of its own, and
 # `nn.LayerNorm(dim, bias=False)` is `gamma_i * s_hat` with `s_hat` shared, so folding gamma_i
@@ -1428,10 +1412,6 @@ _B2_ADALN_MEMO_EAGER = env_flag("TT_BIO_ADALN_MEMO_EAGER", False)
 # p150a, 1.1345x, against a 0.27 % A/A floor -- and 1.0122x on Wormhole, where the concatenation
 # gain and the slice tax cancel. Default OFF: release-gated until a qb2 fold-level A/B and the
 # structure arm have run. Read at CALL time, not import time, so an interleaved A/B can flip it.
-# The fold A/B exists: +0.2052 s at 512 aa, CI [+0.1561, +0.2543] against a +0.0324 s A/A floor.
-# What the flip still owes is an RF3 accuracy reading, because `rf3/token_dit.py:85` builds this
-# class at atom_level=False and so inherits any default set here. Do not flip on the Boltz-2
-# number alone -- the sibling flag below it was approved that way and had to be withdrawn.
 _B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", False)
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
@@ -9383,9 +9363,6 @@ class AdaLN(Module):
         # Kept apart so a reset can free the pair without touching the caller's `s`.
         self._s_memo = None
         self._s_memo_src = None
-        # The `s` of the PREVIOUS call, identity only. The memo retains a pair on the second
-        # sighting of the same object, never the first -- see `s_terms`.
-        self._s_seen = None
         self.s_norm_weight = self.torch_to_tt("s_norm.weight", dtype=dtype)
         self.s_scale_weight = self.torch_to_tt("s_scale.weight", dtype=dtype)
         self.s_scale_bias = self.torch_to_tt("s_scale.bias", dtype=dtype)
@@ -9406,23 +9383,6 @@ class AdaLN(Module):
         # pins 12 x 1.83 MB of L1 for the whole rollout, which throws `Statically allocated
         # circular buffers ... clash with L1 buffers` in the confidence stack downstream.
         s_src = s
-        # Retain on the SECOND sighting of an `s`, not the first, because retaining costs two
-        # DRAM copies and only a caller that reuses one `s` ever reads them back. Boltz-2's
-        # rollout reuses `_c_reshaped` for all 401 calls, so it stores on call 2 and hits on
-        # 3..401 -- one hit given up out of 400. RF3 builds this class at `atom_level=True` too
-        # (`rf3/atom_encoder.py:140`, `rf3/diffusion_atom_decoder.py:51`) and rebuilds its `s`
-        # per call (`cw = ttnn.reshape(...)`), so before this the memo missed on EVERY call and
-        # still paid both retains for a pair nothing read; now it never stores there at all.
-        if _B2_ADALN_MEMO_EAGER:
-            store = memo                     # measurement control: the old unconditional retain
-        else:
-            store = memo and self._s_seen is s
-            if memo:
-                self._s_seen = s
-            if store:
-                # Drop the previous `s`'s pair before building this one, so at most one is held.
-                self._s_memo = None
-                self._s_memo_src = None
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
             s = ttnn.to_memory_config(s, memory_config=memory_config)
@@ -9447,7 +9407,7 @@ class AdaLN(Module):
             memory_config=memory_config,
             #core_grid=ttnn.CoreGrid(y=10, x=11), CAUSES ACCURACY ISSUE
         )
-        if store:
+        if memo:
             # DRAM, not the L1 `memory_config` above: 24 pairs of 1.83 MB retained for the whole
             # rollout would hold ~44 MB of L1 and clash with a later op's circular buffers.
             # A memory config does not change values, so the pair stays bit-identical.
@@ -11614,7 +11574,6 @@ class DiffusionModule(TorchWrapper):
                     # (`_c_reshaped`, freed just above) so it is dropped, never deallocated.
                     self._clear_cached_attrs(adaln, ("_s_memo",))
                     adaln._s_memo_src = None
-                    adaln._s_seen = None
 
 
 class MSAModule(TorchWrapper):
