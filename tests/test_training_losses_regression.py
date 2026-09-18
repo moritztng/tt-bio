@@ -21,24 +21,26 @@ file is not purely self-referential:
   * `LOSS_WEIGHTS` is checked against the weights `train-r1-protenix` read out of upstream's
     `configs/configs_base.py:401-407`, which is a second source rather than this code.
 
-NEGATIVE CONTROLS, run against edited COPIES of losses.py on disk. Rebinding a module
-attribute does NOT work here and the first attempt at these controls was wrong because of it:
-the grids and epsilons are captured as default argument values at def-time, so
-`setattr(L, "DISTOGRAM_GRID", ...)` leaves the already-bound default alone and every pin still
-passed. Editing the source is what a real regression looks like, so that is what was tested:
+NEGATIVE CONTROLS RUN AS TESTS, not as a note. `test_the_pins_are_sensitive` below perturbs a
+constant in a COPY of losses.py on disk, imports it, and asserts the pins move. On disk because
+the copy has to be compiled with the change: the grids and epsilons are captured as default
+argument values at def-time, so `setattr(L, "DISTOGRAM_GRID", ...)` leaves the already-bound
+default alone and every pin still passes. The first version of these controls was built that
+way and proved nothing, which is why they are now executed rather than described. The test also
+asserts the substitution applied and that the module it scored is the perturbed copy, so it
+cannot pass vacuously. Pattern adopted from `train-b2-abb3-port`'s
+`tests/test_abodybuilder3_reference.py`, which does the same thing better than the hand-run
+version this file used to rely on.
 
-    DISTOGRAM_GRID hi 21.6875 -> 22.0     breaks distogram + its grad
-    PLDDT_GRID bins 50 -> 51              breaks plddt + its grad
-    distogram eps 1e-6 -> 1e-3            breaks distogram + its grad
-    smooth_lddt eps 1e-10 -> 1e-6         breaks smooth_lddt + its grad
-    cross_entropy_bins scaled 1.01x       breaks 10 pins across five terms
-    SIGMA_DATA 16.0 -> 16.1               breaks NO pin -- no pinned term uses it
-
-That last row is why `test_edm_scale_matches_its_closed_form` asserts `SIGMA_DATA == 16.0`
-explicitly. The closed form is a relationship and stays self-consistent at any sigma_data
-(checked), so only the literal value pin catches a drift in it.
+One perturbation deliberately moves nothing: `SIGMA_DATA` 16.0 -> 16.1 breaks no pin, because
+no pinned term uses it. That is why `test_edm_scale_matches_its_closed_form` asserts
+`SIGMA_DATA == 16.0` literally — the closed form is a relationship and stays self-consistent at
+any sigma_data, so only the value pin catches a drift in it.
 """
 from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -48,6 +50,7 @@ from tt_bio.train import losses as L
 SEED = 20260918
 N_TOKENS = 12
 N_ATOMS = 30
+PKG_TRAIN = Path(L.__file__).resolve().parent
 
 # Pinned from tt_bio/train/losses.py on wk/train-orchestrator, 2026-09-18. `.grad_abssum` is
 # sum(|grad|) over the analytic gradient the term returns alongside its loss, so a backward
@@ -186,3 +189,96 @@ def test_loss_weights_match_upstreams_config():
             got = L.LOSS_WEIGHTS[stage][term]
             assert got == pytest.approx(want, rel=1e-12), (
                 f"LOSS_WEIGHTS[{stage!r}][{term!r}] is {got} but upstream's factors give {want}")
+
+# --------------------------------------------------------- the controls, executed
+
+# (anchor in losses.py, replacement, keys whose pins MUST move). The anchors are exact source
+# lines, so a refactor that renames them fails this test loudly rather than silently weakening it.
+PERTURBATIONS = [
+    ("DISTOGRAM_GRID = (2.3125, 21.6875, 64)", "DISTOGRAM_GRID = (2.3125, 22.0, 64)",
+     {"distogram", "distogram.grad_abssum"}),
+    ("PLDDT_GRID = (0.0, 1.0, 50)", "PLDDT_GRID = (0.0, 1.0, 51)",
+     {"plddt", "plddt.grad_abssum"}),
+    ("def smooth_lddt(pred_dist, true_dist, lddt_pair_mask, *, eps=1e-10):",
+     "def smooth_lddt(pred_dist, true_dist, lddt_pair_mask, *, eps=1e-6):",
+     {"smooth_lddt", "smooth_lddt.grad_abssum"}),
+]
+
+
+def _load_perturbed(old: str, new: str):
+    """Compile a copy of losses.py with `old` replaced by `new`, inside the package.
+
+    Inside the package so its `from __future__` and any relative imports resolve the same way,
+    and removed in `finally` so a failure cannot leave it behind.
+    """
+    src_path = PKG_TRAIN / "losses.py"
+    src = src_path.read_text()
+    assert old in src, (
+        f"anchor not found in losses.py, so this control would test nothing: {old!r}. "
+        f"If the line was legitimately renamed, update PERTURBATIONS."
+    )
+    perturbed = src.replace(old, new, 1)
+    assert perturbed != src, "substitution did not apply"
+    tmp = PKG_TRAIN / f"_losses_control_{abs(hash(old)) % 10**8}.py"
+    tmp.write_text(perturbed)
+    try:
+        spec = importlib.util.spec_from_file_location(
+            f"tt_bio.train.{tmp.stem}", tmp)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        # the module under test really is the perturbed copy, not the real one
+        assert Path(mod.__file__).name == tmp.name, (
+            f"scored {mod.__file__}, not the perturbed copy")
+        yield mod
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+@pytest.mark.parametrize("old,new,must_move", PERTURBATIONS,
+                         ids=[p[0].split("(")[0].split("=")[0].strip() for p in PERTURBATIONS])
+def test_the_pins_are_sensitive(measured, old, new, must_move):
+    """A pin that cannot fail is not a pin. Perturb the source; the named pins must move."""
+    gen = _load_perturbed(old, new)
+    mod = next(gen)
+    try:
+        global L
+        real, L = L, mod
+        try:
+            got = _measure()
+        finally:
+            L = real
+    finally:
+        for _ in gen:
+            pass
+
+    moved = {k for k in GOLDEN
+             if got[k] != pytest.approx(GOLDEN[k], rel=1e-9, abs=1e-11)}
+    missing = must_move - moved
+    assert not missing, (
+        f"perturbing {old!r} -> {new!r} did NOT move {sorted(missing)}. Those pins are not "
+        f"sensitive to it, so they are not protecting what this file claims they protect."
+    )
+
+
+def test_sigma_data_moves_no_pin_which_is_why_the_closed_form_asserts_it():
+    """The documented exception, executed rather than asserted in prose."""
+    gen = _load_perturbed("SIGMA_DATA = 16.0", "SIGMA_DATA = 16.1")
+    mod = next(gen)
+    try:
+        global L
+        real, L = L, mod
+        try:
+            got = _measure()
+        finally:
+            L = real
+    finally:
+        for _ in gen:
+            pass
+    moved = {k for k in GOLDEN
+             if got[k] != pytest.approx(GOLDEN[k], rel=1e-9, abs=1e-11)}
+    assert not moved, (
+        f"SIGMA_DATA now reaches {sorted(moved)}. If a pinned term started using it that is "
+        f"fine, but then this test is obsolete and the closed-form test carries less weight "
+        f"than its docstring claims."
+    )
+    assert mod.SIGMA_DATA == 16.1, "control did not apply"
