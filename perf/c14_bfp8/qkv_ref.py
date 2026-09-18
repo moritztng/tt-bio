@@ -25,6 +25,9 @@ REPO = HERE.parents[1]
 sys.path.insert(0, str(REPO))
 import torch  # noqa: E402
 import ttnn  # noqa: E402
+import tt_bio  # noqa: E402
+assert Path(tt_bio.__file__).resolve().is_relative_to(REPO), (
+    "imported tt_bio from %s, not %s" % (tt_bio.__file__, REPO))
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
 from tt_bio import mm_generic as G  # noqa: E402
 
@@ -56,7 +59,7 @@ ref = (ttnn.to_torch(x).double() @ ttnn.to_torch(w).double())
 
 blk = _mm_block_for(w) or _MM_DEFAULT
 cfg = (blk, tuple(COMPUTE_GRID_MAIN))
-res = {"m": A.m, "k": A.k, "n": A.n, "mgd": MGD, "block_entry": blk is not _MM_DEFAULT,
+res = {"tt_bio": tt_bio.__file__, "m": A.m, "k": A.k, "n": A.n, "mgd": MGD, "block_entry": blk is not _MM_DEFAULT,
        "grid": list(COMPUTE_GRID_MAIN), "arms": {}}
 
 

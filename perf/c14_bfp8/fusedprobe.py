@@ -14,10 +14,19 @@ import argparse, json, statistics, sys, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent / "c12_orchestrator" / "relayed" / "c12_kblock"))
+REPO = HERE.parents[1]
+# The worktree FIRST. Without this the venv's installed tt_bio wins and the probe scores a
+# different tree than the one being changed -- which is exactly how this script failed its first
+# run: `AttributeError: module 'tt_bio.triatt_sdpa' has no attribute 'fused_pairs'`, from the
+# installed package, not from here. Memory `parity-gate-scores-installed-package-not-checkout`.
+sys.path.insert(0, str(REPO))
+sys.path.insert(1, str(HERE.parent / "c12_orchestrator" / "relayed" / "c12_kblock"))
 import clk  # noqa: E402
 import torch  # noqa: E402
 import ttnn  # noqa: E402
+import tt_bio  # noqa: E402
+assert Path(tt_bio.__file__).resolve().is_relative_to(REPO), (
+    "imported tt_bio from %s, not %s" % (tt_bio.__file__, REPO))
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
 from tt_bio import triatt_sdpa as TS  # noqa: E402
 
@@ -46,7 +55,7 @@ def t(shape, dt):
                            device=dev, dtype=dt, memory_config=DRAM)
 
 
-res = {"seq": S, "heads": H, "head_dim": D, "grid": [grid.y, grid.x], "cores": cores,
+res = {"tt_bio": tt_bio.__file__, "seq": S, "heads": H, "head_dim": D, "grid": [grid.y, grid.x], "cores": cores,
        "nodes": nodes, "mgd": MGD, "mhz_requested": A.mhz, "reps": A.reps, "arms": {}}
 held = clk.force(A.mhz, nodes)
 for _ in range(200):
