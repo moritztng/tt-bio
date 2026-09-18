@@ -71,8 +71,13 @@ FLAGS = {
 
 
 def _helpers():
-    """Reuse the b2x-flag-levers Boltz-2 config rather than re-deriving 40 lines of it."""
-    p = REPO / "perf" / "b2x-flag-levers" / "ab_flag_levers.py"
+    """Reuse b2z_ttnn's config rather than re-deriving 40 lines of it.
+
+    It is the same config b2x-flag-levers builds, with one difference that matters here: its
+    `build_cfg` takes the model, so this harness is not boltz-2-only. That is what lets the AdaLN
+    memo be measured on RF3, which is the caller its mechanism predicts the whole effect on.
+    """
+    p = REPO / "perf" / "b2z_ttnn" / "stack_fold.py"
     spec = importlib.util.spec_from_file_location("_b2x_flaglev", p)
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)
@@ -147,14 +152,14 @@ def worker(args) -> int:
 
     H = _helpers()
     dev = get_device()
-    out: dict = {"arm": args.arm, "size": args.size, "folds": []}
+    out: dict = {"arm": args.arm, "size": args.size, "model": args.model, "folds": []}
 
     work = Path(tempfile.mkdtemp(prefix="c14-apb-", dir=str(REPO / "perf" / "c14_land")))
     struct_dir = work / "out"; struct_dir.mkdir(parents=True)
     msa_dir = work / "msa"; msa_dir.mkdir(parents=True)
     H._seed_msa(FIX / f"cdk2x2_{args.size}.yaml",
                 (FIX / f"cdk2x2_{args.size}.a3m").read_text(), msa_dir)
-    cfg = H.build_cfg(msa_dir, struct_dir)
+    cfg = H.build_cfg(msa_dir, struct_dir, args.model)
     _ensure_local_artifacts(cfg)
 
     t0 = time.perf_counter()
@@ -168,7 +173,7 @@ def worker(args) -> int:
         "host": socket.gethostname(), "grid": [g.x, g.y],
         "tt_visible_devices": os.environ.get("TT_VISIBLE_DEVICES"),
         "lease_cards": os.environ.get("TT_BIO_LEASE_CARDS"),
-        "flag": args.flag, "attr": attr,
+        "flag": args.flag, "attr": attr, "model": args.model,
         "env_flag": os.environ.get(args.flag),
         "module_flag": got,
         "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
@@ -294,7 +299,7 @@ def driver(args) -> int:
                     env.pop(args.flag, None)
                 cmd = [sys.executable, str(Path(__file__).resolve()),
                        "--arm", arm, "--size", size, "--folds", str(args.folds),
-                       "--flag", args.flag,
+                       "--flag", args.flag, "--model", args.model,
                        "--block", str(b), "--card", str(args.card), "--out", str(jf)]
                 if args.cifdir:
                     cmd += ["--cifdir", str(args.cifdir)]
@@ -367,6 +372,9 @@ def main() -> int:
     # worker-only
     ap.add_argument("--arm", choices=["base", "on"])
     ap.add_argument("--flag", default="TT_BIO_APB_CONCAT_HEADS", choices=sorted(FLAGS))
+    ap.add_argument("--model", default="boltz2",
+                    help="boltz2 is the 512 aa number of record; rf3 is where the AdaLN memo's "
+                         "mechanism predicts its effect")
     ap.add_argument("--size")
     ap.add_argument("--block", type=int, default=0)
     args = ap.parse_args()
