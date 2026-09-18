@@ -1,0 +1,25 @@
+{
+  "flag": "TT_BIO_SDPA_BAND_DIV_K",
+  "what_this_discharges": "the flag comment at tt_bio/tenstorrent.py:1316 says 'NOT bit-exact, same reason as K3: k_chunk sets the online-softmax reduction order. The accuracy arm is plDDT.' This is that arm, at 298 aa on Blackhole p300c.",
+  "source": "perf/c14_land/bandk_accuracy_298.json, production protocol (200 sampling steps), qb2 card 1, extracted not re-folded",
+  "size_aa": 298,
+  "padded": 320,
+  "arms": {
+    "base": {"plddt": [0.908011, 0.908011], "spread": 0.0, "cif_sha256_prefix": "a8c6fd65f70f4418"},
+    "on":   {"plddt": [0.909425, 0.909425], "spread": 0.0, "cif_sha256_prefix": "d4667bd5c627b2a7"}
+  },
+  "delta_plddt": 0.001414,
+  "direction": "HIGHER plDDT with the flag ON, i.e. the accuracy arm moves in the flag's favour",
+  "base_spread_plddt": 0.0,
+  "why_the_spread_is_zero": "both base folds returned the identical CIF digest and both on folds returned the identical digest, so this fold is deterministic at fixed flags. The A/A spread is exactly 0.000000, not a small number.",
+  "not_vacuous": "the two arms write DIFFERENT digests (a8c6fd65 vs d4667bd5), so the lever provably ran. A byte-identical pair would have made the reading worthless -- negative-control-must-break-what-check-reads.",
+  "beside_the_structural_arm": {
+    "all_atom_A": 0.254029, "ca_A": 0.121228, "aa_floor_A": 0.0,
+    "pass_threshold_A": 0.35, "seed_floor_A": 0.7998
+  },
+  "contrast_with_the_silu_withdrawal": "TT_BIO_UNFUSED_SILU was withdrawn on a 0.05088/0.07210 CA-lDDT loss with the arms fully rank-separated. K4 moves plDDT +0.001414 in the GOOD direction against a 0.000000 base spread, i.e. 36x smaller in magnitude and the opposite sign.",
+  "still_owed_before_this_flag_can_ship": [
+    "the fold-level A/B with its own A/A floor on current main. NOT taken: four passes, no clean timing window on qb2.",
+    "the flag's own comment sets the bar as 'its fold-level A/B and plDDT arm land on BOTH architectures'. This plDDT arm is Blackhole only. The Wormhole half needs the galaxy, which this row has no grant for."
+  ]
+}
