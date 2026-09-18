@@ -28,8 +28,9 @@ import ttnn
 __all__ = [
     "Tensor", "precise_config", "no_grad",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
-    "reshape",
+    "relu", "silu", "reshape",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
+    "install", "uninstall", "installed",
 ]
 
 
@@ -216,7 +217,8 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
     return _tape(out_v, [a, b], make)
 
 
-def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, config=None) -> Tensor:
+def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core_grid=None,
+           config=None, backward_config=None, **kw) -> Tensor:
     """``x @ w (+ b)``, with ``w`` in ttnn's (in, out) layout -- tt-bio's own convention.
 
     Backward is two matmuls rather than ``ttnn.moreh_linear_backward``. tt-train ships both
@@ -228,22 +230,36 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, config=None) -> 
     levers tt-bio ships; and ``moreh_linear_backward`` is itself just these two matmuls plus
     a reduction, so there is no kernel to gain. Our linears are thin-K, where a matmul the
     production path already tunes beats a generic one.
+
+    ``dtype`` and ``core_grid`` exist here because the shipped call site passes them and
+    this op used to drop them: the training forward is meant to be the served forward, and
+    an output dtype or a core grid silently changed is a deviation nobody measured.
+    ``backward_config`` separates the two halves, because they want opposite things. The
+    forward wants whatever the production site measured; the backward accumulates over the
+    reduction axis and again over fan-in, so it wants ``precise_config()``. Default is the
+    forward's, which is what every caller predating the split already got.
+
+    No ``activation``. ``ttnn.linear`` fuses one into the packer and the result is not
+    generally invertible -- silu's is not -- so a fused activation here would be a silently
+    wrong gradient. The attach point composes a taped activation on the output instead.
     """
     cfg = config or precise_config()
+    bwcfg = backward_config or cfg
     out_v = ttnn.linear(x.value, w.value,
                         bias=(b.value if b is not None else None),
-                        compute_kernel_config=cfg)
+                        dtype=dtype, core_grid=core_grid,
+                        compute_kernel_config=cfg, **kw)
     parents = [p for p in (x, w, b) if p is not None]
 
     def make():
         def bw(g):
             if x.requires_grad:
-                x.add_grad(ttnn.matmul(g, w.value, transpose_b=True, compute_kernel_config=cfg))
+                x.add_grad(ttnn.matmul(g, w.value, transpose_b=True, compute_kernel_config=bwcfg))
             if w.requires_grad:
                 # dW = X^T @ dY, summed over every leading dim, so flatten both first:
                 # a batched matmul would give one dW per batch instead of their sum.
                 w.add_grad(ttnn.matmul(_flat2d(x.value), _flat2d(g),
-                                       transpose_a=True, compute_kernel_config=cfg))
+                                       transpose_a=True, compute_kernel_config=bwcfg))
             if b is not None and b.requires_grad:
                 b.add_grad(_sum_leading(g, b.value.shape))
         return bw
@@ -252,7 +268,7 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, config=None) -> 
 
 
 def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor] = None,
-               *, eps: float = 1e-6, config=None) -> Tensor:
+               *, eps: float = 1e-6, config=None, backward_config=None) -> Tensor:
     """Layer norm over the last dim, composite so the backward has mean and rstd to hand.
 
     Composite on purpose. ``ttnn.layer_norm`` does not return mean/rstd and
@@ -264,8 +280,14 @@ def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor]
     (ops/layernorm_op.cpp:144) takes the variance as E[x^2] - E[x]^2, which cancels
     catastrophically once the mean dominates the spread. This uses the two-pass
     E[(x - mean)^2] instead, for one extra pass over the row.
+
+    ``eps`` defaults to 1e-6 and every tt-bio layer norm on the inference path uses 1e-5, a
+    factor of ten. The default is kept because the diagnostics under ``perf/hallgrad`` are
+    calibrated against it; the attach point passes the site's own epsilon, so nothing
+    dispatched here can inherit this default.
     """
     cfg = config or precise_config()
+    _ = backward_config or cfg  # this op's backward is eltwise; no matmul config to set
     xv = x.value
     mean = ttnn.mean(xv, dim=-1, keepdim=True)
     centered = ttnn.subtract(xv, mean)
@@ -389,6 +411,27 @@ def sigmoid(x: Tensor) -> Tensor:
         return bw
 
     return _tape(y, [x], make)
+
+
+def silu(x: Tensor) -> Tensor:
+    """SiLU, ``x * sigmoid(x)``. Eight shipped linears fuse this activation into the packer.
+
+    The backward needs the INPUT, not the output: ``y = x*s`` is not invertible, so unlike
+    relu and sigmoid there is no way back from what was materialised. ``dy/dx = s*(1 + x*(1
+    - s))``, and the sigmoid is retained rather than recomputed because it is the expensive
+    half.
+    """
+    sig = ttnn.sigmoid(x.value)
+    out_v = ttnn.multiply(x.value, sig)
+    xv = x.value
+
+    def make():
+        def bw(g):
+            d = ttnn.multiply(sig, ttnn.add(ttnn.multiply(xv, ttnn.rsub(sig, 1.0)), 1.0))
+            x.add_grad(ttnn.multiply(g, d))
+        return bw
+
+    return _tape(out_v, [x], make)
 
 
 def reshape(x: Tensor, shape: Sequence[int]) -> Tensor:
@@ -714,3 +757,117 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
         return bw
 
     return _tape(out_value, list(inputs) + list(params), make)
+
+
+# ---------------------------------------------------------------------------------------
+# The attach point.
+#
+# `tt_bio/ops.py` is the one linear and layer-norm call every device module makes, and it
+# offers each call to a hook before running it. This is that hook, and installing it is the
+# whole of what makes the SHIPPED forward differentiable -- there is no taped copy of a
+# production module to drift from what we serve.
+#
+# `ops` holds a slot and `install` fills it. Nothing under `tt_bio/` imports this module, so
+# importing `tt_bio` cannot reach the tape and an inference path that never calls `install`
+# pays one `is None` test per linear.
+#
+# Three things the hook does that a substitution could not, each of them a measured gap:
+#
+#   * It declines outright when no operand is on the tape, so the call is the shipped one,
+#     byte for byte, including the tuned narrow-projection and L1-resident-norm routings.
+#   * It runs the SHIPPED op, not the composite one, for an operand that is on the tape but
+#     not being differentiated -- under `no_grad`, or for a frozen block in a fine-tune.
+#     `_GRAD_ENABLED` alone cannot do this: it prunes the tape node after the caller has
+#     already computed the forward.
+#   * It forwards `dtype`, `core_grid` and the site's own compute kernel config and epsilon,
+#     all four of which the tape's ops used to drop. A differentiable layer norm still has
+#     to be composite -- `ttnn.layer_norm` returns neither mean nor rstd and
+#     `moreh_layer_norm_backward` needs both, then refuses bfloat8_b -- but that is now the
+#     only forward difference, and it only exists where a gradient is actually wanted.
+# ---------------------------------------------------------------------------------------
+
+_ACTIVATIONS = {"relu": relu, "sigmoid": sigmoid, "silu": silu}
+
+
+def _on_tape(*ts):
+    return any(isinstance(t, Tensor) for t in ts)
+
+
+def _differentiating(*ts):
+    return _GRAD_ENABLED and any(isinstance(t, Tensor) and t.requires_grad for t in ts)
+
+
+def _wrap(t):
+    """A raw ttnn tensor joins the tape as an untracked leaf; a `Tensor` passes through."""
+    return t if t is None or isinstance(t, Tensor) else Tensor(t)
+
+
+def _unwrap(t):
+    return t.value if isinstance(t, Tensor) else t
+
+
+class _Hook:
+    """`ops`'s grad hook. Returns None to decline, which falls through to production."""
+
+    @staticmethod
+    def linear(x, w, bias, *, activation=None, compute_kernel_config=None, dtype=None,
+               core_grid=None, narrow_proj=False, **kw):
+        from . import ops
+        if not _on_tape(x, w, bias):
+            return None
+        if not _differentiating(x, w, bias):
+            return Tensor(ops.shipped_linear(
+                _unwrap(x), _unwrap(w), _unwrap(bias), activation=activation,
+                compute_kernel_config=compute_kernel_config, dtype=dtype,
+                core_grid=core_grid, narrow_proj=narrow_proj, **kw))
+        act = None
+        if activation is not None:
+            act = _ACTIVATIONS.get(activation)
+            if act is None:
+                raise NotImplementedError(
+                    f"tt_bio.autograd has no backward for the fused activation "
+                    f"{activation!r}. Add one to _ACTIVATIONS -- dropping it would train "
+                    f"against a forward we do not serve.")
+        # The activation is composed rather than fused, because `ttnn.linear` fuses it into
+        # the packer and silu's output cannot be inverted back to its input. That is a real
+        # deviation of the training forward from the served one, and it is measured, not
+        # assumed away.
+        out = linear(_wrap(x), _wrap(w), _wrap(bias), dtype=dtype, core_grid=core_grid,
+                     config=compute_kernel_config, backward_config=precise_config(), **kw)
+        return act(out) if act is not None else out
+
+    @staticmethod
+    def layer_norm(x, weight, bias, *, epsilon=1e-5, compute_kernel_config=None,
+                   l1_headroom=None, **kw):
+        from . import ops
+        if not _on_tape(x, weight, bias):
+            return None
+        if not _differentiating(x, weight, bias):
+            return Tensor(ops.shipped_layer_norm(
+                _unwrap(x), _unwrap(weight), _unwrap(bias), epsilon=epsilon,
+                compute_kernel_config=compute_kernel_config, l1_headroom=l1_headroom, **kw))
+        # `l1_headroom` is dropped on purpose: it asks for an L1-resident RESULT, and the
+        # composite backward reads five intermediates that an L1 budget sized for one
+        # tensor cannot hold. It is a placement lever, so dropping it moves no number.
+        return layer_norm(_wrap(x), _wrap(weight), _wrap(bias), eps=epsilon,
+                          config=compute_kernel_config, **kw)
+
+
+_HOOK = _Hook()
+
+
+def install() -> None:
+    """Make the shipped forward differentiable. Idempotent."""
+    from . import ops
+    ops.set_grad_hook(_HOOK)
+
+
+def uninstall() -> None:
+    """Put the inference path back. Idempotent."""
+    from . import ops
+    ops.set_grad_hook(None)
+
+
+def installed() -> bool:
+    from . import ops
+    return ops.grad_hook() is _HOOK

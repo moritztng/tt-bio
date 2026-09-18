@@ -31,7 +31,8 @@ from __future__ import annotations
 
 import ttnn
 
-__all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook"]
+__all__ = ["linear", "layer_norm", "shipped_linear", "shipped_layer_norm",
+           "set_grad_hook", "grad_hook"]
 
 
 _GRAD_HOOK = None
@@ -76,9 +77,22 @@ def linear(x, w, bias=None, *, activation=None, compute_kernel_config=None, dtyp
     if _GRAD_HOOK is not None:
         out = _GRAD_HOOK.linear(x, w, bias, activation=activation,
                                 compute_kernel_config=compute_kernel_config, dtype=dtype,
-                                core_grid=core_grid, **kw)
+                                core_grid=core_grid, narrow_proj=narrow_proj, **kw)
         if out is not None:
             return out
+    return shipped_linear(x, w, bias, activation=activation,
+                          compute_kernel_config=compute_kernel_config, dtype=dtype,
+                          core_grid=core_grid, narrow_proj=narrow_proj, **kw)
+
+
+def shipped_linear(x, w, bias=None, *, activation=None, compute_kernel_config=None,
+                   dtype=None, core_grid=None, narrow_proj=False, **kw):
+    """`linear` with the hook bypassed: the production op and nothing else.
+
+    The tape calls this for a call whose operands are on it but not being differentiated,
+    so grad-off inside a taped module is still the shipped path rather than the composite
+    one. Everything else calls `linear`.
+    """
     if narrow_proj and bias is None and activation is None:
         global _NARROW_PROJ
         if _NARROW_PROJ is None:
@@ -111,9 +125,18 @@ def layer_norm(x, weight=None, bias=None, *, epsilon=1e-5, compute_kernel_config
     """
     if _GRAD_HOOK is not None:
         out = _GRAD_HOOK.layer_norm(x, weight, bias, epsilon=epsilon,
-                                    compute_kernel_config=compute_kernel_config, **kw)
+                                    compute_kernel_config=compute_kernel_config,
+                                    l1_headroom=l1_headroom, **kw)
         if out is not None:
             return out
+    return shipped_layer_norm(x, weight, bias, epsilon=epsilon,
+                              compute_kernel_config=compute_kernel_config,
+                              l1_headroom=l1_headroom, **kw)
+
+
+def shipped_layer_norm(x, weight=None, bias=None, *, epsilon=1e-5, compute_kernel_config=None,
+                       l1_headroom=None, **kw):
+    """`layer_norm` with the hook bypassed. See `shipped_linear`."""
     if l1_headroom is not None:
         global _L1_NORM
         if _L1_NORM is None:
