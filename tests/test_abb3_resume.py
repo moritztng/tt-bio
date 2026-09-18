@@ -57,16 +57,22 @@ class FakeStep:
         self.recipe = {"lr": 1e-3}
         self.accumulate = accumulate
 
-    def step(self, gen):
-        """One synthetic optimizer step, driven by ``gen`` so a run is reproducible.
+    def step(self, i: int):
+        """One synthetic optimizer step. The gradient is derived from the STEP NUMBER.
 
-        The dropout generator is advanced too, because it is part of the state a resume has to
-        restore -- a step that did not touch it would let test 1 pass with the RNG forgotten.
+        Index-derived and not drawn from a carried stream, which is the run's own arrangement:
+        ``run()`` places the data order with ``islice(batches(...), start, None)`` off the step
+        number, so a resume does not have to replay a generator to reach the right batch.
+
+        The dropout generator IS advanced, and is the piece that has to be carried rather than
+        derived -- it is part of the recipe, so a resume that re-seeds it replays masks the run
+        already used. Without this line test 1 would pass with the RNG forgotten.
         """
+        g = torch.Generator().manual_seed(1000 + i)
         scale = torch.rand(1, generator=self.dropout.generator).item() + 0.5
         self.dropout.calls += 1
         for m in self.mirror:
-            m.grad = torch.randn(m.shape, generator=gen) * scale
+            m.grad = torch.randn(m.shape, generator=g) * scale
         self.optimizer.step()
         return master_hash([m.detach().numpy() for m in self.mirror])
 
@@ -75,9 +81,8 @@ def _noop_upload(t):
     return t
 
 
-def _trajectory(step, steps, seed=7):
-    g = torch.Generator().manual_seed(seed)
-    return [step.step(g) for _ in range(steps)]
+def _trajectory(step, steps, first=1):
+    return [step.step(i) for i in range(first, first + steps)]
 
 
 def test_a_resume_reproduces_the_uninterrupted_trajectory_bit_for_bit(tmp_path):
@@ -91,13 +96,9 @@ def test_a_resume_reproduces_the_uninterrupted_trajectory_bit_for_bit(tmp_path):
     revived = FakeStep()
     state = load_run_state(ck, revived, upload=_noop_upload)
     assert state.step == 3
-    # The data order and the RNG stream are replayed from the step number, exactly as the run
-    # does with `islice(batches(...), start, None)`.
-    g = torch.Generator().manual_seed(7)
-    for _ in range(3):
-        torch.randn(revived.mirror[0].shape, generator=g)
-        torch.rand(1, generator=g)
-    after = [revived.step(g) for _ in range(3)]
+    # Steps 4, 5, 6 -- placed from the step number the checkpoint carries, which is exactly how
+    # the run places them after a resume.
+    after = _trajectory(revived, 3, first=state.step + 1)
 
     assert first == control[:3]
     assert after == control[3:], (
@@ -124,12 +125,9 @@ def test_restoring_only_the_weights_diverges_so_the_check_above_is_not_vacuous(t
 
     revived = FakeStep()
     state = load_run_state(ck, revived, upload=_noop_upload)
+    # The whole of the omission: the masters are right and the optimizer is a fresh one.
     revived.optimizer = torch.optim.RAdam(revived.mirror, lr=1e-3, weight_decay=1e-4)
-    g = torch.Generator().manual_seed(7)
-    for _ in range(3):
-        torch.randn(revived.mirror[0].shape, generator=g)
-        torch.rand(1, generator=g)
-    after = [revived.step(g) for _ in range(3)]
+    after = _trajectory(revived, 3, first=state.step + 1)
     assert state.step == 3
     assert after != control[3:], (
         "a weights-only resume produced the same trajectory as a complete one, so the "
