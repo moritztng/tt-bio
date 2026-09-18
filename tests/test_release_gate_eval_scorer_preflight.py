@@ -9,6 +9,9 @@ decision. This is the same class _preflight_msa_cache was written for, in a diff
 
 Run: python3 tests/test_release_gate_eval_scorer_preflight.py, or via pytest.
 """
+import importlib
+import subprocess
+import pytest
 import os
 import sys
 
@@ -322,3 +325,37 @@ if __name__ == "__main__":
         if name.startswith("test_") and callable(fn):
             fn()
             print(f"ok  {name}")
+
+
+def test_a_delegated_scorer_is_probed_by_path_not_by_realpath(tmp_path, monkeypatch):
+    """Two interpreters can share one realpath and not share one site-packages.
+
+    A venv's bin/python is a symlink to the base interpreter, so on qb2
+    realpath(/home/ttuser/dockqenv/bin/python) == realpath(<gate venv>/bin/python3) ==
+    /usr/bin/python3.12. Comparing those made the preflight take the in-process branch for a
+    DELEGATED scorer and answer for the wrong interpreter: it refused the gate at startup
+    naming a DockQ that /home/ttuser/dockqenv imports perfectly well, which is the exact
+    configuration the function's own docstring says it exists to support. Reproduced here with
+    a symlink to the base interpreter -- same realpath as sys.executable, different
+    site-packages -- because that is the condition, and a made-up path cannot create it.
+    """
+    alias = tmp_path / "base-python"
+    alias.symlink_to(os.path.realpath(sys.executable))
+    assert os.path.realpath(alias) == os.path.realpath(sys.executable)
+    assert os.path.abspath(alias) != os.path.abspath(sys.executable)
+    if subprocess.run([str(alias), "-c", "import numpy"], capture_output=True).returncode == 0:
+        pytest.skip("the base interpreter has numpy too, so it cannot discriminate here")
+    importlib.import_module("numpy")        # ...but this one does
+
+    monkeypatch.setattr(rg, "_EVAL_SCORERS",
+                        {"fake-arm": ("numpy", "numpy==1.26.4", "scripts/fake_scorer.py",
+                                      str(alias))})
+    try:
+        rg._preflight_eval_scorers(["fake-arm"])
+    except SystemExit as exc:
+        assert str(alias) in str(exc), str(exc)
+        assert "numpy" in str(exc), str(exc)
+    else:
+        raise AssertionError("the delegated interpreter lacks numpy; the preflight answered for "
+                             "this one instead")
+    rg._preflight_eval_scorers([])          # arm not selected: still silent

@@ -1177,7 +1177,15 @@ def _preflight_eval_scorers(models: list) -> None:
         interp = (entry[3] if len(entry) > 3 else None) or sys.executable
         if arm not in models:
             continue
-        if os.path.realpath(interp) == os.path.realpath(sys.executable):
+        # Same PATH, not same realpath. A venv's bin/python is a symlink to the base
+        # interpreter, so two DIFFERENT venvs both resolve to /usr/bin/python3.12 and a
+        # realpath comparison calls them the same environment. That made this preflight take
+        # the in-process branch for a delegated scorer and report the gate venv's
+        # ModuleNotFoundError against the OTHER interpreter's path -- refusing, at startup,
+        # exactly the configuration the docstring above says it exists to support
+        # (verified on qb2: /home/ttuser/dockqenv/bin/python imports DockQ 2.1.3 fine and the
+        # gate refused it). An interpreter is its sys.prefix, not its argv[0] inode.
+        if os.path.abspath(interp) == os.path.abspath(sys.executable):
             try:
                 importlib.import_module(mod)
             except Exception as exc:
