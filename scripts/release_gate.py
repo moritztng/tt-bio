@@ -1180,6 +1180,43 @@ def _kill_group(proc) -> None:
 _CONTENDED: list = []
 
 
+def _contended(row) -> bool:
+    """True if this leg's subprocess exited on the device-contention code, i.e. it never opened
+    the card and carries no measurement.
+
+    Every harness in this file surfaces the child's code into `error` as "... exited <rc>", so one
+    read covers them all. _CONTENDED above already collects these for the run-end epilogue, but
+    that epilogue only prints when the whole gate completes, and the run that most needs the
+    caveat is the one that dies partway: on 2026-09-18 a c13-land-first gate died mid-size-ladder
+    with three legs contended, so the reader saw "missed parse or the DockQ floor" and no
+    correction at all. The caveat has to be at the verdict, not after it."""
+    m = re.search(r"\bexited (\d+)\b", (row or {}).get("error") or "")
+    return bool(m) and int(m.group(1)) == CONTENDED_EXIT_CODE
+
+
+def _verdict(row) -> str:
+    """The per-row result cell, shared by every leg so contention reads the same everywhere."""
+    if row.get("gate"):
+        return "PASS"
+    if _contended(row):
+        return f"BLOCKED ({row['error']} -- never opened the card, nothing scored)"
+    return f"FAIL ({row['error']})" if row.get("error") else "FAIL"
+
+
+def _gate_line(rows, passed: str, failed: str, what: str) -> str:
+    """The leg's headline. Where nothing ran the answer is BLOCKED, not FAIL: every `failed`
+    string in this file names an accuracy floor, and a floor that was never evaluated must not be
+    reported as missed."""
+    rows = [rows] if isinstance(rows, dict) else list(rows)
+    if all(r.get("gate") for r in rows):
+        return passed
+    if all(r.get("gate") or _contended(r) for r in rows):
+        return (f"GATE BLOCKED — {what} never opened a device: a co-tenant held the card, so "
+                f"nothing was scored.\nThis is not an accuracy result. Grep DeviceInUseError "
+                f"above for the holder, then re-run uncontended.")
+    return failed
+
+
 def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
     """Run a fold subprocess in its OWN process group; on timeout kill the whole group so a
     hung MSA-server wait or a hung multiprocessing shutdown cannot orphan device-holding
@@ -4220,7 +4257,7 @@ def main() -> int:
             gaps = str(g["breaks"]) if g.get("breaks") is not None else " - "
             cl = (f"{g['clashes']}({g['clash_frac']:.4f})" if g.get("heavy") else "  -  ")
             wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
-            verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+            verdict = _verdict(r)
             all_pass &= r["gate"]
             print(f"{r['model']:<15}{rmsd:>10}{tm:>8}{floor:>16}{ib:>9}{gaps:>6}"
                   f"{cl:>13}{wall:>8}  {verdict}")
@@ -4230,9 +4267,11 @@ def main() -> int:
               f"(nucleic), zero backbone gaps beyond {_geom_const('CA_CA_BREAK')} / "
               f"{_geom_const('PP_BREAK')} A, clashes <= max("
               f"{_geom_const('CLASH_MAX_ABS')}, {PREDICT_MAX_CLASH_FRAC} x heavy atoms)")
-        print("GATE PASS — all models cleared parse + ground-truth floor + geometry"
-              if all_pass else
-              "GATE FAIL — a model missed parse, the ground-truth floor or geometry (see above)")
+        print(_gate_line(
+            rows,
+            "GATE PASS — all models cleared parse + ground-truth floor + geometry",
+            "GATE FAIL — a model missed parse, the ground-truth floor or geometry (see above)",
+            "every fold leg"))
 
     if want_rf3_1024aa:
         rr = run_rf3_1024aa(args.keep)
@@ -4246,15 +4285,18 @@ def main() -> int:
         rx = f"{rr['ref_xtal_a']:.3f}" if rr["ref_xtal_a"] is not None else "  -  "
         xa = f"{rr['x_a']:.3f}" if rr["x_a"] is not None else "  -  "
         wall = f"{rr['seconds']:.0f}s" if rr["seconds"] is not None else "-"
-        verdict = "PASS" if rr["gate"] else f"FAIL ({rr['error']})" if rr["error"] else "FAIL"
+        verdict = _verdict(rr)
         all_pass &= rr["gate"]
         print(f"{rr['model']:<15}{xt:>13}{nca:>6}{rx:>8}{xa:>8}"
               f"{f'<={RF3_1024AA_MAX_XTAL_A}':>10}{wall:>9}  {verdict}")
         print(f"ref = the reference's own distance to the crystal, X = device vs reference: "
               f"both evidence, not gated (measured {RF3_1024AA_XTAL_MEASURED} A)")
         print(f"{'#'*78}")
-        print("GATE PASS — rf3 at 997 aa cleared the crystal floor" if rr["gate"]
-              else "GATE FAIL — rf3 at 997 aa missed the crystal floor (see above)")
+        print(_gate_line(
+            rr,
+            "GATE PASS — rf3 at 997 aa cleared the crystal floor",
+            "GATE FAIL — rf3 at 997 aa missed the crystal floor (see above)",
+            "rf3 at 997 aa"))
 
     if want_rfd3_fusion:
         fr = run_rfd3_fusion(args.keep)
@@ -4285,12 +4327,15 @@ def main() -> int:
         scrmsd = f"{br['scrmsd_median']:.3f}" if br["scrmsd_median"] is not None else "  -  "
         pr = f"{br['pass_rate']*100:.0f}%" if br["pass_rate"] is not None else "  -  "
         wall = f"{br['seconds']:.0f}s" if br["seconds"] is not None else "-"
-        verdict = "PASS" if br["gate"] else f"FAIL ({br['error']})" if br["error"] else "FAIL"
+        verdict = _verdict(br)
         all_pass &= br["gate"]
         print(f"{br['model']:<15}{scrmsd:>12}{pr:>12}{floor:>18}{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        print("GATE PASS — boltzgen designs cleared parse + designability floor" if br["gate"]
-              else "GATE FAIL — boltzgen missed parse or the designability floor (see above)")
+        print(_gate_line(
+            br,
+            "GATE PASS — boltzgen designs cleared parse + designability floor",
+            "GATE FAIL — boltzgen missed parse or the designability floor (see above)",
+            "boltzgen"))
 
     if want_rfd3:
         if not RFD3_SPEC.exists():
@@ -4309,7 +4354,7 @@ def main() -> int:
         unk = str(rr["unk"]) if rr["unk"] is not None else "-"
         det = ("ok" if rr["determinism"] else "NO") if rr["determinism"] is not None else "-"
         wall = f"{rr['seconds']:.0f}s" if rr["seconds"] is not None else "-"
-        verdict = "PASS" if rr["gate"] else f"FAIL ({rr['error']})" if rr["error"] else "FAIL"
+        verdict = _verdict(rr)
         all_pass &= rr["gate"]
         cr = f"{rr['clean_rate']:.2f}" if rr["clean_rate"] is not None else "  -  "
         print(f"{rr['model']:<15}{rr['n_designs']:>8}{cr:>7}{ib:>9}{br:>7}{cf:>12}{aa:>5}"
@@ -4318,9 +4363,12 @@ def main() -> int:
               f"{RFD3_MIN_INBAND:>9.4f}{RFD3_MAX_BREAKS:>7}{RFD3_MAX_CLASHES:>12}"
               f"{RFD3_MIN_DISTINCT_AA:>5}{RFD3_MAX_UNK:>5}{'ok':>5}")
         print(f"{'#'*78}")
-        print("GATE PASS — rfd3 designs cleared parse, designed-region geometry, "
-              "sequence and determinism" if rr["gate"]
-              else "GATE FAIL — rfd3 missed parse, geometry, sequence or determinism (see above)")
+        print(_gate_line(
+            rr,
+            "GATE PASS — rfd3 designs cleared parse, designed-region geometry, "
+            "sequence and determinism",
+            "GATE FAIL — rfd3 missed parse, geometry, sequence or determinism (see above)",
+            "rfd3 designs"))
 
     if want_pxdesign:
         pr = run_pxdesign(args.keep)
@@ -4331,7 +4379,7 @@ def main() -> int:
         fit = f"{pr['fit_rmsd']:.3f}" if pr["fit_rmsd"] is not None else "  -  "
         res = str(pr["binder_residues"]) if pr["binder_residues"] is not None else "  -  "
         wall = f"{pr['seconds']:.0f}s" if pr["seconds"] is not None else "-"
-        verdict = "PASS" if pr["gate"] else f"FAIL ({pr['error']})" if pr["error"] else "FAIL"
+        verdict = _verdict(pr)
         all_pass &= pr["gate"]
         print(f"{pr['model']:<15}{fit:>12}{res:>12}{floor:>18}{wall:>9}  {verdict}")
         if pr["sha16"]:
@@ -4339,8 +4387,11 @@ def main() -> int:
             print(f"coordinate digest {pr['sha16']}{same}  (evidence, not gated — a digest is "
                   f"card- and arch-specific)")
         print(f"{'#'*78}")
-        print("GATE PASS — pxdesign designs cleared parse + the conditioning floor" if pr["gate"]
-              else "GATE FAIL — pxdesign missed parse or the conditioning floor (see above)")
+        print(_gate_line(
+            pr,
+            "GATE PASS — pxdesign designs cleared parse + the conditioning floor",
+            "GATE FAIL — pxdesign missed parse or the conditioning floor (see above)",
+            "pxdesign"))
 
     if want_opendde_abag:
         if not OPENDDE_ABAG_DATA.exists():
@@ -4355,12 +4406,15 @@ def main() -> int:
         dq = f"{ar['dockq']:.3f}" if ar["dockq"] is not None else "  -  "
         fn = f"{ar['fnat']:.3f}" if ar["fnat"] is not None else "  -  "
         wall = f"{ar['seconds']:.0f}s" if ar["seconds"] is not None else "-"
-        verdict = "PASS" if ar["gate"] else f"FAIL ({ar['error']})" if ar["error"] else "FAIL"
+        verdict = _verdict(ar)
         all_pass &= ar["gate"]
         print(f"{ar['model']:<15}{dq:>14}{fn:>11}{floor:>10}{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        print("GATE PASS — opendde-abag cleared parse + DockQ floor" if ar["gate"]
-              else "GATE FAIL — opendde-abag missed parse or the DockQ floor (see above)")
+        print(_gate_line(
+            ar,
+            "GATE PASS — opendde-abag cleared parse + DockQ floor",
+            "GATE FAIL — opendde-abag missed parse or the DockQ floor (see above)",
+            "opendde-abag"))
 
     if want_nesso1:
         nr = run_nesso1(args.keep)
@@ -4375,13 +4429,16 @@ def main() -> int:
         xr = f"{nr['x_over_r']:.3f}xR" if nr["x_over_r"] is not None else "  -  "
         sp = f"{nr['spread']:.3g}" if nr["spread"] is not None else "  -  "
         wall = f"{nr['seconds']:.0f}s" if nr["seconds"] is not None else "-"
-        verdict = "PASS" if nr["gate"] else f"FAIL ({nr['error']})" if nr["error"] else "FAIL"
+        verdict = _verdict(nr)
         all_pass &= nr["gate"]
         print(f"{nr['model']:<15}{xr:>14}{sp:>12}{floor:>18}{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        print("GATE PASS — nesso1 scalars cleared the reference floor and the device is "
-              "deterministic" if nr["gate"]
-              else "GATE FAIL — nesso1 missed the reference floor or drifted run to run (see above)")
+        print(_gate_line(
+            nr,
+            "GATE PASS — nesso1 scalars cleared the reference floor and the device is "
+            "deterministic",
+            "GATE FAIL — nesso1 missed the reference floor or drifted run to run (see above)",
+            "nesso1"))
 
     if want_capacity:
         for leg in CAPACITY_LEGS:
@@ -4397,14 +4454,16 @@ def main() -> int:
             cf = str(cr["cifs"]) if cr["cifs"] is not None else "-"
             pa = str(cr["paes"]) if cr["paes"] is not None else "-"
             wall = f"{cr['seconds']:.0f}s" if cr["seconds"] is not None else "-"
-            verdict = "PASS" if cr["gate"] else f"FAIL ({cr['error']})" if cr["error"] else "FAIL"
+            verdict = _verdict(cr)
             all_pass &= cr["gate"]
             print(f"{cr['model']:<22}{pk:>11}{cf:>7}{pa:>7}{f'<={leg[5]:.1f} GiB':>11}"
                   f"{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        print("GATE PASS — largest-input folds fit the DRAM budget and wrote every sample"
-              if all(cr["gate"] for cr in rows) else
-              "GATE FAIL — capacity regression at the largest supported input (see above)")
+        print(_gate_line(
+            rows,
+            "GATE PASS — largest-input folds fit the DRAM budget and wrote every sample",
+            "GATE FAIL — capacity regression at the largest supported input (see above)",
+            "capacity"))
 
     if want_size_ladder and args.size_ladder_fill_reasons:
         sl = run_size_ladder_fill_reasons(Path(args.size_ladder_baseline),
@@ -4545,7 +4604,7 @@ def main() -> int:
             cl = str(r["clashes"]) if r["clashes"] is not None else "-"
             md5 = r["md5"] or "  -  "
             wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
-            verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+            verdict = _verdict(r)
             print(f"{r['model']:<22}{cl:>9}{md5:>36}{wall:>9}  {verdict}")
         l1_pass = ar["gate"] and all(r["gate"] for r in frows)
         all_pass &= l1_pass
@@ -4582,7 +4641,6 @@ def main() -> int:
             sys.exit("ESMC parity leg needs ESM_ROOT (path to the esm clone for tests/esmc_reference.py)")
         parity = _load_esmc_parity_harness()
         erows = [run_esmc(m, parity) for m in esmc_models]
-        esmc_pass = all(r["gate"] for r in erows)
         print(f"\n{'#'*78}\nRELEASE GATE — ESMC embedding parity (fused-RoPE shipped path), "
               f"PCC floor {ESMC_MIN_PCC}\n{'#'*78}")
         print(f"{'model':<12}{'per-res PCC':>13}{'pooled':>9}{'logits':>9}{'argmax':>9}{'wall':>9}  result")
@@ -4592,12 +4650,15 @@ def main() -> int:
             lo = f"{r['logits_pcc']:.5f}" if r["logits_pcc"] is not None else "  -  "
             am = f"{r['argmax']:.4f}" if r["argmax"] is not None else "  -  "
             wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
-            verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+            verdict = _verdict(r)
             all_pass &= r["gate"]
             print(f"{r['model']:<12}{pr:>13}{po:>9}{lo:>9}{am:>9}{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        print("GATE PASS — ESMC embed path cleared the per-residue PCC floor" if esmc_pass
-              else "GATE FAIL — an ESMC model missed the per-residue PCC floor (see above)")
+        print(_gate_line(
+            erows,
+            "GATE PASS — ESMC embed path cleared the per-residue PCC floor",
+            "GATE FAIL — an ESMC model missed the per-residue PCC floor (see above)",
+            "the ESMC embed path"))
 
     if _CONTENDED:
         # Say this last, where the reader is, and say it loudly: a contended leg's row above
