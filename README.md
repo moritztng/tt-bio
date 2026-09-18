@@ -903,6 +903,10 @@ the recipe ever needed a private hook, the test fails and the hook becomes publi
 # will this fit, and how long? answered without opening a card
 tt-bio finetune data/ --model protenix-v2 --out runs/a     --global-batch 8 --steps 2000 --tokens 256 --dry-run
 
+# the fit is measured; the duration comes back UNMEASURED until you supply a step time you
+# measured yourself, because we have not timed a Protenix-v2 training step on this hardware
+tt-bio finetune data/ --model protenix-v2 --out runs/a     --global-batch 8 --steps 2000 --tokens 256 --chips 2 --seconds-per-step 4.1 --dry-run
+
 tt-bio finetune --show-recipe        # the loop it would run, as source you can edit
 tt-bio finetune --list-objectives    # the named loss rows
 ```

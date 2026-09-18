@@ -146,6 +146,10 @@ def _echo_recipe(ctx, param, value):
 @click.option("--warmup-steps", default=1000, show_default=True, type=int)
 @click.option("--checkpoint-every", default=100, show_default=True, type=int)
 @click.option("--seed", default=0, show_default=True, type=int)
+@click.option("--seconds-per-step", default=None, type=float,
+              help="Your own measured single-chip step time, in seconds. With it the dry run "
+                   "answers how long the run takes; without it that half is UNMEASURED, "
+                   "because no Protenix-v2 training step has been measured on this hardware.")
 @click.option("--dry-run", is_flag=True,
               help="Answer 'will this fit and how long' and exit, WITHOUT opening a device.")
 @click.option("--show-recipe", is_flag=False, flag_value="lora", default=None,
@@ -155,7 +159,8 @@ def _echo_recipe(ctx, param, value):
 @click.option("--list-objectives", is_flag=True, is_eager=True, expose_value=False,
               callback=_echo_objectives, help="Print the objective rows and exit.")
 def finetune(data, model, out_dir, global_batch, steps, objective, recipe, tokens, chip_ids,
-             rank, alpha, targets, lr, warmup_steps, checkpoint_every, seed, dry_run):
+             rank, alpha, targets, lr, warmup_steps, checkpoint_every, seed,
+             seconds_per_step, dry_run):
     """Fine-tune a shipped model with LoRA adapters.
 
     \b
@@ -202,7 +207,7 @@ def finetune(data, model, out_dir, global_batch, steps, objective, recipe, token
         raise click.BadParameter("must be at least 1", param_hint="--rank")
 
     fit = plan(tokens=tokens or 256, chips=chips, global_batch=global_batch,
-               frozen_trunk=True)
+               frozen_trunk=True, seconds_per_step_1chip=seconds_per_step)
     click.echo(str(fit))
     if fit.verdict == "refused":
         raise click.ClickException(
@@ -213,6 +218,35 @@ def finetune(data, model, out_dir, global_batch, steps, objective, recipe, token
             click.echo("\nnote: UNMEASURED is an answer, not an error. It means we have no "
                        "measurement for this shape and will not print a projection shaped "
                        "like one.")
+        # The README's example asks two questions, "will this fit, and how long?", and the
+        # second one gets an answer here even when that answer is UNMEASURED. `plan()` is
+        # right to withhold a step time nobody has measured and that does not change; what
+        # was missing is saying so. The note above fires on `fit.measured`, which is a
+        # property of the whole verdict, so a plan whose MEMORY is measured printed nothing
+        # at all about duration -- and a reader cannot tell a missing answer from a skipped
+        # question. `plan()` does emit its own "no step time" source line, but only above one
+        # chip, which is not the shape the README example uses.
+        if fit.seconds_per_step is None and seconds_per_step is None:
+            click.echo(
+                f"\nduration: UNMEASURED for {steps:,} steps. No Protenix-v2 training step "
+                f"has been measured on this hardware, and dividing a projection by the "
+                f"measured 1.87x two-chip speedup would keep it a projection. Measure one "
+                f"step yourself and pass --seconds-per-step to get this answered.")
+        elif fit.seconds_per_step is None:
+            # The step time is measured -- the user just gave us one -- and the thing that is
+            # missing is the speedup for this chip count. Repeating "measure a step" here
+            # would be advice they have already taken, so point at the reason `plan()` printed
+            # rather than restating it and risking a second copy that drifts from it.
+            click.echo(
+                f"\nduration: UNMEASURED for {steps:,} steps. Your {seconds_per_step:.3f} s "
+                f"single-chip step IS measured; what is missing is the {chips}-chip speedup "
+                f"that would turn it into a run length, for the reason given above.")
+        else:
+            total = fit.seconds_per_step * steps
+            click.echo(
+                f"\nduration: {fit.seconds_per_step:.3f} s/step x {steps:,} steps = "
+                f"{total / 3600:.1f} h ({total / 86400:.2f} days), from the single-chip step "
+                f"time you measured and the DP speedup named above.")
         return
 
     # The featuriser is resolved before anything reaches a device, so a model with no
