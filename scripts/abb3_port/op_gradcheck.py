@@ -143,6 +143,14 @@ def _softplus():
 # resnet's normaliser at step 0, where `linear_out` is zero and every squared sum is exactly zero,
 # and the distance map's diagonal, which is zero always. Both cases feed values straddling the
 # boundary so the gate covers the branch and not just the smooth side.
+# The per-element bound FAPE's cross-region clamp needs. Fed a cap that straddles the data so both
+# branches are covered.
+@case("minimum with a tensor cap", 1e-5)
+def _minimum():
+    return ((lambda x, c: torch.minimum(x, c + 0.5)),
+            (lambda x, c: ops.minimum(x, ops.shift(c, 0.5))), [(2, 32, 64), (2, 32, 64)])
+
+
 @case("clamp_min at the floor", 1e-5)
 def _clamp_min():
     return ((lambda x: x.clamp(min=1e-7)), (lambda x: ops.clamp_min(x, 1e-7)), [(2, 32, 64)])

@@ -352,6 +352,28 @@ def _softplus(shipped, x):
     return _tape(out_v, [x], make)
 
 
+def _minimum(shipped, x, cap):
+    """`torch.minimum`'s gradient: it goes to whichever operand is smaller.
+
+    The second operand is a constant in this port's only use -- FAPE's clamp pattern comes from the
+    region labels -- so it would have been enough to give `x` a gradient and stop. The gradcheck
+    disagreed, and it was right to: an op that silently drops one operand's gradient is a trap for
+    the next caller, and the harness reported it as an infinite error rather than a small one
+    precisely because the gradient was absent rather than wrong. Ties are measure-zero on a
+    continuous distance, so they are not split.
+    """
+    xv, capv = _unwrap(x), _unwrap(cap)
+    out_v = shipped(xv, capv)
+
+    def make():
+        def bw(g):
+            _accumulate(x, ttnn.multiply(g, ttnn.lt(xv, capv)))
+            _accumulate(cap, ttnn.multiply(g, ttnn.lt(capv, xv)))
+        return bw
+
+    return _tape(out_v, [x, cap], make)
+
+
 def _clamp_min(shipped, x, value):
     """Gradient passes where `x` is above the floor and nowhere else, which is `clamp`'s."""
     xv = _unwrap(x)
@@ -569,7 +591,7 @@ def _concat(shipped, xs, dim=-1):
 _TAPED = {
     "linear": _linear, "matmul": _matmul, "add": _add, "sub": _sub, "sub_square": _sub_square, "mul": _mul, "div": _div,
     "scale": _scale, "shift": _shift, "sqrt_plus": _sqrt_plus, "softplus": _softplus,
-    "clamp_min": _clamp_min, "norm_from_sq": _norm_from_sq, "relu": _relu, "sum_last": _sum_last, "sum_dim": _sum_dim, "softmax": _softmax, "layer_norm": _layer_norm,
+    "clamp_min": _clamp_min, "minimum": _minimum, "norm_from_sq": _norm_from_sq, "relu": _relu, "sum_last": _sum_last, "sum_dim": _sum_dim, "softmax": _softmax, "layer_norm": _layer_norm,
     "reshape": _reshape, "permute": _permute, "transpose_last": _transpose_last,
     "slice_dim": _slice_dim, "concat": _concat,
 }

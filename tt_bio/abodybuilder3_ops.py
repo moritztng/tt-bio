@@ -31,7 +31,7 @@ from .tenstorrent import CORE_GRID_MAIN, get_device
 
 __all__ = ["set_grad_hook", "grad_hook", "kernel_config",
            "linear", "matmul", "add", "sub", "sub_square", "mul", "div", "scale", "shift", "sum_last", "sqrt_plus",
-           "softplus", "clamp_min", "norm_from_sq", "relu", "sum_dim", "softmax", "layer_norm", "reshape", "permute", "transpose_last",
+           "softplus", "clamp_min", "minimum", "norm_from_sq", "relu", "sum_dim", "softmax", "layer_norm", "reshape", "permute", "transpose_last",
            "slice_dim", "concat"]
 
 _GRAD_HOOK = None
@@ -200,6 +200,17 @@ def sqrt_plus(x, eps: float):
 def div(a, b):
     """`a / b`, broadcasting allowed. Used to normalise a quaternion and a sin/cos pair."""
     return ttnn.divide(a, b)
+
+
+@_dispatching
+def minimum(x, cap):
+    """`min(x, cap)` where `cap` is a tensor, i.e. `clamp(max=cap)` with a per-element bound.
+
+    FAPE needs it: ABodyBuilder3 clamps the sidechain error at 10 A within a region and 30 A across
+    regions (`structure_module`'s `cdr_clamp`), so the bound is a `[B, F, P]` pattern rather than a
+    scalar and `clamp_min`'s scalar form cannot express it.
+    """
+    return ttnn.minimum(x, cap)
 
 
 @_dispatching
