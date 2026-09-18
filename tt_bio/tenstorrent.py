@@ -126,6 +126,20 @@ _OPM_SMALL_DEPTH = env_flag("TT_BIO_OPM_SMALL_DEPTH", False)
 OPM_SMALL_DEPTH_MAX = int(os.environ.get("TT_BIO_OPM_SMALL_DEPTH_MAX", "8"))
 #: [served, declined], so a census can tell a dark gate from a correctly declining one.
 OPM_SMALL_DEPTH_STATS = [0, 0]
+
+
+def _opm_legacy_layout() -> bool:
+    """Restore OuterProductMean's pre-c14 output stage. OFF by default; the fast path ships.
+
+    Read per call, not at import, so a fold A/B can interleave both arms in one process on one
+    card -- the only form of fold measurement this campaign accepts. Two things come back with it:
+    the 1/S scale applied to z (536,870,912 B) instead of to `a` (2,097,152 B), and `proj_o`
+    issued against the token-row batch instead of with that batch merged into M. Delete the
+    flag once the number is banked; it exists to be measured against, not to be configured.
+    """
+    return env_flag("TT_BIO_OPM_LEGACY_LAYOUT", False)
+
+
 # Pair-tensor byte size above which a chunked path's row/channel blocks are assembled
 # on the HOST instead of by ttnn.concat on device. The concat needs a fresh
 # full-pair-tensor allocation while the input and every block are still live (k=3
@@ -10394,6 +10408,25 @@ class OuterProductMean(Module):
             OPM_SMALL_DEPTH_STATS[1] += 1
             S, I, C, D, J = dims
 
+        # `n_msa` is a float so a caller can divide by something other than the row count. AF2
+        # wants `eps + norm`, which at an all-ones bfloat16 mask rounds back to the depth, so it
+        # passes None; the float is what its A/B arm uses.
+        scale = 1 / (n_msa if n_msa is not None else S)
+        legacy = _opm_legacy_layout()
+        # The scale is linear, so it folds into the SMALLEST tensor in the chain, which is the rule
+        # `_small_depth` already states and this path used to break: it multiplied z, the LARGEST
+        # tensor in the chain. At 512 aa that was an in-place pass over 536,870,912 B per call
+        # (3.0227 ms in situ, 0.0484 s over the fold's 16 MSALayer calls) to apply a scalar that
+        # `a` -- 2,097,152 B, 256x smaller -- carries for free. Exact when the scale is a power of
+        # two, which it is whenever the depth is: scaling every partial product by 2^-k scales the
+        # bf16 rounding with it. perf/c14_opm_layout/.
+        if not legacy:
+            if depth_parts is None:
+                a = ttnn.multiply_(a, scale)
+            else:
+                depth_parts = [(ttnn.multiply_(acp, scale), bcp, Sc)
+                               for acp, bcp, Sc in depth_parts]
+
         def z_rows(i0, i1):
             """`z = a b^T` contracted over the full depth, for token rows [i0, i1).
 
@@ -10436,11 +10469,18 @@ class OuterProductMean(Module):
             z = ttnn.reshape(z, (rows, C * D, J))
             z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
             z = ttnn.permute(z, (0, 2, 1))
-            # `n_msa` is a float so a caller can divide by something other than the row
-            # count. AF2 wants `eps + norm`, which at an all-ones bfloat16 mask rounds
-            # back to the depth, so it passes None; the float is what its A/B arm uses.
-            scale = 1 / (n_msa if n_msa is not None else S)
-            z = ttnn.multiply_(z, scale)
+            if legacy:
+                z = ttnn.multiply_(z, scale)
+            else:
+                # Merge the token-row batch into M. `proj_o` is (rows, J, C*D) x (C*D, c_z): N is
+                # four tiles wide, so issued against the row batch the matmul re-reads a K of 32
+                # tiles for every 32x32 it writes and lands at 58.7 GB/s, 13 % of the 442.9 GB/s
+                # roof and 5.2 % of this part's 127.86 TFLOP/s -- neither bound, just badly
+                # blocked. One 2D matmul over the whole (rows*J) reads each operand once. The
+                # reshape is a leading-dim merge with the last dim unchanged and the second-to-last
+                # a multiple of 32, i.e. ttnn's own zero-cost view (0.0333 ms measured), and it is
+                # value-exact against a float64 reference.
+                z = ttnn.reshape(z, (rows * J, C * D))
             o_bias = self.o_bias
             if self.scale_bias:
                 o_bias = ttnn.multiply(self.o_bias, scale)
@@ -10449,11 +10489,19 @@ class OuterProductMean(Module):
                 self.o_weight,
                 bias=o_bias,
                 compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
+                # The flattened form has to be left to pick its own program config. Pinning the
+                # core grid here is what makes the 2D form no faster than the batched one: with
+                # the grid pinned it reads 9.8592 ms against the batched 9.4773, and without it
+                # 3.3877 ms, on the same shapes in the same interleaved pass. Both forms derive
+                # their grid from the live device, so neither is more card-dependent than the
+                # other. perf/c14_opm_layout/ladder_qb1c2.json.
+                **({"core_grid": CORE_GRID_MAIN} if legacy else {}),
             )
             if self.scale_bias:
                 ttnn.deallocate(o_bias)
             ttnn.deallocate(z)
+            if not legacy:
+                out = ttnn.reshape(out, (rows, J, out.shape[-1]))
             return out
 
         per_row = C * D * J * 2
