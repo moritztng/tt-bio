@@ -64,10 +64,20 @@ def arm(out: Path, chips: list, args, round_no: int) -> dict:
         prov = json.loads(p.read_text())
     digests = {r: [x["digest"] for x in rows[r]] for r in rows}
     agree = len({tuple(v) for v in digests.values()}) == 1 if rows[0] else False
+    # Cleanliness is read from EVERY rank, not just rank 0: a cotenant on rank 1's chip
+    # contaminates the arm just as thoroughly, and the arm's step time is set by its slowest
+    # rank because each step ends at a rendezvous.
+    co = {}
+    for r in range(len(chips)):
+        q = out / f"provenance-rank{r}.json"
+        if q.exists():
+            co[r] = json.loads(q.read_text()).get("config", {}).get("cotenancy", {})
+    clean = bool(co) and all(c.get("clean") for c in co.values())
     return {"rc": rc, "chips": chips, "walls": walls, "first": rows[0][0]["wall"] if rows[0] else None,
             "median": statistics.median(walls) if walls else None,
             "seconds": time.monotonic() - t0, "aiclk": prov.get("aiclk", {}),
-            "nodes": prov.get("device_nodes"), "digests_agree": agree,
+            "nodes": prov.get("device_nodes"), "digests_agree": agree, "cotenancy": co,
+            "clean": clean,
             "steps": len(rows[0]), "stages": rows[0][-1]["stages"] if rows[0] else {}}
 
 
@@ -94,7 +104,7 @@ def main() -> int:
             results[len(chips)].append(arm(root, chips, args, r))
 
     print(f"\n{'world':>6} {'median step s':>14} {'per round':>22} {'speedup':>8} "
-          f"{'efficiency':>11} {'AICLK during':>26} {'ranks agree':>12}")
+          f"{'efficiency':>11} {'AICLK during':>26} {'ranks agree':>12} {'clean':>7}")
     base = None
     lines = []
     for w in sorted(results):
@@ -109,23 +119,43 @@ def main() -> int:
         clkstr = (f"{clk.get('median')} med / {clk.get('min')} min, {clk.get('samples')} smp"
                   if clk.get("median") else "NO SAMPLES")
         agree = all(a["digests_agree"] for a in arms)
-        lines.append((w, med, base / med, (base / med) / w, clkstr, agree))
+        clean = all(a["clean"] for a in arms)
+        lines.append((w, med, base / med, (base / med) / w, clkstr, agree, clean))
         print(f"{w:>6} {med:>14.3f} {str([round(a['median'], 2) for a in arms]):>22} "
               f"{base / med:>8.3f}x {100 * (base / med) / w:>10.1f}% {clkstr:>26} "
-              f"{'yes' if agree else 'NO':>12}")
+              f"{'yes' if agree else 'NO':>12} {'yes' if clean else 'NO':>7}")
+        for a in arms:
+            for r, c in sorted(a["cotenancy"].items()):
+                if not c.get("clean"):
+                    print(f"         rank {r} nodes {c.get('nodes')}: "
+                          f"{c.get('same_node_samples')}/{c.get('samples')} samples with a "
+                          f"foreign holder of OUR node {list(c.get('same_node', {}).values())[:2]}, "
+                          f"{c.get('elsewhere_samples')}/{c.get('samples')} elsewhere "
+                          f"{list(c.get('elsewhere', {}).values())[:2]}")
     last = results[max(results)][-1]
     print(f"\nSTAGES (last step of the widest arm, seconds): "
           f"{ {k: round(v, 2) for k, v in last['stages'].items()} }")
     print(f"NODES: rank 0 held {last['nodes']}; every rank's own node is read from its own "
           f"/proc/<pid>/fd by the provenance recorder, since TT_VISIBLE_DEVICES=N does not "
           f"select /dev/tenstorrent/N")
-    bad = [w for w, *_rest, agree in lines if not agree]
+    bad = [ln[0] for ln in lines if not ln[5]]
     if bad:
         print(f"FAIL: master digests disagree across ranks on world {bad}; a throughput number "
               f"from diverged replicas is not scaling")
         return 1
+    dirty = [ln[0] for ln in lines if not ln[6]]
     print("PASS: every rank's master digest matched at every step on every arm, so the ratios "
           "above are one model trained faster rather than N models trained separately")
+    if dirty:
+        # Not a FAIL: the ratio is still real, it is just an upper bound on time and therefore
+        # a LOWER bound on the speedup. Said out loud because a contaminated number that is not
+        # labelled gets quoted as a clean one, which is worse than a missing number.
+        print(f"CONTENDED: world {dirty} ran beside a foreign device holder for part of the "
+              f"measurement, so its step time is an UPPER bound. Re-take on an idle pair "
+              f"before quoting it as the curve.")
+    else:
+        print("CLEAN: no foreign process held any Tenstorrent node on this host at any sample "
+              "DURING either arm, so these medians are clean readings rather than upper bounds")
     return 0
 
 

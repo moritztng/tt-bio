@@ -58,6 +58,7 @@ import torch
 
 from . import provenance
 from .abb3_checkpoint import latest_checkpoint, load_run_state, save_run_state
+from .cotenancy import CotenantSampler
 from .hostreduce import HostReduce, master_hash
 from .mesh import Mesh
 from .sharding import batches
@@ -229,6 +230,11 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
     tripwires = {int(f * cfg.steps) for f in TRIPWIRE_FRACTIONS}
     last_ckpt = time.monotonic()
     t_run = time.monotonic()
+    # Sampled for the life of the run, not checked either side of it. A cotenant that arrives
+    # and leaves inside the measurement is invisible to a snapshot, and on this box that is the
+    # common case: a sibling worker takes and releases a card in 4-second leases.
+    tenants = CotenantSampler()
+    tenants.start()
     written: list = sorted(ckpt_dir.glob("step-*.safetensors")) if ckpt_dir.is_dir() else []
     cadence = cfg.checkpoint_minutes * 60.0
     with provenance.during(seed=cfg.seed, config=cfg.as_dict()) as prov:
@@ -268,7 +274,10 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
                 print(f"[rank {cfg.rank}] max_seconds reached at step {gs}", flush=True)
                 break
     log.close()
-    return {"history": history, "provenance": prov, "comm": comm,
+    co = tenants.stop()
+    prov.config["cotenancy"] = co
+    print(f"[rank {cfg.rank}] {tenants.summary()}", flush=True)
+    return {"history": history, "provenance": prov, "comm": comm, "cotenancy": co,
             "steps_done": history[-1]["step"] if history else start}
 
 

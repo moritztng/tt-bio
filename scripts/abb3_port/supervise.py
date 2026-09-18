@@ -28,6 +28,7 @@ starts and undone when it ends.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import signal
 import subprocess
@@ -37,6 +38,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
+RUN_ID_ENV = "ABB3_RUN_ID"
 
 
 def launch(rank: int, chips: list, args) -> subprocess.Popen:
@@ -48,6 +50,11 @@ def launch(rank: int, chips: list, args) -> subprocess.Popen:
     env["TT_BIO_LEASE_CARDS"] = ",".join(str(c) for c in chips)
     env.setdefault("TT_BIO_LEASE_HOLDER", "worker:train-b3-train")
     env["PYTHONPATH"] = str(REPO)
+    # So each rank's cotenancy sampler can tell a SIBLING rank from a foreign process. Via the
+    # environment and not the command line, because `device_holders` truncates a cmdline at 90
+    # characters and a rank's script name falls off the end of a worktree path -- which made
+    # every 2-chip measurement report itself as contended by its own sibling.
+    env[RUN_ID_ENV] = args.run_id
     cmd = [sys.executable, str(HERE / "repro.py"),
            "--out", args.out, "--steps", str(args.steps),
            "--global-batch", str(args.global_batch), "--micro", str(args.micro),
@@ -113,6 +120,10 @@ def main() -> int:
     ap.add_argument("--kill-rank", type=int, default=0)
     ap.add_argument("--print-reboot-hook", action="store_true")
     args = ap.parse_args()
+    # Derived from the output directory rather than random, so a supervisor restarted after a
+    # reboot stamps the SAME id and still recognises ranks it did not itself launch.
+    args.run_id = hashlib.blake2b(str(Path(args.out).resolve()).encode(),
+                                  digest_size=8).hexdigest()
 
     chips = [int(c) for c in args.chips.split(",")]
     out = Path(args.out)
