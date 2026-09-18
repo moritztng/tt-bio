@@ -301,15 +301,18 @@ _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 # MatmulMultiCoreReuseMultiCast configs. So unfusing pays a full L1 round trip and still wins,
 # because the fused path runs silu at half the SFPU rate the standalone op reaches.
 #
-# DEFAULT ON since 2026-09-18. Not bit-exact -- the unfused form applies silu to the bf16-packed
-# matmul output rather than to the fp32 dest accumulator -- and that is not the bar. Landed with
-# TT_BIO_DIT_COND_HOIST as one stack, measured and approved as a stack: 512 aa cdk2x2 on a qb2
-# p300c at a forced 1350 MHz reads 14.588 -> 14.108 s, +0.4798 s paired over 5 interleaved reps
-# (95 % CI [+0.4355,+0.5241]) against the same session's paired A/A floor of +0.0324 s +/-0.1087.
-# Accuracy on the shipped pair: 298 aa, the cell the 0.35/0.60 A bar is written against, deviates
-# 0.25705 A all-atom at worst over two seeds, which is inside the PASS band and 0.321x that
-# fixture's own base-against-base seed floor of 0.7998 A, with a 0.0000 A same-seed A/A control.
-# Set TT_BIO_UNFUSED_SILU=0 for the fused form.
+# DEFAULT OFF, and held there by Moritz on measured accuracy, not on bit-exactness. On cdk2x2_512
+# with this flag on, Protenix-v2 loses 0.05088 and 0.07210 CA-lDDT per domain against 1HCL and the
+# two arms are fully rank-separated over four seeds: the worst flag-off fold scores 0.03905 and
+# 0.05107 above the best flag-on one. Boltz-2 (-0.00091 / -0.00265, four seeds) and OpenFold3
+# (-0.01238 / -0.00251, two seeds) are clean on the same fixture, which is why a Boltz-2-only
+# screen clears this lever and Protenix-v2 does not, and why a structural seed-floor reading
+# cannot see it: Protenix-v2 scatters widely on that fixture while landing at the same quality
+# every time, so only the comparison against the experimental answer separates the arms. Do not
+# reopen without a Protenix-v2 CA-lDDT-vs-1HCL re-score on the configuration you want to ship.
+# Set TT_BIO_UNFUSED_SILU=1 for the unfused form: at 512 aa cdk2x2 on a qb2 p300c at a forced
+# 1350 MHz it is worth +0.2336 s paired over 5 interleaved reps (95 % CI [+0.1024,+0.3648])
+# against that session's paired A/A floor of +0.0324 s +/-0.1087.
 #
 # SCOPE, because this one is wide and the flag's name does not say so: `Transition` is the shared
 # swiglu block, so the default reaches every model that builds it -- boltz-2, protenix
@@ -317,7 +320,7 @@ _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 # (openfold3_msa_embedder.py:81) and the pairformer/msa stacks in this file. It is not a boltz-2
 # lever. openfold3's diffusion stack has its own _SwiGLUTransition and af2 its own ReluTransition,
 # neither of which reads this flag.
-_UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", True)
+_UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
@@ -1459,11 +1462,12 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 # lazily it fell inside the first hoisted fold, which left a one-fold process worse off than
 # leaving the lever off.
 #
-# DEFAULT ON since 2026-09-18, together with TT_BIO_UNFUSED_SILU and measured with it as one
-# stack: 512 aa cdk2x2 at a forced 1350 MHz reads 14.588 -> 14.108 s for the pair, +0.4798 s
-# paired over 5 interleaved reps against a +0.0324 s A/A floor. This lever alone reads +0.2052 s
-# (CI [+0.1561,+0.2543]) in the same session. Set TT_BIO_DIT_COND_HOIST=0 to get the per-step
-# form back.
+# DEFAULT ON since 2026-09-18. Worth +0.2052 s at the 512 aa cdk2x2 fold, paired over 5
+# interleaved reps at a forced 1350 MHz (95 % CI [+0.1561,+0.2543], arm means 14.5880 -> 14.3920 s)
+# against that session's paired A/A floor of +0.0324 s +/-0.1087. That single-lever figure is the
+# one that ships. The same session also carried TT_BIO_UNFUSED_SILU and read +0.4798 s for the
+# pair, but that flag is held off on a Protenix-v2 accuracy regression, so the stack number does
+# not describe any default. Set TT_BIO_DIT_COND_HOIST=0 to get the per-step form back.
 # Read at CALL time, not import time, so an interleaved A/B can flip it.
 _B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", True)
 

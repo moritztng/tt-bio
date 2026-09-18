@@ -197,15 +197,23 @@ launches are grouped, and the order of one bf16 rounding.
 The folded weights are built when the model loads rather than on the first fold, so a process that
 folds once is not left paying for them.
 
-**Speed: +0.2052 s at 512 aa on its own** (95 % CI [+0.1561, +0.2543]), inside the +0.4798 s this
-flag and `TT_BIO_UNFUSED_SILU` are worth together. The pair was measured and approved as a stack,
-and the stack is not the sum of its parts, so the number that ships is in that flag's section.
-Timed at the block rather than at the fold, this lever alone reads 1.071x and 1.085x across two
-sessions on this card. The win decays with size: +0.2809 s at 298 aa, +0.2415 s at 512 aa and
-+0.1811 s at 768 aa, each above its own interleaved A/A floor.
+**Speed: +0.2052 s at 512 aa** (14.588 s to 14.392 s at a forced 1350 MHz, five interleaved reps,
+95 % CI [+0.1561, +0.2543], against the same session's paired A/A floor of +0.0324 s +/- 0.1087).
+That is this flag on its own, which is what ships: the same session also carried
+`TT_BIO_UNFUSED_SILU` and read +0.4798 s for the pair, but that flag is off by default and the
+stack figure describes no shipped configuration. Timed at the block rather than at the fold, this
+lever reads 1.071x and 1.085x across two sessions on this card. The win decays with size: +0.2809 s
+at 298 aa, +0.2415 s at 512 aa and +0.1811 s at 768 aa, each above its own interleaved A/A floor.
 
-**Accuracy: not bit-identical, and inside seed scatter.** Scored on the shipped pair, under
-`TT_BIO_UNFUSED_SILU` below.
+**Accuracy: not bit-identical, and the readings on record cover the pair rather than this flag
+alone.** They were taken with `TT_BIO_UNFUSED_SILU` on as well: 0.25705 A all-atom at 298 aa, the
+size the 0.35/0.60 A band is written against, which is inside the pass band and 0.321x that
+fixture's own base-against-base seed floor of 0.7998 A, with a same-seed A/A control reading
+0.0000 A and identical digests. At 512 aa the hinge is unconstrained, so pLDDT decides instead, and
+over five seeds the pair moves it -0.0010 on average, unresolved at 95 % (+/- 0.0026) against the
+base's own across-seed spread of 0.0116. The pair is a superset of the perturbation this flag makes
+alone, which bounds it in practice without being a reading of the shipped configuration. RF3's token
+DiT inherits this default and has not been scored for it.
 
 Scope: RF3's token DiT builds this same block, so the default applies to RF3 as well as Boltz-2.
 The atom-level transformers take a different path and do not read the flag.
@@ -795,7 +803,7 @@ there is nothing to recover; the reorder is free on both. The same is true where
 runs a narrow slice, at 298 residues among others: the pair is two tiles apart in either order, and
 those sizes read flat.
 
-## `TT_BIO_UNFUSED_SILU` — on
+## `TT_BIO_UNFUSED_SILU` — off
 
 `Transition` is the engine's shared SwiGLU block. Its first matmul can apply silu as a fused
 activation, and on Blackhole that costs more than running silu as a separate op afterwards: 174.0
@@ -804,21 +812,26 @@ standalone op reaches, so unfusing pays a full extra round trip through L1 and s
 penalty is specific to silu. A fused relu costs 2.4 us more than its standalone form and a fused
 gelu 141.3 us more, and the gap holds across eight matmul program configs.
 
-**Speed: 14.588 s to 14.108 s, 1.0340x**, for this flag and `TT_BIO_DIT_COND_HOIST` together.
-+0.4798 s paired over five interleaved reps, 95 % CI [+0.4355, +0.5241], against the same session's
-paired A/A floor of +0.0324 s +/- 0.1087. The clock was forced to 1350 MHz and sampled during every
-fold. On its own in that session this flag reads +0.2336 s (CI [+0.1024, +0.3648]). Read the stack
-number rather than the sum of the two singles: the levers were measured together and approved
-together.
+**This one is off, and it is held off on accuracy rather than on speed.** Turning it on costs
+Protenix-v2 0.05088 and 0.07210 CA-lDDT per domain against the experimental 1HCL on cdk2x2_512,
+with the two arms fully rank-separated over four seeds: the worst flag-off fold scores 0.03905 and
+0.05107 above the best flag-on one. Protenix-v2 also loses 1.11 A and 1.19 A of CA-RMSD against
+1HCL. Boltz-2 (-0.00091 / -0.00265 over four seeds) and OpenFold3 (-0.01238 / -0.00251 over two)
+are clean on the same fixture, so a Boltz-2-only screen clears this lever and Protenix-v2 does not.
+Nor does a structural seed-floor reading see it: Protenix-v2 scatters widely on that fixture while
+landing at the same quality every time, so only the comparison against the experimental answer
+separates the arms. Do not reopen without a Protenix-v2 CA-lDDT-vs-1HCL re-score on the
+configuration you want to ship.
 
-**Accuracy: not bit-identical.** Unfusing applies silu to the bf16-packed matmul output instead of
-to the fp32 accumulator, so a structure can move slightly. At 298 aa, the size the 0.35/0.60 A band
-is written against, the stack deviates 0.25705 A all-atom at worst over two seeds. That is inside
-the pass band and 0.321x that fixture's own base-against-base seed floor of 0.7998 A, with a
-same-seed A/A control on the same harness reading 0.0000 A and identical digests. At 512 aa the
-hinge is unconstrained, so RMSD there carries the full seed floor, which runs 1.3735 to 17.5024 A
-over ten seed pairs, and pLDDT decides instead. Over five seeds the stack moves pLDDT by -0.0010 on
-average, unresolved at 95 % (+/- 0.0026), against the base's own across-seed spread of 0.0116.
+**Speed, if you turn it on anyway: +0.2336 s at 512 aa** (95 % CI [+0.1024, +0.3648]) paired over
+five interleaved reps at a forced 1350 MHz, against the same session's paired A/A floor of
++0.0324 s +/- 0.1087.
+
+**It is also not bit-identical.** Unfusing applies silu to the bf16-packed matmul output instead of
+to the fp32 accumulator, so a structure moves. On Boltz-2 that movement is small: with
+`TT_BIO_DIT_COND_HOIST` the pair deviates 0.25705 A all-atom at 298 aa, inside that fixture's
+0.35 A band and 0.321x its own seed floor. That reading is exactly the screen the Protenix-v2
+result above proves blind, which is why it does not clear the flag.
 
 Scope, because the flag's name does not say it: every model that builds `Transition` inherits this
 default. That is Boltz-2, Protenix, OpenFold3's MSA embedder, and the pairformer and MSA stacks.
