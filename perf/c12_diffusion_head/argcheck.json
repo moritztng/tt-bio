@@ -1,0 +1,40 @@
+{
+ "all_pass": true,
+ "ttnn": "unknown",
+ "wheel_kernels": "/home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/ttnn/cpp/ttnn/operations/experimental/minimal_matmul/device/kernels",
+ "kernels": [
+  {
+   "kernel": "dm_in0_sender.cpp",
+   "byte_identical_to_wheel": true,
+   "accessor_args_literal": 22,
+   "host_scalar_ct_args": 22,
+   "ct_offset_matches": true,
+   "in2_is_runtime_arg_1": true,
+   "runtime_arg_order": [
+    "in0_addr",
+    "in2_addr",
+    "in3_addr"
+   ],
+   "bias_accessor_after_outputs": true,
+   "bias_cb_is_c4": true,
+   "pass": true
+  },
+  {
+   "kernel": "dm_in1_sender_out.cpp",
+   "byte_identical_to_wheel": true,
+   "accessor_args_literal": 21,
+   "host_scalar_ct_args": 21,
+   "ct_offset_matches": true,
+   "in2_is_runtime_arg_1": true,
+   "runtime_arg_order": [
+    "in1_addr",
+    "in2_addr",
+    "is_sink_core"
+   ],
+   "bias_accessor_after_outputs": true,
+   "bias_cb_is_c4": true,
+   "pass": true
+  }
+ ],
+ "compute_needs_no_extra_arg": true
+}

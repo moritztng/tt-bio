@@ -50,6 +50,11 @@ def tile_bytes(dtype):
         raise ValueError(f"no tile size for {dtype}: these transcriptions cover the call the "
                          "fold issues, which is bf16 and fp32 only") from None
 
+#: Scalar compile-time args both DM kernels read before their own TensorAccessorArgs offset.
+#: dm_in1_sender_out.cpp takes exactly these and reads `TensorAccessorArgs<21>`; dm_in0_sender.cpp
+#: takes one more (in3_tile_size) and reads `<22>`.
+DM_SCALAR_CT_ARGS = 21
+
 _CACHE: dict = {}
 
 
@@ -259,11 +264,17 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     in1_is_writer = transpose
 
     def dm_ct(tile_size, sems, is_writer, is_injector, acc_main, tail):
-        return ([M_tiles, padded_M_tiles, K_tiles, padded_K_tiles, N_tiles, padded_N_tiles,
-                 M_block_tiles, K_block_tiles, N_block_tiles, M_blocks_per_core, N_blocks_per_core,
-                 tile_size, out_tile_size, in2_tile_size, *sems,
-                 int(is_writer), int(is_injector), N_chunks, N_tiles_per_chunk] + tail
-                + acc_main + acc_out)
+        scalars = [M_tiles, padded_M_tiles, K_tiles, padded_K_tiles, N_tiles, padded_N_tiles,
+                   M_block_tiles, K_block_tiles, N_block_tiles, M_blocks_per_core,
+                   N_blocks_per_core, tile_size, out_tile_size, in2_tile_size, *sems,
+                   int(is_writer), int(is_injector), N_chunks, N_tiles_per_chunk] + tail
+        # The kernels read their own accessor args at a LITERAL offset -- `TensorAccessorArgs<21>`
+        # in dm_in1_sender_out.cpp and `<22>` in dm_in0_sender.cpp, the second having one more
+        # scalar (in3_tile_size) in `tail`. Off by one here and every tile id is read out of a
+        # neighbouring tensor's accessor, which is not a crash. Checked statically against the
+        # installed wheel's kernels by perf/c12_diffusion_head/argcheck.py.
+        assert len(scalars) == DM_SCALAR_CT_ARGS + len(tail), (len(scalars), len(tail))
+        return scalars + acc_main + acc_out
 
     in0_sems = [in0_sender_sem, in0_recv_sem, in0_valid_sem]
     in1_sems = [in1_sender_sem, in1_recv_sem, in1_valid_sem]
