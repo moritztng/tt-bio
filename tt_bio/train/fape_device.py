@@ -17,6 +17,15 @@ Two things are deliberately NOT taped, because they are constants and taping the
 the `[B, F, P]` clamp pattern. The pattern is built on the card from two small region vectors rather
 than uploaded, which is the difference between 117 MB of PCIe per micro-batch and none.
 
+**It runs in chunks of the frame axis, and that is a memory requirement rather than a tuning knob.**
+The whole term unchunked retains about 1.8 GB of intermediates, which on top of the model's own
+~32 GB of tape at micro-batch 4 does not fit on a 34 GB card -- measured, it OOMs. Both sums are
+separable over frames (sum over points inside a frame, then sum over frames), so a chunk computes
+its own partial and the partials add, which is the same arithmetic in a different order. Each chunk
+carries its own uploaded leaves rather than slicing shared ones, because a sliced gradient has to be
+put back by allocating zeros and concatenating -- the mistake that made a reduction 2.7x worse
+earlier in this port.
+
 `scripts/abb3_port/loss_gate.py` scores this against upstream's own `sidechain_loss` in float64,
 which is the only thing that matters about it: the reproduction has to train their objective.
 """
@@ -83,41 +92,68 @@ class _DeviceSidechainFape(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, pred_rot, pred_trans, pred_pos, const):
+        return _DeviceSidechainFape._forward_chunked(ctx, pred_rot, pred_trans, pred_pos, const)
+
+    @staticmethod
+    def _forward_chunked(ctx, pred_rot, pred_trans, pred_pos, const):
+        # The tape has to be installed while this forward runs, because that is what turns the op
+        # calls below into tape nodes. It is installed for the duration and restored after, rather
+        # than left to the caller: a caller that forgot would get `ttnn` type errors from inside
+        # this file, which is the least useful place to read that mistake.
+        previous = ops.grad_hook()
+        if previous is None:
+            grad.install()
         batch, n_frames = pred_trans.shape[0], pred_trans.shape[1]
-        rot_col = [[grad.param(_col(pred_rot[:, :, d, c].contiguous())) for c in range(3)]
-                   for d in range(3)]
-        trans_col = [grad.param(_col(pred_trans[:, :, d].contiguous())) for d in range(3)]
         pos_row = [grad.param(_row(pred_pos[:, :, d].contiguous())) for d in range(3)]
 
-        local = _local_coords(rot_col, trans_col, pos_row, taped=True)
-        err2 = None
-        for c in range(3):
-            term = ops.sub_square(local[c], const["target_local"][c])
-            err2 = term if err2 is None else ops.add(err2, term)
-        err = ops.sqrt_plus(err2, const["eps"])
-        err = ops.minimum(err, const["cap"])
-        normed = ops.scale(err, 1.0 / const["length_scale"])
-        normed = ops.mul(ops.mul(normed, const["frames_mask"]), const["positions_mask"])
-        per_frame = ops.mul(ops.sum_last(normed), const["inv_frames"])
-        per_sample = ops.mul(ops.sum_dim(per_frame, 1), const["inv_points"])
+        chunks, total = [], None
+        for start, stop, chunk_const in const["chunks"]:
+            rot_col = [[grad.param(_col(pred_rot[:, start:stop, d, c].contiguous()))
+                        for c in range(3)] for d in range(3)]
+            trans_col = [grad.param(_col(pred_trans[:, start:stop, d].contiguous()))
+                         for d in range(3)]
+            local = _local_coords(rot_col, trans_col, pos_row, taped=True)
+            err2 = None
+            for c in range(3):
+                term = ops.sub_square(local[c], chunk_const["target_local"][c])
+                err2 = term if err2 is None else ops.add(err2, term)
+            err = ops.minimum(ops.sqrt_plus(err2, const["eps"]), chunk_const["cap"])
+            normed = ops.scale(err, 1.0 / const["length_scale"])
+            normed = ops.mul(ops.mul(normed, chunk_const["frames_mask"]),
+                             const["positions_mask"])
+            # The frame sum is separable, so a chunk contributes its own partial and the partials
+            # add. `inv_frames` and `inv_points` are applied once at the end, not per chunk.
+            partial = ops.sum_dim(ops.sum_last(normed), 1)
+            total = partial if total is None else ops.add(total, partial)
+            chunks.append((rot_col, trans_col, start, stop))
 
-        ctx.saved = (rot_col, trans_col, pos_row, per_sample, batch, n_frames,
-                     pred_pos.shape[1])
+        per_sample = ops.mul(ops.mul(total, const["inv_frames"]), const["inv_points"])
+        ctx.saved = (chunks, pos_row, per_sample, batch, n_frames, pred_pos.shape[1])
+        if previous is None:
+            ops.set_grad_hook(None)
         return torch.as_tensor(ttnn.to_torch(per_sample.value).reshape(batch),
                                dtype=pred_pos.dtype)
 
     @staticmethod
     def backward(ctx, grad_out):
-        rot_col, trans_col, pos_row, per_sample, batch, n_frames, n_points = ctx.saved
+        chunks, pos_row, per_sample, batch, n_frames, n_points = ctx.saved
         seed = to_device_fp32(grad_out.detach().float().reshape(batch, 1, 1))
         grad.backward([per_sample], [seed])
 
         def pull(p, width):
             return ttnn.to_torch(p.grad).reshape(batch, width).float()
 
-        d_rot = torch.stack([torch.stack([pull(rot_col[d][c], n_frames) for c in range(3)], -1)
-                             for d in range(3)], -2)
-        d_trans = torch.stack([pull(trans_col[d], n_frames) for d in range(3)], -1)
+        # Each chunk owns its own leaves, so the frame-axis gradient is a concatenation rather than
+        # a scatter -- no zero-padding and no device-side concat.
+        rot_parts, trans_parts = [], []
+        for rot_col, trans_col, start, stop in chunks:
+            width = stop - start
+            rot_parts.append(torch.stack(
+                [torch.stack([pull(rot_col[d][c], width) for c in range(3)], -1)
+                 for d in range(3)], -2))
+            trans_parts.append(torch.stack([pull(trans_col[d], width) for d in range(3)], -1))
+        d_rot = torch.cat(rot_parts, dim=1)
+        d_trans = torch.cat(trans_parts, dim=1)
         d_pos = torch.stack([pull(pos_row[d], n_points) for d in range(3)], -1)
         return d_rot, d_trans, d_pos, None
 
@@ -127,21 +163,30 @@ def prepare_sidechain_constants(target_rot: torch.Tensor, target_trans: torch.Te
                                 positions_mask: torch.Tensor, frame_region: torch.Tensor,
                                 atom_region: torch.Tensor, *, length_scale: float = 10.0,
                                 clamp_distance: float = 10.0, intercdr_distance: float = 30.0,
-                                eps: float = 1e-4) -> dict:
+                                eps: float = 1e-4, frame_chunk: int = 512) -> dict:
     """Everything the device side needs that does not change with the prediction.
 
     Built once per batch rather than once per step. The target local coordinates are the expensive
     part -- three `[B, F, P]` tensors -- and they depend only on the ground truth, so a training run
     pays for them once per batch and not once per optimizer step.
     """
-    rot_col = [[_col(target_rot[:, :, d, c].contiguous()) for c in range(3)] for d in range(3)]
-    trans_col = [_col(target_trans[:, :, d].contiguous()) for d in range(3)]
     pos_row = [_row(target_pos[:, :, d].contiguous()) for d in range(3)]
     eps_f, eps_frames = float(eps), float(eps)
+    n_frames = target_trans.shape[1]
+    chunks = []
+    for start in range(0, n_frames, frame_chunk):
+        stop = min(start + frame_chunk, n_frames)
+        rot_col = [[_col(target_rot[:, start:stop, d, c].contiguous()) for c in range(3)]
+                   for d in range(3)]
+        trans_col = [_col(target_trans[:, start:stop, d].contiguous()) for d in range(3)]
+        chunks.append((start, stop, {
+            "target_local": _local_coords(rot_col, trans_col, pos_row, taped=False),
+            "cap": _clamp_pattern(frame_region[:, start:stop], atom_region, clamp_distance,
+                                  intercdr_distance),
+            "frames_mask": _col(frames_mask[:, start:stop].float()),
+        }))
     return {
-        "target_local": _local_coords(rot_col, trans_col, pos_row, taped=False),
-        "cap": _clamp_pattern(frame_region, atom_region, clamp_distance, intercdr_distance),
-        "frames_mask": _col(frames_mask.float()),
+        "chunks": chunks,
         "positions_mask": _row(positions_mask.float()),
         # Upstream's fp16-friendly averaging order: divide by the frame count, sum, divide by the
         # point count, which duplicates eps relative to a single division. Kept, because the point

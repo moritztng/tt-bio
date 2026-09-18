@@ -80,6 +80,12 @@ def main() -> int:
     want_frames, want_pos = frames64.grad.clone(), pos64.grad.clone()
 
     # ---- host, float32: what the same code costs and returns at the device's dtype --------
+    warm_f = b32["sidechain_frames"].clone().requires_grad_(True)
+    warm_p = b32["sidechain_atom_pos"].clone().requires_grad_(True)
+    L.sidechain_fape(warm_f, warm_p, b32["rigidgroups_gt_frames"],
+                     b32["rigidgroups_alt_gt_frames"], b32["rigidgroups_gt_exists"],
+                     b32["renamed_atom14_gt_positions"], b32["renamed_atom14_gt_exists"],
+                     b32["alt_naming_is_better"], b32["cdr_mask"]).sum().backward()
     frames32 = b32["sidechain_frames"].clone().requires_grad_(True)
     pos32 = b32["sidechain_atom_pos"].clone().requires_grad_(True)
     t0 = time.perf_counter()
@@ -107,6 +113,16 @@ def main() -> int:
                                             flat["frame_region"], flat["atom_region"])
         ttnn.synchronize_device(dev)
         prep = time.perf_counter() - t0
+
+        # Warm the program cache first. Without this the device numbers are first-call costs --
+        # every op shape in the forward AND the backward compiling once -- against a host path that
+        # has no such stage, and the comparison reads 5.6x the wrong way. Measured: 2.417 s cold
+        # against a stage-by-stage sum of 0.361 s for the same chain. Every other gate in this
+        # directory warms up; this one did not, and that was the bug rather than the port.
+        warm_frames = flat["pred_frames"].detach().clone().requires_grad_(True)
+        warm_pos = flat["pred_positions"].detach().clone().requires_grad_(True)
+        (sidechain_fape_device(warm_frames, warm_pos, const) * cot.float()).sum().backward()
+        ttnn.synchronize_device(dev)
 
         pred_frames = flat["pred_frames"].detach().clone().requires_grad_(True)
         pred_pos = flat["pred_positions"].detach().clone().requires_grad_(True)

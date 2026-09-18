@@ -353,10 +353,14 @@ def _softplus(shipped, x):
 
 
 def _minimum(shipped, x, cap):
-    """Gradient passes where `x` is below the bound, which is `clamp(max=...)`'s convention.
+    """`torch.minimum`'s gradient: it goes to whichever operand is smaller.
 
-    The bound is a constant here -- the clamp pattern comes from the region labels -- so only `x`
-    takes a gradient, and the tie is measure-zero on a continuous distance.
+    The second operand is a constant in this port's only use -- FAPE's clamp pattern comes from the
+    region labels -- so it would have been enough to give `x` a gradient and stop. The gradcheck
+    disagreed, and it was right to: an op that silently drops one operand's gradient is a trap for
+    the next caller, and the harness reported it as an infinite error rather than a small one
+    precisely because the gradient was absent rather than wrong. Ties are measure-zero on a
+    continuous distance, so they are not split.
     """
     xv, capv = _unwrap(x), _unwrap(cap)
     out_v = shipped(xv, capv)
@@ -364,6 +368,7 @@ def _minimum(shipped, x, cap):
     def make():
         def bw(g):
             _accumulate(x, ttnn.multiply(g, ttnn.lt(xv, capv)))
+            _accumulate(cap, ttnn.multiply(g, ttnn.lt(capv, xv)))
         return bw
 
     return _tape(out_v, [x, cap], make)
