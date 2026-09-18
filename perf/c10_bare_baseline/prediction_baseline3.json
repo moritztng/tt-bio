@@ -1,0 +1,14 @@
+{
+  "recorded_utc": "2026-09-16T22:56:56.908717+00:00",
+  "run": "baseline3",
+  "why": "Second clean session under the same protocol, now with the host CPU witness, so the A/A floor carries a between-session term and not just within-session spread.",
+  "predicted": {
+    "model_cycle_saving": "zero; both sessions run the identical default configuration",
+    "512_median_s": "within 0.10 s of baseline2's 14.892 s at 1350 MHz",
+    "298_median_s": "within 0.10 s of baseline2's 9.663 s at 1350 MHz",
+    "cif_sha256_512": "bb7f0e1af7e271ee55cb8569d899e07102871ada8908f291fe2db4bb4791f9cf",
+    "cif_sha256_298": "24c4b534d763788ca2d6528b654f046a017d37fc7f12652f5382081adb741f13",
+    "structure_vs_baseline2": "0 A; same seed, same source, same card",
+    "foreign_cpu": "no foreign process at or above 20% of a core during any accepted fold"
+  }
+}
