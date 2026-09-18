@@ -1,0 +1,251 @@
+{
+ "source": "a63d6d8e3:perf/c12_profiled_fold/runs/dm_prof/ops_perf_results.csv.gz",
+ "clock_MHz": 1350.0,
+ "controls": [
+  {
+   "control": "atom split vs leads.json",
+   "measured_s": 0.08996,
+   "screen_s": 0.09016,
+   "rel_err_pct": -0.22
+  },
+  {
+   "control": "trunk split vs leads.json",
+   "measured_s": 0.00581,
+   "screen_s": 0.00581,
+   "rel_err_pct": -0.03,
+   "per_call": 1.0
+  }
+ ],
+ "deletes": [
+  {
+   "op": "NlpCreateHeadsDeviceOperation",
+   "in0": [
+    1,
+    1,
+    512,
+    3072
+   ],
+   "out": [
+    1,
+    16,
+    512,
+    64
+   ],
+   "arm": "token",
+   "per_call": 24,
+   "programs_per_fold": 4800,
+   "s_per_fold": 0.20479,
+   "Mcycles": 276.5,
+   "cores": 16,
+   "note": "the token transformer's split, 24 layers"
+  },
+  {
+   "op": "NlpCreateHeadsDeviceOperation",
+   "in0": [
+    140,
+    1,
+    128,
+    128
+   ],
+   "out": [
+    140,
+    4,
+    128,
+    32
+   ],
+   "arm": "atom",
+   "per_call": 6,
+   "programs_per_fold": 1200,
+   "s_per_fold": 0.08996,
+   "Mcycles": 121.5,
+   "cores": 110,
+   "note": "the atom block's split"
+  },
+  {
+   "op": "PadDeviceOperation",
+   "in0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "arm": "atom",
+   "per_call": 6,
+   "programs_per_fold": 1200,
+   "s_per_fold": 0.02963,
+   "Mcycles": 40.0,
+   "cores": 110,
+   "note": "q padded 32 -> ATOM_DIM rows, only so the split sees matching row counts"
+  },
+  {
+   "op": "SliceDeviceOperation",
+   "in0": [
+    1,
+    560,
+    128,
+    32
+   ],
+   "out": [
+    1,
+    560,
+    32,
+    32
+   ],
+   "arm": "atom",
+   "per_call": 6,
+   "programs_per_fold": 1200,
+   "s_per_fold": 0.01693,
+   "Mcycles": 22.9,
+   "cores": 110,
+   "note": "and sliced straight back to 32 after it"
+  },
+  {
+   "op": "NLPConcatHeadsDeviceOperation",
+   "in0": [
+    140,
+    4,
+    32,
+    32
+   ],
+   "out": [
+    140,
+    1,
+    32,
+    128
+   ],
+   "arm": "atom_tail",
+   "per_call": 6,
+   "programs_per_fold": 1200,
+   "s_per_fold": 0.01313,
+   "Mcycles": 17.7,
+   "cores": 110,
+   "note": "the atom merge -- NOT built, see MOVES"
+  }
+ ],
+ "moves": [
+  {
+   "in0": [
+    1,
+    1,
+    512,
+    768
+   ],
+   "in1": [
+    1,
+    1,
+    768,
+    3072
+   ],
+   "arm": "token",
+   "programs_per_fold": 4800,
+   "signature_programs_in_csv": 192,
+   "signature_per_call": 24.0,
+   "mean_us_per_program": 40.137,
+   "s_per_fold": 0.19266,
+   "Mcycles": 260.1,
+   "cores": 88,
+   "note": "the token qkv projection"
+  },
+  {
+   "in0": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    256
+   ],
+   "arm": "atom",
+   "programs_per_fold": 1200,
+   "signature_programs_in_csv": 48,
+   "signature_per_call": 6.0,
+   "mean_us_per_program": 82.036,
+   "s_per_fold": 0.09844,
+   "Mcycles": 132.9,
+   "cores": 94,
+   "note": "the atom kv projection"
+  },
+  {
+   "in0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    128
+   ],
+   "arm": "atom",
+   "programs_per_fold": 1200,
+   "signature_programs_in_csv": 222,
+   "signature_per_call": 27.75,
+   "mean_us_per_program": 17.183,
+   "s_per_fold": 0.02062,
+   "Mcycles": 27.8,
+   "cores": 70,
+   "note": "the atom q projection, 6 of the 27 per-call programs in this signature"
+  },
+  {
+   "in0": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "in1": [
+    1,
+    1,
+    128,
+    128
+   ],
+   "arm": "atom_tail",
+   "programs_per_fold": 1200,
+   "signature_programs_in_csv": 222,
+   "signature_per_call": 27.75,
+   "mean_us_per_program": 17.183,
+   "s_per_fold": 0.02062,
+   "Mcycles": 27.8,
+   "cores": 70,
+   "note": "the atom gate projection, the only per-call one the tail would also convert -- its `out` sibling is the cached s_o, 6 programs per FOLD, so the tail barely touches it"
+  }
+ ],
+ "totals": {
+  "token": {
+   "deletes_s": 0.20479,
+   "Mcycles": 276.5,
+   "moves_s": 0.19266,
+   "delete_over_move": 1.063
+  },
+  "atom": {
+   "deletes_s": 0.13652,
+   "Mcycles": 184.3,
+   "moves_s": 0.11906,
+   "delete_over_move": 1.147
+  },
+  "atom_tail": {
+   "deletes_s": 0.01313,
+   "Mcycles": 17.7,
+   "moves_s": 0.02062,
+   "delete_over_move": 0.637
+  },
+  "built": {
+   "deletes_s": 0.34131,
+   "Mcycles": 460.8,
+   "moves_s": 0.31172,
+   "delete_over_move": 1.095
+  }
+ }
+}
