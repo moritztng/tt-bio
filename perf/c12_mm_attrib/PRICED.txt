@@ -1,0 +1,32 @@
+CONTROL  27 keys both instruments carry: census 6.0261 s vs in-situ 5.5958 s, ratio 0.929
+         11 keys in-situ slower, 16 faster -- a clock deficit is one-sided, this is not
+         independent leg (21 `linear` keys, none under test here): census 4.5467 s vs in-situ 4.9150 s, ratio 1.081, 13 within 10 %, 9 slower
+         hand-off: `linear` keys whose two instruments differ by over 0.05 fold s
+           1x16x512x512|K=128                  17920 calls     65.13 ->    112.81 us  +0.8544 s
+           1x16x512x128|K=512                   8960 calls     88.40 ->     35.69 us  -0.4722 s
+           1x512x768|K=768                     38600 calls     14.66 ->     22.96 us  +0.3206 s
+           1x512x512x128|K=128                   560 calls    942.19 ->    291.24 us  -0.3645 s
+
+key                             calls arm           cen_us   situ_us   cen_s  situ_s  delta_s cores   B/B   dense  argued
+1x128x512x512 K512                560 default      1915.06    818.20  1.0724  0.4582  -0.6142    64  1.00  0.2036  0.0584
+16384x16384 K1024                  16 grid_11x10   5845.39   6837.81  0.0935  0.1094  +0.0159   110  1.00  0.0375  0.0159
+1024x32x512 K512                  128 grid_11x10   2191.46    677.38  0.2805  0.0867  -0.1938   103  9.00  0.0673  0.0562
+1x16x512x512 K32                  264 grid_11x10     53.76     43.94  0.0142  0.0116  -0.0026    32  1.00  0.0060  0.0028
+1x16x512x32 K512                  264 grid_11x10     55.41     35.76  0.0146  0.0094  -0.0052    32  1.00  0.0038  0.0006
+1x128x4480 K512                   200 default        20.80     27.31  0.0042  0.0055  +0.0013    70  1.00  0.0028  0.0013
+TOTAL                                                                 1.4794  0.6808  -0.7986              0.3210  0.1352
+1x768x512 K4480                   200 UNPRICED           -    121.56  0.0000  0.0243  +0.0243    64     -  0.0186  0.0114
+
+ENVELOPE  what the parent's 65.66 TFLOP/s frontier point (linear|out=1x512x3072|K=768) would demand
+          machine balance 276.1 FLOP/byte; frontier point sits at 279.3 (1.01x balance)
+key                             AI/bal    env_s  req_GB/s     xroof xbestfold   core_s
+1x128x512x512 K512                0.62   0.2930     384.7      0.87      1.36   0.4029
+16384x16384 K1024                 3.30   0.1340      72.1      0.16      0.26   0.1072
+1024x32x512 K512                  0.93   0.0335     256.5      0.58      0.91   0.0286
+1x16x512x512 K32                  0.10   0.0011    2308.4      5.21      8.19   0.0030
+1x16x512x32 K512                  0.10   0.0011    2308.4      5.21      8.19   0.0030
+1x128x4480 K512                   0.36   0.0018     655.9      1.48      2.33   0.0022
+          biggest key: envelope 0.2930 s, core-scaled frontier 0.4029 s, argued roof 0.3998 s, in situ 0.4582 s
+          its prize: envelope-style 0.7794 s, core-scaled 0.0552 s, argued 0.0584 s
+
+in cycles at 1350 MHz: census 1997.3 Mc, in-situ 919.1 Mc, prize <= 433.4 Mc (dense) / 182.5 Mc (argued)
