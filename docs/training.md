@@ -182,6 +182,60 @@ chip and no per-chip gradients were passed. Sum, not mean: the divisor is the gl
 pinned, and dividing by chip count here is the substitution that turns one recipe into a
 different one per box.
 
+### The launcher: one process per chip
+
+A wide axis needs one process per chip, and `tt_bio/train/launcher.py` is what makes one. Ask
+for it and it happens: `tt-bio finetune ... --chips 2`, or `train.finetune(..., mesh=Mesh({"dp":
+[0, 1]}))`. The Tier-1 recipe is a single process, so when it sees a wide axis and nothing
+launched it as a rank, it hands the run to `launcher.drive`.
+
+**It re-runs your program, it does not ship objects to it.** `TT_VISIBLE_DEVICES` is read at
+`import ttnn`, so a fork cannot give a child a different chip than its parent, and an unpinned
+open brings up every visible chip rather than the one being computed on. A rank therefore has to
+be a fresh interpreter, and a fresh interpreter cannot be handed a live forward or a dataset
+holding a device. So the driver re-executes your command line with `TT_BIO_DP_RANK` set, like
+`torchrun`, and each rank builds its own forward and dataset. Two things follow, and both are
+checked before anything is spawned rather than documented and hoped for:
+
+- **Your program must be re-runnable** up to the `finetune` call. `python -c` and an interactive
+  session are refused by name, because there is no program to re-run.
+- **It must hold no card when it gets there.** Resolve your dataset's `device` lazily, on first
+  use, so the open happens inside the rank that computes on it. A driver that already has
+  `/dev/tenstorrent/N` open is refused with that sentence.
+
+**The gradients are summed on the host, through `/dev/shm`, deliberately not on the device.**
+The masters and both Adam moments already live on the host because `ttnn.moreh_adamw` cannot
+hold an fp32 master, so the gradient crosses PCIe to reach them whatever happens; an on-device
+collective would move it to the device and back for nothing. The whole parameter set goes in one
+message per step, because across processes the cost is the barrier and not the bytes.
+
+**Two failures look exactly like a healthy run, so both are refused rather than reported.**
+
+- *The ranks diverged.* They start from one seed and a reduce before every step keeps them
+  identical, so the launcher hashes every rank's masters at the end and requires exactly one
+  distinct hash. This is not hypothetical: it caught `lora_factors` seeding its adapter init
+  from entropy, which had every rank starting from a different `A`. Both loss curves fell and
+  the step times were normal.
+- *Two ranks shared a chip.* `TT_VISIBLE_DEVICES=N` does not open `/dev/tenstorrent/N`; on a
+  QuietBox the UMD ids run in PCI-BDF order and the node numbers do not, so `1` lands on node 2.
+  Two ranks on one chip with a third idle still finish, still agree on their masters, and still
+  show a speedup. So each rank's node is read from that rank's own `/proc/<pid>/fd` after the
+  device is up, and the set has to be distinct and of size `world`.
+
+Measured on qb1, two p150a chips, both arms at 1350 MHz sampled during the run from inside the
+measuring process, cotenants on the other two chips:
+
+| adapter gradient | 1 chip | 2 chips | speedup | efficiency | exchange | barrier |
+|---|---|---|---|---|---|---|
+| 0.33 MB | 0.2578 s/step | 0.2636 s/step | 1.956x | 97.8 % | 1.01 ms | 1.09 ms |
+| 5.24 MB | 0.2793 s/step | 0.3288 s/step | 1.699x | 84.9 % | 7.48 ms | 4.96 ms |
+
+The exchange is 2.3 % of the step at 5.24 MB, so it is not what costs the 15 %: the host-side
+Adam is. It runs on the CPU because the optimizer keeps an fp32 master, its cost scales with the
+adapter size (+21 ms per step from the 16x larger adapter on one chip alone), and two ranks on
+one host contend for it. That is the thing to attack if DP efficiency ever needs to be higher,
+not the collective. `perf/train_d_dp/` holds the harness and the raw results.
+
 Tensor parallelism is deliberately absent. A full replica is 14.8 % of one chip, so there is no
 memory argument for it, and it returns only if something later forces it.
 

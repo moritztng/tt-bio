@@ -93,6 +93,22 @@ class Axis:
                 f"fp32 takes a different route -- cast deliberately rather than here")
         return [ttnn.all_reduce(t) for t in tensors]
 
+    def reduce_all(self, per_param: Dict[str, Sequence]) -> dict:
+        """Sum every parameter's gradient across the axis. Name in, one summed gradient out.
+
+        The per-name loop over :meth:`reduce` is the whole of it here, because a mesh-device
+        ``all_reduce`` is already one call per tensor. It exists as its own method so an axis
+        whose width spans PROCESSES rather than chips a single process holds can override it
+        and exchange the whole parameter set in one message: across processes the cost is the
+        barrier and not the bytes, and an adapter has dozens of parameters per step.
+
+        A sum comes back wherever the axis summed it -- on the device from an on-device
+        collective, on the host from one that reduces there. The optimizer reads it with
+        ``to_host`` either way, so an axis that already has the number on the host hands it
+        over as it is instead of paying a PCIe round trip to be uniform.
+        """
+        return {n: self.reduce(list(v))[0] for n, v in per_param.items()}
+
     def __str__(self) -> str:
         return f"{self.name}[{self.width}]"
 

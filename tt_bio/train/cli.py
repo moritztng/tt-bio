@@ -49,6 +49,35 @@ def _echo_objectives(ctx, param, value):
     ctx.exit()
 
 
+def _chips(ctx, param, value):
+    """`--chips` as a count or as the chips themselves. A flag either way, so `--dry-run` decides.
+
+    A count is the first N chips, which is the right default on an idle box and the wrong one on
+    every shared box: chip 0 is routinely the busy one, and a count gives no way to say so. The
+    list form takes tt-smi ids, which are NOT `/dev/tenstorrent` node numbers -- the mesh takes
+    the same ids, and the launcher reads back which node each rank actually got.
+    """
+    if isinstance(value, (tuple, list)):
+        return tuple(int(v) for v in value)
+    text = str(value).strip()
+    try:
+        if "," in text:
+            ids = tuple(int(p) for p in text.split(",") if p.strip() != "")
+        else:
+            n = int(text)
+            if n < 1:
+                raise ValueError
+            ids = tuple(range(n))
+    except ValueError:
+        raise click.BadParameter(f"{value!r}; pass a count like 2 or chips like 0,2",
+                                 param_hint="--chips") from None
+    if not ids:
+        raise click.BadParameter("names no chips", param_hint="--chips")
+    if len(set(ids)) != len(ids):
+        raise click.BadParameter(f"repeats a chip: {ids}", param_hint="--chips")
+    return ids
+
+
 def _recipe_text(name: str) -> str:
     """A recipe's source, read off the file rather than through ``inspect``.
 
@@ -104,8 +133,10 @@ def _echo_recipe(ctx, param, value):
                    "which is a Tier-2 program you can edit and run yourself.")
 @click.option("--tokens", default=None, type=int,
               help="Crop size, for the fit check. Defaults to the dataset's own.")
-@click.option("--chips", default=1, show_default=True, type=int,
-              help="Width of the data-parallel axis.")
+@click.option("--chips", "chip_ids", default="1", show_default=True, callback=_chips,
+              help="The data-parallel axis: a count, e.g. 2, or the chips by their tt-smi id, "
+                   "e.g. 0,2. A count means the first N, which is not what you want on a box "
+                   "where chip 0 is busy.")
 @click.option("--rank", default=8, show_default=True, type=int, help="LoRA rank.")
 @click.option("--alpha", default=16.0, show_default=True, type=float, help="LoRA alpha.")
 @click.option("--target", "targets", multiple=True,
@@ -123,7 +154,7 @@ def _echo_recipe(ctx, param, value):
               help="Print a Tier-1 body as Tier-2 source and exit. The escape hatch.")
 @click.option("--list-objectives", is_flag=True, is_eager=True, expose_value=False,
               callback=_echo_objectives, help="Print the objective rows and exit.")
-def finetune(data, model, out_dir, global_batch, steps, objective, recipe, tokens, chips,
+def finetune(data, model, out_dir, global_batch, steps, objective, recipe, tokens, chip_ids,
              rank, alpha, targets, lr, warmup_steps, checkpoint_every, seed, dry_run):
     """Fine-tune a shipped model with LoRA adapters.
 
@@ -140,6 +171,7 @@ def finetune(data, model, out_dir, global_batch, steps, objective, recipe, token
     from . import objectives
     from .dryrun import plan
 
+    chips = len(chip_ids)
     if data is None:
         raise click.UsageError("DATA is required for a run. To look around without one, try "
                                "--show-recipe, --list-objectives or --help")
@@ -159,8 +191,6 @@ def finetune(data, model, out_dir, global_batch, steps, objective, recipe, token
     if recipe not in RECIPE_NAMES:
         raise click.BadParameter(f"{recipe!r}; recipes are {sorted(RECIPE_NAMES)}",
                                  param_hint="--recipe")
-    if chips < 1:
-        raise click.BadParameter("must be at least 1", param_hint="--chips")
     if global_batch % chips:
         raise click.BadParameter(
             f"--global-batch {global_batch} does not divide by --chips {chips}. Rounding it "
@@ -202,15 +232,21 @@ def finetune(data, model, out_dir, global_batch, steps, objective, recipe, token
         objective=objective, recipe=recipe, seed=seed, lr=lr, warmup_steps=warmup_steps,
         checkpoint_every=checkpoint_every, tokens=tokens,
         lora=LoraConfig(rank=rank, alpha=alpha, targets=tuple(targets)),
-        mesh=_mesh(chips))
+        mesh=_mesh(chip_ids))
     click.echo(str(run))
-    out = Path(out_dir) / "run.json"
+    # Every rank of a data-parallel run reaches this line, so the path is per rank: rank 0
+    # keeps out_dir and the others get a subdirectory. One path shared by N writers is a
+    # truncated file, not a duplicate one.
+    from .launcher import out_dir as rank_dir
+
+    out = rank_dir(out_dir) / "run.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({"history": run.history,
                                "provenance": run.provenance.as_dict(),
                                "displacement": run.displacement}, indent=2, default=str))
     click.echo(f"wrote {out}")
 
 
-def _mesh(chips: int):
+def _mesh(chip_ids):
     from .mesh import Mesh
-    return Mesh({"dp": list(range(chips))})
+    return Mesh({"dp": list(chip_ids)})
