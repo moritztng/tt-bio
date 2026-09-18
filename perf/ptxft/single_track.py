@@ -83,6 +83,9 @@ def main():
     ap.add_argument("--bar", type=float, default=1.0e-2)
     ap.add_argument("--cos-bar", type=float, default=0.9999)
     ap.add_argument("--dtype", default="bf16", choices=["bf16", "fp32"])
+    ap.add_argument("--param-dtype", default=None, choices=[None, "bf16", "fp32"],
+                    help="trainable-weight dtype; defaults to --dtype. The control for "
+                         "whether a bf16 activation against an fp32 weight is the defect")
     ap.add_argument("--parts", action="store_true",
                     help="compare the attention's intermediates one at a time, which is "
                          "what localises a whole-block disagreement")
@@ -99,14 +102,15 @@ def main():
     from perf.clocksample import during
 
     dt = ttnn.bfloat16 if a.dtype == "bf16" else ttnn.float32
+    pdt = dt if a.param_dtype is None else (ttnn.bfloat16 if a.param_dtype == "bf16"
+                                            else ttnn.float32)
     rng = np.random.default_rng(a.seed)
     with during() as clk:
         device = get_device()
         real, _head = load_blocks(a.ckpt, [0])
         shapes = {k: tuple(v.shape) for k, v in real[0].items()}
         sd = random_block_sd(shapes, rng)
-        blk = PairTrackBlock(sd, device, dtype=dt, adapter_dtype=ttnn.float32,
-                             train_base=True)
+        blk = PairTrackBlock(sd, device, dtype=dt, adapter_dtype=pdt, train_base=True)
         S = a.n
         c_s = shapes["pre_norm_s.weight"][0]
         c_z = shapes["attention.proj_z.0.weight"][0]
@@ -119,11 +123,6 @@ def main():
         zt = ag.Tensor(ft.to_device(z_np, device, dtype=dt), requires_grad=True)
         out = blk.single(st, zt)
         got = ft.to_host(out.value).reshape(S, c_s)
-        out.backward(seed=ft.to_device(seed_np, device, dtype=dt))
-
-        want, gref, gs, gz = reference(sd, s_np[0], z_np, seed_np[0],
-                                       heads=blk.s_heads, head_dim=blk.s_head_dim)
-
         if a.parts:
             # Walk the same chain on both sides and print where they first separate. A
             # single end-to-end number cannot say whether the twin or the transcription
@@ -171,8 +170,14 @@ def main():
                 print(f"{nm:<28} {rel_l2(g, r):>10.3e} {cos(g, r):>10.6f}")
             print()
 
+        out.backward(seed=ft.to_device(seed_np, device, dtype=dt))
+
+        want, gref, gs, gz = reference(sd, s_np[0], z_np, seed_np[0],
+                                       heads=blk.s_heads, head_dim=blk.s_head_dim)
+
         print(f"# --single-track: {S} tokens, c_s {c_s}, c_z {c_z}, "
-              f"{blk.s_heads} heads x {blk.s_head_dim}, {a.dtype}, seed {a.seed}")
+              f"{blk.s_heads} heads x {blk.s_head_dim}, activations {a.dtype}, "
+              f"weights {a.param_dtype or a.dtype}, seed {a.seed}")
         print(f"# reference: torch float64 autograd. bar {a.bar:.1e} rel L2, "
               f"cos >= {a.cos_bar}")
         print(f"{'quantity':<28} {'rel L2':>10} {'cos':>10}")
@@ -216,10 +221,27 @@ def main():
             rows.append((f"d/d {name}", g.reshape(ref.T.shape).T if ref.ndim == 2
                          else g.reshape(ref.shape), ref))
         fails, fails_pad = [], []
+        scale = max(np.linalg.norm(np.float64(r)) for _n, _g, r in rows if r is not None)
         for name, g, ref in rows:
             if g is None:
                 print(f"{name:<28} {'ABSENT':>10} {'':>10}   <-- FAIL")
                 fails.append(f"{name}: no gradient at all")
+                continue
+            rn = float(np.linalg.norm(np.float64(ref)))
+            if rn <= 1e-9 * scale:
+                # A RELATIVE metric cannot score a quantity whose true value is zero, and
+                # one here is: softmax is shift-invariant along the key axis, so the beta
+                # of the pair bias's layer norm adds a per-head constant to every key in a
+                # row and cancels exactly. Its gradient is analytically 0, the reference
+                # reads ~0, and rel L2 divides by it. Score it on the run's own gradient
+                # scale instead, and say so rather than excusing a FAIL.
+                anorm = float(np.linalg.norm(np.float64(g))) / scale
+                ok = anorm <= a.bar
+                print(f"{name:<28} {anorm:>10.3e} {'(zero ref)':>10}"
+                      f"{'' if ok else '   <-- FAIL'}")
+                if not ok:
+                    fails.append(f"{name}: analytically zero, ours is {anorm:.3e} of the "
+                                 f"run's gradient scale")
                 continue
             r, c = rel_l2(g, ref), cos(g, ref)
             ok = r <= a.bar and c >= a.cos_bar
