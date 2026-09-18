@@ -156,25 +156,44 @@ def sidechain_fape(sidechain_frames: torch.Tensor, sidechain_atom_pos: torch.Ten
     intermediate block are built from that block's angles, and Alg. 20 supervises intermediates on
     the backbone alone.
     """
+    flat = sidechain_inputs(sidechain_frames, sidechain_atom_pos, rigidgroups_gt_frames,
+                            rigidgroups_alt_gt_frames, rigidgroups_gt_exists,
+                            renamed_atom14_gt_positions, renamed_atom14_gt_exists,
+                            alt_naming_is_better, cdr_mask)
+    pred_rot, pred_trans = rigid_from_tensor_4x4(flat["pred_frames"])
+    gt_rot, gt_trans = rigid_from_tensor_4x4(flat["gt_frames"])
+    pair_mask = flat["frame_region"].unsqueeze(-1) != flat["atom_region"].unsqueeze(-2)
+    return compute_fape(pred_rot, pred_trans, gt_rot, gt_trans, flat["frames_mask"],
+                        flat["pred_positions"], flat["gt_positions"], flat["positions_mask"],
+                        length_scale=length_scale, l1_clamp_distance=clamp_distance,
+                        l1_clamp_distance_large=intercdr_distance, cdr_mask=pair_mask, eps=eps)
+
+
+def sidechain_inputs(sidechain_frames, sidechain_atom_pos, rigidgroups_gt_frames,
+                     rigidgroups_alt_gt_frames, rigidgroups_gt_exists,
+                     renamed_atom14_gt_positions, renamed_atom14_gt_exists,
+                     alt_naming_is_better, cdr_mask) -> dict:
+    """The sidechain FAPE's inputs, flattened over the residue and group axes.
+
+    Split out so the host and device implementations share one flattening rather than two: the
+    renaming blend, the `[B, N, 8]` frames becoming `[B, N*8]` and the `[B, N, 14]` atoms becoming
+    `[B, N*14]`, and the per-residue region labels expanding to match. A second copy of this is
+    exactly how a device port ends up scoring a different quantity than the host it was verified
+    against.
+    """
     renamed_gt = ((1.0 - alt_naming_is_better[..., None, None, None]) * rigidgroups_gt_frames
                   + alt_naming_is_better[..., None, None, None] * rigidgroups_alt_gt_frames)
     lead = sidechain_frames.shape[1:-4]
-    frames = sidechain_frames[-1].reshape(*lead, -1, 4, 4)
-    gt_frames = renamed_gt.reshape(*lead, -1, 4, 4)
-    exists = rigidgroups_gt_exists.reshape(*lead, -1)
-    pred_pos = sidechain_atom_pos[-1].reshape(*lead, -1, 3)
-    gt_pos = renamed_atom14_gt_positions.reshape(*lead, -1, 3)
-    gt_exists = renamed_atom14_gt_exists.reshape(*lead, -1)
-
-    frame_region = cdr_mask.unsqueeze(-1).expand(*cdr_mask.shape, 8).reshape(*lead, -1)
-    atom_region = cdr_mask.unsqueeze(-1).expand(*cdr_mask.shape, 14).reshape(*lead, -1)
-    pair_mask = frame_region.unsqueeze(-1) != atom_region.unsqueeze(-2)
-
-    pred_rot, pred_trans = rigid_from_tensor_4x4(frames)
-    gt_rot, gt_trans = rigid_from_tensor_4x4(gt_frames)
-    return compute_fape(pred_rot, pred_trans, gt_rot, gt_trans, exists, pred_pos, gt_pos,
-                        gt_exists, length_scale=length_scale, l1_clamp_distance=clamp_distance,
-                        l1_clamp_distance_large=intercdr_distance, cdr_mask=pair_mask, eps=eps)
+    return {
+        "pred_frames": sidechain_frames[-1].reshape(*lead, -1, 4, 4),
+        "gt_frames": renamed_gt.reshape(*lead, -1, 4, 4),
+        "frames_mask": rigidgroups_gt_exists.reshape(*lead, -1),
+        "pred_positions": sidechain_atom_pos[-1].reshape(*lead, -1, 3),
+        "gt_positions": renamed_atom14_gt_positions.reshape(*lead, -1, 3),
+        "positions_mask": renamed_atom14_gt_exists.reshape(*lead, -1),
+        "frame_region": cdr_mask.unsqueeze(-1).expand(*cdr_mask.shape, 8).reshape(*lead, -1),
+        "atom_region": cdr_mask.unsqueeze(-1).expand(*cdr_mask.shape, 14).reshape(*lead, -1),
+    }
 
 
 def compute_renamed_ground_truth_dense(batch: dict, atom14_pred_positions: torch.Tensor,

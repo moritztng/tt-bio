@@ -45,6 +45,7 @@ from ..abodybuilder3_output import device_outputs_to_host, geometry_tail
 from ..abodybuilder3_reference import ABB3Config
 from . import abodybuilder3_grad as grad
 from . import losses_geometry as L
+from .fape_device import prepare_sidechain_constants, sidechain_fape_device
 
 #: `params.yaml` `optimiser:` and `loss:`. The loss weights are upstream's `ABB3Loss` for the
 #: `base-loss` variant, which carries no pLDDT head and no violation terms in stage 1.
@@ -75,8 +76,13 @@ class TrainStep:
     """The training loop's body. One `step()` is one optimizer update at the recipe's batch size."""
 
     def __init__(self, state_dict: dict, cfg: ABB3Config, *, accumulate: int = 8,
-                 seed: int = 0, recipe: dict | None = None):
+                 seed: int = 0, recipe: dict | None = None, device_sidechain: bool = True):
         self.cfg = cfg
+        #: Run the sidechain FAPE on the card. It is 86 % of the loss stage on the host because its
+        #: intermediates are N^2-scale while its inputs are a couple of MB, which is exactly the
+        #: shape that ports well. `False` keeps the host path, which is what the device one is
+        #: scored against.
+        self.device_sidechain = device_sidechain
         self.recipe = {**RECIPE, **(recipe or {})}
         self.accumulate = accumulate
         grad.install()
@@ -170,11 +176,7 @@ class TrainStep:
         bb = timed("fape_backbone", lambda: L.backbone_fape(
             out["frames"], batch["backbone_rigid_tensor"], batch["backbone_rigid_mask"],
             batch.get("use_clamped_fape")))
-        sc = timed("fape_sidechain", lambda: L.sidechain_fape(
-            out["sidechain_frames"], out["positions"], batch["rigidgroups_gt_frames"],
-            batch["rigidgroups_alt_gt_frames"], batch["rigidgroups_gt_exists"],
-            batch["renamed_atom14_gt_positions"], batch["renamed_atom14_gt_exists"],
-            batch["alt_naming_is_better"], batch["cdr_mask"]))
+        sc = timed("fape_sidechain", lambda: self._sidechain(out, batch))
         fape = torch.mean(0.5 * bb + 1.0 * sc)
         chi = timed("supervised_chi", lambda: L.supervised_chi_loss(
             out["angles"], out["unnormalized_angles"], batch["aatype"], batch["seq_mask"],
@@ -186,6 +188,31 @@ class TrainStep:
         return total, {"fape": float(fape.detach()), "supervised_chi": float(chi.detach()),
                        "final_output_backbone": float(final.detach()),
                        "loss": float(total.detach())}
+
+    def _sidechain(self, out: dict, batch: dict) -> torch.Tensor:
+        """The sidechain FAPE, on the card or on the host. Same flattening either way.
+
+        The constants are rebuilt every step rather than cached, and they have to be: they carry
+        the RENAMED ground truth, and which of the two symmetric namings is better depends on the
+        current prediction. On the card the rebuild is three `[B, F, P]` tensors of arithmetic,
+        which is what makes rebuilding affordable where it would not be on the host.
+        """
+        if not self.device_sidechain:
+            return L.sidechain_fape(
+                out["sidechain_frames"], out["positions"], batch["rigidgroups_gt_frames"],
+                batch["rigidgroups_alt_gt_frames"], batch["rigidgroups_gt_exists"],
+                batch["renamed_atom14_gt_positions"], batch["renamed_atom14_gt_exists"],
+                batch["alt_naming_is_better"], batch["cdr_mask"])
+        flat = L.sidechain_inputs(
+            out["sidechain_frames"], out["positions"], batch["rigidgroups_gt_frames"],
+            batch["rigidgroups_alt_gt_frames"], batch["rigidgroups_gt_exists"],
+            batch["renamed_atom14_gt_positions"], batch["renamed_atom14_gt_exists"],
+            batch["alt_naming_is_better"], batch["cdr_mask"])
+        gt_rot, gt_trans = L.rigid_from_tensor_4x4(flat["gt_frames"])
+        const = prepare_sidechain_constants(gt_rot, gt_trans, flat["gt_positions"],
+                                            flat["frames_mask"], flat["positions_mask"],
+                                            flat["frame_region"], flat["atom_region"])
+        return sidechain_fape_device(flat["pred_frames"], flat["pred_positions"], const)
 
     # ------------------------------------------------------------------ one optimizer step
 

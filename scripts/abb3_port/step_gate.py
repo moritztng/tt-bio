@@ -12,10 +12,15 @@ a loss's cost is set by its shapes rather than its values -- every clamp, mask a
 set is shape-fixed. What synthetic targets cannot tell you is whether the loss VALUE is right, and
 that is what `scripts/abb3_port/loss_gate.py` is for: bit-exact against upstream's own `loss.py`.
 
-Two properties are asserted rather than assumed, because the whole optimizer design rests on them:
-the padded weight channels receive exactly zero gradient, and they are still exactly zero after a
-step. If either fails, updating the device-layout parameters in place is wrong and the step needs a
-host master with a gradient-mapping table.
+Three properties are asserted rather than assumed. Two are what the optimizer design rests on: the
+padded weight channels receive exactly zero gradient, and they are still exactly zero after a step.
+If either fails, updating the device-layout parameters in place is wrong and the step needs a host
+master with a gradient-mapping table.
+
+The third is that EVERY parameter receives a gradient. A parameter that never does is frozen for
+the whole run, and nothing else in this row would notice: the loss falls, the gates pass, the
+structures look plausible, and one block or one projection simply never learns. It is the cheapest
+possible check and the most expensive omission.
 
 Run: TT_VISIBLE_DEVICES=<card> TT_BIO_LEASE_CARDS=<card> PYTHONPATH=$PWD python3 \
         scripts/abb3_port/step_gate.py [--steps 10] [--micro 8] [--accumulate 8] [--tokens 256]
@@ -103,6 +108,9 @@ def main() -> int:
     ap.add_argument("--accumulate", type=int, default=8)
     ap.add_argument("--tokens", type=int, default=256)
     ap.add_argument("--blocks", type=int, default=8)
+    ap.add_argument("--host-fape", action="store_true",
+                    help="keep the sidechain FAPE on the host, the arm the device one is scored "
+                         "against")
     args = ap.parse_args()
     batch = args.micro * args.accumulate
 
@@ -117,7 +125,9 @@ def main() -> int:
     dev = get_device()
     sampler = ClockSampler()
     try:
-        step = TrainStep(ref.state_dict(), cfg, accumulate=args.accumulate)
+        step = TrainStep(ref.state_dict(), cfg, accumulate=args.accumulate,
+                         device_sidechain=not args.host_fape)
+        print(f"  sidechain FAPE on {'the host' if args.host_fape else 'the card'}")
         print(f"  taped device parameters: {len(step.params)}")
         micro = [synthetic_micro_batch(cfg, args.micro, args.tokens, 100 + i, dev)
                  for i in range(args.accumulate)]
@@ -126,6 +136,7 @@ def main() -> int:
         for _ in range(args.warmup):
             step.step(micro)
         _assert_padding_is_still_zero(step, padded)
+        _assert_every_parameter_trains(step)
         ttnn.synchronize_device(dev)
         same, other = report_host("device open, before timing")
         sampler.start()
@@ -186,6 +197,28 @@ def _padded_channel_views(step) -> list:
         if len(zero):
             out.append((p, zero.clone(), f"param[{i}] {tuple(host.shape)}"))
     return out
+
+
+def _assert_every_parameter_trains(step) -> None:
+    """Every taped parameter took a gradient, and it was not all zero.
+
+    `p.grad is None` means the parameter is not on the tape's path at all. An all-zero gradient is
+    the subtler case -- it happens when a parameter only feeds channels that are masked away -- and
+    it is reported separately because the padding masks are supposed to produce exactly that for
+    nothing.
+    """
+    missing = [i for i, p in enumerate(step.params) if p.grad is None]
+    assert not missing, (
+        f"{len(missing)} of {len(step.params)} parameters took NO gradient (indices "
+        f"{missing[:8]}): they are frozen for the whole run and nothing else here would notice")
+    dead = []
+    for i, p in enumerate(step.params):
+        if float(ttnn.to_torch(p.grad).abs().max()) == 0.0:
+            dead.append(i)
+    assert not dead, (
+        f"{len(dead)} of {len(step.params)} parameters took an all-zero gradient (indices "
+        f"{dead[:8]}); a masked-away output or a disconnected branch")
+    print(f"  every one of {len(step.params)} parameters took a non-zero gradient")
 
 
 def _assert_padding_is_still_zero(step, padded) -> None:

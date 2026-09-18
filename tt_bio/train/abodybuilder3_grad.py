@@ -352,6 +352,23 @@ def _softplus(shipped, x):
     return _tape(out_v, [x], make)
 
 
+def _minimum(shipped, x, cap):
+    """Gradient passes where `x` is below the bound, which is `clamp(max=...)`'s convention.
+
+    The bound is a constant here -- the clamp pattern comes from the region labels -- so only `x`
+    takes a gradient, and the tie is measure-zero on a continuous distance.
+    """
+    xv, capv = _unwrap(x), _unwrap(cap)
+    out_v = shipped(xv, capv)
+
+    def make():
+        def bw(g):
+            _accumulate(x, ttnn.multiply(g, ttnn.lt(xv, capv)))
+        return bw
+
+    return _tape(out_v, [x, cap], make)
+
+
 def _clamp_min(shipped, x, value):
     """Gradient passes where `x` is above the floor and nowhere else, which is `clamp`'s."""
     xv = _unwrap(x)
@@ -569,7 +586,7 @@ def _concat(shipped, xs, dim=-1):
 _TAPED = {
     "linear": _linear, "matmul": _matmul, "add": _add, "sub": _sub, "sub_square": _sub_square, "mul": _mul, "div": _div,
     "scale": _scale, "shift": _shift, "sqrt_plus": _sqrt_plus, "softplus": _softplus,
-    "clamp_min": _clamp_min, "norm_from_sq": _norm_from_sq, "relu": _relu, "sum_last": _sum_last, "sum_dim": _sum_dim, "softmax": _softmax, "layer_norm": _layer_norm,
+    "clamp_min": _clamp_min, "minimum": _minimum, "norm_from_sq": _norm_from_sq, "relu": _relu, "sum_last": _sum_last, "sum_dim": _sum_dim, "softmax": _softmax, "layer_norm": _layer_norm,
     "reshape": _reshape, "permute": _permute, "transpose_last": _transpose_last,
     "slice_dim": _slice_dim, "concat": _concat,
 }
