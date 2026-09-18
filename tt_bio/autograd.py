@@ -421,6 +421,12 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
     n_k = ks[2]
     if scale is None:
         scale = head_dim ** -0.5
+    # A bias with a leading extent of 1 broadcasts over the B independent attention
+    # problems, which is what the pair tracks pass. The atom transformer's local windows
+    # pass a DIFFERENT bias per trunk, so its gradient is the score gradient itself
+    # rather than a sum over that axis, and summing it there would quietly average the
+    # windows together.
+    bias_bcast = bias is None or int(bias.value.shape[0]) == 1
     cB = B if chunk is None else min(int(chunk), B)
     cQ = n_q if q_chunk is None else min(int(q_chunk), n_q)
 
@@ -451,6 +457,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
     def make():
         def bw(g):
             dq_blocks, dk_blocks, dv_blocks, dbias_rows = [], [], [], None
+            dbias_blocks = []
             for b0 in range(0, B, cB):
                 b1 = min(b0 + cB, B)
                 dk_acc = dv_acc = None
@@ -472,8 +479,13 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                     ds = ttnn.multiply(p, ttnn.subtract(dp, inner))
                     ttnn.deallocate(p)
                     if bias is not None:
-                        # dBias is dS summed over the leading axis, since bias broadcast over it.
-                        dbias_acc.append(ttnn.sum(ds, dim=0, keepdim=True))
+                        # CLONE on the per-trunk path. The broadcast path appends the
+                        # result of a sum, a fresh tensor, but ds itself is deallocated
+                        # a few lines down, so keeping a reference to it hands the bias
+                        # gradient freed storage -- which surfaces much later, in an
+                        # unrelated permute backward.
+                        dbias_acc.append(ttnn.sum(ds, dim=0, keepdim=True)
+                                         if bias_bcast else ttnn.clone(ds))
                     dq_rows.append(ttnn.multiply(
                         ttnn.matmul(ds, k.value[b0:b1], compute_kernel_config=cfg), scale))
                     dk_part = ttnn.multiply(
@@ -487,7 +499,10 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                 dv_blocks.append(dv_acc)
                 if bias is not None:
                     rows = dbias_acc[0] if len(dbias_acc) == 1 else ttnn.concat(dbias_acc, dim=2)
-                    dbias_rows = rows if dbias_rows is None else ttnn.add(dbias_rows, rows)
+                    if bias_bcast:
+                        dbias_rows = rows if dbias_rows is None else ttnn.add(dbias_rows, rows)
+                    else:
+                        dbias_blocks.append(rows)
             def cat0(blocks):
                 return blocks[0] if len(blocks) == 1 else ttnn.concat(blocks, dim=0)
             if q.requires_grad:
@@ -497,7 +512,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
             if v.requires_grad:
                 v.add_grad(cat0(dv_blocks))
             if bias is not None and bias.requires_grad:
-                bias.add_grad(dbias_rows)
+                bias.add_grad(dbias_rows if bias_bcast else cat0(dbias_blocks))
         return bw
 
     return _tape(out_v, parents, make)

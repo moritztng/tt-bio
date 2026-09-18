@@ -36,7 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
 REF = os.path.expanduser("~/ref/Protenix")
 
 
-def upstream_block(c_a, c_s, c_z, n_heads):
+def upstream_block(c_a, c_s, c_z, n_heads, cross=False):
     """ByteDance's own DiffusionTransformerBlock, float64, on the CPU."""
     import torch
     if REF not in sys.path:
@@ -66,18 +66,24 @@ def upstream_block(c_a, c_s, c_z, n_heads):
 
     P._attention = _attention64
     torch.set_default_dtype(torch.float64)
-    blk = DiffusionTransformerBlock(c_a=c_a, c_s=c_s, c_z=c_z, n_heads=n_heads)
+    blk = DiffusionTransformerBlock(c_a=c_a, c_s=c_s, c_z=c_z, n_heads=n_heads,
+                                    cross_attention_mode=cross)
     return blk.double()
 
 
-def load_dit(ckpt, index):
-    """One token-DiT block's weights off the real checkpoint, under upstream's names."""
+TOKEN_PREFIX = "diffusion_module.diffusion_transformer.blocks."
+ATOM_PREFIX = ("diffusion_module.atom_attention_encoder.atom_transformer."
+               "diffusion_transformer.blocks.")
+
+
+def load_dit(ckpt, index, prefix=TOKEN_PREFIX):
+    """One DiT block's weights off the real checkpoint, under upstream's names."""
     import torch
     sd = torch.load(ckpt, map_location="cpu", weights_only=False)
     for k in ("model", "state_dict", "ema", "module"):
         if isinstance(sd, dict) and k in sd and isinstance(sd[k], dict):
             sd = sd[k]
-    pre = f"diffusion_module.diffusion_transformer.blocks.{index}."
+    pre = f"{prefix}{index}."
     out = {}
     for k, v in sd.items():
         k = k[len("module."):] if k.startswith("module.") else k
@@ -108,7 +114,21 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--bar", type=float, default=1.0e-2)
     ap.add_argument("--cos-bar", type=float, default=0.9999)
+    ap.add_argument("--floor-slack", type=float, default=3.0,
+                    help="how much worse than upstream's own fp32 run is still the "
+                         "floor rather than a defect")
     ap.add_argument("--dtype", default="fp32", choices=["bf16", "fp32"])
+    ap.add_argument("--atom", action="store_true",
+                    help="the ATOM-level block: local windowed attention in "
+                         "cross-attention mode, which is what atxE/atxD run")
+    ap.add_argument("--prefix", default=None)
+    ap.add_argument("--global-attn", action="store_true",
+                    help="run the ATOM block's weights with GLOBAL attention. The "
+                         "attribution control: it changes only the windowing, so if the "
+                         "error collapses the window path owns it and if it does not, "
+                         "the device's arithmetic does.")
+    ap.add_argument("--n-queries", type=int, default=32)
+    ap.add_argument("--n-keys", type=int, default=128)
     a = ap.parse_args()
 
     import ttnn
@@ -121,7 +141,10 @@ def main():
 
     dt = ttnn.bfloat16 if a.dtype == "bf16" else ttnn.float32
     rng = np.random.default_rng(a.seed)
-    sd = load_dit(a.ckpt, a.block)
+    prefix = a.prefix or (ATOM_PREFIX if a.atom else TOKEN_PREFIX)
+    sd = load_dit(a.ckpt, a.block, prefix)
+    nq = a.n_queries if (a.atom and not a.global_attn) else None
+    nk = a.n_keys if (a.atom and not a.global_attn) else None
     c_s = int(sd["attention_pair_bias.layernorm_a.layernorm_s.weight"].shape[0])
     c_a = int(sd["attention_pair_bias.attention.linear_q.weight"].shape[0])
     c_z = int(sd["attention_pair_bias.layernorm_z.weight"].shape[0])
@@ -129,13 +152,21 @@ def main():
     N = a.n
     a_np = (rng.standard_normal((1, N, c_a)) * 0.5).astype(np.float32)
     s_np = (rng.standard_normal((1, N, c_s)) * 0.5).astype(np.float32)
-    z_np = (rng.standard_normal((N, N, c_z)) * 0.5).astype(np.float32)
     g_np = (rng.standard_normal((1, N, c_a)) * 0.1).astype(np.float32)
+    if nq is not None:
+        # z arrives ALREADY trunked at atom level: upstream asserts
+        # len(z.shape) == len(q.shape) + 2 and reads [n_trunks, n_queries, n_keys, c_z]
+        # (transformer.py:132-140).
+        n_trunks = -(-N // nq)
+        z_np = (rng.standard_normal((n_trunks, nq, nk, c_z)) * 0.5).astype(np.float32)
+    else:
+        z_np = (rng.standard_normal((N, N, c_z)) * 0.5).astype(np.float32)
 
     fails = []
     with during() as clk:
         device = get_device()
-        blk = DiTBlock(sd, device, dtype=dt, param_dtype=dt, trainable=True)
+        blk = DiTBlock(sd, device, dtype=dt, param_dtype=dt, trainable=True,
+                       n_queries=nq, n_keys=nk)
         at = ag.Tensor(ft.to_device(a_np, device, dtype=dt), requires_grad=True)
         st = ag.Tensor(ft.to_device(s_np, device, dtype=dt), requires_grad=True)
         zt = ag.Tensor(ft.to_device(z_np, device, dtype=dt), requires_grad=True)
@@ -143,41 +174,71 @@ def main():
         got = ft.to_host(out.value).reshape(1, N, c_a)
         out.backward(seed=ft.to_device(g_np, device, dtype=dt))
 
-        ref = upstream_block(c_a, c_s, c_z, H)
+        ref = upstream_block(c_a, c_s, c_z, H, cross=blk.cross)
         missing, unexpected = ref.load_state_dict(
             {k: v.double() for k, v in sd.items()}, strict=False)
         missing = [m for m in missing if "drop_path" not in m]
         if missing or unexpected:
             fails.append(f"state_dict mismatch against upstream: missing {missing}, "
                          f"unexpected {list(unexpected)}")
+        # THE FLOOR CONTROL. An fp32 device against a float64 reference cannot be
+        # scored by a bar that was pre-registered from bf16 quantisation, so the same
+        # comparison is run against upstream itself in float32: same code, same weights,
+        # same inputs, only the precision changed. That number is what ANY fp32
+        # implementation of this block owes, and the twin is scored against it rather
+        # than against a bar chosen to fit.
+        ref32 = upstream_block(c_a, c_s, c_z, H, cross=blk.cross).float()
+        ref32.load_state_dict({k: v.float() for k, v in sd.items()}, strict=False)
+        a32 = torch.tensor(a_np[0], dtype=torch.float32, requires_grad=True)
+        s32 = torch.tensor(s_np[0], dtype=torch.float32, requires_grad=True)
+        z32 = torch.tensor(z_np, dtype=torch.float32, requires_grad=True)
+        o32, _a, _b = ref32(a=a32, s=s32, z=z32, n_queries=nq, n_keys=nk)
+        (o32 * torch.tensor(g_np[0], dtype=torch.float32)).sum().backward()
+
         ar = torch.tensor(a_np[0], dtype=torch.float64, requires_grad=True)
         sr = torch.tensor(s_np[0], dtype=torch.float64, requires_grad=True)
         zr = torch.tensor(z_np, dtype=torch.float64, requires_grad=True)
-        rout, _s, _z = ref(a=ar, s=sr, z=zr)
+        rout, _s, _z = ref(a=ar, s=sr, z=zr, n_queries=nq, n_keys=nk)
         (rout * torch.tensor(g_np[0], dtype=torch.float64)).sum().backward()
 
-        print(f"# --ditcheck: block {a.block}, {N} tokens, c_a {c_a}, c_s {c_s}, "
-              f"c_z {c_z}, {H} heads x {c_a // H} (padded to {blk.pad_dim}), {a.dtype}")
+        print(f"# --ditcheck: {'ATOM' if a.atom else 'TOKEN'} block {a.block}, {N} "
+              f"{'atoms' if a.atom else 'tokens'}, c_a {c_a}, c_s {c_s}, c_z {c_z}, "
+              f"{H} heads x {c_a // H} (padded to {blk.pad_dim}), {a.dtype}"
+              + (f", windows {nq}/{nk}, cross-attention {blk.cross}" if a.atom else ""))
         print(f"# reference: ByteDance's own DiffusionTransformerBlock in float64, real "
               f"checkpoint weights, autograd gradients")
-        print(f"{'quantity':<46} {'rel L2':>10} {'cos':>10}")
+        print(f"{'quantity':<46} {'rel L2':>10} {'cos':>10} {'fp32 floor':>11} "
+              f"{'ratio':>7}")
 
-        def check(name, g, r):
+        def check(name, g, r, floor=None):
             if g is None:
                 print(f"{name:<46} {'ABSENT':>10}")
                 fails.append(f"{name}: no gradient")
                 return
             rr, cc = rel_l2(g, r), cosine(g, r)
-            ok = rr <= a.bar and cc >= a.cos_bar
-            print(f"{name:<46} {rr:>10.3e} {cc:>10.6f}{'' if ok else '   <-- FAIL'}")
+            fl = None if floor is None else rel_l2(floor, r)
+            # Pass on EITHER the pre-registered bar or the measured fp32 floor times the
+            # slack: the bar is the right question for a bf16 arm and the floor is the
+            # right one here, and quoting both keeps a loose floor from hiding a defect.
+            ok = (rr <= a.bar) or (fl is not None and rr <= a.floor_slack * fl)
+            ok = ok and cc >= a.cos_bar
+            fs = "" if fl is None else f"{fl:>11.3e} {rr / fl if fl > 0 else 0:>7.2f}"
+            print(f"{name:<46} {rr:>10.3e} {cc:>10.6f} {fs}"
+                  f"{'' if ok else '   <-- FAIL'}")
             if not ok:
-                fails.append(f"{name}: rel L2 {rr:.3e}, cos {cc:.6f}")
+                fails.append(f"{name}: rel L2 {rr:.3e}, cos {cc:.6f}"
+                             + ("" if fl is None else f", fp32 floor {fl:.3e}"))
 
-        check("forward", got.reshape(N, c_a), rout.detach().numpy())
-        check("d/da (input)", ft.to_host(at.grad).reshape(N, c_a), ar.grad.numpy())
-        check("d/ds (input)", ft.to_host(st.grad).reshape(N, c_s), sr.grad.numpy())
-        check("d/dz (input)", ft.to_host(zt.grad).reshape(N, N, c_z), zr.grad.numpy())
+        check("forward", got.reshape(N, c_a), rout.detach().numpy(),
+              o32.detach().numpy())
+        check("d/da (input)", ft.to_host(at.grad).reshape(N, c_a), ar.grad.numpy(),
+              a32.grad.numpy())
+        check("d/ds (input)", ft.to_host(st.grad).reshape(N, c_s), sr.grad.numpy(),
+              s32.grad.numpy())
+        check("d/dz (input)", ft.to_host(zt.grad).reshape(z_np.shape), zr.grad.numpy(),
+              z32.grad.numpy())
         named = dict(ref.named_parameters())
+        named32 = dict(ref32.named_parameters())
         H_, hd, pd = blk.n_heads, blk.head_dim, blk.pad_dim
         laned = {"attention_pair_bias.attention.linear_q.weight": 0,
                  "attention_pair_bias.attention.linear_k.weight": 0,
@@ -211,7 +272,8 @@ def main():
                 g = g.reshape(r.T.shape).T
             elif g is not None:
                 g = g.reshape(r.shape)
-            check(f"d/d {name}", g, r)
+            f32 = named32[name].grad
+            check(f"d/d {name}", g, r, None if f32 is None else f32.numpy())
     print()
     print(clk.line(0))
     print()

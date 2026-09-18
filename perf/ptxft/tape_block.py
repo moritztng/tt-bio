@@ -484,9 +484,13 @@ class DiTBlock:
 
     def __init__(self, sd: Dict, device, *, dtype=ttnn.bfloat16,
                  param_dtype=ttnn.float32, trainable: bool = True, chunk=None,
-                 q_chunk=None):
+                 q_chunk=None, n_queries=None, n_keys=None):
         self.device, self.dtype = device, dtype
         self.chunk, self.q_chunk = chunk, q_chunk
+        # Atom level: local attention over windows, and cross-attention mode, which the
+        # state dict announces by carrying a second adaLN for the key/value stream.
+        self.n_queries, self.n_keys = n_queries, n_keys
+        self.cross = "attention_pair_bias.layernorm_kv.layernorm_s.weight" in sd
         self.params: Dict[str, ag.Tensor] = {}
         self.w: Dict[str, ag.Tensor] = {}
         dt = param_dtype if trainable else dtype
@@ -504,7 +508,10 @@ class DiTBlock:
             if trainable:
                 self.params[key] = t
 
-        for p in (A + "layernorm_a", C + "adaln"):
+        adalns = [A + "layernorm_a", C + "adaln"]
+        if self.cross:
+            adalns.insert(1, A + "layernorm_kv")
+        for p in adalns:
             take(f"{p}.layernorm_s.weight")
             take(f"{p}.linear_s.weight")
             take(f"{p}.linear_s.bias")
@@ -537,29 +544,93 @@ class DiTBlock:
         shift = self._lin(sh, f"{p}.linear_nobias_s.weight")
         return ag.add(ag.mul(ah, ag.sigmoid(scale)), shift)
 
+    def _zeros(self, rows, like):
+        """A zero pad block shaped like the tensor given, but n rows deep.
+
+        The rank has to match: ttnn.concat refuses operands that differ anywhere except
+        the concatenated axis, and the single representation carries a leading batch
+        axis while the windowed key tensor does not.
+        """
+        shp = [int(d) for d in like.value.shape]
+        shp[-2] = rows
+        return ag.Tensor(ttnn.zeros(shp, dtype=like.value.dtype,
+                                    layout=ttnn.TILE_LAYOUT, device=self.device),
+                         requires_grad=False)
+
+    def _heads(self, x, lead, length):
+        """[lead, length, H*pd] -> [lead, H, length, pd], the layout the tape attends in."""
+        H, pd = self.n_heads, self.pad_dim
+        return ag.permute(ag.reshape(x, [lead, length, H, pd]), (0, 2, 1, 3))
+
     def attention(self, a: ag.Tensor, s: ag.Tensor, z: ag.Tensor) -> ag.Tensor:
         A = "attention_pair_bias."
         H, hd, pd = self.n_heads, self.head_dim, self.pad_dim
         N = int(a.value.shape[-2])
         b = self.adaln(a, s, A + "layernorm_a")
+        # Upstream feeds the ALREADY-NORMED a into the key/value adaLN, not the raw a
+        # (transformer.py:218-221). Reading it the other way is a plausible-looking
+        # forward that is a different model.
+        kv_in = self.adaln(b, s, A + "layernorm_kv") if self.cross else b
 
-        def heads(name, bias=None):
-            x = self._lin(b, A + f"attention.linear_{name}.weight", bias)
-            return ag.permute(ag.reshape(x, [1, N, H, pd]), (0, 2, 1, 3))
+        if self.n_queries is None:
+            q = self._heads(self._lin(b, A + "attention.linear_q.weight",
+                                      A + "attention.linear_q.bias"), 1, N)
+            k = self._heads(self._lin(kv_in, A + "attention.linear_k.weight"), 1, N)
+            v = self._heads(self._lin(kv_in, A + "attention.linear_v.weight"), 1, N)
+            zn = ag.layer_norm(z, self.w[A + "layernorm_z.weight"], eps=EPS)
+            bias = ag.reshape(ag.permute(self._lin(zn, A + "linear_nobias_z.weight"),
+                                         (2, 0, 1)), [1, H, N, N])
+            lead, n_q = 1, N
+        else:
+            # Local windows, upstream's geometry exactly (primitives.py:354-372):
+            # queries padded to whole trunks, keys padded left by (n_keys - n_queries)//2
+            # and unfolded with step n_queries.
+            nq, nk = self.n_queries, self.n_keys
+            nt = -(-N // nq)
+            q_pad = nt * nq - N
+            pad_l = (nk - nq) // 2
+            pad_r = (nt - 1) * nq + nk - (N + q_pad) - pad_l + q_pad
+            qb = b if q_pad == 0 else ag.concat([b, self._zeros(q_pad, b)], dim=-2)
+            kvp = ag.concat([self._zeros(pad_l, kv_in), kv_in,
+                             self._zeros(pad_r + q_pad, kv_in)], dim=-2)
+            kw = ag.windows(kvp, nq, nk, nt, pad_l)
+            q = self._heads(ag.reshape(self._lin(qb, A + "attention.linear_q.weight",
+                                                 A + "attention.linear_q.bias"),
+                                       [nt, nq, H * pd]), nt, nq)
+            k = self._heads(self._lin(kw, A + "attention.linear_k.weight"), nt, nk)
+            v = self._heads(self._lin(kw, A + "attention.linear_v.weight"), nt, nk)
+            zn = ag.layer_norm(z, self.w[A + "layernorm_z.weight"], eps=EPS)
+            bias = ag.permute(self._lin(zn, A + "linear_nobias_z.weight"), (0, 3, 1, 2))
+            bias = ag.add(bias, self._window_mask(N, nt, nq, nk, pad_l, bias))
+            lead, n_q = nt, nq
 
-        q = heads("q", A + "attention.linear_q.bias")
-        k, v = heads("k"), heads("v")
-        zn = ag.layer_norm(z, self.w[A + "layernorm_z.weight"], eps=EPS)
-        bias = ag.reshape(ag.permute(self._lin(zn, A + "linear_nobias_z.weight"),
-                                     (2, 0, 1)), [1, H, N, N])
         o = ag.triangle_attention(q, k, v, bias, scale=hd ** -0.5,
                                   chunk=self.chunk, q_chunk=self.q_chunk)
-        o = ag.reshape(ag.permute(o, (0, 2, 1, 3)), [1, N, H * pd])
-        o = ag.mul(o, ag.sigmoid(self._lin(b, A + "attention.linear_g.weight")))
+        o = ag.reshape(ag.permute(o, (0, 2, 1, 3)), [lead, n_q, H * pd])
+        if self.n_queries is not None:
+            o = ag.narrow(ag.reshape(o, [lead * n_q, H * pd]), 0, 0, N)
+            o = ag.reshape(o, [1, N, H * pd])
+        gate = self._lin(b, A + "attention.linear_g.weight")
+        o = ag.mul(o, ag.sigmoid(ag.reshape(gate, [1, N, H * pd])))
         o = self._lin(o, A + "attention.linear_o.weight")
         s_o = ag.sigmoid(self._lin(s, A + "linear_a_last.weight",
                                    A + "linear_a_last.bias"))
         return ag.mul(s_o, o)
+
+    def _window_mask(self, N, nt, nq, nk, pad_l, like):
+        """Additive -inf on the key positions the padding invented.
+
+        A constant, so it is a leaf with no gradient. Upstream carries the same thing as a
+        boolean pad mask (primitives.py:377-390); an additive bias reaches the same
+        softmax and needs no new op.
+        """
+        import numpy as np
+        idx = (np.arange(nt)[:, None] * nq + np.arange(nk)[None, :]) - pad_l
+        bad = (idx < 0) | (idx >= N)
+        m = np.where(bad[:, None, None, :], -1e9, 0.0).astype(np.float32)
+        m = np.broadcast_to(m, (nt, 1, nq, nk)).copy()
+        return ag.Tensor(ft.to_device(m, self.device, dtype=like.value.dtype),
+                         requires_grad=False)
 
     def transition(self, a: ag.Tensor, s: ag.Tensor) -> ag.Tensor:
         C = "conditioned_transition_block."
