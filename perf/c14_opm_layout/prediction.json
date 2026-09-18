@@ -1,0 +1,40 @@
+{
+ "slug": "c14-opm-layout",
+ "written": "2026-09-18T14:05Z",
+ "ordering_note": "Written before ANY line of ladder_qb1c2.json was read. The ladder process was already launched when this was authored (it takes ~15 min); no output from it had been inspected, and the thresholds below are stated in advance of it. The in-situ numbers this prices off are older than this pass: they come from c12-profiled-fold runs/msal_prof, committed on origin/wk/c12-profiled-fold.",
+ "in_situ_per_call_ms": {
+  "z_matmul": 2.3235,
+  "untilize_z": 2.8320,
+  "reshape_z": 3.0605,
+  "tilize_z": 2.4257,
+  "transpose_z": 2.8829,
+  "mul_scale_z": 3.0227,
+  "projo_batched": 10.2965,
+  "source": "mean over the 11 MSALayer calls in c12-profiled-fold/runs/msal_prof/ops_perf_results.csv.gz, DEVICE KERNEL DURATION, 512 aa, qb2 p300c, during-sampled 1350 MHz",
+  "calls_per_fold": 16
+ },
+ "predictions": [
+  {
+   "lever": "fold the 1/S scale into `a` (2.10 MB) instead of multiplying z (536.87 MB)",
+   "predicted_fold_s": 0.0484,
+   "rate_multiplied": "the deleted op's OWN in-situ device kernel duration, 3.0227 ms/call x 16 calls",
+   "borrowed": false,
+   "bit_exact": "expected exact at 512 aa: S=64 so the scale is 2^-6 and a power-of-two scale commutes with bf16 rounding. Checked against a float64 reference, not asserted.",
+   "negative_if": "the 3.0227 ms op is NOT the z-scale multiply. Its profiler operand field reads 1x1x64x32 logical 64x4, which cannot be a 3 ms op, so the identification rests on position in the op stream and on 536.87 MB x 2 / 3.0227 ms = 355 GB/s being a plausible in-place bf16 rate. The op-level arm mul_scale_z settles it: if a standalone multiply on (512,512,1024) does not land within 15 % of 3.0227 ms, the identification is wrong and this prediction is withdrawn."
+  },
+  {
+   "lever": "proj_o with the 512-deep batch merged into M: linear((I*J, 1024), (1024,128)) instead of linear((1,I,J,1024), (1024,128))",
+   "predicted_fold_s": null,
+   "why_no_number": "this is a re-blocking of an existing ttnn op, not a novel kernel, so it gets measured before it gets a number. Thresholds pre-registered instead.",
+   "positive_if": "projo_flat/projo_batched <= 0.80",
+   "negative_if": "projo_flat/projo_batched >= 0.95, or reshape_2d costs more than 0.10 ms (it must be a free leading-dim merge, and it is already known value-exact)"
+  },
+  {
+   "lever": "delete the 2.8829 ms transpose by ordering b as (J,D,S) so the regroup becomes a tile-byte reinterpretation",
+   "predicted_fold_s": null,
+   "status": "REFUTED AT SOURCE before any timing: ttnn.reshape is defined on LOGICAL indices, so (I,C,J*D)->(I*J,C,D) is a real copy with different semantics, not the byte reinterpret the mechanism needs. Scored against a float64 reference at I=J=64: the arm read 1.417e-2 max error against the shipped path's 1.105e-3, i.e. WRONG, not merely reassociated.",
+   "negative_if": "already negative"
+  }
+ ],
+ "accuracy_bar": "512 aa kill bar 0.60 A with a 1.84 A seed floor beside it. Bit-exactness is measured where free but does not gate."
+}
