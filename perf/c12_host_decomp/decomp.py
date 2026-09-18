@@ -281,11 +281,33 @@ def main() -> int:
         save()
         if socket.gethostname() != "tt-quietbox2":
             raise RuntimeError("wrong host")
-        result["load_accounting"] = load_accounting(a.node)
-        save()
-        if result["load_accounting"]["unaccounted_load"] > UNACCOUNTED_LOAD_LIMIT:
-            raise RuntimeError("unaccounted load after the benchlock wait: "
-                               + json.dumps(result["load_accounting"]))
+        # WAIT for accountable load, do not refuse on one sample. The gate is right -- load that
+        # no device holder explains is host CPU competing with the capture, and for a row whose
+        # whole cost is host program assembly it competes with the resource being measured rather
+        # than adding noise to it. But a ONE-SHOT check placed after a benchlock wait that can run
+        # to 5400 s throws the lock away on a 1-minute average that is still decaying from a
+        # finished build, and the next waiter inherits the box. That cost this row its first two
+        # attempts on 2026-09-18. So re-sample inside the lock, keep the whole series as evidence,
+        # and refuse only if it never clears.
+        series = []
+        deadline = time.monotonic() + float(os.environ.get("C14_LOAD_WAIT_S", 600))
+        while True:
+            la = load_accounting(a.node)
+            series.append({"at_utc_ns": time.time_ns(), "loadavg1": la["loadavg"][0],
+                           "accounted_cores": la["accounted_cores"],
+                           "unaccounted_load": la["unaccounted_load"],
+                           "holders": [h["argv"][:90] for h in la["foreign_device_holders"]]})
+            result["load_accounting"] = la
+            result["load_accounting_series"] = series
+            save()
+            if la["unaccounted_load"] <= UNACCOUNTED_LOAD_LIMIT:
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError(
+                    f"unaccounted load never cleared in {len(series)} samples inside the lock: "
+                    + json.dumps(series[-1]))
+            print(json.dumps({"waiting_for_accountable_load": series[-1]}), flush=True)
+            time.sleep(15)
         if result["production_diff"]:
             raise RuntimeError("production source differs from the requested base")
         result["dirty_diff"] = git("diff", "HEAD")
