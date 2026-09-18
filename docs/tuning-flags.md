@@ -205,15 +205,20 @@ stack figure describes no shipped configuration. Timed at the block rather than 
 lever reads 1.071x and 1.085x across two sessions on this card. The win decays with size: +0.2809 s
 at 298 aa, +0.2415 s at 512 aa and +0.1811 s at 768 aa, each above its own interleaved A/A floor.
 
-**Accuracy: not bit-identical, and the readings on record cover the pair rather than this flag
-alone.** They were taken with `TT_BIO_UNFUSED_SILU` on as well: 0.25705 A all-atom at 298 aa, the
-size the 0.35/0.60 A band is written against, which is inside the pass band and 0.321x that
-fixture's own base-against-base seed floor of 0.7998 A, with a same-seed A/A control reading
-0.0000 A and identical digests. At 512 aa the hinge is unconstrained, so pLDDT decides instead, and
-over five seeds the pair moves it -0.0010 on average, unresolved at 95 % (+/- 0.0026) against the
-base's own across-seed spread of 0.0116. The pair is a superset of the perturbation this flag makes
-alone, which bounds it in practice without being a reading of the shipped configuration. RF3's token
-DiT inherits this default and has not been scored for it.
+**Accuracy: not bit-identical, and scored on this flag alone.** At 298 aa, the size the
+0.35/0.60 A band is written against, it moves the structure 0.24726 A all-atom (worst of two
+seeds). That is inside the pass band and 0.309x that fixture's own base-against-base seed floor of
+0.79984 A, with a same-seed A/A control at 0.00000 A and identical digests.
+
+At 512 aa whole-molecule RMSD reads 11.81553 A, and that figure is a hinge rotation rather than a
+larger error. `cdk2x2_512`'s hinge is unconstrained, its own base-against-base seed floor runs
+1.3735 to 17.5024 A over ten seed pairs, and RMSD superposes the whole molecule, so it cannot tell
+a rotated lobe from a worse fold. CA-lDDT against the experimental structure is the instrument that
+can: it is superposition-free and local, so a rigid inter-lobe rotation barely moves it. Against
+1HCL domain 1 (252 CA) it reads 0.91585 with the flag off and 0.92767 with it on, +0.01182 in the
+flag's favour, with the A/A control at exactly 0.00000. pLDDT moves the same way, +0.017089. Two
+limits worth knowing: that reading is one seed, and domain 2 did not resolve against 1HCL. RF3's
+token DiT inherits this default and has not been scored for it.
 
 Scope: RF3's token DiT builds this same block, so the default applies to RF3 as well as Boltz-2.
 The atom-level transformers take a different path and do not read the flag.
