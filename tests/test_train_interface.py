@@ -188,7 +188,115 @@ def test_tier0_recipe_names_match_the_recipes_module():
     raise AssertionError("recipes.py defines no annotated _RECIPES mapping to check against")
 
 
+def test_tier0_verb_is_registered_lazily_by_path():
+    """`tt-bio --help` and `tt-bio predict` must not import the training stack to exist.
+
+    Checked as AST because importing `tt_bio.main` needs the full inference dependency set.
+    What matters here is that the registration is a STRING: an import statement in main.py
+    would pull the tape in for every command, and the opt-in invariant test would catch that
+    -- this asserts the mechanism that keeps it true rather than just its absence.
+    """
+    main = (REPO_ROOT / "tt_bio" / "main.py").read_text()
+    tree = ast.parse(main)
+    lazy = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and any(
+                getattr(x, "id", None) == "LAZY" for x in node.targets):
+            lazy = ast.literal_eval(node.value)
+    assert lazy == {"finetune": "tt_bio.train.cli:finetune"}, (
+        f"the lazy command map is {lazy!r}. Tier 0's verb has to be registered by dotted "
+        f"path, not imported, or every tt-bio command pays for the tape.")
+    mod, attr = lazy["finetune"].split(":")
+    target = importlib.import_module(mod)
+    assert hasattr(target, attr), f"{mod} defines no {attr}"
+
+
+@pytest.mark.skipif(importlib.util.find_spec("einops") is None,
+                    reason="needs tt-bio's full inference dependency set")
+def test_tier0_verb_appears_on_the_cli_without_importing_the_tape():
+    import sys
+
+    import click
+
+    from tt_bio.main import cli
+
+    ctx = click.Context(cli)
+    assert "finetune" in cli.list_commands(ctx)
+    assert "tt_bio.train.cli" not in sys.modules, (
+        "listing the commands imported the training CLI; the whole point of the dotted path "
+        "is that naming a command is what loads it")
+    assert cli.get_command(ctx, "finetune").name == "finetune"
+    assert cli.get_command(ctx, "preflight").name == "preflight"
+
+
 # --------------------------------------------------------------- tier 1: no user `for`
+
+def test_tier0_a_model_with_no_featuriser_refuses_by_name():
+    """The README's claim, asserted: a run stops with a named error, before a device opens.
+
+    What is missing is the featuriser, not the interface, and the message has to say which --
+    a user who reads "not implemented" goes looking in the wrong place.
+    """
+    import sys
+
+    from click.testing import CliRunner
+
+    from tt_bio.train.cli import finetune
+
+    before = set(sys.modules)
+    res = CliRunner().invoke(finetune, [
+        str(REPO_ROOT), "--model", "protenix-v2", "--out", "/tmp/tt-bio-train-test",
+        "--global-batch", "8", "--steps", "2", "--tokens", "256"])
+    assert res.exit_code == 1, res.output
+    assert res.exception is None or isinstance(res.exception, SystemExit), res.exception
+    assert "FEATURISER" in res.output and "catalogue.register" in res.output, res.output
+    assert not {m for m in set(sys.modules) - before if m.split(".")[0] == "ttnn"}, (
+        "the featuriser refusal opened a device stack it did not need")
+
+
+def test_tier0_verb_is_registered_lazily_by_path():
+    """`tt-bio --help` and `tt-bio predict` must not import the training stack to exist.
+
+    Checked as AST because importing `tt_bio.main` needs the full inference dependency set.
+    What matters here is that the registration is a STRING: an import statement in main.py
+    would pull the tape in for every command, and the opt-in invariant test would catch that
+    -- this asserts the mechanism that keeps it true rather than just its absence.
+    """
+    main = (REPO_ROOT / "tt_bio" / "main.py").read_text()
+    tree = ast.parse(main)
+    lazy = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and any(
+                getattr(x, "id", None) == "LAZY" for x in node.targets):
+            lazy = ast.literal_eval(node.value)
+    assert lazy == {"finetune": "tt_bio.train.cli:finetune"}, (
+        f"the lazy command map is {lazy!r}. Tier 0's verb has to be registered by dotted "
+        f"path, not imported, or every tt-bio command pays for the tape.")
+    mod, attr = lazy["finetune"].split(":")
+    target = importlib.import_module(mod)
+    assert hasattr(target, attr), f"{mod} defines no {attr}"
+
+
+@pytest.mark.skipif(importlib.util.find_spec("einops") is None,
+                    reason="needs tt-bio's full inference dependency set")
+def test_tier0_verb_appears_on_the_cli_without_importing_the_tape():
+    import sys
+
+    import click
+
+    from tt_bio.main import cli
+
+    ctx = click.Context(cli)
+    assert "finetune" in cli.list_commands(ctx)
+    assert "tt_bio.train.cli" not in sys.modules, (
+        "listing the commands imported the training CLI; the whole point of the dotted path "
+        "is that naming a command is what loads it")
+    assert cli.get_command(ctx, "finetune").name == "finetune"
+    assert cli.get_command(ctx, "preflight").name == "preflight"
+
+
+# --------------------------------------------------------------- tier 1: no user `for`
+
 
 def test_tier1_entry_point_owns_no_loop():
     """Tier 1 has no `for` over steps, and Tier 2 does. Both halves, so neither can drift.
@@ -476,6 +584,38 @@ def test_the_naming_collision_is_resolved():
             f"somewhere else or it did not survive")
     for name in ("AdamW", "af3_lr", "save_adapter", "to_host"):
         assert hasattr(T, name)   # the ttnn-free half, resolved for real
+
+
+@needs_device
+def test_the_two_recipe_readers_agree():
+    """The CLI reads recipe text off the file; `recipes.source()` reads it through `inspect`.
+
+    Two readers exist so `--show-recipe` needs no wheel. Two readers of the same thing is a
+    duplication, so it gets a test rather than a comment.
+    """
+    from tt_bio.train import recipes
+    from tt_bio.train.cli import _recipe_text
+
+    for name in recipes.names():
+        assert _recipe_text(name).rstrip() == recipes.source(name).rstrip()
+
+
+def test_show_recipe_needs_no_wheel():
+    """Printing a program is a text operation. It must work with no ttnn and no card."""
+    import sys
+
+    from click.testing import CliRunner
+
+    from tt_bio.train.cli import finetune
+
+    before = set(sys.modules)
+    res = CliRunner().invoke(finetune, ["--show-recipe"])
+    assert res.exit_code == 0, res.output
+    assert res.output.startswith("def lora_finetune("), res.output[:120]
+    assert "for batch in" in res.output, "the printed body has no loop to own"
+    assert not {m for m in set(sys.modules) - before if m.split(".")[0] == "ttnn"}
+    bad = CliRunner().invoke(finetune, ["--show-recipe", "nope"])
+    assert bad.exit_code != 0 and "recipes are ['lora']" in bad.output, bad.output
 
 
 @needs_device

@@ -17,13 +17,11 @@ in ``tt_bio/main.py``: ``tt-bio predict`` must not pay for the training stack, a
 
 from __future__ import annotations
 
+import ast
 import json
 from pathlib import Path
 
 import click
-
-__all__ = ["finetune"]
-
 
 # Models whose forward routes through `tt_bio.ops.linear`, so an adapter can attach to it.
 # A name absent here is not adaptable today and the refusal says so rather than failing later
@@ -36,17 +34,69 @@ ADAPTABLE = ("protenix-v2", "openfold3")
 # tape and `--dry-run` promises not to. The test fails if the two ever disagree.
 RECIPE_NAMES = ("lora",)
 
+__all__ = ["finetune", "ADAPTABLE", "RECIPE_NAMES"]
+
+
+def _echo_objectives(ctx, param, value):
+    """`--list-objectives`, eager so it answers before the required arguments are checked."""
+    if not value or ctx.resilient_parsing:
+        return
+    from . import objectives
+    for name in objectives.names():
+        click.echo(objectives.objective(name))
+        if objectives.objective(name).doc:
+            click.echo(f"    {objectives.objective(name).doc}")
+    ctx.exit()
+
+
+def _recipe_text(name: str) -> str:
+    """A recipe's source, read off the file rather than through ``inspect``.
+
+    ``recipes.source()`` is the canonical API and it is what a Tier-2 user calls. This reads
+    the same text without importing the module, because importing it imports the tape, and
+    printing a program should not need a wheel and a card. The two are pinned equal by
+    ``tests/test_train_interface.py``.
+    """
+    src = (Path(__file__).with_name("recipes.py")).read_text()
+    tree = ast.parse(src)
+    shipped = {}
+    for node in tree.body:
+        if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == "_RECIPES":
+            shipped = {ast.literal_eval(k): v.id for k, v in zip(node.value.keys,
+                                                                 node.value.values)}
+    if name not in shipped:
+        raise click.BadParameter(f"{name!r}; recipes are {sorted(shipped)}",
+                                 param_hint="--show-recipe")
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name == shipped[name]:
+            return ast.get_source_segment(src, node)
+    raise click.ClickException(f"recipes.py maps {name!r} to {shipped[name]!r}, which it does "
+                               f"not define")
+
+
+def _echo_recipe(ctx, param, value):
+    """`--show-recipe [NAME]`. The escape hatch, and it must not need a dataset to print.
+
+    Eager for the same reason `--help` is: asking a user for `--out` and `--global-batch`
+    before it will show them the loop is a papercut on the one path that exists to make the
+    next tier reachable.
+    """
+    if not value or ctx.resilient_parsing:
+        return
+    click.echo(_recipe_text(value))
+    ctx.exit()
+
 
 @click.command("finetune")
-@click.argument("data", type=click.Path(exists=True, dir_okay=True))
-@click.option("--model", required=True, type=click.Choice(ADAPTABLE),
+@click.argument("data", type=click.Path(exists=True, dir_okay=True), required=False)
+@click.option("--model", type=click.Choice(ADAPTABLE),
               help="Which shipped forward to adapt.")
-@click.option("--out", "out_dir", required=True, type=click.Path(),
+@click.option("--out", "out_dir", type=click.Path(),
               help="Where adapters and provenance are written.")
-@click.option("--global-batch", required=True, type=int,
+@click.option("--global-batch", type=int, default=None,
               help="Examples per optimizer step. REQUIRED, and never derived from the chip "
                    "count: it is the axis a published recipe pins.")
-@click.option("--steps", required=True, type=int, help="Optimizer steps to run.")
+@click.option("--steps", type=int, default=None, help="Optimizer steps to run.")
 @click.option("--objective", default="af3", show_default=True,
               help="A named objective row. `--list-objectives` prints them.")
 @click.option("--recipe", default="lora", show_default=True,
@@ -67,12 +117,14 @@ RECIPE_NAMES = ("lora",)
 @click.option("--seed", default=0, show_default=True, type=int)
 @click.option("--dry-run", is_flag=True,
               help="Answer 'will this fit and how long' and exit, WITHOUT opening a device.")
-@click.option("--show-recipe", is_flag=True,
-              help="Print the Tier-2 source of --recipe and exit. The escape hatch.")
-@click.option("--list-objectives", is_flag=True, help="Print the objective rows and exit.")
+@click.option("--show-recipe", is_flag=False, flag_value="lora", default=None,
+              metavar="[NAME]", is_eager=True, expose_value=False,
+              callback=_echo_recipe,
+              help="Print a Tier-1 body as Tier-2 source and exit. The escape hatch.")
+@click.option("--list-objectives", is_flag=True, is_eager=True, expose_value=False,
+              callback=_echo_objectives, help="Print the objective rows and exit.")
 def finetune(data, model, out_dir, global_batch, steps, objective, recipe, tokens, chips,
-             rank, alpha, targets, lr, warmup_steps, checkpoint_every, seed, dry_run,
-             show_recipe, list_objectives):
+             rank, alpha, targets, lr, warmup_steps, checkpoint_every, seed, dry_run):
     """Fine-tune a shipped model with LoRA adapters.
 
     \b
@@ -88,19 +140,16 @@ def finetune(data, model, out_dir, global_batch, steps, objective, recipe, token
     from . import objectives
     from .dryrun import plan
 
-    if list_objectives:
-        for name in objectives.names():
-            click.echo(objectives.objective(name))
-        return
-    if show_recipe:
-        # Imported only in this branch. `recipes` reaches the tape, and every other path
-        # through this command -- --dry-run above all -- has to answer without a device.
-        from . import recipes
-        click.echo(recipes.source(recipe))
-        return
+    if data is None:
+        raise click.UsageError("DATA is required for a run. To look around without one, try "
+                               "--show-recipe, --list-objectives or --help")
 
     # Legality, decided here and not on the card. Every one of these is a flag reading a
     # flag; none of them needs a device, which is the Tier-0 cut line holding.
+    for name, value in (("--model", model), ("--out", out_dir),
+                        ("--global-batch", global_batch), ("--steps", steps)):
+        if value is None:
+            raise click.UsageError(f"{name} is required for a run")
     if objective not in objectives.names():
         raise click.BadParameter(f"{objective!r}; rows are {objectives.names()}",
                                  param_hint="--objective")
@@ -136,9 +185,15 @@ def finetune(data, model, out_dir, global_batch, steps, objective, recipe, token
                        "like one.")
         return
 
-    # Only now does anything reach a device.
+    # The featuriser is resolved before anything reaches a device, so a model with no
+    # training adapter registered costs a message rather than a card and a traceback.
     from .catalogue import load
-    forward, dataset = load(model, Path(data), tokens=tokens)
+    try:
+        forward, dataset = load(model, Path(data), tokens=tokens)
+    except NotImplementedError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    # Only now does anything reach a device.
     from .lora import LoraConfig
     from .loop import finetune as run_finetune
 
