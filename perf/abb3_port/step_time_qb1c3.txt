@@ -1,0 +1,42 @@
+=== blocks=1, batch 64 (16 x 4), 256 tokens ===
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 3 elsewhere, 569 pid(s) unreadable
+  elsewhere  pid 3398336 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/tr
+  elsewhere  pid 3429394 -> /dev/tenstorrent/3  /home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_m
+  elsewhere  pid 3438190 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+taped parameters on device: 66
+host [device open, before timing]: our node(s) ['/dev/tenstorrent/0']; 0 cotenant(s) on our node, 3 elsewhere, 569 pid(s) unreadable
+  elsewhere  pid 3398336 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/tr
+  elsewhere  pid 3429394 -> /dev/tenstorrent/3  /home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_m
+  elsewhere  pid 3438190 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+STEP: median 2.022 s over 2 steps at batch 64 (16 x 4) and 256 tokens, micro-batch median 0.126 s, min step 2.022 s, max 2.023 s
+CLOCK: AICLK during the run: card 0 min 1350 median 1350 max 1350 MHz over 1
+EXCLUDES: host geometry tail, the four losses, the optimizer
+CONTENDED: 0 cotenant(s) on our node and 3 elsewhere on the host during timing, so this median is an UPPER bound and not a kill-line reading
+=== blocks=2, batch 64 (16 x 4), 256 tokens ===
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 3 elsewhere, 569 pid(s) unreadable
+  elsewhere  pid 3398336 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/tr
+  elsewhere  pid 3429394 -> /dev/tenstorrent/3  /home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_m
+  elsewhere  pid 3438190 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+taped parameters on device: 120
+host [device open, before timing]: our node(s) ['/dev/tenstorrent/0']; 0 cotenant(s) on our node, 3 elsewhere, 568 pid(s) unreadable
+  elsewhere  pid 3398336 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/tr
+  elsewhere  pid 3429394 -> /dev/tenstorrent/3  /home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_m
+  elsewhere  pid 3438190 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+STEP: median 3.910 s over 2 steps at batch 64 (16 x 4) and 256 tokens, micro-batch median 0.240 s, min step 3.843 s, max 3.977 s
+CLOCK: AICLK during the run: card 0 min 1350 median 1350 max 1350 MHz over 3
+EXCLUDES: host geometry tail, the four losses, the optimizer
+CONTENDED: 0 cotenant(s) on our node and 3 elsewhere on the host during timing, so this median is an UPPER bound and not a kill-line reading
+=== blocks=8, batch 64 (16 x 4), 256 tokens ===
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 3 elsewhere, 568 pid(s) unreadable
+  elsewhere  pid 3398336 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/tr
+  elsewhere  pid 3429394 -> /dev/tenstorrent/3  /home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_m
+  elsewhere  pid 3438190 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+taped parameters on device: 444
+host [device open, before timing]: our node(s) ['/dev/tenstorrent/0']; 0 cotenant(s) on our node, 3 elsewhere, 568 pid(s) unreadable
+  elsewhere  pid 3398336 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/tr
+  elsewhere  pid 3429394 -> /dev/tenstorrent/3  /home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_m
+  elsewhere  pid 3438190 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+STEP: median 15.036 s over 2 steps at batch 64 (16 x 4) and 256 tokens, micro-batch median 0.924 s, min step 15.020 s, max 15.051 s
+CLOCK: AICLK during the run: card 0 min 1343 median 1350 max 1350 MHz over 10
+EXCLUDES: host geometry tail, the four losses, the optimizer
+CONTENDED: 0 cotenant(s) on our node and 3 elsewhere on the host during timing, so this median is an UPPER bound and not a kill-line reading

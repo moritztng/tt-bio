@@ -237,12 +237,23 @@ class DeviceIPA:
         self.w_vp = [to_device(vp[i * stride:(i + 1) * stride].t()) for i in range(3)]
         self.b_vp = [to_device(vp_b[i * stride:(i + 1) * stride]) for i in range(3)]
 
-        # The pair-bias projection, one column per head. 12 matmuls of one output column rather than
-        # one matmul of 12: the 12-wide result would have to be reoriented to [B, H, N, N] and
-        # moving the last axis rounds at 7.5e-04. Each column's [B, N, N, 1] result reshapes to
-        # [B, 1, N, N] for free, and a leading-axis concat assembles them exactly.
-        self.w_b = [to_device(weights["linear_b.weight"][i:i + 1].t()) for i in range(h)]
-        self.b_b = [to_device(weights["linear_b.bias"][i:i + 1]) for i in range(h)]
+        # The pair-bias projection: ONE matmul of 12 output columns, then a reorientation that
+        # rounds at 7.5e-04. The exact alternative -- 12 matmuls of one column each, whose
+        # [B, N, N, 1] results reshape to [B, 1, N, N] for free -- was built first and measured, and
+        # it is what makes this the right trade rather than a concession:
+        #
+        #   * memory. A [B, N, N, 1] tile tensor pads its width-1 axis to 32, so each column costs
+        #     67 MB instead of 2 at micro-batch 8 and 256 tokens, and 12 of them retained per block
+        #     for the backward is 805 MB per block, 6.4 GB over 8 blocks. That is what put the step
+        #     measurement into OOM on a 34 GB card.
+        #   * bandwidth. Each column matmul reads the whole pair tensor, 268 MB, so the 12 of them
+        #     move 3.2 GB per block where one matmul moves 268 MB.
+        #
+        # What it costs is 7.5e-04 relative on the bias term, against the ~1e-03 the logits already
+        # carry from the matmul itself, so it does not become the dominant error. The model gate
+        # quotes the whole-model number with this in place rather than trusting that argument.
+        self.w_b = to_device(weights["linear_b.weight"].t())
+        self.b_b = to_device(weights["linear_b.bias"])
 
         # The output projection, split into the six blocks its input is a concatenation of, each
         # padded to the device layout of the piece that feeds it.
@@ -362,11 +373,8 @@ class DeviceIPA:
         # upstream scales it, so the operands enter the matmul unscaled.
         logits = ops.scale(ops.matmul(q, k, transpose_b=True), (1.0 / (3 * c)) ** 0.5)
 
-        bias_cols = []
-        for i in range(h):
-            col = ops.linear(z, self.w_b[i], self.b_b[i])
-            bias_cols.append(ops.reshape(col, [b, 1, n_tok, n_tok]))
-        logits = ops.add(logits, ops.scale(ops.concat(bias_cols, dim=1), (1.0 / 3) ** 0.5))
+        bias = ops.permute(ops.linear(z, self.w_b, self.b_b), [0, 3, 1, 2])
+        logits = ops.add(logits, ops.scale(bias, (1.0 / 3) ** 0.5))
 
         q_pts = _apply(frame, self._points_column(s, self.w_qp, self.b_qp, 3 * h * pq),
                        frame.column, invert=False)
