@@ -24,9 +24,64 @@ from pathlib import Path
 
 import torch
 
-__all__ = ["SyntheticFvs", "dataset"]
+__all__ = ["SyntheticFvs", "dataset", "resolve_split", "TRAIN_STRUCTURES", "STEPS_PER_EPOCH"]
+
+#: Upstream's own training-set size, from the ``split.csv`` they ship. NOT "everything except the
+#: 250 we are scored on", which is 11,570 and would be a different experiment: 2,765 of the
+#: 11,820 staged structures never reach ``split.csv`` at all because the filter stage drops them,
+#: and a further 410 are explicitly ``unassigned``.
+TRAIN_STRUCTURES = 8395
+
+#: 8,395 at batch 64 keeping the short final batch. ``drop_last`` is NOT a free choice here: it
+#: is pinned by their released checkpoint, whose ``global_step`` is 193,512, and
+#: ``132 x 1466 = 193512`` exactly while ``131 x 1466 = 192046``. So upstream keeps the partial
+#: final batch, and a run that drops it walks a different data order from the second epoch on.
+STEPS_PER_EPOCH = 132
+DROP_LAST = False
 
 _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts" / "abb3_port"
+
+
+def resolve_split(split_csv, released_true_dir=None) -> dict:
+    """Upstream's train/valid/test split, taken from what they SHIP rather than re-derived.
+
+    ``split_data.py`` draws the validation and test sets with ``np.random.choice`` under a
+    seeded ``np.random.seed``, so the split is reproducible in principle -- but reproducing a
+    sampling draw is a worse source than the answer itself, and they ship the answer as
+    ``data/split.csv``. That also removes any dependence on the seed, on their ``filters.csv``
+    and on the legacy table the split stage reads.
+
+    ``released_true_dir`` is the cross-check and it is the point of this function. Their
+    released predictions carry the ground-truth structures for the evaluation set, so the ids
+    in that directory are the evaluation set as ACTUALLY scored. If ``split.csv``'s
+    ``valid`` + ``test`` rows and those ids ever disagree, the split we would train against is
+    not the split the published 2.714 A was measured on, and the run is pointless. Measured on
+    the staged artefacts: **250 and 250 with 250 in agreement and none either side**.
+
+    Returns ``{"train": [...], "valid": [...], "test": [...]}``.
+    """
+    import pandas as pd
+    d = pd.read_csv(split_csv, index_col=0)
+    out = {k: sorted(d.query(f"split == {k!r}").index.astype(str)) for k in
+           ("train", "valid", "test")}
+    if len(out["train"]) != TRAIN_STRUCTURES:
+        raise ValueError(
+            f"{split_csv} lists {len(out['train'])} training structures and this build is "
+            f"pinned to upstream's {TRAIN_STRUCTURES}. Their released checkpoint's "
+            f"global_step of 193,512 is 132 x 1466 at batch 64, which only closes at "
+            f"{TRAIN_STRUCTURES}; a different count means a different split and the 2.714 A "
+            f"bar would not apply to the result")
+    if released_true_dir is not None:
+        ids = {p.stem for p in Path(released_true_dir).glob("*.pdb")}
+        scored = set(out["valid"]) | set(out["test"])
+        if ids and ids != scored:
+            raise ValueError(
+                f"the split's valid+test ({len(scored)}) and the ids in their released "
+                f"predictions ({len(ids)}) disagree: {len(scored - ids)} in the split only, "
+                f"{len(ids - scored)} released only. The published mean is computed over the "
+                f"released set, so training against a split that differs from it makes the "
+                f"comparison meaningless")
+    return out
 
 
 class SyntheticFvs:
@@ -66,7 +121,10 @@ def dataset(kind: str, *, cfg, micro: int, tokens: int, device, n: int = 8192):
     if kind == "synthetic":
         return SyntheticFvs(n, cfg, micro, tokens, device)
     raise ValueError(
-        f"no dataset {kind!r}. 'synthetic' is the mechanism harness; the real SAbDab split "
-        f"lives in data/structures/structures/*.pt from Zenodo 10.5281/zenodo.11354577 and its "
-        f"featuriser is upstream's dataloader.py, which is a separate deliverable from the "
-        f"resume and DP invariants this module's synthetic path exists to prove")
+        f"no dataset {kind!r}. 'synthetic' is the mechanism harness that proves the resume and "
+        f"data-parallel invariants, which are data-independent. The real split is resolved by "
+        f"resolve_split() and its structures are staged at "
+        f"/home/ttuser/abb3_data/data/structures/structures/*.pt (Zenodo "
+        f"10.5281/zenodo.11354577); every field the stage-1 losses read is already in those "
+        f".pt files, so what remains is assembling and bucketing them, not featurising from "
+        f"sequence")

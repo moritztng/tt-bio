@@ -17,6 +17,13 @@ in rather than documented:
   count, so a 2-chip run interrupted by a reset can resume on 1 chip when only one card is
   free. Refusing that would turn a card-availability problem into a lost run.
 
+**The short final batch is KEPT, and that is pinned rather than chosen.** ``batches`` defaults to
+dropping it, which would be the ordinary choice and is wrong here: upstream's released
+checkpoint sits at ``global_step`` 193,512, and with their 8,395 training structures at batch 64
+that is ``132 x 1466`` exactly, where dropping the partial batch gives ``131 x 1466 = 192046``.
+So they keep it, and a run that drops it walks a different data order from the second epoch
+onward -- with a loss curve that looks perfectly healthy the whole way.
+
 **Data parallelism is one process per chip and the reduce is on the host.** A ttnn process that
 can see four chips brings up all four, so each replica pins one card and the replicas cannot
 share a device context -- ``ttnn.all_reduce`` is therefore unavailable and the exchange is
@@ -56,7 +63,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from . import provenance
+from . import abb3_dataset, provenance
 from .abb3_checkpoint import latest_checkpoint, load_run_state, save_run_state
 from .cotenancy import CotenantSampler
 from .hostreduce import HostReduce, master_hash
@@ -222,7 +229,8 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
                   flush=True)
     plan = itertools.islice(
         batches(len(dataset), global_batch=cfg.global_batch, steps=cfg.steps,
-                seed=cfg.seed, data_parallel=Mesh({"dp": list(cfg.chips)}).axis("dp")),
+                seed=cfg.seed, drop_last=abb3_dataset.DROP_LAST,
+                data_parallel=Mesh({"dp": list(cfg.chips)}).axis("dp")),
         start, None)
 
     cfg.out_dir.mkdir(parents=True, exist_ok=True)
