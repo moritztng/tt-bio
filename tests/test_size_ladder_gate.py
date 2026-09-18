@@ -1056,9 +1056,11 @@ def test_every_recorded_card_covers_every_rung_the_ladder_walks(rg):
 
     SCOPE, because the count this prints is easy to read as the whole gap and is not: it walks
     the cells that EXIST and checks their rungs. A model with no cell at all on a card is
-    invisible to it. Measured 2026-09-08: p150a has no protenix-v1 (SIZE_LADDER_KNOWN_GAP
-    carries that one, keyed by model rather than by card+model) and `tt-galaxy-wh l` has no
-    cell for six of the nine models the ladder walks, none of which anything asserts on. The
+    invisible to it. Measured 2026-09-18, after the p150a re-record: p150a and p300c both
+    carry all nine models, and `tt-galaxy-wh l` has no cell for five of them, none of which
+    anything asserts on. p150a's own missing model was protenix-v1, held by
+    SIZE_LADDER_KNOWN_GAP (keyed by model rather than by card+model) until that entry was
+    retired the same day. The
     missing-model case is deliberately left to a separate check rather than folded in here,
     since whether a fragment-recorded card is expected to carry every model is a different
     question from whether a recorded cell is current.
