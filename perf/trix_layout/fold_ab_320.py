@@ -76,7 +76,7 @@ def _seed_msa(target: Path, a3m_text: str, msa_dir: Path) -> None:
 
 
 def main() -> int:
-    global SAMPLING_STEPS, RECYCLING_STEPS, OUT_PATH
+    global SAMPLING_STEPS, RECYCLING_STEPS, OUT_PATH, N_RES
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--reps", type=int, default=3, help="warm folds per arm in phase 1")
@@ -86,7 +86,6 @@ def main() -> int:
                     help="sampling steps; only lower it for a harness smoke test")
     ap.add_argument("--recycles", type=int, default=RECYCLING_STEPS)
     args = ap.parse_args()
-    global N_RES
     SAMPLING_STEPS = args.steps
     N_RES = args.n
     RECYCLING_STEPS = args.recycles
