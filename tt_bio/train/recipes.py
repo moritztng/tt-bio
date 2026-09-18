@@ -32,7 +32,7 @@ from __future__ import annotations
 import inspect
 from typing import Callable, Dict
 
-from . import objectives, provenance
+from . import launcher, objectives, provenance
 from ..autograd import backward, install, uninstall
 from .sharding import batches
 from .checkpoint import Checkpointer
@@ -58,16 +58,18 @@ def lora_finetune(forward, dataset, *, out_dir, global_batch, steps, objective="
     objective row names. No featurizer is imposed -- per-model featurisation is the one thing
     the campaign refused to generalise, because each family's cropping and MSA handling is
     exactly the part that is genuinely different.
+
+    A data-parallel axis wider than one chip is one process per chip, and this function is one
+    process. So it hands the run to :mod:`tt_bio.train.launcher`, which re-runs the calling
+    program once per chip and comes back with the aggregate; inside each of those processes
+    this same function runs, takes its own shard and hands its own gradient to ``step()``.
+    Two lines below know about it -- which shard is read, and that ``step()`` is given
+    something to reduce -- and the loop is otherwise the loop it was on one chip.
     """
     dp = (mesh or Mesh({"dp": [0]})).axis("dp")
-    if dp.width > 1:
-        raise NotImplementedError(
-            f"axis {dp} is {dp.width} chips wide and this recipe is a single process, so it "
-            f"only ever holds one replica's gradient. Data parallelism needs one process per "
-            f"chip and each of them handing its own gradient to opt.step(replicas=...), which "
-            f"is the interface -- the optimizer already refuses an unreduced step. The launcher "
-            f"for it is not built, and running this recipe on a wide axis would train one "
-            f"replica and call it four")
+    if dp.width > 1 and launcher.driving():
+        return launcher.drive(dp, out_dir=out_dir, steps=steps)
+    dp_rank, dp = launcher.rank(), launcher.reducer(dp)
     cfg = lora or LoraConfig()
     row = objectives.objective(objective)
 
@@ -84,23 +86,33 @@ def lora_finetune(forward, dataset, *, out_dir, global_batch, steps, objective="
         plan_order = batches(len(dataset), global_batch=global_batch, steps=steps, seed=seed,
                              data_parallel=dp)
         first = next(plan_order)
-        factors = lora_factors_for(forward, cfg, dataset.device, dataset.batch(first.indices))
+        # The seed reaches the ADAPTER INIT, not just the batch order. A is random and B is
+        # zero, so without it every rank of a data-parallel run starts from different weights
+        # and trains a different model -- which the launcher's master-hash check catches at
+        # the end of the run rather than at the start of it.
+        factors = lora_factors_for(forward, cfg, dataset.device,
+                                   dataset.batch(first.per_chip[dp_rank]), rng=seed)
         params = {f"{site}.{which}": t
                   for site, pair in factors.items()
                   for which, t in zip(("A", "B"), pair)}
         opt = AdamW(params, lr=lr, data_parallel=dp,
                     schedule=lambda s: af3_lr(s, lr, warmup_steps=warmup_steps))
-        ckpt = Checkpointer(out_dir, every=checkpoint_every, metric="loss")
+        # Rank 0 owns out_dir and the others get a subdirectory of it. The masters are
+        # bit-identical across ranks, so one copy is the run's checkpoint; the reason not to
+        # let them share the path is that two writers make a truncated safetensors file.
+        ckpt = Checkpointer(launcher.out_dir(out_dir), every=checkpoint_every, metric="loss")
         history, last = [], None
 
         with provenance.during(seed=seed, config={
                 "objective": objective, "global_batch": global_batch, "steps": steps,
                 "lr": lr, "rank": cfg.rank, "alpha": cfg.alpha, "chips": dp.width,
-                "rollout": row.rollout, "sites": sorted(factors)}) as prov:
+                "dp_rank": dp_rank, "rollout": row.rollout, "sites": sorted(factors)}) as prov:
             with attach(factors, cfg):
                 for batch in [first, *plan_order]:
                     opt.zero_grad()
-                    data = dataset.batch(batch.indices)
+                    # This rank's shard of the global batch, never the whole of it. On one
+                    # chip per_chip has one entry and this is the global batch.
+                    data = dataset.batch(batch.per_chip[dp_rank])
                     outputs = forward(data)
                     total, breakdown, seeds = row(
                         data, {k: to_host(v.value) for k, v in outputs.items()},
@@ -110,9 +122,13 @@ def lora_finetune(forward, dataset, *, out_dir, global_batch, steps, objective="
                     # per root and land the fan-in sums partial.
                     backward([outputs[k] for k in seeds],
                              [to_device(g, dataset.device) for g in seeds.values()])
-                    opt.step()
+                    # The gradient this replica holds, summed across the axis inside step().
+                    # Empty on one chip, and the optimizer refuses a wide axis without it
+                    # rather than stepping on one replica's gradient.
+                    opt.step(replicas=launcher.replicas(params))
                     last = {"step": batch.step, "loss": total, "breakdown": breakdown,
-                            "grad_norm": opt.last_grad_norm, "lr": opt.last_lr}
+                            "grad_norm": opt.last_grad_norm, "lr": opt.last_lr,
+                            "s": launcher.tick()}
                     history.append(last)
                     ckpt.save(batch.step, opt, metrics={"loss": total},
                               provenance=prov.as_dict())
@@ -123,6 +139,10 @@ def lora_finetune(forward, dataset, *, out_dir, global_batch, steps, objective="
         # warns: a run whose updates never reached the weight the forward reads produced
         # nothing, and it produced nothing while every number above looked healthy.
         prov.config["displacement"] = opt.check_displacement()
+        # A rank's result leaves with the rank. The driver has no device and no optimizer, so
+        # the masters it compares for divergence only exist inside this process. No-op when
+        # nothing launched us as a rank.
+        launcher.report(opt, params, history, ckpt, prov, plan=fit)
     finally:
         uninstall()
     return {"history": history, "params": params, "optimizer": opt,

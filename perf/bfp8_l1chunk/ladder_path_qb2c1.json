@@ -1,0 +1,145 @@
+{
+ "host": "tt-quietbox2",
+ "card": "1",
+ "grid": [
+  11,
+  10
+ ],
+ "shape": {
+  "B": 64,
+  "H": 4,
+  "S": 512,
+  "D": 32
+ },
+ "commit": "5af25ddb94a9975ab0623d1ea027283e68020781",
+ "cases": {
+  "wide_k=0/up=0/bf16": {
+   "picks": {
+    "(512, 512)": [
+     512,
+     256,
+     "fused"
+    ]
+   },
+   "route": {
+    "fused": 1,
+    "stock": 0
+   },
+   "out_dtype": "DataType.BFLOAT16",
+   "rejects": {},
+   "QK_OVER_L1": []
+  },
+  "wide_k=0/up=0/bfp8": {
+   "picks": {
+    "(512, 512)": [
+     512,
+     256,
+     "fused"
+    ]
+   },
+   "route": {
+    "fused": 1,
+    "stock": 0
+   },
+   "out_dtype": "DataType.BFLOAT8_B",
+   "rejects": {},
+   "QK_OVER_L1": []
+  },
+  "wide_k=1/up=0/bf16": {
+   "picks": {
+    "(512, 512)": [
+     512,
+     256,
+     "fused"
+    ]
+   },
+   "route": {
+    "fused": 1,
+    "stock": 0
+   },
+   "out_dtype": "DataType.BFLOAT16",
+   "rejects": {},
+   "QK_OVER_L1": []
+  },
+  "wide_k=1/up=0/bfp8": {
+   "picks": {
+    "(512, 512)": [
+     512,
+     256,
+     "fused"
+    ]
+   },
+   "route": {
+    "fused": 1,
+    "stock": 0
+   },
+   "out_dtype": "DataType.BFLOAT8_B",
+   "rejects": {},
+   "QK_OVER_L1": []
+  },
+  "wide_k=0/up=1/bf16": {
+   "picks": {
+    "(512, 512)": [
+     512,
+     256,
+     "fused"
+    ]
+   },
+   "route": {
+    "fused": 1,
+    "stock": 0
+   },
+   "out_dtype": "DataType.BFLOAT16",
+   "rejects": {},
+   "QK_OVER_L1": []
+  },
+  "wide_k=0/up=1/bfp8": {
+   "picks": {
+    "(512, 512)": [
+     512,
+     512,
+     "fused"
+    ]
+   },
+   "route": {
+    "fused": 1,
+    "stock": 0
+   },
+   "out_dtype": "DataType.BFLOAT8_B",
+   "rejects": {},
+   "QK_OVER_L1": []
+  },
+  "wide_k=1/up=1/bf16": {
+   "picks": {
+    "(512, 512)": [
+     512,
+     256,
+     "fused"
+    ]
+   },
+   "route": {
+    "fused": 1,
+    "stock": 0
+   },
+   "out_dtype": "DataType.BFLOAT16",
+   "rejects": {},
+   "QK_OVER_L1": []
+  },
+  "wide_k=1/up=1/bfp8": {
+   "picks": {
+    "(512, 512)": [
+     512,
+     512,
+     "fused"
+    ]
+   },
+   "route": {
+    "fused": 1,
+    "stock": 0
+   },
+   "out_dtype": "DataType.BFLOAT8_B",
+   "rejects": {},
+   "QK_OVER_L1": []
+  }
+ }
+}
