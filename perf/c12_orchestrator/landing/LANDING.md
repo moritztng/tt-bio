@@ -1,71 +1,96 @@
-# Landing the 0.6118 s: what it takes, and the one prerequisite a default flip alone would miss
+# Landing the 0.5756 s: what has to happen, in order
 
-C12's only measured win is **+0.6118 s / 826.0 Mcycles at the fold** (95 % CI [+0.4127, +0.8109]),
-the silu + cond-hoist stack, at a forced and during-sampled 1350 MHz. It is **two independent
-recoveries of the same session** (the row's own and the orchestrator's, agreeing to the digit), all
-witnesses fired, every arm bit-identical across its reps, A/A correctly unresolved from zero,
-sub-additive at 0.915 of its own in-session singles.
+C12 has measured 0.5756 s at the fold and shipped 0.0000 s of it. That gap has been carried as an
+"UNSHIPPED" note for several passes without anything owning it, which is how a measured win quietly
+becomes a dead one. This is the landing path, with the parts that are decisions separated from the
+parts that are work.
 
-**Both flags default to `False` on `origin/main` and nothing has flipped.** That is the standing
-`unshipped-flag-repeats-without-escalating-to-a-landing-task` / `merged-lever-defaults-off-is-not-a-
-landed-win` failure class, so this file is the landing task rather than another repetition of the
-number.
+Reproduce every source claim below with `python3 scope.py` in this directory (12 checks, one
+negative control, exit 0 = all hold).
 
-## The two flags are NOT symmetric, and that is the whole point of this document
+## What is measured, and where it lives
 
-    lever        flag                        site on main                 tt_bio/ diff vs main
-    silu         TT_BIO_UNFUSED_SILU         tenstorrent.py:305           EMPTY  -> pure env flip
-    cond-hoist   TT_BIO_DIT_COND_HOIST       tenstorrent.py:1415          26 insertions, 2 deletions
+    silu        +0.2843 s   TT_BIO_UNFUSED_SILU        already on main, default OFF
+    cond-hoist  +0.2415 s   TT_BIO_DIT_COND_HOIST      already on main, default OFF
+    stack       +0.5756 s   pooled, 9.3 sigma, CI [+0.4539, +0.6974], two benchlocked sessions
+    fold        14.881 -> 14.305 s (1.0402x) at a forced during-sampled 1350 MHz
 
-**silu lands as a one-line default change.** `git diff origin/main origin/wk/c12-unfused-silu-bh --
-tt_bio/` is empty: the code already ships. `False` -> `True` at `:305` is the entire change. The
-measured rule is *"unfuse silu when the output is L1-resident"*, not "unfuse silu" — the DRAM site
-loses 0.1661 ms/call — and that routing is already in the shipped code, which is why the diff is
-empty.
+Accuracy clears as a stack: 0.38302 A against that fixture's own 0.80218 A seed floor (0.477x), A/A
+control 0.0000 A. The 512 aa plDDT deficit that was the one open doubt was refuted at five seeds
+(3 of 5 positive; the arm spread equals the between-seed spread).
 
-**cond-hoist does NOT, and a default flip alone would make the first fold of every process slower.**
-On `main`, `__init__` sets `self._cond_w = None` and `_cond_weights()` builds lazily on first call
-(`:9668`, memoised, called from `:9707`). So with the flag on, the **first hoisted fold pays the
-0.34-0.57 s build inside the fold** to save 0.2415 s/fold. `origin/wk/c12-cond-hoist-block-timing`
-is the branch that fixes it — its own comment at `:1425` says *"`_cond_weights()` is now built in
-`__init__` when this is on, so its 0.34-0.57 s lands at model [load]"* — and it calls
-`self._cond_weights()` from `__init__` at `:9690`. **That 28-line change is not on main.**
+Both flags are already on `origin/main`, so **neither lever needs a code merge to become
+available** — only a default flip. `wk/c12-unfused-silu-bh` has an empty `tt_bio/` diff against main.
 
-Consequence, stated concretely because it decides whether the flip is a win or a regression:
+## Step 1 — the eager-build merge, and it is a runtime no-op
 
-    long-lived worker (JapanFold serves many targets per process)   amortises after ~2 folds, clear win
-    one-shot CLI fold (a user folds one target and exits)           NET LOSS of ~0.10-0.33 s without the fix
+`wk/c12-cond-hoist-block-timing` carries 26 insertions / 2 deletions on `tt_bio/tenstorrent.py`.
+Two of the added lines are executable:
 
-So the landing order is: **merge the 28-line eager-build change first, then flip both defaults.**
-Flipping defaults on today's `main` would ship a first-fold regression to exactly the single-fold
-case a new user hits.
+    if _B2_DIT_COND_HOIST and not atom_level:
+        self._cond_weights()
 
-## Accuracy, as it actually stands
+On `main`, `_cond_weights()` is built lazily at first use, so its 0.34-0.57 s falls inside the
+first hoisted fold. That makes a process which folds exactly once **worse off** than leaving the
+lever off: it pays 0.34-0.57 s to save 0.2415 s. Since JapanFold folds once per job, the lazy build
+is not an academic concern, and **this merge must land before the default flips, not after**.
 
-Decision fixture is `cdk2x2_298`, which the 0.35 pass / 0.60 hold bar is written for:
+With the flag at its shipped default those two lines cannot run, so merging this alone changes
+nothing at runtime for any model. It is a safe merge; it is still `main`, so it needs Moritz's OK.
 
-    worst stack deviation        0.38302 A all-atom   (CA 0.28832)
-    that fixture's seed floor    0.80218 A            -> the stack is 0.477x it
-    A/A control                  0.00000 A, digests identical
-    verdict field in the JSON    HOLD  (above the 0.35 pass bar, below the 0.60 reject bar)
+Two stale comments in that diff should be fixed in the same commit:
 
-At 512 aa the stack is **inside the seed floor on both metrics at all five seeds** — plDDT worst
-0.80x the sampler's own 0.0221 scatter, all-atom worst 12.41 A inside a base-vs-base band of
-5.35-21.91 A. An earlier "5.82x the seed floor" reading was retracted: it scored one seed against
-the narrowest of ten seed pairs (see `../acc512_seeds/README.md`).
+- it quotes **"a 1.84 A seed floor"**. That figure is retracted campaign-wide: every accuracy claim
+  must carry a floor measured on its own fixture and metric, and this lever's own fixture reads
+  0.80218 A at 512 aa. Replace it, do not just delete it.
+- it says the lever is **"gated on one remaining thing: a benchlocked fold arm on a quiet box"**.
+  That arm has run — 0.5756 s pooled at 9.3 sigma across two benchlocked interleaved sessions. The
+  remaining gate is the default decision, not a measurement.
 
-So it clears the standing bar — *"a perf lever that moves the digest is fine if the STRUCTURE clears
-the kill bar"* — but it sits in the **HOLD band, not the PASS band**, and HOLD is by construction the
-band where a human decides. Hence the ask rather than the flip.
+## Step 2 — the release gate is REAL, and not for the reason it was given
 
-## What is NOT claimed here
+`c12-compose-fold` blocked the flip on "AdaLN and DiffusionTransformerLayer are shared modules and
+only Boltz-2 was scored". The first half of that is about the *file*, which is not the question —
+22 modules import `Module` from `tenstorrent.py`. The reachability question has a sharper answer,
+and `tenstorrent.py:1387-1389` gets it wrong:
 
-The fold-level delta is measured; the **absolute** fold time after flipping is not. s3's own base
-median was 14.971 s under co-tenancy, which is not a number of record, so the projection is
-14.881 - 0.6118 = **14.269 s** by applying a paired delta to the quiet-box base. A quiet-box absolute
-has never been measured below 14.881 s. And the composed delta is **2.87-2.98x its own session A/A
-floor against a pre-registered 3x gate** — `c12-compose-fold`'s s5 (48 reps, running 22:24Z) is
-buying that margin. None of this changes the sign or the accuracy picture; it changes how tight the
-error bar is.
+> all three are boltz-2-exclusive by construction: DiffusionTransformer is built only by
+> tenstorrent.Diffusion
 
-Nothing in this file has been merged. Both flags still ship `False`.
+**That comment is false.** `tt_bio/rf3/token_dit.py:84` builds the same class with
+**`atom_level=False`**, and the cond-hoist guard is `_B2_DIT_COND_HOIST and not self.atom_level` —
+so the hoisted path fires for RoseTTAFold3's token DiT the moment the flag flips. The comment
+predates the RF3 port, which reused the class. RF3's other two constructions pass `atom_level=True`
+and are unaffected.
+
+It fails **silently**, which is worse than loudly: RF3 remaps its checkpoint into the exact key
+names `_cond_weights()` reads (`output_projection_linear.weight`, `output_projection.0.weight` —
+`rf3/token_dit.py:39-46`, `rf3/remap_encoder.py:62-73`), so there is no `KeyError` to catch it.
+
+**Severity, settled from source rather than left open: it is imprecise, not wrong.** RF3 passes
+`no_residual=True` and `a_to_b_gate=False`, so the worry was that the hoisted path ignores them. It
+does not. `no_residual` is branched on outside the conditioning substitution and both arms forward
+the same `cond`; `a_to_b_gate` gates the `a` side while the hoist replaces only the `s`-side output
+projection, and references no conditioning tensor. So a flip would reorder RF3's bf16 rounding and
+move a one-time concatenation to model load — a tradeoff to judge against a seed floor, not a hard
+stop.
+
+So the gate is: **score RF3's token DiT with the flag on before flipping the default**, or scope the
+flag to Boltz-2 so it cannot reach RF3 at all. The second is cheaper and is the recommendation —
+the flag is named `_B2_*` and documented as Boltz-2-exclusive, so making that true in code matches
+the intent and removes the need to re-score anything.
+
+## Step 3 — the default flip is Moritz's, and it is ask 8879
+
+Nothing above flips a default. Both flags stay off until ask 8879 is answered.
+
+## Order, and why
+
+1. Fix the flag's scope (or score RF3). Without this a flip silently changes an unscored model.
+2. Merge the eager build with its two comment corrections. Without this a one-fold process
+   regresses, which is most of the service's traffic.
+3. Flip the defaults. Moritz only.
+
+Doing 3 before 1 ships an unscored change to RF3. Doing 3 before 2 makes single-fold jobs slower
+while reporting a 0.5756 s win. Both are the kind of failure that a measured number invites when
+the landing path is left implicit, which is why it is written down here.
