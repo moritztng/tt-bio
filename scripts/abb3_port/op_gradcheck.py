@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Every op in `tt_bio/abodybuilder3_ops.py`, forward and backward, against torch in float64.
 
+A third column checks the claim the hook slot exists for: the same call with no tape installed,
+on raw ttnn tensors, against the taped forward. It is 0.0 for every op because a taped op computes
+its value by calling the shipped function, so "the training forward is the served forward" is a
+property of the structure and not of two implementations agreeing.
+
 An op layer is the one place in a port where a wrong sign is invisible: the forward stays right,
 the loss still falls, and the model trains to something worse for no visible reason. So each op is
 scored twice -- its value against torch, and its gradient against torch's own autograd under a
@@ -20,6 +25,7 @@ import ttnn
 
 from tt_bio import abodybuilder3_ops as ops
 from tt_bio.tenstorrent import get_device
+from tt_bio.train import abodybuilder3_grad as grad
 
 DT = torch.float64
 
@@ -168,15 +174,17 @@ def _concat():
             [(2, 32, 64), (2, 32, 32)])
 
 
-@case("pairwise_sub", 1e-5, 1e-2)
+# The two-sided broadcast Alg. 22's point term is built from: [*, N, 1] against [*, 1, N] gives
+# every pair of residues in one program.
+@case("sub two-sided bcast", 1e-5, 1e-2)
 def _pairwise():
-    return ((lambda q, k: q - k), (lambda q, k: ops.pairwise_sub(q, k)),
+    return ((lambda q, k: q - k), (lambda q, k: ops.sub(q, k)),
             [(2, 4, 64, 1), (2, 4, 1, 64)])
 
 
 def run(dev) -> int:
     bad = 0
-    print(f"{'op':<24} {'forward':>10} {'grads':>10}")
+    print(f"{'op':<24} {'forward':>10} {'grads':>10} {'grad-off':>10}")
     for name, fwd_bar, bwd_bar, builder in CASES:
         t_fn, d_fn, shapes = builder()
         torch.manual_seed(len(name))
@@ -187,20 +195,27 @@ def run(dev) -> int:
         cot = torch.randn(*out_ref.shape, dtype=DT)
         out_ref.backward(cot)
 
-        args = [ops.param(_to_dev(dev, r.detach())) for r in refs]
+        raw = [_to_dev(dev, r.detach()) for r in refs]
+        grad.uninstall()
+        shipped = ttnn.to_torch(d_fn(*raw))          # no tape installed: the production op
+        grad.install()
+        args = [grad.param(_to_dev(dev, r.detach())) for r in refs]
         out = d_fn(*args)
-        f_err = _rel(ttnn.to_torch(out.value), out_ref.detach())
-        ops.backward([out], [_to_dev(dev, cot)])
+        taped = ttnn.to_torch(out.value)
+        off_err = (taped - shipped).abs().max().item()
+        f_err = _rel(taped, out_ref.detach())
+        grad.backward([out], [_to_dev(dev, cot)])
         g_err = 0.0
         for r, a in zip(refs, args):
             if a.grad is None:
                 g_err = float("inf")
                 continue
             g_err = max(g_err, _rel(ttnn.to_torch(a.grad), r.grad))
-        ok = f_err <= fwd_bar and g_err <= bwd_bar
+        # grad-off against grad-on is bit-exact or the hook is re-implementing a forward.
+        ok = f_err <= fwd_bar and g_err <= bwd_bar and off_err == 0.0
         bad += not ok
         print(f"{'ok  ' if ok else 'FAIL'} {name:<19} {f_err:>10.2e} {g_err:>10.2e}"
-              f"  (bars {fwd_bar:.0e} / {bwd_bar:.0e})")
+              f" {off_err:>10.2e}  (bars {fwd_bar:.0e} / {bwd_bar:.0e} / 0)")
     return bad
 
 
@@ -209,6 +224,7 @@ def main() -> int:
     try:
         bad = run(dev)
     finally:
+        grad.uninstall()
         ttnn.close_device(dev)
     print(f"\n{'PASS' if bad == 0 else f'FAIL: {bad} ops'}")
     return 1 if bad else 0
