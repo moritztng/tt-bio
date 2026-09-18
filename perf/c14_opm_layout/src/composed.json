@@ -1,0 +1,147 @@
+{
+ "fold_s": 14.881,
+ "units": [
+  {
+   "unit": "PairformerLayer",
+   "calls": 264,
+   "device_ms_per_call": 30.65493,
+   "s_per_fold": 8.0929,
+   "programs_per_call": 137.0,
+   "profiled_wall_ms": 30.8584,
+   "in_kernel_pct": 99.34,
+   "clock_ok": true,
+   "rep_spread_pct": 1.775
+  },
+  {
+   "unit": "MSALayer",
+   "calls": 16,
+   "device_ms_per_call": 59.17096,
+   "s_per_fold": 0.9467,
+   "programs_per_call": 227.0,
+   "profiled_wall_ms": 59.6022,
+   "in_kernel_pct": 99.28,
+   "clock_ok": true,
+   "rep_spread_pct": 1.867
+  },
+  {
+   "unit": "DiffusionModule",
+   "calls": 200,
+   "device_ms_per_call": 20.33434,
+   "s_per_fold": 4.0669,
+   "programs_per_call": 1096.0,
+   "profiled_wall_ms": 37.0991,
+   "in_kernel_pct": 54.81,
+   "clock_ok": true,
+   "rep_spread_pct": 0.047
+  },
+  {
+   "unit": "PairConditioningDevice",
+   "calls": 1,
+   "device_ms_per_call": 21.28959,
+   "s_per_fold": 0.0213,
+   "programs_per_call": 19.0,
+   "profiled_wall_ms": 145.1129,
+   "in_kernel_pct": 14.67,
+   "clock_ok": true,
+   "rep_spread_pct": 2.699
+  },
+  {
+   "unit": "RelPosGather",
+   "calls": 2,
+   "device_ms_per_call": 13.99937,
+   "s_per_fold": 0.028,
+   "programs_per_call": 7.0,
+   "profiled_wall_ms": 14.5531,
+   "in_kernel_pct": 96.2,
+   "clock_ok": true,
+   "rep_spread_pct": 0.155
+  },
+  {
+   "unit": "PairAssemblyDevice",
+   "calls": 2,
+   "device_ms_per_call": 26.58147,
+   "s_per_fold": 0.0532,
+   "programs_per_call": 27.0,
+   "profiled_wall_ms": 39.0184,
+   "in_kernel_pct": 68.13,
+   "clock_ok": true,
+   "rep_spread_pct": 0.033
+  }
+ ],
+ "device_total_s": 13.209,
+ "coverage_pct": 88.76,
+ "remainder_s": 1.672,
+ "bounded_unmeasured_s": {
+  "ConfidenceHeadsDevice": 0.0231
+ },
+ "per_device_op_s": {
+  "MatmulDeviceOperation": 3.97049,
+  "GenericOpDeviceOperation": 3.383,
+  "BinaryNgDeviceOperation": 2.38995,
+  "LayerNormDeviceOperation": 1.3808,
+  "TransposeDeviceOperation": 0.51745,
+  "SDPAOperation": 0.43348,
+  "NlpCreateHeadsDeviceOperation": 0.30067,
+  "SliceDeviceOperation": 0.19167,
+  "ReshapeViewDeviceOperation": 0.15706,
+  "PadDeviceOperation": 0.08641,
+  "PermuteDeviceOperation": 0.08226,
+  "ConcatDeviceOperation": 0.07479,
+  "UntilizeDeviceOperation": 0.05904,
+  "EmbeddingsDeviceOperation": 0.05713,
+  "TilizeDeviceOperation": 0.05358,
+  "SoftmaxDeviceOperation": 0.03227,
+  "CopyDeviceOperation": 0.02429,
+  "NLPConcatHeadsDeviceOperation": 0.01309,
+  "UnaryNgDeviceOperation": 0.00152
+ },
+ "per_class_s": {
+  "linear": 3.39915,
+  "generic_op": 3.383,
+  "multiply_": 1.49246,
+  "layer_norm": 1.3808,
+  "add_": 0.63476,
+  "matmul": 0.57134,
+  "multiply": 0.1318,
+  "add": 0.13092,
+  "pad": 0.08641,
+  "slice": 0.08596,
+  "concat": 0.07216,
+  "embedding": 0.05713,
+  "softmax": 0.03227
+ },
+ "census": {
+  "linear": 4.6604,
+  "matmul": 1.479,
+  "multiply_": 1.751,
+  "add_": 0.8473,
+  "add": 0.1403,
+  "multiply": 0.1256,
+  "layer_norm": 1.533,
+  "generic_op": 4.0841
+ },
+ "census_arm": {
+  "linear": "grid110 (bare arm was 10.7316 s, 2.30x slower)",
+  "matmul": "grid110 (bare arm 2.1174 s)",
+  "multiply_": "bare",
+  "add_": "bare",
+  "add": "bare",
+  "multiply": "bare",
+  "layer_norm": "bare, published as layer_norm 1.357 + layer_norm_w 0.176",
+  "generic_op": "NOT a replay price -- a traffic FLOOR, 3,920 calls, 0.9127 TB"
+ },
+ "unsplit_s": {
+  "CopyDeviceOperation": 0.02429,
+  "PermuteDeviceOperation": 0.08226,
+  "TransposeDeviceOperation": 0.51745,
+  "SliceDeviceOperation": 0.10571,
+  "NlpCreateHeadsDeviceOperation": 0.30067,
+  "ReshapeViewDeviceOperation": 0.15706,
+  "UntilizeDeviceOperation": 0.05904,
+  "TilizeDeviceOperation": 0.05358,
+  "ConcatDeviceOperation": 0.00263,
+  "SDPAOperation": 0.43348,
+  "NLPConcatHeadsDeviceOperation": 0.01309,
+  "UnaryNgDeviceOperation": 0.00152
+ }
+}
