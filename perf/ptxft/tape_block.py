@@ -431,6 +431,150 @@ class ConfidenceHeads:
                              eps=EPS)
 
 
+def _pad_head_lanes(w, n_heads, head_dim, pad_dim, axis):
+    """Pad each head's block from `head_dim` to `pad_dim` lanes with zeros, along `axis`.
+
+    A ttnn tile is 32x32, so a per-head channel block that is not a multiple of 32 makes
+    `[..., H, N, head_dim]` a padded tensor whose tail lanes nobody defines, and a matmul
+    over them reads whatever the allocator left there. Production pads at load time
+    (`head_dim_padding = -head_dim % 32` in `tenstorrent.AttentionPairBias.__init__`) and
+    every twin here has to do the same. It bites at 24 lanes (384/16, the pairformer's
+    single track) and at 48 (768/16, the token DiT), so it is the rule rather than a case.
+    """
+    import torch as _t
+    if pad_dim == head_dim:
+        return w
+    shp = list(w.shape)
+    shp[axis:axis + 1] = [n_heads, head_dim]
+    w = w.reshape(shp)
+    pad = [0] * (2 * len(shp))
+    pad[2 * (len(shp) - 1 - (axis + 1)) + 1] = pad_dim - head_dim
+    w = _t.nn.functional.pad(w, pad)
+    shp[axis:axis + 2] = [n_heads * pad_dim]
+    return w.reshape(shp)
+
+
+class DiTBlock:
+    """One token-level DiffusionTransformerBlock of Protenix v2, on the tape.
+
+    THIS IS THE DIFFUSION MODULE'S TRUNK. `DiffusionModule._denoise_device`
+    (protenix.py:1092) runs 24 of these between the atom attention encoder and decoder,
+    and they hold the bulk of the module's parameters. The brief asks for ONE sampled
+    timestep to be differentiable, so there is no trajectory here and the standing NO-GO
+    on backpropagating the 200-step inference rollout -- whose mechanism is chained bf16
+    numerics over 200 denoise calls -- does not apply at depth 1 by construction.
+
+    Weights are read under UPSTREAM's own names
+    (`diffusion_module.diffusion_transformer.blocks.<i>.*`) rather than through a remap,
+    because that is what `perf/ptxft/ditcheck.py` can hold it to: it instantiates
+    ByteDance's own `DiffusionTransformerBlock` in float64 and compares. Pass 8 learned the
+    other way round -- a twin checked only against a transcription written from reading
+    the code cannot say which side is wrong.
+
+    Maths, from `protenix/model/modules/transformer.py:257-352` and `:40-249`:
+      adaLN(a, s)  = LN(a) * sigmoid(linear_s(LN(s, gain))) + linear_nobias_s(LN(s, gain))
+                     (primitives.py:120-133; the a-norm has neither scale nor offset and
+                      the s-norm has a gain but no offset)
+      attention    = adaLN -> q/k/v with a bias on q only, pair bias from LN(z, gain)
+                     projected to n_heads, per-head gate, output projection
+      out          = a + sigmoid(linear_a_last(s)) * attn
+      transition   = adaLN(out, s) -> silu(a1) * a2 -> linear_nobias_b, gated by
+                     sigmoid(linear_s(s)); note the SiLU is on a1, transformer.py:588
+    """
+
+    def __init__(self, sd: Dict, device, *, dtype=ttnn.bfloat16,
+                 param_dtype=ttnn.float32, trainable: bool = True, chunk=None,
+                 q_chunk=None):
+        self.device, self.dtype = device, dtype
+        self.chunk, self.q_chunk = chunk, q_chunk
+        self.params: Dict[str, ag.Tensor] = {}
+        self.w: Dict[str, ag.Tensor] = {}
+        dt = param_dtype if trainable else dtype
+        A = "attention_pair_bias."
+        C = "conditioned_transition_block."
+        self.n_heads = H = int(sd[A + "linear_nobias_z.weight"].shape[0])
+        self.c_a = int(sd[A + "attention.linear_q.weight"].shape[0])
+        self.head_dim = hd = self.c_a // H
+        self.pad_dim = pd = hd + (-hd % 32)
+
+        def take(key, w=None):
+            t = _t2d(sd[key] if w is None else w, device, dt)
+            t.requires_grad = trainable
+            self.w[key] = t
+            if trainable:
+                self.params[key] = t
+
+        for p in (A + "layernorm_a", C + "adaln"):
+            take(f"{p}.layernorm_s.weight")
+            take(f"{p}.linear_s.weight")
+            take(f"{p}.linear_s.bias")
+            take(f"{p}.linear_nobias_s.weight")
+        for n in ("q", "k", "v", "g"):
+            take(A + f"attention.linear_{n}.weight",
+                 _pad_head_lanes(sd[A + f"attention.linear_{n}.weight"], H, hd, pd, 0))
+        take(A + "attention.linear_q.bias",
+             _pad_head_lanes(sd[A + "attention.linear_q.bias"], H, hd, pd, 0))
+        take(A + "attention.linear_o.weight",
+             _pad_head_lanes(sd[A + "attention.linear_o.weight"], H, hd, pd, 1))
+        take(A + "layernorm_z.weight")
+        take(A + "linear_nobias_z.weight")
+        take(A + "linear_a_last.weight")
+        take(A + "linear_a_last.bias")
+        for n in ("linear_nobias_a1", "linear_nobias_a2", "linear_nobias_b"):
+            take(C + n + ".weight")
+        take(C + "linear_s.weight")
+        take(C + "linear_s.bias")
+
+    # ------------------------------------------------------------------ pieces
+
+    def _lin(self, x, name, bias=None):
+        return ag.linear(x, self.w[name], self.w[bias] if bias else None)
+
+    def adaln(self, a: ag.Tensor, s: ag.Tensor, p: str) -> ag.Tensor:
+        ah = ag.layer_norm(a, eps=EPS)
+        sh = ag.layer_norm(s, self.w[f"{p}.layernorm_s.weight"], eps=EPS)
+        scale = self._lin(sh, f"{p}.linear_s.weight", f"{p}.linear_s.bias")
+        shift = self._lin(sh, f"{p}.linear_nobias_s.weight")
+        return ag.add(ag.mul(ah, ag.sigmoid(scale)), shift)
+
+    def attention(self, a: ag.Tensor, s: ag.Tensor, z: ag.Tensor) -> ag.Tensor:
+        A = "attention_pair_bias."
+        H, hd, pd = self.n_heads, self.head_dim, self.pad_dim
+        N = int(a.value.shape[-2])
+        b = self.adaln(a, s, A + "layernorm_a")
+
+        def heads(name, bias=None):
+            x = self._lin(b, A + f"attention.linear_{name}.weight", bias)
+            return ag.permute(ag.reshape(x, [1, N, H, pd]), (0, 2, 1, 3))
+
+        q = heads("q", A + "attention.linear_q.bias")
+        k, v = heads("k"), heads("v")
+        zn = ag.layer_norm(z, self.w[A + "layernorm_z.weight"], eps=EPS)
+        bias = ag.reshape(ag.permute(self._lin(zn, A + "linear_nobias_z.weight"),
+                                     (2, 0, 1)), [1, H, N, N])
+        o = ag.triangle_attention(q, k, v, bias, scale=hd ** -0.5,
+                                  chunk=self.chunk, q_chunk=self.q_chunk)
+        o = ag.reshape(ag.permute(o, (0, 2, 1, 3)), [1, N, H * pd])
+        o = ag.mul(o, ag.sigmoid(self._lin(b, A + "attention.linear_g.weight")))
+        o = self._lin(o, A + "attention.linear_o.weight")
+        s_o = ag.sigmoid(self._lin(s, A + "linear_a_last.weight",
+                                   A + "linear_a_last.bias"))
+        return ag.mul(s_o, o)
+
+    def transition(self, a: ag.Tensor, s: ag.Tensor) -> ag.Tensor:
+        C = "conditioned_transition_block."
+        t = self.adaln(a, s, C + "adaln")
+        x1 = self._lin(t, C + "linear_nobias_a1.weight")
+        x2 = self._lin(t, C + "linear_nobias_a2.weight")
+        bb = ag.mul(ag.mul(x1, ag.sigmoid(x1)), x2)      # silu(a1) * a2
+        s_o = ag.sigmoid(self._lin(s, C + "linear_s.weight", C + "linear_s.bias"))
+        return ag.mul(s_o, self._lin(bb, C + "linear_nobias_b.weight"))
+
+    def __call__(self, a: ag.Tensor, s: ag.Tensor, z: ag.Tensor) -> ag.Tensor:
+        a = ag.add(a, self.attention(a, s, z))
+        return ag.add(a, self.transition(a, s))
+
+
 def symmetrize_bins(t):
     """The distogram is over UNORDERED pairs, so the head's output is symmetrised.
 
