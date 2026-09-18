@@ -1,0 +1,27 @@
+2026-09-18 22:49:23.981 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 0 elsewhere, 557 pid(s) unreadable
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+  sidechain FAPE on the card
+  taped device parameters: 436
+  every one of 436 parameters took a non-zero gradient
+host [device open, before timing]: our node(s) ['/dev/tenstorrent/1']; 0 cotenant(s) on our node, 0 elsewhere, 556 pid(s) unreadable
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+  step   1  24.281 s  loss 5.0206  (median so far 24.281 s)
+
+STEP: median 24.163 s over 3 COMPLETE steps at batch 64 (32 x 2) and 256 tokens, min 23.844 s, max 24.281 s
+BREAKDOWN (median over steps, seconds and share of the step):
+  forward             5.954 s   24.6 %
+  download            0.249 s    1.0 %
+  losses              2.684 s   11.1 %
+  host_backward       2.816 s   11.7 %
+  device_backward    11.747 s   48.6 %
+  optimizer           0.067 s    0.3 %
+LOSS TERMS (cumulative over 4 steps, share of the loss stage):
+  fape_sidechain       4.40 s   53.8 %
+  renamed_gt           2.18 s   26.6 %
+  fape_backbone        1.17 s   14.3 %
+  final_backbone       0.30 s    3.7 %
+  supervised_chi       0.13 s    1.6 %
+CLOCK: AICLK during the run: card 0 min 1350 median 1350 max 1350 MHz over 24
+INCLUDES: device forward and backward, host geometry tail, the stage-1 losses (FAPE, supervised chi, final-block) and one RAdam step
+TARGETS: synthetic -- their structures/*.pt are not staged on this host; a loss's COST is shape-set and its VALUE is checked by loss_gate.py
