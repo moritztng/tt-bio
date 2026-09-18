@@ -578,8 +578,11 @@ class DiTBlock:
             k = self._heads(self._lin(kv_in, A + "attention.linear_k.weight"), 1, N)
             v = self._heads(self._lin(kv_in, A + "attention.linear_v.weight"), 1, N)
             zn = ag.layer_norm(z, self.w[A + "layernorm_z.weight"], eps=EPS)
-            bias = ag.reshape(ag.permute(self._lin(zn, A + "linear_nobias_z.weight"),
-                                         (2, 0, 1)), [1, H, N, N])
+            zp = self._lin(zn, A + "linear_nobias_z.weight")
+            # The pair tensor arrives rank 3 from a harness and rank 4 with a leading
+            # batch axis from a live fold (cond["dit_z"]). Both are the same tensor.
+            perm = (0, 3, 1, 2) if len(zp.value.shape) == 4 else (2, 0, 1)
+            bias = ag.reshape(ag.permute(zp, perm), [1, H, N, N])
             lead, n_q = 1, N
         else:
             # Local windows, upstream's geometry exactly (primitives.py:354-372):
@@ -589,10 +592,16 @@ class DiTBlock:
             nt = -(-N // nq)
             q_pad = nt * nq - N
             pad_l = (nk - nq) // 2
-            pad_r = (nt - 1) * nq + nk - (N + q_pad) - pad_l + q_pad
+            # Upstream's own expression (primitives.py:367), used verbatim because it
+            # already accounts for the query padding: int((nt - 1/2) nq + nk/2 - n + 1/2).
+            # Re-deriving it and adding q_pad on top over-pads by q_pad and the padded
+            # length stops being a whole number of query blocks -- at 277 atoms it gave
+            # 395 rows where the window build needs exactly 384, which surfaces as a
+            # reshape volume error inside ag.windows rather than as a wrong number.
+            pad_r = int((nt - 0.5) * nq + nk / 2 - N + 0.5)
             qb = b if q_pad == 0 else ag.concat([b, self._zeros(q_pad, b)], dim=-2)
             kvp = ag.concat([self._zeros(pad_l, kv_in), kv_in,
-                             self._zeros(pad_r + q_pad, kv_in)], dim=-2)
+                             self._zeros(pad_r, kv_in)], dim=-2)
             kw = ag.windows(kvp, nq, nk, nt, pad_l)
             q = self._heads(ag.reshape(self._lin(qb, A + "attention.linear_q.weight",
                                                  A + "attention.linear_q.bias"),
