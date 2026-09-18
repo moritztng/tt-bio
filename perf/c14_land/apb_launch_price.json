@@ -1,0 +1,89 @@
+{
+ "artifact": "perf/roof_launch/launch_trace_qb2c1.json",
+ "shapes_from": "perf/roof_quiet/capture/captures/cap_AttentionPairBias__1x512x768,1x16x512x512.json.gz",
+ "site": {
+  "S": 512,
+  "n_heads": 16,
+  "head_dim": 48,
+  "padded_head_dim": 64,
+  "c": 768
+ },
+ "arms": {
+  "shipped": {
+   "ops": [
+    {
+     "op": "slice      o[..., :48]",
+     "class": "slice",
+     "tiles": 512,
+     "us": 7.994
+    },
+    {
+     "op": "permute    (0,1,3,2)",
+     "class": "transpose",
+     "tiles": 512,
+     "us": 7.908
+    },
+    {
+     "op": "reshape    (1,768,512)",
+     "class": "reshape",
+     "tiles": 384,
+     "us": 20.517
+    },
+    {
+     "op": "permute    (0,2,1)",
+     "class": "permute",
+     "tiles": 384,
+     "us": 7.872
+    }
+   ],
+   "total_us": 44.291
+  },
+  "flag": {
+   "ops": [
+    {
+     "op": "nlp_concat_heads",
+     "class": "nlp_concat_heads",
+     "tiles": 512,
+     "us": 15.97
+    },
+    {
+     "op": "reshape    (1,512,1024)",
+     "class": "reshape",
+     "tiles": 512,
+     "us": 25.887
+    }
+   ],
+   "total_us": 41.857
+  }
+ },
+ "net": [
+  {
+   "assumed_tflops": 60.0,
+   "assumed_gbs": 423.6,
+   "reassembly_saved_us": 2.434,
+   "added_arith_us": 6.711,
+   "added_traffic_us": 3.713,
+   "net_us_per_call": -7.99,
+   "net_s_at_5064_calls": -0.0405
+  },
+  {
+   "assumed_tflops": 115.0,
+   "assumed_gbs": 423.6,
+   "reassembly_saved_us": 2.434,
+   "added_arith_us": 3.501,
+   "added_traffic_us": 3.713,
+   "net_us_per_call": -4.78,
+   "net_s_at_5064_calls": -0.0242
+  }
+ ],
+ "reshape_free_control": {
+  "shipped_us": 23.774,
+  "flag_us": 15.97,
+  "reassembly_saved_us": 7.804,
+  "net_us_per_call_at_115_tflops": 0.59
+ },
+ "added": {
+  "flops_per_call": 402653184,
+  "bytes_per_call": 1572864
+ }
+}
