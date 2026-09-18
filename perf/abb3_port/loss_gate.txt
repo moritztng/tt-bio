@@ -1,0 +1,13 @@
+  ok   backbone FAPE   [batch 1]                      ours 0.9347689645  upstream 0.9347689645  rel 0.00e+00
+  ok   sidechain FAPE  [batch 1]                      ours 1.5778180647  upstream 1.5778180647  rel 1.41e-16
+  ok   supervised chi  [batch 1]                      ours 1.9772146038  upstream 1.9772146038  rel 0.00e+00
+  ok   pLDDT           [batch 1]                      ours 4.4256999214  upstream 4.4256999214  rel 0.00e+00
+  ok   final-block extra [batch 1]                    ours 3.1933304697  upstream 3.1933304697  rel 0.00e+00
+  info   ^ corrected periodicity, as a DELTA not a match [batch 1] ours 1.9772146038  upstream 1.9772146038  rel 0.00e+00
+  ok   backbone FAPE   [batch 3]                      ours 0.9402525429  upstream 0.9402525429  rel 0.00e+00
+  ok   sidechain FAPE  [batch 3]                      ours 1.5802243589  upstream 1.5802243589  rel 0.00e+00
+  ok   supervised chi  [batch 3]                      ours 1.9029715894  upstream 1.9029715894  rel 0.00e+00
+  ok   pLDDT           [batch 3]                      ours 4.3733366823  upstream 4.3733366823  rel 0.00e+00
+  ok   final-block extra [batch 3]                    ours 2.7936369159  upstream 2.7936369159  rel 0.00e+00
+  info   ^ corrected periodicity, as a DELTA not a match [batch 3] ours 1.9807209062  upstream 1.9029715894  rel 4.09e-02
+PASS
