@@ -1681,9 +1681,11 @@ class ConfidenceHead:
         plddt_atom = (torch.softmax(plddt_logits, -1) * ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb)).sum(-1)
         out = {"plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom, "pae": pae, "pde": pde,
                "ptm": ptm, "iptm": iptm}
-        chain_ptm, chain_iptm = self._chain_ptm_iptm(pae_logits, feats.get("asym_id"))
+        chain_ptm, chain_iptm, pair_chains_iptm = self._chain_ptm_iptm(
+            pae_logits, feats.get("asym_id"))
         if chain_ptm is not None:
             out["chain_ptm"], out["chain_iptm"] = chain_ptm, chain_iptm
+            out["pair_chains_iptm"] = pair_chains_iptm
         return out
 
     @staticmethod
@@ -1732,11 +1734,11 @@ class ConfidenceHead:
         import torch
 
         if asym_id is None:
-            return None, None
+            return None, None, None
         a = asym_id.long().reshape(-1)
         ids = [int(x) for x in torch.unique(a)]
         if a.numel() != pae_logits.shape[0] or len(ids) < 2:
-            return None, None
+            return None, None, None
         nb = pae_logits.shape[-1]
         centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
         probs = torch.softmax(pae_logits.float(), -1)
@@ -1757,7 +1759,15 @@ class ConfidenceHead:
                 pair_iptm[ci, cj] = pair_iptm[cj, ci] = float(row.max())
         chain_iptm = [sum(pair_iptm[c, o] for o in ids if o != c) / (len(ids) - 1)
                       for c in ids]
-        return [round(x, 6) for x in chain_ptm], [round(x, 6) for x in chain_iptm]
+        # Full per-chain-pair ipTM matrix, mirroring boltz2's `pair_chains_iptm`: the
+        # cross-chain values were already computed above to derive `chain_iptm`; nesting
+        # them as {chain_i: {chain_j: ipTM}} lets downstream selectivity scoring read
+        # chain_pair_iptm[i][j] instead of only the per-chain reduction.
+        pair_chains_iptm = {ci: {cj: round(pair_iptm[ci, cj], 6)
+                                 for cj in ids if cj != ci} for ci in ids}
+        return ([round(x, 6) for x in chain_ptm],
+                [round(x, 6) for x in chain_iptm],
+                pair_chains_iptm)
 
     def plddt(self, s_inputs, s_trunk, z_trunk, coords, feats):
         """Mean pLDDT in [0,1] (back-compat thin wrapper over confidence())."""
