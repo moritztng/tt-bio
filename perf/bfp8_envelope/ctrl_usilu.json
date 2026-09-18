@@ -1,0 +1,407 @@
+{
+ "doc": "Paired same-seed accuracy folds for the bfp8 regions, one process, one device, one model load.\n\nThis row edits no production code. An arm is a set of module globals in `tt_bio.tenstorrent`\npatched between folds, which works because every one of them is read at CALL time\n(`_triatt_dtype()` returns `bfloat8_b if _TRIATT_B8 else _dtype()`), not at import. Running the\narms in one process is what makes the comparison paired: same device, same program cache, same\nweights, same MSA, and the seed set on the config rather than on the interpreter.\n\nArms (see --list). `base` touches nothing and is the reference every other arm is read against.\nThe last fold repeats the first, and that repeat is the A/A control: if it is not 0.0000 A the\npaired read above is not the lever.\n\nBoth sizes matter and neither substitutes for the other. cdk2x2_298 is the fixture the 0.35/0.60 A\nbar is written against; cdk2x2_512 is the production size and is chimeric, so whole-molecule RMSD\non it reads its unconstrained hinge and the per-pseudo-domain / CA-lDDT readings from\nperf/b2z2_fusebias/score.py are what decide there. A 298 aa pass is not evidence at 512 aa:\nb2z's transition site scored 0.266 A at 298 aa and moved the 512 aa fold 13.21 A.\n\nAICLK is sampled DURING each fold off the driver's own telemetry, per fold, min/median/max.\n\n    fold_b8.py --out <json> --cifdir <dir> --sizes 512 --plan base:0,1,2,3;T:0,1,2,3\n",
+ "env": {
+  "host": "tt-quietbox",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.11.0+cpu",
+  "tt_visible_devices": "1",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!2",
+  "bias_suppressor_installed": false,
+  "tt_bio_file": "/home/ttuser/.coworker/wt/bfp8-accuracy-envelope/armT/tt_bio/__init__.py",
+  "commit": "42eebf8003aa5956ab29b21f5d1eb49d30c9a46c",
+  "started_utc": "2026-09-18T14:18:23Z",
+  "loadavg": [
+   11.73291015625,
+   10.2939453125,
+   7.71533203125
+  ],
+  "arms": {
+   "base": {},
+   "usilu": {
+    "g": {
+     "_UNFUSED_SILU": true
+    }
+   }
+  },
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "base:0,1,2,3;usilu:0,1,2,3"
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 20.517,
+   "sha256": "2f2f5faae481337e",
+   "aiclk": {
+    "n": 38,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": false
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.864082,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "usilu",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.691,
+   "sha256": "26333af9a8712998",
+   "aiclk": {
+    "n": 34,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.847425,
+   "tag": "usilu-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 22.363,
+   "sha256": "f0ae3cdef2d933ed",
+   "aiclk": {
+    "n": 42,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": false
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.861222,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "usilu",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 19.484,
+   "sha256": "17a7189a892c3f9f",
+   "aiclk": {
+    "n": 37,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.864449,
+   "tag": "usilu-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 20.159,
+   "sha256": "287771d9e4f27afe",
+   "aiclk": {
+    "n": 38,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": false
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.852344,
+   "tag": "base-s2"
+  },
+  {
+   "arm": "usilu",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 18.637,
+   "sha256": "f955e33c8740af76",
+   "aiclk": {
+    "n": 35,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.856863,
+   "tag": "usilu-s2"
+  },
+  {
+   "arm": "base",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 17.778,
+   "sha256": "3258ccc69e6e5697",
+   "aiclk": {
+    "n": 33,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": false
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.874473,
+   "tag": "base-s3"
+  },
+  {
+   "arm": "usilu",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 17.546,
+   "sha256": "b25841a33585fb57",
+   "aiclk": {
+    "n": 33,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.875475,
+   "tag": "usilu-s3"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 17.61,
+   "sha256": "2f2f5faae481337e",
+   "aiclk": {
+    "n": 33,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": false
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.864082,
+   "tag": "base-s0_r1"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 14.386,
+   "sha256": "69999b46e2543e0f",
+   "aiclk": {
+    "n": 27,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": false
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.91088,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "usilu",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 13.267,
+   "sha256": "1514cf30b5eccb27",
+   "aiclk": {
+    "n": 23,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.911099,
+   "tag": "usilu-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 12.468,
+   "sha256": "c5ad35339c144f3e",
+   "aiclk": {
+    "n": 23,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": false
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.916649,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "usilu",
+   "seed": 1,
+   "target": "cdk2x2_298",
+   "fold_s": 12.452,
+   "sha256": "310a9a9fcfb84403",
+   "aiclk": {
+    "n": 23,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.914336,
+   "tag": "usilu-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "target": "cdk2x2_298",
+   "fold_s": 12.208,
+   "sha256": "725704bc05278ab6",
+   "aiclk": {
+    "n": 23,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": false
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.907995,
+   "tag": "base-s2"
+  },
+  {
+   "arm": "usilu",
+   "seed": 2,
+   "target": "cdk2x2_298",
+   "fold_s": 12.332,
+   "sha256": "1fefa5c2abca8203",
+   "aiclk": {
+    "n": 23,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.908185,
+   "tag": "usilu-s2"
+  },
+  {
+   "arm": "base",
+   "seed": 3,
+   "target": "cdk2x2_298",
+   "fold_s": 14.261,
+   "sha256": "cc5a70ea50cce535",
+   "aiclk": {
+    "n": 27,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": false
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.912976,
+   "tag": "base-s3"
+  },
+  {
+   "arm": "usilu",
+   "seed": 3,
+   "target": "cdk2x2_298",
+   "fold_s": 12.595,
+   "sha256": "83a1534483442914",
+   "aiclk": {
+    "n": 24,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.912176,
+   "tag": "usilu-s3"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_298",
+   "fold_s": 12.256,
+   "sha256": "69999b46e2543e0f",
+   "aiclk": {
+    "n": 23,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_UNFUSED_SILU": false
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "plddt": 0.91088,
+   "tag": "base-s0_r1"
+  }
+ ],
+ "model_load_s": 6.094,
+ "aa_floor_identical": {
+  "512": true,
+  "298": true
+ },
+ "aiclk_session": {
+  "min": 1343,
+  "max": 1350
+ }
+}

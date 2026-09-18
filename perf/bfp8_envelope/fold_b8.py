@@ -55,17 +55,38 @@ import ab_flag_levers as AB  # noqa: E402  -- fixtures, cfg and MSA seeding, unm
 # the only way to attribute its cost per operand. The bias is also the only operand in the region
 # reached through an `ttnn.typecast` rather than a matmul destination format, so `T = Tq + Tbias`
 # is exactly the "narrow a destination" claim next to the one narrowing that is not.
+#
+# `usilu` is the NEGATIVE CONTROL and it narrows nothing. `TT_BIO_UNFUSED_SILU` unfuses an
+# activation in the structure module, so it perturbs at the same rounding level as a dtype change
+# while touching neither a dtype nor triangle attention. It is here because seed 0 of this fixture
+# sits on a sampler basin boundary that ANY bf16-level perturbation flips by ~1.5 A, and an arm
+# that flips it is not thereby shown to be inaccurate. Without this control the seed-0 reading of
+# every bfp8 region is unattributable.
+#
+# `widek` was the first choice and is a NULL at 512 aa: measured bit-identical to base, because
+# `_tri_att_k_chunks` has a single-entry ladder at every padded length whose divisors do not
+# straddle the cap window, 512 included. Kept in the table so nobody spends the folds twice.
+#
+# `Tmix` is the direct test of the mechanism `Tbias` implicates: region T's bfp8 q/k/v with the
+# bias put BACK to bf16 at the SDPA, i.e. the mirror image of `Tbias`. If a mixed dataformat into
+# the fused SDPA is what breaks the fold, this breaks too and the operands are not independently
+# narrowable; if only `Tbias` breaks, the bias operand alone is at fault.
+#
+# `g`   -> tt_bio.tenstorrent module globals, read at call time
+# `env` -> environment variables the code reads live, per call
+# `suppress_bias` -> the wrapper below
 ARMS = {
     "base":  {},
-    "T":     {"_TRIATT_B8": True},
-    "Tbias": {"_TRIATT_BIAS_B8": True},
-    "Tq":    {"_TRIATT_B8": True, "_suppress_bias_b8": True},
+    "T":     {"g": {"_TRIATT_B8": True}},
+    "Tbias": {"g": {"_TRIATT_BIAS_B8": True}},
+    "Tq":    {"g": {"_TRIATT_B8": True}, "suppress_bias": True},
+    "Tmix":  {"g": {"_TRIATT_B8": True}, "bias_bf16": True},
+    "usilu": {"g": {"_UNFUSED_SILU": True}},
+    "widek": {"env": {"TT_BIO_SDPA_WIDE_K": "1"}},
 }
-GLOBALS = {"_TRIATT_B8", "_TRIATT_BIAS_B8"}          # real tt_bio.tenstorrent names
-HARNESS = {"_suppress_bias_b8"}                      # handled by the wrapper below
 
 
-def install_bias_suppressor(T, state):
+def install_bias_suppressor(T, ttnn, state):
     """Let an arm narrow the region's matmul destinations while leaving the bias typecast off.
 
     `_tri_att_sdpa_inner` reads `(_TRIATT_BIAS_B8 or _TRIATT_B8)` for the bias and nothing else
@@ -76,15 +97,20 @@ def install_bias_suppressor(T, state):
     """
     inner = T._tri_att_sdpa_inner
 
-    def wrapped(*a, **kw):
-        if not state["suppress"]:
-            return inner(*a, **kw)
+    def wrapped(q, k, v, bias, *a, **kw):
+        if not (state["suppress"] or state["bias_bf16"]):
+            return inner(q, k, v, bias, *a, **kw)
         keep = (T._TRIATT_B8, T._TRIATT_BIAS_B8)
         T._TRIATT_B8 = T._TRIATT_BIAS_B8 = False
+        back = None
+        if state["bias_bf16"] and bias is not None and bias.dtype == ttnn.bfloat8_b:
+            back = bias = ttnn.typecast(bias, ttnn.bfloat16)
         try:
-            return inner(*a, **kw)
+            return inner(q, k, v, bias, *a, **kw)
         finally:
             T._TRIATT_B8, T._TRIATT_BIAS_B8 = keep
+            if back is not None:
+                ttnn.deallocate(back)
 
     T._tri_att_sdpa_inner = wrapped
 
@@ -175,21 +201,24 @@ def main() -> int:
         f"imported tt_bio from {_TB.__file__}, not this worktree")
 
     # Refuse to measure a region this checkout does not have: patching a global that is not there
-    # would silently run both arms as `base` and score the region as a null.
+    # would silently run both arms as `base` and score the region as a null. Only the globals the
+    # PLANNED arms ask for are required, so the same harness runs against a tree without the flag
+    # -- which is itself a control: `Tbias` predates the region and exists on main too.
+    want_g, want_env = {}, {}
     for arm in plan:
-        for name in ARMS[arm]:
-            if name in HARNESS:
-                continue
-            assert hasattr(T, name), f"tt_bio.tenstorrent has no {name}; arm {arm} is a no-op here"
-    # A pinned env value would serve every arm the same way whatever the harness sets.
-    for var in ("TT_BIO_TRIATT_B8", "TT_BIO_TRIATT_BIAS_B8"):
+        for n in ARMS[arm].get("g", {}):
+            assert hasattr(T, n), f"tt_bio.tenstorrent has no {n}; arm {arm} is a no-op here"
+            want_g[n] = getattr(T, n)
+        want_env.update(ARMS[arm].get("env", {}))
+    # A pinned value would serve every arm the same way whatever the harness sets.
+    for var in list(want_env) + ["TT_BIO_TRIATT_B8", "TT_BIO_TRIATT_BIAS_B8"]:
         assert var not in os.environ, f"{var} may not be pinned; the arm is set per fold"
-    defaults = {n: getattr(T, n) for n in GLOBALS}
-    assert not any(defaults.values()), f"a region is already on by default: {defaults}"
-    supp = {"suppress": False}
-    wrapped = any("_suppress_bias_b8" in ARMS[a] for a in plan)
+    assert not any(want_g.values()), f"a region is already on by default: {want_g}"
+    defaults = want_g
+    supp = {"suppress": False, "bias_bf16": False}
+    wrapped = any(ARMS[a].get("suppress_bias") or ARMS[a].get("bias_bf16") for a in plan)
     if wrapped:
-        install_bias_suppressor(T, supp)
+        install_bias_suppressor(T, ttnn, supp)
 
     AB.SAMPLING_STEPS, AB.RECYCLING_STEPS = args.steps, args.recycles
     dev = get_device()
@@ -234,8 +263,12 @@ def main() -> int:
 
     def fold(arm, seed, target, keep):
         for name, val in defaults.items():
-            setattr(T, name, ARMS[arm].get(name, val))
-        supp["suppress"] = bool(ARMS[arm].get("_suppress_bias_b8", False))
+            setattr(T, name, ARMS[arm].get("g", {}).get(name, val))
+        for name in want_env:
+            os.environ.pop(name, None)
+        os.environ.update(ARMS[arm].get("env", {}))
+        supp["suppress"] = bool(ARMS[arm].get("suppress_bias", False))
+        supp["bias_bf16"] = bool(ARMS[arm].get("bias_bf16", False))
         cfg["seed"] = seed
         try:
             state.model.structure_module.score_model.reset_static_cache()
@@ -258,7 +291,8 @@ def main() -> int:
                 "sha256": hashlib.sha256(body).hexdigest()[:16],
                 "aiclk": clk.report(),
                 "region_on": {n: bool(getattr(T, n)) for n in defaults},
-                "bias_suppressed": supp["suppress"],
+                "env_on": {n: os.environ.get(n) for n in want_env},
+                "bias_suppressed": supp["suppress"], "bias_forced_bf16": supp["bias_bf16"],
                 "plddt": round(float(metrics.get("plddt", metrics.get("confidence_score", 0))), 6)}
 
     first = next(iter(plan))

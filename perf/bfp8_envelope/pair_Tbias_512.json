@@ -1,0 +1,270 @@
+{
+ "doc": "Pair a solo-process arm against base folds taken in another process.\n\n`TT_BIO_TRIATT_BIAS_B8` cannot be measured in the same process as `base`: the SDPA program cache\nkey omits `mask.dtype`, so the second arm silently reuses the first arm's program. So its folds\nrun alone, and the pairing is done here instead. This is still a same-seed paired comparison --\nthe seed is on the config, not on the interpreter, and base reproduces bit-exactly across\nprocesses and cards (verified: every base digest below matches the interleaved run).\n",
+ "env": {
+  "host": "tt-quietbox",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.11.0+cpu",
+  "tt_visible_devices": "1",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!2",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/bfp8-accuracy-envelope/armT/tt_bio/__init__.py",
+  "commit": "42eebf8003aa5956ab29b21f5d1eb49d30c9a46c",
+  "started_utc": "2026-09-18T14:09:29Z",
+  "loadavg": [
+   5.22607421875,
+   3.68212890625,
+   3.88623046875
+  ],
+  "arms": {
+   "base": {},
+   "T": {
+    "_TRIATT_B8": true
+   },
+   "Tbias": {
+    "_TRIATT_BIAS_B8": true
+   }
+  },
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "base:0,1,2,3;T:0,1,2,3;Tbias:0,1,2,3"
+  },
+  "arm_env": {
+   "host": "tt-quietbox",
+   "grid": [
+    11,
+    10
+   ],
+   "arch": "Arch.BLACKHOLE",
+   "torch": "2.11.0+cpu",
+   "tt_visible_devices": "3",
+   "aiclk_node": "/sys/class/tenstorrent/tenstorrent!0",
+   "bias_suppressor_installed": false,
+   "tt_bio_file": "/home/ttuser/.coworker/wt/bfp8-accuracy-envelope/armT/tt_bio/__init__.py",
+   "commit": "42eebf8003aa5956ab29b21f5d1eb49d30c9a46c",
+   "started_utc": "2026-09-18T14:28:55Z",
+   "loadavg": [
+    11.65625,
+    9.42138671875,
+    8.37939453125
+   ],
+   "arms": {
+    "Tbias": {
+     "g": {
+      "_TRIATT_BIAS_B8": true
+     }
+    }
+   },
+   "protocol": {
+    "recycling_steps": 3,
+    "sampling_steps": 200,
+    "plan": "Tbias:0,1,2,3"
+   }
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 27.762,
+   "sha256": "2f2f5faae481337e",
+   "aiclk": {
+    "n": 42,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": false,
+    "_TRIATT_BIAS_B8": false
+   },
+   "plddt": 0.864082,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 22.539,
+   "sha256": "f0ae3cdef2d933ed",
+   "aiclk": {
+    "n": 42,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": false,
+    "_TRIATT_BIAS_B8": false
+   },
+   "plddt": 0.861222,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 20.705,
+   "sha256": "287771d9e4f27afe",
+   "aiclk": {
+    "n": 39,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": false,
+    "_TRIATT_BIAS_B8": false
+   },
+   "plddt": 0.852344,
+   "tag": "base-s2"
+  },
+  {
+   "arm": "base",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 18.334,
+   "sha256": "3258ccc69e6e5697",
+   "aiclk": {
+    "n": 34,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": false,
+    "_TRIATT_BIAS_B8": false
+   },
+   "plddt": 0.874473,
+   "tag": "base-s3"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 17.945,
+   "sha256": "2f2f5faae481337e",
+   "aiclk": {
+    "n": 33,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_B8": false,
+    "_TRIATT_BIAS_B8": false
+   },
+   "plddt": 0.864082,
+   "tag": "base-s0_r1"
+  },
+  {
+   "arm": "Tbias",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 21.395,
+   "sha256": "562681f107c17bde",
+   "aiclk": {
+    "n": 36,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_BIAS_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "plddt": 0.847091,
+   "tag": "Tbias-s0"
+  },
+  {
+   "arm": "Tbias",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 18.874,
+   "sha256": "a2ee1f940337cb67",
+   "aiclk": {
+    "n": 35,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_BIAS_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "plddt": 0.863923,
+   "tag": "Tbias-s1"
+  },
+  {
+   "arm": "Tbias",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 17.515,
+   "sha256": "4e4236e3c8476dc6",
+   "aiclk": {
+    "n": 33,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_BIAS_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "plddt": 0.855286,
+   "tag": "Tbias-s2"
+  },
+  {
+   "arm": "Tbias",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 19.755,
+   "sha256": "aa70ec27742fa989",
+   "aiclk": {
+    "n": 37,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_BIAS_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "plddt": 0.875697,
+   "tag": "Tbias-s3"
+  },
+  {
+   "arm": "Tbias",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 17.681,
+   "sha256": "562681f107c17bde",
+   "aiclk": {
+    "n": 33,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {
+    "_TRIATT_BIAS_B8": true
+   },
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "plddt": 0.847091,
+   "tag": "Tbias-s0_r1"
+  }
+ ]
+}
