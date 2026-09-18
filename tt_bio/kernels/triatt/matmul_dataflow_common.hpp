@@ -12,11 +12,23 @@
 
 // --- head-major destination, tt-bio ---------------------------------------------------------
 // With HEAD_MAJOR_MT defined, the M axis is read as (batch, row) with HEAD_MAJOR_MT row tiles per
-// batch, and the chunk's tile grid as (batch, head, row) instead of (row, head). Same tile, same
-// transaction, different address.
+// batch, and the chunk's tile grid as (batch, head, row, channel) instead of (row, channel). Same
+// tile, same transaction, different address.
+//
+// HEAD_MAJOR_DT is the head's channel extent in TILES, so a chunk's N tile index splits as
+// (head, channel) = (tidx / HEAD_MAJOR_DT, tidx % HEAD_MAJOR_DT) and the destination strides are
+// (batch, head, row, channel) = (logical_d1 * MT, MT * DT, DT, 1). It defaults to 1, which is the
+// single-tile head the triangle attention ships and where the expression collapses to the
+// (batch, head, row) form; the diffusion token transformer's padded head_dim of 64 is 2.
 #ifdef HEAD_MAJOR_MT
-#define MM_SPLIT_TILE_ID(row, tidx, logical_d1) \
-    ((((row) / HEAD_MAJOR_MT) * (logical_d1) + (tidx)) * HEAD_MAJOR_MT + ((row) % HEAD_MAJOR_MT))
+#ifndef HEAD_MAJOR_DT
+#define HEAD_MAJOR_DT 1
+#endif
+#define MM_SPLIT_TILE_ID(row, tidx, logical_d1)                       \
+    ((((row) / HEAD_MAJOR_MT) * ((logical_d1) * HEAD_MAJOR_MT))       \
+     + (((tidx) / HEAD_MAJOR_DT) * (HEAD_MAJOR_MT * HEAD_MAJOR_DT))   \
+     + (((row) % HEAD_MAJOR_MT) * HEAD_MAJOR_DT)                      \
+     + ((tidx) % HEAD_MAJOR_DT))
 #else
 #define MM_SPLIT_TILE_ID(row, tidx, logical_d1) ((row) * (logical_d1) + (tidx))
 #endif
@@ -27,9 +39,12 @@
 // Addressing only: same tiles, same order, one more destination. Without it this is the expression
 // the stock writer already evaluates.
 //
-// It composes with HEAD_MAJOR_MT for free: at logical_d1 = 1 the head-major transform reduces to
-// `row`, which is exactly the plain tile id, so a one-tile chunk lands correctly in an ordinary
-// [batch, seq, 32] result while its head-major siblings keep theirs.
+// It composes with HEAD_MAJOR_MT for free: at logical_d1 = 1 and HEAD_MAJOR_DT = 1 the head-major
+// transform reduces to `row`, which is exactly the plain tile id, so a one-tile chunk lands
+// correctly in an ordinary [batch, seq, 32] result while its head-major siblings keep theirs.
+// At HEAD_MAJOR_DT > 1 that reduction does not hold -- the row stride is DT, not 1 -- so a
+// differing last chunk and a multi-tile head are mutually exclusive, which `mm_generic.build`
+// asserts on the host.
 #ifdef MM_SPLIT_LAST_TILES
 #define MM_CHUNK_TILES(c, n_chunks, uniform) \
     ((uint32_t)((c) + 1 == (n_chunks) ? (uint32_t)(MM_SPLIT_LAST_TILES) : (uint32_t)(uniform)))
