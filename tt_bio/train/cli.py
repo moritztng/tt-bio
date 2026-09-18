@@ -27,7 +27,7 @@ import click
 # A name absent here is not adaptable today and the refusal says so rather than failing later
 # with an empty census. Kept as a list because it is a fact about the attach work that has
 # landed, not a preference -- when a model gets routed it gets added here in the same change.
-ADAPTABLE = ("protenix-v2", "openfold3")
+ADAPTABLE = ("protenix-v2", "openfold3", "abodybuilder3")
 
 # The Tier-1 bodies, by name. Duplicated from `recipes._RECIPES` on purpose and pinned by a
 # test: validating `--recipe` must not import the bodies, because importing them imports the
@@ -209,6 +209,15 @@ def finetune(data, model, out_dir, global_batch, steps, objective, recipe, token
     fit = plan(tokens=tokens or 256, chips=chips, global_batch=global_batch,
                frozen_trunk=True, seconds_per_step_1chip=seconds_per_step)
     click.echo(str(fit))
+    # plan() takes no model: its replica arithmetic is train-r5's measured Protenix-v2 figure,
+    # so the VERDICT transfers to a smaller model but the gigabytes do not. Said out loud
+    # because "5.06 GB of 34.23 GB" reads like a fact about whatever --model names, and for
+    # ABodyBuilder3's 7.1 M parameters it is two orders of magnitude out. Fixing plan() to be
+    # model-aware belongs to whoever owns dryrun.py, not to this print.
+    if model != "protenix-v2" and fit.replica_gb is not None:
+        click.echo(f"\nnote: the replica size above is the MEASURED protenix-v2 figure; plan() "
+                   f"takes no model. For {model} it is an upper bound, so 'fits' holds and the "
+                   f"gigabytes do not describe {model}.")
     if fit.verdict == "refused":
         raise click.ClickException(
             "refusing to start on a configuration measured not to fit. Lower --tokens, or "
@@ -228,10 +237,10 @@ def finetune(data, model, out_dir, global_batch, steps, objective, recipe, token
         # chip, which is not the shape the README example uses.
         if fit.seconds_per_step is None and seconds_per_step is None:
             click.echo(
-                f"\nduration: UNMEASURED for {steps:,} steps. No Protenix-v2 training step "
-                f"has been measured on this hardware, and dividing a projection by the "
-                f"measured 1.87x two-chip speedup would keep it a projection. Measure one "
-                f"step yourself and pass --seconds-per-step to get this answered.")
+                f"\nduration: UNMEASURED for {steps:,} steps. plan() reports a step time only "
+                f"from one you measured yourself, and dividing a projection by the measured "
+                f"1.87x two-chip speedup would keep it a projection. Measure one step and "
+                f"pass --seconds-per-step to get this answered.")
         elif fit.seconds_per_step is None:
             # The step time is measured -- the user just gave us one -- and the thing that is
             # missing is the speedup for this chip count. Repeating "measure a step" here
