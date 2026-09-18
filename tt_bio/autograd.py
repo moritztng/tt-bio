@@ -862,62 +862,157 @@ def _unwrap(t):
     return t.value if isinstance(t, Tensor) else t
 
 
-class _Hook:
-    """`ops`'s grad hook. Returns None to decline, which falls through to production."""
-
-    @staticmethod
-    def linear(x, w, bias, *, activation=None, compute_kernel_config=None, dtype=None,
-               core_grid=None, narrow_proj=False, **kw):
-        from . import ops
-        if not _on_tape(x, w, bias):
-            return None
-        if not _differentiating(x, w, bias):
-            return Tensor(ops.shipped_linear(
-                _unwrap(x), _unwrap(w), _unwrap(bias), activation=activation,
-                compute_kernel_config=compute_kernel_config, dtype=dtype,
-                core_grid=core_grid, narrow_proj=narrow_proj, **kw))
-        act = None
-        if activation is not None:
-            act = _ACTIVATIONS.get(activation)
-            if act is None:
-                raise NotImplementedError(
-                    f"tt_bio.autograd has no backward for the fused activation "
-                    f"{activation!r}. Add one to _ACTIVATIONS -- dropping it would train "
-                    f"against a forward we do not serve.")
-        # The activation is composed rather than fused, because `ttnn.linear` fuses it into
-        # the packer and silu's output cannot be inverted back to its input. That is a real
-        # deviation of the training forward from the served one, and it is measured, not
-        # assumed away.
-        out = linear(_wrap(x), _wrap(w), _wrap(bias), dtype=dtype, core_grid=core_grid,
-                     config=compute_kernel_config, backward_config=precise_config(), **kw)
-        return act(out) if act is not None else out
-
-    @staticmethod
-    def layer_norm(x, weight, bias, *, epsilon=1e-5, compute_kernel_config=None,
-                   l1_headroom=None, **kw):
-        from . import ops
-        if not _on_tape(x, weight, bias):
-            return None
-        if not _differentiating(x, weight, bias):
-            return Tensor(ops.shipped_layer_norm(
-                _unwrap(x), _unwrap(weight), _unwrap(bias), epsilon=epsilon,
-                compute_kernel_config=compute_kernel_config, l1_headroom=l1_headroom, **kw))
-        # `l1_headroom` is dropped on purpose. It asks for an L1-resident RESULT, and a
-        # backward holding a tape's worth of activations cannot be priced against a budget
-        # sized for one tensor. It is a placement lever and not a numeric one -- the values
-        # `ttnn.layer_norm` computes do not depend on where it writes them -- so the forward
-        # stays bit-identical to production either way.
-        return layer_norm(_wrap(x), _wrap(weight), _wrap(bias), eps=epsilon,
-                          config=compute_kernel_config, **kw)
+def _walk(args, kwargs):
+    for v in args:
+        yield v
+    for v in kwargs.values():
+        yield v
 
 
-_HOOK = _Hook()
+def _on_tape(args, kwargs):
+    return any(isinstance(v, Tensor) for v in _walk(args, kwargs))
+
+
+def _differentiating(args, kwargs):
+    return _GRAD_ENABLED and any(isinstance(v, Tensor) and v.requires_grad
+                                 for v in _walk(args, kwargs))
+
+
+def _wrap(t):
+    """A raw ttnn tensor joins the tape as an untracked leaf; a `Tensor` passes through."""
+    return t if t is None or isinstance(t, Tensor) else Tensor(t)
+
+
+def _unwrap(t):
+    return t.value if isinstance(t, Tensor) else t
+
+
+def _raw(args, kwargs):
+    return ([_unwrap(v) for v in args], {k: _unwrap(v) for k, v in kwargs.items()})
+
+
+def _taped_linear(shipped, args, kwargs):
+    """`ops.linear` with a gradient. The VALUE comes from `shipped`, never recomputed here."""
+    args = list(args) + [None] * (3 - len(args))
+    x, w, bias = (_wrap(args[0]), _wrap(args[1]), _wrap(args[2]))
+    if bias is None and "bias" in kwargs:
+        bias = _wrap(kwargs["bias"])
+    kw = {k: v for k, v in kwargs.items() if k != "bias"}
+    activation = kw.pop("activation", None)
+    act = None
+    if activation is not None:
+        act = _ACTIVATIONS.get(activation)
+        if act is None:
+            raise NotImplementedError(
+                f"tt_bio.autograd has no backward for the fused activation {activation!r}. "
+                f"Add one to _ACTIVATIONS -- dropping it would train against a forward we do "
+                f"not serve.")
+    cfg = kw.pop("compute_kernel_config", None)
+    # The activation is composed rather than fused, because `ttnn.linear` fuses it into the
+    # packer and silu's output cannot be inverted back to its input. That is a real deviation
+    # of the training forward from the served one, and it is measured, not assumed away.
+    out_v = shipped(x.value, w.value, bias.value if bias is not None else None,
+                    activation=None, compute_kernel_config=cfg, **kw)
+    cfg = cfg or precise_config()
+    bwcfg = precise_config()
+    parents = [t for t in (x, w, bias) if t is not None]
+
+    def make():
+        def bw(g):
+            if x.requires_grad:
+                x.add_grad(ttnn.matmul(g, w.value, transpose_b=True,
+                                       compute_kernel_config=bwcfg))
+            if w.requires_grad:
+                w.add_grad(ttnn.matmul(_flat2d(x.value), _flat2d(g), transpose_a=True,
+                                       compute_kernel_config=bwcfg))
+            if bias is not None and bias.requires_grad:
+                bias.add_grad(_sum_leading(g, bias.value.shape))
+        return bw
+
+    out = _tape(out_v, parents, make)
+    return act(out) if act is not None else out
+
+
+def _taped_layer_norm(shipped, args, kwargs):
+    """`ops.layer_norm` with a gradient. The VALUE comes from `shipped`.
+
+    `l1_headroom` is dropped on purpose. It asks for an L1-resident RESULT, and a backward
+    holding a tape's worth of activations cannot be priced against a budget sized for one
+    tensor. It is a placement lever and not a numeric one -- the values `ttnn.layer_norm`
+    computes do not depend on where it writes them -- so the forward stays bit-identical to
+    production either way.
+    """
+    args = list(args) + [None] * (3 - len(args))
+    x, gamma, beta = (_wrap(args[0]), _wrap(args[1]), _wrap(args[2]))
+    kw = dict(kwargs)
+    for nm, slot in (("weight", 1), ("bias", 2)):
+        if kw.get(nm) is not None:
+            v = _wrap(kw.pop(nm))
+            gamma, beta = (v, beta) if slot == 1 else (gamma, v)
+        else:
+            kw.pop(nm, None)
+    kw.pop("l1_headroom", None)
+    eps = kw.pop("epsilon", 1e-5)
+    cfg = kw.pop("compute_kernel_config", None)
+    xv = x.value
+    out_v = shipped(xv, weight=(gamma.value if gamma is not None else None),
+                    bias=(beta.value if beta is not None else None),
+                    epsilon=eps, compute_kernel_config=cfg, l1_headroom=None, **kw)
+    bwcfg = precise_config()
+    parents = [t for t in (x, gamma, beta) if t is not None]
+
+    def make():
+        def bw(g):
+            # Recomputed here, not retained: two reductions, and it is what buys the
+            # production kernel above. Two-pass E[(x - mean)^2] rather than tt-train's
+            # E[x^2] - E[x]^2 (ops/layernorm_op.cpp:144), which cancels catastrophically
+            # once the mean dominates the spread.
+            mean = ttnn.mean(xv, dim=-1, keepdim=True)
+            centered = ttnn.subtract(xv, mean)
+            var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
+                            compute_kernel_config=bwcfg)
+            rstd = ttnn.rsqrt(ttnn.add(var, eps))
+            norm = ttnn.multiply(centered, rstd)
+            if gamma is not None and gamma.requires_grad:
+                gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
+            if beta is not None and beta.requires_grad:
+                beta.add_grad(_sum_leading(g, beta.value.shape))
+            if x.requires_grad:
+                dnorm = ttnn.multiply(g, gamma.value) if gamma is not None else g
+                # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
+                dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)
+                dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)
+                dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
+                                   ttnn.multiply(norm, dn_norm_mean))
+                x.add_grad(ttnn.multiply(dx, rstd))
+        return bw
+
+    return _tape(out_v, parents, make)
+
+
+_TAPED = {"linear": _taped_linear, "layer_norm": _taped_layer_norm}
+
+
+def _hook(name, shipped, args, kwargs):
+    """`tt_bio.ops`'s grad hook. Returns None to decline, which falls through to production."""
+    if not _on_tape(args, kwargs):
+        return None
+    if not _differentiating(args, kwargs):
+        # On the tape but frozen, or inside `no_grad`: the SHIPPED op, then rewrapped.
+        ra, rk = _raw(args, kwargs)
+        return Tensor(shipped(*ra, **rk))
+    impl = _TAPED.get(name)
+    if impl is None:
+        raise NotImplementedError(
+            f"tt_bio.ops.{name} has no taped implementation. Add one to "
+            f"tt_bio.autograd._TAPED; declining here would silently drop the gradient.")
+    return impl(shipped, args, kwargs)
 
 
 def install() -> None:
     """Make the shipped forward differentiable. Idempotent."""
     from . import ops
-    ops.set_grad_hook(_HOOK)
+    ops.set_grad_hook(_hook)
 
 
 def uninstall() -> None:
@@ -928,4 +1023,4 @@ def uninstall() -> None:
 
 def installed() -> bool:
     from . import ops
-    return ops.grad_hook() is _HOOK
+    return ops.grad_hook() is _hook

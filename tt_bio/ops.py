@@ -31,27 +31,18 @@ from __future__ import annotations
 
 import ttnn
 
-__all__ = ["linear", "layer_norm", "shipped_linear", "shipped_layer_norm",
-           "set_grad_hook", "grad_hook"]
+from .dispatch import OpSurface
+
+__all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook"]
 
 
-_GRAD_HOOK = None
-
-
-def set_grad_hook(hook):
-    """Install the differentiable implementation, or clear it with ``None``.
-
-    Returns the previous hook so a caller can restore it. A hook exposes ``linear`` and
-    ``layer_norm`` with the signatures below and returns ``None`` to decline a call, which
-    falls through to production -- so a hook only has to handle the operands it tracks.
-    """
-    global _GRAD_HOOK
-    prev, _GRAD_HOOK = _GRAD_HOOK, hook
-    return prev
-
-
-def grad_hook():
-    return _GRAD_HOOK
+# The slot, and the decorator that uses it, are `tt_bio/dispatch.py`'s -- shared with
+# `abodybuilder3_ops.py` rather than written twice. The slot itself is per surface: one
+# global hook would mean installing a tape for one model taped every other.
+_SURFACE = OpSurface("tt_bio.ops")
+set_grad_hook = _SURFACE.set_grad_hook
+grad_hook = _SURFACE.grad_hook
+_dispatching = _SURFACE.dispatching
 
 
 # `_narrow_proj_linear` and `_l1_layer_norm` are tuning that belongs beside the program
@@ -61,6 +52,7 @@ _NARROW_PROJ = None
 _L1_NORM = None
 
 
+@_dispatching
 def linear(x, w, bias=None, *, activation=None, compute_kernel_config=None, dtype=None,
            core_grid=None, narrow_proj=False, **kw):
     """``x @ w (+ bias)``. ``w`` is (in, out), tt-bio's convention throughout.
@@ -70,28 +62,9 @@ def linear(x, w, bias=None, *, activation=None, compute_kernel_config=None, dtyp
     than two tiles and any call carrying a bias or an activation, so it is the caller's
     assertion that this is a projection, not a claim about the shape.
 
-    Every keyword defaults to ``None`` here because that is ttnn's own default for each of
-    them: passing ``None`` is indistinguishable from omitting the argument, which is what
-    lets eleven differently-shaped call sites share one body.
-    """
-    if _GRAD_HOOK is not None:
-        out = _GRAD_HOOK.linear(x, w, bias, activation=activation,
-                                compute_kernel_config=compute_kernel_config, dtype=dtype,
-                                core_grid=core_grid, narrow_proj=narrow_proj, **kw)
-        if out is not None:
-            return out
-    return shipped_linear(x, w, bias, activation=activation,
-                          compute_kernel_config=compute_kernel_config, dtype=dtype,
-                          core_grid=core_grid, narrow_proj=narrow_proj, **kw)
-
-
-def shipped_linear(x, w, bias=None, *, activation=None, compute_kernel_config=None,
-                   dtype=None, core_grid=None, narrow_proj=False, **kw):
-    """`linear` with the hook bypassed: the production op and nothing else.
-
-    The tape calls this for a call whose operands are on it but not being differentiated,
-    so grad-off inside a taped module is still the shipped path rather than the composite
-    one. Everything else calls `linear`.
+    Every keyword defaults to ``None`` because that is ttnn's own default for each of them:
+    passing ``None`` is indistinguishable from omitting the argument, which is what lets
+    eleven differently-shaped call sites share one body.
     """
     if narrow_proj and bias is None and activation is None:
         global _NARROW_PROJ
@@ -110,6 +83,7 @@ def shipped_linear(x, w, bias=None, *, activation=None, compute_kernel_config=No
                        core_grid=core_grid, **kw)
 
 
+@_dispatching
 def layer_norm(x, weight=None, bias=None, *, epsilon=1e-5, compute_kernel_config=None,
                l1_headroom=None, **kw):
     """Layer norm over the last dim.
@@ -123,20 +97,6 @@ def layer_norm(x, weight=None, bias=None, *, epsilon=1e-5, compute_kernel_config
     they are bound by reading it, so where the result lives is the lever. A refusal falls
     back to DRAM and changes nothing.
     """
-    if _GRAD_HOOK is not None:
-        out = _GRAD_HOOK.layer_norm(x, weight, bias, epsilon=epsilon,
-                                    compute_kernel_config=compute_kernel_config,
-                                    l1_headroom=l1_headroom, **kw)
-        if out is not None:
-            return out
-    return shipped_layer_norm(x, weight, bias, epsilon=epsilon,
-                              compute_kernel_config=compute_kernel_config,
-                              l1_headroom=l1_headroom, **kw)
-
-
-def shipped_layer_norm(x, weight=None, bias=None, *, epsilon=1e-5, compute_kernel_config=None,
-                       l1_headroom=None, **kw):
-    """`layer_norm` with the hook bypassed. See `shipped_linear`."""
     if l1_headroom is not None:
         global _L1_NORM
         if _L1_NORM is None:
