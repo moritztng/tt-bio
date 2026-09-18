@@ -71,6 +71,57 @@ FLAGS = {
 }
 
 
+GUARD = REPO / "perf" / "c12_orchestrator" / "pair_guard"
+
+
+def _guard(card: str) -> dict:
+    """Both guards, once. Neither covers the other's channel: `pair_idle` sees the board-power
+    coupling between the two chips of one p300c, `host_quiet` sees the host -- the PSU, host DRAM
+    and PCIe that retracted `c14-matmul-ceiling`'s +0.2510 s while it was folding on node 3 with a
+    release gate folding on node 0, the OTHER board, and its own sibling idle throughout."""
+    v = {"loadavg1": round(os.getloadavg()[0], 2)}
+    for name, argv in (
+        ("host_quiet", [sys.executable, str(GUARD / "host_quiet.py")]),
+        ("pair_idle", [sys.executable, str(GUARD / "pair_idle.py"), "--card", str(card)]),
+    ):
+        r = subprocess.run(argv, capture_output=True, text=True)
+        said = [ln for ln in (r.stdout + r.stderr).splitlines() if ln.strip()]
+        v[name] = {"rc": r.returncode, "say": said[-1] if said else ""}
+    v["quiet"] = v["host_quiet"]["rc"] == 0 and v["pair_idle"]["rc"] == 0
+    return v
+
+
+def _wait_quiet(card: str, cap_s: float, tag: str) -> dict:
+    """Block until the box is quiet, PER ARM PROCESS rather than once at launch.
+
+    This is the whole fix. Three sessions of `c14-matmul-ceiling` failed their own A/A test because
+    a release gate started AFTER their launch check passed, and this driver was forked from
+    `perf/c14_land/apb_fold_ab.py` before that row's refusal existed, so it would have timed a
+    contaminated session and reported the ratio without a caveat
+    (`verification-instrument-drift-is-shared-code-drift`). Waiting beats aborting: the arms stay
+    interleaved and the session survives a transient neighbour. Never quietly proceeds -- if the
+    box does not clear inside `cap_s` the run fails, because a contaminated number costs more than
+    a missing one."""
+    t0 = time.time()
+    v = _guard(card)
+    waited = 0.0
+    while not v["quiet"]:
+        waited = time.time() - t0
+        if waited > cap_s:
+            v["waited_s"] = round(waited, 1)
+            raise SystemExit(
+                f"NOT QUIET after {waited:.0f}s at {tag}: "
+                f"host_quiet rc={v['host_quiet']['rc']} ({v['host_quiet']['say']}), "
+                f"pair_idle rc={v['pair_idle']['rc']} ({v['pair_idle']['say']}), "
+                f"loadavg1={v['loadavg1']}. Refusing to time a contaminated session.")
+        print(f"  {tag}: NOT QUIET ({v['host_quiet']['say']} | {v['pair_idle']['say']} | "
+              f"load {v['loadavg1']}), waited {waited:.0f}s of {cap_s:.0f}s", flush=True)
+        time.sleep(30)
+        v = _guard(card)
+    v["waited_s"] = round(time.time() - t0, 1)
+    return v
+
+
 def _helpers():
     """Reuse the b2x-flag-levers Boltz-2 config rather than re-deriving 40 lines of it."""
     p = REPO / "perf" / "b2x-flag-levers" / "ab_flag_levers.py"
@@ -358,8 +409,10 @@ def driver(args) -> int:
                        "--block", str(b), "--card", str(args.card), "--out", str(jf)]
                 if args.cifdir:
                     cmd += ["--cifdir", str(args.cifdir)]
+                guard = _wait_quiet(args.card, args.quiet_wait, f"{size} aa block {b} {arm}")
                 r = subprocess.run(cmd, env=env)
-                row = {"size": size, "arm": arm, "block": b, "returncode": r.returncode}
+                row = {"size": size, "arm": arm, "block": b, "returncode": r.returncode,
+                       "guard_before": guard, "guard_after": _guard(args.card)}
                 if jf.exists():
                     row["result"] = json.loads(jf.read_text())
                 out["blocks"].append(row)
@@ -426,7 +479,6 @@ def driver(args) -> int:
               f"Non-zero blocks: {rcs}", file=sys.stderr, flush=True)
         return 1
     return 0
-    return 0
 
 
 def main() -> int:
@@ -436,6 +488,9 @@ def main() -> int:
     ap.add_argument("--blocks", type=int, default=3)
     ap.add_argument("--folds", type=int, default=3)
     ap.add_argument("--card", default="0")
+    ap.add_argument("--quiet-wait", type=float, default=2400.0, dest="quiet_wait",
+                    help="seconds to wait for the host+pair to go quiet BEFORE EACH ARM "
+                         "(not once at launch); the run fails rather than timing a loud box")
     ap.add_argument("--cifdir", default=None)
     # worker-only
     ap.add_argument("--arm", choices=["base", "on"])
