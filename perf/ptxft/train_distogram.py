@@ -108,13 +108,22 @@ def arm_prepare(a):
     """Parse every structure, capture its prefix once, and write it all to disk."""
     os.makedirs(os.path.join(ART, "targets"), exist_ok=True)
     model = dev = None
-    rows = []
+    rows, skipped = [], []
     for pdb, role in target_set(a):
         out = os.path.join(ART, "targets", f"{pdb.lower()}.npz")
-        cif = D.fetch_cif(pdb, os.path.join(ART, "cif"))
-        seq, xyz, mask = D.parse_chain(cif)
+        # One unreachable or unparseable entry must not take the other 30 down with it;
+        # a target set this size is assembled by hand and some ids will be multi-chain,
+        # withdrawn or NMR-only. Skipped targets are named, never silently dropped.
+        try:
+            cif = D.fetch_cif(pdb, os.path.join(ART, "cif"))
+            seq, xyz, mask = D.parse_chain(cif)
+        except Exception as e:
+            print(f"{pdb}: SKIPPED, {type(e).__name__}: {e}")
+            skipped.append((pdb, f"{type(e).__name__}: {e}"))
+            continue
         if len(seq) > a.max_len:
             print(f"{pdb}: {len(seq)} aa exceeds --max-len {a.max_len}, SKIPPED")
+            skipped.append((pdb, f"{len(seq)} aa over --max-len {a.max_len}"))
             continue
         tgt, pm = D.distogram_target(xyz, mask)
         if os.path.exists(out) and not a.force:
@@ -124,7 +133,12 @@ def arm_prepare(a):
         if model is None:
             model, dev = load_model(a.ckpt)
         t0 = time.perf_counter()
-        z, ncalls = capture(model, seq)
+        try:
+            z, ncalls = capture(model, seq)
+        except Exception as e:
+            print(f"{pdb}: SKIPPED at capture, {type(e).__name__}: {e}")
+            skipped.append((pdb, f"capture {type(e).__name__}: {e}"))
+            continue
         dt = time.perf_counter() - t0
         np.savez_compressed(out, seq=np.array(seq), z=z.astype(np.float32),
                             target=tgt, pair_mask=pm, xyz=xyz, cb_mask=mask,
@@ -136,6 +150,13 @@ def arm_prepare(a):
     print(f"{'target':<8} {'role':<9} {'aa':>5} {'pairs':>9}")
     for pdb, role, n, p in rows:
         print(f"{pdb:<8} {role:<9} {n:>5} {p:>9}")
+    ntr = sum(1 for _p, r, _n, _q in rows if r == "train")
+    nho = sum(1 for _p, r, _n, _q in rows if r == "heldout")
+    print(f"\nprepared {len(rows)}: {ntr} train, {nho} held-out")
+    if skipped:
+        print(f"skipped {len(skipped)}:")
+        for pdb, why in skipped:
+            print(f"  {pdb}: {why}")
     return []
 
 
@@ -365,6 +386,78 @@ def arm_train(a, device):
     return failures
 
 
+def arm_roundtrip(a, device):
+    """Save, reload in a FRESH process, reproduce the loss. If this fails, nothing trained.
+
+    The weak version of this check loads the adapter and reports that the loss looks
+    right. That cannot distinguish a working reload from a load that silently did
+    nothing, because at LoRA's B=0 initialisation the adapted model IS the base model, so
+    a no-op load reproduces a perfectly plausible loss. So this reads the loss TWICE in
+    this fresh process, before and after the load, and requires both halves: before must
+    equal the BASE loss (proving the process really started from the shipped weights) and
+    after must equal the TRAINED loss (proving the update survived the round trip).
+
+    The bar is exact. The masters are fp32 and the adapter tensors on device are fp32, so
+    a correct save/reload writes back bit-identical values, and the same card running the
+    same shapes is deterministic. Any nonzero difference is a real defect, not round-off,
+    which is why this asserts 0.0 rather than a tolerance.
+    """
+    from tt_bio import finetune as ft
+    path = a.adapter or os.path.join(ART, "adapter_trained.safetensors")
+    with open(os.path.join(ART, "train_hist.json")) as fh:
+        hist = json.load(fh)
+    blocks, head, params, _l = build_stack(a, device, adapt_all=True)
+    names = sorted(set(hist["pre_held"]) | set(hist["post_held"])
+                   | set(hist["pre_train"]) | set(hist["post_train"]))
+    tg = {p: load_target(p) for p in names}
+
+    def losses():
+        out = {}
+        for p in names:
+            t = tg[p]
+            n = int(t["target"].shape[0])
+            out[p] = forward_loss(blocks, head, t["z"], t["target"], t["pair_mask"],
+                                  device, want_grad=False, n_real=n)[0]
+        return out
+
+    print(f"# --roundtrip: {path} ({os.path.getsize(path):,} B), fresh process")
+    before = losses()
+    opt = ft.AdamW(params, lr=a.lr, weight_decay=a.weight_decay)
+    meta = ft.load_adapter(path, params, device, opt=opt)
+    after = losses()
+    print(f"# meta: {json.dumps(meta, sort_keys=True)}")
+    print(f"# optimizer steps restored: {opt.steps}")
+    print()
+    print(f"{'target':<8} {'role':<9} {'base':>10} {'fresh pre':>10} {'trained':>10} "
+          f"{'fresh post':>10} {'d(pre)':>9} {'d(post)':>9}")
+    failures, worst = [], 0.0
+    for p in names:
+        role = "heldout" if p in hist["pre_held"] else "train"
+        base = (hist["pre_held"] if role == "heldout" else hist["pre_train"])[p]
+        trained = (hist["post_held"] if role == "heldout" else hist["post_train"])[p]
+        dpre, dpost = before[p] - base, after[p] - trained
+        worst = max(worst, abs(dpre), abs(dpost))
+        print(f"{p:<8} {role:<9} {base:>10.5f} {before[p]:>10.5f} {trained:>10.5f} "
+              f"{after[p]:>10.5f} {dpre:>9.2e} {dpost:>9.2e}")
+        if abs(dpre) > 0.0:
+            failures.append(f"{p}: the fresh process before the load reads {before[p]:.6f}, "
+                            f"not the base {base:.6f} (delta {dpre:.2e})")
+        if abs(dpost) > 0.0:
+            failures.append(f"{p}: the reload reads {after[p]:.6f}, not the trained "
+                            f"{trained:.6f} (delta {dpost:.2e})")
+    moved = max(abs(after[p] - before[p]) for p in names)
+    print()
+    print(f"ROUND-TRIP: worst |delta| {worst:.3e} over {2 * len(names)} readings; the load "
+          f"moved the loss by up to {moved:.5f}, so it was not a no-op")
+    if moved == 0.0:
+        failures.append("the load changed no loss at all, so it cannot be distinguished "
+                        "from a load that did nothing")
+    if opt.steps != hist.get("steps", opt.steps):
+        failures.append(f"optimizer step count restored as {opt.steps}, expected "
+                        f"{hist.get('steps')}")
+    return failures
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ckpt", default=os.path.expanduser("~/.boltz/protenix-v2.pt"))
@@ -385,6 +478,8 @@ def main():
     ap.add_argument("--prepare", action="store_true")
     ap.add_argument("--calibrate", action="store_true")
     ap.add_argument("--do-train", action="store_true")
+    ap.add_argument("--roundtrip", action="store_true")
+    ap.add_argument("--adapter", default=None)
     a = ap.parse_args()
 
     from perf.clocksample import during
@@ -393,7 +488,7 @@ def main():
         if a.prepare:
             failures += arm_prepare(a)
             print()
-        if a.calibrate or a.do_train:
+        if a.calibrate or a.do_train or a.roundtrip:
             from tt_bio.tenstorrent import get_device
             device = get_device()
             if a.calibrate:
@@ -401,6 +496,9 @@ def main():
                 print()
             if a.do_train:
                 failures += arm_train(a, device)
+                print()
+            if a.roundtrip:
+                failures += arm_roundtrip(a, device)
                 print()
     print(clk.line(0))
     print()
