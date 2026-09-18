@@ -845,23 +845,6 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
 _ACTIVATIONS = {"relu": relu, "sigmoid": sigmoid, "silu": silu}
 
 
-def _on_tape(*ts):
-    return any(isinstance(t, Tensor) for t in ts)
-
-
-def _differentiating(*ts):
-    return _GRAD_ENABLED and any(isinstance(t, Tensor) and t.requires_grad for t in ts)
-
-
-def _wrap(t):
-    """A raw ttnn tensor joins the tape as an untracked leaf; a `Tensor` passes through."""
-    return t if t is None or isinstance(t, Tensor) else Tensor(t)
-
-
-def _unwrap(t):
-    return t.value if isinstance(t, Tensor) else t
-
-
 def _walk(args, kwargs):
     for v in args:
         yield v
