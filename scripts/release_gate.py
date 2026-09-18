@@ -1376,6 +1376,48 @@ def _gate_line(rows, passed: str, failed: str, what: str) -> str:
     return failed
 
 
+def _hand_back_chip():
+    """Close the chip this process opened and drop its card lease.
+
+    Two arms run model code IN THIS PROCESS rather than in a subprocess -- pxdesign
+    (``ProtenixDesign.design``) and the ESMC parity leg -- so once one of them runs, tt_bio's
+    module-level device and its ``CardSetLease`` stay held for the rest of the gate. Every other
+    arm folds in a SUBPROCESS, which then finds a live lease under this gate's own holder name at a
+    different pid. That is a real co-tenant by the lease's own rule, so the child exits
+    CONTENDED_EXIT_CODE without ever opening the card.
+
+    Measured cost of not doing this, gate2 on 2026-09-18: pxdesign passed and took the card, then
+    opendde-abag and capacity came back BLOCKED, every model in the size-ladder failed at its
+    256 aa warm-up, the run printed "GATE FAIL -- size-ladder drift" for a ladder that never
+    folded, and the l1-budget arm's raw ``ttnn.open_device(0)`` blocked at the fd level until its
+    600 s timeout killed the gate 49 minutes in. Not one of those was an accuracy result.
+
+    ``run_nesso1``'s docstring already had this right for its own leg ("this process must stay
+    free to run the other arms after it"); the in-process arms are the ones that never got it.
+
+    Only touches tt_bio.tenstorrent if an arm already imported it: importing it here would open
+    nothing, but it would make the gate depend on the module on a host where no arm needs it.
+    """
+    tt = sys.modules.get("tt_bio.tenstorrent")
+    if tt is None:
+        return
+    try:
+        tt.cleanup()
+    except Exception as e:
+        # A close that failed is the truth -- the card really is still ours. Say so loudly
+        # instead of letting the next arm discover it as a mystery co-tenant.
+        print(f"[release-gate] WARNING: could not hand the chip back: {type(e).__name__}: {e}",
+              flush=True)
+
+
+def _arm(fn, *a, **kw):
+    """Run an arm that may open the chip in this process, then hand the chip back either way."""
+    try:
+        return fn(*a, **kw)
+    finally:
+        _hand_back_chip()
+
+
 def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
     """Run a fold subprocess in its OWN process group; on timeout kill the whole group so a
     hung MSA-server wait or a hung multiprocessing shutdown cannot orphan device-holding
@@ -2068,6 +2110,12 @@ def run_nesso1(keep: bool) -> dict:
     # run_*.sh lesson), and --keep leaves this file behind on purpose.
     out_json = REPO_ROOT / "perf" / "nesso1" / "gate_parity.json"
     out_json.parent.mkdir(parents=True, exist_ok=True)
+    # Clear the previous run's report first, the way every other arm rmtree's its output dir. On
+    # 2026-09-18 gate2's nesso1 leg exited 75 on device contention and wrote nothing, and this arm
+    # then scored the report a gate five hours earlier had left behind: it printed PASS, 3.604xR
+    # and "device spread 0" for three device repeats that never ran, under the headline "the
+    # device is deterministic". A never-opened device trivially has zero spread.
+    out_json.unlink(missing_ok=True)
     cmd = [
         sys.executable, str(NESSO1_PARITY),
         "--fixture", str(NESSO1_FIXTURE),
@@ -4538,7 +4586,7 @@ def main() -> int:
 
     if want_boltzgen:
         bg = _load_designability_harness()
-        br = run_boltzgen(bg, args.keep)
+        br = _arm(run_boltzgen, bg, args.keep)
         print(f"\n{'#'*78}\nRELEASE GATE — {BOLTZGEN_SPEC.name} (boltzgen), "
               f"{BOLTZGEN_NUM_DESIGNS} designs, {BOLTZGEN_PROTOCOL}\n{'#'*78}")
         print(f"{'model':<15}{'scRMSD (A)':>12}{'pass rate':>12}{'floor':>18}{'wall':>9}  result")
@@ -4590,7 +4638,7 @@ def main() -> int:
             "rfd3 designs"))
 
     if want_pxdesign:
-        pr = run_pxdesign(args.keep)
+        pr = _arm(run_pxdesign, args.keep)
         print(f"\n{'#'*78}\nRELEASE GATE — {PXDESIGN_SPEC.name} (pxdesign), "
               f"{PXDESIGN_NUM_DESIGNS} design, {PXDESIGN_N_STEP} steps\n{'#'*78}")
         print(f"{'model':<15}{'fit RMSD':>12}{'binder res':>12}{'floor':>18}{'wall':>9}  result")
@@ -4860,7 +4908,7 @@ def main() -> int:
         # re-checked here on purpose: a sys.exit at this point discards every arm's verdict
         # above it and the contention notice below it.
         parity = _load_esmc_parity_harness()
-        erows = [run_esmc(m, parity) for m in esmc_models]
+        erows = [_arm(run_esmc, m, parity) for m in esmc_models]
         print(f"\n{'#'*78}\nRELEASE GATE — ESMC embedding parity (fused-RoPE shipped path), "
               f"PCC floor {ESMC_MIN_PCC}\n{'#'*78}")
         print(f"{'model':<12}{'per-res PCC':>13}{'pooled':>9}{'logits':>9}{'argmax':>9}{'wall':>9}  result")
