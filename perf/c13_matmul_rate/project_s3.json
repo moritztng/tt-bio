@@ -1,0 +1,31 @@
+{
+ "target": 35.49,
+ "class_tflop": 131.26876790784002,
+ "rest_roof_s": 1.3398956866470326,
+ "scenarios": [
+  {
+   "scenario": "everything at its own roofline (unattainable upper bound)",
+   "class_s": 1.997909161768084,
+   "class_tflops": 65.70307120053019,
+   "clears_target": true
+  },
+  {
+   "scenario": "thin-K at their best MEASURED shipped-config rate, all else at roofline",
+   "class_s": 3.784011562450684,
+   "class_tflops": 34.690371776460665,
+   "clears_target": false
+  },
+  {
+   "scenario": "thin-K at their best MEASURED rate with NO DRAM AT ALL, all else at roofline",
+   "class_s": 2.525142146497763,
+   "class_tflops": 51.98470434224971,
+   "clears_target": true
+  }
+ ],
+ "measured": {
+  "a_shipped": 12.63,
+  "b_shipped": 10.45,
+  "a_nodram": 23.57,
+  "b_nodram": 26.08
+ }
+}

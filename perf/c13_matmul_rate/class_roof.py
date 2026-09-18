@@ -88,6 +88,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--census", type=Path,
                     default=Path("perf/roof_launch/op_census_512.json"))
+    ap.add_argument("--shapes", type=Path,
+                    help="perf/roof_launch/fold_shapes.json instead: the SAME file c10-fold-census "
+                         "weighted its budget by, which carries all 34 matmul-class launch keys "
+                         "rather than the 18 that reach op_census_512.json's top_shapes")
     ap.add_argument("--cube", type=float, required=True,
                     help="in-session dense cube TFLOP/s, the arithmetic roof")
     ap.add_argument("--dram", type=float, required=True,
@@ -98,26 +102,47 @@ def main() -> int:
     ap.add_argument("--out", type=Path)
     a = ap.parse_args()
 
-    census = json.loads(a.census.read_text())["top_shapes"]
     cube_f, dram_b = a.cube * 1e12, a.dram * 1e9
     crossover = cube_f / dram_b
 
     merged, unparsed = {}, []
-    for key, v in census.items():
-        op = key.split("|", 1)[0]
-        if op not in ("ttnn.linear", "ttnn.matmul"):
-            continue
-        p = parse_key(key)
-        if p is None:
-            unparsed.append((key, v["calls"]))
-            continue
-        batch, m, k, n, bias = p
-        # canonical: the same arithmetic under any argument print order
-        sig = (batch, m, k, n)
-        e = merged.setdefault(sig, {"calls": 0.0, "bias": False, "keys": []})
-        e["calls"] += v["calls"]
-        e["bias"] = e["bias"] or bias
-        e["keys"].append(key)
+    if a.shapes:
+        # fold_shapes.json gives the OUTPUT shape and K directly, so no key string is parsed and
+        # the argument-order trap cannot apply. A bias is not recorded here; its bytes are 2N per
+        # call against megabytes of operand, so omitting it moves no total below the reported
+        # precision.
+        for e in json.loads(a.shapes.read_text()):
+            if e["arm"] not in ("linear", "matmul"):
+                continue
+            s, k = e["shape"], e.get("K")
+            if k is None or len(s) < 2:
+                unparsed.append(("%s shape=%s K=%s" % (e["arm"], s, k), e["calls"]))
+                continue
+            m, n = s[-2], s[-1]
+            batch = 1
+            for x in s[:-2]:
+                batch *= x
+            sig = (batch, m, k, n)
+            g = merged.setdefault(sig, {"calls": 0.0, "bias": False, "keys": []})
+            g["calls"] += e["calls"]
+            g["keys"].append("%s|out=%s|K=%d" % (e["arm"], "x".join(map(str, s)), k))
+    else:
+        census = json.loads(a.census.read_text())["top_shapes"]
+        for key, v in census.items():
+            op = key.split("|", 1)[0]
+            if op not in ("ttnn.linear", "ttnn.matmul"):
+                continue
+            q = parse_key(key)
+            if q is None:
+                unparsed.append((key, v["calls"]))
+                continue
+            batch, m, k, n, bias = q
+            # canonical: the same arithmetic under any argument print order
+            sig = (batch, m, k, n)
+            e = merged.setdefault(sig, {"calls": 0.0, "bias": False, "keys": []})
+            e["calls"] += v["calls"]
+            e["bias"] = e["bias"] or bias
+            e["keys"].append(key)
 
     rows = []
     for (batch, m, k, n), e in merged.items():
@@ -173,8 +198,6 @@ def main() -> int:
                else "NOT REACHABLE at these shapes on this part")
     print("  %.2f TFLOP/s target vs %.2f TFLOP/s roofline ceiling -> %s"
           % (a.target, tot_f / tot_roof, verdict))
-    print("  headroom a perfect kernel could still buy: %.4f s (%.4f s -> %.4f s)"
-          % (0.0, tot_roof, tot_roof))
     n_traffic = sum(1 for r in rows if r["binding"] == "traffic")
     print("\nBINDING  %d of %d shapes are traffic-bound, carrying %.1f %% of the class FLOPs"
           % (n_traffic, len(rows),
