@@ -1,9 +1,21 @@
-"""`Dropout`'s mask is torch's, and a seed replays a run exactly. Host-only: no device needed."""
+"""`Dropout`'s mask is torch's and a seed replays a run exactly, and importing the model does not
+reach the tape. Host-only: no device needed.
+
+The import check is deliberately an EXECUTION check and not another AST one. The orchestrator's
+`test_training_opt_in.py` parses every file under `tt_bio/` for a training import, which is the
+right net for a static one -- and it cannot see a lazy import inside a function, a re-export, or a
+module that reaches the tape through a third one. Importing the model in a subprocess and asking
+`sys.modules` what actually loaded covers all three.
+"""
 from __future__ import annotations
 
 import torch
 
+from pathlib import Path
+
 from tt_bio.abodybuilder3 import Dropout
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _run(seed, rate=0.1, shape=(4, 64, 128), calls=3):
@@ -48,3 +60,44 @@ def test_rate_zero_is_a_no_op_and_draws_nothing():
     x = torch.randn(2, 8, 16)
     assert drop(x) is x
     assert drop.calls == 0
+
+
+def test_importing_the_model_does_not_import_the_tape():
+    """`import tt_bio.abodybuilder3` must not pull in `tt_bio.autograd`, transitively or lazily.
+
+    This is the invariant the whole hook-slot design exists for: the port is a served capability, so
+    it sits on the inference path, and training has to stay opt-in and inert on import. A subprocess
+    because `sys.modules` in this one is already full of everything the test session imported.
+    """
+    import subprocess
+    import sys
+
+    probe = (
+        "import sys, tt_bio.abodybuilder3, tt_bio.abodybuilder3_ops, tt_bio.abodybuilder3_output;"
+        "leaked = [m for m in sys.modules if m.startswith('tt_bio.') and"
+        " m.split('.')[1] in {'autograd', 'finetune', 'train'}];"
+        "print(','.join(sorted(leaked)))"
+    )
+    out = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True,
+                         cwd=str(REPO_ROOT))
+    assert out.returncode == 0, out.stderr[-2000:]
+    leaked = [m for m in out.stdout.strip().split(",") if m]
+    assert not leaked, (
+        f"importing the ABodyBuilder3 model loaded {leaked}. The hook slot in "
+        f"abodybuilder3_ops exists so the dependency points from training to inference; something "
+        f"has routed it back."
+    )
+
+
+def test_installing_the_tape_is_what_makes_the_ops_differentiable():
+    """The other half of the same invariant: with no tape installed the hook slot is empty."""
+    from tt_bio import abodybuilder3_ops as ops
+    assert ops.grad_hook() is None
+    from tt_bio.train import abodybuilder3_grad as grad
+    assert ops.grad_hook() is None, "importing the tape must not install it"
+    grad.install()
+    try:
+        assert grad.installed()
+    finally:
+        grad.uninstall()
+    assert ops.grad_hook() is None
