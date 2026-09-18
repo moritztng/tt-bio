@@ -60,7 +60,16 @@ def main() -> int:
     ap.add_argument("--chips", default="0", help="comma-separated chip ids in rank order")
     ap.add_argument("--rendezvous", default="/dev/shm/abb3-dp")
     ap.add_argument("--checkpoint-minutes", type=float, default=30.0)
-    ap.add_argument("--data", default="synthetic")
+    ap.add_argument("--data", default="synthetic", help="synthetic | sabdab")
+    ap.add_argument("--split-csv",
+                    default="/home/ttuser/abb3_src/ABodyBuilder3/data/split.csv",
+                    help="upstream's own split, as they ship it")
+    ap.add_argument("--released-true",
+                    default="/home/ttuser/abb3/base-loss/true",
+                    help="their released ground truth, used to cross-check the split")
+    ap.add_argument("--structures",
+                    default="/home/ttuser/abb3_data/data/structures/structures")
+    ap.add_argument("--split", default="train", choices=("train", "valid", "test"))
     ap.add_argument("--no-resume", action="store_true")
     ap.add_argument("--kill-at", type=int, default=0,
                     help="SIGKILL this process after this step, to demonstrate the resume")
@@ -91,8 +100,17 @@ def main() -> int:
     try:
         step = TrainStep(initial_state_dict(mcfg, args.seed), mcfg,
                          accumulate=cfg.accumulate, seed=args.seed)
+        ids = None
+        if args.data == "sabdab":
+            from tt_bio.train.abb3_dataset import resolve_split
+            # Cross-checked against their released predictions on every launch, not once at
+            # build time: the split is the thing that decides whether the 2.714 A bar applies
+            # to the result at all, and it costs a directory listing to re-establish.
+            ids = resolve_split(args.split_csv, args.released_true)[args.split]
+            print(f"[rank {args.rank}] split {args.split}: {len(ids)} structures, "
+                  f"cross-checked against {args.released_true}", flush=True)
         data = make_dataset(args.data, cfg=mcfg, micro=args.micro, tokens=args.tokens,
-                            device=dev)
+                            device=dev, ids=ids, root=args.structures)
 
         def maybe_die(gs, row, _step):
             print(f"[rank {cfg.rank}] step {gs} loss {row.get('loss'):.6f} "

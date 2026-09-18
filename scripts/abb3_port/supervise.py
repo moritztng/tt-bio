@@ -63,7 +63,8 @@ def launch(rank: int, chips: list, args) -> subprocess.Popen:
            "--chips", ",".join(str(c) for c in chips),
            "--rendezvous", args.rendezvous,
            "--checkpoint-minutes", str(args.checkpoint_minutes),
-           "--data", args.data]
+           "--data", args.data, "--split", args.split,
+           "--split-csv", args.split_csv, "--structures", args.structures]
     if args.max_seconds:
         cmd += ["--max-seconds", str(args.max_seconds)]
     if args.torch_threads:
@@ -117,6 +118,11 @@ def main() -> int:
     ap.add_argument("--rendezvous", default="/dev/shm/abb3-dp")
     ap.add_argument("--checkpoint-minutes", type=float, default=30.0)
     ap.add_argument("--data", default="synthetic")
+    ap.add_argument("--split", default="train")
+    ap.add_argument("--split-csv",
+                    default="/home/ttuser/abb3_src/ABodyBuilder3/data/split.csv")
+    ap.add_argument("--structures",
+                    default="/home/ttuser/abb3_data/data/structures/structures")
     ap.add_argument("--max-restarts", type=int, default=100)
     ap.add_argument("--max-seconds", type=float, default=0.0)
     ap.add_argument("--settle", type=float, default=20.0,
