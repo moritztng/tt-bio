@@ -32,7 +32,15 @@ NOC_FOR_DRAM_WRITE = ttnn.NOC.NOC_1
 
 #: Bytes one TILE_HW x TILE_HW tile occupies, per dtype. sdpa_generic and softmax_generic
 #: size their CBs from this same table -- see `tile_bytes`.
-_TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096}
+#:
+#: Block formats are not width x datums: a bfp8_b tile is 1024 mantissa bytes plus a 64-byte
+#: exponent section (one exponent per 16-element row, rounded up to the L1 alignment), so it is
+#: 1088 and not 1024. tt-metal fixes both halves -- `tile_size()` in
+#: tt_metal/api/tt-metalium/tt_backend_api_types.hpp:107 returns (256 * 4) + (16 * 4), and
+#: `Tile::get_tile_size` (tt_metal/impl/data_format/tile.cpp:79) builds the same number as
+#: tile_hw + aligned_exp_size. Getting this wrong under-sizes every CB page by 6.25 %, which
+#: hangs or corrupts rather than raising.
+_TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096, ttnn.bfloat8_b: 1088}
 
 
 def tile_bytes(dtype):
@@ -40,8 +48,8 @@ def tile_bytes(dtype):
     try:
         return _TILE_BYTES[dtype]
     except KeyError:
-        raise ValueError(f"no tile size for {dtype}: these transcriptions cover the call the "
-                         "fold issues, which is bf16 and fp32 only") from None
+        raise ValueError(f"no tile size for {dtype}: these transcriptions cover bf16, fp32 "
+                         "and bfp8_b") from None
 
 _CACHE: dict = {}
 
