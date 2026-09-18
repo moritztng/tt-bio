@@ -711,16 +711,12 @@ SIZE_LADDER_EXEMPT = {
 # NOT go in SIZE_LADDER_EXEMPT (transient-reason-in-structural-exemption-dict) — but a bare
 # "not in the baseline" error loses WHY the second the person reading it forgets the story,
 # so this attributes the gap: reason plus the follow-up slug that is supposed to close it.
-SIZE_LADDER_KNOWN_GAP = {
-    "protenix-v1": ("recorded on p300c (qb2, 2026-08-27) but not on p150a: pc card 0 is "
-                     "barred from providing a release baseline "
-                     "(pc-card0-512aa-fold-nondeterminism) and qb1 has been hard-down since "
-                     "2026-08-26, so no healthy p150a has been available to fold it. Not a "
-                     "port defect: the 512aa hang that WAS a real protenix-v1 bug (forced "
-                     "core_grid racing on 4-tile-wide matmuls) is fixed and re-verified, "
-                     "8/8 clean folds, parity and perf unaffected",
-                     "record its four rungs on the first healthy p150a host"),
-}
+# Currently empty, and an empty dict is the healthy state: a model here is one the gate cannot
+# score on a card. Its one entry, protenix-v1 on p150a, was retired on 2026-09-18 when the six
+# rungs were folded on qb1 card 1 (11x10) and the gap it described stopped existing. Retiring a
+# satisfied entry is part of using it -- an exemption nobody deletes reads as a permanent
+# licence, which is the failure `transient-reason-in-structural-exemption-dict` names.
+SIZE_LADDER_KNOWN_GAP: dict[str, tuple[str, str]] = {}
 # Not foldable by this arm at all: it drives `tt-bio predict` at four sequence lengths on a
 # shared cdk2x2 fixture (plus nesso1's own `tt-bio affinity` leg). A design or embed model
 # has no such input and gets its own release-gate arm instead. Listed rather than filtered by
@@ -1339,10 +1335,98 @@ def _kill_group(proc) -> None:
 _CONTENDED: list = []
 
 
+def _contended(row) -> bool:
+    """True if this leg's subprocess exited on the device-contention code, i.e. it never opened
+    the card and carries no measurement.
+
+    Every harness in this file surfaces the child's code into `error` as "... exited <rc>", so one
+    read covers them all. _CONTENDED above already collects these for the run-end epilogue, but
+    that epilogue only prints when the whole gate completes, and the run that most needs the
+    caveat is the one that dies partway: on 2026-09-18 a c13-land-first gate died mid-size-ladder
+    with three legs contended, so the reader saw "missed parse or the DockQ floor" and no
+    correction at all. The caveat has to be at the verdict, not after it."""
+    m = re.search(r"\bexited (\d+)\b", (row or {}).get("error") or "")
+    return bool(m) and int(m.group(1)) == CONTENDED_EXIT_CODE
+
+
+def _verdict(row) -> str:
+    """The per-row result cell, shared by every leg so contention reads the same everywhere."""
+    if row.get("gate"):
+        return "PASS"
+    if _contended(row):
+        return f"BLOCKED ({row['error']} -- never opened the card, nothing scored)"
+    return f"FAIL ({row['error']})" if row.get("error") else "FAIL"
+
+
+def _gate_line(rows, passed: str, failed: str, what: str) -> str:
+    """The leg's headline. Where nothing ran the answer is BLOCKED, not FAIL: every `failed`
+    string in this file names an accuracy floor, and a floor that was never evaluated must not be
+    reported as missed."""
+    rows = [rows] if isinstance(rows, dict) else list(rows)
+    if all(r.get("gate") for r in rows):
+        return passed
+    if all(r.get("gate") or _contended(r) for r in rows):
+        return (f"GATE BLOCKED — {what} never opened a device: a co-tenant held the card, so "
+                f"nothing was scored.\nThis is not an accuracy result. Grep DeviceInUseError "
+                f"above for the holder, then re-run uncontended.")
+    return failed
+
+
+def _release_driver_device():
+    """Drop any device, and its physical-card lease, that this DRIVER process still holds.
+
+    Two arms run model code IN THIS PROCESS rather than in a subprocess -- pxdesign
+    (``ProtenixDesign.design``) and the ESMC parity leg -- so once one of them runs, tt_bio's
+    module-level device and its ``CardSetLease`` stay held for the rest of the gate. Every other
+    arm folds in a SUBPROCESS, which then finds a live lease under this gate's own holder name at a
+    different pid. That is a real co-tenant by the lease's own rule, so the child exits
+    CONTENDED_EXIT_CODE without ever opening the card.
+
+    Measured cost of not doing this, gate2 on 2026-09-18: pxdesign passed and took the card, then
+    opendde-abag and capacity came back BLOCKED, every model in the size-ladder failed at its
+    256 aa warm-up, the run printed "GATE FAIL -- size-ladder drift" for a ladder that never
+    folded, and the l1-budget arm's raw ``ttnn.open_device(0)`` blocked at the fd level until its
+    600 s timeout killed the gate 49 minutes in. Not one of those was an accuracy result.
+
+    ``run_nesso1``'s docstring already had this right for its own leg ("this process must stay
+    free to run the other arms after it"); the in-process arms are the ones that never got it.
+
+    It frees the LEASE, which is all it can free. It does NOT hand the chip back: tt-metal keeps
+    the UMD cluster's /dev/tenstorrent fds and its CHIP_IN_USE mutex until the process exits
+    (tenstorrent._close_device_locked says so), so a driver that has folded once still wedges the
+    next subprocess in futex_wait inside start_device. Measured on 2026-09-18: after cleanup() the
+    card was still un-openable and a raw open probe hung 5m39s at 0.5 % CPU. So this is a backstop
+    for the lease only. An on-device leg belongs in its OWN process, which is how pxdesign, the one
+    leg that ever folded in the driver, is written again.
+
+    Only touches tt_bio.tenstorrent if an arm already imported it: importing it here would open
+    nothing, but it would make the gate depend on the module on a host where no arm needs it.
+    """
+    tt = sys.modules.get("tt_bio.tenstorrent")
+    if tt is None:
+        return
+    try:
+        tt.cleanup()
+    except Exception as e:
+        # A close that failed is the truth -- the card really is still ours. Say so loudly
+        # instead of letting the next arm discover it as a mystery co-tenant.
+        print(f"[release-gate] WARNING: could not hand the chip back: {type(e).__name__}: {e}",
+              flush=True)
+
+
+def _arm(fn, *a, **kw):
+    """Run an arm that may open the chip in this process, then hand the chip back either way."""
+    try:
+        return fn(*a, **kw)
+    finally:
+        _release_driver_device()
+
+
 def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
     """Run a fold subprocess in its OWN process group; on timeout kill the whole group so a
     hung MSA-server wait or a hung multiprocessing shutdown cannot orphan device-holding
     children (which would wedge the card for later legs). Returns (returncode, timed_out)."""
+    _release_driver_device()  # a driver still on the card is this leg's co-tenant
     proc = subprocess.Popen(cmd, start_new_session=True, **popen_kw)
     try:
         rc = proc.wait(timeout=timeout)
@@ -1789,48 +1873,74 @@ def run_rfd3(keep: bool) -> dict:
     return row
 
 
-def run_pxdesign(keep: bool) -> dict:
-    """Design one binder through the shipped CLI path, parse it, and score the conditioning."""
+def _pxdesign_child(out: Path, js: Path) -> int:
+    """The pxdesign leg's device half, in its OWN process. Writes the scores as JSON.
+
+    It cannot run in the driver, and that is not a style preference. cleanup() closes the
+    device and drops the card lease, but tt-metal holds the UMD fds and the CHIP_IN_USE mutex
+    until the process exits, so a driver that has folded once wedges every later leg's
+    subprocess instead of merely failing it. Only process exit hands the chip back.
+    """
     import hashlib
 
     import torch
 
+    from tt_bio.pxdesign.inputs import design_inputs_from_yaml
+    from tt_bio.pxdesign.model import ProtenixDesign
+    from tt_bio.pxdesign.write import write_design_cifs
+    from tt_bio.main import ensure_pxdesign_weights, ensure_p300_mesh_descriptor
+
+    feats = design_inputs_from_yaml(PXDESIGN_SPEC)
+    feats = {k: (v.float() if torch.is_tensor(v) and v.dtype == torch.float64 else v)
+             for k, v in feats.items()}
+    ckpt = ensure_pxdesign_weights(Path(os.path.expanduser("~/.boltz")))
+    ensure_p300_mesh_descriptor()
+    model = ProtenixDesign.load_from_checkpoint(str(ckpt))
+    coords = model.design(feats, n_step=PXDESIGN_N_STEP, n_sample=PXDESIGN_NUM_DESIGNS,
+                          seed=PXDESIGN_SEED)
+    rows = write_design_cifs(coords, feats, out, stem="PDL1")
+    # Only the two fields the leg scores cross the process boundary, as plain floats and ints:
+    # a row straight off the writer can carry numpy scalars, which json refuses.
+    js.write_text(json.dumps({
+        "rows": [{"fit_rmsd": float(r["fit_rmsd"]),
+                  "binder_residues": int(r["binder_residues"])} for r in rows],
+        "sha16": hashlib.sha256(coords.contiguous().numpy().tobytes()).hexdigest()[:16],
+    }) + "\n")
+    return 0
+
+
+def run_pxdesign(keep: bool) -> dict:
+    """Design one binder through the shipped CLI path, parse it, and score the conditioning."""
     out = REPO_ROOT / "pxdesign_gate_designs"
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this design run crashes
+    js = REPO_ROOT / "pxdesign_gate.json"
+    js.unlink(missing_ok=True)
+    log = REPO_ROOT / "pxdesign_gate.log"
 
     print(f"\n{'='*70}\n[pxdesign] designing against {PXDESIGN_SPEC.name} "
           f"({PXDESIGN_NUM_DESIGNS} design, {PXDESIGN_N_STEP} steps)\n{'='*70}", flush=True)
 
     row = {"model": "pxdesign", "seconds": None, "fit_rmsd": None, "sha16": None,
            "binder_residues": None, "parse": False, "gate": False, "error": None}
-    try:
-        from tt_bio.pxdesign.inputs import design_inputs_from_yaml
-        from tt_bio.pxdesign.model import ProtenixDesign
-        from tt_bio.pxdesign.write import write_design_cifs
-        from tt_bio.main import ensure_pxdesign_weights, ensure_p300_mesh_descriptor
-    except Exception as e:
-        row["error"] = f"import failed: {type(e).__name__}: {e}"
+    cmd = [sys.executable, str(Path(__file__).resolve()), "--pxdesign-child",
+           "--pxdesign-out", str(out), "--pxdesign-json", str(js)]
+    t0 = time.monotonic()
+    with open(log, "wb") as fh:
+        rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT,
+                                  stdout=fh, stderr=subprocess.STDOUT)
+    row["seconds"] = time.monotonic() - t0
+    if timed_out:
+        row["error"] = f"design timed out after {FOLD_TIMEOUT_S}s (see {log})"
+        return row
+    if rc or not js.exists():
+        row["error"] = f"design exited {rc} and wrote no scores; see {log}"
         return row
 
-    t0 = time.monotonic()
-    try:
-        feats = design_inputs_from_yaml(PXDESIGN_SPEC)
-        feats = {k: (v.float() if torch.is_tensor(v) and v.dtype == torch.float64 else v)
-                 for k, v in feats.items()}
-        ckpt = ensure_pxdesign_weights(Path(os.path.expanduser("~/.boltz")))
-        ensure_p300_mesh_descriptor()
-        model = ProtenixDesign.load_from_checkpoint(str(ckpt))
-        coords = model.design(feats, n_step=PXDESIGN_N_STEP, n_sample=PXDESIGN_NUM_DESIGNS,
-                              seed=PXDESIGN_SEED)
-        rows = write_design_cifs(coords, feats, out, stem="PDL1")
-    except Exception as e:
-        row["error"] = f"{type(e).__name__}: {e}"
-        return row
-    row["seconds"] = time.monotonic() - t0
-    row["fit_rmsd"] = max(r["fit_rmsd"] for r in rows)
-    row["binder_residues"] = rows[0]["binder_residues"]
-    row["sha16"] = hashlib.sha256(coords.contiguous().numpy().tobytes()).hexdigest()[:16]
+    rec = json.loads(js.read_text())
+    row["fit_rmsd"] = max(r["fit_rmsd"] for r in rec["rows"])
+    row["binder_residues"] = rec["rows"][0]["binder_residues"]
+    row["sha16"] = rec["sha16"]
 
     try:
         _parse_gate(sorted(out.rglob("*.cif")), name="pxdesign")
@@ -2031,6 +2141,12 @@ def run_nesso1(keep: bool) -> dict:
     # run_*.sh lesson), and --keep leaves this file behind on purpose.
     out_json = REPO_ROOT / "perf" / "nesso1" / "gate_parity.json"
     out_json.parent.mkdir(parents=True, exist_ok=True)
+    # Clear the previous run's report first, the way every other arm rmtree's its output dir. On
+    # 2026-09-18 gate2's nesso1 leg exited 75 on device contention and wrote nothing, and this arm
+    # then scored the report a gate five hours earlier had left behind: it printed PASS, 3.604xR
+    # and "device spread 0" for three device repeats that never ran, under the headline "the
+    # device is deterministic". A never-opened device trivially has zero spread.
+    out_json.unlink(missing_ok=True)
     cmd = [
         sys.executable, str(NESSO1_PARITY),
         "--fixture", str(NESSO1_FIXTURE),
@@ -4106,6 +4222,7 @@ def run_l1_budget_static() -> dict:
 def _l1_budget_physical_grid() -> tuple:
     """The running part's compute grid, read in a throwaway subprocess so this driver never
     holds a device while the fold legs below need it."""
+    _release_driver_device()  # the docstring above is an invariant, not a hope
     code = ("import ttnn;d=ttnn.open_device(device_id=0);g=d.compute_with_storage_grid_size();"
             "print(int(g.x),int(g.y));ttnn.close_device(d)")
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
@@ -4362,7 +4479,15 @@ def main() -> int:
                          f"nproc (default {gate_guard.DEFAULT_LOAD_CEILING}; 0 disables). Every "
                          "leg here folds in a subprocess, so a gate started on an already-"
                          "loaded box both measures noise and helps overcommit the host.")
+    ap.add_argument("--pxdesign-child", action="store_true",
+                    help=argparse.SUPPRESS)  # internal: run_pxdesign's device half
+    ap.add_argument("--pxdesign-out", default=None, help=argparse.SUPPRESS)
+    ap.add_argument("--pxdesign-json", default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
+
+    if args.pxdesign_child:
+        return _pxdesign_child(Path(args.pxdesign_out), Path(args.pxdesign_json))
+
     global FAST, DIFFUSION_TRACE
     FAST = args.fast
     DIFFUSION_TRACE = args.diffusion_trace
@@ -4439,7 +4564,7 @@ def main() -> int:
             gaps = str(g["breaks"]) if g.get("breaks") is not None else " - "
             cl = (f"{g['clashes']}({g['clash_frac']:.4f})" if g.get("heavy") else "  -  ")
             wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
-            verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+            verdict = _verdict(r)
             all_pass &= r["gate"]
             print(f"{r['model']:<15}{rmsd:>10}{tm:>8}{floor:>16}{ib:>9}{gaps:>6}"
                   f"{cl:>13}{wall:>8}  {verdict}")
@@ -4449,9 +4574,11 @@ def main() -> int:
               f"(nucleic), zero backbone gaps beyond {_geom_const('CA_CA_BREAK')} / "
               f"{_geom_const('PP_BREAK')} A, clashes <= max("
               f"{_geom_const('CLASH_MAX_ABS')}, {PREDICT_MAX_CLASH_FRAC} x heavy atoms)")
-        print("GATE PASS — all models cleared parse + ground-truth floor + geometry"
-              if all_pass else
-              "GATE FAIL — a model missed parse, the ground-truth floor or geometry (see above)")
+        print(_gate_line(
+            rows,
+            "GATE PASS — all models cleared parse + ground-truth floor + geometry",
+            "GATE FAIL — a model missed parse, the ground-truth floor or geometry (see above)",
+            "every fold leg"))
 
     if want_rf3_1024aa:
         rr = run_rf3_1024aa(args.keep)
@@ -4465,15 +4592,18 @@ def main() -> int:
         rx = f"{rr['ref_xtal_a']:.3f}" if rr["ref_xtal_a"] is not None else "  -  "
         xa = f"{rr['x_a']:.3f}" if rr["x_a"] is not None else "  -  "
         wall = f"{rr['seconds']:.0f}s" if rr["seconds"] is not None else "-"
-        verdict = "PASS" if rr["gate"] else f"FAIL ({rr['error']})" if rr["error"] else "FAIL"
+        verdict = _verdict(rr)
         all_pass &= rr["gate"]
         print(f"{rr['model']:<15}{xt:>13}{nca:>6}{rx:>8}{xa:>8}"
               f"{f'<={RF3_1024AA_MAX_XTAL_A}':>10}{wall:>9}  {verdict}")
         print(f"ref = the reference's own distance to the crystal, X = device vs reference: "
               f"both evidence, not gated (measured {RF3_1024AA_XTAL_MEASURED} A)")
         print(f"{'#'*78}")
-        print("GATE PASS — rf3 at 997 aa cleared the crystal floor" if rr["gate"]
-              else "GATE FAIL — rf3 at 997 aa missed the crystal floor (see above)")
+        print(_gate_line(
+            rr,
+            "GATE PASS — rf3 at 997 aa cleared the crystal floor",
+            "GATE FAIL — rf3 at 997 aa missed the crystal floor (see above)",
+            "rf3 at 997 aa"))
 
     if want_rfd3_fusion:
         fr = run_rfd3_fusion(args.keep)
@@ -4496,7 +4626,7 @@ def main() -> int:
 
     if want_boltzgen:
         bg = _load_designability_harness()
-        br = run_boltzgen(bg, args.keep)
+        br = _arm(run_boltzgen, bg, args.keep)
         print(f"\n{'#'*78}\nRELEASE GATE — {BOLTZGEN_SPEC.name} (boltzgen), "
               f"{BOLTZGEN_NUM_DESIGNS} designs, {BOLTZGEN_PROTOCOL}\n{'#'*78}")
         print(f"{'model':<15}{'scRMSD (A)':>12}{'pass rate':>12}{'floor':>18}{'wall':>9}  result")
@@ -4504,12 +4634,15 @@ def main() -> int:
         scrmsd = f"{br['scrmsd_median']:.3f}" if br["scrmsd_median"] is not None else "  -  "
         pr = f"{br['pass_rate']*100:.0f}%" if br["pass_rate"] is not None else "  -  "
         wall = f"{br['seconds']:.0f}s" if br["seconds"] is not None else "-"
-        verdict = "PASS" if br["gate"] else f"FAIL ({br['error']})" if br["error"] else "FAIL"
+        verdict = _verdict(br)
         all_pass &= br["gate"]
         print(f"{br['model']:<15}{scrmsd:>12}{pr:>12}{floor:>18}{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        print("GATE PASS — boltzgen designs cleared parse + designability floor" if br["gate"]
-              else "GATE FAIL — boltzgen missed parse or the designability floor (see above)")
+        print(_gate_line(
+            br,
+            "GATE PASS — boltzgen designs cleared parse + designability floor",
+            "GATE FAIL — boltzgen missed parse or the designability floor (see above)",
+            "boltzgen"))
 
     if want_rfd3:
         if not RFD3_SPEC.exists():
@@ -4528,7 +4661,7 @@ def main() -> int:
         unk = str(rr["unk"]) if rr["unk"] is not None else "-"
         det = ("ok" if rr["determinism"] else "NO") if rr["determinism"] is not None else "-"
         wall = f"{rr['seconds']:.0f}s" if rr["seconds"] is not None else "-"
-        verdict = "PASS" if rr["gate"] else f"FAIL ({rr['error']})" if rr["error"] else "FAIL"
+        verdict = _verdict(rr)
         all_pass &= rr["gate"]
         cr = f"{rr['clean_rate']:.2f}" if rr["clean_rate"] is not None else "  -  "
         print(f"{rr['model']:<15}{rr['n_designs']:>8}{cr:>7}{ib:>9}{br:>7}{cf:>12}{aa:>5}"
@@ -4537,9 +4670,12 @@ def main() -> int:
               f"{RFD3_MIN_INBAND:>9.4f}{RFD3_MAX_BREAKS:>7}{RFD3_MAX_CLASHES:>12}"
               f"{RFD3_MIN_DISTINCT_AA:>5}{RFD3_MAX_UNK:>5}{'ok':>5}")
         print(f"{'#'*78}")
-        print("GATE PASS — rfd3 designs cleared parse, designed-region geometry, "
-              "sequence and determinism" if rr["gate"]
-              else "GATE FAIL — rfd3 missed parse, geometry, sequence or determinism (see above)")
+        print(_gate_line(
+            rr,
+            "GATE PASS — rfd3 designs cleared parse, designed-region geometry, "
+            "sequence and determinism",
+            "GATE FAIL — rfd3 missed parse, geometry, sequence or determinism (see above)",
+            "rfd3 designs"))
 
     if want_pxdesign:
         pr = run_pxdesign(args.keep)
@@ -4550,7 +4686,7 @@ def main() -> int:
         fit = f"{pr['fit_rmsd']:.3f}" if pr["fit_rmsd"] is not None else "  -  "
         res = str(pr["binder_residues"]) if pr["binder_residues"] is not None else "  -  "
         wall = f"{pr['seconds']:.0f}s" if pr["seconds"] is not None else "-"
-        verdict = "PASS" if pr["gate"] else f"FAIL ({pr['error']})" if pr["error"] else "FAIL"
+        verdict = _verdict(pr)
         all_pass &= pr["gate"]
         print(f"{pr['model']:<15}{fit:>12}{res:>12}{floor:>18}{wall:>9}  {verdict}")
         if pr["sha16"]:
@@ -4558,8 +4694,11 @@ def main() -> int:
             print(f"coordinate digest {pr['sha16']}{same}  (evidence, not gated — a digest is "
                   f"card- and arch-specific)")
         print(f"{'#'*78}")
-        print("GATE PASS — pxdesign designs cleared parse + the conditioning floor" if pr["gate"]
-              else "GATE FAIL — pxdesign missed parse or the conditioning floor (see above)")
+        print(_gate_line(
+            pr,
+            "GATE PASS — pxdesign designs cleared parse + the conditioning floor",
+            "GATE FAIL — pxdesign missed parse or the conditioning floor (see above)",
+            "pxdesign"))
 
     if want_opendde_abag:
         if not OPENDDE_ABAG_DATA.exists():
@@ -4574,12 +4713,15 @@ def main() -> int:
         dq = f"{ar['dockq']:.3f}" if ar["dockq"] is not None else "  -  "
         fn = f"{ar['fnat']:.3f}" if ar["fnat"] is not None else "  -  "
         wall = f"{ar['seconds']:.0f}s" if ar["seconds"] is not None else "-"
-        verdict = "PASS" if ar["gate"] else f"FAIL ({ar['error']})" if ar["error"] else "FAIL"
+        verdict = _verdict(ar)
         all_pass &= ar["gate"]
         print(f"{ar['model']:<15}{dq:>14}{fn:>11}{floor:>10}{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        print("GATE PASS — opendde-abag cleared parse + DockQ floor" if ar["gate"]
-              else "GATE FAIL — opendde-abag missed parse or the DockQ floor (see above)")
+        print(_gate_line(
+            ar,
+            "GATE PASS — opendde-abag cleared parse + DockQ floor",
+            "GATE FAIL — opendde-abag missed parse or the DockQ floor (see above)",
+            "opendde-abag"))
 
     if want_nesso1:
         nr = run_nesso1(args.keep)
@@ -4594,13 +4736,16 @@ def main() -> int:
         xr = f"{nr['x_over_r']:.3f}xR" if nr["x_over_r"] is not None else "  -  "
         sp = f"{nr['spread']:.3g}" if nr["spread"] is not None else "  -  "
         wall = f"{nr['seconds']:.0f}s" if nr["seconds"] is not None else "-"
-        verdict = "PASS" if nr["gate"] else f"FAIL ({nr['error']})" if nr["error"] else "FAIL"
+        verdict = _verdict(nr)
         all_pass &= nr["gate"]
         print(f"{nr['model']:<15}{xr:>14}{sp:>12}{floor:>18}{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        print("GATE PASS — nesso1 scalars cleared the reference floor and the device is "
-              "deterministic" if nr["gate"]
-              else "GATE FAIL — nesso1 missed the reference floor or drifted run to run (see above)")
+        print(_gate_line(
+            nr,
+            "GATE PASS — nesso1 scalars cleared the reference floor and the device is "
+            "deterministic",
+            "GATE FAIL — nesso1 missed the reference floor or drifted run to run (see above)",
+            "nesso1"))
 
     if want_capacity:
         for leg in CAPACITY_LEGS:
@@ -4616,14 +4761,16 @@ def main() -> int:
             cf = str(cr["cifs"]) if cr["cifs"] is not None else "-"
             pa = str(cr["paes"]) if cr["paes"] is not None else "-"
             wall = f"{cr['seconds']:.0f}s" if cr["seconds"] is not None else "-"
-            verdict = "PASS" if cr["gate"] else f"FAIL ({cr['error']})" if cr["error"] else "FAIL"
+            verdict = _verdict(cr)
             all_pass &= cr["gate"]
             print(f"{cr['model']:<22}{pk:>11}{cf:>7}{pa:>7}{f'<={leg[5]:.1f} GiB':>11}"
                   f"{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        print("GATE PASS — largest-input folds fit the DRAM budget and wrote every sample"
-              if all(cr["gate"] for cr in rows) else
-              "GATE FAIL — capacity regression at the largest supported input (see above)")
+        print(_gate_line(
+            rows,
+            "GATE PASS — largest-input folds fit the DRAM budget and wrote every sample",
+            "GATE FAIL — capacity regression at the largest supported input (see above)",
+            "capacity"))
 
     if want_size_ladder and args.size_ladder_fill_reasons:
         sl = run_size_ladder_fill_reasons(Path(args.size_ladder_baseline),
@@ -4764,7 +4911,7 @@ def main() -> int:
             cl = str(r["clashes"]) if r["clashes"] is not None else "-"
             md5 = r["md5"] or "  -  "
             wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
-            verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+            verdict = _verdict(r)
             print(f"{r['model']:<22}{cl:>9}{md5:>36}{wall:>9}  {verdict}")
         l1_pass = ar["gate"] and all(r["gate"] for r in frows)
         all_pass &= l1_pass
@@ -4801,8 +4948,7 @@ def main() -> int:
         # re-checked here on purpose: a sys.exit at this point discards every arm's verdict
         # above it and the contention notice below it.
         parity = _load_esmc_parity_harness()
-        erows = [run_esmc(m, parity) for m in esmc_models]
-        esmc_pass = all(r["gate"] for r in erows)
+        erows = [_arm(run_esmc, m, parity) for m in esmc_models]
         print(f"\n{'#'*78}\nRELEASE GATE — ESMC embedding parity (fused-RoPE shipped path), "
               f"PCC floor {ESMC_MIN_PCC}\n{'#'*78}")
         print(f"{'model':<12}{'per-res PCC':>13}{'pooled':>9}{'logits':>9}{'argmax':>9}{'wall':>9}  result")
@@ -4812,12 +4958,15 @@ def main() -> int:
             lo = f"{r['logits_pcc']:.5f}" if r["logits_pcc"] is not None else "  -  "
             am = f"{r['argmax']:.4f}" if r["argmax"] is not None else "  -  "
             wall = f"{r['seconds']:.0f}s" if r["seconds"] is not None else "-"
-            verdict = "PASS" if r["gate"] else f"FAIL ({r['error']})" if r["error"] else "FAIL"
+            verdict = _verdict(r)
             all_pass &= r["gate"]
             print(f"{r['model']:<12}{pr:>13}{po:>9}{lo:>9}{am:>9}{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        print("GATE PASS — ESMC embed path cleared the per-residue PCC floor" if esmc_pass
-              else "GATE FAIL — an ESMC model missed the per-residue PCC floor (see above)")
+        print(_gate_line(
+            erows,
+            "GATE PASS — ESMC embed path cleared the per-residue PCC floor",
+            "GATE FAIL — an ESMC model missed the per-residue PCC floor (see above)",
+            "the ESMC embed path"))
 
     if _CONTENDED:
         # Say this last, where the reader is, and say it loudly: a contended leg's row above

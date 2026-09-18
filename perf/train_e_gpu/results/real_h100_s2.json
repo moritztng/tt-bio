@@ -1,0 +1,203 @@
+{
+ "tag": "h100",
+ "mode": "real",
+ "stage": 2,
+ "started_utc": "2026-09-18T20:46:56Z",
+ "upstream_commit": "18e4058015a39c5405c08a0d5629cf302627b253",
+ "args": {
+  "mode": "real",
+  "stage": 2,
+  "steps": 30,
+  "warmup": 10,
+  "epochs": 100,
+  "params": "params.yaml",
+  "ddp": false,
+  "dvclive": false,
+  "workers": null,
+  "pin_memory": null,
+  "tag": "h100",
+  "out": "/root/abb3/out/real_h100_s2.json"
+ },
+ "host": {
+  "cpu_model": "Intel(R) Xeon(R) Gold 6448Y",
+  "cpu_threads": 128,
+  "meminfo": [
+   "MemTotal:       1056327848 kB",
+   "MemFree:        614043004 kB",
+   "MemAvailable:   991651920 kB"
+  ],
+  "loadavg": [
+   "12.94 17.70 19.94 12/5234 14183"
+  ],
+  "python": "3.10.13",
+  "torch": "2.1.2",
+  "cuda": "12.1",
+  "uname": "Linux-5.4.0-196-generic-x86_64-with-glibc2.31"
+ },
+ "nvidia_smi_idle": {
+  "gpu": [
+   "NVIDIA H100 80GB HBM3, 81559, 345, 1980, 73.12, 700.00, 43, 0, Enabled"
+  ],
+  "compute_apps": []
+ },
+ "loader": {
+  "num_workers": 0,
+  "pin_memory": false,
+  "shipped_default": true
+ },
+ "params_used": {
+  "base": {
+   "seed": 100,
+   "cmd": "python",
+   "debug": false,
+   "data_dir": "data/",
+   "all_data": true,
+   "num_workers": 0,
+   "pin_memory": false
+  },
+  "train": {
+   "epochs": 1000,
+   "batch_size": 64,
+   "early_stopping": 10000
+  },
+  "finetune": {
+   "metric": "loss",
+   "epochs": 500,
+   "batch_size": 64,
+   "early_stopping": 10000,
+   "use_annealing": true,
+   "dropout": 0.1,
+   "turn_off_scheduler": true,
+   "learning_rate": 0.0001
+  },
+  "model": {
+   "edge_chain_feature": true,
+   "use_original_sm": true,
+   "c_ipa": 16,
+   "c_resnet": 256,
+   "c_s": 23,
+   "rel_pos_dim": 64,
+   "dropout_rate": 0.1,
+   "embed_dim": 128,
+   "epsilon": 1e-07,
+   "inf": 10000000.0,
+   "no_angles": 7,
+   "no_blocks": 8,
+   "no_heads_ipa": 12,
+   "no_qk_points": 4,
+   "no_resnet_blocks": 2,
+   "no_transition_layers": 1,
+   "no_v_points": 8,
+   "rotation_propagation": true,
+   "trans_scale_factor": 1
+  },
+  "optimiser": {
+   "optimiser": "RAdam",
+   "lr": 0.0005,
+   "weight_decay": 0.0001,
+   "T_0": 50,
+   "eta_min": 0,
+   "T_mult": 1
+  },
+  "language": {
+   "model": null,
+   "chunk_size": 1000
+  }
+ },
+ "result": {
+  "accumulate_grad_batches": 8,
+  "global_batch": 64,
+  "steps_recorded": 40,
+  "warmup_discarded": 10,
+  "step_s": {
+   "n": 30,
+   "median": 13.546271566301584,
+   "mean": 14.295001397281885,
+   "stdev": 1.7612311673952372,
+   "min": 12.523846961557865,
+   "max": 19.870662480592728,
+   "p05": 12.523846961557865,
+   "p95": 18.676470831036568
+  },
+  "step_s_all": [
+   11.1653458699584,
+   11.837615460157394,
+   12.575027465820312,
+   13.138573601841927,
+   12.75376982986927,
+   19.715885534882545,
+   12.8106305077672,
+   12.603386655449867,
+   11.889061331748962,
+   13.239008218050003,
+   12.855450838804245,
+   13.003348961472511,
+   14.273590348660946,
+   16.220066145062447,
+   18.676470831036568,
+   15.695924915373325,
+   15.203827798366547,
+   15.50135925412178,
+   19.870662480592728,
+   15.833963230252266,
+   13.06714903563261,
+   12.757288113236427,
+   13.189841866493225,
+   13.11747794598341,
+   13.599708564579487,
+   12.672151893377304,
+   12.523846961557865,
+   15.98473397642374,
+   12.902442708611488,
+   13.237121969461441,
+   13.256274774670601,
+   12.813376918435097,
+   14.98090385645628,
+   13.926854491233826,
+   13.329473741352558,
+   14.265703350305557,
+   13.377796031534672,
+   15.093513436615467,
+   14.126882910728455,
+   13.492834568023682
+  ],
+  "padded_tokens_per_step": {
+   "n": 30,
+   "median": 242.5,
+   "mean": 242.33333333333334,
+   "stdev": 2.0057388927143847,
+   "min": 238.0,
+   "max": 245.0,
+   "p05": 238.0,
+   "p95": 245.0
+  },
+  "micro_batch_padded_tokens": {
+   "n": 320,
+   "median": 237.0,
+   "mean": 237.125,
+   "stdev": 3.427255681256097,
+   "min": 230.0,
+   "max": 247.0,
+   "p05": 232.0,
+   "p95": 243.0
+  },
+  "fit_wall_s": 562.7587970793247,
+  "peak_cuda_alloc_GB": 12.386445045471191,
+  "peak_cuda_reserved_GB": 25.94921875,
+  "smi_before": {
+   "gpu": [
+    "NVIDIA H100 80GB HBM3, 81559, 345, 1980, 72.96, 700.00, 43, 0, Enabled"
+   ],
+   "compute_apps": []
+  },
+  "smi_after": {
+   "gpu": [
+    "NVIDIA H100 80GB HBM3, 81559, 1980, 1980, 169.95, 700.00, 44, 33, Enabled"
+   ],
+   "compute_apps": [
+    "117969, [Not Found], 2306"
+   ]
+  }
+ },
+ "finished_utc": "2026-09-18T20:56:21Z"
+}

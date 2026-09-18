@@ -11,20 +11,22 @@
   ],
   "cards": {
     "p150a": {
-      "recorded": "2026-08-23",
+      "recorded": "2026-09-18",
       "host": "tt-quietbox",
-      "commit": "8c22b305",
+      "commit": "6e9e70be7",
       "models": {
         "nesso1": {
-          "recorded": "2026-08-21",
+          "grid": "11x10",
+          "recorded": "2026-09-18",
           "host": "tt-quietbox",
-          "commit": "6ec94725",
-          "grid": "13x10",
+          "commit": "6e9e70be7",
           "runtime_s": {
-            "256": 6.54,
-            "512": 10.2,
-            "640": 12.97,
-            "768": 17.68
+            "256": 6.46,
+            "512": 9.44,
+            "640": 12.06,
+            "768": 15.48,
+            "896": 20.58,
+            "1024": 26.71
           },
           "levers": {
             "256": {
@@ -80,13 +82,13 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1152,
+                "declined": 2308,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "memory": 1152
+                  "memory": 2308
                 },
-                "reason": "declines all 1152 calls on memory x1152: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and at 276 tokens the pair buffer is L1-resident. It serves 96 of 1056 calls from 512 up, where that buffer moves to DRAM"
+                "reason": "declines all 2308 calls on memory x2308: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and at 276 tokens the pair buffer is L1-resident. It serves 96 of 1056 calls from 512 up, where that buffer moves to DRAM"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -94,7 +96,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
+                "reason": "declines all 0 calls: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -102,30 +104,35 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size, 0 offered and 0 declined: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
+                "reason": "declines all 0 calls: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). nesso1 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c]"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 512,
+                "declined": 576,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:320x320x128": 32,
+                  "l1_dest_is_faster:288x288x128": 96,
                   "l1_dest_is_faster:256x256x128": 480
                 },
-                "reason": "declines all 512 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:320x320x128 x32: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
+                "reason": "declines all 576 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:288x288x128 x96: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 512,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,1)": 512
-                },
-                "reason": "declines all 512 calls on k_tiles=4:(4,1) x512: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -140,7 +147,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1024,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -154,12 +161,12 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 192,
-                "declined": 960,
-                "frac": 0.16666666666666666,
+                "served": 770,
+                "declined": 3842,
+                "frac": 0.16695576756287944,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 960
+                  "window_BufferType.L1": 3842
                 }
               },
               "REBLOCK_PERMUTE_BACK": {
@@ -168,7 +175,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: _channel_move_back is only called on the large-L DRAM path, and at 276 tokens the chunk is L1-resident and keeps the single permute. It serves all 96 calls from 512 up"
+                "reason": "declines all 0 calls: _channel_move_back is only called on the large-L DRAM path, and at 276 tokens the chunk is L1-resident and keeps the single permute. It serves all 96 calls from 512 up"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
@@ -176,7 +183,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
+                "reason": "declines all 0 calls: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "nothing to fuse into at this rung: the counter is `reblock_permute.STATS_GATED`, which counts serves of the fused gated move, and the gated window admits none of this model's 256 aa channel moves. At 256 aa the pair track is N=256 on an L1 destination, below `L1_N_MIN` = 288 (tt_bio/reblock_permute.py:338, the same band enforced for the fused path in `eligible_gated` at :877-878); the band opens at 288 because N=256 on an L1 output is a measured 0.952x loss on 110 cores. The same rung shows the ungated `REBLOCK_PERMUTE` declining 3842 calls on exactly that clause. It serves 192 per fold from 512 aa up. [carried from p300c]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -195,6 +210,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -237,7 +260,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -245,18 +268,34 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); nesso1 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c]"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); nesso1 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c]"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 512,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -267,6 +306,27 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 288,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               }
             },
             "512": {
@@ -322,11 +382,11 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 96,
-                "declined": 960,
-                "frac": 0.09090909090909091,
+                "declined": 1922,
+                "frac": 0.04757185332011893,
                 "how": "stats",
                 "rejects": {
-                  "memory": 960
+                  "memory": 1922
                 }
               },
               "ADALN_S_HOIST": {
@@ -335,7 +395,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
+                "reason": "declines all 0 calls: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -343,7 +403,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size, 0 offered and 0 declined: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
+                "reason": "declines all 0 calls: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). nesso1 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c]"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -352,37 +420,33 @@
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:576x576x128": 96,
+                  "l1_dest_is_faster:544x544x128": 96,
                   "l1_dest_is_faster:256x256x128": 480
                 },
-                "reason": "declines all 576 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:576x576x128 x96: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
+                "reason": "declines all 576 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:544x544x128 x96: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 767,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 191,
-                  "k_tiles=4:(4,1)": 576
-                },
-                "reason": "declines all 767 calls on k_tiles=4:(4,1) x576, k_tiles=4:(4,4) x191: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 480,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=4": 576
+                  "k_tiles=4": 480
                 },
-                "reason": "declines all 576 calls on k_tiles=4 x576: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 480 calls on k_tiles=4 x480: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -396,13 +460,14 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 192,
-                "declined": 960,
-                "frac": 0.16666666666666666,
+                "served": 0,
+                "declined": 3842,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 960
-                }
+                  "window_BufferType.L1": 3842
+                },
+                "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung. [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -413,22 +478,28 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 192,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 192,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 768,
+                "declined": 672,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "fill_preconditions": 768
+                  "fill_preconditions": 672
                 },
-                "reason": "declines all 768 calls on fill_preconditions x768: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung. This leg exists because the shared apo fixture cannot see that"
+                "reason": "declines all 672 calls on fill_preconditions x672: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung. This leg exists because the shared apo fixture cannot see that"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -436,6 +507,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -478,7 +557,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -486,14 +565,30 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); nesso1 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c]"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); nesso1 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c]"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -508,6 +603,27 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 288,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               }
             },
             "640": {
@@ -563,11 +679,11 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 96,
-                "declined": 960,
-                "frac": 0.09090909090909091,
+                "declined": 1922,
+                "frac": 0.04757185332011893,
                 "how": "stats",
                 "rejects": {
-                  "memory": 960
+                  "memory": 1922
                 }
               },
               "ADALN_S_HOIST": {
@@ -576,7 +692,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
+                "reason": "declines all 0 calls: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -584,7 +700,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size, 0 offered and 0 declined: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
+                "reason": "declines all 0 calls: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). nesso1 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c]"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -593,37 +717,36 @@
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:704x704x128": 96,
+                  "l1_dest_is_faster:672x672x128": 96,
                   "l1_dest_is_faster:256x256x128": 480
                 },
-                "reason": "declines all 576 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:704x704x128 x96: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
+                "reason": "declines all 576 calls on l1_dest_is_faster:256x256x128 x480, l1_dest_is_faster:672x672x128 x96: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 767,
+                "declined": 96,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,4)": 191,
-                  "k_tiles=4:(4,1)": 576
+                  "k_tiles=4:(4,4)": 96
                 },
-                "reason": "declines all 767 calls on k_tiles=4:(4,1) x576, k_tiles=4:(4,4) x191: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 96 calls on k_tiles=4:(4,4) x96: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 480,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=4": 576
+                  "k_tiles=4": 480
                 },
-                "reason": "declines all 576 calls on k_tiles=4 x576: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 480 calls on k_tiles=4 x480: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -637,13 +760,14 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 192,
-                "declined": 960,
-                "frac": 0.16666666666666666,
+                "served": 0,
+                "declined": 3842,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 960
-                }
+                  "window_BufferType.L1": 3842
+                },
+                "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung. [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -654,22 +778,28 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 192,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 192,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 673,
+                "declined": 672,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "fill_preconditions": 673
+                  "fill_preconditions": 672
                 },
-                "reason": "declines all 673 calls on fill_preconditions x673: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung. This leg exists because the shared apo fixture cannot see that"
+                "reason": "declines all 672 calls on fill_preconditions x672: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung. This leg exists because the shared apo fixture cannot see that"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -677,6 +807,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -719,7 +857,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -727,14 +865,30 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); nesso1 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c]"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); nesso1 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c]"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -746,10 +900,30 @@
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
-                "how": "setlen",
-                "reason": "overflow set holds 1 shape(s): ONE SDPA q-chunk program config exceeds its per-core L1 budget at this rung and silently takes the slow path; the set is empty at 256 and 512. Same third gate of the 2026-08-13 above-640 defect that is still open on opendde. Recorded, not blessed: the arm fails on any growth of this set, and shrinking it to 0 is a real win. Nesso-1's shipped perf number was measured at 512 aa, where the set is empty"
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 288,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               }
             },
             "768": {
@@ -805,11 +979,11 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 96,
-                "declined": 960,
-                "frac": 0.09090909090909091,
+                "declined": 1922,
+                "frac": 0.04757185332011893,
                 "how": "stats",
                 "rejects": {
-                  "memory": 960
+                  "memory": 1922
                 }
               },
               "ADALN_S_HOIST": {
@@ -818,7 +992,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
+                "reason": "declines all 0 calls: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -826,7 +1000,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "never reached at this size, 0 offered and 0 declined: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
+                "reason": "declines all 0 calls: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). nesso1 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c]"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -841,29 +1023,28 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 768,
+                "declined": 96,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,4)": 192,
-                  "k_tiles=4:(4,1)": 576
+                  "k_tiles=4:(4,4)": 96
                 },
-                "reason": "declines all 768 calls on k_tiles=4:(4,1) x576, k_tiles=4:(4,4) x192: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 96 calls on k_tiles=4:(4,4) x96: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 576,
+                "declined": 480,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=4": 576
+                  "k_tiles=4": 480
                 },
-                "reason": "declines all 576 calls on k_tiles=4 x576: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
+                "reason": "declines all 480 calls on k_tiles=4 x480: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1152,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -877,13 +1058,14 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 192,
-                "declined": 960,
-                "frac": 0.16666666666666666,
+                "served": 0,
+                "declined": 3842,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 960
-                }
+                  "window_BufferType.L1": 3842
+                },
+                "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung. [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -894,22 +1076,28 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 192,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached at this size, 0 offered and 0 declined: the gated channel move is not offered on nesso1's pair track; the ungated call site is the one it takes, 192 served at every rung"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 192,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 673,
+                "declined": 672,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "fill_preconditions": 673
+                  "fill_preconditions": 672
                 },
-                "reason": "declines all 673 calls on fill_preconditions x673: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung. This leg exists because the shared apo fixture cannot see that"
+                "reason": "declines all 672 calls on fill_preconditions x672: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung. This leg exists because the shared apo fixture cannot see that"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
@@ -917,6 +1105,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -959,7 +1155,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -967,14 +1163,328 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "never reached at this size, 0 offered and 0 declined: a boltz-2 diffusion lever; nesso1 does not run that module"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); nesso1 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c]"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); nesso1 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c]"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 480,
+                "declined": 96,
+                "frac": 0.8333333333333334,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
                 "served": null,
                 "declined": null,
                 "frac": null,
-                "how": "off-by-design"
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 288,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              }
+            },
+            "896": {
+              "SPLIT_SWIGLU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats-shared"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 1922,
+                "frac": 0.04757185332011893,
+                "how": "stats",
+                "rejects": {
+                  "memory": 1922
+                }
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called [carried from rung 768] [carried from p300c]"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it [carried from rung 768] [carried from p300c]"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). nesso1 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c]"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 480,
+                "frac": 0.16666666666666666,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:256x256x128": 480
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 96,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 96
+                },
+                "reason": "declines all 96 calls on k_tiles=4:(4,4) x96: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 480,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=4": 480
+                },
+                "reason": "declines all 480 calls on k_tiles=4 x480: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 3842,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "window_BufferType.L1": 3842
+                },
+                "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 192 per fold at this rung. [carried from p300c]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 192,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 192,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 577,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "fill_preconditions": 577
+                },
+                "reason": "declines all 577 calls on fill_preconditions x577: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung [carried from rung 768] [carried from p300c]"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c]"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module [carried from rung 768] [carried from p300c]"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module [carried from rung 768] [carried from p300c]"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); nesso1 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c]"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); nesso1 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c]"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -989,21 +1499,348 @@
                 "declined": 1,
                 "frac": 0.0,
                 "how": "setlen",
-                "reason": "overflow set holds 1 shape(s): ONE SDPA q-chunk program config exceeds its per-core L1 budget at this rung and silently takes the slow path; the set is empty at 256 and 512. Same third gate of the 2026-08-13 above-640 defect that is still open on opendde. Recorded, not blessed: the arm fails on any growth of this set, and shrinking it to 0 is a real win. Nesso-1's shipped perf number was measured at 512 aa, where the set is empty"
+                "reason": "overflow set holds 1 shape(s): one q_chunk overflows its per-core circular-buffer budget from 896 up, so _tri_att_q_chunks records that shape once and every later call skips straight to a narrower chunk that fits. The set is empty at 256, 512, 640 and 768 and holds the same one shape at 896 and 1024; opendde reads the same single shape on this card from 768 up. That is the L1 ceiling _tri_att_q_chunks documents as discovered rather than declared, not a lever left dark by a tuning choice. Recorded, not blessed: the arm gates this set size exactly, so any move either way is a finding, and getting it back to 0 is a real win someone should take [carried from p300c]"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 288,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              }
+            },
+            "1024": {
+              "SPLIT_SWIGLU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats-shared"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 192,
+                "declined": 1922,
+                "frac": 0.09082308420056764,
+                "how": "stats",
+                "rejects": {
+                  "memory": 1922
+                }
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: nesso1 has no diffusion module \u2014 it reads the affinity off a distogram and never predicts coordinates \u2014 so AdaLN.s_terms is not called [carried from rung 768] [carried from p300c]"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the softmax path whose bias it hoists is behind BOLTZ2_FP32_SOFTMAX, which defaults off, so nesso1 never enters it [carried from rung 768] [carried from p300c]"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). nesso1 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c]"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 96,
+                "declined": 480,
+                "frac": 0.16666666666666666,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:256x256x128": 480
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 192,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 192
+                },
+                "reason": "declines all 192 calls on k_tiles=4:(4,4) x192: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 576,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=4": 576
+                },
+                "reason": "declines all 576 calls on k_tiles=4 x576: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 3842,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "window_BufferType.L1": 3842
+                },
+                "reason": "the window declining is the window working: 3842 calls at this rung ask for an L1 destination at an N outside the measured [288, 352] L1 band (`L1_N_MIN`/`L1_N_MAX`, tt_bio/reblock_permute.py:338-339, rejected at :387 as `window_BufferType.L1`). Below 288 there are fewer work groups than cores and the custom move is a measured LOSS -- N=256 on an L1 output reads 0.952x on 110 cores (`eligible`'s docstring). Serving them would be the defect. The trimul channel moves are taken by the fused gated kernel instead: `REBLOCK_PERMUTE_GATED` serves 384 per fold at this rung. [carried from p300c]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 192,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1345,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "fill_preconditions": 1345
+                },
+                "reason": "declines all 1345 calls on fill_preconditions x1345: with affinity=True the per-row pair-mask slice makes the triangle bias [S, h, S, S] instead of [1, h, S, S], so the plan's bcast_batch term fails. The kernel exists to read ONE batch-broadcast mask per head, so it is inapplicable to this path by construction rather than size-conditioned: 100% dark at every rung [carried from rung 768] [carried from p300c]"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 96,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "entered and refused, not unreached: 96 calls at this rung are above the 1024-token cap and no fused (q_chunk, k_chunk) pair ran -- an L1 refusal or a token count with no 32-aligned divisor (tt_bio/tenstorrent.py:1855-1858). Each one falls through to the stock ladder, which is byte for byte the pre-flip path, so the refusal costs accuracy nothing. [carried from p300c]"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 576,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module [carried from rung 768] [carried from p300c]"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; nesso1 does not run that module [carried from rung 768] [carried from p300c]"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); nesso1 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c]"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); nesso1 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c]"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 480,
+                "declined": 96,
+                "frac": 0.8333333333333334,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1,
+                "frac": 0.0,
+                "how": "setlen",
+                "reason": "overflow set holds 1 shape(s): one q_chunk overflows its per-core circular-buffer budget from 896 up, so _tri_att_q_chunks records that shape once and every later call skips straight to a narrower chunk that fits. The set is empty at 256, 512, 640 and 768 and holds the same one shape at 896 and 1024; opendde reads the same single shape on this card from 768 up. That is the L1 ceiling _tri_att_q_chunks documents as discovered rather than declared, not a lever left dark by a tuning choice. Recorded, not blessed: the arm gates this set size exactly, so any move either way is a finding, and getting it back to 0 is a real win someone should take [carried from p300c]"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 288,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               }
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0089,
+          "sigma_runtime_512": 0.0267,
           "exponents": {
             "256->512": {
-              "k": 0.641,
+              "k": 0.547,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.357,
+              "k": 1.22,
               "tol": 0.5
             }
+          },
+          "exponents_measured": {
+            "256->512": 0.547,
+            "512->640": 1.098,
+            "640->768": 1.369,
+            "768->896": 1.847,
+            "896->1024": 1.952
           }
         }
       }

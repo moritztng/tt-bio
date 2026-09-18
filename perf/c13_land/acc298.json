@@ -1,0 +1,209 @@
+{
+ "doc": "The STACK's own accuracy, against a seed floor measured on the same fixture in the same session.\n\nApprove a stack as a stack or not at all: the two levers' individual readings are not addable, so\nthis scores `both` (hoist=1, silu=1) against `base` directly and never sums 0.4504 A onto anything.\n\nWhat is measured here, and why each piece is needed:\n\n    lever      base vs both at the same seed        the deviation the stack costs\n    floor      base vs base at two different seeds  the scatter the sampler produces by itself\n    A/A        base vs base at the SAME seed        the control -- if this is not 0.0000 A the\n                                                    paired read above is not the lever\n\nThe fixture matters more than the metric here. cdk2x2_298 is what the 0.35/0.60 A bar is written\nagainst. cdk2x2_512 is chimeric: its unconstrained hinge saturates whole-molecule RMSD for any\nnon-bit-exact change (`c12-fused-eltwise-at-pin` read 5.35/9.90/7.95 A on it against an A/A of\n0.0000 A, and `c12-unfused-silu-bh` read 12.69 A whole-molecule against 1.44 A hinge-free for a\nchange worth 0.45 A on the 298 aa fixture). So the 512 read is reported and plDDT, which carries no\nframe and so cannot be confounded by which basin the trajectory chose, decides there.\n\n    acc_stack.py --out <json> --cifs <dir> --size 298 --seeds 0,1 --arms base,both\n",
+ "size": 298,
+ "seeds": [
+  0,
+  1
+ ],
+ "arms": [
+  "base",
+  "both"
+ ],
+ "host": "tt-quietbox2",
+ "card_node": 0,
+ "clock_forced_mhz": 1350,
+ "commit": "70b21e09e0969b4a56faaf3f5ff6c1efc664fac0",
+ "utc": "2026-09-18T10:52:21Z",
+ "bar": {
+  "pass": 0.35,
+  "hold": 0.6,
+  "basis": "the 4649 bar, all-atom, cdk2x2_298; NOT applicable whole-molecule on the chimeric cdk2x2_512"
+ },
+ "folds": {
+  "s0_base": {
+   "seed": 0,
+   "arm": "base",
+   "hoist": false,
+   "silu": false,
+   "wall_s": 9.948,
+   "aiclk": {
+    "n": 4819,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "298_s0_base.cif",
+   "loadavg": [
+    1.15,
+    1.32,
+    1.24
+   ],
+   "plddt": 0.908011,
+   "digest": "a8c6fd65f70f4418"
+  },
+  "s0_both": {
+   "seed": 0,
+   "arm": "both",
+   "hoist": true,
+   "silu": true,
+   "wall_s": 9.489,
+   "aiclk": {
+    "n": 4594,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "298_s0_both.cif",
+   "loadavg": [
+    1.45,
+    1.38,
+    1.26
+   ],
+   "plddt": 0.908321,
+   "digest": "9927502b3750e29c"
+  },
+  "s1_base": {
+   "seed": 1,
+   "arm": "base",
+   "hoist": false,
+   "silu": false,
+   "wall_s": 9.569,
+   "aiclk": {
+    "n": 4632,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "298_s1_base.cif",
+   "loadavg": [
+    1.94,
+    1.48,
+    1.3
+   ],
+   "plddt": 0.913445,
+   "digest": "2e3ea8219531e8ff"
+  },
+  "s1_both": {
+   "seed": 1,
+   "arm": "both",
+   "hoist": true,
+   "silu": true,
+   "wall_s": 9.509,
+   "aiclk": {
+    "n": 4602,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "298_s1_both.cif",
+   "loadavg": [
+    1.8,
+    1.47,
+    1.29
+   ],
+   "plddt": 0.910914,
+   "digest": "4c19ece8d9c4b30a"
+  },
+  "s0_base_aa": {
+   "seed": 0,
+   "arm": "base",
+   "hoist": false,
+   "silu": false,
+   "wall_s": 9.544,
+   "aiclk": {
+    "n": 4622,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "298_s0_base_aa.cif",
+   "loadavg": [
+    1.62,
+    1.44,
+    1.29
+   ],
+   "plddt": 0.908011,
+   "digest": "a8c6fd65f70f4418"
+  }
+ },
+ "all_pairs": {
+  "s0_base vs s0_base_aa": {
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  "s0_base vs s0_both": {
+   "all_atom_A": 0.25705,
+   "ca_A": 0.14312
+  },
+  "s0_base vs s1_base": {
+   "all_atom_A": 0.79984,
+   "ca_A": 0.34766
+  },
+  "s0_base vs s1_both": {
+   "all_atom_A": 0.82529,
+   "ca_A": 0.39501
+  },
+  "s0_base_aa vs s0_both": {
+   "all_atom_A": 0.25705,
+   "ca_A": 0.14312
+  },
+  "s0_base_aa vs s1_base": {
+   "all_atom_A": 0.79984,
+   "ca_A": 0.34766
+  },
+  "s0_base_aa vs s1_both": {
+   "all_atom_A": 0.82529,
+   "ca_A": 0.39501
+  },
+  "s0_both vs s1_base": {
+   "all_atom_A": 0.79617,
+   "ca_A": 0.38375
+  },
+  "s0_both vs s1_both": {
+   "all_atom_A": 0.82981,
+   "ca_A": 0.44372
+  },
+  "s1_base vs s1_both": {
+   "all_atom_A": 0.23668,
+   "ca_A": 0.1488
+  }
+ },
+ "stack_paired_per_seed": [
+  {
+   "seed": 0,
+   "pair": "s0_base vs s0_both",
+   "all_atom_A": 0.25705,
+   "ca_A": 0.14312,
+   "plddt_base": 0.908011,
+   "plddt_both": 0.908321,
+   "plddt_delta": 0.00031
+  },
+  {
+   "seed": 1,
+   "pair": "s1_base vs s1_both",
+   "all_atom_A": 0.23668,
+   "ca_A": 0.1488,
+   "plddt_base": 0.913445,
+   "plddt_both": 0.910914,
+   "plddt_delta": -0.002531
+  }
+ ],
+ "seed_floor": [
+  {
+   "pair": "base s0 vs base s1",
+   "all_atom_A": 0.79984,
+   "ca_A": 0.34766,
+   "plddt_delta": 0.005434
+  }
+ ],
+ "aa_control": {
+  "pair": "base vs base, same seed",
+  "all_atom_A": 0.0,
+  "ca_A": 0.0,
+  "digests_identical": true,
+  "plddt_delta": 0.0
+ },
+ "worst_stack_all_atom_A": 0.25705,
+ "verdict": "PASS",
+ "stack_over_seed_floor": 0.321
+}

@@ -69,14 +69,12 @@ def unit(r):
     return fns[calls[1]] if len(calls) > 1 else (fns[0] if fns else "-")
 
 
-def main():
-    # argv: the trace to read and where to write the per-buffer ledger. Defaults are this row's
-    # own arm, so `python3 census.py` still reproduces the published table.
-    src = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "out", "trace_512_wh_c10.json.gz")
-    dst = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "out", "census.json")
-    tr = json.load(gzip.open(src, "rt"))
-    rows, bufs = tr["rows"], tr["buffers"]
+def account(rows, bufs):
+    """(per_buf, totals) for one traced block, applying the ARITY / GATED / IN-PLACE rules above.
 
+    Split out of `main` so another row can count a different quantity over the same ledger without
+    re-deriving the three rules -- `perf/anthro_zpass/zpass.py` counts z-sized passes off this.
+    """
     # per-buffer event stream, in program order
     ev = defaultdict(list)          # buf -> [(i, 'r'|'w', frac)]
     for i, r in enumerate(rows):
@@ -123,6 +121,19 @@ def main():
             "owner": unit(rows[es[0][0]]),
         })
     per_buf.sort(key=lambda x: -x["redundant_b"])
+    return per_buf, {"dram_rd": dram_rd, "dram_wr": dram_wr, "l1_rd": l1_rd, "l1_wr": l1_wr,
+                     "redundant_dram_rd": red}
+
+
+def main():
+    # argv: the trace to read and where to write the per-buffer ledger. Defaults are this row's
+    # own arm, so `python3 census.py` still reproduces the published table.
+    src = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "out", "trace_512_wh_c10.json.gz")
+    dst = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "out", "census.json")
+    tr = json.load(gzip.open(src, "rt"))
+    per_buf, tt = account(tr["rows"], tr["buffers"])
+    dram_rd, dram_wr = tt["dram_rd"], tt["dram_wr"]
+    l1_rd, l1_wr, red = tt["l1_rd"], tt["l1_wr"], tt["redundant_dram_rd"]
 
     tot = dram_rd + dram_wr
     print("=" * 96)
@@ -144,10 +155,8 @@ def main():
               f"{x['writes']:>4}  {x['shape']:<16}{x['redundant_b']/1e6:>10.1f}  {x['owner']:<22}")
         for run in x["runs"]:
             print(f"{'':>18}shared read: " + " | ".join(run))
-    json.dump({"per_buf": per_buf,
-               "totals": {"dram_rd": dram_rd, "dram_wr": dram_wr, "l1_rd": l1_rd,
-                          "l1_wr": l1_wr, "redundant_dram_rd": red}},
-              open(dst, "w"), indent=1)
+    json.dump({"per_buf": per_buf, "totals": tt}, open(dst, "w"), indent=1)
 
 
-main()
+if __name__ == "__main__":
+    main()

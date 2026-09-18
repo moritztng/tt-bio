@@ -33,6 +33,10 @@ Usage:  TT_VISIBLE_DEVICES=<n> TT_BIO_LEASE_CARDS=<n> python3 trace_block.py [--
                                                                              [--steps 4] [--call 3]
                                                                              --out-dir D
 A path ending in `.gz` is written gzipped, which is what `fusion_pairs.py` reads.
+
+The recorder (`install`, `ledger`, `dump`, `_owner`, `_stack_tags`) is importable: argument parsing
+and the driver dispatch sit under `__main__`, so another row can arm the same ledger on a call of
+its own choosing without forking this file. `perf/anthro_zpass/capture.py` does exactly that.
 """
 import argparse
 import gzip
@@ -57,10 +61,6 @@ def _args():
     p.add_argument("--out-dir", default=None, help="difftx mode: directory for one file per shape")
     return p.parse_args()
 
-
-ARGS = _args()
-TOKENS = ARGS.tokens
-OUT = ARGS.out or f"/tmp/b2z2_bytefloor_trace_{TOKENS}.json"
 
 import ttnn  # noqa: E402
 from ttnn.decorators import FastOperation, Operation  # noqa: E402
@@ -368,4 +368,8 @@ def main_difftx():
     T.cleanup()
 
 
-(main_difftx if ARGS.layer == "difftx" else main_pairformer)()
+if __name__ == "__main__":
+    ARGS = _args()
+    TOKENS = ARGS.tokens
+    OUT = ARGS.out or f"/tmp/b2z2_bytefloor_trace_{TOKENS}.json"
+    (main_difftx if ARGS.layer == "difftx" else main_pairformer)()

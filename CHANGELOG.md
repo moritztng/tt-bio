@@ -5,6 +5,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Fixed
+
+- **A tt-bio verb no longer turns off its caller's autograd.** `predict`, `warmup`, `embed`,
+  `affinity`, `saprot` and `design` called `torch.set_grad_enabled(False)` in their bodies, which
+  is process-wide and nothing restored it, so reaching any of them from a script, a notebook or a
+  test left the rest of that program without gradients. The verbs still run inference with grad
+  off; the setting now stops at the verb's edge. Same inputs give the same outputs.
+
 ### Added
 
 - **Protenix-v2 and OpenDDE now report per-chain-pair ipTM in `results.json`.** A multi-chain

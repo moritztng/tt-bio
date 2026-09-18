@@ -1,0 +1,116 @@
+{
+ "tag": "a100-2",
+ "mode": "dataonly",
+ "stage": 1,
+ "started_utc": "2026-09-18T20:18:04Z",
+ "upstream_commit": "18e4058015a39c5405c08a0d5629cf302627b253",
+ "args": {
+  "mode": "dataonly",
+  "stage": 1,
+  "steps": 100,
+  "warmup": 15,
+  "epochs": 100,
+  "params": "params.yaml",
+  "ddp": false,
+  "dvclive": false,
+  "tag": "a100-2",
+  "out": "/root/abb3/out/data_a100-2_s1.json"
+ },
+ "host": {
+  "cpu_model": "Intel(R) Xeon(R) Platinum 8368 CPU @ 2.40GHz",
+  "cpu_threads": 152,
+  "meminfo": [
+   "MemTotal:       2113397420 kB",
+   "MemFree:        1279273120 kB",
+   "MemAvailable:   1970090228 kB"
+  ],
+  "loadavg": [
+   "17.80 17.26 15.48 3/7040 5182"
+  ],
+  "python": "3.10.13",
+  "torch": "2.1.2",
+  "cuda": "12.1",
+  "uname": "Linux-5.15.0-181-generic-x86_64-with-glibc2.31"
+ },
+ "nvidia_smi_idle": {
+  "gpu": [
+   "NVIDIA A100-SXM4-80GB, 81920, 210, 1410, 59.09, 400.00, 36, 0, Enabled"
+  ],
+  "compute_apps": []
+ },
+ "params_used": {
+  "base": {
+   "seed": 100,
+   "cmd": "python",
+   "debug": false,
+   "data_dir": "data/",
+   "all_data": true,
+   "num_workers": 0,
+   "pin_memory": false
+  },
+  "train": {
+   "epochs": 1000,
+   "batch_size": 64,
+   "early_stopping": 10000
+  },
+  "finetune": {
+   "metric": "loss",
+   "epochs": 500,
+   "batch_size": 64,
+   "early_stopping": 10000,
+   "use_annealing": true,
+   "dropout": 0.1,
+   "turn_off_scheduler": true,
+   "learning_rate": 0.0001
+  },
+  "model": {
+   "edge_chain_feature": true,
+   "use_original_sm": true,
+   "c_ipa": 16,
+   "c_resnet": 256,
+   "c_s": 23,
+   "rel_pos_dim": 64,
+   "dropout_rate": 0.1,
+   "embed_dim": 128,
+   "epsilon": 1e-07,
+   "inf": 10000000.0,
+   "no_angles": 7,
+   "no_blocks": 8,
+   "no_heads_ipa": 12,
+   "no_qk_points": 4,
+   "no_resnet_blocks": 2,
+   "no_transition_layers": 1,
+   "no_v_points": 8,
+   "rotation_propagation": true,
+   "trans_scale_factor": 1
+  },
+  "optimiser": {
+   "optimiser": "RAdam",
+   "lr": 0.0005,
+   "weight_decay": 0.0001,
+   "T_0": 50,
+   "eta_min": 0,
+   "T_mult": 1
+  },
+  "language": {
+   "model": null,
+   "chunk_size": 1000
+  }
+ },
+ "result": {
+  "accumulate_grad_batches": 8,
+  "micro_batches": 920,
+  "train_samples": 8395,
+  "data_s_per_step": {
+   "n": 100,
+   "median": 6.599728329107165,
+   "mean": 6.624014065600932,
+   "stdev": 0.527652746626286,
+   "min": 5.297111818566918,
+   "max": 8.206362260505557,
+   "p05": 5.8133446872234344,
+   "p95": 7.678564436733723
+  }
+ },
+ "finished_utc": "2026-09-18T20:30:53Z"
+}

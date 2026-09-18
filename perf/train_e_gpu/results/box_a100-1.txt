@@ -1,0 +1,63 @@
+=== 2026-09-18T19:51:14Z idle box, TAG=a100-1 SUITE=full ===
+Fri Sep 18 19:51:14 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.159.03             Driver Version: 580.159.03     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:C1:00.0 Off |                    0 |
+| N/A   23C    P0             60W /  400W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+--- compute apps (co-tenancy: any pid here that is not ours means a shared card) ---
+pid, process_name, used_gpu_memory [MiB]
+--- cpu ---
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Byte Order:                              Little Endian
+Address sizes:                           48 bits physical, 48 bits virtual
+CPU(s):                                  128
+On-line CPU(s) list:                     0-127
+Thread(s) per core:                      2
+Core(s) per socket:                      32
+Socket(s):                               2
+NUMA node(s):                            8
+Vendor ID:                               AuthenticAMD
+CPU family:                              25
+Model:                                   1
+Model name:                              AMD EPYC 7513 32-Core Processor
+Stepping:                                1
+CPU MHz:                                 2595.288
+BogoMIPS:                                5190.57
+Virtualization:                          AMD-V
+L1d cache:                               2 MiB
+L1i cache:                               2 MiB
+L2 cache:                                32 MiB
+L3 cache:                                256 MiB
+--- mem ---
+              total        used        free      shared  buff/cache   available
+Mem:            503         113          93           3         296         379
+Swap:             7           0           7
+--- load ---
+6.10 3.65 2.44 2/4268 2339
+--- disk ---
+overlay         140G   16G  125G  12% /
+--- pip ---
+dvc                       2.58.2
+dvclive                   2.11.0
+lightning                 2.1.2
+ml-collections            0.1.1
+numpy                     1.26.4
+pandas                    1.5.3
+scipy                     1.10.1
+torch                     2.1.2
