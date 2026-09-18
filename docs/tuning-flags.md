@@ -810,3 +810,30 @@ each of 32 workers a fixed 8 threads on the same box and spinning collapses to 1
 parking holds 1839.5, a 1.40x. That is 256 threads of demand on 64, and the fix for it is the thread
 cap tt-bio already applies by default, which on its own takes that configuration from 1311.2 to
 1789.4. Parking is the last 1.4 %.
+
+## `TT_BIO_PAIR_Z_B8` — off
+
+Stores the pair tensor `z` in `bfloat8_b` across the Pairformer instead of bf16. Off, and it should
+stay off: it is slower and less accurate at the same time.
+
+Boltz-2, 512 aa, Blackhole p300c, clock pinned at 1350 MHz and sampled during every fold,
+interleaved benchlocked A/B, 12 folds an arm.
+
+|  | fold | native CA-lDDT, pseudo-domain 1 | plDDT |
+|---|---|---|---|
+| off | 15.159 s | 0.92249-0.94986 | 0.845919-0.875384 |
+| on | 16.035 s (0.945x) | 0.87528-0.88740 | 0.795595-0.806021 |
+
+The reason it is slower is not the format. Every read of `z` reaches a pair projection through a
+`ttnn.layer_norm`, which has no output-dtype argument and passes the block format straight through,
+and the tuned projections then refuse a non-bf16 operand: the fused head-major qkv serves 32 of 560
+calls instead of 560, the dual-NOC trimul in-projection 32 of 1088, and the unfused fallback asks
+`_pair_proj_minimal_matmul` 1056 times where the fused path never asked it at all. The bytes
+`bfloat8_b` saves come back as generic kernels, with interest. Widening those two gates is a
+tt-metal dataflow-kernel change, not a Python one.
+
+The accuracy cost is real and is not a sampler basin: measured against the experimental structure,
+pseudo-domain 1's CA-RMSD goes from 1.01-1.56 A to 4.05-4.58 A at every one of four seeds. Output is
+reproducible (A/A bit-exact in both arms), so this is less accurate, not broken.
+
+Numbers in `perf/bfp8_z/` (`score_Z.json`, `z_ab.json`, `z_seq_ab.json`).

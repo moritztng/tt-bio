@@ -213,6 +213,14 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=AB.SAMPLING_STEPS)
     ap.add_argument("--recycles", type=int, default=AB.RECYCLING_STEPS)
     ap.add_argument("--list", action="store_true", help="print the arm table and exit")
+    ap.add_argument("--seq", default=None,
+                    help="fold this comma-separated arm SEQUENCE at --seed in ONE process, "
+                         "instead of the seed plan. The arms are read at call time, so "
+                         "alternating them in one process removes model-load and "
+                         "process-drift variance from the A/B and keeps the pairing.")
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--aiclk", type=int, default=0,
+                    help="force the ARC clock to this MHz for the whole session and hold it")
     args = ap.parse_args()
 
     if args.list:
@@ -220,7 +228,13 @@ def main() -> int:
         return 0
 
     plan = {}
-    for part in args.plan.split(";"):
+    if args.seq:
+        seq = [a.strip() for a in args.seq.split(",") if a.strip()]
+        for arm in seq:
+            assert arm in ARMS, f"unknown arm {arm}; have {sorted(ARMS)}"
+            plan.setdefault(arm, [args.seed])
+        args.plan = f"seq={args.seq}@seed{args.seed}"
+    for part in ([] if args.seq else args.plan.split(";")):
         arm, _, seeds = part.partition(":")
         assert arm in ARMS, f"unknown arm {arm}; have {sorted(ARMS)}"
         plan[arm] = [int(s) for s in seeds.split(",")]
@@ -267,6 +281,16 @@ def main() -> int:
 
     AB.SAMPLING_STEPS, AB.RECYCLING_STEPS = args.steps, args.recycles
     dev = get_device()
+    aiclk_held = None
+    if args.aiclk:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "_bfp8z_aiclk", Path(__file__).resolve().parent / "aiclk_hold.py")
+        AICLK = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(AICLK)
+        os.environ["TT_BIO_AICLK"] = str(args.aiclk)
+        aiclk_held = AICLK.engage(str(dev.arch()).split(".")[-1].lower())
+        assert aiclk_held == args.aiclk, f"asked {args.aiclk} MHz, engage() gave {aiclk_held}"
     g = dev.compute_with_storage_grid_size()
     clk = Clock(aiclk_node(os.environ.get("TT_VISIBLE_DEVICES")))
     out = {"doc": __doc__, "env": {
@@ -274,6 +298,7 @@ def main() -> int:
         "torch": torch.__version__,
         "tt_visible_devices": os.environ.get("TT_VISIBLE_DEVICES"),
         "aiclk_node": str(clk.node),
+        "aiclk_held_mhz": aiclk_held,
         "bias_suppressor_installed": wrapped,
         "tt_bio_file": _TB.__file__,
         "commit": os.popen(f"git -C {REPO} rev-parse HEAD").read().strip(),
@@ -400,13 +425,21 @@ def main() -> int:
     for size in sizes:
         target = AB.FIX / f"cdk2x2_{size}.yaml"
         order = []
-        for seed in sorted({s for v in plan.values() for s in v}):
-            order += [(arm, seed) for arm in plan if seed in plan[arm]]
-        order.append((first, plan[first][0]))             # the A/A repeat, last
-        seen = set()
-        for arm, seed in order:
-            tag = f"{arm}-s{seed}" + ("_r1" if (arm, seed) in seen else "")
-            seen.add((arm, seed))
+        if args.seq:
+            for arm in dict.fromkeys(seq):                # one warmup per distinct arm
+                order.append((arm, args.seed))
+            order += [(arm, args.seed) for arm in seq]
+        else:
+            for seed in sorted({s for v in plan.values() for s in v}):
+                order += [(arm, seed) for arm in plan if seed in plan[arm]]
+            order.append((first, plan[first][0]))         # the A/A repeat, last
+        seen: dict = {}
+        for i, (arm, seed) in enumerate(order):
+            n = seen.get((arm, seed), 0)
+            seen[(arm, seed)] = n + 1
+            tag = f"{arm}-s{seed}" + (f"_r{n}" if n else "")
+            if args.seq:
+                tag = f"{arm}-s{seed}_i{i:02d}" + ("_warm" if i < len(dict.fromkeys(seq)) else "")
             r = fold(arm, seed, target, args.cifdir / f"{size}_{tag}")
             r["tag"] = tag
             out["runs"].append(r)
