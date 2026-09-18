@@ -272,6 +272,39 @@ this flag is worth more on the reference fixture than on a deep-MSA target.
 Boltz-2's MSA module and trunk read the ladder, and BoltzGen reaches it through the trunk it shares.
 Protenix-v2, OpenFold3 and RF3 have their own MSA modules and do not read it.
 
+## `TT_BIO_OPM_LEGACY_LAYOUT` — off
+
+`OuterProductMean` averages the MSA depth and projects the result into the pair tensor. Two things
+about how it finished that job were costing a pass over the pair tensor every call. The `1/depth`
+mean is a scalar, so it belongs on the smallest tensor in the chain, and this path had it on the
+largest: it multiplied the assembled pair rows, 536,870,912 B at 512 aa, where the per-row MSA
+tensor is 2,097,152 B. The output projection was also issued once per token row with the core grid
+pinned, which makes it re-read the full contraction for every 32x32 it writes; one matmul over the
+flattened rows reads each operand once. Set this flag to get both of the old behaviours back.
+
+**Accuracy: not identical.** Against a float64 reference built from the same bf16 inputs, through
+the real module both ways, the two arms read the same max error, 5.3899e-3, and mean error
+6.18831e-4 legacy against 6.18829e-4 default. The arms differ from each other by at most 1.953e-3,
+which is exactly one bf16 step at that magnitude: the projection picks its own contraction blocking
+when it is not pinned, so the sum lands in a different order. Not a precision loss, a different
+rounding. Folding the scale earlier is exact whenever the depth is a power of two, and off a power
+of two it moves the same last bit.
+
+At the fold, the two structures differ by **0.5165 A** over 4116 atoms, against the 0.60 A bar this
+size is held to. For scale, re-running either arm with a different seed moves the structure 1.84 A.
+pLDDT is 0.845343 default against 0.845919 legacy. Each arm is reproducible on its own: a third arm
+repeating the legacy one wrote a byte-identical CIF.
+
+**Speed: 1.0102x on the fold**, 14.7162 s to 14.5673 s, five reps per arm interleaved inside one
+process on one Blackhole chip of a p300c, with that repeated legacy arm as the session's own floor.
+The floor is 0.0265 s, a sixth of the 0.1489 s effect. The clock was forced and sampled during the
+folds rather than before: 115,819 samples, minimum and maximum both 1350 MHz.
+
+The gain is in the trunk, which is where the code is. Splitting the fold at its stage boundaries
+puts 0.1471 s of the 0.1489 s in prepare-and-trunk and -0.0123 s in the sampler, and
+`OuterProductMean` runs inside `MSALayer`. A sampler-side effect here would have meant something
+else was using the box.
+
 ## `TT_BIO_PAIR_FFN_L1_FC1` — on, ESMFold2 only
 
 ESMFold2's trunk runs its pair transition in 32-row blocks. Inside a block the first matmul is
