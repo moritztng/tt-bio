@@ -236,6 +236,70 @@ def test_a_candidate_path_that_does_not_exist_costs_no_subprocess():
             os.environ["OPENDDE_DOCKQ_PYTHON"] = saved
 
 
+def test_the_esm_root_preflight_is_not_stricter_than_the_harness():
+    """The gate must resolve ESM_ROOT the way tests/esmc_reference.py resolves it.
+
+    That file reads os.environ.get("ESM_ROOT", "/home/ttuser/esm"), so on qb2 -- where the clone
+    IS at that path -- the leg runs fine with the variable unset. The gate nonetheless exited on a
+    missing ESM_ROOT after 3h36m of folding, refusing a configuration that works.
+    """
+    ref = open(os.path.join(REPO, "tests", "esmc_reference.py")).read()
+    assert f'"{rg.ESM_ROOT_DEFAULT}"' in ref, (
+        f"the gate's ESM_ROOT_DEFAULT ({rg.ESM_ROOT_DEFAULT}) no longer matches the fallback in "
+        f"tests/esmc_reference.py -- they must move together or the gate refuses a working box")
+
+
+def test_an_unset_esm_root_falls_back_to_the_harness_default():
+    saved = os.environ.pop("ESM_ROOT", None)
+    try:
+        # Point the default at a directory that exists here, so the fallback is observable
+        # without needing qb2's clone.
+        orig = rg.ESM_ROOT_DEFAULT
+        rg.ESM_ROOT_DEFAULT = REPO
+        try:
+            root, where = rg._resolve_esm_root()
+            assert root == REPO, (root, where)
+            assert "default" in where, where
+            rg._preflight_esmc_root(["esmc-300m"])       # must NOT raise
+        finally:
+            rg.ESM_ROOT_DEFAULT = orig
+    finally:
+        if saved is not None:
+            os.environ["ESM_ROOT"] = saved
+
+
+def test_an_explicit_esm_root_still_wins_over_the_default():
+    saved = os.environ.get("ESM_ROOT")
+    try:
+        os.environ["ESM_ROOT"] = REPO
+        root, where = rg._resolve_esm_root()
+        assert root == REPO and "ESM_ROOT" in where, (root, where)
+    finally:
+        if saved is None:
+            os.environ.pop("ESM_ROOT", None)
+        else:
+            os.environ["ESM_ROOT"] = saved
+
+
+def test_neither_variable_nor_default_is_still_refused_before_the_fold():
+    """The negative control: the fallback must not make the check vacuous."""
+    saved = os.environ.pop("ESM_ROOT", None)
+    orig = rg.ESM_ROOT_DEFAULT
+    try:
+        rg.ESM_ROOT_DEFAULT = "/no/such/esm/clone"
+        try:
+            rg._preflight_esmc_root(["esmc-300m"])
+        except SystemExit as exc:
+            assert "/no/such/esm/clone" in str(exc), str(exc)
+            assert "esmc-300m" in str(exc), str(exc)
+        else:
+            raise AssertionError("no clone anywhere must still stop the gate at startup")
+    finally:
+        rg.ESM_ROOT_DEFAULT = orig
+        if saved is not None:
+            os.environ["ESM_ROOT"] = saved
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

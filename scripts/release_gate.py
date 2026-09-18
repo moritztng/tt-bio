@@ -1203,6 +1203,29 @@ def _preflight_eval_scorers(models: list) -> None:
                  f"device work on purpose.")
 
 
+#: Where tests/esmc_reference.py looks when ESM_ROOT is unset. Kept in step with it deliberately:
+#: the gate used to hard-require the variable while the harness it guards already had this
+#: fallback, so the gate refused a configuration that would have worked.
+ESM_ROOT_DEFAULT = "/home/ttuser/esm"
+
+
+def _resolve_esm_root():
+    """(path, provenance) for the esm clone, resolved the way the harness resolves it.
+
+    Returns (None, reason) when neither the variable nor the default is a directory. The gate must
+    not be stricter than tests/esmc_reference.py: that file reads
+    os.environ.get("ESM_ROOT", ESM_ROOT_DEFAULT), so on a box where the clone sits at the default
+    path the leg runs fine with the variable unset -- which is the case on qb2, where the gate
+    nonetheless exited on a missing ESM_ROOT after 3h36m of folding.
+    """
+    env = os.environ.get("ESM_ROOT")
+    if env:
+        return env, "from ESM_ROOT"
+    if Path(ESM_ROOT_DEFAULT).is_dir():
+        return ESM_ROOT_DEFAULT, "tests/esmc_reference.py default"
+    return None, "neither ESM_ROOT nor the harness default exists"
+
+
 def _preflight_esmc_root(esmc_models: list) -> None:
     """Fail before any device work if the ESMC leg has no esm clone to score against.
 
@@ -1215,15 +1238,16 @@ def _preflight_esmc_root(esmc_models: list) -> None:
     """
     if not esmc_models:
         return
-    root = os.environ.get("ESM_ROOT")
+    root, where = _resolve_esm_root()
     if not root:
-        sys.exit(f"release gate: the ESMC parity leg ({', '.join(esmc_models)}) needs ESM_ROOT, "
-                 f"the path to the esm clone tests/esmc_reference.py imports its golden from.\n"
-                 f"Set it, or deselect the leg with --models. Checked before any device work on "
-                 f"purpose: this used to be found after the whole gate had folded.")
+        sys.exit(f"release gate: the ESMC parity leg ({', '.join(esmc_models)}) has no esm clone. "
+                 f"tests/esmc_reference.py imports its golden from ESM_ROOT, default "
+                 f"{ESM_ROOT_DEFAULT}, and neither is a directory here.\n"
+                 f"Set ESM_ROOT, or deselect the leg with --models. Checked before any device "
+                 f"work on purpose: this used to be found after the whole gate had folded.")
     if not Path(root).is_dir():
-        sys.exit(f"release gate: ESM_ROOT={root} is not a directory, so the ESMC parity leg "
-                 f"({', '.join(esmc_models)}) could only produce a FAIL that measures nothing.")
+        sys.exit(f"release gate: ESM_ROOT={root} ({where}) is not a directory, so the ESMC parity "
+                 f"leg ({', '.join(esmc_models)}) could only produce a FAIL that measures nothing.")
 
 
 def _preflight_msa_cache(models: list) -> None:
