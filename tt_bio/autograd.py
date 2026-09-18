@@ -30,7 +30,7 @@ __all__ = [
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
     "relu", "silu", "reshape",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
-    "install", "uninstall", "installed",
+    "install", "uninstall", "installed", "is_grad_enabled", "backward",
 ]
 
 
@@ -52,6 +52,12 @@ def precise_config():
 
 
 _GRAD_ENABLED = True
+
+
+def is_grad_enabled() -> bool:
+    """Whether taping is on. ``no_grad`` is the only thing that turns it off, and a caller
+    that needs to branch on it should not have to reach into the context manager to find out."""
+    return _GRAD_ENABLED
 
 
 class no_grad:
@@ -107,15 +113,48 @@ class Tensor:
 
     def backward(self, seed=None) -> None:
         """Replay the tape from here. ``seed`` defaults to ones, i.e. d(sum(self))/d(self)."""
-        order = _reverse_topo(self)
-        self.grad = ttnn.ones_like(self.value) if seed is None else seed
-        for t in order:
-            if t.node is not None:
-                t.node.fn(t.grad)
+        backward([self], [seed])
 
 
-def _reverse_topo(root: Tensor) -> list:
-    """Reverse post-order DFS over tape edges (output -> inputs).
+def backward(roots, seeds=None) -> None:
+    """Replay one tape from SEVERAL roots at once, seeding each.
+
+    A loss assembled on the host from k device outputs comes back as k seeds, and calling
+    ``Tensor.backward`` k times is wrong twice over rather than merely slow. It replays every
+    shared ancestor k times -- for ABodyBuilder3 that is the whole trunk, eight times -- and
+    because each replay runs a shared node's closure with only the gradient that had arrived
+    by then, the fan-in sums land partial and then get summed again on the next pass. One
+    reverse topological order over the union of the roots' ancestors fixes both: every node's
+    closure fires exactly once, after every contribution to it has landed.
+
+    ``seeds`` is one per root, ``None`` for ones. A root that is also an ancestor of another
+    root is handled correctly, because its seed is accumulated with ``add_grad`` semantics
+    before the traversal and its own closure does not fire until the topological order says
+    every consumer has run.
+
+    Requested by ``train-b2-abb3-port``, whose eight geometry-loss outputs share one trunk.
+    The eight-term ``ProtenixLoss`` has the same shape the moment it reads a second head.
+    """
+    if isinstance(roots, Tensor):
+        roots = [roots]
+        seeds = [seeds] if not isinstance(seeds, (list, tuple)) else seeds
+    roots = list(roots)
+    if seeds is None:
+        seeds = [None] * len(roots)
+    seeds = list(seeds)
+    if len(seeds) != len(roots):
+        raise ValueError(f"{len(roots)} roots but {len(seeds)} seeds")
+    order = _reverse_topo(roots)
+    for r, sd in zip(roots, seeds):
+        g = ttnn.ones_like(r.value) if sd is None else sd
+        r.grad = g if r.grad is None else ttnn.add(r.grad, g)
+    for t in order:
+        if t.node is not None:
+            t.node.fn(t.grad)
+
+
+def _reverse_topo(roots) -> list:
+    """Reverse post-order DFS over tape edges (output -> inputs), from one root or many.
 
     Reverse post-order is a topological order of a DAG, so every consumer of a tensor runs
     before the tensor's own closure. That ordering is what makes the fan-in sum in
@@ -124,7 +163,11 @@ def _reverse_topo(root: Tensor) -> list:
     """
     order: list = []
     seen: set = set()
-    stack = [(root, False)]
+    if isinstance(roots, Tensor):
+        roots = [roots]
+    # Reversed, so that with an explicit LIFO stack the first root is expanded first and the
+    # single-root order is unchanged from what this function produced before it took a list.
+    stack = [(r, False) for r in reversed(list(roots))]
     while stack:
         t, expanded = stack.pop()
         if expanded:
@@ -268,42 +311,53 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
 
 
 def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor] = None,
-               *, eps: float = 1e-6, config=None, backward_config=None) -> Tensor:
-    """Layer norm over the last dim, composite so the backward has mean and rstd to hand.
+               *, eps: float = 1e-6, config=None, backward_config=None,
+               memory_config=None) -> Tensor:
+    """Layer norm over the last dim. The forward is ``ttnn.layer_norm``, production's own.
 
-    Composite on purpose. ``ttnn.layer_norm`` does not return mean/rstd and
-    ``moreh_layer_norm_backward`` requires both, so the moreh route needs the forward taught
-    to emit them and then refuses bfloat8_b in the kernel. Computing them here costs two
-    reductions and keeps the whole op on production eltwise.
+    This op used to be a composite five-op forward, justified by ``ttnn.layer_norm`` returning
+    neither mean nor rstd while ``moreh_layer_norm_backward`` needs both and then refuses
+    bfloat8_b. That argument rules out MOREH; it does not rule out keeping the production
+    forward. The backward already retains ``x`` -- ``dx`` is a function of it -- so mean and
+    rstd can be recomputed there for two reductions on a pass that carries one per op anyway.
+    The composite forward was an unforced concession and it cost the one thing worth having:
+    with the kernel back, a taped layer norm's forward is BIT-IDENTICAL to the served one, not
+    merely close. Found by ``train-b2-abb3-port``'s ``abodybuilder3_ops.layer_norm``, which
+    reached the same shape from the other end.
 
-    One deliberate departure from tt-train: ``composite_layernorm``
-    (ops/layernorm_op.cpp:144) takes the variance as E[x^2] - E[x]^2, which cancels
-    catastrophically once the mean dominates the spread. This uses the two-pass
-    E[(x - mean)^2] instead, for one extra pass over the row.
+    Note what is NOT recoverable and why it does not matter: ``ttnn.layer_norm``'s internal
+    mean and rstd are whatever its kernel computed, and the two the backward recomputes here
+    are a two-pass ``E[(x - mean)^2]``, so they can differ in the last bits. That is a
+    backward-side approximation of the backward's own coefficients, which is the half of the
+    op where precision is cheap and where ``precise_config`` already applies. It is not a
+    forward difference, and the forward is the half that has to match what we serve.
 
-    ``eps`` defaults to 1e-6 and every tt-bio layer norm on the inference path uses 1e-5, a
-    factor of ten. The default is kept because the diagnostics under ``perf/hallgrad`` are
+    ``eps`` defaults to 1e-6 while every tt-bio layer norm on the inference path uses 1e-5, a
+    factor of ten. The default stays because the diagnostics under ``perf/hallgrad`` are
     calibrated against it; the attach point passes the site's own epsilon, so nothing
-    dispatched here can inherit this default.
+    dispatched through ``tt_bio.ops`` can inherit this default.
     """
     cfg = config or precise_config()
-    _ = backward_config or cfg  # this op's backward is eltwise; no matmul config to set
+    bwcfg = backward_config or precise_config()
     xv = x.value
-    mean = ttnn.mean(xv, dim=-1, keepdim=True)
-    centered = ttnn.subtract(xv, mean)
-    var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True)
-    rstd = ttnn.rsqrt(ttnn.add(var, eps))
-    norm = ttnn.multiply(centered, rstd)
-    out_v = norm
-    if gamma is not None:
-        out_v = ttnn.multiply(out_v, gamma.value)
-    if beta is not None:
-        out_v = ttnn.add(out_v, beta.value)
+    kw = {} if memory_config is None else {"memory_config": memory_config}
+    out_v = ttnn.layer_norm(xv, weight=(gamma.value if gamma is not None else None),
+                            bias=(beta.value if beta is not None else None),
+                            epsilon=eps, compute_kernel_config=cfg, **kw)
     parents = [p for p in (x, gamma, beta) if p is not None]
-    width = float(int(xv.shape[-1]))
 
     def make():
         def bw(g):
+            # Recomputed here, not retained from the forward: two reductions, and it is what
+            # buys the production kernel above. The two-pass E[(x - mean)^2] rather than
+            # tt-train's E[x^2] - E[x]^2 (ops/layernorm_op.cpp:144), which cancels
+            # catastrophically once the mean dominates the spread.
+            mean = ttnn.mean(xv, dim=-1, keepdim=True)
+            centered = ttnn.subtract(xv, mean)
+            var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
+                            compute_kernel_config=bwcfg)
+            rstd = ttnn.rsqrt(ttnn.add(var, eps))
+            norm = ttnn.multiply(centered, rstd)
             if gamma is not None and gamma.requires_grad:
                 gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
             if beta is not None and beta.requires_grad:
@@ -318,7 +372,6 @@ def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor]
                 x.add_grad(ttnn.multiply(dx, rstd))
         return bw
 
-    _ = width  # row width enters only through the means above
     return _tape(out_v, parents, make)
 
 
@@ -780,10 +833,13 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
 #     `_GRAD_ENABLED` alone cannot do this: it prunes the tape node after the caller has
 #     already computed the forward.
 #   * It forwards `dtype`, `core_grid` and the site's own compute kernel config and epsilon,
-#     all four of which the tape's ops used to drop. A differentiable layer norm still has
-#     to be composite -- `ttnn.layer_norm` returns neither mean nor rstd and
-#     `moreh_layer_norm_backward` needs both, then refuses bfloat8_b -- but that is now the
-#     only forward difference, and it only exists where a gradient is actually wanted.
+#     all four of which the tape's ops used to drop.
+#
+# With `layer_norm` now running `ttnn.layer_norm` in the forward and recomputing mean and
+# rstd in the backward, the taped forward is the production forward op for op. The one
+# remaining difference is a fused activation, which is composed rather than fused because
+# `ttnn.linear` fuses into the packer and silu's output cannot be inverted. That is measured,
+# not assumed, and it only exists where a gradient is actually wanted.
 # ---------------------------------------------------------------------------------------
 
 _ACTIVATIONS = {"relu": relu, "sigmoid": sigmoid, "silu": silu}
@@ -846,9 +902,11 @@ class _Hook:
             return Tensor(ops.shipped_layer_norm(
                 _unwrap(x), _unwrap(weight), _unwrap(bias), epsilon=epsilon,
                 compute_kernel_config=compute_kernel_config, l1_headroom=l1_headroom, **kw))
-        # `l1_headroom` is dropped on purpose: it asks for an L1-resident RESULT, and the
-        # composite backward reads five intermediates that an L1 budget sized for one
-        # tensor cannot hold. It is a placement lever, so dropping it moves no number.
+        # `l1_headroom` is dropped on purpose. It asks for an L1-resident RESULT, and a
+        # backward holding a tape's worth of activations cannot be priced against a budget
+        # sized for one tensor. It is a placement lever and not a numeric one -- the values
+        # `ttnn.layer_norm` computes do not depend on where it writes them -- so the forward
+        # stays bit-identical to production either way.
         return layer_norm(_wrap(x), _wrap(weight), _wrap(bias), eps=epsilon,
                           config=compute_kernel_config, **kw)
 
