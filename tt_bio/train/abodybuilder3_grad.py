@@ -269,6 +269,21 @@ def _mul(shipped, a, b):
     return _tape(out_v, [a, b], make)
 
 
+def _div(shipped, a, b):
+    av, bv = _unwrap(a), _unwrap(b)
+    out_v = shipped(av, bv)
+
+    def make():
+        def bw(g):
+            inv = ttnn.reciprocal(bv)
+            _accumulate(a, ttnn.multiply(g, inv))
+            # -g * a / b^2, from the retained output rather than a second reciprocal.
+            _accumulate(b, ttnn.neg(ttnn.multiply(ttnn.multiply(g, out_v), inv)))
+        return bw
+
+    return _tape(out_v, [a, b], make)
+
+
 def _scale(shipped, x, factor):
     out_v = shipped(_unwrap(x), factor)
     f = float(factor)
@@ -312,6 +327,34 @@ def _softplus(shipped, x):
     def make():
         def bw(g):
             _accumulate(x, ttnn.multiply(g, ttnn.sigmoid(xv)))
+        return bw
+
+    return _tape(out_v, [x], make)
+
+
+def _clamp_min(shipped, x, value):
+    """Gradient passes where `x` is above the floor and nowhere else, which is `clamp`'s."""
+    xv = _unwrap(x)
+    out_v = shipped(xv, value)
+
+    def make():
+        def bw(g):
+            _accumulate(x, ttnn.multiply(g, ttnn.gtz(ttnn.subtract(xv, float(value)))))
+        return bw
+
+    return _tape(out_v, [x], make)
+
+
+def _norm_from_sq(shipped, x, eps):
+    """`g * gtz(x) / (2 sqrt(x + eps))`: the 2-norm's derivative, zero at the origin."""
+    xv = _unwrap(x)
+    out_v = shipped(xv, eps)
+
+    def make():
+        def bw(g):
+            denom = ttnn.multiply(ttnn.sqrt(ttnn.add(ttnn.relu(xv), float(eps))), 2.0)
+            _accumulate(x, ttnn.multiply(ttnn.multiply(g, ttnn.gtz(xv)),
+                                         ttnn.reciprocal(denom)))
         return bw
 
     return _tape(out_v, [x], make)
@@ -504,9 +547,9 @@ def _concat(shipped, xs, dim=-1):
 
 
 _TAPED = {
-    "linear": _linear, "matmul": _matmul, "add": _add, "sub": _sub, "mul": _mul,
+    "linear": _linear, "matmul": _matmul, "add": _add, "sub": _sub, "mul": _mul, "div": _div,
     "scale": _scale, "shift": _shift, "sqrt_plus": _sqrt_plus, "softplus": _softplus,
-    "relu": _relu, "sum_last": _sum_last, "sum_dim": _sum_dim, "softmax": _softmax, "layer_norm": _layer_norm,
+    "clamp_min": _clamp_min, "norm_from_sq": _norm_from_sq, "relu": _relu, "sum_last": _sum_last, "sum_dim": _sum_dim, "softmax": _softmax, "layer_norm": _layer_norm,
     "reshape": _reshape, "permute": _permute, "transpose_last": _transpose_last,
     "slice_dim": _slice_dim, "concat": _concat,
 }

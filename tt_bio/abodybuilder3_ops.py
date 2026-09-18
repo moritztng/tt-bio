@@ -30,8 +30,8 @@ import ttnn
 from .tenstorrent import CORE_GRID_MAIN, get_device
 
 __all__ = ["set_grad_hook", "grad_hook", "kernel_config",
-           "linear", "matmul", "add", "sub", "mul", "scale", "shift", "sum_last", "sqrt_plus",
-           "softplus", "relu", "sum_dim", "softmax", "layer_norm", "reshape", "permute", "transpose_last",
+           "linear", "matmul", "add", "sub", "mul", "div", "scale", "shift", "sum_last", "sqrt_plus",
+           "softplus", "clamp_min", "norm_from_sq", "relu", "sum_dim", "softmax", "layer_norm", "reshape", "permute", "transpose_last",
            "slice_dim", "concat"]
 
 _GRAD_HOOK = None
@@ -179,6 +179,42 @@ def sqrt_plus(x, eps: float):
     upstream's own 1e-7 (`params.yaml` `epsilon`) is what keeps the derivative finite there.
     """
     return ttnn.sqrt(ttnn.add(x, float(eps)))
+
+
+@_dispatching
+def div(a, b):
+    """`a / b`, broadcasting allowed. Used to normalise a quaternion and a sin/cos pair."""
+    return ttnn.divide(a, b)
+
+
+@_dispatching
+def clamp_min(x, value: float):
+    """`max(x, value)`, with `clamp`'s gradient and not `sqrt(x + eps)`'s.
+
+    The angle resnet normalises by `sqrt(clamp(sum(s^2), min=eps))` (`structure_module.py:167`) and
+    the difference from `sqrt(sum + eps)` is invisible in the value and decisive in the gradient.
+    At the released initialisation `linear_out` is zero, so at step 0 every `sum(s^2)` is exactly
+    zero: `clamp` passes no gradient there, `sqrt(x + eps)` passes `1 / (2 sqrt(1e-7))` = 1581 times
+    whatever arrives. One of those trains and the other one detonates on the first step.
+    """
+    return ttnn.maximum(x, float(value))
+
+
+@_dispatching
+def norm_from_sq(x, eps: float):
+    """`sqrt(x + eps)`, forced to zero wherever `x` is zero: the 2-norm's own subgradient.
+
+    The pairwise distance feature map has an exactly zero diagonal that is never masked away, and
+    at block 0 every translation is zero so the WHOLE map is zero. `torch.linalg.vector_norm`
+    defines the 2-norm backward as zero at the origin; a bare `sqrt` has an infinite derivative
+    there. Gating on `x > 0` reproduces both the value and the derivative, and `eps` only keeps the
+    forward finite in between.
+    """
+    # `relu` before the sqrt is not redundant with the gate after it: a negative input would make
+    # the sqrt NaN, and NaN times zero is NaN, so the gate alone does not protect the op. The real
+    # input is a sum of squares and cannot be negative, which is exactly why an unprotected version
+    # would survive every test until something upstream changed.
+    return ttnn.multiply(ttnn.sqrt(ttnn.add(ttnn.relu(x), float(eps))), ttnn.gtz(x))
 
 
 @_dispatching

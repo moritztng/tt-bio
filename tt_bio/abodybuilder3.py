@@ -82,6 +82,72 @@ def _point_weight(w: torch.Tensor, n_heads: int, n_points: int, *, pad: bool) ->
 
 
 @dataclass
+class Rigid:
+    """The running frame as ABodyBuilder3 carries it: a quaternion and a translation, per residue.
+
+    The quaternion is the state and the rotation matrix is derived, which is upstream's own choice
+    (`Rigid.identity(..., fmt="quat")` and `compose_q_update_vec`) and not an implementation detail:
+    the backbone update composes onto the quaternion and renormalises it, so keeping the matrix as
+    state would drift off SO(3) over 8 blocks.
+    """
+
+    quat: list          # 4 device tensors, each [B, N]
+    trans: list         # 3 device tensors, each [B, N]
+
+    @classmethod
+    def identity(cls, batch: int, n_tok: int, *, upload) -> "Rigid":
+        one = upload(torch.ones(batch, n_tok))
+        zero = upload(torch.zeros(batch, n_tok))
+        return cls(quat=[one, zero, zero, zero], trans=[zero, zero, zero])
+
+    def frame(self) -> "Frame":
+        """The rotation matrix for this quaternion, as nine broadcastable components."""
+        a, b, c, d = self.quat
+        aa, bb, cc, dd = (ops.mul(x, x) for x in (a, b, c, d))
+        ab, ac, ad = ops.mul(a, b), ops.mul(a, c), ops.mul(a, d)
+        bc, bd, cd = ops.mul(b, c), ops.mul(b, d), ops.mul(c, d)
+        two = lambda p, q, sign: ops.scale(ops.add(p, q) if sign > 0 else ops.sub(p, q), 2.0)
+        rot = [
+            [ops.sub(ops.add(aa, bb), ops.add(cc, dd)), two(bc, ad, -1), two(bd, ac, +1)],
+            [two(bc, ad, +1), ops.sub(ops.add(aa, cc), ops.add(bb, dd)), two(cd, ab, -1)],
+            [two(bd, ac, -1), two(cd, ab, +1), ops.sub(ops.add(aa, dd), ops.add(bb, cc))],
+        ]
+        return Frame(rot=rot, trans=list(self.trans))
+
+    def compose_update(self, update: list) -> "Rigid":
+        """`Rigid.compose_q_update_vec`: a pure-vector quaternion update, then a local translation.
+
+        The quaternion product is written out rather than taken from a table, and it is the standard
+        Hamilton product of `(a,b,c,d)` with `(0, v)`. The translation update is rotated by the OLD
+        rotation before it is added, which is upstream's order and AlphaFold's
+        (`Rigid.compose_q_update_vec:1018` applies `self._rots`, not the new ones).
+        """
+        a, b, c, d = self.quat
+        v1, v2, v3 = update[:3]
+        da = ops.scale(ops.add(ops.add(ops.mul(b, v1), ops.mul(c, v2)), ops.mul(d, v3)), -1.0)
+        db = ops.sub(ops.add(ops.mul(a, v1), ops.mul(c, v3)), ops.mul(d, v2))
+        dc = ops.sub(ops.add(ops.mul(a, v2), ops.mul(d, v1)), ops.mul(b, v3))
+        dd_ = ops.sub(ops.add(ops.mul(a, v3), ops.mul(b, v2)), ops.mul(c, v1))
+        raw = [ops.add(a, da), ops.add(b, db), ops.add(c, dc), ops.add(d, dd_)]
+        norm_sq = None
+        for q in raw:
+            term = ops.mul(q, q)
+            norm_sq = term if norm_sq is None else ops.add(norm_sq, term)
+        norm = ops.sqrt_plus(norm_sq, 0.0)
+        quat = [ops.div(q, norm) for q in raw]
+
+        rot = self.frame().rot
+        trans = []
+        for i in range(3):
+            acc = None
+            for j in range(3):
+                term = ops.mul(rot[i][j], update[3 + j])
+                acc = term if acc is None else ops.add(acc, term)
+            trans.append(ops.add(self.trans[i], acc))
+        return Rigid(quat=quat, trans=trans)
+
+
+@dataclass
 class Frame:
     """One rigid frame per residue, as twelve `[B, N]` component tensors.
 
@@ -357,3 +423,212 @@ def frame_from_quaternion(quat: torch.Tensor, trans: torch.Tensor, *, upload=to_
     rot = affine.rotation
     return Frame(rot=[[upload(rot[..., i, j]) for j in range(3)] for i in range(3)],
                  trans=[upload(affine.translation[..., i]) for i in range(3)])
+
+
+class DeviceTransition:
+    """`StructureModuleTransition` at `no_transition_layers=1`: a 3-linear ReLU residual, then LN."""
+
+    def __init__(self, weights: dict, cfg: ABB3Config, *, to_device):
+        s = "layers.0."
+        self.w = [to_device(weights[f"{s}linear_{i}.weight"].t()) for i in (1, 2, 3)]
+        self.b = [to_device(weights[f"{s}linear_{i}.bias"]) for i in (1, 2, 3)]
+        self.ln_w = to_device(weights["layer_norm.weight"])
+        self.ln_b = to_device(weights["layer_norm.bias"])
+
+    def __call__(self, s, *, dropout=None):
+        h = ops.relu(ops.linear(s, self.w[0], self.b[0]))
+        h = ops.relu(ops.linear(h, self.w[1], self.b[1]))
+        s = ops.add(s, ops.linear(h, self.w[2], self.b[2]))
+        if dropout is not None:
+            s = dropout(s)
+        return ops.layer_norm(s, self.ln_w, self.ln_b)
+
+
+class DeviceAngleResnet:
+    """Alg. 20 lines 11-14 at `use_original_sm=True`, with sin and cos in separate tile blocks.
+
+    The output is 7 sin/cos pairs interleaved as 14 channels upstream, and 2 is a quarter of a tile,
+    so the pairs cannot be split on device without a sub-tile slice. The host weight is reordered
+    instead: sin into channels 0-6 of one 32-wide block, cos into channels 0-6 of the next. Then
+    `sin^2 + cos^2` is an elementwise add whose channel k already holds angle k's squared norm, so
+    the normalisation needs no reduction at all, and the padded channels normalise 0 to 0.
+    """
+
+    def __init__(self, weights: dict, cfg: ABB3Config, *, to_device):
+        self.eps = cfg.epsilon
+        self.w_in = to_device(weights["linear_in.weight"].t())
+        self.b_in = to_device(weights["linear_in.bias"])
+        self.w_init = to_device(weights["linear_initial.weight"].t())
+        self.b_init = to_device(weights["linear_initial.bias"])
+        self.blocks = []
+        for i in range(cfg.no_resnet_blocks):
+            self.blocks.append(([to_device(weights[f"layers.{i}.linear_{j}.weight"].t())
+                                 for j in (2, 3)],
+                                [to_device(weights[f"layers.{i}.linear_{j}.bias"]) for j in (2, 3)]))
+        out_w, out_b = weights["linear_out.weight"], weights["linear_out.bias"]
+        n = cfg.no_angles
+        padded_w = out_w.new_zeros(2 * TILE, out_w.shape[1])
+        padded_b = out_b.new_zeros(2 * TILE)
+        for part in (0, 1):                       # 0 = sin, 1 = cos, upstream interleaves them
+            padded_w[part * TILE:part * TILE + n] = out_w[part::2]
+            padded_b[part * TILE:part * TILE + n] = out_b[part::2]
+        self.w_out = to_device(padded_w.t())
+        self.b_out = to_device(padded_b)
+
+    def __call__(self, s, s_initial):
+        h = ops.add(ops.linear(ops.relu(s), self.w_in, self.b_in),
+                    ops.linear(ops.relu(s_initial), self.w_init, self.b_init))
+        for w, b in self.blocks:
+            inner = ops.relu(ops.linear(ops.relu(h), w[0], b[0]))
+            h = ops.add(h, ops.linear(inner, w[1], b[1]))
+        raw = ops.linear(ops.relu(h), self.w_out, self.b_out)
+        width = int(raw.shape[-1])
+        sin = ops.slice_dim(raw, -1, 0, TILE)
+        cos = ops.slice_dim(raw, -1, TILE, width)
+        norm_sq = ops.add(ops.mul(sin, sin), ops.mul(cos, cos))
+        norm = ops.sqrt_plus(ops.clamp_min(norm_sq, self.eps), 0.0)
+        return (sin, cos), (ops.div(sin, norm), ops.div(cos, norm))
+
+
+class DeviceBackboneUpdate:
+    """Alg. 23 line 10, as six one-column projections.
+
+    Six outputs is a fifth of a tile, so one 6-wide projection would have to be sliced per channel
+    below tile granularity. Six projections of width 1 cost six launches on a 128x1 matmul and hand
+    back exactly the `[B, N]` scalars the frame is built from.
+    """
+
+    def __init__(self, weights: dict, *, to_device):
+        w, b = weights["linear.weight"], weights["linear.bias"]
+        self.w = [to_device(w[i:i + 1].t()) for i in range(6)]
+        self.b = [to_device(b[i:i + 1]) for i in range(6)]
+
+    def __call__(self, s):
+        batch, n_tok = [int(d) for d in s.shape][:2]
+        return [ops.reshape(ops.linear(s, w, b), [batch, n_tok])
+                for w, b in zip(self.w, self.b)]
+
+
+class DevicePlddtHead:
+    """`PerResidueLDDTCaPredictor`: LN, two ReLU linears, 50 bins. Absent from `base-loss`."""
+
+    def __init__(self, weights: dict, *, to_device):
+        self.ln_w = to_device(weights["layer_norm.weight"])
+        self.ln_b = to_device(weights["layer_norm.bias"])
+        self.w = [to_device(weights[f"linear_{i}.weight"].t()) for i in (1, 2, 3)]
+        self.b = [to_device(weights[f"linear_{i}.bias"]) for i in (1, 2, 3)]
+
+    def __call__(self, s):
+        h = ops.layer_norm(s, self.ln_w, self.ln_b)
+        h = ops.relu(ops.linear(h, self.w[0], self.b[0]))
+        h = ops.relu(ops.linear(h, self.w[1], self.b[1]))
+        return ops.linear(h, self.w[2], self.b[2])
+
+
+def _scope(weights: dict, prefix: str) -> dict:
+    return {k[len(prefix):]: v for k, v in weights.items() if k.startswith(prefix)}
+
+
+class DeviceABB3:
+    """The whole model: `linear_in_*`, then 8 blocks of IPA / transition / update / angles.
+
+    The pair representation is rebuilt every block because its last channel is the pairwise distance
+    between the current frames' translations and the frames move. Only that channel moves, so
+    `linear_in_edge` runs once and its 127 channels are shared by all 8 blocks -- and its host
+    weight is widened to 128 with a zero column, so the distance is ADDED into the last channel
+    rather than concatenated onto 127. Concatenating 127 + 1 on the last axis is not tile-legal, and
+    the add is one broadcast multiply by a one-hot constant plus one add, whose backward reduces
+    straight back to the distance without a sub-tile slice.
+
+    What comes back is per-block device tensors. The geometry tail -- torsion angles to frames, then
+    frames and literature positions to atom14 -- stays in torch on the host, where it is already
+    scored in float64 against upstream and where its gather-heavy rigid-group table lookups cost
+    nothing on 8x256 residues. That boundary is also what makes the four losses comparable against
+    upstream's own `loss.py` without a device port of each.
+    """
+
+    def __init__(self, state_dict: dict, cfg: ABB3Config | None = None, *,
+                 to_device=None, use_plddt: bool | None = None):
+        weights = {k[len("model."):]: v for k, v in state_dict.items() if k.startswith("model.")}
+        weights = weights or dict(state_dict)
+        if use_plddt is None:
+            use_plddt = any(k.startswith("plddt.") for k in weights)
+        self.cfg = cfg or ABB3Config(use_plddt=use_plddt)
+        upload = to_device or to_device_fp32
+        self.upload = upload
+        h = self.cfg.no_heads_ipa
+
+        edge_w, edge_b = weights["linear_in_edge.weight"], weights["linear_in_edge.bias"]
+        wide_w = edge_w.new_zeros(self.cfg.embed_dim, edge_w.shape[1])
+        wide_b = edge_b.new_zeros(self.cfg.embed_dim)
+        wide_w[:edge_w.shape[0]] = edge_w
+        wide_b[:edge_b.shape[0]] = edge_b
+        self.w_edge, self.b_edge = upload(wide_w.t()), upload(wide_b)
+        self.w_node = upload(weights["linear_in_node.weight"].t())
+        self.b_node = upload(weights["linear_in_node.bias"])
+        #: The one-hot that puts the distance into the pair tensor's last channel.
+        self.dist_channel = to_device_fp32(
+            torch.eye(self.cfg.embed_dim)[-1].reshape(1, 1, 1, self.cfg.embed_dim))
+
+        self.ipa, self.ln, self.transition, self.bb_update, self.angles = [], [], [], [], []
+        for i in range(self.cfg.no_blocks):
+            self.ipa.append(DeviceIPA(_scope(weights, f"ipa_layers.{i}."), self.cfg,
+                                      to_device=upload))
+            self.ln.append((upload(weights[f"layer_norm_ipa_layers.{i}.weight"]),
+                            upload(weights[f"layer_norm_ipa_layers.{i}.bias"])))
+            self.transition.append(DeviceTransition(_scope(weights, f"transition_layers.{i}."),
+                                                    self.cfg, to_device=upload))
+            self.bb_update.append(DeviceBackboneUpdate(_scope(weights, f"bb_update_layers.{i}."),
+                                                       to_device=upload))
+            self.angles.append(DeviceAngleResnet(_scope(weights, f"angle_resnet_layers.{i}."),
+                                                 self.cfg, to_device=upload))
+        self.plddt = (DevicePlddtHead(_scope(weights, "plddt."), to_device=upload)
+                      if self.cfg.use_plddt else None)
+
+    def _pair_distance(self, rigid: Rigid, square_mask, n_tok: int, batch: int):
+        """The masked pairwise distance between the current translations, as `[B, N, N, 1]`."""
+        acc = None
+        for t in rigid.trans:
+            col = ops.reshape(t, [batch, 1, n_tok, 1])
+            row = ops.reshape(t, [batch, 1, 1, n_tok])
+            diff = ops.sub(col, row)
+            term = ops.mul(diff, diff)
+            acc = term if acc is None else ops.add(acc, term)
+        dist = ops.mul(ops.norm_from_sq(acc, 1e-12), square_mask)
+        return ops.reshape(ops.reshape(dist, [batch, n_tok, n_tok]), [batch, n_tok, n_tok, 1])
+
+    def __call__(self, single, pair, square_mask, masked_bias, *, dropout=None) -> dict:
+        """`square_mask` is a raw `[B, 1, N, N]` of 0/1 and `masked_bias` is `inf * (mask - 1)`.
+
+        Both are constants derived from the sequence mask on the host. They are passed in rather
+        than built here because the training loop builds one per bucket and reuses it across steps.
+        """
+        cfg = self.cfg
+        batch, n_tok = [int(d) for d in single.shape][:2]
+        z_initial = ops.linear(pair, self.w_edge, self.b_edge)
+        s = ops.linear(single, self.w_node, self.b_node)
+        s_initial = s
+        rigid = Rigid.identity(batch, n_tok, upload=self.upload)
+
+        out = {k: [] for k in ("quat", "trans", "sin", "cos", "unnorm_sin", "unnorm_cos", "states")}
+        for i in range(cfg.no_blocks):
+            dist = self._pair_distance(rigid, square_mask, n_tok, batch)
+            z = ops.add(z_initial, ops.mul(dist, self.dist_channel))
+            s = ops.add(s, self.ipa[i](s, z, rigid.frame(), masked_bias))
+            if dropout is not None:
+                s = dropout(s)
+            s = ops.layer_norm(s, *self.ln[i])
+            s = self.transition[i](s, dropout=dropout)
+            rigid = rigid.compose_update(self.bb_update[i](s))
+            (unnorm_sin, unnorm_cos), (sin, cos) = self.angles[i](s, s_initial)
+            out["quat"].append(list(rigid.quat))
+            out["trans"].append([ops.scale(t, cfg.trans_scale_factor) for t in rigid.trans])
+            out["sin"].append(sin)
+            out["cos"].append(cos)
+            out["unnorm_sin"].append(unnorm_sin)
+            out["unnorm_cos"].append(unnorm_cos)
+            out["states"].append(s)
+        out["single"] = s
+        if self.plddt is not None:
+            out["plddt"] = self.plddt(s)
+        return out

@@ -98,6 +98,14 @@ def _mul():
     return (lambda a, b: a * b), (lambda a, b: ops.mul(a, b)), [(2, 4, 32, 64), (1, 4, 1, 1)]
 
 
+@case("div broadcast", 1e-5, 1e-2)
+def _div():
+    # Denominator offset away from zero: the two users are a quaternion norm, which starts at
+    # exactly 1, and a sin/cos norm floored at eps, so neither ever divides by something small.
+    return ((lambda a, b: a / (b + 3.0)), (lambda a, b: ops.div(a, ops.shift(b, 3.0))),
+            [(2, 4, 32, 64), (2, 1, 32, 1)])
+
+
 @case("scale", 1e-5)
 def _scale():
     return (lambda x: x * 0.375), (lambda x: ops.scale(x, 0.375)), [(2, 32, 64)]
@@ -122,6 +130,23 @@ def _sqrt():
 @case("softplus", 1e-2, 1e-5)
 def _softplus():
     return (torch.nn.functional.softplus), (lambda x: ops.softplus(x)), [(1, 32, 32)]
+
+
+# Two ops whose whole point is their gradient at a boundary the model actually sits on: the angle
+# resnet's normaliser at step 0, where `linear_out` is zero and every squared sum is exactly zero,
+# and the distance map's diagonal, which is zero always. Both cases feed values straddling the
+# boundary so the gate covers the branch and not just the smooth side.
+@case("clamp_min at the floor", 1e-5)
+def _clamp_min():
+    return ((lambda x: x.clamp(min=1e-7)), (lambda x: ops.clamp_min(x, 1e-7)), [(2, 32, 64)])
+
+
+# Fed a tensor with both signs on purpose: half its entries take the zero branch, so the gate
+# covers the subgradient at the origin and the NaN the sqrt would produce below it.
+@case("norm_from_sq at zero", 1e-5)
+def _norm_from_sq():
+    return ((lambda x: torch.where(x > 0, (x.relu() + 1e-12).sqrt(), torch.zeros_like(x))),
+            (lambda x: ops.norm_from_sq(x, 1e-12)), [(2, 32, 64)])
 
 
 @case("relu", 1e-5)
