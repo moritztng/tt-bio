@@ -25,6 +25,7 @@ from pathlib import Path
 import torch
 
 
+@torch.no_grad()
 def run_design(inputs: Path, out_dir, cache, num_designs: int, n_step: int, seed: int,
                *, stem: str | None = None, verbose: bool = True) -> list[dict]:
     """Design ``num_designs`` binder backbones against the target in ``inputs``.
@@ -40,7 +41,6 @@ def run_design(inputs: Path, out_dir, cache, num_designs: int, n_step: int, seed
     from tt_bio.pxdesign.write import write_design_cifs
 
     inputs = Path(inputs)
-    torch.set_grad_enabled(False)
     feats = design_inputs_from_yaml(inputs)
     # The model's parameters are float32 and the featurizer builds integer bins and
     # masks; the harness converts once before the forward and so does this.
