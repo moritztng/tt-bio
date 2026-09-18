@@ -62,6 +62,11 @@ FLAGS = {
     "TT_BIO_APB_CONCAT_HEADS": "_APB_CONCAT_HEADS",
     "TT_BIO_SDPA_BAND_DIV_K": "_SDPA_BAND_DIV_K",
     "TT_BIO_TRIATT_BIAS_B8": "_TRIATT_BIAS_B8",
+    # READ THIS ONE BACKWARDS. For every other flag here the "on" arm is the lever and a positive
+    # delta_s is a win. TT_BIO_ADALN_MEMO_EAGER is a measurement control that restores the OLD
+    # AdaLN retain, so "on" is the arm being beaten: base = the hit-driven change, on = the code
+    # it replaces, and the change wins when delta_s (base - on) is NEGATIVE.
+    "TT_BIO_ADALN_MEMO_EAGER": "_B2_ADALN_MEMO_EAGER",
 }
 
 
