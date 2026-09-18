@@ -10,6 +10,7 @@ from math import pi, prod
 from functools import lru_cache
 from types import MappingProxyType
 
+from . import ops
 from . import reblock_permute as _reblock
 from . import triatt_qkv as _triatt_qkv
 from . import triatt_sdpa as _triatt_sdpa
@@ -5625,12 +5626,9 @@ class Module:
 
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         """Shared linear projection on this module's kernel config and core grid."""
-        if dtype is None:
-            dtype = _dtype(ttnn.bfloat16)
-        return ttnn.linear(
-            x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
-            dtype=dtype, core_grid=CORE_GRID_MAIN, **kw,
-        )
+        return ops.linear(x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
+                          dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype,
+                          core_grid=CORE_GRID_MAIN, **kw)
 
     def _split_heads(self, qkv, n_heads):
         """Packed [B, L, 3*d] -> per-head (q, k, v) [B, H, L, d_head] via the
@@ -11893,10 +11891,9 @@ class PairConditioningDevice:
         self.zp_proj_weight = w(z_to_p_trans[1].weight, transpose=True)
 
     def _linear(self, x, weight, bias=None, activation=None):
-        return ttnn.linear(
-            x, weight, bias=bias, activation=activation,
-            compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
-        )
+        return ops.linear(x, weight, bias=bias, activation=activation,
+                          compute_kernel_config=self.compute_kernel_config,
+                          core_grid=CORE_GRID_MAIN)
 
     def __call__(self, z, relative_position_encoding, seq_len, seq_pad):
         """``(z_to_p, token_trans_bias)`` from the trunk's device pair tensor.
@@ -12136,10 +12133,9 @@ class PairAssemblyDevice:
         ) if dist_embed is not None else None
 
     def _linear(self, x, weight, bias=None, activation=None, core_grid=CORE_GRID_MAIN):
-        return ttnn.linear(
-            x, weight, bias=bias, activation=activation,
-            compute_kernel_config=self.compute_kernel_config, core_grid=core_grid,
-        )
+        return ops.linear(x, weight, bias=bias, activation=activation,
+                          compute_kernel_config=self.compute_kernel_config,
+                          core_grid=core_grid)
 
     def _pack(self, feats, padded):
         """The one host feature upload: ``[1, padded, padded, n_pack]``, zero-padded.
@@ -12347,8 +12343,8 @@ class ConfidenceHeadsDevice:
                                dtype=ttnn.bfloat16)
 
     def _linear(self, x, weight):
-        return ttnn.linear(x, weight, compute_kernel_config=self.compute_kernel_config,
-                           core_grid=CORE_GRID_MAIN)
+        return ops.linear(x, weight, compute_kernel_config=self.compute_kernel_config,
+                          core_grid=CORE_GRID_MAIN)
 
     def _reduce(self, z, weight, contract):
         """``softmax(z @ weight) @ contract``: one head's bins, already contracted."""

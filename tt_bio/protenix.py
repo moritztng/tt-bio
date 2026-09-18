@@ -35,8 +35,9 @@ from . import protenix_weights as PW
 from .envflags import env_flag
 from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
+from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
-                          MSA_CHUNK_SIZE, batched_matmul, _narrow_proj_linear, _l1_layer_norm,
+                          MSA_CHUNK_SIZE, batched_matmul,
                           device_generation, accurate_softmax_site)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 from .eltwise_fusion import scale_add, norm_residual
@@ -417,41 +418,35 @@ class _KeyedWeights:
                                dtype=getattr(self, "dtype", ttnn.bfloat16))
 
     def _lin(self, x, wkey, bkey=None, activation=None):
-        w = self._w_tt(wkey)
-        dt = getattr(self, "dtype", ttnn.bfloat16)
-        if bkey is None and activation is None:
-            # the template z projection lands here at [1,298,320,256] @ [256,64].
-            # An L1 operand only ever arrives from a caller that deliberately put it there, and
-            # such a caller wants the result in L1 too, so the buffer type carries the decision
-            # and no flag has to be threaded through `_lin`.
-            in_l1 = x.memory_config().buffer_type == ttnn.BufferType.L1
-            out = _narrow_proj_linear(x, w, self.compute_kernel_config, dt, l1_out=in_l1)
-            if out is not None:
-                return out
-        return ttnn.linear(x, w, bias=(self._w_tt(bkey, False) if bkey else None),
-                           activation=activation, compute_kernel_config=self.compute_kernel_config,
-                           dtype=dt, core_grid=CORE_GRID_MAIN)
+        # `narrow_proj` is where the template z projection lands, at [1,298,320,256] @ [256,64].
+        return ops.linear(x, self._w_tt(wkey),
+                          bias=(self._w_tt(bkey, False) if bkey else None),
+                          activation=activation,
+                          compute_kernel_config=self.compute_kernel_config,
+                          dtype=getattr(self, "dtype", ttnn.bfloat16),
+                          core_grid=CORE_GRID_MAIN, narrow_proj=True)
 
     def _ln(self, x, wkey, bkey=None, l1=False):
-        """`l1` for a norm whose consumers are narrow projections of the whole tensor: they are
-        bound by reading it, so an L1-resident result is the lever (`_l1_layer_norm`)."""
-        kw = dict(weight=self._w_tt(wkey, False),
-                  bias=(self._w_tt(bkey, False) if bkey else None),
-                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-        if l1 and _T._TEMPLATE_L1_NORM:
-            # A headroom multiple and no per-core reserve, unlike the two pair sites in
-            # tenstorrent.py, and that is measured rather than inherited
-            # (perf/protenix_tpl_l1/results.md, tests/test_template_l1_consumer_margin.py).
-            # 1.5 always leaves per_core * (1 - 1/1.5) = 510805 B/bank free whatever the grid or
-            # the shape; the one consumer inside the window needs 308736 at 506 tokens, the
-            # largest shape it admits; and the window opens with L1 EMPTY -- a real 496-token
-            # fold reads the full 1461760 B/bank free at all ten recycling cycles, where the
-            # Boltz-2 crash needed 247 KB/core of other live buffers on top of the tensor.
-            # Passing `_PAIR_L1_CONSUMER_RESERVE` here would refuse 464..506 tokens to fix a
-            # clash this site does not have. 1.5 is a floor, not a ceiling: below 1.2524 the
-            # guaranteed free drops under that 308736.
-            return _l1_layer_norm(x, 1.5, **kw)[0]
-        return ttnn.layer_norm(x, **kw)
+        """`l1` for a norm whose consumers are narrow projections of the whole tensor: they
+        are bound by reading it, so an L1-resident result is the lever.
+
+        A headroom multiple of 1.5 and no per-core reserve, unlike the two pair sites in
+        tenstorrent.py, and that is measured rather than inherited
+        (perf/protenix_tpl_l1/results.md, tests/test_template_l1_consumer_margin.py). 1.5
+        always leaves per_core * (1 - 1/1.5) = 510805 B/bank free whatever the grid or the
+        shape; the one consumer inside the window needs 308736 at 506 tokens, the largest
+        shape it admits; and the window opens with L1 EMPTY -- a real 496-token fold reads
+        the full 1461760 B/bank free at all ten recycling cycles, where the Boltz-2 crash
+        needed 247 KB/core of other live buffers on top of the tensor. Passing
+        `_PAIR_L1_CONSUMER_RESERVE` here would refuse 464..506 tokens to fix a clash this
+        site does not have. 1.5 is a floor, not a ceiling: below 1.2524 the guaranteed free
+        drops under that 308736.
+        """
+        return ops.layer_norm(x, self._w_tt(wkey, False),
+                              (self._w_tt(bkey, False) if bkey else None),
+                              epsilon=1e-5,
+                              compute_kernel_config=self.compute_kernel_config,
+                              l1_headroom=1.5 if (l1 and _T._TEMPLATE_L1_NORM) else None)
 
 
 def n_blocks(state_dict, prefix):
@@ -753,10 +748,8 @@ class AtomFeaturization(Module):
         self.w_v = self.torch_to_tt("linear_no_bias_v.weight", dtype=dtype)
 
     def _lin_nb(self, x, w):
-        return ttnn.linear(
-            x, w, compute_kernel_config=self.compute_kernel_config,
-            dtype=self.dtype, core_grid=CORE_GRID_MAIN,
-        )
+        return ops.linear(x, w, compute_kernel_config=self.compute_kernel_config,
+                          dtype=self.dtype, core_grid=CORE_GRID_MAIN)
 
     def c_l(self, ref_pos, ref_charge_asinh, ref_mask, f_in):
         """All inputs are device tensors. ref_charge_asinh is arcsinh(charge)[...,1],
@@ -958,9 +951,9 @@ class DiffusionModule(_KeyedWeights):
 
     def _ln_dit(self, x, wkey, bkey=None):
         """Layer norm at the DiT dtype (used for the DiT-output layernorm_a when fp32)."""
-        return ttnn.layer_norm(x, weight=self._w_tt_dit(wkey, False),
-                               bias=(self._w_tt_dit(bkey, False) if bkey else None),
-                               epsilon=1e-5, compute_kernel_config=self._dit_ckc)
+        return ops.layer_norm(x, self._w_tt_dit(wkey, False),
+                              (self._w_tt_dit(bkey, False) if bkey else None),
+                              epsilon=1e-5, compute_kernel_config=self._dit_ckc)
 
     def _atom_cond(self, cond):
         """Hoist the t-INDEPENDENT diffusion conditioning out of the per-step denoise.
