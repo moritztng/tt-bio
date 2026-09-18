@@ -1,0 +1,155 @@
+{
+ "arm": "on",
+ "size": "298",
+ "folds": [
+  {
+   "tag": "0",
+   "fold_s": 9.914,
+   "clock": {
+    "aiclk_min": 1325,
+    "aiclk_max": 1350,
+    "aiclk_mean": 1345.6,
+    "aiclk_n": 42,
+    "power_w_mean": 56.3
+   },
+   "trimul_branch": {
+    "four-way-split/defer": 2240
+   },
+   "census_delta": {
+    "APB_CONCAT_HEADS": [
+     0,
+     5064
+    ],
+    "ATOM_AXIS_BUCKET": [
+     200,
+     0
+    ],
+    "B2_TOKEN_DIT_SDPA": [
+     4800,
+     0
+    ],
+    "REBLOCK_PERMUTE": [
+     4480,
+     0
+    ],
+    "TRANSITION_H_CHUNK": [
+     296,
+     0
+    ],
+    "TRIATT_HEAD_MAJOR_QKV": [
+     32,
+     528
+    ],
+    "TRIATT_HEAD_MAJOR_TAIL": [
+     32,
+     0
+    ],
+    "TRIATT_PERSISTENT_MASK": [
+     560,
+     0
+    ],
+    "TRIATT_TAIL_OVER_L1": [
+     32,
+     0
+    ],
+    "TRIMUL_IN_PROJ_DUAL_NOC": [
+     0,
+     2240
+    ],
+    "TRIMUL_TAIL_F1": [
+     0,
+     560
+    ]
+   },
+   "plddt": 0.853439,
+   "cif_sha256": "e40c70fa4fef1c309d65371079291560507b24fea38f26a943fdbfdd3f9d8c56",
+   "loadavg1": 4.61
+  }
+ ],
+ "model_load_s": 3.077,
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "tt_visible_devices": "2",
+  "lease_cards": "2",
+  "flag": "TT_BIO_PAIR_B8",
+  "attr": "_PAIR_B8",
+  "env_flag": "1",
+  "module_flag": true,
+  "counter_name": "TRIMUL_MM_TRANSPOSE_STATS branch mix + full lever census delta",
+  "git_head": "33b83d1a9dac4f496d07d397fd336e2f5737b40c",
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0
+  }
+ },
+ "warmup": {
+  "tag": "warmup",
+  "fold_s": 22.38,
+  "clock": {
+   "aiclk_min": 1318,
+   "aiclk_max": 1350,
+   "aiclk_mean": 1345.1,
+   "aiclk_n": 53,
+   "power_w_mean": 60.4
+  },
+  "trimul_branch": {
+   "four-way-split/defer": 2240
+  },
+  "census_delta": {
+   "APB_CONCAT_HEADS": [
+    0,
+    5064
+   ],
+   "ATOM_AXIS_BUCKET": [
+    200,
+    0
+   ],
+   "B2_TOKEN_DIT_SDPA": [
+    4800,
+    0
+   ],
+   "REBLOCK_PERMUTE": [
+    4480,
+    0
+   ],
+   "TRANSITION_H_CHUNK": [
+    296,
+    0
+   ],
+   "TRIATT_HEAD_MAJOR_QKV": [
+    32,
+    528
+   ],
+   "TRIATT_HEAD_MAJOR_TAIL": [
+    32,
+    0
+   ],
+   "TRIATT_PERSISTENT_MASK": [
+    560,
+    0
+   ],
+   "TRIATT_TAIL_OVER_L1": [
+    32,
+    0
+   ],
+   "TRIMUL_IN_PROJ_DUAL_NOC": [
+    0,
+    2240
+   ],
+   "TRIMUL_TAIL_F1": [
+    0,
+    560
+   ]
+  },
+  "plddt": 0.853439,
+  "cif_sha256": "e40c70fa4fef1c309d65371079291560507b24fea38f26a943fdbfdd3f9d8c56",
+  "loadavg1": 5.17,
+  "discarded": true
+ }
+}

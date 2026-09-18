@@ -1,0 +1,30 @@
+=== 512 aa START 2026-09-18T16:07:56+00:00
+benchlock: bfp8-revive-accuracy-killed acquired after 2s, loadavg 0.08 1.95 4.28
+[512 aa]
+    base block0 512aa median  14.799s branches={'gated-move/defer': 560} clk=1350-1350
+    on   block0 512aa median  18.193s branches={'four-way-split/defer': 560} clk=1350-1350
+    base block1 512aa median  14.768s branches={'gated-move/defer': 560} clk=1350-1350
+    on   block1 512aa median  18.171s branches={'four-way-split/defer': 560} clk=1350-1350
+    base block2 512aa median  14.750s branches={'gated-move/defer': 560} clk=1350-1350
+    on   block2 512aa median  18.127s branches={'four-way-split/defer': 560} clk=1350-1350
+    base block3 512aa median  14.814s branches={'gated-move/defer': 560} clk=1350-1350
+    on   block3 512aa median  18.152s branches={'four-way-split/defer': 560} clk=1350-1350
+512 aa  base  14.767s  on  18.152s  delta -3.3855s  ratio 0.81350  A/A floor 1.00434  clk 1350-1350 (1660 samples)
+benchlock: bfp8-revive-accuracy-killed released, rc=0, loadavg 1.61 1.76 3.10
+=== 512 aa rc=0 2026-09-18T16:17:41+00:00
+=== 298 aa START 2026-09-18T16:17:41+00:00
+benchlock: bfp8-revive-accuracy-killed waiting; currently held by: c13-land-first pid=1068733 since=2026-09-18T16:17:41+00:00
+benchlock: bfp8-revive-accuracy-killed acquired after 3s, loadavg 1.48 1.73 3.08
+[298 aa]
+    base block0 298aa median   9.582s branches={'four-way-split/defer': 2240} clk=1350-1350
+    on   block0 298aa median   9.910s branches={'four-way-split/defer': 2240} clk=1350-1350
+    base block1 298aa median   9.608s branches={'four-way-split/defer': 2240} clk=1350-1350
+    on   block1 298aa median   9.879s branches={'four-way-split/defer': 2240} clk=1350-1350
+    base block2 298aa median   9.582s branches={'four-way-split/defer': 2240} clk=1350-1350
+    on   block2 298aa median   9.831s branches={'four-way-split/defer': 2240} clk=1350-1350
+    base block3 298aa median   9.599s branches={'four-way-split/defer': 2240} clk=1350-1350
+    on   block3 298aa median   9.905s branches={'four-way-split/defer': 2240} clk=1350-1350
+298 aa  base   9.594s  on   9.896s  delta -0.3025s  ratio 0.96943  A/A floor 1.00271  clk 1350-1350 (1023 samples)
+benchlock: bfp8-revive-accuracy-killed released, rc=0, loadavg 1.25 1.75 2.69
+=== 298 aa rc=0 2026-09-18T16:23:44+00:00
+=== CHAIN DONE 2026-09-18T16:23:44+00:00

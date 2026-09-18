@@ -1,0 +1,2396 @@
+{
+ "started_utc": "2026-09-18T16:07:58Z",
+ "host": "tt-quietbox2",
+ "card": "2",
+ "note": "One process per arm: TT_BIO_PAIR_B8 is read at import and decides the dtype every pair-scale allocation is built with, so it cannot be flipped in process. Arms interleaved block by block; the A/A floor is the spread across the base blocks, compared the same way base is compared to on.",
+ "blocks": [
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.843,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 64,
+       "power_w_mean": 73.9
+      },
+      "trimul_branch": {
+       "gated-move/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE_BACK": [
+        560,
+        0
+       ],
+       "REBLOCK_PERMUTE_GATED": [
+        1120,
+        0
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        560,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        560,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        560,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        560,
+        0
+       ],
+       "TRIMUL_MASK_AFTER_MOVE": [
+        1120,
+        0
+       ]
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 1.69
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.799,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 63,
+       "power_w_mean": 75.0
+      },
+      "trimul_branch": {
+       "gated-move/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE_BACK": [
+        560,
+        0
+       ],
+       "REBLOCK_PERMUTE_GATED": [
+        1120,
+        0
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        560,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        560,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        560,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        560,
+        0
+       ],
+       "TRIMUL_MASK_AFTER_MOVE": [
+        1120,
+        0
+       ]
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 1.54
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.764,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 62,
+       "power_w_mean": 71.0
+      },
+      "trimul_branch": {
+       "gated-move/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE_BACK": [
+        560,
+        0
+       ],
+       "REBLOCK_PERMUTE_GATED": [
+        1120,
+        0
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        560,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        560,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        560,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        560,
+        0
+       ],
+       "TRIMUL_MASK_AFTER_MOVE": [
+        1120,
+        0
+       ]
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 1.98
+     }
+    ],
+    "model_load_s": 2.578,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_PAIR_B8",
+     "attr": "_PAIR_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "TRIMUL_MM_TRANSPOSE_STATS branch mix + full lever census delta",
+     "git_head": "33b83d1a9dac4f496d07d397fd336e2f5737b40c",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 18.423,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 69,
+      "power_w_mean": 69.4
+     },
+     "trimul_branch": {
+      "gated-move/defer": 560
+     },
+     "census_delta": {
+      "APB_CONCAT_HEADS": [
+       0,
+       5064
+      ],
+      "ATOM_AXIS_BUCKET": [
+       200,
+       0
+      ],
+      "B2_TOKEN_DIT_SDPA": [
+       4800,
+       0
+      ],
+      "REBLOCK_PERMUTE_BACK": [
+       560,
+       0
+      ],
+      "REBLOCK_PERMUTE_GATED": [
+       1120,
+       0
+      ],
+      "TRANSITION_H_CHUNK": [
+       296,
+       0
+      ],
+      "TRIATT_HEAD_MAJOR_QKV": [
+       560,
+       0
+      ],
+      "TRIATT_HEAD_MAJOR_TAIL": [
+       560,
+       0
+      ],
+      "TRIATT_PERSISTENT_MASK": [
+       560,
+       0
+      ],
+      "TRIATT_TAIL_OVER_L1": [
+       560,
+       0
+      ],
+      "TRIMUL_IN_PROJ_DUAL_NOC": [
+       560,
+       0
+      ],
+      "TRIMUL_MASK_AFTER_MOVE": [
+       1120,
+       0
+      ]
+     },
+     "plddt": 0.845919,
+     "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+     "loadavg1": 1.17,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 18.193,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 77,
+       "power_w_mean": 70.2
+      },
+      "trimul_branch": {
+       "four-way-split/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE": [
+        1120,
+        560
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        32,
+        528
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        32,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        32,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        0,
+        1120
+       ],
+       "TRIMUL_TAIL_F1": [
+        0,
+        560
+       ]
+      },
+      "plddt": 0.791615,
+      "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+      "loadavg1": 1.53
+     },
+     {
+      "tag": "1",
+      "fold_s": 18.137,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 76,
+       "power_w_mean": 63.6
+      },
+      "trimul_branch": {
+       "four-way-split/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE": [
+        1120,
+        560
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        32,
+        528
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        32,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        32,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        0,
+        1120
+       ],
+       "TRIMUL_TAIL_F1": [
+        0,
+        560
+       ]
+      },
+      "plddt": 0.791615,
+      "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+      "loadavg1": 1.38
+     },
+     {
+      "tag": "2",
+      "fold_s": 18.196,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 77,
+       "power_w_mean": 70.8
+      },
+      "trimul_branch": {
+       "four-way-split/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE": [
+        1120,
+        560
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        32,
+        528
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        32,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        32,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        0,
+        1120
+       ],
+       "TRIMUL_TAIL_F1": [
+        0,
+        560
+       ]
+      },
+      "plddt": 0.791615,
+      "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+      "loadavg1": 1.29
+     }
+    ],
+    "model_load_s": 2.588,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_PAIR_B8",
+     "attr": "_PAIR_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "TRIMUL_MM_TRANSPOSE_STATS branch mix + full lever census delta",
+     "git_head": "33b83d1a9dac4f496d07d397fd336e2f5737b40c",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 23.553,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 82,
+      "power_w_mean": 62.9
+     },
+     "trimul_branch": {
+      "four-way-split/defer": 560
+     },
+     "census_delta": {
+      "APB_CONCAT_HEADS": [
+       0,
+       5064
+      ],
+      "ATOM_AXIS_BUCKET": [
+       200,
+       0
+      ],
+      "B2_TOKEN_DIT_SDPA": [
+       4800,
+       0
+      ],
+      "REBLOCK_PERMUTE": [
+       1120,
+       560
+      ],
+      "TRANSITION_H_CHUNK": [
+       296,
+       0
+      ],
+      "TRIATT_HEAD_MAJOR_QKV": [
+       32,
+       528
+      ],
+      "TRIATT_HEAD_MAJOR_TAIL": [
+       32,
+       0
+      ],
+      "TRIATT_PERSISTENT_MASK": [
+       560,
+       0
+      ],
+      "TRIATT_TAIL_OVER_L1": [
+       32,
+       0
+      ],
+      "TRIMUL_IN_PROJ_DUAL_NOC": [
+       0,
+       1120
+      ],
+      "TRIMUL_TAIL_F1": [
+       0,
+       560
+      ]
+     },
+     "plddt": 0.791615,
+     "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+     "loadavg1": 1.64,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 1,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.811,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 62,
+       "power_w_mean": 80.9
+      },
+      "trimul_branch": {
+       "gated-move/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE_BACK": [
+        560,
+        0
+       ],
+       "REBLOCK_PERMUTE_GATED": [
+        1120,
+        0
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        560,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        560,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        560,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        560,
+        0
+       ],
+       "TRIMUL_MASK_AFTER_MOVE": [
+        1120,
+        0
+       ]
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 1.89
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.738,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 60,
+       "power_w_mean": 71.5
+      },
+      "trimul_branch": {
+       "gated-move/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE_BACK": [
+        560,
+        0
+       ],
+       "REBLOCK_PERMUTE_GATED": [
+        1120,
+        0
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        560,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        560,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        560,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        560,
+        0
+       ],
+       "TRIMUL_MASK_AFTER_MOVE": [
+        1120,
+        0
+       ]
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 1.69
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.768,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 62,
+       "power_w_mean": 74.8
+      },
+      "trimul_branch": {
+       "gated-move/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE_BACK": [
+        560,
+        0
+       ],
+       "REBLOCK_PERMUTE_GATED": [
+        1120,
+        0
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        560,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        560,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        560,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        560,
+        0
+       ],
+       "TRIMUL_MASK_AFTER_MOVE": [
+        1120,
+        0
+       ]
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 2.17
+     }
+    ],
+    "model_load_s": 2.674,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_PAIR_B8",
+     "attr": "_PAIR_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "TRIMUL_MM_TRANSPOSE_STATS branch mix + full lever census delta",
+     "git_head": "33b83d1a9dac4f496d07d397fd336e2f5737b40c",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 15.188,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 66,
+      "power_w_mean": 70.9
+     },
+     "trimul_branch": {
+      "gated-move/defer": 560
+     },
+     "census_delta": {
+      "APB_CONCAT_HEADS": [
+       0,
+       5064
+      ],
+      "ATOM_AXIS_BUCKET": [
+       200,
+       0
+      ],
+      "B2_TOKEN_DIT_SDPA": [
+       4800,
+       0
+      ],
+      "REBLOCK_PERMUTE_BACK": [
+       560,
+       0
+      ],
+      "REBLOCK_PERMUTE_GATED": [
+       1120,
+       0
+      ],
+      "TRANSITION_H_CHUNK": [
+       296,
+       0
+      ],
+      "TRIATT_HEAD_MAJOR_QKV": [
+       560,
+       0
+      ],
+      "TRIATT_HEAD_MAJOR_TAIL": [
+       560,
+       0
+      ],
+      "TRIATT_PERSISTENT_MASK": [
+       560,
+       0
+      ],
+      "TRIATT_TAIL_OVER_L1": [
+       560,
+       0
+      ],
+      "TRIMUL_IN_PROJ_DUAL_NOC": [
+       560,
+       0
+      ],
+      "TRIMUL_MASK_AFTER_MOVE": [
+       1120,
+       0
+      ]
+     },
+     "plddt": 0.845919,
+     "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+     "loadavg1": 2.14,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 1,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 18.146,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 76,
+       "power_w_mean": 65.0
+      },
+      "trimul_branch": {
+       "four-way-split/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE": [
+        1120,
+        560
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        32,
+        528
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        32,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        32,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        0,
+        1120
+       ],
+       "TRIMUL_TAIL_F1": [
+        0,
+        560
+       ]
+      },
+      "plddt": 0.791615,
+      "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+      "loadavg1": 1.74
+     },
+     {
+      "tag": "1",
+      "fold_s": 18.171,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 78,
+       "power_w_mean": 63.4
+      },
+      "trimul_branch": {
+       "four-way-split/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE": [
+        1120,
+        560
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        32,
+        528
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        32,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        32,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        0,
+        1120
+       ],
+       "TRIMUL_TAIL_F1": [
+        0,
+        560
+       ]
+      },
+      "plddt": 0.791615,
+      "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+      "loadavg1": 2.06
+     },
+     {
+      "tag": "2",
+      "fold_s": 18.181,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 73,
+       "power_w_mean": 70.0
+      },
+      "trimul_branch": {
+       "four-way-split/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE": [
+        1120,
+        560
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        32,
+        528
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        32,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        32,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        0,
+        1120
+       ],
+       "TRIMUL_TAIL_F1": [
+        0,
+        560
+       ]
+      },
+      "plddt": 0.791615,
+      "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+      "loadavg1": 1.76
+     }
+    ],
+    "model_load_s": 2.599,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_PAIR_B8",
+     "attr": "_PAIR_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "TRIMUL_MM_TRANSPOSE_STATS branch mix + full lever census delta",
+     "git_head": "33b83d1a9dac4f496d07d397fd336e2f5737b40c",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 18.575,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 78,
+      "power_w_mean": 68.4
+     },
+     "trimul_branch": {
+      "four-way-split/defer": 560
+     },
+     "census_delta": {
+      "APB_CONCAT_HEADS": [
+       0,
+       5064
+      ],
+      "ATOM_AXIS_BUCKET": [
+       200,
+       0
+      ],
+      "B2_TOKEN_DIT_SDPA": [
+       4800,
+       0
+      ],
+      "REBLOCK_PERMUTE": [
+       1120,
+       560
+      ],
+      "TRANSITION_H_CHUNK": [
+       296,
+       0
+      ],
+      "TRIATT_HEAD_MAJOR_QKV": [
+       32,
+       528
+      ],
+      "TRIATT_HEAD_MAJOR_TAIL": [
+       32,
+       0
+      ],
+      "TRIATT_PERSISTENT_MASK": [
+       560,
+       0
+      ],
+      "TRIATT_TAIL_OVER_L1": [
+       32,
+       0
+      ],
+      "TRIMUL_IN_PROJ_DUAL_NOC": [
+       0,
+       1120
+      ],
+      "TRIMUL_TAIL_F1": [
+       0,
+       560
+      ]
+     },
+     "plddt": 0.791615,
+     "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+     "loadavg1": 1.93,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 2,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.73,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 62,
+       "power_w_mean": 72.8
+      },
+      "trimul_branch": {
+       "gated-move/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE_BACK": [
+        560,
+        0
+       ],
+       "REBLOCK_PERMUTE_GATED": [
+        1120,
+        0
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        560,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        560,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        560,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        560,
+        0
+       ],
+       "TRIMUL_MASK_AFTER_MOVE": [
+        1120,
+        0
+       ]
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 1.47
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.751,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 63,
+       "power_w_mean": 70.2
+      },
+      "trimul_branch": {
+       "gated-move/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE_BACK": [
+        560,
+        0
+       ],
+       "REBLOCK_PERMUTE_GATED": [
+        1120,
+        0
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        560,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        560,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        560,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        560,
+        0
+       ],
+       "TRIMUL_MASK_AFTER_MOVE": [
+        1120,
+        0
+       ]
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 1.37
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.75,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 62,
+       "power_w_mean": 78.8
+      },
+      "trimul_branch": {
+       "gated-move/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE_BACK": [
+        560,
+        0
+       ],
+       "REBLOCK_PERMUTE_GATED": [
+        1120,
+        0
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        560,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        560,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        560,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        560,
+        0
+       ],
+       "TRIMUL_MASK_AFTER_MOVE": [
+        1120,
+        0
+       ]
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 1.29
+     }
+    ],
+    "model_load_s": 2.592,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_PAIR_B8",
+     "attr": "_PAIR_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "TRIMUL_MM_TRANSPOSE_STATS branch mix + full lever census delta",
+     "git_head": "33b83d1a9dac4f496d07d397fd336e2f5737b40c",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 15.157,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 65,
+      "power_w_mean": 77.5
+     },
+     "trimul_branch": {
+      "gated-move/defer": 560
+     },
+     "census_delta": {
+      "APB_CONCAT_HEADS": [
+       0,
+       5064
+      ],
+      "ATOM_AXIS_BUCKET": [
+       200,
+       0
+      ],
+      "B2_TOKEN_DIT_SDPA": [
+       4800,
+       0
+      ],
+      "REBLOCK_PERMUTE_BACK": [
+       560,
+       0
+      ],
+      "REBLOCK_PERMUTE_GATED": [
+       1120,
+       0
+      ],
+      "TRANSITION_H_CHUNK": [
+       296,
+       0
+      ],
+      "TRIATT_HEAD_MAJOR_QKV": [
+       560,
+       0
+      ],
+      "TRIATT_HEAD_MAJOR_TAIL": [
+       560,
+       0
+      ],
+      "TRIATT_PERSISTENT_MASK": [
+       560,
+       0
+      ],
+      "TRIATT_TAIL_OVER_L1": [
+       560,
+       0
+      ],
+      "TRIMUL_IN_PROJ_DUAL_NOC": [
+       560,
+       0
+      ],
+      "TRIMUL_MASK_AFTER_MOVE": [
+       1120,
+       0
+      ]
+     },
+     "plddt": 0.845919,
+     "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+     "loadavg1": 1.61,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 2,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 18.153,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 77,
+       "power_w_mean": 66.9
+      },
+      "trimul_branch": {
+       "four-way-split/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE": [
+        1120,
+        560
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        32,
+        528
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        32,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        32,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        0,
+        1120
+       ],
+       "TRIMUL_TAIL_F1": [
+        0,
+        560
+       ]
+      },
+      "plddt": 0.791615,
+      "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+      "loadavg1": 1.76
+     },
+     {
+      "tag": "1",
+      "fold_s": 18.127,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 77,
+       "power_w_mean": 66.7
+      },
+      "trimul_branch": {
+       "four-way-split/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE": [
+        1120,
+        560
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        32,
+        528
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        32,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        32,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        0,
+        1120
+       ],
+       "TRIMUL_TAIL_F1": [
+        0,
+        560
+       ]
+      },
+      "plddt": 0.791615,
+      "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+      "loadavg1": 2.17
+     },
+     {
+      "tag": "2",
+      "fold_s": 18.095,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 75,
+       "power_w_mean": 68.5
+      },
+      "trimul_branch": {
+       "four-way-split/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE": [
+        1120,
+        560
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        32,
+        528
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        32,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        32,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        0,
+        1120
+       ],
+       "TRIMUL_TAIL_F1": [
+        0,
+        560
+       ]
+      },
+      "plddt": 0.791615,
+      "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+      "loadavg1": 1.83
+     }
+    ],
+    "model_load_s": 2.59,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_PAIR_B8",
+     "attr": "_PAIR_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "TRIMUL_MM_TRANSPOSE_STATS branch mix + full lever census delta",
+     "git_head": "33b83d1a9dac4f496d07d397fd336e2f5737b40c",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 18.567,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 80,
+      "power_w_mean": 67.2
+     },
+     "trimul_branch": {
+      "four-way-split/defer": 560
+     },
+     "census_delta": {
+      "APB_CONCAT_HEADS": [
+       0,
+       5064
+      ],
+      "ATOM_AXIS_BUCKET": [
+       200,
+       0
+      ],
+      "B2_TOKEN_DIT_SDPA": [
+       4800,
+       0
+      ],
+      "REBLOCK_PERMUTE": [
+       1120,
+       560
+      ],
+      "TRANSITION_H_CHUNK": [
+       296,
+       0
+      ],
+      "TRIATT_HEAD_MAJOR_QKV": [
+       32,
+       528
+      ],
+      "TRIATT_HEAD_MAJOR_TAIL": [
+       32,
+       0
+      ],
+      "TRIATT_PERSISTENT_MASK": [
+       560,
+       0
+      ],
+      "TRIATT_TAIL_OVER_L1": [
+       32,
+       0
+      ],
+      "TRIMUL_IN_PROJ_DUAL_NOC": [
+       0,
+       1120
+      ],
+      "TRIMUL_TAIL_F1": [
+       0,
+       560
+      ]
+     },
+     "plddt": 0.791615,
+     "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+     "loadavg1": 1.26,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 3,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.816,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 62,
+       "power_w_mean": 77.8
+      },
+      "trimul_branch": {
+       "gated-move/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE_BACK": [
+        560,
+        0
+       ],
+       "REBLOCK_PERMUTE_GATED": [
+        1120,
+        0
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        560,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        560,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        560,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        560,
+        0
+       ],
+       "TRIMUL_MASK_AFTER_MOVE": [
+        1120,
+        0
+       ]
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 1.8
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.814,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 62,
+       "power_w_mean": 76.8
+      },
+      "trimul_branch": {
+       "gated-move/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE_BACK": [
+        560,
+        0
+       ],
+       "REBLOCK_PERMUTE_GATED": [
+        1120,
+        0
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        560,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        560,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        560,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        560,
+        0
+       ],
+       "TRIMUL_MASK_AFTER_MOVE": [
+        1120,
+        0
+       ]
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 1.7
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.766,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 61,
+       "power_w_mean": 76.3
+      },
+      "trimul_branch": {
+       "gated-move/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE_BACK": [
+        560,
+        0
+       ],
+       "REBLOCK_PERMUTE_GATED": [
+        1120,
+        0
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        560,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        560,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        560,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        560,
+        0
+       ],
+       "TRIMUL_MASK_AFTER_MOVE": [
+        1120,
+        0
+       ]
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 1.62
+     }
+    ],
+    "model_load_s": 2.764,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_PAIR_B8",
+     "attr": "_PAIR_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "TRIMUL_MM_TRANSPOSE_STATS branch mix + full lever census delta",
+     "git_head": "33b83d1a9dac4f496d07d397fd336e2f5737b40c",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 15.177,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 65,
+      "power_w_mean": 71.7
+     },
+     "trimul_branch": {
+      "gated-move/defer": 560
+     },
+     "census_delta": {
+      "APB_CONCAT_HEADS": [
+       0,
+       5064
+      ],
+      "ATOM_AXIS_BUCKET": [
+       200,
+       0
+      ],
+      "B2_TOKEN_DIT_SDPA": [
+       4800,
+       0
+      ],
+      "REBLOCK_PERMUTE_BACK": [
+       560,
+       0
+      ],
+      "REBLOCK_PERMUTE_GATED": [
+       1120,
+       0
+      ],
+      "TRANSITION_H_CHUNK": [
+       296,
+       0
+      ],
+      "TRIATT_HEAD_MAJOR_QKV": [
+       560,
+       0
+      ],
+      "TRIATT_HEAD_MAJOR_TAIL": [
+       560,
+       0
+      ],
+      "TRIATT_PERSISTENT_MASK": [
+       560,
+       0
+      ],
+      "TRIATT_TAIL_OVER_L1": [
+       560,
+       0
+      ],
+      "TRIMUL_IN_PROJ_DUAL_NOC": [
+       560,
+       0
+      ],
+      "TRIMUL_MASK_AFTER_MOVE": [
+       1120,
+       0
+      ]
+     },
+     "plddt": 0.845919,
+     "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+     "loadavg1": 2.03,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 3,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 18.247,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 78,
+       "power_w_mean": 69.3
+      },
+      "trimul_branch": {
+       "four-way-split/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE": [
+        1120,
+        560
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        32,
+        528
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        32,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        32,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        0,
+        1120
+       ],
+       "TRIMUL_TAIL_F1": [
+        0,
+        560
+       ]
+      },
+      "plddt": 0.791615,
+      "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+      "loadavg1": 1.63
+     },
+     {
+      "tag": "1",
+      "fold_s": 18.119,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 74,
+       "power_w_mean": 61.0
+      },
+      "trimul_branch": {
+       "four-way-split/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE": [
+        1120,
+        560
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        32,
+        528
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        32,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        32,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        0,
+        1120
+       ],
+       "TRIMUL_TAIL_F1": [
+        0,
+        560
+       ]
+      },
+      "plddt": 0.791615,
+      "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+      "loadavg1": 1.85
+     },
+     {
+      "tag": "2",
+      "fold_s": 18.152,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 77,
+       "power_w_mean": 62.9
+      },
+      "trimul_branch": {
+       "four-way-split/defer": 560
+      },
+      "census_delta": {
+       "APB_CONCAT_HEADS": [
+        0,
+        5064
+       ],
+       "ATOM_AXIS_BUCKET": [
+        200,
+        0
+       ],
+       "B2_TOKEN_DIT_SDPA": [
+        4800,
+        0
+       ],
+       "REBLOCK_PERMUTE": [
+        1120,
+        560
+       ],
+       "TRANSITION_H_CHUNK": [
+        296,
+        0
+       ],
+       "TRIATT_HEAD_MAJOR_QKV": [
+        32,
+        528
+       ],
+       "TRIATT_HEAD_MAJOR_TAIL": [
+        32,
+        0
+       ],
+       "TRIATT_PERSISTENT_MASK": [
+        560,
+        0
+       ],
+       "TRIATT_TAIL_OVER_L1": [
+        32,
+        0
+       ],
+       "TRIMUL_IN_PROJ_DUAL_NOC": [
+        0,
+        1120
+       ],
+       "TRIMUL_TAIL_F1": [
+        0,
+        560
+       ]
+      },
+      "plddt": 0.791615,
+      "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+      "loadavg1": 1.66
+     }
+    ],
+    "model_load_s": 2.6,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_PAIR_B8",
+     "attr": "_PAIR_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "TRIMUL_MM_TRANSPOSE_STATS branch mix + full lever census delta",
+     "git_head": "33b83d1a9dac4f496d07d397fd336e2f5737b40c",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 18.581,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 80,
+      "power_w_mean": 66.5
+     },
+     "trimul_branch": {
+      "four-way-split/defer": 560
+     },
+     "census_delta": {
+      "APB_CONCAT_HEADS": [
+       0,
+       5064
+      ],
+      "ATOM_AXIS_BUCKET": [
+       200,
+       0
+      ],
+      "B2_TOKEN_DIT_SDPA": [
+       4800,
+       0
+      ],
+      "REBLOCK_PERMUTE": [
+       1120,
+       560
+      ],
+      "TRANSITION_H_CHUNK": [
+       296,
+       0
+      ],
+      "TRIATT_HEAD_MAJOR_QKV": [
+       32,
+       528
+      ],
+      "TRIATT_HEAD_MAJOR_TAIL": [
+       32,
+       0
+      ],
+      "TRIATT_PERSISTENT_MASK": [
+       560,
+       0
+      ],
+      "TRIATT_TAIL_OVER_L1": [
+       32,
+       0
+      ],
+      "TRIMUL_IN_PROJ_DUAL_NOC": [
+       0,
+       1120
+      ],
+      "TRIMUL_TAIL_F1": [
+       0,
+       560
+      ]
+     },
+     "plddt": 0.791615,
+     "cif_sha256": "1cfb3b629b5c044c8858f06c730eed920e512a63c2cd8c6f345b37cbf5f2ea08",
+     "loadavg1": 1.88,
+     "discarded": true
+    }
+   }
+  }
+ ],
+ "summary": {
+  "512": {
+   "base_median_s": 14.767,
+   "on_median_s": 18.152,
+   "base_n": 12,
+   "on_n": 12,
+   "delta_s": -3.3855,
+   "ratio_base_over_on": 0.8135,
+   "aa_floor_ratio_max": 1.00434,
+   "base_block_medians": [
+    14.799,
+    14.768,
+    14.75,
+    14.814
+   ],
+   "on_block_medians": [
+    18.193,
+    18.171,
+    18.127,
+    18.152
+   ],
+   "clock_min": 1350,
+   "clock_max": 1350,
+   "clock_samples": 1660,
+   "verdict_rule": "a ratio inside aa_floor_ratio_max is a NULL, not a win"
+  }
+ },
+ "finished_utc": "2026-09-18T16:17:41Z"
+}
