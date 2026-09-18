@@ -11,18 +11,25 @@ runs `Exscientia/ABodyBuilder3` unmodified, and reports seconds per step.
 One step is one optimizer step at ABodyBuilder3's own global batch of 64 (8 micro-batches of 8
 plus the update), which is the unit their released checkpoint's `global_step: 193,512` counts.
 
-| | stage 1 | stage 2 |
+| | their `params.yaml` as shipped | dataloader overlapped |
 |---|---|---|
-| A100-80G, their `params.yaml` as shipped | **6.994 s** | 7.000 s |
-| second A100-80G, independent rental | 7.119 s | |
-| H100-80G | 13.086 s | |
+| A100-80G | **6.994 s** | **3.016 s** |
+| second A100-80G, independent rental | 7.119 s | 3.129 s |
+| H100-80G | 13.086 s | 2.942 s |
 
-Medians over 100 steps after a discarded warmup, real Zenodo data, padded token median 242.
+Stage 1. Stage 2 on the A100 is 7.000 s, the same within noise. Medians over 100 steps (60 for the
+overlap arms) after a discarded warmup, real Zenodo data, padded token median 242. The two rentals
+agree to 1.8 % shipped and 3.7 % overlapped.
 
-The H100 being slower than the A100 is not a typo. At the shipped `num_workers: 0` the host data
-pipeline is serialised with compute and is 53 % of the step, so the step tracks the host CPU, not
-the card. The A100 sits idle for about seven tenths of it. See `docs/` in the state doc
-`~/.coworker/state/train-e-gpu-baseline.md` for the full split and the caveats.
+The H100 being slower than the A100 in the left column is not a typo, and it is the point. At the
+shipped `num_workers: 0` the host data pipeline is serialised with compute and is 53 % of the step,
+so the step tracks the host CPU rather than the card; the A100 sits idle for about seven tenths of
+it. Overlap the loader and the H100 lands 2.4 % ahead of the A100, not a generation ahead. Device
+time is the control: 2.049 s shipped against 2.078 s overlapped on the A100, unchanged while the
+step moves 2.32x.
+
+Full numbers, the device/host split and the caveats are in the state doc
+`~/.coworker/state/train-e-gpu-baseline.md`.
 
 ## Running it
 
