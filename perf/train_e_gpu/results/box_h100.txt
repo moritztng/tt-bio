@@ -1,0 +1,63 @@
+=== 2026-09-18T20:05:23Z idle box, TAG=h100 SUITE=modern ===
+Fri Sep 18 20:05:23 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 560.35.03              Driver Version: 560.35.03      CUDA Version: 12.6     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA H100 80GB HBM3          On  |   00000000:40:00.0 Off |                    0 |
+| N/A   39C    P0             71W /  700W |       1MiB /  81559MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+--- compute apps (co-tenancy: any pid here that is not ours means a shared card) ---
+pid, process_name, used_gpu_memory [MiB]
+--- cpu ---
+Architecture:                       x86_64
+CPU op-mode(s):                     32-bit, 64-bit
+Byte Order:                         Little Endian
+Address sizes:                      46 bits physical, 57 bits virtual
+CPU(s):                             128
+On-line CPU(s) list:                0-127
+Thread(s) per core:                 2
+Core(s) per socket:                 32
+Socket(s):                          2
+NUMA node(s):                       2
+Vendor ID:                          GenuineIntel
+CPU family:                         6
+Model:                              143
+Model name:                         Intel(R) Xeon(R) Gold 6448Y
+Stepping:                           8
+CPU MHz:                            2099.986
+BogoMIPS:                           4200.00
+Virtualization:                     VT-x
+L1d cache:                          3 MiB
+L1i cache:                          2 MiB
+L2 cache:                           128 MiB
+L3 cache:                           120 MiB
+--- mem ---
+              total        used        free      shared  buff/cache   available
+Mem:           1007          55         586           0         366         946
+Swap:             7           1           6
+--- load ---
+11.27 11.62 11.22 13/5106 1204
+--- disk ---
+overlay         140G   16G  125G  12% /
+--- pip ---
+dvc                       2.58.2
+dvclive                   2.11.0
+lightning                 2.1.2
+ml-collections            0.1.1
+numpy                     1.26.4
+pandas                    1.5.3
+scipy                     1.10.1
+torch                     2.1.2
