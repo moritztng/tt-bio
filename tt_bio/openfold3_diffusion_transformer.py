@@ -62,6 +62,7 @@ from __future__ import annotations
 import torch
 import ttnn
 
+from . import ops
 from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul
 from .openfold3_atom_transformer import remap_of3_adaln
 from .token_axis import TILE, bucketed_width
@@ -158,9 +159,9 @@ class _DiTBlock(Module):
         return v
 
     def _lin(self, x, w, bias=None, activation=None):
-        return ttnn.linear(x, w, bias=bias, activation=activation,
-                           compute_kernel_config=self.compute_kernel_config,
-                           core_grid=CORE_GRID_MAIN)
+        return ops.linear(x, w, bias=bias, activation=activation,
+                          compute_kernel_config=self.compute_kernel_config,
+                          core_grid=CORE_GRID_MAIN)
 
     def _pair_bias(self, z, mask_bias):
         """LN_z(z) -> linear_z -> [1,16,N,N] + mask_bias. Pure function of the
