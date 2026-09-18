@@ -239,10 +239,15 @@ not the collective. `perf/train_d_dp/` holds the harness and the raw results.
 Tensor parallelism is deliberately absent. A full replica is 14.8 % of one chip, so there is no
 memory argument for it, and it returns only if something later forces it.
 
-Multi-host is out of scope, and the blocker is cabling rather than software: 20 MB/s over WiFi
-makes a per-step gradient exchange cost more than the step. `Mesh.auto()` reports one host
-today, and the interface does not change shape when that changes: an axis is an axis whether
-its chips share a host or not. Until it is wired, the honest claim is multi-card on one host.
+Multi-host runs, and the cable it wants is a speed-up rather than a prerequisite.
+`tt_bio/train/xhost.py` mirrors the shared-directory rendezvous to the other hosts over one
+persistent ssh channel per peer, so a rank still sums 0..world-1 over local files and the per-rank
+masters stay bit-identical across the boundary. Measured on ABodyBuilder3: two chips in one box
+step in 11.154 s, the same two chips split across qb1 and qb2 step in 14.096 s, 1.493x against one
+chip's 21.043 s where one box gives 1.887x. The whole gap is the exchange, and 28.4 MB per rank per
+step is 1.768 s over qb2's WiFi against ~0.24 s at 1000 Mb/s. `Mesh.auto()` still reports one host
+and `--chips` is still one box; crossing a host boundary today means your own launcher, of which
+`scripts/train_xhost/xhost_gate.py` is a worked example. `perf/train_xhost/` holds the results.
 
 ## Featurisation is per model, on purpose
 

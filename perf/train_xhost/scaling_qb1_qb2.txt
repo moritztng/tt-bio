@@ -29,3 +29,26 @@ PASS: the per-rank master digests are bit-identical across the host boundary at 
 step, on numpy 1.26.4 / python 3.10.12 (qb1, p150a) and numpy 2.5.2 / python 3.12.3
 (qb2, p300c). CONTENDED: qb2's rank shared its host with a foreign holder of a
 different node for 29/31 samples, so the cross-host step is an upper bound.
+
+# ---- 12-step cross-host run, same two chips, 2026-09-18 (runs/xhost-sync) ----
+# The 4-step arms above are a scaling measurement; this is the multi-step sync proof.
+per-step max (s): 18.40 14.11 13.68 13.48 13.97 13.34 13.48 13.71 13.48 13.41 13.95 13.55
+median of steps 2..12: 13.545 s   ->  1.554x against one chip's 21.043 s, 77.7 %
+rank 0 (qb1, node 1): median wall 11.996 s, median optimizer stage 1.447 s, 12.1 % of its step
+rank 1 (qb2, node 1): median wall 13.545 s, median optimizer stage 2.754 s, 20.3 % of its step
+  the optimizer stage is the exchange PLUS RAdam PLUS the master hash; the same stage inside one
+  box is 0.234-0.367 s, so the cross-host part of it is ~2.45 s, 18.1 % of the step
+digests equal across ranks at every one of the 12 steps: True
+12 distinct digests over 12 steps x 2 ranks -- one per step, both ranks equal on each
+aaa4d21fd49e ade542da481f f611e8f16a04 f5ec822adf05 ef91f4cc945d 41b4e26fc1f7
+cc605e581d67 69d8cca885a7 20f8332a50c4 42b03cc20d80 0e90edae4417 d8790386632a
+AICLK 1350 MHz median DURING on both hosts. 765 MB moved per rank over the run.
+/dev/shm/abb3-xhost ended at 61 MB on BOTH hosts, one step's two gradient files, flat rather
+than growing: the retirement crosses the wire. Without it this run would have left ~700 MB per
+host and a 193,512-step run would fill /dev/shm.
+
+# A defect this run found in the gate, fixed in the same commit: the remote output directory was
+# not wiped before an arm, and the run appends to history-rank<N>.jsonl. The previous arm's 4 rows
+# sat ahead of these 12 in rank 1's file, and a rank comparison keyed on POSITION then reported a
+# disagreement between two ranks that agreed at every step. Both ends fixed: the launcher wipes
+# every host's output directory, and the analysis keys on each row's own global step.

@@ -98,14 +98,24 @@ def launch(rank: int, place: tuple, hosts: list, args, out_root: Path) -> subpro
     return proc
 
 
-def wipe(hosts: list, args) -> None:
+def wipe(hosts: list, args, out_root: Path) -> None:
+    """Clear the rendezvous AND every host's output directory before an arm.
+
+    The output directory matters as much as the rendezvous and is easier to forget: the run
+    appends to `history-rank<N>.jsonl`, so a remote directory left in place mixes the previous
+    arm's steps into this one's file. A comparison that lines the ranks up by POSITION then
+    reads a false disagreement between two ranks that actually agreed, which is the alarm this
+    whole gate exists to raise. Analysis keys on each row's own global step for the same reason.
+    """
     base, _, _ = args.rendezvous.partition("+")
     for h in dict.fromkeys(hosts):
         if h == LOCAL:
             shutil.rmtree(base, ignore_errors=True)
+            shutil.rmtree(out_root, ignore_errors=True)
         else:
+            remote_out = f"{args.remote_out}/{out_root.name}"
             subprocess.run(["ssh", "-n", "-o", "BatchMode=yes", ssh_dest(h, args.user),
-                            f"rm -rf {base}"], check=False)
+                            f"rm -rf {base} {remote_out}"], check=False)
 
 
 def fetch(hosts: list, args, out_root: Path) -> None:
@@ -124,9 +134,8 @@ def arm(places: list, args, root: Path, round_no: int) -> dict:
     world = len(places)
     tag = f"w{world}-{'x' if len(set(hosts)) > 1 else 'l'}-r{round_no}"
     out_root = root / tag
-    shutil.rmtree(out_root, ignore_errors=True)
+    wipe(hosts, args, out_root)
     out_root.mkdir(parents=True, exist_ok=True)
-    wipe(hosts, args)
     print(f"\n[xhost] {tag}: {places}", flush=True)
     t0 = time.monotonic()
     procs = [launch(r, p, hosts, args, out_root) for r, p in enumerate(places)]
@@ -144,21 +153,29 @@ def arm(places: list, args, root: Path, round_no: int) -> dict:
     rows, prov = {}, {}
     for r in range(world):
         f = out_root / f"history-rank{r}.jsonl"
-        rows[r] = [json.loads(x) for x in f.read_text().splitlines() if x.strip()] \
-            if f.exists() else []
+        # Keyed by the row's own global step, last write wins. Position in an append-mode file
+        # is not a step number, and comparing ranks by position is how two agreeing ranks get
+        # reported as diverged.
+        rows[r] = {}
+        if f.exists():
+            for line in f.read_text().splitlines():
+                if line.strip():
+                    x = json.loads(line)
+                    rows[r][x["step"]] = x
         q = out_root / f"provenance-rank{r}.json"
         prov[r] = json.loads(q.read_text()) if q.exists() else {}
     # The slowest rank sets the step: every step ends at a rendezvous, so the arm's step time
     # is the per-step max across ranks, not rank 0's view of it.
-    n = min((len(v) for v in rows.values()), default=0)
-    per_step = [max(rows[r][i]["wall"] for r in rows) for i in range(n)]
+    common = sorted(set.intersection(*[set(v) for v in rows.values()])) if rows else []
+    n = len(common)
+    per_step = [max(rows[r][s]["wall"] for r in rows) for s in common]
     walls = per_step[1:]  # the first step carries a fresh process's warmup
-    digests = {r: [x["digest"] for x in rows[r]] for r in rows}
-    agree = len({tuple(v) for v in digests.values()}) == 1 if n else False
-    distinct = len({d for v in digests.values() for d in v[:n]}) if n else 0
+    digests = {r: [rows[r][s]["digest"] for s in common] for r in rows}
+    agree = bool(n) and all(len({rows[r][s]["digest"] for r in rows}) == 1 for s in common)
+    distinct = len({d for v in digests.values() for d in v}) if n else 0
     nodes = {r: prov[r].get("device_nodes") for r in prov}
     clocks = {r: prov[r].get("aiclk", {}) for r in prov}
-    waits = {r: (rows[r][-1].get("stages", {}) if rows[r] else {}) for r in rows}
+    waits = {r: (rows[r][common[-1]].get("stages", {}) if n else {}) for r in rows}
     return {"tag": tag, "places": places, "rcs": rcs, "walls": walls,
             "first": per_step[0] if per_step else None,
             "median": statistics.median(walls) if walls else None,
