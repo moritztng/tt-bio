@@ -17,6 +17,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
+_cspec = importlib.util.spec_from_file_location(
+    "_clk", REPO / "perf" / "c12_orchestrator" / "relayed" / "c12_kblock" / "clk.py")
+CLK = importlib.util.module_from_spec(_cspec)
+_cspec.loader.exec_module(CLK)
 _spec = importlib.util.spec_from_file_location(
     "_fold_parity_concat", REPO / "perf" / "roof_concat" / "fold_parity.py")
 FP = importlib.util.module_from_spec(_spec)
@@ -30,6 +34,7 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=200)
     ap.add_argument("--recycles", type=int, default=3)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--mhz", type=int, default=1350)
     a = ap.parse_args()
     LEV.SAMPLING_STEPS, LEV.RECYCLING_STEPS = a.steps, a.recycles
 
@@ -64,15 +69,25 @@ def main() -> int:
     TS._PM_OVER_L1.clear(); TS._GATE_OVER_L1.clear(); TS.PM_L1_ERRORS.clear()
     TT._SDPA_Q_CHUNK_OVER_L1.clear(); TT._SDPA_QK_OVER_L1.clear(); TT._TRIATT_HIFI_OVER_L1.clear()
 
+    # Forced from inside the measuring process and aimed at the node off our own fd table, and
+    # sampled by a process holding no device fd -- a fold time without a during-sampled clock is
+    # not a measurement on this part.
+    nodes = CLK.nodes_open_by_this_process()
+    held = CLK.force(a.mhz, nodes)
+    sampler = CLK.Sampler(nodes[0])
     ttnn.synchronize_device(dev)
     t0 = time.perf_counter()
     metrics, _b, _f = state.predict_one(FIX / f"{a.fixture}.yaml", cfg)
     ttnn.synchronize_device(dev)
     dt = time.perf_counter() - t0
+    clk_stats = sampler.stop()
+    CLK.release()
 
     cif = sorted(struct_dir.glob("*.cif"))[0]
     digest = hashlib.sha256(cif.read_bytes()).hexdigest()
     rec = {
+        "aiclk_requested_mhz": a.mhz, "aiclk_nodes_held": held,
+        "aiclk_sampled_during_fold": clk_stats,
         "cif_sha256": digest, "plddt": metrics.get("plddt") if isinstance(metrics, dict) else None,
         "fixture": a.fixture, "steps": a.steps, "recycles": a.recycles,
         "fold_s": round(dt, 3), "host": socket.gethostname(),

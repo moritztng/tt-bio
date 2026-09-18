@@ -1,0 +1,43 @@
+{
+ "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+ "plddt": 0.845919,
+ "fixture": "cdk2x2_512",
+ "steps": 200,
+ "recycles": 3,
+ "fold_s": 15.176,
+ "host": "tt-quietbox2",
+ "card": "1",
+ "grid": [
+  11,
+  10
+ ],
+ "commit": "5af25ddb94a9975ab0623d1ea027283e68020781",
+ "note": "census only -- co-tenanted, fold_s is NOT a perf claim",
+ "picks": {
+  "(512, 512)": [
+   512,
+   256,
+   "fused"
+  ]
+ },
+ "route_counts": {
+  "fused": 560,
+  "stock": 0
+ },
+ "fused_stats_served_declined": [
+  560,
+  0
+ ],
+ "gate_stats_served_declined": [
+  0,
+  0
+ ],
+ "rejects": {},
+ "gate_rejects": {},
+ "PM_OVER_L1": [],
+ "GATE_OVER_L1": [],
+ "SDPA_Q_CHUNK_OVER_L1": [],
+ "SDPA_QK_OVER_L1": [],
+ "TRIATT_HIFI_OVER_L1": [],
+ "PM_L1_ERRORS": {}
+}
