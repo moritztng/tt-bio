@@ -88,7 +88,8 @@ _Q_SPLIT = env_flag("TT_BIO_TRIATT_MASK_Q_SPLIT", True)
 # today: `perf/bgsdpa/fused_reach.py` counts 0 of the 50 lengths from 1024 to 2592.
 _Q_SPLIT_MAX_S = env_int("TT_BIO_TRIATT_MASK_Q_SPLIT_MAX", 1024)
 
-# q_chunks whose PERSISTENT mask CB does not fit. Deliberately not `_SDPA_Q_CHUNK_OVER_L1`: that set
+# (q_len, k_len, q_chunk, k_chunk, kv_buffer_factor, dtype) whose PERSISTENT mask CB does not fit.
+# Deliberately not `_SDPA_Q_CHUNK_OVER_L1`: that set
 # is the wide-q ladder memo of q_chunks the STOCK op cannot fit, and `_tri_att_sdpa_at` filters its
 # candidate list with it. This kernel allocates a strictly larger mask CB -- `k_num_chunks *
 # Sq_chunk_t * Sk_chunk_t` tiles against the stock `2 * Sq_chunk_t * Sk_chunk_t` -- so a refusal here
@@ -265,8 +266,14 @@ def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None
             if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"]:
                 continue
             pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
-            if SG.cb_fits_l1(p, mask_cb_tiles=pers,
-                             **({} if mask_dtype is None else {"mask_dtype": mask_dtype})):
+            # Every operand CB at the dtype the call will carry, not just the mask.
+            # `_uniform_dataformat` forces one dtype across q/k/v/mask/out, so leaving four of the
+            # five on `cb_bytes`' bf16 default over-counted a bfp8 plan and refused configs that
+            # fit: 1 at padded 768/896/1024/1536 and 2 at 1280/2048
+            # (perf/bfp8_l1chunk/fused_pairs_misprice.json).
+            dts = {} if mask_dtype is None else {
+                f"{o}_dtype": mask_dtype for o in ("q", "k", "v", "mask", "out")}
+            if SG.cb_fits_l1(p, mask_cb_tiles=pers, **dts):
                 out.append((per_core_cost(p, qc, seq), qc, kc))
     return tuple((qc, kc) for _c, qc, kc in sorted(out))
 
@@ -348,14 +355,14 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
 
     from .tenstorrent import COMPUTE_GRID_MAIN, _SDPA_Q_CHUNK_OVER_L1
     grid = tuple(COMPUTE_GRID_MAIN)
-    l1_key = (int(q.shape[2]), int(k.shape[2]), q_chunk)
+    l1_key = (int(q.shape[2]), int(k.shape[2]), q_chunk, q.dtype)
     # `_PM_OVER_L1` is keyed on the FULL config, not on `l1_key`. This kernel's L1 cost moves with
     # k_chunk and with the k/v buffer factor as well as with q_chunk -- the wide-k ladder in
     # `_tri_att_sdpa_at` calls here with several k_chunks at one q_chunk -- so a three-term key lets
     # one refusal at (q, wide k) retire that q_chunk against every k the ladder still has to try.
     # Same all-or-nothing retirement as `rf3-latching-l1-gate-all-or-nothing-retirement`: a refusal
     # must narrow the shape class it retires, not the whole class.
-    pm_key = (l1_key[0], l1_key[1], q_chunk, k_chunk, kv_buffer_factor)
+    pm_key = (l1_key[0], l1_key[1], q_chunk, k_chunk, kv_buffer_factor, q.dtype)
     if l1_key in _SDPA_Q_CHUNK_OVER_L1:
         return _reject("q_chunk_over_l1", shape)
     if pm_key in _PM_OVER_L1:

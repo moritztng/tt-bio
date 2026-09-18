@@ -1,0 +1,6073 @@
+{
+ "cores": 110,
+ "heads": 4,
+ "head_dim": 32,
+ "L1_PER_CORE": 1572864,
+ "PROGRAM_RESERVE": 109056,
+ "seqs": {
+  "512": {
+   "n_servable_bf16": 24,
+   "n_servable_bfp8": 25,
+   "best_bf16": [
+    512,
+    256
+   ],
+   "best_bfp8": [
+    512,
+    512
+   ],
+   "cost_bf16": 9990656,
+   "cost_bfp8": 9980928,
+   "newly_fitting": [
+    [
+     512,
+     512
+    ]
+   ],
+   "rows_bf16": [
+    {
+     "q_chunk": 512,
+     "k_chunk": 512,
+     "cb_bytes": 1480704,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 9980928
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 256,
+     "cb_bytes": 1153024,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 9990656
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 128,
+     "cb_bytes": 989184,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10010112
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 64,
+     "cb_bytes": 907264,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10049024
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 32,
+     "cb_bytes": 866304,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10126848
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 512,
+     "cb_bytes": 808960,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10526720
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "cb_bytes": 612352,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10536960
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 128,
+     "cb_bytes": 514048,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10557440
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 64,
+     "cb_bytes": 464896,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10598400
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 32,
+     "cb_bytes": 440320,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10680320
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 512,
+     "cb_bytes": 473088,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11360256
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 256,
+     "cb_bytes": 342016,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11371264
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 276480,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11393280
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 243712,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11437312
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 227328,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11525376
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 512,
+     "cb_bytes": 305152,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11381760
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 256,
+     "cb_bytes": 206848,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11392704
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 157696,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11414592
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 133120,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11458368
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 120832,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11545920
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 512,
+     "cb_bytes": 221184,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 17301504
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 256,
+     "cb_bytes": 139264,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 17317888
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 98304,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 17350656
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 77824,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 17416192
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 67584,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 17547264
+    }
+   ],
+   "rows_bfp8": [
+    {
+     "q_chunk": 512,
+     "k_chunk": 512,
+     "cb_bytes": 1142784,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 9980928
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 256,
+     "cb_bytes": 845824,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 9990656
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 128,
+     "cb_bytes": 697344,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10010112
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 64,
+     "cb_bytes": 623104,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10049024
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 32,
+     "cb_bytes": 585984,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10126848
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 512,
+     "cb_bytes": 609280,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10526720
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "cb_bytes": 443392,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10536960
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 128,
+     "cb_bytes": 360448,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10557440
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 64,
+     "cb_bytes": 318976,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10598400
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 32,
+     "cb_bytes": 298240,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 10680320
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 512,
+     "cb_bytes": 342528,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11360256
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 256,
+     "cb_bytes": 242176,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11371264
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 192000,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11393280
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 166912,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11437312
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 154368,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11525376
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 512,
+     "cb_bytes": 209152,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11381760
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 256,
+     "cb_bytes": 141568,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11392704
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 107776,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11414592
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 90880,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11458368
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 82432,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 11545920
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 512,
+     "cb_bytes": 142464,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 17301504
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 256,
+     "cb_bytes": 91264,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 17317888
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 65664,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 17350656
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 52864,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 17416192
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 46464,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 17547264
+    }
+   ]
+  },
+  "640": {
+   "n_servable_bf16": 34,
+   "n_servable_bfp8": 35,
+   "best_bf16": [
+    640,
+    160
+   ],
+   "best_bfp8": [
+    640,
+    320
+   ],
+   "cost_bf16": 19737600,
+   "cost_bfp8": 19706880,
+   "newly_fitting": [
+    [
+     640,
+     320
+    ]
+   ],
+   "rows_bf16": [
+    {
+     "q_chunk": 640,
+     "k_chunk": 640,
+     "cb_bytes": 2177024,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 19691520
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 320,
+     "cb_bytes": 1685504,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 19706880
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 160,
+     "cb_bytes": 1439744,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 19737600
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 128,
+     "cb_bytes": 1390592,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 19752960
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 64,
+     "cb_bytes": 1292288,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 19829760
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 32,
+     "cb_bytes": 1243136,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 19983360
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 640,
+     "cb_bytes": 1173504,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 20544000
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 320,
+     "cb_bytes": 886784,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 20560000
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 160,
+     "cb_bytes": 743424,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 20592000
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 128,
+     "cb_bytes": 714752,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 20608000
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 64,
+     "cb_bytes": 657408,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 20688000
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 32,
+     "cb_bytes": 628736,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 20848000
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 640,
+     "cb_bytes": 671744,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 22050560
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 320,
+     "cb_bytes": 487424,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 22067680
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 160,
+     "cb_bytes": 395264,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 22101920
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 128,
+     "cb_bytes": 376832,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 22119040
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 64,
+     "cb_bytes": 339968,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 22204640
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 32,
+     "cb_bytes": 321536,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 22375840
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 640,
+     "cb_bytes": 571392,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 21135360
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 320,
+     "cb_bytes": 407552,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 21151744
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 160,
+     "cb_bytes": 325632,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 21184512
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 309248,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 21200896
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 276480,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 21282816
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 260096,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 21446656
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 640,
+     "cb_bytes": 370688,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 26624000
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 320,
+     "cb_bytes": 247808,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 26644480
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 160,
+     "cb_bytes": 186368,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 26685440
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 174080,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 26705920
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 149504,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 26808320
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 137216,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27013120
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 640,
+     "cb_bytes": 270336,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27033600
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 320,
+     "cb_bytes": 167936,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27054080
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 160,
+     "cb_bytes": 116736,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27095040
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 106496,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27115520
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 86016,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27217920
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 75776,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27422720
+    }
+   ],
+   "rows_bfp8": [
+    {
+     "q_chunk": 640,
+     "k_chunk": 640,
+     "cb_bytes": 1677824,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 19691520
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 320,
+     "cb_bytes": 1224704,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 19706880
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 160,
+     "cb_bytes": 998144,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 19737600
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 128,
+     "cb_bytes": 952832,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 19752960
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 64,
+     "cb_bytes": 862208,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 19829760
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 32,
+     "cb_bytes": 816896,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 19983360
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 640,
+     "cb_bytes": 885504,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 20544000
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 320,
+     "cb_bytes": 637184,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 20560000
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 160,
+     "cb_bytes": 513024,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 20592000
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 128,
+     "cb_bytes": 488192,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 20608000
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 64,
+     "cb_bytes": 438528,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 20688000
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 32,
+     "cb_bytes": 413696,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 20848000
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 640,
+     "cb_bytes": 489344,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 22050560
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 320,
+     "cb_bytes": 343424,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 22067680
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 160,
+     "cb_bytes": 270464,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 22101920
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 128,
+     "cb_bytes": 255872,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 22119040
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 64,
+     "cb_bytes": 226688,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 22204640
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 32,
+     "cb_bytes": 212096,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 22375840
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 640,
+     "cb_bytes": 410112,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 21135360
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 320,
+     "cb_bytes": 284672,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 21151744
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 160,
+     "cb_bytes": 221952,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 21184512
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 209408,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 21200896
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 184320,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 21282816
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 171776,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 21446656
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 640,
+     "cb_bytes": 251648,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 26624000
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 320,
+     "cb_bytes": 167168,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 26644480
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 160,
+     "cb_bytes": 124928,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 26685440
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 116480,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 26705920
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 99584,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 26808320
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 91136,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27013120
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 640,
+     "cb_bytes": 172416,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27033600
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 320,
+     "cb_bytes": 108416,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27054080
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 160,
+     "cb_bytes": 76416,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27095040
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 70016,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27115520
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 57216,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27217920
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 50816,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 27422720
+    }
+   ]
+  },
+  "768": {
+   "n_servable_bf16": 55,
+   "n_servable_bfp8": 62,
+   "best_bf16": [
+    256,
+    768
+   ],
+   "best_bfp8": [
+    256,
+    768
+   ],
+   "cost_bf16": 33948672,
+   "cost_bfp8": 33948672,
+   "newly_fitting": [
+    [
+     768,
+     256
+    ],
+    [
+     768,
+     192
+    ],
+    [
+     768,
+     128
+    ],
+    [
+     768,
+     96
+    ],
+    [
+     768,
+     64
+    ],
+    [
+     768,
+     32
+    ],
+    [
+     384,
+     768
+    ]
+   ],
+   "rows_bf16": [
+    {
+     "q_chunk": 768,
+     "k_chunk": 768,
+     "cb_bytes": 3004416,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 34254336
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 384,
+     "cb_bytes": 2316288,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 34276608
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 256,
+     "cb_bytes": 2086912,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 34298880
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 192,
+     "cb_bytes": 1972224,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 34321152
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 128,
+     "cb_bytes": 1857536,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 34365696
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 96,
+     "cb_bytes": 1800192,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 34410240
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 64,
+     "cb_bytes": 1742848,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 34499328
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 32,
+     "cb_bytes": 1685504,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 34766592
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 768,
+     "cb_bytes": 1603584,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 35481600
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 384,
+     "cb_bytes": 1210368,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 35504640
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 256,
+     "cb_bytes": 1079296,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 35527680
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 192,
+     "cb_bytes": 1013760,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 35550720
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 128,
+     "cb_bytes": 948224,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 35596800
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 96,
+     "cb_bytes": 915456,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 35642880
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 64,
+     "cb_bytes": 882688,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 35735040
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 32,
+     "cb_bytes": 849920,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 36011520
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 768,
+     "cb_bytes": 1136640,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 33948672
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 384,
+     "cb_bytes": 841728,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 33970688
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "cb_bytes": 743424,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 33992704
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 192,
+     "cb_bytes": 694272,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34014720
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 128,
+     "cb_bytes": 645120,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34058752
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 96,
+     "cb_bytes": 620544,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34102784
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 64,
+     "cb_bytes": 595968,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34190848
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 32,
+     "cb_bytes": 571392,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34455040
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 768,
+     "cb_bytes": 903168,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 37945344
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 384,
+     "cb_bytes": 657408,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 37969920
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 256,
+     "cb_bytes": 575488,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 37994496
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 192,
+     "cb_bytes": 534528,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38019072
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 128,
+     "cb_bytes": 493568,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38068224
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 96,
+     "cb_bytes": 473088,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38117376
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 64,
+     "cb_bytes": 452608,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38215680
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 32,
+     "cb_bytes": 432128,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38510592
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 768,
+     "cb_bytes": 669696,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38043648
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 384,
+     "cb_bytes": 473088,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38068224
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 256,
+     "cb_bytes": 407552,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38092800
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 192,
+     "cb_bytes": 374784,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38117376
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 342016,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38166528
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 96,
+     "cb_bytes": 325632,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38215680
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 309248,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38313984
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 292864,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38608896
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 768,
+     "cb_bytes": 552960,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38141952
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 384,
+     "cb_bytes": 380928,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38166528
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 256,
+     "cb_bytes": 323584,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38191104
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 192,
+     "cb_bytes": 294912,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38215680
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 128,
+     "cb_bytes": 266240,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38264832
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 96,
+     "cb_bytes": 251904,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38313984
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 64,
+     "cb_bytes": 237568,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38412288
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 32,
+     "cb_bytes": 223232,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38707200
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 768,
+     "cb_bytes": 436224,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38338560
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 384,
+     "cb_bytes": 288768,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38363136
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 256,
+     "cb_bytes": 239616,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38387712
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 192,
+     "cb_bytes": 215040,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38412288
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 190464,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38461440
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 96,
+     "cb_bytes": 178176,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38510592
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 165888,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38608896
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 153600,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38903808
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 768,
+     "cb_bytes": 319488,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38928384
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 384,
+     "cb_bytes": 196608,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38952960
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 256,
+     "cb_bytes": 155648,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38977536
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 192,
+     "cb_bytes": 135168,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 39002112
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 114688,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 39051264
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 96,
+     "cb_bytes": 104448,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 39100416
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 94208,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 39198720
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 83968,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 39493632
+    }
+   ],
+   "rows_bfp8": [
+    {
+     "q_chunk": 768,
+     "k_chunk": 768,
+     "cb_bytes": 2313216,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 34254336
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 384,
+     "cb_bytes": 1671168,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 34276608
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 256,
+     "cb_bytes": 1457152,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34298880
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 192,
+     "cb_bytes": 1350144,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34321152
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 128,
+     "cb_bytes": 1243136,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34365696
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 96,
+     "cb_bytes": 1189632,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34410240
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 64,
+     "cb_bytes": 1136128,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34499328
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 32,
+     "cb_bytes": 1082624,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34766592
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 768,
+     "cb_bytes": 1211904,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 35481600
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 384,
+     "cb_bytes": 864768,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 35504640
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 256,
+     "cb_bytes": 749056,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 35527680
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 192,
+     "cb_bytes": 691200,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 35550720
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 128,
+     "cb_bytes": 633344,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 35596800
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 96,
+     "cb_bytes": 604416,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 35642880
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 64,
+     "cb_bytes": 575488,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 35735040
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 32,
+     "cb_bytes": 546560,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 36011520
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 768,
+     "cb_bytes": 844800,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 33948672
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 384,
+     "cb_bytes": 595968,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 33970688
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "cb_bytes": 513024,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 33992704
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 192,
+     "cb_bytes": 471552,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34014720
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 128,
+     "cb_bytes": 430080,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34058752
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 96,
+     "cb_bytes": 409344,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34102784
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 64,
+     "cb_bytes": 388608,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34190848
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 32,
+     "cb_bytes": 367872,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 34455040
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 768,
+     "cb_bytes": 661248,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 37945344
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 384,
+     "cb_bytes": 461568,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 37969920
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 256,
+     "cb_bytes": 395008,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 37994496
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 192,
+     "cb_bytes": 361728,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38019072
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 128,
+     "cb_bytes": 328448,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38068224
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 96,
+     "cb_bytes": 311808,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38117376
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 64,
+     "cb_bytes": 295168,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38215680
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 32,
+     "cb_bytes": 278528,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38510592
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 768,
+     "cb_bytes": 477696,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38043648
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 384,
+     "cb_bytes": 327168,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38068224
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 256,
+     "cb_bytes": 276992,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38092800
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 192,
+     "cb_bytes": 251904,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38117376
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 226816,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38166528
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 96,
+     "cb_bytes": 214272,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38215680
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 201728,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38313984
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 189184,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38608896
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 768,
+     "cb_bytes": 385920,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38141952
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 384,
+     "cb_bytes": 259968,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38166528
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 256,
+     "cb_bytes": 217984,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38191104
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 192,
+     "cb_bytes": 196992,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38215680
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 128,
+     "cb_bytes": 176000,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38264832
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 96,
+     "cb_bytes": 165504,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38313984
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 64,
+     "cb_bytes": 155008,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38412288
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 32,
+     "cb_bytes": 144512,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38707200
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 768,
+     "cb_bytes": 294144,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38338560
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 384,
+     "cb_bytes": 192768,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38363136
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 256,
+     "cb_bytes": 158976,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38387712
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 192,
+     "cb_bytes": 142080,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38412288
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 125184,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38461440
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 96,
+     "cb_bytes": 116736,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38510592
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 108288,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38608896
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 99840,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38903808
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 768,
+     "cb_bytes": 202368,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38928384
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 384,
+     "cb_bytes": 125568,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38952960
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 256,
+     "cb_bytes": 99968,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 38977536
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 192,
+     "cb_bytes": 87168,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 39002112
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 74368,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 39051264
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 96,
+     "cb_bytes": 67968,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 39100416
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 61568,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 39198720
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 55168,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 39493632
+    }
+   ]
+  },
+  "896": {
+   "n_servable_bf16": 22,
+   "n_servable_bfp8": 25,
+   "best_bf16": [
+    448,
+    224
+   ],
+   "best_bfp8": [
+    896,
+    64
+   ],
+   "cost_bf16": 55610688,
+   "cost_bfp8": 55048448,
+   "newly_fitting": [
+    [
+     896,
+     64
+    ],
+    [
+     896,
+     32
+    ],
+    [
+     448,
+     448
+    ]
+   ],
+   "rows_bf16": [
+    {
+     "q_chunk": 896,
+     "k_chunk": 896,
+     "cb_bytes": 3962880,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 54652416
+    },
+    {
+     "q_chunk": 896,
+     "k_chunk": 448,
+     "cb_bytes": 3045376,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 54682880
+    },
+    {
+     "q_chunk": 896,
+     "k_chunk": 224,
+     "cb_bytes": 2586624,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 54743808
+    },
+    {
+     "q_chunk": 896,
+     "k_chunk": 128,
+     "cb_bytes": 2390016,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 54835200
+    },
+    {
+     "q_chunk": 896,
+     "k_chunk": 64,
+     "cb_bytes": 2258944,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 55048448
+    },
+    {
+     "q_chunk": 896,
+     "k_chunk": 32,
+     "cb_bytes": 2193408,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 55474944
+    },
+    {
+     "q_chunk": 448,
+     "k_chunk": 896,
+     "cb_bytes": 2099200,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 55517952
+    },
+    {
+     "q_chunk": 448,
+     "k_chunk": 448,
+     "cb_bytes": 1583104,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 55548864
+    },
+    {
+     "q_chunk": 448,
+     "k_chunk": 224,
+     "cb_bytes": 1325056,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 55610688
+    },
+    {
+     "q_chunk": 448,
+     "k_chunk": 128,
+     "cb_bytes": 1214464,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 55703424
+    },
+    {
+     "q_chunk": 448,
+     "k_chunk": 64,
+     "cb_bytes": 1140736,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 55919808
+    },
+    {
+     "q_chunk": 448,
+     "k_chunk": 32,
+     "cb_bytes": 1103872,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 56352576
+    },
+    {
+     "q_chunk": 224,
+     "k_chunk": 896,
+     "cb_bytes": 1167360,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 60480000
+    },
+    {
+     "q_chunk": 224,
+     "k_chunk": 448,
+     "cb_bytes": 851968,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 60513600
+    },
+    {
+     "q_chunk": 224,
+     "k_chunk": 224,
+     "cb_bytes": 694272,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 60580800
+    },
+    {
+     "q_chunk": 224,
+     "k_chunk": 128,
+     "cb_bytes": 626688,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 60681600
+    },
+    {
+     "q_chunk": 224,
+     "k_chunk": 64,
+     "cb_bytes": 581632,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 60916800
+    },
+    {
+     "q_chunk": 224,
+     "k_chunk": 32,
+     "cb_bytes": 559104,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 61387200
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 896,
+     "cb_bytes": 768000,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 69119232
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 448,
+     "cb_bytes": 538624,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 69157504
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 224,
+     "cb_bytes": 423936,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 69234048
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 374784,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 69348864
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 342016,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 69616768
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 325632,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 70152576
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 896,
+     "cb_bytes": 501760,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 104366080
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 448,
+     "cb_bytes": 329728,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 104423424
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 224,
+     "cb_bytes": 243712,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 104538112
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 206848,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 104710144
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 182272,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 105111552
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 169984,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 105914368
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 896,
+     "cb_bytes": 370688,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2010624
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 448,
+     "cb_bytes": 227328,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2011712
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 224,
+     "cb_bytes": 155648,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2013888
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 124928,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2017152
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 104448,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2024768
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 94208,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2040000
+    }
+   ],
+   "rows_bfp8": [
+    {
+     "q_chunk": 896,
+     "k_chunk": 896,
+     "cb_bytes": 3048960,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 54652416
+    },
+    {
+     "q_chunk": 896,
+     "k_chunk": 448,
+     "cb_bytes": 2185216,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 54682880
+    },
+    {
+     "q_chunk": 896,
+     "k_chunk": 224,
+     "cb_bytes": 1753344,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 54743808
+    },
+    {
+     "q_chunk": 896,
+     "k_chunk": 128,
+     "cb_bytes": 1568256,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 54835200
+    },
+    {
+     "q_chunk": 896,
+     "k_chunk": 64,
+     "cb_bytes": 1444864,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 55048448
+    },
+    {
+     "q_chunk": 896,
+     "k_chunk": 32,
+     "cb_bytes": 1383168,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 55474944
+    },
+    {
+     "q_chunk": 448,
+     "k_chunk": 896,
+     "cb_bytes": 1588480,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 55517952
+    },
+    {
+     "q_chunk": 448,
+     "k_chunk": 448,
+     "cb_bytes": 1126144,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 55548864
+    },
+    {
+     "q_chunk": 448,
+     "k_chunk": 224,
+     "cb_bytes": 894976,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 55610688
+    },
+    {
+     "q_chunk": 448,
+     "k_chunk": 128,
+     "cb_bytes": 795904,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 55703424
+    },
+    {
+     "q_chunk": 448,
+     "k_chunk": 64,
+     "cb_bytes": 729856,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 55919808
+    },
+    {
+     "q_chunk": 448,
+     "k_chunk": 32,
+     "cb_bytes": 696832,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 56352576
+    },
+    {
+     "q_chunk": 224,
+     "k_chunk": 896,
+     "cb_bytes": 858240,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 60480000
+    },
+    {
+     "q_chunk": 224,
+     "k_chunk": 448,
+     "cb_bytes": 596608,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 60513600
+    },
+    {
+     "q_chunk": 224,
+     "k_chunk": 224,
+     "cb_bytes": 465792,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 60580800
+    },
+    {
+     "q_chunk": 224,
+     "k_chunk": 128,
+     "cb_bytes": 409728,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 60681600
+    },
+    {
+     "q_chunk": 224,
+     "k_chunk": 64,
+     "cb_bytes": 372352,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 60916800
+    },
+    {
+     "q_chunk": 224,
+     "k_chunk": 32,
+     "cb_bytes": 353664,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 61387200
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 896,
+     "cb_bytes": 545280,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 69119232
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 448,
+     "cb_bytes": 369664,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 69157504
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 224,
+     "cb_bytes": 281856,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 69234048
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 244224,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 69348864
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 219136,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 69616768
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 206592,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 70152576
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 896,
+     "cb_bytes": 336640,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 104366080
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 448,
+     "cb_bytes": 218368,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 104423424
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 224,
+     "cb_bytes": 159232,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 104538112
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 133888,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 104710144
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 116992,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 105111552
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 108544,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 105914368
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 896,
+     "cb_bytes": 233408,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2010624
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 448,
+     "cb_bytes": 143808,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2011712
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 224,
+     "cb_bytes": 99008,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2013888
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 79808,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2017152
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 67008,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2024768
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 60608,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2040000
+    }
+   ]
+  },
+  "1024": {
+   "n_servable_bf16": 19,
+   "n_servable_bfp8": 23,
+   "best_bf16": [
+    512,
+    64
+   ],
+   "best_bfp8": [
+    512,
+    512
+   ],
+   "cost_bf16": 83606016,
+   "cost_bfp8": 83039744,
+   "newly_fitting": [
+    [
+     512,
+     512
+    ],
+    [
+     512,
+     256
+    ],
+    [
+     512,
+     128
+    ],
+    [
+     256,
+     1024
+    ]
+   ],
+   "rows_bf16": [
+    {
+     "q_chunk": 1024,
+     "k_chunk": 1024,
+     "cb_bytes": 5052416,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 79769600
+    },
+    {
+     "q_chunk": 1024,
+     "k_chunk": 512,
+     "cb_bytes": 3872768,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 79808512
+    },
+    {
+     "q_chunk": 1024,
+     "k_chunk": 256,
+     "cb_bytes": 3282944,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 79886336
+    },
+    {
+     "q_chunk": 1024,
+     "k_chunk": 128,
+     "cb_bytes": 2988032,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 80041984
+    },
+    {
+     "q_chunk": 1024,
+     "k_chunk": 64,
+     "cb_bytes": 2840576,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 80353280
+    },
+    {
+     "q_chunk": 1024,
+     "k_chunk": 32,
+     "cb_bytes": 2766848,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 80975872
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 1024,
+     "cb_bytes": 2660352,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 82999296
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 512,
+     "cb_bytes": 2004992,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 83039744
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 256,
+     "cb_bytes": 1677312,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 83120640
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 128,
+     "cb_bytes": 1513472,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 83282432
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 64,
+     "cb_bytes": 1431552,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 83606016
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 32,
+     "cb_bytes": 1390592,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 84253184
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 1024,
+     "cb_bytes": 1464320,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 90003456
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 512,
+     "cb_bytes": 1071104,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90047232
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "cb_bytes": 874496,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90134784
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 128,
+     "cb_bytes": 776192,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90309888
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 64,
+     "cb_bytes": 727040,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90660096
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 32,
+     "cb_bytes": 702464,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 91360512
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 1024,
+     "cb_bytes": 866304,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90353664
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 512,
+     "cb_bytes": 604160,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90397440
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 256,
+     "cb_bytes": 473088,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90484992
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 407552,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90660096
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 374784,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 91010304
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 358400,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 91710720
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 1024,
+     "cb_bytes": 567296,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 136314880
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 512,
+     "cb_bytes": 370688,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 136380416
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 256,
+     "cb_bytes": 272384,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 136511488
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 223232,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 136773632
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 198656,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 137297920
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 186368,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 138346496
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 1024,
+     "cb_bytes": 419840,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2568192
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 512,
+     "cb_bytes": 256000,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2569408
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 256,
+     "cb_bytes": 174080,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2571840
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 133120,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2576704
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 112640,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2586432
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 102400,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2605888
+    }
+   ],
+   "rows_bfp8": [
+    {
+     "q_chunk": 1024,
+     "k_chunk": 1024,
+     "cb_bytes": 3885056,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 79769600
+    },
+    {
+     "q_chunk": 1024,
+     "k_chunk": 512,
+     "cb_bytes": 2766848,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 79808512
+    },
+    {
+     "q_chunk": 1024,
+     "k_chunk": 256,
+     "cb_bytes": 2207744,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 79886336
+    },
+    {
+     "q_chunk": 1024,
+     "k_chunk": 128,
+     "cb_bytes": 1928192,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 80041984
+    },
+    {
+     "q_chunk": 1024,
+     "k_chunk": 64,
+     "cb_bytes": 1788416,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 80353280
+    },
+    {
+     "q_chunk": 1024,
+     "k_chunk": 32,
+     "cb_bytes": 1718528,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 80975872
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 1024,
+     "cb_bytes": 2015232,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 82999296
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 512,
+     "cb_bytes": 1421312,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 83039744
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 256,
+     "cb_bytes": 1124352,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 83120640
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 128,
+     "cb_bytes": 975872,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 83282432
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 64,
+     "cb_bytes": 901632,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 83606016
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 32,
+     "cb_bytes": 864512,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 84253184
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 1024,
+     "cb_bytes": 1080320,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90003456
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 512,
+     "cb_bytes": 748544,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90047232
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "cb_bytes": 582656,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90134784
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 128,
+     "cb_bytes": 499712,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90309888
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 64,
+     "cb_bytes": 458240,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90660096
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 32,
+     "cb_bytes": 437504,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 91360512
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 1024,
+     "cb_bytes": 612864,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90353664
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 512,
+     "cb_bytes": 412160,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90397440
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 256,
+     "cb_bytes": 311808,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90484992
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 261632,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 90660096
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 236544,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 91010304
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 224000,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 91710720
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 1024,
+     "cb_bytes": 379136,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 136314880
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 512,
+     "cb_bytes": 243968,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 136380416
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 256,
+     "cb_bytes": 176384,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 136511488
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 142592,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 136773632
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 125696,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 137297920
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 117248,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 138346496
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 1024,
+     "cb_bytes": 263360,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2568192
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 512,
+     "cb_bytes": 160960,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2569408
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 256,
+     "cb_bytes": 109760,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2571840
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 84160,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2576704
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 71360,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2586432
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 64960,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 2605888
+    }
+   ]
+  },
+  "1280": {
+   "n_servable_bf16": 37,
+   "n_servable_bfp8": 43,
+   "best_bf16": [
+    256,
+    640
+   ],
+   "best_bfp8": [
+    640,
+    160
+   ],
+   "cost_bf16": 168493056,
+   "cost_bfp8": 162898560,
+   "newly_fitting": [
+    [
+     640,
+     160
+    ],
+    [
+     640,
+     128
+    ],
+    [
+     640,
+     64
+    ],
+    [
+     640,
+     32
+    ],
+    [
+     256,
+     1280
+    ],
+    [
+     320,
+     640
+    ]
+   ],
+   "rows_bf16": [
+    {
+     "q_chunk": 1280,
+     "k_chunk": 1280,
+     "cb_bytes": 7624704,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 157409280
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 640,
+     "cb_bytes": 5822464,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 157470720
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 320,
+     "cb_bytes": 4921344,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 157593600
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 256,
+     "cb_bytes": 4741120,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 157655040
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 160,
+     "cb_bytes": 4470784,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 157839360
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 128,
+     "cb_bytes": 4380672,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 157962240
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 64,
+     "cb_bytes": 4200448,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 158576640
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 32,
+     "cb_bytes": 4110336,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 159805440
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 1280,
+     "cb_bytes": 3979264,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 162455040
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 640,
+     "cb_bytes": 2996224,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 162518400
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 320,
+     "cb_bytes": 2504704,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 162645120
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 256,
+     "cb_bytes": 2406400,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 162708480
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 160,
+     "cb_bytes": 2258944,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 162898560
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 128,
+     "cb_bytes": 2209792,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 163025280
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 64,
+     "cb_bytes": 2111488,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 163658880
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 32,
+     "cb_bytes": 2062336,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 164926080
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 1280,
+     "cb_bytes": 2156544,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 175856640
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 640,
+     "cb_bytes": 1583104,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 175925120
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 320,
+     "cb_bytes": 1296384,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176062080
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 256,
+     "cb_bytes": 1239040,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176130560
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 160,
+     "cb_bytes": 1153024,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176336000
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 128,
+     "cb_bytes": 1124352,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176472960
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 64,
+     "cb_bytes": 1067008,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 177157760
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 32,
+     "cb_bytes": 1038336,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 178527360
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 1280,
+     "cb_bytes": 1792000,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 168427520
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 640,
+     "cb_bytes": 1300480,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 168493056
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 320,
+     "cb_bytes": 1054720,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 168624128
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "cb_bytes": 1005568,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 168689664
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 160,
+     "cb_bytes": 931840,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 168886272
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 128,
+     "cb_bytes": 907264,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 169017344
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 64,
+     "cb_bytes": 858112,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 169672704
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 32,
+     "cb_bytes": 833536,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 170983424
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 1280,
+     "cb_bytes": 1245184,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 175992320
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 640,
+     "cb_bytes": 876544,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176060640
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 320,
+     "cb_bytes": 692224,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176197280
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 256,
+     "cb_bytes": 655360,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176265600
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 160,
+     "cb_bytes": 600064,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176470560
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 128,
+     "cb_bytes": 581632,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176607200
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 64,
+     "cb_bytes": 544768,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 177290400
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 32,
+     "cb_bytes": 526336,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 178656800
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 1280,
+     "cb_bytes": 1062912,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 211353600
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 640,
+     "cb_bytes": 735232,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 211435520
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 320,
+     "cb_bytes": 571392,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 211599360
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 256,
+     "cb_bytes": 538624,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 211681280
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 160,
+     "cb_bytes": 489472,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 211927040
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 473088,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 212090880
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 440320,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 212910080
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 423936,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 214548480
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 1280,
+     "cb_bytes": 698368,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 212992000
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 640,
+     "cb_bytes": 452608,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 213073920
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 320,
+     "cb_bytes": 329728,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 213237760
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 256,
+     "cb_bytes": 305152,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 213319680
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 160,
+     "cb_bytes": 268288,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 213565440
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 256000,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 213729280
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 231424,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 214548480
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 219136,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 216186880
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 1280,
+     "cb_bytes": 518144,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4055040
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 640,
+     "cb_bytes": 313344,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4056576
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 320,
+     "cb_bytes": 210944,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4059648
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 256,
+     "cb_bytes": 190464,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4061184
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 160,
+     "cb_bytes": 159744,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4065792
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 149504,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4068864
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 129024,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4084224
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 118784,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4114944
+    }
+   ],
+   "rows_bfp8": [
+    {
+     "q_chunk": 1280,
+     "k_chunk": 1280,
+     "cb_bytes": 5858304,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 157409280
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 640,
+     "cb_bytes": 4132864,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 157470720
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 320,
+     "cb_bytes": 3270144,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 157593600
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 256,
+     "cb_bytes": 3097600,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 157655040
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 160,
+     "cb_bytes": 2838784,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 157839360
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 128,
+     "cb_bytes": 2752512,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 157962240
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 64,
+     "cb_bytes": 2579968,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 158576640
+    },
+    {
+     "q_chunk": 1280,
+     "k_chunk": 32,
+     "cb_bytes": 2493696,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 159805440
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 1280,
+     "cb_bytes": 3019264,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 162455040
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 640,
+     "cb_bytes": 2113024,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 162518400
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 320,
+     "cb_bytes": 1659904,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 162645120
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 256,
+     "cb_bytes": 1569280,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 162708480
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 160,
+     "cb_bytes": 1433344,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 162898560
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 128,
+     "cb_bytes": 1388032,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 163025280
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 64,
+     "cb_bytes": 1297408,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 163658880
+    },
+    {
+     "q_chunk": 640,
+     "k_chunk": 32,
+     "cb_bytes": 1252096,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 164926080
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 1280,
+     "cb_bytes": 1599744,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 175856640
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 640,
+     "cb_bytes": 1103104,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 175925120
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 320,
+     "cb_bytes": 854784,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176062080
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 256,
+     "cb_bytes": 805120,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176130560
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 160,
+     "cb_bytes": 730624,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176336000
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 128,
+     "cb_bytes": 705792,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176472960
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 64,
+     "cb_bytes": 656128,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 177157760
+    },
+    {
+     "q_chunk": 320,
+     "k_chunk": 32,
+     "cb_bytes": 631296,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 178527360
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 1280,
+     "cb_bytes": 1315840,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 168427520
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 640,
+     "cb_bytes": 901120,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 168493056
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 320,
+     "cb_bytes": 693760,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 168624128
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "cb_bytes": 652288,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 168689664
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 160,
+     "cb_bytes": 590080,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 168886272
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 128,
+     "cb_bytes": 569344,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 169017344
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 64,
+     "cb_bytes": 527872,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 169672704
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 32,
+     "cb_bytes": 507136,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 170983424
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 1280,
+     "cb_bytes": 889984,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 175992320
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 640,
+     "cb_bytes": 598144,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176060640
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 320,
+     "cb_bytes": 452224,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176197280
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 256,
+     "cb_bytes": 423040,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176265600
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 160,
+     "cb_bytes": 379264,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176470560
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 128,
+     "cb_bytes": 364672,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 176607200
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 64,
+     "cb_bytes": 335488,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 177290400
+    },
+    {
+     "q_chunk": 160,
+     "k_chunk": 32,
+     "cb_bytes": 320896,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 178656800
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 1280,
+     "cb_bytes": 748032,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 211353600
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 640,
+     "cb_bytes": 497152,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 211435520
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 320,
+     "cb_bytes": 371712,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 211599360
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 256,
+     "cb_bytes": 346624,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 211681280
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 160,
+     "cb_bytes": 308992,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 211927040
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 296448,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 212090880
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 271360,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 212910080
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 258816,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 214548480
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 1280,
+     "cb_bytes": 464128,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 212992000
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 640,
+     "cb_bytes": 295168,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 213073920
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 320,
+     "cb_bytes": 210688,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 213237760
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 256,
+     "cb_bytes": 193792,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 213319680
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 160,
+     "cb_bytes": 168448,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 213565440
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 160000,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 213729280
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 143104,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 214548480
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 134656,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 216186880
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 1280,
+     "cb_bytes": 323264,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4055040
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 640,
+     "cb_bytes": 195264,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4056576
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 320,
+     "cb_bytes": 131264,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4059648
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 256,
+     "cb_bytes": 118464,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4061184
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 160,
+     "cb_bytes": 99264,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4065792
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 92864,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4068864
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 80064,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4084224
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 73664,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 4114944
+    }
+   ]
+  },
+  "1536": {
+   "n_servable_bf16": 48,
+   "n_servable_bfp8": 63,
+   "best_bf16": [
+    256,
+    512
+   ],
+   "best_bfp8": [
+    512,
+    256
+   ],
+   "cost_bf16": 303366144,
+   "cost_bfp8": 269922816,
+   "newly_fitting": [
+    [
+     512,
+     256
+    ],
+    [
+     512,
+     192
+    ],
+    [
+     512,
+     128
+    ],
+    [
+     512,
+     96
+    ],
+    [
+     512,
+     64
+    ],
+    [
+     512,
+     32
+    ],
+    [
+     384,
+     512
+    ],
+    [
+     384,
+     384
+    ],
+    [
+     384,
+     256
+    ],
+    [
+     256,
+     768
+    ],
+    [
+     384,
+     192
+    ],
+    [
+     192,
+     1536
+    ],
+    [
+     384,
+     128
+    ],
+    [
+     384,
+     96
+    ],
+    [
+     384,
+     64
+    ]
+   ],
+   "rows_bf16": [
+    {
+     "q_chunk": 1536,
+     "k_chunk": 1536,
+     "cb_bytes": 10721280,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269134848
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 768,
+     "cb_bytes": 8165376,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269222400
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 512,
+     "cb_bytes": 7313408,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269309952
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 384,
+     "cb_bytes": 6887424,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269397504
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 256,
+     "cb_bytes": 6461440,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269572608
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 192,
+     "cb_bytes": 6248448,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269747712
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 128,
+     "cb_bytes": 6035456,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 270097920
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 96,
+     "cb_bytes": 5928960,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 270448128
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 64,
+     "cb_bytes": 5822464,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 271148544
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 32,
+     "cb_bytes": 5715968,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 273249792
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 1536,
+     "cb_bytes": 5560320,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 281121792
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 768,
+     "cb_bytes": 4184064,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 281213184
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 512,
+     "cb_bytes": 3725312,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 281304576
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 384,
+     "cb_bytes": 3495936,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 281395968
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 256,
+     "cb_bytes": 3266560,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 281578752
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 192,
+     "cb_bytes": 3151872,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 281761536
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 128,
+     "cb_bytes": 3037184,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 282127104
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 96,
+     "cb_bytes": 2979840,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 282492672
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 64,
+     "cb_bytes": 2922496,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 283223808
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 32,
+     "cb_bytes": 2865152,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 285417216
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 1536,
+     "cb_bytes": 3840000,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269485056
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 768,
+     "cb_bytes": 2856960,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269572608
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 512,
+     "cb_bytes": 2529280,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269660160
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 384,
+     "cb_bytes": 2365440,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269747712
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 256,
+     "cb_bytes": 2201600,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269922816
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 192,
+     "cb_bytes": 2119680,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 270097920
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 128,
+     "cb_bytes": 2037760,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 270448128
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 96,
+     "cb_bytes": 1996800,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 270798336
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 64,
+     "cb_bytes": 1955840,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 271498752
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 32,
+     "cb_bytes": 1914880,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 273600000
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 1536,
+     "cb_bytes": 2979840,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 302776320
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 768,
+     "cb_bytes": 2193408,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 302874624
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 512,
+     "cb_bytes": 1931264,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 302972928
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 384,
+     "cb_bytes": 1800192,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 303071232
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 256,
+     "cb_bytes": 1669120,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 303267840
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 192,
+     "cb_bytes": 1603584,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 303464448
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 128,
+     "cb_bytes": 1538048,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 303857664
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 96,
+     "cb_bytes": 1505280,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 304250880
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 64,
+     "cb_bytes": 1472512,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 305037312
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 32,
+     "cb_bytes": 1439744,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 307396608
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 1536,
+     "cb_bytes": 2119680,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 303169536
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 768,
+     "cb_bytes": 1529856,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 303267840
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 512,
+     "cb_bytes": 1333248,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303366144
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 384,
+     "cb_bytes": 1234944,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303464448
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "cb_bytes": 1136640,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303661056
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 192,
+     "cb_bytes": 1087488,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303857664
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 128,
+     "cb_bytes": 1038336,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304250880
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 96,
+     "cb_bytes": 1013760,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304644096
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 64,
+     "cb_bytes": 989184,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 305430528
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 32,
+     "cb_bytes": 964608,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 307789824
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 1536,
+     "cb_bytes": 1689600,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 303562752
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 768,
+     "cb_bytes": 1198080,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303661056
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 512,
+     "cb_bytes": 1034240,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303759360
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 384,
+     "cb_bytes": 952320,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303857664
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 256,
+     "cb_bytes": 870400,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304054272
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 192,
+     "cb_bytes": 829440,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304250880
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 128,
+     "cb_bytes": 788480,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304644096
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 96,
+     "cb_bytes": 768000,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 305037312
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 64,
+     "cb_bytes": 747520,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 305823744
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 32,
+     "cb_bytes": 727040,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 308183040
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 1536,
+     "cb_bytes": 1259520,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304349184
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 768,
+     "cb_bytes": 866304,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304447488
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 512,
+     "cb_bytes": 735232,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304545792
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 384,
+     "cb_bytes": 669696,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304644096
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 256,
+     "cb_bytes": 604160,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304840704
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 192,
+     "cb_bytes": 571392,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 305037312
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 538624,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 305430528
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 96,
+     "cb_bytes": 522240,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 305823744
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 505856,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 306610176
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 489472,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 308969472
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 1536,
+     "cb_bytes": 1044480,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 457703424
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 768,
+     "cb_bytes": 700416,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 457850880
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 512,
+     "cb_bytes": 585728,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 457998336
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 384,
+     "cb_bytes": 528384,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 458145792
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 256,
+     "cb_bytes": 471040,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 458440704
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 192,
+     "cb_bytes": 442368,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 458735616
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 128,
+     "cb_bytes": 413696,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 459325440
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 96,
+     "cb_bytes": 399360,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 459915264
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 64,
+     "cb_bytes": 385024,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 461094912
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 32,
+     "cb_bytes": 370688,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 464633856
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 1536,
+     "cb_bytes": 829440,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 306708480
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 768,
+     "cb_bytes": 534528,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 306806784
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 512,
+     "cb_bytes": 436224,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 306905088
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 384,
+     "cb_bytes": 387072,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 307003392
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 256,
+     "cb_bytes": 337920,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 307200000
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 192,
+     "cb_bytes": 313344,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 307396608
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 288768,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 307789824
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 96,
+     "cb_bytes": 276480,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 308183040
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 264192,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 308969472
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 251904,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 311328768
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 1536,
+     "cb_bytes": 616448,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5778432
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 768,
+     "cb_bytes": 370688,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5780256
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 512,
+     "cb_bytes": 288768,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5782080
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 384,
+     "cb_bytes": 247808,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5783904
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 256,
+     "cb_bytes": 206848,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5787552
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 192,
+     "cb_bytes": 186368,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5791200
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 165888,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5798496
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 96,
+     "cb_bytes": 155648,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5805792
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 145408,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5820384
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 135168,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5864160
+    }
+   ],
+   "rows_bfp8": [
+    {
+     "q_chunk": 1536,
+     "k_chunk": 1536,
+     "cb_bytes": 8232960,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269134848
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 768,
+     "cb_bytes": 5769216,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269222400
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 512,
+     "cb_bytes": 4947968,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269309952
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 384,
+     "cb_bytes": 4537344,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269397504
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 256,
+     "cb_bytes": 4126720,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269572608
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 192,
+     "cb_bytes": 3921408,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269747712
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 128,
+     "cb_bytes": 3716096,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 270097920
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 96,
+     "cb_bytes": 3613440,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 270448128
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 64,
+     "cb_bytes": 3510784,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 271148544
+    },
+    {
+     "q_chunk": 1536,
+     "k_chunk": 32,
+     "cb_bytes": 3408128,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 273249792
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 1536,
+     "cb_bytes": 4224000,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 281121792
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 768,
+     "cb_bytes": 2939904,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 281213184
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 512,
+     "cb_bytes": 2511872,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 281304576
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 384,
+     "cb_bytes": 2297856,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 281395968
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 256,
+     "cb_bytes": 2083840,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 281578752
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 192,
+     "cb_bytes": 1976832,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 281761536
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 128,
+     "cb_bytes": 1869824,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 282127104
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 96,
+     "cb_bytes": 1816320,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 282492672
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 64,
+     "cb_bytes": 1762816,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 283223808
+    },
+    {
+     "q_chunk": 768,
+     "k_chunk": 32,
+     "cb_bytes": 1709312,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 285417216
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 1536,
+     "cb_bytes": 2887680,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269485056
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 768,
+     "cb_bytes": 1996800,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269572608
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 512,
+     "cb_bytes": 1699840,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269660160
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 384,
+     "cb_bytes": 1551360,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 269747712
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 256,
+     "cb_bytes": 1402880,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 269922816
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 192,
+     "cb_bytes": 1328640,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 270097920
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 128,
+     "cb_bytes": 1254400,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 270448128
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 96,
+     "cb_bytes": 1217280,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 270798336
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 64,
+     "cb_bytes": 1180160,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 271498752
+    },
+    {
+     "q_chunk": 512,
+     "k_chunk": 32,
+     "cb_bytes": 1143040,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 273600000
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 1536,
+     "cb_bytes": 2219520,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 302776320
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 768,
+     "cb_bytes": 1525248,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 302874624
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 512,
+     "cb_bytes": 1293824,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 302972928
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 384,
+     "cb_bytes": 1178112,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303071232
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 256,
+     "cb_bytes": 1062400,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303267840
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 192,
+     "cb_bytes": 1004544,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303464448
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 128,
+     "cb_bytes": 946688,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303857664
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 96,
+     "cb_bytes": 917760,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304250880
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 64,
+     "cb_bytes": 888832,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 305037312
+    },
+    {
+     "q_chunk": 384,
+     "k_chunk": 32,
+     "cb_bytes": 859904,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 307396608
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 1536,
+     "cb_bytes": 1551360,
+     "fits": false,
+     "preconds_ok": true,
+     "cost": 303169536
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 768,
+     "cb_bytes": 1053696,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303267840
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 512,
+     "cb_bytes": 887808,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303366144
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 384,
+     "cb_bytes": 804864,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303464448
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 256,
+     "cb_bytes": 721920,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303661056
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 192,
+     "cb_bytes": 680448,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303857664
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 128,
+     "cb_bytes": 638976,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304250880
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 96,
+     "cb_bytes": 618240,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304644096
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 64,
+     "cb_bytes": 597504,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 305430528
+    },
+    {
+     "q_chunk": 256,
+     "k_chunk": 32,
+     "cb_bytes": 576768,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 307789824
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 1536,
+     "cb_bytes": 1217280,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303562752
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 768,
+     "cb_bytes": 817920,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303661056
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 512,
+     "cb_bytes": 684800,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303759360
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 384,
+     "cb_bytes": 618240,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 303857664
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 256,
+     "cb_bytes": 551680,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304054272
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 192,
+     "cb_bytes": 518400,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304250880
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 128,
+     "cb_bytes": 485120,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304644096
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 96,
+     "cb_bytes": 468480,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 305037312
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 64,
+     "cb_bytes": 451840,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 305823744
+    },
+    {
+     "q_chunk": 192,
+     "k_chunk": 32,
+     "cb_bytes": 435200,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 308183040
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 1536,
+     "cb_bytes": 883200,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304349184
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 768,
+     "cb_bytes": 582144,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304447488
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 512,
+     "cb_bytes": 481792,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304545792
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 384,
+     "cb_bytes": 431616,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304644096
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 256,
+     "cb_bytes": 381440,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 304840704
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 192,
+     "cb_bytes": 356352,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 305037312
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 128,
+     "cb_bytes": 331264,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 305430528
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 96,
+     "cb_bytes": 318720,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 305823744
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 64,
+     "cb_bytes": 306176,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 306610176
+    },
+    {
+     "q_chunk": 128,
+     "k_chunk": 32,
+     "cb_bytes": 293632,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 308969472
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 1536,
+     "cb_bytes": 716160,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 457703424
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 768,
+     "cb_bytes": 464256,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 457850880
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 512,
+     "cb_bytes": 380288,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 457998336
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 384,
+     "cb_bytes": 338304,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 458145792
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 256,
+     "cb_bytes": 296320,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 458440704
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 192,
+     "cb_bytes": 275328,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 458735616
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 128,
+     "cb_bytes": 254336,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 459325440
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 96,
+     "cb_bytes": 243840,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 459915264
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 64,
+     "cb_bytes": 233344,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 461094912
+    },
+    {
+     "q_chunk": 96,
+     "k_chunk": 32,
+     "cb_bytes": 222848,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 464633856
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 1536,
+     "cb_bytes": 549120,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 306708480
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 768,
+     "cb_bytes": 346368,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 306806784
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 512,
+     "cb_bytes": 278784,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 306905088
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 384,
+     "cb_bytes": 244992,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 307003392
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 256,
+     "cb_bytes": 211200,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 307200000
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 192,
+     "cb_bytes": 194304,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 307396608
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 128,
+     "cb_bytes": 177408,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 307789824
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 96,
+     "cb_bytes": 168960,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 308183040
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 64,
+     "cb_bytes": 160512,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 308969472
+    },
+    {
+     "q_chunk": 64,
+     "k_chunk": 32,
+     "cb_bytes": 152064,
+     "fits": true,
+     "preconds_ok": true,
+     "cost": 311328768
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 1536,
+     "cb_bytes": 383168,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5778432
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 768,
+     "cb_bytes": 229568,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5780256
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 512,
+     "cb_bytes": 178368,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5782080
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 384,
+     "cb_bytes": 152768,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5783904
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 256,
+     "cb_bytes": 127168,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5787552
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 192,
+     "cb_bytes": 114368,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5791200
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 128,
+     "cb_bytes": 101568,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5798496
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 96,
+     "cb_bytes": 95168,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5805792
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 64,
+     "cb_bytes": 88768,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5820384
+    },
+    {
+     "q_chunk": 32,
+     "k_chunk": 32,
+     "cb_bytes": 82368,
+     "fits": true,
+     "preconds_ok": false,
+     "cost": 5864160
+    }
+   ]
+  }
+ }
+}
