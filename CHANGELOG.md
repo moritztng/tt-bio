@@ -3,7 +3,7 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [Unreleased]
+## [0.9.0] - 2026-09-18
 
 ### Added
 
@@ -380,7 +380,14 @@ Re-recorded 2026-09-17 20:22Z-23:31Z on one Blackhole card at a sampled 1350 MHz
 on the board, rc=0: all nine ladder models walk 256 through 1024 tokens (RF3 to 1088) and no rung
 lost the ability to complete. The 182 dark levers that re-record surfaced each carry a written
 exemption naming the code line that declines them and a control from the same baseline showing the
-lever alive somewhere it should be.
+lever alive somewhere it should be. The baseline was then verified by a fresh CHECK against it,
+and the CHECK is clean: nine of nine models pass with no lever finding at all, so the 450 findings
+against the old baseline were the stale baseline and not drift. It ran in two pieces, eight models
+at 02:14Z-02:44Z on 2026-09-18 and OpenBind at 03:37Z-03:56Z, because one OpenBind fold hit a
+known Blackhole host-spin wedge and the chip it ran on then stopped reporting telemetry. OpenBind
+was re-run whole on a second chip of the same part and walked every rung, 6.6 s at 256 tokens to
+160.4 s at 1024, matching the baseline at each. Both pieces ran at a median 1350 MHz with nothing
+else on their board.
 
 ### What this release does not cover
 
