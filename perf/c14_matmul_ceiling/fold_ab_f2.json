@@ -1,0 +1,749 @@
+{
+ "doc": "The composed fold A/B for the campaign's two GO levers: TT_BIO_DIT_COND_HOIST + TT_BIO_UNFUSED_SILU.\n\nBoth levers concluded GO at the op/block level with a fold owed. `c12-cond-hoist-block-timing` read\n+0.2134 s on a wall around the token-level DiffusionTransformer; `c12-unfused-silu-bh` read\n+0.2843 s from each executed shape's own measured price times its own executed call count. Neither\nnumber is a fold number. This harness takes one.\n\nFour arms plus an A/A, because the standing bar approves a STACK as a stack and never by summing\nindividual readings, so the composed value has to be measured against the two singles in the SAME\nsession:\n\n    base   hoist=0 silu=0   the shipped default\n    silu   hoist=0 silu=1\n    hoist  hoist=1 silu=0\n    both   hoist=1 silu=1\n    base   again, second position in the same rep -> the session's own A/A floor\n\nBoth flags are module-level globals read at CALL time (`tt_bio.tenstorrent._B2_DIT_COND_HOIST` and\n`._UNFUSED_SILU`), so an arm is selected by setting the attribute per fold inside one process, one\ndevice open, one program cache and one model load. Pinning either env var is refused: a pinned value\nis baked in at import and would serve every arm.\n\nThree things this harness does because they have already cost this campaign a session:\n\n1. The cold rep runs the FULL arm list and is discarded. `c12-cond-hoist-block-timing` paid\n   +2.3461 s of first-call kernel JIT inside a timed arm, 4.7x the whole effect being measured, and\n   the silu row's cold fold read 92.514 s. `both` gets its own cold pass too: its JIT set is the\n   union of the two levers' paths, not either one's.\n2. `_cond_weights()` is forced BEFORE the first timed rep and walled, so its one-time 0.34-0.57 s\n   concatenation is a recorded number outside the timing rather than a tax on whichever arm\n   happened to touch it first. `cond_build_n` per fold proves it was not rebuilt.\n3. Per-arm witnesses, because a flag set is not a lever fired. `hoist_norms` counts hoisted\n   token-level stacks at the site that decides to take one; `silu_calls` counts the standalone\n   in-place `ttnn.silu` that only exists on the unfused path (tenstorrent.py:8221 is the file's only\n   `ttnn.silu` call). An arm whose witness is absent is VOID and its timing may not be reasoned\n   about.\n\n    fold_compose.py --out <json> --reps 5 --arms base,silu,hoist,both,base --size 512\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "card_node": 3,
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "ttnn": "0.68.0",
+  "python": "/home/ttuser/tt-bio-dev/env/bin/python3",
+  "tt_visible_devices": "3",
+  "tt_bio_lease_cards": "3",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/c14-matmul-ceiling/tt_bio/__init__.py",
+  "commit": "0449e2f3c3e96e44874a9dec8b202a3fcfe71175",
+  "started_utc": "2026-09-18T13:17:07Z",
+  "loadavg_at_start": [
+   2.03271484375,
+   3.20166015625,
+   3.2587890625
+  ],
+  "clock_forced_mhz": 1350,
+  "protocol": {
+   "arms": [
+    "base",
+    "bw",
+    "base"
+   ],
+   "reps": 5,
+   "cold_reps": 1,
+   "size": "512",
+   "seed": 0,
+   "recycling_steps": 3,
+   "sampling_steps": 200
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "rep": -1,
+   "pos": 0,
+   "cold": true,
+   "fold_s": 15.828,
+   "aiclk": {
+    "n": 7568,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 2.11,
+   "load1": 2.47,
+   "hoist": false,
+   "silu": false,
+   "bw": false,
+   "bw_taken": 0,
+   "bw_declined": 0,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "45781db716ebf020",
+   "plddt": 0.845919,
+   "started_utc": "2026-09-18T13:17:25Z"
+  },
+  {
+   "arm": "bw",
+   "rep": -1,
+   "pos": 1,
+   "cold": true,
+   "fold_s": 14.964,
+   "aiclk": {
+    "n": 7114,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 2.47,
+   "load1": 4.51,
+   "hoist": false,
+   "silu": false,
+   "bw": true,
+   "bw_taken": 19200,
+   "bw_declined": 4800,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "e1e985bea26f4742",
+   "plddt": 0.844615,
+   "started_utc": "2026-09-18T13:17:40Z"
+  },
+  {
+   "arm": "base",
+   "rep": -1,
+   "pos": 2,
+   "cold": true,
+   "fold_s": 15.079,
+   "aiclk": {
+    "n": 7256,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 4.51,
+   "load1": 4.97,
+   "hoist": false,
+   "silu": false,
+   "bw": false,
+   "bw_taken": 0,
+   "bw_declined": 0,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "45781db716ebf020",
+   "plddt": 0.845919,
+   "started_utc": "2026-09-18T13:17:55Z"
+  },
+  {
+   "arm": "base",
+   "rep": 0,
+   "pos": 0,
+   "cold": false,
+   "fold_s": 14.936,
+   "aiclk": {
+    "n": 7062,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 4.97,
+   "load1": 4.54,
+   "hoist": false,
+   "silu": false,
+   "bw": false,
+   "bw_taken": 0,
+   "bw_declined": 0,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "45781db716ebf020",
+   "plddt": 0.845919,
+   "started_utc": "2026-09-18T13:18:10Z"
+  },
+  {
+   "arm": "bw",
+   "rep": 0,
+   "pos": 1,
+   "cold": false,
+   "fold_s": 14.572,
+   "aiclk": {
+    "n": 7062,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 4.54,
+   "load1": 3.97,
+   "hoist": false,
+   "silu": false,
+   "bw": true,
+   "bw_taken": 19200,
+   "bw_declined": 4800,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "e1e985bea26f4742",
+   "plddt": 0.844615,
+   "started_utc": "2026-09-18T13:18:25Z"
+  },
+  {
+   "arm": "base",
+   "rep": 0,
+   "pos": 2,
+   "cold": false,
+   "fold_s": 14.537,
+   "aiclk": {
+    "n": 7044,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 3.97,
+   "load1": 3.54,
+   "hoist": false,
+   "silu": false,
+   "bw": false,
+   "bw_taken": 0,
+   "bw_declined": 0,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "45781db716ebf020",
+   "plddt": 0.845919,
+   "started_utc": "2026-09-18T13:18:40Z"
+  },
+  {
+   "arm": "base",
+   "rep": 1,
+   "pos": 0,
+   "cold": false,
+   "fold_s": 15.098,
+   "aiclk": {
+    "n": 7274,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 3.54,
+   "load1": 3.76,
+   "hoist": false,
+   "silu": false,
+   "bw": false,
+   "bw_taken": 0,
+   "bw_declined": 0,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "45781db716ebf020",
+   "plddt": 0.845919,
+   "started_utc": "2026-09-18T13:18:55Z"
+  },
+  {
+   "arm": "bw",
+   "rep": 1,
+   "pos": 1,
+   "cold": false,
+   "fold_s": 14.476,
+   "aiclk": {
+    "n": 7015,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 3.76,
+   "load1": 3.37,
+   "hoist": false,
+   "silu": false,
+   "bw": true,
+   "bw_taken": 19200,
+   "bw_declined": 4800,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "e1e985bea26f4742",
+   "plddt": 0.844615,
+   "started_utc": "2026-09-18T13:19:09Z"
+  },
+  {
+   "arm": "base",
+   "rep": 1,
+   "pos": 2,
+   "cold": false,
+   "fold_s": 14.54,
+   "aiclk": {
+    "n": 7043,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 3.37,
+   "load1": 3.06,
+   "hoist": false,
+   "silu": false,
+   "bw": false,
+   "bw_taken": 0,
+   "bw_declined": 0,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "45781db716ebf020",
+   "plddt": 0.845919,
+   "started_utc": "2026-09-18T13:19:24Z"
+  },
+  {
+   "arm": "base",
+   "rep": 2,
+   "pos": 0,
+   "cold": false,
+   "fold_s": 14.468,
+   "aiclk": {
+    "n": 7004,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 3.06,
+   "load1": 2.9,
+   "hoist": false,
+   "silu": false,
+   "bw": false,
+   "bw_taken": 0,
+   "bw_declined": 0,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "45781db716ebf020",
+   "plddt": 0.845919,
+   "started_utc": "2026-09-18T13:19:38Z"
+  },
+  {
+   "arm": "bw",
+   "rep": 2,
+   "pos": 1,
+   "cold": false,
+   "fold_s": 14.55,
+   "aiclk": {
+    "n": 7055,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 2.9,
+   "load1": 2.76,
+   "hoist": false,
+   "silu": false,
+   "bw": true,
+   "bw_taken": 19200,
+   "bw_declined": 4800,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "e1e985bea26f4742",
+   "plddt": 0.844615,
+   "started_utc": "2026-09-18T13:19:53Z"
+  },
+  {
+   "arm": "base",
+   "rep": 2,
+   "pos": 2,
+   "cold": false,
+   "fold_s": 14.702,
+   "aiclk": {
+    "n": 7128,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 2.76,
+   "load1": 3.07,
+   "hoist": false,
+   "silu": false,
+   "bw": false,
+   "bw_taken": 0,
+   "bw_declined": 0,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "45781db716ebf020",
+   "plddt": 0.845919,
+   "started_utc": "2026-09-18T13:20:07Z"
+  },
+  {
+   "arm": "base",
+   "rep": 3,
+   "pos": 0,
+   "cold": false,
+   "fold_s": 15.42,
+   "aiclk": {
+    "n": 7407,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 3.07,
+   "load1": 3.47,
+   "hoist": false,
+   "silu": false,
+   "bw": false,
+   "bw_taken": 0,
+   "bw_declined": 0,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "45781db716ebf020",
+   "plddt": 0.845919,
+   "started_utc": "2026-09-18T13:20:23Z"
+  },
+  {
+   "arm": "bw",
+   "rep": 3,
+   "pos": 1,
+   "cold": false,
+   "fold_s": 15.687,
+   "aiclk": {
+    "n": 7356,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 3.47,
+   "load1": 3.93,
+   "hoist": false,
+   "silu": false,
+   "bw": true,
+   "bw_taken": 19200,
+   "bw_declined": 4800,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "e1e985bea26f4742",
+   "plddt": 0.844615,
+   "started_utc": "2026-09-18T13:20:39Z"
+  },
+  {
+   "arm": "base",
+   "rep": 3,
+   "pos": 2,
+   "cold": false,
+   "fold_s": 15.105,
+   "aiclk": {
+    "n": 7212,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 3.93,
+   "load1": 3.89,
+   "hoist": false,
+   "silu": false,
+   "bw": false,
+   "bw_taken": 0,
+   "bw_declined": 0,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "45781db716ebf020",
+   "plddt": 0.845919,
+   "started_utc": "2026-09-18T13:20:54Z"
+  },
+  {
+   "arm": "base",
+   "rep": 4,
+   "pos": 0,
+   "cold": false,
+   "fold_s": 15.495,
+   "aiclk": {
+    "n": 7378,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 3.89,
+   "load1": 3.74,
+   "hoist": false,
+   "silu": false,
+   "bw": false,
+   "bw_taken": 0,
+   "bw_declined": 0,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "45781db716ebf020",
+   "plddt": 0.845919,
+   "started_utc": "2026-09-18T13:21:09Z"
+  },
+  {
+   "arm": "bw",
+   "rep": 4,
+   "pos": 1,
+   "cold": false,
+   "fold_s": 15.054,
+   "aiclk": {
+    "n": 7232,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 3.74,
+   "load1": 3.89,
+   "hoist": false,
+   "silu": false,
+   "bw": true,
+   "bw_taken": 19200,
+   "bw_declined": 4800,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "e1e985bea26f4742",
+   "plddt": 0.844615,
+   "started_utc": "2026-09-18T13:21:24Z"
+  },
+  {
+   "arm": "base",
+   "rep": 4,
+   "pos": 2,
+   "cold": false,
+   "fold_s": 15.335,
+   "aiclk": {
+    "n": 7244,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "load0": 3.89,
+   "load1": 4.57,
+   "hoist": false,
+   "silu": false,
+   "bw": false,
+   "bw_taken": 0,
+   "bw_declined": 0,
+   "hoist_norms": 0,
+   "silu_calls": 0,
+   "eltwise_calls": 0,
+   "eltwise": false,
+   "silu_shapes": {},
+   "cond_build_n": 0,
+   "sha256": "45781db716ebf020",
+   "plddt": 0.845919,
+   "started_utc": "2026-09-18T13:21:40Z"
+  }
+ ],
+ "model_load_s": 2.864,
+ "cond_weights_build": {
+  "total_s": 0.0,
+  "n": 0,
+  "paid_in": [],
+  "all_in_cold_reps": true
+ },
+ "summary": {
+  "n_warm_folds": 15,
+  "base_median_fold_s": 15.017,
+  "arms": {
+   "base": {
+    "n": 10,
+    "reps_s": [
+     14.936,
+     14.537,
+     15.098,
+     14.54,
+     14.468,
+     14.702,
+     15.42,
+     15.105,
+     15.495,
+     15.335
+    ],
+    "median_fold_s": 15.017,
+    "delta_s_vs_base": 0.0,
+    "delta_Mcycles": 0.0,
+    "ratio_vs_base": 1.0,
+    "spread_pct": 6.84
+   },
+   "bw": {
+    "n": 5,
+    "reps_s": [
+     14.572,
+     14.476,
+     14.55,
+     15.687,
+     15.054
+    ],
+    "median_fold_s": 14.572,
+    "delta_s_vs_base": 0.445,
+    "delta_Mcycles": 600.8,
+    "ratio_vs_base": 1.03054,
+    "spread_pct": 8.31
+   }
+  },
+  "paired": {
+   "n_reps": 5,
+   "per_rep": [
+    {
+     "rep": 0,
+     "base_first": 14.936,
+     "base_last": 14.537,
+     "base_mean": 14.7365,
+     "aa": 0.399,
+     "bw": 0.1645
+    },
+    {
+     "rep": 1,
+     "base_first": 15.098,
+     "base_last": 14.54,
+     "base_mean": 14.819,
+     "aa": 0.558,
+     "bw": 0.343
+    },
+    {
+     "rep": 2,
+     "base_first": 14.468,
+     "base_last": 14.702,
+     "base_mean": 14.585,
+     "aa": -0.234,
+     "bw": 0.035
+    },
+    {
+     "rep": 3,
+     "base_first": 15.42,
+     "base_last": 15.105,
+     "base_mean": 15.2625,
+     "aa": 0.315,
+     "bw": -0.4245
+    },
+    {
+     "rep": 4,
+     "base_first": 15.495,
+     "base_last": 15.335,
+     "base_mean": 15.415,
+     "aa": 0.16,
+     "bw": 0.361
+    }
+   ],
+   "aa": {
+    "n": 5,
+    "mean_s": 0.2396,
+    "sd_s": 0.3013,
+    "se_s": 0.1347,
+    "t95": 2.776,
+    "ci95_half_width_s": 0.374,
+    "ci95_s": [
+     -0.1344,
+     0.6136
+    ],
+    "resolved": false
+   },
+   "arms": {
+    "bw": {
+     "n": 5,
+     "mean_s": 0.0958,
+     "sd_s": 0.3204,
+     "se_s": 0.1433,
+     "t95": 2.776,
+     "ci95_half_width_s": 0.3977,
+     "ci95_s": [
+      -0.3019,
+      0.4935
+     ],
+     "resolved": false,
+     "min_fold_s": 14.476,
+     "delta_min_s": -0.008
+    }
+   },
+   "base_min_fold_s": 14.468
+  },
+  "aa_floor": {
+   "pos0_median_s": 15.098,
+   "posN_median_s": 14.702,
+   "delta_s": 0.396,
+   "ratio": 1.02694,
+   "worst_pairwise_delta_s": 0.558
+  },
+  "witness": {
+   "base": {
+    "hoist_norms": [
+     0
+    ],
+    "silu_calls": [
+     0
+    ],
+    "eltwise_calls": [
+     0
+    ],
+    "silu_shapes": [],
+    "cond_rebuilt": [
+     0
+    ],
+    "digests": [
+     "45781db716ebf020"
+    ],
+    "plddt": [
+     0.845919
+    ],
+    "void": []
+   },
+   "bw": {
+    "hoist_norms": [
+     0
+    ],
+    "silu_calls": [
+     0
+    ],
+    "eltwise_calls": [
+     0
+    ],
+    "silu_shapes": [],
+    "cond_rebuilt": [
+     0
+    ],
+    "digests": [
+     "e1e985bea26f4742"
+    ],
+    "plddt": [
+     0.844615
+    ],
+    "void": []
+   }
+  },
+  "clock": {
+   "min": 1350,
+   "max": 1350,
+   "samples": 107516
+  },
+  "load": {
+   "min": 2.76,
+   "max": 4.97
+  }
+ }
+}
