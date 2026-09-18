@@ -239,6 +239,25 @@ def test_a_healthy_pair_aggregates_the_loss_as_the_mean_over_the_shards(tmp_path
         "to hand back and pretending otherwise would be worse than saying so")
 
 
+def test_a_run_directory_whose_driver_is_gone_is_swept(tmp_path, monkeypatch):
+    """/dev/shm is RAM on a shared box, so a crashed run must not keep holding it.
+
+    20 leaked directories from this row's own measurement pass held 268 MB before this existed.
+    A live driver's directory is left alone, which is what makes the sweep safe to run at the
+    start of every launch.
+    """
+    monkeypatch.setattr(L, "SHM_ROOT", str(tmp_path))
+    dead = tmp_path / "999999999-1700000000"
+    mine = tmp_path / f"{os.getpid()}-1700000000"
+    junk = tmp_path / "not-a-pid"
+    for d in (dead, mine, junk):
+        d.mkdir()
+        (d / "s1_r0.npy").write_bytes(b"x" * 16)
+    L._sweep_shm()
+    assert not dead.exists(), "a directory whose pid is gone was kept"
+    assert mine.exists() and junk.exists(), "the sweep took a directory it should not have"
+
+
 # --------------------------------------------------------------- the claim in the README
 
 def test_the_readme_data_parallelism_claim_is_backed_by_the_recipe_reaching_the_launcher():

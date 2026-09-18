@@ -84,6 +84,31 @@ BARRIER_TIMEOUT_S = 900.0
 _KEEP_STEPS = 2
 
 
+def _sweep_shm() -> None:
+    """Remove run directories whose driver is gone. /dev/shm is RAM on a shared box.
+
+    Named ``<pid>-<unix time>``, so a directory whose pid is no longer alive belonged to a run
+    that crashed or was killed before it could clean up, and nobody else is coming for it. A
+    successful run removes its own; this is for the ones that did not get the chance.
+    """
+    root = Path(SHM_ROOT)
+    if not root.is_dir():
+        return
+    for d in root.iterdir():
+        try:
+            pid = int(d.name.split("-", 1)[0])
+        except (ValueError, IndexError):
+            continue
+        if pid == os.getpid():
+            continue
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            shutil.rmtree(d, ignore_errors=True)
+        except PermissionError:
+            pass
+
+
 # --------------------------------------------------------------- where am I
 
 def rank() -> int:
@@ -365,6 +390,7 @@ def drive(axis: Axis, *, out_dir, steps: int, timeout_s: Optional[float] = None)
     cmd = _relaunch_argv()
     ranks = list(axis.device_ids)
     n = len(ranks)
+    _sweep_shm()
     run = Path(SHM_ROOT) / f"{os.getpid()}-{int(time.time())}"
     shutil.rmtree(run, ignore_errors=True)
     run.mkdir(parents=True)
@@ -401,17 +427,24 @@ def drive(axis: Axis, *, out_dir, steps: int, timeout_s: Optional[float] = None)
             f"--- rank {r} exited {c}, last 30 lines of {run}/rank{r}.log ---\n"
             + "".join((run / f"rank{r}.log").read_text(errors="replace").splitlines(True)[-30:])
             for r, c in bad)
-        raise RuntimeError(f"{len(bad)} of {n} ranks failed: {bad}\n{tails}")
+        raise RuntimeError(f"{len(bad)} of {n} ranks failed: {bad}. Their logs and any "
+                           f"results are left in {run}\n{tails}")
     res = []
     for r in range(n):
         f = run / f"result_r{r}.json"
         if not f.is_file():
             raise RuntimeError(
                 f"rank {r} exited 0 but wrote no result to {f}. A rank reports through that "
-                f"file, so a missing one means it never reached the end of the recipe")
+                f"file, so a missing one means it never reached the end of the recipe. Its log "
+                f"is beside it, in {run}")
         res.append(json.loads(f.read_text()))
-    return _aggregate(res, wall_s=time.perf_counter() - t0, steps=steps,
-                      out_dir=out_dir, run=str(run))
+    out = _aggregate(res, wall_s=time.perf_counter() - t0, steps=steps,
+                     out_dir=out_dir, run=str(run))
+    # Only once every check has passed. A failed run keeps its directory, because the rank logs
+    # and the per-rank results in it are the whole diagnosis and the message above names the
+    # path; the next driver sweeps it when its pid is gone.
+    shutil.rmtree(run, ignore_errors=True)
+    return out
 
 
 def report(opt, params, history, checkpointer, prov, *, plan) -> None:
