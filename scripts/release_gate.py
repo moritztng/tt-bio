@@ -483,7 +483,48 @@ OPENDDE_ABAG_MIN_DOCKQ = 0.50
 # python running scripts/opendde_dockq.py; defaults to the gate's own python so a host
 # that carries DockQ in the gate venv needs no extra config, and a host that does not
 # sets OPENDDE_DOCKQ_PYTHON to a venv that does (mirrors the ESMC leg's ESM_ROOT).
-OPENDDE_DOCKQ_PYTHON = os.environ.get("OPENDDE_DOCKQ_PYTHON", sys.executable)
+#: Candidate DockQ venvs, probed in order when OPENDDE_DOCKQ_PYTHON is unset. qb2 carries
+#: DockQ 2.1.3 in ~/dockqenv and exports the variable nowhere persistent, so the leg passed
+#: once (global DockQ 0.845 on 2026-09-18 15:57Z) and then failed the next run that forgot it.
+DOCKQ_VENV_CANDIDATES = ("~/dockqenv/bin/python", "~/dockq_venv/bin/python")
+
+
+def _resolve_dockq_python(module: str = "DockQ", candidates=None) -> str:
+    """The interpreter that will import DockQ, discovered rather than assumed.
+
+    Order: an explicit OPENDDE_DOCKQ_PYTHON always wins, then the gate's own venv if it carries
+    DockQ (the documented zero-config case), then the known venvs. Falling back to sys.executable
+    when nothing has it is deliberate -- _preflight_eval_scorers then names the arm, the module
+    and the pin, which is a better failure than a silent one.
+
+    Discovery exists because the variable is the single point of failure for this arm and is not
+    persisted on the release host: the same 1ahw fold was scored PASS at 0.845 and reported as
+    "missed parse or the DockQ floor" on the same box on the same day, the difference being one
+    inline env var. Cheap by construction -- the gate venv is checked in-process, and a candidate
+    path that does not exist costs a stat, not a subprocess.
+    """
+    env = os.environ.get("OPENDDE_DOCKQ_PYTHON")
+    if env:
+        return env
+    try:
+        if importlib.util.find_spec(module) is not None:
+            return sys.executable
+    except (ImportError, ValueError):
+        pass
+    for cand in (DOCKQ_VENV_CANDIDATES if candidates is None else candidates):
+        path = Path(cand).expanduser()
+        if not path.is_file():
+            continue
+        try:
+            if subprocess.run([str(path), "-c", f"import {module}"], capture_output=True,
+                              timeout=60).returncode == 0:
+                return str(path)
+        except Exception:
+            continue
+    return sys.executable
+
+
+OPENDDE_DOCKQ_PYTHON = _resolve_dockq_python()
 # ...and bounded like every fold this gate launches, for the same reason: an unbounded wait on
 # an external tool blocks the whole gate run, not just its own leg. DockQ scores the 1ahw
 # fixture in ~1 s on this hardware, so 300 s is ~300x headroom and still fails loud in five
@@ -1097,6 +1138,124 @@ def _msa_args(model: str) -> list:
     if model not in MSA_DEFAULT_MODELS:
         return []
     return ["--msa_dir", MSA_DIR] if MSA_DIR else ["--use_msa_server"]
+
+
+#: Third-party scorers that only the GATE needs, keyed by the arm that needs one. These are
+#: deliberately not project runtime dependencies -- scripts/opendde_dockq.py says so itself,
+#: "installed as an eval-time requirement into the run venv" -- so nothing in the install path
+#: puts them there and, before this check, nothing noticed when they were gone.
+#: (module, pin, user, interpreter). The interpreter is the one that will actually import the
+#: module at scoring time: opendde-abag shells its DockQ out to OPENDDE_DOCKQ_PYTHON, so checking
+#: the gate's own venv would answer a question nobody asked. None means the gate's own.
+_EVAL_SCORERS = {
+    "opendde-abag": ("DockQ.DockQ", "DockQ==2.1.3", "scripts/opendde_dockq.py",
+                     OPENDDE_DOCKQ_PYTHON),
+}
+
+
+def _preflight_eval_scorers(models: list) -> None:
+    """Fail before any device work if an arm's scorer cannot be imported.
+
+    The same failure class _preflight_msa_cache below was written for, and it recurred on
+    2026-09-18 in a different costume. The opendde-abag arm folded 1ahw_abag successfully --
+    "1 ok, 0 failed", 348.5 s of device time -- and then died on `from DockQ.DockQ import ...`.
+    The gate rendered that as "GATE FAIL - opendde-abag missed parse or the DockQ floor". The
+    model was fine, no DockQ was ever computed, and the red arm sat on the critical path of a
+    merge decision. An absent pip package must cost a second at startup, not six minutes of
+    device time and a verdict that names a floor nobody evaluated.
+
+    The check must interrogate the interpreter that will do the importing, which is not always
+    this one. opendde-abag delegates its DockQ to OPENDDE_DOCKQ_PYTHON precisely so a host can
+    keep the scorer out of the gate venv, so an in-process import would fail that supported
+    configuration at startup and pass the one it cannot score.
+    """
+    import importlib
+
+    missing = []
+    for arm, entry in sorted(_EVAL_SCORERS.items()):
+        mod, pin, user = entry[0], entry[1], entry[2]
+        interp = (entry[3] if len(entry) > 3 else None) or sys.executable
+        if arm not in models:
+            continue
+        # Same PATH, not same realpath. A venv's bin/python is a symlink to the base
+        # interpreter, so two DIFFERENT venvs both resolve to /usr/bin/python3.12 and a
+        # realpath comparison calls them the same environment. That made this preflight take
+        # the in-process branch for a delegated scorer and report the gate venv's
+        # ModuleNotFoundError against the OTHER interpreter's path -- refusing, at startup,
+        # exactly the configuration the docstring above says it exists to support
+        # (verified on qb2: /home/ttuser/dockqenv/bin/python imports DockQ 2.1.3 fine and the
+        # gate refused it). An interpreter is its sys.prefix, not its argv[0] inode.
+        if os.path.abspath(interp) == os.path.abspath(sys.executable):
+            try:
+                importlib.import_module(mod)
+            except Exception as exc:
+                missing.append(f"  {arm}: {user} needs `{mod}` ({pin}) in {interp} -- "
+                               f"{type(exc).__name__}: {exc}")
+            continue
+        try:
+            r = subprocess.run([interp, "-c", f"import {mod}"], capture_output=True, text=True,
+                               timeout=120)
+        except Exception as exc:
+            missing.append(f"  {arm}: {user} delegates `{mod}` ({pin}) to {interp}, which will "
+                           f"not run -- {type(exc).__name__}: {exc}")
+            continue
+        if r.returncode != 0:
+            why = (r.stderr or r.stdout or "").strip().splitlines()
+            missing.append(f"  {arm}: {user} needs `{mod}` ({pin}) in {interp} -- "
+                           f"{why[-1] if why else f'exited {r.returncode}'}")
+    if missing:
+        sys.exit("release gate: an eval-time scorer is not importable, so its arm could only "
+                 "produce a FAIL that measures nothing.\n" + "\n".join(missing) +
+                 f"\n\nInstall it into the interpreter named above (this gate runs "
+                 f"{sys.executable}), or deselect the arm with --models. Checked before any "
+                 f"device work on purpose.")
+
+
+#: Where tests/esmc_reference.py looks when ESM_ROOT is unset. Kept in step with it deliberately:
+#: the gate used to hard-require the variable while the harness it guards already had this
+#: fallback, so the gate refused a configuration that would have worked.
+ESM_ROOT_DEFAULT = "/home/ttuser/esm"
+
+
+def _resolve_esm_root():
+    """(path, provenance) for the esm clone, resolved the way the harness resolves it.
+
+    Returns (None, reason) when neither the variable nor the default is a directory. The gate must
+    not be stricter than tests/esmc_reference.py: that file reads
+    os.environ.get("ESM_ROOT", ESM_ROOT_DEFAULT), so on a box where the clone sits at the default
+    path the leg runs fine with the variable unset -- which is the case on qb2, where the gate
+    nonetheless exited on a missing ESM_ROOT after 3h36m of folding.
+    """
+    env = os.environ.get("ESM_ROOT")
+    if env:
+        return env, "from ESM_ROOT"
+    if Path(ESM_ROOT_DEFAULT).is_dir():
+        return ESM_ROOT_DEFAULT, "tests/esmc_reference.py default"
+    return None, "neither ESM_ROOT nor the harness default exists"
+
+
+def _preflight_esmc_root(esmc_models: list) -> None:
+    """Fail before any device work if the ESMC leg has no esm clone to score against.
+
+    Same class as the two preflights around it, and the most expensive instance of it: this
+    check used to be the LAST statement in main(), so on 2026-09-18 a full default-set run
+    folded for 3h36m and then exited on a one-line env precondition. Its sys.exit also threw
+    away every arm's verdict and the _CONTENDED notice printed after it, so the run's actual
+    results -- including two red ladder rows that needed adjudicating -- were reported as a
+    bare missing-variable message.
+    """
+    if not esmc_models:
+        return
+    root, where = _resolve_esm_root()
+    if not root:
+        sys.exit(f"release gate: the ESMC parity leg ({', '.join(esmc_models)}) has no esm clone. "
+                 f"tests/esmc_reference.py imports its golden from ESM_ROOT, default "
+                 f"{ESM_ROOT_DEFAULT}, and neither is a directory here.\n"
+                 f"Set ESM_ROOT, or deselect the leg with --models. Checked before any device "
+                 f"work on purpose: this used to be found after the whole gate had folded.")
+    if not Path(root).is_dir():
+        sys.exit(f"release gate: ESM_ROOT={root} ({where}) is not a directory, so the ESMC parity "
+                 f"leg ({', '.join(esmc_models)}) could only produce a FAIL that measures nothing.")
 
 
 def _preflight_msa_cache(models: list) -> None:
@@ -2995,6 +3154,16 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
         return {"model": model, "gate": False, "error": meas["error"],
                 "findings": [meas["error"]],
                 "runtime_s": meas.get("runtime_s") or {}, "partial": True}
+    return _size_ladder_compare(base_model, meas, model, rungs)
+
+
+def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dict:
+    """Score a measured ladder against its baseline. Pure: no device, no folds.
+
+    Split out from _size_ladder_check_model so the arm's verdicts can be tested, and
+    reproduced from a past run's numbers, without a card. Every ladder red row this campaign
+    argued about was adjudicated by hand out of the log and the baseline fragment dir.
+    """
     findings = []
     b_grid, c_grid = base_model.get("grid"), meas.get("grid")
     if b_grid and c_grid and b_grid != c_grid:
@@ -3040,6 +3209,7 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
         findings.extend(_size_ladder_compare_levers(b_levers, meas["levers"][str(rung)],
                                                     where))
     measured_k = {}
+    drifted = False
     for interval, be in (base_model.get("exponents") or {}).items():
         n1, n2 = (int(x) for x in interval.split("->"))
         t1 = meas["runtime_s"].get(str(n1))
@@ -3049,8 +3219,12 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path)
         k = math.log(t2 / t1) / math.log(n2 / n1)
         measured_k[interval] = round(k, 3)
         if abs(k - be["k"]) > be["tol"]:
+            drifted = True
             findings.append(f"{model} {interval}: exponent {be['k']:.2f} -> {k:.2f} "
                             f"outside ±{be['tol']:.2f}")
+    if drifted:
+        findings.append(_size_ladder_rung_localisation(
+            model, base_model.get("runtime_s") or {}, meas["runtime_s"]))
     return {"model": model, "gate": not findings,
             "error": "; ".join(findings) or None, "findings": findings,
             "runtime_s": meas["runtime_s"], "exponents": measured_k,
@@ -3092,6 +3266,49 @@ def _size_ladder_lever_todo(entry: dict) -> str:
     clause = _size_ladder_clause_str(entry, top=3)
     return ("TODO: say why this is legitimate at this size"
             + (f" (declines on {clause})" if clause else ""))
+
+
+#: A rung is "moved" outside this band. 2 % is inside every clean reproduction measured on a
+#: p300c so far (openfold3 read 0.950-1.054x across six rungs on 2026-09-18 and passed), so 5 %
+#: flags a real shift without firing on ladder noise.
+SIZE_LADDER_RUNG_MOVED = 0.05
+
+
+def _size_ladder_rung_localisation(model: str, base_rt: dict, meas_rt: dict) -> str:
+    """Say WHICH rungs moved, because an exponent cannot.
+
+    An exponent is a ratio of two rungs, so a shift in either one moves it and the finding reads
+    the same either way. On 2026-09-18 that cost a campaign most of a pass: boltz2 came back
+    "256->512: exponent 1.41 -> 0.75" and openbind "1.60 -> 2.14", and the whole of both was the
+    256 aa rung (4.1->6.5 s and 9.3->6.5 s) while every rung at 512 aa and above reproduced the
+    baseline inside 2 %. The flip under test was a 512 aa lever, so the arm's two red rows were
+    pointing away from the regime anyone was changing -- and runtime_s carries a ~3 s
+    size-independent term, which the smallest rung is mostly made of, so the smallest rung is
+    where a constant shift shows up magnified. Reconstructing that needed the per-rung absolutes
+    out of the baseline fragment dir by hand. They are cheap to print, so print them.
+    """
+    cells, moved, held = [], [], []
+    for rung in sorted(int(r) for r in meas_rt):
+        b, m = base_rt.get(str(rung)), meas_rt.get(str(rung))
+        if b is None or m is None or not b:
+            continue
+        ratio = m / b
+        cells.append(f"{rung} {b:.1f}->{m:.1f} {ratio:.2f}x")
+        (moved if abs(ratio - 1.0) > SIZE_LADDER_RUNG_MOVED else held).append(rung)
+    if not cells:
+        return (f"{model}: no per-rung baseline absolutes to localise the drift against -- "
+                f"re-record so the next reader can attribute it")
+    note = f"{model} per-rung base->run: " + ", ".join(cells)
+    if moved and held:
+        note += (f" -- only {', '.join(f'{r} aa' for r in moved)} moved more than "
+                 f"{SIZE_LADDER_RUNG_MOVED:.0%}; {', '.join(f'{r}' for r in held)} aa "
+                 f"reproduce. Attribute the exponent to those rungs, not to the interval")
+    elif moved:
+        note += f" -- every rung moved; this is a whole-ladder shift, not one rung"
+    else:
+        note += (f" -- no rung moved more than {SIZE_LADDER_RUNG_MOVED:.0%}: the exponent "
+                 f"tolerance is tighter than the per-rung noise it is built from")
+    return note
 
 
 def run_size_ladder_fill_reasons(baseline_path: Path, models=None) -> dict:
@@ -4192,6 +4409,8 @@ def main() -> int:
     want_rfd3_fusion = "rfd3-fusion" in models
     want_size_ladder = "size-ladder" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
+    _preflight_eval_scorers(models)
+    _preflight_esmc_root(esmc_models)
     _preflight_msa_cache(models)
 
     rows = []
@@ -4578,8 +4797,9 @@ def main() -> int:
               "GATE FAIL — a result depends on a target's position in the batch (see above)")
 
     if esmc_models:
-        if "ESM_ROOT" not in os.environ:
-            sys.exit("ESMC parity leg needs ESM_ROOT (path to the esm clone for tests/esmc_reference.py)")
+        # ESM_ROOT was settled by _preflight_esmc_root before any fold ran. Nothing is
+        # re-checked here on purpose: a sys.exit at this point discards every arm's verdict
+        # above it and the contention notice below it.
         parity = _load_esmc_parity_harness()
         erows = [run_esmc(m, parity) for m in esmc_models]
         esmc_pass = all(r["gate"] for r in erows)

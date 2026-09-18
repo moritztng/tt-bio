@@ -1,0 +1,32 @@
+[
+ {
+  "dtype": "bfloat16",
+  "fidelity": "HiFi2",
+  "n": 6144,
+  "live_mask": 3098,
+  "sign_flips": 9,
+  "flip_frac_of_live": 0.002905,
+  "forward_rel_l2": 0.004751683759506712,
+  "predicted_grad_rel_l2": 0.0539
+ },
+ {
+  "dtype": "float32",
+  "fidelity": "HiFi2",
+  "n": 6144,
+  "live_mask": 3102,
+  "sign_flips": 11,
+  "flip_frac_of_live": 0.003546,
+  "forward_rel_l2": 0.0054249255833523835,
+  "predicted_grad_rel_l2": 0.05955
+ },
+ {
+  "dtype": "float32",
+  "fidelity": "HiFi4",
+  "n": 6144,
+  "live_mask": 3102,
+  "sign_flips": 1,
+  "flip_frac_of_live": 0.000322,
+  "forward_rel_l2": 0.0010863922708566924,
+  "predicted_grad_rel_l2": 0.01795
+ }
+]

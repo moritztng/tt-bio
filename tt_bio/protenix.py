@@ -35,8 +35,9 @@ from . import protenix_weights as PW
 from .envflags import env_flag
 from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
+from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
-                          MSA_CHUNK_SIZE, batched_matmul, _narrow_proj_linear, _l1_layer_norm,
+                          MSA_CHUNK_SIZE, batched_matmul,
                           device_generation, accurate_softmax_site)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 from .eltwise_fusion import scale_add, norm_residual
@@ -417,41 +418,35 @@ class _KeyedWeights:
                                dtype=getattr(self, "dtype", ttnn.bfloat16))
 
     def _lin(self, x, wkey, bkey=None, activation=None):
-        w = self._w_tt(wkey)
-        dt = getattr(self, "dtype", ttnn.bfloat16)
-        if bkey is None and activation is None:
-            # the template z projection lands here at [1,298,320,256] @ [256,64].
-            # An L1 operand only ever arrives from a caller that deliberately put it there, and
-            # such a caller wants the result in L1 too, so the buffer type carries the decision
-            # and no flag has to be threaded through `_lin`.
-            in_l1 = x.memory_config().buffer_type == ttnn.BufferType.L1
-            out = _narrow_proj_linear(x, w, self.compute_kernel_config, dt, l1_out=in_l1)
-            if out is not None:
-                return out
-        return ttnn.linear(x, w, bias=(self._w_tt(bkey, False) if bkey else None),
-                           activation=activation, compute_kernel_config=self.compute_kernel_config,
-                           dtype=dt, core_grid=CORE_GRID_MAIN)
+        # `narrow_proj` is where the template z projection lands, at [1,298,320,256] @ [256,64].
+        return ops.linear(x, self._w_tt(wkey),
+                          bias=(self._w_tt(bkey, False) if bkey else None),
+                          activation=activation,
+                          compute_kernel_config=self.compute_kernel_config,
+                          dtype=getattr(self, "dtype", ttnn.bfloat16),
+                          core_grid=CORE_GRID_MAIN, narrow_proj=True)
 
     def _ln(self, x, wkey, bkey=None, l1=False):
-        """`l1` for a norm whose consumers are narrow projections of the whole tensor: they are
-        bound by reading it, so an L1-resident result is the lever (`_l1_layer_norm`)."""
-        kw = dict(weight=self._w_tt(wkey, False),
-                  bias=(self._w_tt(bkey, False) if bkey else None),
-                  epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-        if l1 and _T._TEMPLATE_L1_NORM:
-            # A headroom multiple and no per-core reserve, unlike the two pair sites in
-            # tenstorrent.py, and that is measured rather than inherited
-            # (perf/protenix_tpl_l1/results.md, tests/test_template_l1_consumer_margin.py).
-            # 1.5 always leaves per_core * (1 - 1/1.5) = 510805 B/bank free whatever the grid or
-            # the shape; the one consumer inside the window needs 308736 at 506 tokens, the
-            # largest shape it admits; and the window opens with L1 EMPTY -- a real 496-token
-            # fold reads the full 1461760 B/bank free at all ten recycling cycles, where the
-            # Boltz-2 crash needed 247 KB/core of other live buffers on top of the tensor.
-            # Passing `_PAIR_L1_CONSUMER_RESERVE` here would refuse 464..506 tokens to fix a
-            # clash this site does not have. 1.5 is a floor, not a ceiling: below 1.2524 the
-            # guaranteed free drops under that 308736.
-            return _l1_layer_norm(x, 1.5, **kw)[0]
-        return ttnn.layer_norm(x, **kw)
+        """`l1` for a norm whose consumers are narrow projections of the whole tensor: they
+        are bound by reading it, so an L1-resident result is the lever.
+
+        A headroom multiple of 1.5 and no per-core reserve, unlike the two pair sites in
+        tenstorrent.py, and that is measured rather than inherited
+        (perf/protenix_tpl_l1/results.md, tests/test_template_l1_consumer_margin.py). 1.5
+        always leaves per_core * (1 - 1/1.5) = 510805 B/bank free whatever the grid or the
+        shape; the one consumer inside the window needs 308736 at 506 tokens, the largest
+        shape it admits; and the window opens with L1 EMPTY -- a real 496-token fold reads
+        the full 1461760 B/bank free at all ten recycling cycles, where the Boltz-2 crash
+        needed 247 KB/core of other live buffers on top of the tensor. Passing
+        `_PAIR_L1_CONSUMER_RESERVE` here would refuse 464..506 tokens to fix a clash this
+        site does not have. 1.5 is a floor, not a ceiling: below 1.2524 the guaranteed free
+        drops under that 308736.
+        """
+        return ops.layer_norm(x, self._w_tt(wkey, False),
+                              (self._w_tt(bkey, False) if bkey else None),
+                              epsilon=1e-5,
+                              compute_kernel_config=self.compute_kernel_config,
+                              l1_headroom=1.5 if (l1 and _T._TEMPLATE_L1_NORM) else None)
 
 
 def n_blocks(state_dict, prefix):
@@ -753,10 +748,8 @@ class AtomFeaturization(Module):
         self.w_v = self.torch_to_tt("linear_no_bias_v.weight", dtype=dtype)
 
     def _lin_nb(self, x, w):
-        return ttnn.linear(
-            x, w, compute_kernel_config=self.compute_kernel_config,
-            dtype=self.dtype, core_grid=CORE_GRID_MAIN,
-        )
+        return ops.linear(x, w, compute_kernel_config=self.compute_kernel_config,
+                          dtype=self.dtype, core_grid=CORE_GRID_MAIN)
 
     def c_l(self, ref_pos, ref_charge_asinh, ref_mask, f_in):
         """All inputs are device tensors. ref_charge_asinh is arcsinh(charge)[...,1],
@@ -958,9 +951,9 @@ class DiffusionModule(_KeyedWeights):
 
     def _ln_dit(self, x, wkey, bkey=None):
         """Layer norm at the DiT dtype (used for the DiT-output layernorm_a when fp32)."""
-        return ttnn.layer_norm(x, weight=self._w_tt_dit(wkey, False),
-                               bias=(self._w_tt_dit(bkey, False) if bkey else None),
-                               epsilon=1e-5, compute_kernel_config=self._dit_ckc)
+        return ops.layer_norm(x, self._w_tt_dit(wkey, False),
+                              (self._w_tt_dit(bkey, False) if bkey else None),
+                              epsilon=1e-5, compute_kernel_config=self._dit_ckc)
 
     def _atom_cond(self, cond):
         """Hoist the t-INDEPENDENT diffusion conditioning out of the per-step denoise.
@@ -1681,9 +1674,7 @@ class ConfidenceHead:
         plddt_atom = (torch.softmax(plddt_logits, -1) * ((torch.arange(nb, dtype=torch.float32) + 0.5) / nb)).sum(-1)
         out = {"plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom, "pae": pae, "pde": pde,
                "ptm": ptm, "iptm": iptm}
-        chain_ptm, chain_iptm = self._chain_ptm_iptm(pae_logits, feats.get("asym_id"))
-        if chain_ptm is not None:
-            out["chain_ptm"], out["chain_iptm"] = chain_ptm, chain_iptm
+        out.update(self._chain_confidence(pae_logits, feats.get("asym_id")))
         return out
 
     @staticmethod
@@ -1714,29 +1705,38 @@ class ConfidenceHead:
         return round(ptm, 6), round(iptm, 6)
 
     @staticmethod
-    def _chain_ptm_iptm(pae_logits, asym_id, max_a: float = 32.0):
-        """Per-chain pTM and ipTM, protenix's `calculate_chain_based_ptm`.
+    def _chain_confidence(pae_logits, asym_id, max_a: float = 32.0):
+        """The chain-level confidence keys, protenix's `calculate_chain_based_ptm`.
 
         `chain_ptm[c]` is pTM computed inside chain c alone, so its TM normalisation uses that
         chain's own token count rather than the complex's -- which is why it cannot be read off
         the global pTM. `chain_iptm[c]` averages, over the chain pairs that involve c, the ipTM
         of that pair computed on those two chains alone; for a two-chain complex both chains
         therefore carry the same number. A binder filter reads exactly these two, as
-        `ptm_binder` and `iptm_binder`.
+        `ptm_binder` and `iptm_binder`. Both lists are indexed by the sorted unique `asym_id`,
+        so the binder is the last entry when the binder is the last chain.
 
-        Returns `(None, None)` for a single-chain input. Both lists are indexed by the sorted
-        unique `asym_id`, so the binder is the last entry when the binder is the last chain.
+        `pair_chains_iptm[i][j]` is the matrix both reductions are taken over, kept instead of
+        dropped: selectivity-aware scoring and hallucination score one named interface of a
+        multi-chain complex, which a per-chain average cannot express. It is the FULL square
+        matrix, diagonal included -- Boltz-2's shape, whose writer reads `pci[i][i]` for
+        `chains_ptm` (`tt_bio.main._pair_chains`), so one consumer reads either model. The
+        diagonal is that chain's own `chain_ptm`. Every entry carries protenix's per-subset TM
+        normalisation, so the numbers are comparable within a model and not across models,
+        exactly as the global pTM/ipTM already are. None of it is new computation.
+
+        Returns `{}` when there are no chain pairs (single chain, or no `asym_id`).
         `has_frame` is not modelled: every polymer token has a frame, and this path has no
         ligand tokens.
         """
         import torch
 
         if asym_id is None:
-            return None, None
+            return {}
         a = asym_id.long().reshape(-1)
         ids = [int(x) for x in torch.unique(a)]
         if a.numel() != pae_logits.shape[0] or len(ids) < 2:
-            return None, None
+            return {}
         nb = pae_logits.shape[-1]
         centers = (torch.arange(nb, dtype=torch.float32) + 0.5) * (max_a / nb)
         probs = torch.softmax(pae_logits.float(), -1)
@@ -1748,16 +1748,18 @@ class ConfidenceHead:
             return (sub * (1.0 / (1.0 + (centers / d0) ** 2))).sum(-1)
 
         chain_ptm = [float(pair_tm(a == c).mean(dim=-1).max()) for c in ids]
-        pair_iptm = {}
+        pair = {(c, c): p for c, p in zip(ids, chain_ptm)}     # diagonal: the chain's own pTM
         for i, ci in enumerate(ids):
             for cj in ids[i + 1:]:
                 m = (a == ci) | (a == cj)
                 cross = (a[m][None, :] != a[m][:, None])
                 row = (pair_tm(m) * cross).sum(-1) / (1e-8 + cross.sum(-1))
-                pair_iptm[ci, cj] = pair_iptm[cj, ci] = float(row.max())
-        chain_iptm = [sum(pair_iptm[c, o] for o in ids if o != c) / (len(ids) - 1)
-                      for c in ids]
-        return [round(x, 6) for x in chain_ptm], [round(x, 6) for x in chain_iptm]
+                pair[ci, cj] = pair[cj, ci] = float(row.max())
+        chain_iptm = [sum(pair[c, o] for o in ids if o != c) / (len(ids) - 1) for c in ids]
+        return {"chain_ptm": [round(x, 6) for x in chain_ptm],
+                "chain_iptm": [round(x, 6) for x in chain_iptm],
+                "pair_chains_iptm": {ci: {cj: round(pair[ci, cj], 6) for cj in ids}
+                                     for ci in ids}}
 
     def plddt(self, s_inputs, s_trunk, z_trunk, coords, feats):
         """Mean pLDDT in [0,1] (back-compat thin wrapper over confidence())."""
