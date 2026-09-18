@@ -1,0 +1,28 @@
+{
+ "cifdir": "perf/c12_silu/acc298",
+ "ref": "ship",
+ "thresholds_A": {
+  "pass": 0.35,
+  "hold": 0.6,
+  "source": "state/answered/4649-decision.md"
+ },
+ "n_atoms": 2397,
+ "n_ca": 298,
+ "pairwise": [
+  {
+   "kind": "A/B",
+   "a": "ship",
+   "b": "silu",
+   "all_atom_A": 0.450405,
+   "ca_A": 0.292063
+  }
+ ],
+ "vs_ref": {
+  "silu": {
+   "all_atom_A": 0.450405,
+   "ca_A": 0.292063,
+   "verdict_all_atom": "HOLD",
+   "verdict_ca": "PASS"
+  }
+ }
+}

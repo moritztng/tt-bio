@@ -1,0 +1,64 @@
+moreh ops at this pin: 39   eltwise *_bw ops: 103
+moreh *_backward present: 14/14
+
+====================================================================================================
+moreh_matmul_backward
+  moreh_matmul_backward(output_grad: ttnn.Tensor, input_a: ttnn.Tensor, input_b: ttnn.Tensor, *, are_required_outputs: collections.abc.Sequence[bool] = [True, True], input_a_grad: ttnn.Tensor | None = None, input_b_grad: ttnn.Tensor | None = None, memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)
+====================================================================================================
+moreh_linear_backward
+  moreh_linear_backward(output_grad: ttnn.Tensor, input: ttnn.Tensor, weight: ttnn.Tensor, *, are_required_outputs: collections.abc.Sequence[bool] = [True, True, True], bias: ttnn.Tensor | None = None, input_grad: ttnn.Tensor | None = None, weight_grad: ttnn.Tensor | None = None, bias_grad: ttnn.Tensor | None = None, input_grad_memory_config: ttnn.MemoryConfig | None = None, weight_grad_memory_config: ttnn.MemoryConfig | None = None, bias_grad_memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)
+====================================================================================================
+moreh_bmm_backward
+  moreh_bmm_backward(output_grad: ttnn.Tensor, input: ttnn.Tensor, mat2: ttnn.Tensor, *, are_required_outputs: collections.abc.Sequence[bool] = [True, True], input_grad: ttnn.Tensor | None = None, mat2_grad: ttnn.Tensor | None = None, input_grad_memory_config: ttnn.MemoryConfig | None = None, mat2_grad_memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)
+====================================================================================================
+moreh_dot_backward
+  moreh_dot_backward(output_grad: ttnn.Tensor, input: ttnn.Tensor, other: ttnn.Tensor, *, input_grad: ttnn.Tensor | None = None, other_grad: ttnn.Tensor | None = None, memory_config: ttnn.MemoryConfig | None = None)
+====================================================================================================
+moreh_layer_norm_backward
+  moreh_layer_norm_backward(output_grad: ttnn.Tensor, input: ttnn.Tensor, mean: ttnn.Tensor, rstd: ttnn.Tensor, normalized_dims: int, *, gamma: ttnn.Tensor | None = None, input_grad: ttnn.Tensor | None = None, gamma_grad: ttnn.Tensor | None = None, beta_grad: ttnn.Tensor | None = None, memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)
+====================================================================================================
+moreh_group_norm_backward
+  moreh_group_norm_backward(output_grad: ttnn.Tensor, input: ttnn.Tensor, mean: ttnn.Tensor, rstd: ttnn.Tensor, num_groups: int, *, are_required_outputs: collections.abc.Sequence[bool] = [True, False, False], gamma: ttnn.Tensor | None = None, input_grad: ttnn.Tensor | None = None, gamma_grad: ttnn.Tensor | None = None, beta_grad: ttnn.Tensor | None = None, input_grad_memory_config: ttnn.MemoryConfig | None = None, gamma_grad_memory_config: ttnn.MemoryConfig | None = None, beta_grad_memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)
+====================================================================================================
+moreh_softmax_backward
+  moreh_softmax_backward(output_tensor: ttnn.Tensor, output_grad_tensor: ttnn.Tensor, dim: int, *, input_grad_tensor: ttnn.Tensor | None = None, op: ttnn.moreh.MorehSoftmaxBackwardOp = MorehSoftmaxBackwardOp.SOFTMAX, strategy: ttnn.moreh.MorehSoftmaxBackwardOpParallelizationStrategy = MorehSoftmaxBackwardOpParallelizationStrategy.NONE, memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)
+====================================================================================================
+moreh_logsoftmax_backward
+  moreh_logsoftmax_backward(output_tensor: ttnn.Tensor, output_grad_tensor: ttnn.Tensor, dim: int, *, input_grad_tensor: ttnn.Tensor | None = None, op: ttnn.moreh.MorehSoftmaxBackwardOp = MorehSoftmaxBackwardOp.LOGSOFTMAX, strategy: ttnn.moreh.MorehSoftmaxBackwardOpParallelizationStrategy = MorehSoftmaxBackwardOpParallelizationStrategy.NONE, memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)
+====================================================================================================
+moreh_softmin_backward
+  moreh_softmin_backward(output_tensor: ttnn.Tensor, output_grad_tensor: ttnn.Tensor, dim: int, *, input_grad_tensor: ttnn.Tensor | None = None, op: ttnn.moreh.MorehSoftmaxBackwardOp = MorehSoftmaxBackwardOp.SOFTMIN, strategy: ttnn.moreh.MorehSoftmaxBackwardOpParallelizationStrategy = MorehSoftmaxBackwardOpParallelizationStrategy.NONE, memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)
+====================================================================================================
+moreh_sum_backward
+  moreh_sum_backward(output_grad: ttnn.Tensor, *, input: ttnn.Tensor | None = None, dim: int | collections.abc.Sequence[int] | None = None, keepdim: bool = False, input_grad: ttnn.Tensor | None = None, memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)
+====================================================================================================
+moreh_mean_backward
+  moreh_mean_backward(output_grad: ttnn.Tensor, *, dim: int | collections.abc.Sequence[int] | None = None, keepdim: bool = False, input_grad_shape: ttnn._ttnn.types.Shape | None = None, input_grad: ttnn.Tensor | None = None, memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)
+====================================================================================================
+moreh_norm_backward
+  moreh_norm_backward(input: ttnn.Tensor, output: ttnn.Tensor, output_grad: ttnn.Tensor, p: float, *, dim: int | collections.abc.Sequence[int] | None = None, keepdim: bool = False, input_grad: ttnn.Tensor | None = None, memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)
+====================================================================================================
+moreh_cumsum_backward
+  moreh_cumsum_backward(output_grad: ttnn.Tensor, dim: int, *, input_grad: ttnn.Tensor | None = None, memory_config: ttnn.MemoryConfig | None = None)
+====================================================================================================
+moreh_nll_loss_backward
+  moreh_nll_loss_backward(target_tensor: ttnn.Tensor, output_grad_tensor: ttnn.Tensor, reduction_mean: bool, *, weight_tensor: ttnn.Tensor | None = None, input_grad_tensor: ttnn.Tensor | None = None, divisor_tensor: ttnn.Tensor | None = None, ignore_index: int = -100, memory_config: ttnn.MemoryConfig | None = None, compute_kernel_config: ttnn.core.WormholeComputeKernelConfig | None = None)
+
+====================================================================================================
+Protenix eltwise coverage (backward of the ops the forward census dispatches):
+  add          -> add_bw
+  mul          -> mul_bw
+  relu         -> relu_bw
+  sigmoid      -> sigmoid_bw
+  sqrt         -> sqrt_bw
+  pow          -> pow_bw
+  clamp        -> clamp_bw
+  addcmul      -> addcmul_bw
+  addalpha     -> addalpha_bw
+  embedding    -> embedding_bw
+  concat       -> concat_bw
+  div          -> div_bw
+  sub          -> sub_bw
+
+Shape ops (reshape/permute/slice/pad/to_layout/typecast/unsqueeze) have no *_bw and
+need none: the backward of a shape op is the inverse shape op, already in ttnn.

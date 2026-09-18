@@ -1,0 +1,32 @@
+{
+ "host": "tt-quietbox",
+ "node": 0,
+ "size": 512,
+ "pid": 1590126,
+ "ttnn": "/home/ttuser/.local/lib/python3.10/site-packages/ttnn/__init__.py",
+ "tt_bio": "/home/ttuser/.coworker/wt/c14-layout-delete/tt_bio/tenstorrent.py",
+ "started_utc": 1789738681.6137865,
+ "folds": [
+  {
+   "i": 0,
+   "wall_s_NOT_OF_RECORD": 34.737,
+   "n_calls": 34295,
+   "n_sites": 60
+  },
+  {
+   "i": 1,
+   "wall_s_NOT_OF_RECORD": 19.603,
+   "n_calls": 34295,
+   "n_sites": 60
+  }
+ ],
+ "note": "CALL COUNTS ONLY. No wall time here is a number of record.",
+ "n_msa": 35,
+ "settled_control": {
+  "identical": true,
+  "keys_only_in_fold0": [],
+  "keys_only_in_fold1": [],
+  "count_diffs": {}
+ },
+ "completed": true
+}

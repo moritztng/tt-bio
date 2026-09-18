@@ -1,0 +1,70 @@
+{
+ "doc": "Re-price the fused-silu tax per ELEMENT, because the inherited basis had the wrong shape.\n\nc12-kblock-unlock swept `Transition.swiglu` fc1 at a=[1,16,512,128] and priced the fold at\n8,960 calls x 0.0887 ms = 0.7947 s. An instrumented 512 aa fold (sites_512.json) says that shape\nnever runs: the shipped pair-track chunk height is 47 rows, the site fires on five shapes, and\nthere are 3,762 fused-silu calls in the fold, not 8,960. A per-call price is therefore not a\ntransferable unit and a per-element one is, because the epilogue is an SFPU pass over the output.\n\n    reprice.py --op perf/c12_silu/op_ab_s1.json --sites perf/c12_silu/sites_512.json\n",
+ "clock_mhz": 1350,
+ "arm": {
+  "shape_measured": "4096 out tiles, 4194304 elements",
+  "tax_ms_per_call": 0.08816302099876339,
+  "silu_ms_per_call": 0.04000368900051399,
+  "tax_ps_per_element": 21.02,
+  "silu_ps_per_element": 9.538,
+  "win_ps_per_element": 11.482
+ },
+ "fold_512aa": {
+  "fused_silu_calls": 7402,
+  "out_elements": 85843771392,
+  "tax_s": 1.8044,
+  "win_s": 0.9857,
+  "win_mcycles": 1330.6,
+  "rows": [
+   {
+    "site": "tenstorrent.py:8211",
+    "a_shape": "1x32x768x128",
+    "b_shape": "128x512",
+    "calls": 6720,
+    "out_elements_per_call": 12582912,
+    "out_elements_total": 84557168640
+   },
+   {
+    "site": "tenstorrent.py:8211",
+    "a_shape": "1x768x768",
+    "b_shape": "768x1536",
+    "calls": 400,
+    "out_elements_per_call": 1179648,
+    "out_elements_total": 471859200
+   },
+   {
+    "site": "tenstorrent.py:8211",
+    "a_shape": "1x768x384",
+    "b_shape": "384x1536",
+    "calls": 264,
+    "out_elements_per_call": 1179648,
+    "out_elements_total": 311427072
+   },
+   {
+    "site": "tenstorrent.py:11896",
+    "a_shape": "1x768x768x128",
+    "b_shape": "128x256",
+    "calls": 2,
+    "out_elements_per_call": 150994944,
+    "out_elements_total": 301989888
+   },
+   {
+    "site": "tenstorrent.py:8211",
+    "a_shape": "1x64x768x64",
+    "b_shape": "64x256",
+    "calls": 16,
+    "out_elements_per_call": 12582912,
+    "out_elements_total": 201326592
+   }
+  ]
+ },
+ "inherited_basis_refuted": {
+  "claimed_calls": 8960,
+  "executed_calls": 7402,
+  "claimed_shape": "1x16x512x128",
+  "executed_dominant_shape": "1x32x768x128",
+  "claimed_tax_s": 0.7947,
+  "repriced_tax_s": 1.8044,
+  "note": "the two tax figures agree to 1.5 % only because 2,800 calls of 47 rows is nearly the same output volume as 8,960 of 16. The per-call price and the call count are both wrong; the product happens to survive."
+ }
+}

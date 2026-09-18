@@ -1,0 +1,111 @@
+{
+  "pid": 640783,
+  "host": "tt-quietbox2",
+  "node": 3,
+  "sizes": [
+    512
+  ],
+  "keep": 1,
+  "rows": [
+    {
+      "tag": "cold",
+      "size": 512,
+      "keep": true,
+      "elapsed_s": 16.41184648,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 2,
+      "entries_after": 245,
+      "flag_queries": 1,
+      "flag_all_match": true,
+      "discarded": "cold fold"
+    },
+    {
+      "tag": "s0_512",
+      "size": 512,
+      "keep": true,
+      "elapsed_s": 15.005655003,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 245,
+      "entries_after": 245,
+      "flag_queries": 1,
+      "flag_all_match": true
+    },
+    {
+      "tag": "missforbid_same_512",
+      "size": 512,
+      "keep": true,
+      "elapsed_s": 14.890349528,
+      "plddt": 0.845919,
+      "cif": {
+        "cdk2x2_512.cif": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd"
+      },
+      "entries_before": 245,
+      "entries_after": 245,
+      "flag_queries": 1,
+      "flag_all_match": true
+    }
+  ],
+  "misses_test": {
+    "note": "set_program_cache_misses_allowed(False), then fold",
+    "same_size_refold_threw": false,
+    "other_size_threw": true,
+    "other_size_error": "RuntimeError('TT_THROW @ /project/ttnn/api/ttnn/device_operation.hpp:382: tt::exception\\ninfo:\\nDevice operation \"EmbeddingsDeviceOperation\": program cache miss occurred, but cache misses are forbidden\\nbacktrace:\\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail29handle_mesh_adapter_cache_hitITkNS0_36DeviceOperationWithMesh",
+    "other_size": 384,
+    "verdict": "shape-keyed: a repeat hits and a NEVER-FOLDED size misses, so the instrument throws when it should and the repeat genuinely hit"
+  },
+  "errors": [],
+  "completed": true,
+  "started_utc_ns": 1789739836657344472,
+  "before": {
+    "monotonic_ns": 10440178968234,
+    "utc_ns": 1789739836657347478,
+    "boot_id": "3924edcb-ff37-4ee4-b102-abb76e615e3d",
+    "module_srcversion": "28CFF5A6678E4F2D87F6383",
+    "containment_unit": {
+      "is_active": "inactive",
+      "rc": 3
+    },
+    "port": {
+      "node": "3",
+      "endpoint": "0000:04:00.0",
+      "port": "0000:00:01.5",
+      "port_COMMAND": "0x0407",
+      "memory_space": true,
+      "bus_master": true,
+      "ok": true
+    },
+    "loadavg": [
+      5.5859375,
+      4.4345703125,
+      3.6640625
+    ],
+    "holders": [
+      {
+        "pid": 636108,
+        "nodes": [
+          "/dev/tenstorrent/0"
+        ],
+        "state": "S",
+        "utime_ticks": 10383,
+        "stime_ticks": 436,
+        "starttime_ticks": 1039237,
+        "argv": "/home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork ",
+        "env": {
+          "TT_VISIBLE_DEVICES": "0",
+          "TT_BIO_LEASE_CARDS": "0",
+          "TT_BIO_LEASE_HOLDER": "worker:c13-land-first"
+        }
+      }
+    ],
+    "own_nodes": []
+  },
+  "ttnn_version": "0.68.0",
+  "source_commit": "e7407734bdb73e05aa1ac7a1b66b09d4f1515867",
+  "finished_utc_ns": 1789739979803708228
+}

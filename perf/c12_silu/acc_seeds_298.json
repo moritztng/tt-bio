@@ -1,0 +1,101 @@
+{
+ "doc": "The lever's accuracy against the seed scatter of the same fixture, both measured here.\n\nThe 512 aa paired read is on cdk2x2_512, the chimeric fixture whose unconstrained hinge saturates\nRMSD for any non-bit-exact change, and the 0.35/0.60 A thresholds are written against cdk2x2_298.\nSo this scores on cdk2x2_298, and it scores the control that a single paired read cannot supply:\nship at seed 0 against ship at seed 1 IS the seed floor on this fixture, and the lever's deviation\nonly means something beside it.\n\nFour folds in one process on one device open, so seed 0 also re-runs and its digest proves the\nfold is deterministic across processes -- without that, a cross-session RMSD is not a paired read.\n\n    acc_seeds.py --out <json> --cifs <dir> --size 298 --seeds 0,1\n",
+ "size": 298,
+ "seeds": [
+  0,
+  1
+ ],
+ "host": "tt-quietbox2",
+ "card_node": 2,
+ "clock_forced_mhz": 1350,
+ "loadavg": [
+  13.2626953125,
+  12.61474609375,
+  13.1630859375
+ ],
+ "utc": "2026-09-17T13:38:52Z",
+ "commit": "18a244dfe20ca943c4e606a34ffa0b4ba156b078",
+ "bar": {
+  "pass": 0.35,
+  "hold": 0.6,
+  "basis": "the 4649 bar, all-atom, cdk2x2_298"
+ },
+ "folds": {
+  "s0_ship": {
+   "seed": 0,
+   "arm": "ship",
+   "wall_s": 43.271,
+   "cif": "298_s0_ship.cif",
+   "digest": "81dc2473453c1534"
+  },
+  "s0_silu": {
+   "seed": 0,
+   "arm": "silu",
+   "wall_s": 10.887,
+   "cif": "298_s0_silu.cif",
+   "digest": "c0856825d6da045c"
+  },
+  "s1_ship": {
+   "seed": 1,
+   "arm": "ship",
+   "wall_s": 11.161,
+   "cif": "298_s1_ship.cif",
+   "digest": "b9ece0d86f30d958"
+  },
+  "s1_silu": {
+   "seed": 1,
+   "arm": "silu",
+   "wall_s": 10.564,
+   "cif": "298_s1_silu.cif",
+   "digest": "d97274abacd8604b"
+  }
+ },
+ "all_pairs": {
+  "s0_ship vs s0_silu": {
+   "all_atom_A": 0.4504,
+   "ca_A": 0.29206
+  },
+  "s0_ship vs s1_ship": {
+   "all_atom_A": 0.80218,
+   "ca_A": 0.36113
+  },
+  "s0_ship vs s1_silu": {
+   "all_atom_A": 0.80607,
+   "ca_A": 0.36622
+  },
+  "s0_silu vs s1_ship": {
+   "all_atom_A": 0.84563,
+   "ca_A": 0.44983
+  },
+  "s0_silu vs s1_silu": {
+   "all_atom_A": 0.8083,
+   "ca_A": 0.38358
+  },
+  "s1_ship vs s1_silu": {
+   "all_atom_A": 0.26214,
+   "ca_A": 0.18457
+  }
+ },
+ "lever_paired_per_seed": [
+  {
+   "seed": "s0",
+   "all_atom_A": 0.4504,
+   "ca_A": 0.29206
+  },
+  {
+   "seed": "s1",
+   "all_atom_A": 0.26214,
+   "ca_A": 0.18457
+  }
+ ],
+ "seed_floor": [
+  {
+   "pair": "ship s0 vs s1",
+   "all_atom_A": 0.80218,
+   "ca_A": 0.36113
+  }
+ ],
+ "worst_lever_all_atom_A": 0.4504,
+ "verdict": "HOLD",
+ "lever_over_seed_floor": 0.561
+}
