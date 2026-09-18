@@ -1,0 +1,2635 @@
+{
+ "started_utc": "2026-09-18T15:00:32Z",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "note": "One process per arm: TT_BIO_APB_CONCAT_HEADS is consumed at model construction and re-lanes proj_g/proj_o, so it cannot be flipped in process. Arms interleaved block by block; the A/A floor is the spread across the base blocks, compared the same way base is compared to apb.",
+ "blocks": [
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.516,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 65,
+       "power_w_mean": 77.3
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 5.44,
+      "foreign_device_holders": [
+       {
+        "pid": 830849,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 830849,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.965,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 60,
+       "power_w_mean": 77.3
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 5.72,
+      "foreign_device_holders": [
+       {
+        "pid": 830849,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 830849,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.845,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 61,
+       "power_w_mean": 78.3
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 4.89,
+      "foreign_device_holders": [
+       {
+        "pid": 830849,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 830849,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 2.911,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "3",
+     "lease_cards": "1,3",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "352bb69a94fdaaabdd26270c33e1c2518568f3f0",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 17.664,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 69,
+      "power_w_mean": 79.2
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845919,
+     "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+     "loadavg1": 4.19,
+     "foreign_device_holders": [],
+     "foreign_device_holders_end": [
+      {
+       "pid": 830849,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       3
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.452,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 59,
+       "power_w_mean": 79.9
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845902,
+      "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+      "loadavg1": 4.41,
+      "foreign_device_holders": [
+       {
+        "pid": 830849,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 830849,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.449,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 61,
+       "power_w_mean": 78.6
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845902,
+      "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+      "loadavg1": 4.04,
+      "foreign_device_holders": [
+       {
+        "pid": 830849,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 830849,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.503,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 61,
+       "power_w_mean": 81.9
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845902,
+      "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+      "loadavg1": 3.59,
+      "foreign_device_holders": [
+       {
+        "pid": 830849,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 830849,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 2.641,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "3",
+     "lease_cards": "1,3",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "352bb69a94fdaaabdd26270c33e1c2518568f3f0",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.911,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 65,
+      "power_w_mean": 80.1
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845902,
+     "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+     "loadavg1": 5.0,
+     "foreign_device_holders": [
+      {
+       "pid": 830849,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "foreign_device_holders_end": [
+      {
+       "pid": 830849,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       3
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 1,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.297,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 67,
+       "power_w_mean": 80.5
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 5.43,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [
+       {
+        "pid": 838104,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.962,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 63,
+       "power_w_mean": 79.8
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 5.87,
+      "foreign_device_holders": [
+       {
+        "pid": 838104,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 838104,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.388,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 67,
+       "power_w_mean": 77.6
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 6.1,
+      "foreign_device_holders": [
+       {
+        "pid": 838104,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 838104,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 3.043,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "3",
+     "lease_cards": "1,3",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "352bb69a94fdaaabdd26270c33e1c2518568f3f0",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 15.757,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 67,
+      "power_w_mean": 73.0
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845919,
+     "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+     "loadavg1": 5.74,
+     "foreign_device_holders": [
+      {
+       "pid": 830849,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "foreign_device_holders_end": [],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       3
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 1,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.586,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 63,
+       "power_w_mean": 81.5
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845902,
+      "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+      "loadavg1": 4.92,
+      "foreign_device_holders": [
+       {
+        "pid": 838104,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 838104,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.482,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 58,
+       "power_w_mean": 81.4
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845902,
+      "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+      "loadavg1": 4.28,
+      "foreign_device_holders": [
+       {
+        "pid": 838104,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 838104,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.498,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 62,
+       "power_w_mean": 78.5
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845902,
+      "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+      "loadavg1": 3.77,
+      "foreign_device_holders": [
+       {
+        "pid": 838104,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 838104,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 2.585,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "3",
+     "lease_cards": "1,3",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "352bb69a94fdaaabdd26270c33e1c2518568f3f0",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.933,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 65,
+      "power_w_mean": 83.1
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845902,
+     "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+     "loadavg1": 4.93,
+     "foreign_device_holders": [
+      {
+       "pid": 838104,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "foreign_device_holders_end": [
+      {
+       "pid": 838104,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       3
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 2,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.997,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 66,
+       "power_w_mean": 81.8
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 5.0,
+      "foreign_device_holders": [],
+      "foreign_device_holders_end": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       },
+       {
+        "pid": 841058,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.505,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 65,
+       "power_w_mean": 76.2
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 5.62,
+      "foreign_device_holders": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       },
+       {
+        "pid": 841058,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.273,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 63,
+       "power_w_mean": 78.7
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 5.6,
+      "foreign_device_holders": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 2.63,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "3",
+     "lease_cards": "1,3",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "352bb69a94fdaaabdd26270c33e1c2518568f3f0",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 15.412,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 66,
+      "power_w_mean": 77.2
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845919,
+     "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+     "loadavg1": 4.45,
+     "foreign_device_holders": [
+      {
+       "pid": 838104,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "foreign_device_holders_end": [],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       3
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 2,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.459,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 61,
+       "power_w_mean": 83.4
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845902,
+      "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+      "loadavg1": 4.44,
+      "foreign_device_holders": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.445,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 62,
+       "power_w_mean": 79.4
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845902,
+      "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+      "loadavg1": 3.9,
+      "foreign_device_holders": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.499,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 62,
+       "power_w_mean": 77.9
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845902,
+      "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+      "loadavg1": 3.48,
+      "foreign_device_holders": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 2.697,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "3",
+     "lease_cards": "1,3",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "352bb69a94fdaaabdd26270c33e1c2518568f3f0",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 14.991,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 65,
+      "power_w_mean": 80.2
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845902,
+     "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+     "loadavg1": 5.14,
+     "foreign_device_holders": [
+      {
+       "pid": 840595,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "foreign_device_holders_end": [
+      {
+       "pid": 840595,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       3
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 3,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.845,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 62,
+       "power_w_mean": 85.8
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 3.19,
+      "foreign_device_holders": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.429,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 66,
+       "power_w_mean": 79.7
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 2.85,
+      "foreign_device_holders": [
+       {
+        "pid": 840595,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 845538,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.973,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 64,
+       "power_w_mean": 81.1
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 3.68,
+      "foreign_device_holders": [
+       {
+        "pid": 845538,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 845538,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 2.582,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "3",
+     "lease_cards": "1,3",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "352bb69a94fdaaabdd26270c33e1c2518568f3f0",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 15.177,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 65,
+      "power_w_mean": 81.4
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845919,
+     "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+     "loadavg1": 3.06,
+     "foreign_device_holders": [
+      {
+       "pid": 840595,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "foreign_device_holders_end": [
+      {
+       "pid": 840595,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       3
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 3,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.558,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 61,
+       "power_w_mean": 77.1
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845902,
+      "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+      "loadavg1": 4.87,
+      "foreign_device_holders": [
+       {
+        "pid": 845538,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 845538,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "1",
+      "fold_s": 14.46,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 62,
+       "power_w_mean": 81.8
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845902,
+      "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+      "loadavg1": 4.87,
+      "foreign_device_holders": [
+       {
+        "pid": 845538,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 845538,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     },
+     {
+      "tag": "2",
+      "fold_s": 14.459,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 59,
+       "power_w_mean": 81.8
+      },
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845902,
+      "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+      "loadavg1": 4.99,
+      "foreign_device_holders": [
+       {
+        "pid": 845538,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 845538,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        3
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 3.456,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "3",
+     "lease_cards": "1,3",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "352bb69a94fdaaabdd26270c33e1c2518568f3f0",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 15.577,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 69,
+      "power_w_mean": 72.5
+     },
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845902,
+     "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+     "loadavg1": 5.69,
+     "foreign_device_holders": [
+      {
+       "pid": 845538,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "foreign_device_holders_end": [
+      {
+       "pid": 845538,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       3
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  }
+ ],
+ "summary": {
+  "512": {
+   "base_median_s": 15.135,
+   "on_median_s": 14.471,
+   "base_n": 12,
+   "on_n": 12,
+   "delta_s": 0.664,
+   "ratio_base_over_on": 1.04588,
+   "aa_floor_ratio_max": 1.02219,
+   "base_block_medians": [
+    14.965,
+    15.297,
+    15.273,
+    14.973
+   ],
+   "on_block_medians": [
+    14.452,
+    14.498,
+    14.459,
+    14.46
+   ],
+   "clock_min": 1350,
+   "clock_max": 1350,
+   "clock_samples": 1500,
+   "verdict_rule": "a ratio inside aa_floor_ratio_max is a NULL, not a win"
+  }
+ },
+ "finished_utc": "2026-09-18T15:09:20Z"
+}
