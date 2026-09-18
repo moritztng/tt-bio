@@ -145,7 +145,7 @@ def spread(xs: list[float]) -> dict:
     }
 
 
-def build(params: Box, stage: int):
+def build(params: Box, stage: int, workers: int | None = None, pin: bool | None = None):
     loss_config = ml_collections.config_dict.ConfigDict(params.loss)
     model_config = ml_collections.config_dict.ConfigDict(params.model)
     optimiser_config = ml_collections.config_dict.ConfigDict(params.optimiser)
@@ -162,8 +162,8 @@ def build(params: Box, stage: int):
         batch_size=8,
         legacy=not params.base.all_data,
         edge_chain_feature=params.model.edge_chain_feature,
-        num_workers=params.base.num_workers,
-        pin_memory=params.base.pin_memory,
+        num_workers=params.base.num_workers if workers is None else workers,
+        pin_memory=params.base.pin_memory if pin is None else pin,
         use_plm_embeddings=params.language.model is not None,
     )
     batch_size = params.train.batch_size if stage == 1 else params.finetune.batch_size
@@ -172,7 +172,7 @@ def build(params: Box, stage: int):
 
 def run_real(args, params: Box) -> dict:
     pl.seed_everything(params.base.seed)
-    model, data, accumulate = build(params, args.stage)
+    model, data, accumulate = build(params, args.stage, args.workers, args.pin_memory)
     timer = StepTimer(accumulate, args.warmup, args.steps)
     callbacks: list[Callback] = [timer]
     if args.stage == 2:
@@ -228,7 +228,7 @@ def run_real(args, params: Box) -> dict:
 def run_dataonly(args, params: Box) -> dict:
     """Price the host data pipeline: torch.load, feature build, collate. No model, no GPU."""
     pl.seed_everything(params.base.seed)
-    _, data, accumulate = build(params, args.stage)
+    _, data, accumulate = build(params, args.stage, args.workers, args.pin_memory)
     data.setup("fit")
     loader = data.train_dataloader()
     n_micro = accumulate * (args.warmup + args.steps)
@@ -259,7 +259,7 @@ def run_dataonly(args, params: Box) -> dict:
 def run_profile(args, params: Box) -> dict:
     """CUDA kernel time per step, from torch.profiler over a few steps after a warmup."""
     pl.seed_everything(params.base.seed)
-    model, data, accumulate = build(params, args.stage)
+    model, data, accumulate = build(params, args.stage, args.workers, args.pin_memory)
     callbacks: list[Callback] = []
     if args.stage == 2:
         callbacks.append(FineTuneCallback(
@@ -309,20 +309,32 @@ def run_profile(args, params: Box) -> dict:
     )
     trainer.fit(model, data)
     ka = sched.p.key_averages()
-    cuda_self = sum(getattr(e, "self_device_time_total", 0) or
-                    getattr(e, "self_cuda_time_total", 0) for e in ka)
+
+    def dev_us(e):
+        return getattr(e, "self_device_time_total", 0) or getattr(e, "self_cuda_time_total", 0)
+
+    # An aten:: entry carries the device time of the kernel it launched, and that kernel has its
+    # own entry. Summing both double-counts, so keep only the device-side events.
+    try:
+        from torch.autograd import DeviceType
+        kern = [e for e in ka if e.device_type == DeviceType.CUDA]
+    except Exception:  # noqa: BLE001
+        kern = [e for e in ka if not e.key.startswith(("aten::", "cuda", "Optimizer"))]
+    cuda_self = sum(dev_us(e) for e in kern)
+    cuda_self_allentries = sum(dev_us(e) for e in ka)
     cpu_self = sum(e.self_cpu_time_total for e in ka)
     top = sorted(
         ((e.key,
-          (getattr(e, "self_device_time_total", 0) or getattr(e, "self_cuda_time_total", 0)) / 1e3
-          / prof,
-          e.count / prof) for e in ka),
+          dev_us(e) / 1e3 / prof,
+          e.count / prof) for e in kern),
         key=lambda r: -r[1],
     )[:25]
     return {
         "profiled_steps": prof,
         "profiled_wall_s_per_step": sched.wall / prof,
         "cuda_self_ms_per_step": cuda_self / 1e3 / prof,
+        "cuda_self_ms_per_step_allentries_DOUBLECOUNTED": cuda_self_allentries / 1e3 / prof,
+        "kernel_launches_per_step": sum(e.count for e in ka if e.key == "cudaLaunchKernel") / prof,
         "cpu_self_ms_per_step": cpu_self / 1e3 / prof,
         "note": "profiler adds overhead, so profiled_wall_s_per_step is NOT the headline; "
                 "cuda_self is device-busy time and is what the split uses",
@@ -341,6 +353,10 @@ def main() -> int:
     ap.add_argument("--params", default="params.yaml")
     ap.add_argument("--ddp", action="store_true")
     ap.add_argument("--dvclive", action="store_true")
+    # params.yaml ships num_workers: 0, so the host data pipeline is serialised with compute and
+    # is 53 % of the A100 step. --workers prices the overlap that any real training run would get.
+    ap.add_argument("--workers", type=int, default=None)
+    ap.add_argument("--pin-memory", dest="pin_memory", action="store_true", default=None)
     ap.add_argument("--tag", default="")
     ap.add_argument("--out", default="")
     args = ap.parse_args()
@@ -362,6 +378,11 @@ def main() -> int:
         "args": vars(args),
         "host": host_info(),
         "nvidia_smi_idle": nvidia_smi(),
+        "loader": {"num_workers": args.workers if args.workers is not None
+                                  else params.base.num_workers,
+                   "pin_memory": args.pin_memory if args.pin_memory is not None
+                                 else params.base.pin_memory,
+                   "shipped_default": args.workers is None and args.pin_memory is None},
         "params_used": {k: params[k] for k in ("base", "train", "finetune", "model", "optimiser",
                                                "language")},
     }
