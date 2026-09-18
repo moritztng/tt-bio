@@ -1,0 +1,83 @@
+{
+ "arm": "base",
+ "size": "512",
+ "folds": [
+  {
+   "tag": "0",
+   "fold_s": 15.672,
+   "clock": {
+    "aiclk_min": 1312,
+    "aiclk_max": 1350,
+    "aiclk_mean": 1344.2,
+    "aiclk_n": 65,
+    "power_w_mean": 72.2
+   },
+   "apb_served_declined": [
+    0,
+    5064
+   ],
+   "plddt": 0.845919,
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "loadavg1": 4.7
+  },
+  {
+   "tag": "1",
+   "fold_s": 15.082,
+   "clock": {
+    "aiclk_min": 1306,
+    "aiclk_max": 1350,
+    "aiclk_mean": 1339.3,
+    "aiclk_n": 62,
+    "power_w_mean": 88.6
+   },
+   "apb_served_declined": [
+    0,
+    5064
+   ],
+   "plddt": 0.845919,
+   "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+   "loadavg1": 4.62
+  }
+ ],
+ "model_load_s": 3.558,
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "tt_visible_devices": "3",
+  "lease_cards": "1,3",
+  "flag": "TT_BIO_TRIATT_B8",
+  "attr": "_TRIATT_B8",
+  "env_flag": null,
+  "module_flag": false,
+  "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+  "git_head": "33b83d1a9dac4f496d07d397fd336e2f5737b40c",
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "diffusion_samples": 1,
+   "seed": 0
+  }
+ },
+ "warmup": {
+  "tag": "warmup",
+  "fold_s": 19.902,
+  "clock": {
+   "aiclk_min": 1312,
+   "aiclk_max": 1350,
+   "aiclk_mean": 1340.3,
+   "aiclk_n": 74,
+   "power_w_mean": 80.0
+  },
+  "apb_served_declined": [
+   0,
+   5064
+  ],
+  "plddt": 0.845919,
+  "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+  "loadavg1": 4.3,
+  "discarded": true
+ }
+}

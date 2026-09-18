@@ -537,7 +537,30 @@ def _uniform_dataformat(q, k, v, out, mask):
 
 def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, **kw):
     key = (str(q.padded_shape), str(k.padded_shape), str(mask.padded_shape), str(out.padded_shape),
-           str(q.dtype), q_chunk_size, k_chunk_size, grid, tuple(str(c) for c in ckc),
+           # EVERY operand's dtype, not just q's. `build` compiles
+           # `int(_uniform_dataformat(q, k, v, out, mask))` in as `check_uniform_dataformat`
+           # (:440) and sizes each operand CB from `tile_bytes(that operand's dtype)`, so a key
+           # carrying only q's format lets two calls that differ in the MASK's format collide and
+           # hands the second one the first one's program -- a mask read at the wrong page size,
+           # under a uniformity define computed for different operands. It does not decline, raise
+           # or NaN: it returns finite garbage. Measured by `bfp8-accuracy-envelope` on
+           # TT_BIO_TRIATT_BIAS_B8 at cdk2x2_298, same commit/card/seed: 22.21 A and plDDT
+           # 0.387-0.452 interleaved after a base fold in one process, against 0.92671 A and plDDT
+           # 0.901-0.910 for the identical flag alone in its own process, both digests
+           # reproducible and the solo one bit-identical to origin/main. The flag was fine and
+           # this key was not.
+           #
+           # Cost, stated precisely because `fast_dtypes_ok(dest=...)` now exempts the destination
+           # from uniformity: with every bfp8 region OFF -- the shipped default -- the read
+           # operands are uniform and both callers allocate `out` with the query's own dtype
+           # (`triatt_sdpa.py:382` takes `q.dtype`, `:511` takes `x.dtype`), so all five strings
+           # below are equal and this key partitions calls exactly as the q-only key did: same
+           # entry count, same program-compile count, no perf risk on the default path. With a
+           # region ON and only the DESTINATION narrowed, `out.dtype` differs from the reads and
+           # this key correctly issues a second program for it -- that extra compile is the point,
+           # since it is what stops the narrowed destination from colliding with the bf16 one.
+           str(q.dtype), str(k.dtype), str(v.dtype), str(mask.dtype), str(out.dtype),
+           q_chunk_size, k_chunk_size, grid, tuple(str(c) for c in ckc),
            tuple(sorted((kw.get("defines_extra") or {}).items())),
            kw.get("mask_cb_tiles"), str(kw.get("kernel_dir")), kw.get("split"),
            kw.get("kv_buffer_factor"),
