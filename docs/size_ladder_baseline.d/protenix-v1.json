@@ -1814,20 +1814,20 @@
     "p150a": {
       "recorded": "2026-09-18",
       "host": "tt-quietbox",
-      "commit": "6e9e70be7",
+      "commit": "0e3da371f",
       "models": {
         "protenix-v1": {
           "grid": "11x10",
           "recorded": "2026-09-18",
           "host": "tt-quietbox",
-          "commit": "6e9e70be7",
+          "commit": "0e3da371f",
           "runtime_s": {
-            "256": 33.0,
-            "512": 31.5,
-            "640": 26.5,
-            "768": 52.4,
-            "896": 65.3,
-            "1024": 70.2
+            "256": 9.9,
+            "512": 18.3,
+            "640": 24.9,
+            "768": 33.7,
+            "896": 44.7,
+            "1024": 57.0
           },
           "levers": {
             "256": {
@@ -3590,13 +3590,24 @@
               }
             }
           },
-          "exponents_skipped": "measured sigma 47.1% needs a \u00b12.84 band, wider than the ~1.4 cliff signal \u2014 an exponent gate would be a coin flip for this model",
+          "reps": 1,
+          "sigma_runtime_512": 0.0083,
+          "exponents": {
+            "256->512": {
+              "k": 0.886,
+              "tol": 0.5
+            },
+            "512->768": {
+              "k": 1.506,
+              "tol": 0.5
+            }
+          },
           "exponents_measured": {
-            "256->512": -0.067,
-            "512->640": -0.775,
-            "640->768": 3.739,
-            "768->896": 1.428,
-            "896->1024": 0.542
+            "256->512": 0.886,
+            "512->640": 1.38,
+            "640->768": 1.66,
+            "768->896": 1.832,
+            "896->1024": 1.82
           }
         }
       }
