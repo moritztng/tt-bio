@@ -1,0 +1,29 @@
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 1 elsewhere, 338 pid(s) unreadable
+  elsewhere  pid 178670 -> /dev/tenstorrent/0  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15] ...
+  sidechain FAPE on the card
+  taped device parameters: 436
+  every one of 436 parameters took a non-zero gradient
+host [device open, before timing]: our node(s) ['/dev/tenstorrent/2']; 0 cotenant(s) on our node, 1 elsewhere, 337 pid(s) unreadable
+  elsewhere  pid 183769 -> /dev/tenstorrent/0  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15] ...
+  step   1  23.343 s  loss 5.0206  (median so far 23.343 s)
+
+STEP: median 23.916 s over 2 COMPLETE steps at batch 64 (32 x 2) and 256 tokens, min 23.343 s, max 24.490 s
+BREAKDOWN (median over steps, seconds and share of the step):
+  forward             5.768 s   24.1 %
+  download            0.347 s    1.4 %
+  losses              2.903 s   12.1 %
+  host_backward       2.064 s    8.6 %
+  device_backward    12.288 s   51.4 %
+  optimizer           0.067 s    0.3 %
+LOSS TERMS (cumulative over 3 steps, share of the loss stage):
+  fape_sidechain       3.73 s   47.1 %
+  fape_backbone        1.89 s   23.9 %
+  renamed_gt           1.87 s   23.6 %
+  final_backbone       0.30 s    3.8 %
+  supervised_chi       0.12 s    1.6 %
+CLOCK: AICLK during the run: card 0 min 1350 median 1350 max 1350 MHz over 21
+INCLUDES: device forward and backward, host geometry tail, the stage-1 losses (FAPE, supervised chi, final-block) and one RAdam step
+TARGETS: synthetic -- their structures/*.pt are not staged on this host; a loss's COST is shape-set and its VALUE is checked by loss_gate.py
+CONTENDED: 0 cotenant(s) on our node and 1 elsewhere
