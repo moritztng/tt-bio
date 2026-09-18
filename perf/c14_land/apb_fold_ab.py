@@ -344,6 +344,10 @@ def driver(args) -> int:
             "verdict_rule": "a ratio inside aa_floor_ratio_max is a NULL, not a win",
         }
     out["summary"] = summary
+    # An arm that produced no fold is a FAILED session, not a finished one. It returned 0 on
+    # 2026-09-18 and the caller read "HARNESS EXIT 0" off a run where every fold had died in
+    # ModuleNotFoundError, so the failure looked like a completed measurement.
+    failed = [sz for sz, v in summary.items() if "error" in v]
     out["finished_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     save()
     shutil.rmtree(tmpdir, ignore_errors=True)
@@ -355,6 +359,9 @@ def driver(args) -> int:
               f"delta {s['delta_s']:+.4f}s  ratio {s['ratio_base_over_on']:.5f}  "
               f"A/A floor {s['aa_floor_ratio_max']}  clk {s['clock_min']}-{s['clock_max']} "
               f"({s['clock_samples']} samples)", flush=True)
+    if failed:
+        print(f"FAILED: no fold at {', '.join(failed)} aa. This is not a measurement.", flush=True)
+        return 1
     return 0
 
 
