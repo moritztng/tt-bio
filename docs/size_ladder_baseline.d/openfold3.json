@@ -1019,22 +1019,22 @@
       }
     },
     "p300c": {
-      "recorded": "2026-09-10",
+      "recorded": "2026-09-17",
       "host": "tt-quietbox2",
-      "commit": "1e66754c",
+      "commit": "679b9ab4c",
       "models": {
         "openfold3": {
           "grid": "11x10",
-          "recorded": "2026-09-10",
+          "recorded": "2026-09-17",
           "host": "tt-quietbox2",
-          "commit": "1e66754c",
+          "commit": "679b9ab4c",
           "runtime_s": {
-            "256": 6.7,
-            "512": 27.5,
-            "640": 45.1,
-            "768": 77.4,
-            "896": 121.4,
-            "1024": 167.0
+            "256": 9.3,
+            "512": 28.2,
+            "640": 48.4,
+            "768": 75.8,
+            "896": 118.3,
+            "1024": 162.2
           },
           "levers": {
             "256": {
@@ -1119,6 +1119,13 @@
                 "frac": 0.5,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 1320,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
@@ -1134,14 +1141,13 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 16,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,1)": 424
+                  "k_tiles=2:(2,1)": 16
                 },
-                "reason": "declines all 440 calls on k_tiles=4:(4,1) x424, k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
+                "reason": "declines all 16 calls on k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1157,7 +1163,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 896,
+                "served": 472,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1172,13 +1178,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 864,
+                "declined": 1728,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 864
+                  "window_BufferType.L1": 1728
                 },
-                "reason": "declines all 864 calls on window_BufferType.L1 x864: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
+                "reason": "declines all 1728 calls on window_BufferType.L1 x1728: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -1196,6 +1202,14 @@
                 "how": "stats",
                 "reason": "declines all 0 calls: the gated channel move is never offered on openfold3's pair track, at any rung"
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "nothing to fuse into at this rung: the counter is `reblock_permute.STATS_GATED`, which counts serves of the fused gated move, and the gated window admits none of this model's 256 aa channel moves. At 256 aa the pair track is N=256 on an L1 destination, below `L1_N_MIN` = 288 (tt_bio/reblock_permute.py:338, the same band enforced for the fused path in `eligible_gated` at :877-878); the band opens at 288 because N=256 on an L1 output is a measured 0.952x loss on 110 cores. The same rung shows the ungated `REBLOCK_PERMUTE` declining 1728 calls on exactly that clause. It serves 880 per fold from 512 aa up."
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 0,
@@ -1210,6 +1224,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1266,11 +1288,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openfold3 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 192,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openfold3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -1298,6 +1336,13 @@
                 "served": null,
                 "declined": null,
                 "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 232,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               }
             },
@@ -1379,6 +1424,13 @@
                 "frac": 0.5,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 17160,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
@@ -1394,30 +1446,25 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 16,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,1)": 424
+                  "k_tiles=2:(2,1)": 16
                 },
-                "reason": "declines all 440 calls on k_tiles=4:(4,1) x424, k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
+                "reason": "declines all 16 calls on k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 16,
-                  "k_tiles=4": 424
-                },
-                "reason": "declines all 440 calls on k_tiles=4 x424, k_tiles=2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 896,
+                "served": 472,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1431,10 +1478,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 880 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -1445,11 +1493,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 880,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the gated channel move is never offered on openfold3's pair track, at any rung"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 880,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1465,6 +1519,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1521,11 +1583,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openfold3 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 192,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openfold3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -1553,6 +1631,13 @@
                 "served": null,
                 "declined": null,
                 "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 232,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               }
             },
@@ -1634,6 +1719,13 @@
                 "frac": 0.5,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 46640,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
@@ -1649,31 +1741,25 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1282,
+                "declined": 16,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,4)": 842,
-                  "k_tiles=4:(4,1)": 424
+                  "k_tiles=2:(2,1)": 16
                 },
-                "reason": "declines all 1282 calls on k_tiles=4:(4,4) x842, k_tiles=4:(4,1) x424, k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
+                "reason": "declines all 16 calls on k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 16,
-                  "k_tiles=4": 424
-                },
-                "reason": "declines all 440 calls on k_tiles=4 x424, k_tiles=2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 896,
+                "served": 472,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1687,10 +1773,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 880 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -1701,11 +1788,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 880,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the gated channel move is never offered on openfold3's pair track, at any rung"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 880,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1721,6 +1814,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1777,11 +1878,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openfold3 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 192,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openfold3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -1809,6 +1926,13 @@
                 "served": null,
                 "declined": null,
                 "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 232,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               }
             },
@@ -1890,6 +2014,13 @@
                 "frac": 0.5,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 48182,
+                "declined": 2,
+                "frac": 0.9999584924456251,
+                "how": "stats-dict"
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 424,
@@ -1903,32 +2034,26 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1289,
+                "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 1,
                   "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,4)": 848,
-                  "k_tiles=4:(4,1)": 424
+                  "k_tiles=4:(4,4)": 424
                 },
-                "reason": "declines all 1289 calls on k_tiles=4:(4,4) x848, k_tiles=4:(4,1) x424, k_tiles=2:(2,1) x16, k_tiles=2:(2,2) x1: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 440 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 16,
-                  "k_tiles=4": 424
-                },
-                "reason": "declines all 440 calls on k_tiles=4 x424, k_tiles=2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 896,
+                "served": 472,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1942,10 +2067,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 880 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -1956,11 +2082,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 880,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the gated channel move is never offered on openfold3's pair track, at any rung"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 880,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1976,6 +2108,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2032,11 +2172,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openfold3 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 192,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openfold3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -2064,6 +2220,13 @@
                 "served": null,
                 "declined": null,
                 "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 232,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               }
             },
@@ -2145,6 +2308,13 @@
                 "frac": 0.5,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 131120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 439,
@@ -2158,32 +2328,26 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1316,
+                "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 28,
                   "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,4)": 848,
-                  "k_tiles=4:(4,1)": 424
+                  "k_tiles=4:(4,4)": 424
                 },
-                "reason": "declines all 1316 calls on k_tiles=4:(4,4) x848, k_tiles=4:(4,1) x424, k_tiles=2:(2,2) x28, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
+                "reason": "declines all 440 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 16,
-                  "k_tiles=4": 424
-                },
-                "reason": "declines all 440 calls on k_tiles=4 x424, k_tiles=2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 896,
+                "served": 472,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2197,10 +2361,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 880 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -2211,11 +2376,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 880,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the gated channel move is never offered on openfold3's pair track, at any rung [carried from rung 768]"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 880,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2231,6 +2402,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2287,11 +2466,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module [carried from rung 768]"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openfold3 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 192,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openfold3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -2319,6 +2514,13 @@
                 "served": null,
                 "declined": null,
                 "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 232,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               }
             },
@@ -2400,6 +2602,13 @@
                 "frac": 0.5,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 150040,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 424,
@@ -2413,32 +2622,27 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1336,
+                "declined": 472,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 48,
+                  "k_tiles=2:(2,2)": 32,
                   "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,4)": 848,
-                  "k_tiles=4:(4,1)": 424
+                  "k_tiles=4:(4,4)": 424
                 },
-                "reason": "declines all 1336 calls on k_tiles=4:(4,4) x848, k_tiles=4:(4,1) x424, k_tiles=2:(2,2) x48, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
+                "reason": "declines all 472 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 16,
-                  "k_tiles=4": 424
-                },
-                "reason": "declines all 440 calls on k_tiles=4 x424, k_tiles=2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 896,
+                "served": 472,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2452,10 +2656,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 880 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -2466,11 +2671,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 880,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the gated channel move is never offered on openfold3's pair track, at any rung [carried from rung 768]"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 880,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2486,6 +2697,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2542,11 +2761,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; openfold3 does not run that module [carried from rung 768]"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openfold3 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 192,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openfold3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -2575,27 +2810,34 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 232,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               }
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.004,
+          "sigma_runtime_512": 0.0025,
           "exponents": {
             "256->512": {
-              "k": 2.037,
+              "k": 1.6,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.552,
+              "k": 2.439,
               "tol": 0.5
             }
           },
           "exponents_measured": {
-            "256->512": 2.037,
-            "512->640": 2.217,
-            "640->768": 2.962,
-            "768->896": 2.92,
-            "896->1024": 2.388
+            "256->512": 1.6,
+            "512->640": 2.421,
+            "640->768": 2.46,
+            "768->896": 2.888,
+            "896->1024": 2.364
           }
         }
       }

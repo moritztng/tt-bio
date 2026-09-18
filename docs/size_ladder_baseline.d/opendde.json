@@ -1060,22 +1060,22 @@
       }
     },
     "p300c": {
-      "recorded": "2026-09-10",
+      "recorded": "2026-09-17",
       "host": "tt-quietbox2",
-      "commit": "bfcaf7b6",
+      "commit": "679b9ab4c",
       "models": {
         "opendde": {
           "grid": "11x10",
-          "recorded": "2026-09-10",
+          "recorded": "2026-09-17",
           "host": "tt-quietbox2",
-          "commit": "bfcaf7b6",
+          "commit": "679b9ab4c",
           "runtime_s": {
-            "256": 25.2,
-            "512": 82.1,
-            "640": 132.4,
-            "768": 189.2,
-            "896": 262.8,
-            "1024": 345.2
+            "256": 21.4,
+            "512": 76.1,
+            "640": 121.6,
+            "768": 172.8,
+            "896": 251.5,
+            "1024": 327.2
           },
           "levers": {
             "256": {
@@ -1160,6 +1160,14 @@
                 "how": "stats-dict",
                 "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). opendde runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 8,
@@ -1174,36 +1182,40 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3328,
+                "declined": 3320,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,1)": 160,
-                  "k_tiles=12:(12,12)": 2112,
+                  "k_tiles=12:(12,12)": 2104,
                   "k_tiles=12:(12,1)": 1056
                 },
-                "reason": "declines all 3328 calls on k_tiles=12:(12,12) x2112, k_tiles=12:(12,1) x1056, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "reason": "declines all 3320 calls on k_tiles=12:(12,12) x2104, k_tiles=12:(12,1) x1056, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1216,
+                "declined": 1208,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "k_tiles=2": 160,
-                  "k_tiles=12": 1056
+                  "k_tiles=12": 1048
                 },
-                "reason": "declines all 1216 calls on k_tiles=12 x1056, k_tiles=2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 1208 calls on k_tiles=12 x1048, k_tiles=2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2272,
-                "declined": 320,
-                "frac": 0.8765432098765432,
+                "declined": 2752,
+                "frac": 0.45222929936305734,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,6)": 320
+                  "no_mm_block:(2,9)": 160,
+                  "no_mm_block:(2,8)": 160,
+                  "no_mm_block:(2,6)": 320,
+                  "no_mm_block:(12,49)": 1056,
+                  "no_mm_block:(12,48)": 1056
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -1215,13 +1227,14 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 16,
-                "declined": 6448,
-                "frac": 0.0024752475247524753,
+                "served": 0,
+                "declined": 12896,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 6448
-                }
+                  "window_BufferType.L1": 12896
+                },
+                "reason": "declines all 12896 calls on window_BufferType.L1 x12896: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -1232,11 +1245,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 16,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: at 256 aa opendde's 16 eligible forward moves take the ungated kernel instead (REBLOCK_PERMUTE serves 16 here and declines the other 6448 on window_BufferType.L1), so the fused call site is not reached. The gated kernel serves 2416 calls at 512 and 4512 at 640 and 4512 at 768"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 16,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1251,6 +1270,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1307,11 +1334,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 632,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); opendde runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -1340,6 +1383,17 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 122,
+                "declined": 528,
+                "frac": 0.18769230769230769,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 524,
+                  "ratio-shrunk": 4
+                }
               }
             },
             "512": {
@@ -1421,6 +1475,14 @@
                 "how": "stats-dict",
                 "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). opendde runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 1056,
@@ -1434,36 +1496,39 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3328,
+                "declined": 2280,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,1)": 160,
-                  "k_tiles=12:(12,12)": 2112,
+                  "k_tiles=12:(12,12)": 1064,
                   "k_tiles=12:(12,1)": 1056
                 },
-                "reason": "declines all 3328 calls on k_tiles=12:(12,12) x2112, k_tiles=12:(12,1) x1056, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 2280 calls on k_tiles=12:(12,12) x1064, k_tiles=12:(12,1) x1056, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1216,
+                "declined": 8,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=2": 160,
-                  "k_tiles=12": 1056
+                  "k_tiles=12": 8
                 },
-                "reason": "declines all 1216 calls on k_tiles=12 x1056, k_tiles=2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 8 calls on k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2272,
-                "declined": 320,
-                "frac": 0.8765432098765432,
+                "declined": 2752,
+                "frac": 0.45222929936305734,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,6)": 320
+                  "no_mm_block:(2,9)": 160,
+                  "no_mm_block:(2,8)": 160,
+                  "no_mm_block:(2,6)": 320,
+                  "no_mm_block:(12,49)": 1056,
+                  "no_mm_block:(12,48)": 1056
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -1475,10 +1540,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 48,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -1489,10 +1555,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 2416,
+                "served": 2464,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2464,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1511,6 +1584,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1567,11 +1648,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 632,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); opendde runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -1600,6 +1697,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 122,
+                "declined": 528,
+                "frac": 0.18769230769230769,
+                "how": "stats",
+                "rejects": {
+                  "ratio-shrunk": 528
+                }
               }
             },
             "640": {
@@ -1681,6 +1788,14 @@
                 "how": "stats-dict",
                 "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). opendde runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 1056,
@@ -1707,23 +1822,26 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1216,
+                "declined": 1056,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=2": 160,
                   "k_tiles=12": 1056
                 },
-                "reason": "declines all 1216 calls on k_tiles=12 x1056, k_tiles=2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 1056 calls on k_tiles=12 x1056: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2272,
-                "declined": 320,
-                "frac": 0.8765432098765432,
+                "declined": 2752,
+                "frac": 0.45222929936305734,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,6)": 320
+                  "no_mm_block:(2,9)": 160,
+                  "no_mm_block:(2,8)": 160,
+                  "no_mm_block:(2,6)": 320,
+                  "no_mm_block:(12,49)": 1056,
+                  "no_mm_block:(12,48)": 1056
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -1735,10 +1853,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 96,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -1749,26 +1868,37 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4512,
+                "served": 4608,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 4608,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1208,
-                "declined": 17,
-                "frac": 0.9861224489795918,
-                "how": "stats",
-                "rejects": {
-                  "fill_preconditions": 17
-                }
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
-                "served": 0,
+                "served": 8,
                 "declined": 0,
-                "frac": 0.0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
@@ -1826,11 +1956,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 632,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); opendde runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -1842,10 +1988,9 @@
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
-                "how": "setlen",
-                "reason": "overflow set holds 1 shape(s): ONE shape overflows its per-core circular-buffer budget at this rung and silently takes the slow SDPA path; the set is empty at 256 and 512. This is the third gate of the 2026-08-13 above-640 defect, still open on opendde where it closed on boltz-2. Recorded, not blessed: the arm fails on ANY growth of this set, and shrinking it to 0 is a real win someone should take"
+                "how": "setlen"
               },
               "RFD3_SOFTMAX_PV_FUSED": {
                 "resolved": "not-imported",
@@ -1860,6 +2005,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 122,
+                "declined": 528,
+                "frac": 0.18769230769230769,
+                "how": "stats",
+                "rejects": {
+                  "ratio-shrunk": 528
+                }
               }
             },
             "768": {
@@ -1941,6 +2096,14 @@
                 "how": "stats-dict",
                 "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). opendde runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 1056,
@@ -1954,37 +2117,39 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3329,
+                "declined": 3328,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 1,
                   "k_tiles=2:(2,1)": 160,
                   "k_tiles=12:(12,12)": 2112,
                   "k_tiles=12:(12,1)": 1056
                 },
-                "reason": "declines all 3329 calls on k_tiles=12:(12,12) x2112, k_tiles=12:(12,1) x1056, k_tiles=2:(2,1) x160, k_tiles=2:(2,2) x1: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 3328 calls on k_tiles=12:(12,12) x2112, k_tiles=12:(12,1) x1056, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1216,
+                "declined": 1056,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=2": 160,
                   "k_tiles=12": 1056
                 },
-                "reason": "declines all 1216 calls on k_tiles=12 x1056, k_tiles=2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 1056 calls on k_tiles=12 x1056: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2272,
-                "declined": 320,
-                "frac": 0.8765432098765432,
+                "declined": 2752,
+                "frac": 0.45222929936305734,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,6)": 320
+                  "no_mm_block:(2,9)": 160,
+                  "no_mm_block:(2,8)": 160,
+                  "no_mm_block:(2,6)": 320,
+                  "no_mm_block:(12,49)": 1056,
+                  "no_mm_block:(12,48)": 1056
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -1996,10 +2161,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -2010,10 +2176,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4512,
+                "served": 4704,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 4704,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2033,6 +2206,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 8,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "entered and refused, not unreached: 8 calls at this rung are above the 1024-token cap and no fused (q_chunk, k_chunk) pair ran -- an L1 refusal or a token count with no 32-aligned divisor (tt_bio/tenstorrent.py:1855-1858). Each one falls through to the stock ladder, which is byte for byte the pre-flip path, so the refusal costs accuracy nothing. Same model, same baseline: it does serve at 640 aa (8 calls), 1024 aa (56 calls)."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2089,11 +2270,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 632,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); opendde runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -2123,6 +2320,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 122,
+                "declined": 528,
+                "frac": 0.18769230769230769,
+                "how": "stats",
+                "rejects": {
+                  "ratio-shrunk": 528
+                }
               }
             },
             "896": {
@@ -2204,6 +2411,14 @@
                 "how": "stats-dict",
                 "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path [carried from rung 768]"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). opendde runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 1251,
@@ -2217,37 +2432,39 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3660,
+                "declined": 3344,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 316,
                   "k_tiles=2:(2,1)": 160,
                   "k_tiles=12:(12,12)": 2096,
                   "k_tiles=12:(12,1)": 1088
                 },
-                "reason": "declines all 3660 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1088, k_tiles=2:(2,2) x316, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
+                "reason": "declines all 3344 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1088, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1208,
+                "declined": 1048,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=2": 160,
                   "k_tiles=12": 1048
                 },
-                "reason": "declines all 1208 calls on k_tiles=12 x1048, k_tiles=2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 1048 calls on k_tiles=12 x1048: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2336,
-                "declined": 320,
-                "frac": 0.8795180722891566,
+                "declined": 2776,
+                "frac": 0.4569640062597809,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,6)": 320
+                  "no_mm_block:(2,9)": 160,
+                  "no_mm_block:(2,8)": 160,
+                  "no_mm_block:(2,6)": 320,
+                  "no_mm_block:(12,49)": 1048,
+                  "no_mm_block:(12,48)": 1088
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -2259,10 +2476,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a] [carried from rung 768]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -2273,10 +2491,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 6608,
+                "served": 6800,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 6800,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2296,6 +2521,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 40,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "entered and refused, not unreached: 40 calls at this rung are above the 1024-token cap and no fused (q_chunk, k_chunk) pair ran -- an L1 refusal or a token count with no 32-aligned divisor (tt_bio/tenstorrent.py:1855-1858). Each one falls through to the stock ladder, which is byte for byte the pre-flip path, so the refusal costs accuracy nothing. Same model, same baseline: it does serve at 640 aa (8 calls), 1024 aa (56 calls)."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2352,11 +2585,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module [carried from rung 768]"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 632,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); opendde runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -2386,6 +2635,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 122,
+                "declined": 528,
+                "frac": 0.18769230769230769,
+                "how": "stats",
+                "rejects": {
+                  "ratio-shrunk": 528
+                }
               }
             },
             "1024": {
@@ -2467,6 +2726,14 @@
                 "how": "stats-dict",
                 "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path [carried from rung 768]"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). opendde runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 1108,
@@ -2480,37 +2747,40 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3840,
+                "declined": 3680,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 480,
+                  "k_tiles=2:(2,2)": 320,
                   "k_tiles=2:(2,1)": 160,
                   "k_tiles=12:(12,12)": 2096,
                   "k_tiles=12:(12,1)": 1104
                 },
-                "reason": "declines all 3840 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1104, k_tiles=2:(2,2) x480, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
+                "reason": "declines all 3680 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1104, k_tiles=2:(2,2) x320, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1208,
+                "declined": 1048,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=2": 160,
                   "k_tiles=12": 1048
                 },
-                "reason": "declines all 1208 calls on k_tiles=12 x1048, k_tiles=2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 1048 calls on k_tiles=12 x1048: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2368,
-                "declined": 320,
-                "frac": 0.8809523809523809,
+                "declined": 2792,
+                "frac": 0.45891472868217054,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,6)": 320
+                  "no_mm_block:(2,9)": 160,
+                  "no_mm_block:(2,8)": 160,
+                  "no_mm_block:(2,6)": 320,
+                  "no_mm_block:(12,49)": 1048,
+                  "no_mm_block:(12,48)": 1104
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -2522,10 +2792,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 192,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a] [carried from rung 768]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -2536,28 +2807,41 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 6608,
+                "served": 6800,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 6800,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1208,
-                "declined": 2585,
-                "frac": 0.318481413129449,
+                "served": 1264,
+                "declined": 2416,
+                "frac": 0.34347826086956523,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 3,
-                  "pm_over_l1": 2414,
-                  "fill_preconditions": 168
+                  "l1_budget": 2,
+                  "pm_over_l1": 2414
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
-                "served": 0,
+                "served": 56,
                 "declined": 0,
-                "frac": 0.0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 56,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
@@ -2615,11 +2899,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module [carried from rung 768]"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); opendde never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 632,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); opendde runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -2631,10 +2931,9 @@
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
-                "how": "setlen",
-                "reason": "overflow set holds 1 shape(s): ONE shape overflows its per-core circular-buffer budget at this rung and silently takes the slow SDPA path; the set is empty at 256 and 512. This is the third gate of the 2026-08-13 above-640 defect, still open on opendde where it closed on boltz-2. Recorded, not blessed: the arm fails on ANY growth of this set, and shrinking it to 0 is a real win someone should take [carried from rung 768]"
+                "how": "setlen"
               },
               "RFD3_SOFTMAX_PV_FUSED": {
                 "resolved": "not-imported",
@@ -2649,27 +2948,37 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 122,
+                "declined": 528,
+                "frac": 0.18769230769230769,
+                "how": "stats",
+                "rejects": {
+                  "ratio-shrunk": 528
+                }
               }
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0193,
+          "sigma_runtime_512": 0.0032,
           "exponents": {
             "256->512": {
-              "k": 1.704,
+              "k": 1.83,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.059,
+              "k": 2.023,
               "tol": 0.5
             }
           },
           "exponents_measured": {
-            "256->512": 1.704,
-            "512->640": 2.142,
-            "640->768": 1.958,
-            "768->896": 2.132,
-            "896->1024": 2.042
+            "256->512": 1.83,
+            "512->640": 2.1,
+            "640->768": 1.927,
+            "768->896": 2.435,
+            "896->1024": 1.971
           }
         }
       }

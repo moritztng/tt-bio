@@ -3782,23 +3782,23 @@
       }
     },
     "p300c": {
-      "recorded": "2026-09-10",
+      "recorded": "2026-09-17",
       "host": "tt-quietbox2",
-      "commit": "31694521",
+      "commit": "679b9ab4c",
       "models": {
         "rf3": {
           "grid": "11x10",
-          "recorded": "2026-09-10",
+          "recorded": "2026-09-17",
           "host": "tt-quietbox2",
-          "commit": "31694521",
+          "commit": "679b9ab4c",
           "runtime_s": {
-            "256": 21.4,
-            "512": 44.2,
-            "640": 64.4,
-            "768": 81.0,
-            "896": 122.9,
-            "1024": 133.6,
-            "1088": 205.3
+            "256": 23.9,
+            "512": 42.4,
+            "640": 58.0,
+            "768": 74.2,
+            "896": 106.9,
+            "1024": 130.5,
+            "1088": 171.7
           },
           "levers": {
             "256": {
@@ -3883,6 +3883,14 @@
                 "frac": 1.0,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). rf3 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
@@ -3940,13 +3948,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2136,
+                "declined": 4272,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 2136
+                  "window_BufferType.L1": 4272
                 },
-                "reason": "declines all 2136 calls on window_BufferType.L1 x2136: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss; from 512 up it serves 240 calls"
+                "reason": "declines all 4272 calls on window_BufferType.L1 x4272: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss; from 512 up it serves 240 calls"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -3964,6 +3972,14 @@
                 "how": "stats",
                 "reason": "declines all 0 calls: not offered at this rung; it serves every call from 512 upward (1936 at 512, 640 and 768)"
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "nothing to fuse into at this rung: the counter is `reblock_permute.STATS_GATED`, which counts serves of the fused gated move, and the gated window admits none of this model's 256 aa channel moves. At 256 aa the pair track is N=256 on an L1 destination, below `L1_N_MIN` = 288 (tt_bio/reblock_permute.py:338, the same band enforced for the fused path in `eligible_gated` at :877-878); the band opens at 288 because N=256 on an L1 output is a measured 0.952x loss on 110 cores. The same rung shows the ungated `REBLOCK_PERMUTE` declining 4272 calls on exactly that clause. It serves 2176 per fold from 512 aa up."
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1088,
@@ -3977,6 +3993,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. Negative control in this same baseline: rf3's 1088 rung, the one rung above the cap, serves 1088 of 1088 calls fused -- the lever is alive on this model's path and only the rungs at or below the cap are dark."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4034,11 +4058,26 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -4067,6 +4106,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 586,
+                "declined": 10,
+                "frac": 0.9832214765100671,
+                "how": "stats",
+                "rejects": {
+                  "h-clamped-to-H": 10
+                }
               }
             },
             "512": {
@@ -4147,6 +4196,14 @@
                 "frac": 1.0,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). rf3 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
@@ -4174,14 +4231,10 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1088,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 40,
-                  "k_tiles=4": 1048
-                },
-                "reason": "declines all 1088 calls on k_tiles=4 x1048, k_tiles=2 x40: F1_BLOCK_KEYS allow-lists only (8, 8) and rf3's trimul tails resolve 4 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and rf3's trimul tails resolve 4 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4203,10 +4256,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 240,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 2176 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -4217,10 +4271,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1936,
+                "served": 2176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2176,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4235,6 +4296,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. Negative control in this same baseline: rf3's 1088 rung, the one rung above the cap, serves 1088 of 1088 calls fused -- the lever is alive on this model's path and only the rungs at or below the cap are dark."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4292,11 +4361,26 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -4325,6 +4409,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 586,
+                "declined": 10,
+                "frac": 0.9832214765100671,
+                "how": "stats",
+                "rejects": {
+                  "h-clamped-to-H": 10
+                }
               }
             },
             "640": {
@@ -4405,6 +4499,14 @@
                 "frac": 1.0,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). rf3 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 563,
@@ -4419,27 +4521,22 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3178,
+                "declined": 1088,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,1)": 40,
-                  "k_tiles=4:(4,4)": 2090,
                   "k_tiles=4:(4,1)": 1048
                 },
-                "reason": "declines all 3178 calls on k_tiles=4:(4,4) x2090, k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40: the minimal matmul admits 8 K tiles and rf3's pair projections resolve 4 and 2, a property of c_z and not of N -- so it is inert on this model at every size, not dark at this one"
+                "reason": "declines all 1088 calls on k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40: the minimal matmul admits 8 K tiles and rf3's pair projections resolve 4 and 2, a property of c_z and not of N -- so it is inert on this model at every size, not dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1088,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 40,
-                  "k_tiles=4": 1048
-                },
-                "reason": "declines all 1088 calls on k_tiles=4 x1048, k_tiles=2 x40: F1_BLOCK_KEYS allow-lists only (8, 8) and rf3's trimul tails resolve 4 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and rf3's trimul tails resolve 4 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4461,10 +4558,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 240,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 2176 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -4475,10 +4573,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1936,
+                "served": 2176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2176,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4497,6 +4602,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. Negative control in this same baseline: rf3's 1088 rung, the one rung above the cap, serves 1088 of 1088 calls fused -- the lever is alive on this model's path and only the rungs at or below the cap are dark."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4554,11 +4667,26 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -4587,6 +4715,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 586,
+                "declined": 10,
+                "frac": 0.9832214765100671,
+                "how": "stats",
+                "rejects": {
+                  "h-clamped-to-H": 10
+                }
               }
             },
             "768": {
@@ -4667,6 +4805,13 @@
                 "frac": 1.0,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 33,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 80,
@@ -4681,28 +4826,23 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4233,
+                "declined": 3184,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 1,
                   "k_tiles=2:(2,1)": 40,
-                  "k_tiles=4:(4,4)": 3144,
+                  "k_tiles=4:(4,4)": 2096,
                   "k_tiles=4:(4,1)": 1048
                 },
-                "reason": "declines all 4233 calls on k_tiles=4:(4,4) x3144, k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40, k_tiles=2:(2,2) x1: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 3184 calls on k_tiles=4:(4,4) x2096, k_tiles=4:(4,1) x1048, k_tiles=2:(2,1) x40: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1088,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 40,
-                  "k_tiles=4": 1048
-                },
-                "reason": "declines all 1088 calls on k_tiles=4 x1048, k_tiles=2 x40: F1_BLOCK_KEYS allow-lists only (8, 8) and rf3's trimul tails resolve 4 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and rf3's trimul tails resolve 4 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4724,10 +4864,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 240,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 2176 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -4738,10 +4879,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1936,
+                "served": 2176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2176,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -4760,6 +4908,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. Negative control in this same baseline: rf3's 1088 rung, the one rung above the cap, serves 1088 of 1088 calls fused -- the lever is alive on this model's path and only the rungs at or below the cap are dark."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4817,11 +4973,26 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -4850,6 +5021,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 586,
+                "declined": 10,
+                "frac": 0.9832214765100671,
+                "how": "stats",
+                "rejects": {
+                  "h-clamped-to-H": 10
+                }
               }
             },
             "896": {
@@ -4930,6 +5111,14 @@
                 "frac": 1.0,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). rf3 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 1087,
@@ -4943,13 +5132,12 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4308,
+                "declined": 3184,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 76,
                   "k_tiles=2:(2,1)": 40,
-                  "k_tiles=4:(4,4)": 3144,
+                  "k_tiles=4:(4,4)": 2096,
                   "k_tiles=4:(4,1)": 1048
                 },
                 "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one. [carried from tt-galaxy-wh l]"
@@ -4957,13 +5145,9 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1088,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 40,
-                  "k_tiles=4": 1048
-                },
                 "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one. [carried from tt-galaxy-wh l]"
               },
               "QKV_MM_CONFIG": {
@@ -4986,10 +5170,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 240,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 2176 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -5000,10 +5185,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1936,
+                "served": 2176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2176,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -5024,6 +5216,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. Negative control in this same baseline: rf3's 1088 rung, the one rung above the cap, serves 1088 of 1088 calls fused -- the lever is alive on this model's path and only the rungs at or below the cap are dark."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -5081,11 +5281,26 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -5115,6 +5330,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 586,
+                "declined": 10,
+                "frac": 0.9832214765100671,
+                "how": "stats",
+                "rejects": {
+                  "h-clamped-to-H": 10
+                }
               }
             },
             "1024": {
@@ -5195,6 +5420,14 @@
                 "frac": 1.0,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). rf3 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 1048,
@@ -5208,14 +5441,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4352,
+                "declined": 3264,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 80,
+                  "k_tiles=2:(2,2)": 40,
                   "k_tiles=2:(2,1)": 40,
                   "no_mm_block:(8,2)": 40,
-                  "k_tiles=4:(4,4)": 3144,
+                  "k_tiles=4:(4,4)": 2096,
                   "k_tiles=4:(4,1)": 1048
                 },
                 "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one. [carried from tt-galaxy-wh l]"
@@ -5223,13 +5456,9 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1088,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 40,
-                  "k_tiles=4": 1048
-                },
                 "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one. [carried from tt-galaxy-wh l]"
               },
               "QKV_MM_CONFIG": {
@@ -5253,10 +5482,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 240,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 2176 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -5267,10 +5497,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1936,
+                "served": 2176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2176,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -5289,6 +5526,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. Negative control in this same baseline: rf3's 1088 rung, the one rung above the cap, serves 1088 of 1088 calls fused -- the lever is alive on this model's path and only the rungs at or below the cap are dark."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -5346,11 +5591,26 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -5379,6 +5639,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 586,
+                "declined": 10,
+                "frac": 0.9832214765100671,
+                "how": "stats",
+                "rejects": {
+                  "h-clamped-to-H": 10
+                }
               }
             },
             "1088": {
@@ -5459,6 +5729,14 @@
                 "frac": 1.0,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). rf3 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 1088,
@@ -5469,11 +5747,11 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4352,
+                "declined": 4312,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 80,
+                  "k_tiles=2:(2,2)": 40,
                   "k_tiles=2:(2,1)": 40,
                   "no_mm_block:(8,2)": 40,
                   "k_tiles=4:(4,4)": 3144,
@@ -5484,11 +5762,10 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1088,
+                "declined": 1048,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=2": 40,
                   "k_tiles=4": 1048
                 },
                 "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one. [carried from tt-galaxy-wh l]"
@@ -5514,10 +5791,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 400,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 4272 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer."
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -5528,27 +5806,37 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 3872,
+                "served": 4272,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 4272,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 1090,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "fill_preconditions": 1090
-                },
-                "reason": "KNOWN DEFECT, not an exemption. Dark at 896 and 1088 only, serving all 1088 calls at 768 and at 1024. Once L1 refuses every q_chunk wider than the fixed 256 production pick, a fallback that does not DIVIDE the padded length sets use_padded_mask and fails the hoisted-fill precondition, so the whole call drops to the stock op. Costs 16.7 s (6.8%) at 896. Fix on wk/perf-scale-rf3 behind TT_BIO_TRIATT_NARROW_Q_FALLBACK, off by default pending a fold A/B. [carried from tt-galaxy-wh l]"
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "False",
-                "served": 0,
+                "served": 1088,
                 "declined": 0,
-                "frac": 0.0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
@@ -5607,11 +5895,26 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -5624,10 +5927,9 @@
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2,
+                "declined": 0,
                 "frac": 0.0,
-                "how": "setlen",
-                "reason": "same root cause as TRIATT_PERSISTENT_MASK: reached-and-declined at 896 and 1088 only, unused at every other rung. See that entry. [carried from tt-galaxy-wh l]"
+                "how": "setlen"
               },
               "RFD3_SOFTMAX_PV_FUSED": {
                 "resolved": "not-imported",
@@ -5642,28 +5944,38 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 586,
+                "declined": 10,
+                "frac": 0.9832214765100671,
+                "how": "stats",
+                "rejects": {
+                  "h-clamped-to-H": 10
+                }
               }
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0282,
+          "sigma_runtime_512": 0.0143,
           "exponents": {
             "256->512": {
-              "k": 1.046,
+              "k": 0.827,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.494,
+              "k": 1.38,
               "tol": 0.5
             }
           },
           "exponents_measured": {
-            "256->512": 1.046,
-            "512->640": 1.687,
-            "640->768": 1.258,
-            "768->896": 2.705,
-            "896->1024": 0.625,
-            "1024->1088": 7.087
+            "256->512": 0.827,
+            "512->640": 1.404,
+            "640->768": 1.351,
+            "768->896": 2.369,
+            "896->1024": 1.494,
+            "1024->1088": 4.526
           }
         }
       }

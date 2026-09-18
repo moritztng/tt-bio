@@ -3189,22 +3189,22 @@
       }
     },
     "p300c": {
-      "recorded": "2026-09-09",
+      "recorded": "2026-09-17",
       "host": "tt-quietbox2",
-      "commit": "6908558f",
+      "commit": "679b9ab4c",
       "models": {
         "protenix-v2": {
           "grid": "11x10",
-          "recorded": "2026-09-09",
+          "recorded": "2026-09-17",
           "host": "tt-quietbox2",
-          "commit": "6908558f",
+          "commit": "679b9ab4c",
           "runtime_s": {
-            "256": 17.2,
-            "512": 45.7,
-            "640": 75.2,
-            "768": 112.5,
-            "896": 153.2,
-            "1024": 201.0
+            "256": 14.8,
+            "512": 43.3,
+            "640": 70.3,
+            "768": 102.0,
+            "896": 141.9,
+            "1024": 186.3
           },
           "levers": {
             "256": {
@@ -3290,6 +3290,14 @@
                 "how": "stats-dict",
                 "reason": "declines all 0 calls: protenix-v2 does not take the hoisted-bias softmax path"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). protenix-v2 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
@@ -3327,12 +3335,16 @@
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2256,
-                "declined": 1368,
-                "frac": 0.6225165562913907,
+                "declined": 3784,
+                "frac": 0.37350993377483444,
                 "how": "wrap",
                 "rejects": {
+                  "no_mm_block:(2,9)": 160,
+                  "no_mm_block:(2,8)": 160,
                   "no_mm_block:(2,6)": 320,
-                  "no_mm_block:(8,1)": 1048
+                  "no_mm_block:(8,33)": 1048,
+                  "no_mm_block:(8,1)": 1048,
+                  "no_mm_block:(8,32)": 1048
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -3345,13 +3357,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4352,
+                "declined": 8704,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 4352
+                  "window_BufferType.L1": 8704
                 },
-                "reason": "declines all 4352 calls on window_BufferType.L1 x4352: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
+                "reason": "declines all 8704 calls on window_BufferType.L1 x8704: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -3369,6 +3381,14 @@
                 "how": "stats",
                 "reason": "declines all 0 calls: not offered at this rung; it serves every call from 512 upward"
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "nothing to fuse into at this rung: the counter is `reblock_permute.STATS_GATED`, which counts serves of the fused gated move, and the gated window admits none of this model's 256 aa channel moves. At 256 aa the pair track is N=256 on an L1 destination, below `L1_N_MIN` = 288 (tt_bio/reblock_permute.py:338, the same band enforced for the fused path in `eligible_gated` at :877-878); the band opens at 288 because N=256 on an L1 output is a measured 0.952x loss on 110 cores. The same rung shows the ungated `REBLOCK_PERMUTE` declining 8704 calls on exactly that clause. It serves 2416 per fold from 512 aa up."
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1208,
@@ -3382,6 +3402,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3438,11 +3466,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; protenix-v2 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); protenix-v2 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 628,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); protenix-v2 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -3470,6 +3514,13 @@
                 "served": null,
                 "declined": null,
                 "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 636,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               }
             },
@@ -3552,6 +3603,14 @@
                 "how": "stats-dict",
                 "reason": "declines all 0 calls: protenix-v2 does not take the hoisted-bias softmax path"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). protenix-v2 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
@@ -3579,22 +3638,23 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 1048,
-                "declined": 160,
-                "frac": 0.8675496688741722,
-                "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 160
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2256,
-                "declined": 1368,
-                "frac": 0.6225165562913907,
+                "declined": 3784,
+                "frac": 0.37350993377483444,
                 "how": "wrap",
                 "rejects": {
+                  "no_mm_block:(2,9)": 160,
+                  "no_mm_block:(2,8)": 160,
                   "no_mm_block:(2,6)": 320,
-                  "no_mm_block:(8,1)": 1048
+                  "no_mm_block:(8,33)": 1048,
+                  "no_mm_block:(8,1)": 1048,
+                  "no_mm_block:(8,32)": 1048
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -3626,6 +3686,13 @@
                 "frac": 1.0,
                 "how": "stats"
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2416,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1208,
@@ -3639,6 +3706,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3695,11 +3770,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; protenix-v2 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); protenix-v2 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 628,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); protenix-v2 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -3728,6 +3819,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 110,
+                "declined": 526,
+                "frac": 0.17295597484276728,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 526
+                }
               }
             },
             "640": {
@@ -3809,6 +3910,14 @@
                 "how": "stats-dict",
                 "reason": "declines all 0 calls: protenix-v2 does not take the hoisted-bias softmax path"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). protenix-v2 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 1048,
@@ -3834,22 +3943,23 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 1048,
-                "declined": 160,
-                "frac": 0.8675496688741722,
-                "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 160
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2256,
-                "declined": 1368,
-                "frac": 0.6225165562913907,
+                "declined": 3784,
+                "frac": 0.37350993377483444,
                 "how": "wrap",
                 "rejects": {
+                  "no_mm_block:(2,9)": 160,
+                  "no_mm_block:(2,8)": 160,
                   "no_mm_block:(2,6)": 320,
-                  "no_mm_block:(8,1)": 1048
+                  "no_mm_block:(8,33)": 1048,
+                  "no_mm_block:(8,1)": 1048,
+                  "no_mm_block:(8,32)": 1048
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -3881,6 +3991,13 @@
                 "frac": 1.0,
                 "how": "stats"
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2416,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1208,
@@ -3894,6 +4011,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -3950,11 +4075,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; protenix-v2 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); protenix-v2 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 628,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); protenix-v2 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -3983,6 +4124,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 110,
+                "declined": 526,
+                "frac": 0.17295597484276728,
+                "how": "stats",
+                "rejects": {
+                  "ratio-shrunk": 526
+                }
               }
             },
             "768": {
@@ -4064,6 +4215,14 @@
                 "how": "stats-dict",
                 "reason": "declines all 0 calls: protenix-v2 does not take the hoisted-bias softmax path"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). protenix-v2 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 1048,
@@ -4077,35 +4236,35 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1209,
+                "declined": 1208,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 1,
                   "k_tiles=2:(2,1)": 160,
                   "no_mm_block:(8,1)": 1048
                 },
-                "reason": "declines all 1209 calls on no_mm_block:(8,1) x1048, k_tiles=2:(2,1) x160, k_tiles=2:(2,2) x1: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded The call count rises to this level at 640 and above, which is the pair track taking its row-blocked path"
+                "reason": "declines all 1208 calls on no_mm_block:(8,1) x1048, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded The call count rises to this level at 640 and above, which is the pair track taking its row-blocked path"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 1048,
-                "declined": 160,
-                "frac": 0.8675496688741722,
-                "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 160
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2256,
-                "declined": 1368,
-                "frac": 0.6225165562913907,
+                "declined": 3784,
+                "frac": 0.37350993377483444,
                 "how": "wrap",
                 "rejects": {
+                  "no_mm_block:(2,9)": 160,
+                  "no_mm_block:(2,8)": 160,
                   "no_mm_block:(2,6)": 320,
-                  "no_mm_block:(8,1)": 1048
+                  "no_mm_block:(8,33)": 1048,
+                  "no_mm_block:(8,1)": 1048,
+                  "no_mm_block:(8,32)": 1048
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -4137,6 +4296,13 @@
                 "frac": 1.0,
                 "how": "stats"
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 4512,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1208,
@@ -4154,6 +4320,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4210,11 +4384,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; protenix-v2 does not run that module"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); protenix-v2 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 628,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); protenix-v2 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -4243,6 +4433,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 110,
+                "declined": 526,
+                "frac": 0.17295597484276728,
+                "how": "stats",
+                "rejects": {
+                  "ratio-shrunk": 526
+                }
               }
             },
             "896": {
@@ -4324,6 +4524,14 @@
                 "how": "stats-dict",
                 "reason": "declines all 0 calls: protenix-v2 does not take the hoisted-bias softmax path [carried from p300c] [carried from tt-galaxy-wh l]"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). protenix-v2 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 1207,
@@ -4337,35 +4545,35 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1524,
+                "declined": 1208,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 316,
                   "k_tiles=2:(2,1)": 160,
                   "no_mm_block:(8,1)": 1048
                 },
-                "reason": "declines all 1524 calls on no_mm_block:(8,1) x1048, k_tiles=2:(2,2) x316, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The no_mm_block:(8,1) clause is flat at 1048 from 256 aa up and k_tiles=2:(2,1) flat at 160; the extra declines here are k_tiles=2:(2,2) rising 316 -> 480, which is the pair track's row-blocked path growing with size [carried from p300c] [carried from tt-galaxy-wh l]"
+                "reason": "declines all 1208 calls on no_mm_block:(8,1) x1048, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The no_mm_block:(8,1) clause is flat at 1048 from 256 aa up and k_tiles=2:(2,1) flat at 160; the extra declines here are k_tiles=2:(2,2) rising 316 -> 480, which is the pair track's row-blocked path growing with size [carried from p300c] [carried from tt-galaxy-wh l]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 1048,
-                "declined": 160,
-                "frac": 0.8675496688741722,
-                "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 160
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2256,
-                "declined": 1368,
-                "frac": 0.6225165562913907,
+                "declined": 3784,
+                "frac": 0.37350993377483444,
                 "how": "wrap",
                 "rejects": {
+                  "no_mm_block:(2,9)": 160,
+                  "no_mm_block:(2,8)": 160,
                   "no_mm_block:(2,6)": 320,
-                  "no_mm_block:(8,1)": 1048
+                  "no_mm_block:(8,33)": 1048,
+                  "no_mm_block:(8,1)": 1048,
+                  "no_mm_block:(8,32)": 1048
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -4397,6 +4605,13 @@
                 "frac": 1.0,
                 "how": "stats"
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 4512,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1208,
@@ -4414,6 +4629,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4470,11 +4693,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; protenix-v2 does not run that module [carried from p300c] [carried from tt-galaxy-wh l]"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); protenix-v2 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 628,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); protenix-v2 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -4503,6 +4742,16 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 110,
+                "declined": 526,
+                "frac": 0.17295597484276728,
+                "how": "stats",
+                "rejects": {
+                  "ratio-shrunk": 526
+                }
               }
             },
             "1024": {
@@ -4584,6 +4833,14 @@
                 "how": "stats-dict",
                 "reason": "declines all 0 calls: protenix-v2 does not take the hoisted-bias softmax path [carried from p300c] [carried from tt-galaxy-wh l]"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). protenix-v2 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 1048,
@@ -4597,35 +4854,36 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1688,
+                "declined": 1528,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 480,
+                  "k_tiles=2:(2,2)": 320,
                   "k_tiles=2:(2,1)": 160,
                   "no_mm_block:(8,1)": 1048
                 },
-                "reason": "declines all 1688 calls on no_mm_block:(8,1) x1048, k_tiles=2:(2,2) x480, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The no_mm_block:(8,1) clause is flat at 1048 from 256 aa up and k_tiles=2:(2,1) flat at 160; the extra declines here are k_tiles=2:(2,2) rising 316 -> 480, which is the pair track's row-blocked path growing with size [carried from p300c] [carried from tt-galaxy-wh l]"
+                "reason": "declines all 1528 calls on no_mm_block:(8,1) x1048, k_tiles=2:(2,2) x320, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The no_mm_block:(8,1) clause is flat at 1048 from 256 aa up and k_tiles=2:(2,1) flat at 160; the extra declines here are k_tiles=2:(2,2) rising 316 -> 480, which is the pair track's row-blocked path growing with size [carried from p300c] [carried from tt-galaxy-wh l]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 1048,
-                "declined": 160,
-                "frac": 0.8675496688741722,
-                "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 160
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2256,
-                "declined": 1368,
-                "frac": 0.6225165562913907,
+                "declined": 3784,
+                "frac": 0.37350993377483444,
                 "how": "wrap",
                 "rejects": {
+                  "no_mm_block:(2,9)": 160,
+                  "no_mm_block:(2,8)": 160,
                   "no_mm_block:(2,6)": 320,
-                  "no_mm_block:(8,1)": 1048
+                  "no_mm_block:(8,33)": 1048,
+                  "no_mm_block:(8,1)": 1048,
+                  "no_mm_block:(8,32)": 1048
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -4657,6 +4915,13 @@
                 "frac": 1.0,
                 "how": "stats"
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 4512,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1208,
@@ -4674,6 +4939,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -4730,11 +5003,27 @@
                 "reason": "declines all 0 calls: a boltz-2 diffusion lever; protenix-v2 does not run that module [carried from p300c] [carried from tt-galaxy-wh l]"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); protenix-v2 never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. It is unreachable on this path twice over: the Protenix-family token DiT builds `AttentionPairBias` directly (tt_bio/protenix.py:937-939) with `fp32_raw_matmul_attention=True`, and ttnn SDPA rejects fp32 inputs outright (tt_bio/tenstorrent.py:8023-8030), so the branch is excluded by dtype as well as by the flag."
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 628,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); protenix-v2 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -4763,27 +5052,37 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 110,
+                "declined": 526,
+                "frac": 0.17295597484276728,
+                "how": "stats",
+                "rejects": {
+                  "ratio-shrunk": 526
+                }
               }
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0245,
+          "sigma_runtime_512": 0.0148,
           "exponents": {
             "256->512": {
-              "k": 1.41,
+              "k": 1.549,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.222,
+              "k": 2.113,
               "tol": 0.5
             }
           },
           "exponents_measured": {
-            "256->512": 1.41,
-            "512->640": 2.232,
-            "640->768": 2.209,
-            "768->896": 2.003,
-            "896->1024": 2.034
+            "256->512": 1.549,
+            "512->640": 2.172,
+            "640->768": 2.041,
+            "768->896": 2.142,
+            "896->1024": 2.039
           }
         }
       }
