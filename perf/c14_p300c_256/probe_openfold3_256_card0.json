@@ -1,0 +1,74 @@
+{
+ "model": "openfold3",
+ "rung": 256,
+ "card": 0,
+ "reps": [
+  {
+   "tag": "warmup",
+   "runtime_s": 7.8,
+   "wall_s": 27.4,
+   "grid": "11x10",
+   "clock_mhz": {
+    "n": 114,
+    "min": 800,
+    "median": 1350,
+    "max": 1350
+   },
+   "runtime_src": "results.json"
+  },
+  {
+   "tag": "probe0",
+   "runtime_s": 6.7,
+   "wall_s": 25.9,
+   "grid": "11x10",
+   "clock_mhz": {
+    "n": 103,
+    "min": 800,
+    "median": 1350,
+    "max": 1350
+   },
+   "runtime_src": "results.json"
+  },
+  {
+   "tag": "probe1",
+   "runtime_s": 6.5,
+   "wall_s": 25.7,
+   "grid": "11x10",
+   "clock_mhz": {
+    "n": 103,
+    "min": 800,
+    "median": 1350,
+    "max": 1350
+   },
+   "runtime_src": "results.json"
+  },
+  {
+   "tag": "probe2",
+   "runtime_s": 6.4,
+   "wall_s": 25.6,
+   "grid": "11x10",
+   "clock_mhz": {
+    "n": 102,
+    "min": 800,
+    "median": 1350,
+    "max": 1350
+   },
+   "runtime_src": "results.json"
+  }
+ ],
+ "kept_runtime_s": [
+  6.7,
+  6.5,
+  6.4
+ ],
+ "min_s": 6.4,
+ "median_s": 6.5,
+ "max_s": 6.7,
+ "grid": "11x10",
+ "clock_mhz_all": {
+  "n": 423,
+  "min": 800,
+  "median": 1350,
+  "max": 1350
+ }
+}
