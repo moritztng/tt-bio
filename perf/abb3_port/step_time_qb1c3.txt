@@ -56,3 +56,10 @@ forward -- but doubling the micro-batch doubled the per-micro-batch time (0.934 
 a dispatch-bound block would not do. So the cost scales with the DATA, the 60% figure is an upper
 bound on what dispatch could explain rather than a measurement of it, and the next instrument is
 the device profiler and not more arithmetic.
+
+=== the brief specification: 100 steps, batch 64 (8 x 8), 256 tokens, 8 blocks ===
+STEP: median 14.472 s over 100 steps, micro-batch median 1.809 s, min 14.461 s, max 14.512 s
+CLOCK: AICLK during the run, our card only: min 1343 median 1350 max 1350 MHz over 460 samples
+host: 0 cotenants on /dev/tenstorrent/0 (our node), 1 elsewhere, 563 pids unreadable
+EXCLUDES: host geometry tail, the four losses, the optimizer
+Spread over 100 steps is 0.35 %, so the 2-step medians quoted earlier were not optimistic.
