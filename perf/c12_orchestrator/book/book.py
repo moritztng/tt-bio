@@ -58,6 +58,25 @@ BOOK = [
          src="c12-host-decomp: 0.0000 s reducible at the latency cell, 0.0960 generous, 0.1896 "
              "absurd, against the 0.8490 s it was asked for",
          acc="n/a, host work", owes="its 298 aa SCALING: field"),
+    dict(name="diffusion head-major (T1)", s=0.2340, status="PRED",
+         src="c12-tail-classes-screen's ONE GO, from perf/c12_tail_screen/leads.json on "
+             "origin/wk/c12-tail-classes-screen (d94f6dbc5). Four executed signatures priced in "
+             "situ at a pinned during-sampled 1350 MHz sum to 0.31376 s / 423.6 Mcycles over 7464 "
+             "programs, and they reconcile to the profiled NlpCreateHeads class (0.30067 vs "
+             "0.3007 booked) plus one NLPConcatHeads signature. Booked here at the row's own "
+             "PREDICTED 0.2340 s / 316 Mc, not at the 0.3138 s bound: band 0.17-0.26 s, discount "
+             "0.745 taken from tri-attention's own measured recovery, kill below 0.10 s. MECHANISM "
+             "IS DELETION, not rate -- the largest signature sits at 37.51 % of roof on 16 cores "
+             "and the prize does NOT depend on that being recoverable, which is why it survives "
+             "where C12's three grid levers did not. The writer already exists and ships "
+             "default-on for tri-attention (tt_bio/triatt_qkv.py:39,131 on origin/main), is "
+             "bit-exact by torch.equal at six sizes, and measured in-fold at 512 aa taking the "
+             "TriAtt body 19719.8 -> 16716.5 ms = 1.1797x. The diffusion side never got it",
+         acc="none owed by construction: a tile re-point that moves no element cannot change a "
+             "value, so torch.equal against the current path is a correctness witness rather than "
+             "an accuracy budget. A torch.equal failure means the transcription is wrong",
+         owes="EVERYTHING measurable -- row c12-diffusion-head-major is live on cpu for the build "
+              "half and owes a benchlocked interleaved fold. Nothing built yet"),
     dict(name="genop recoverable", s=0.0184, status="PRED",
          src="c12-genop-triatt-slack VERDICT STOP; was 0.4544 s, which was 95.9 % two instrument "
              "defects (a wrong-mix roof and a dropped repair_B byte field)",
