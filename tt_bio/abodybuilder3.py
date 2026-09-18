@@ -33,7 +33,7 @@ frame nine broadcast multiplies instead of a batched 3x3 matmul on a 3-wide axis
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import torch
 import ttnn
@@ -158,16 +158,30 @@ class Frame:
 
     rot: list[list]      # 3x3 of device tensors, each [B, N]
     trans: list          # 3 device tensors, each [B, N]
+    #: `column`/`row` views, built on first use and reused for the rest of the block.
+    _views: dict = field(default_factory=dict)
 
     def column(self, t):
-        """`[B, N] -> [B, 1, N, 1]`: indexed by the QUERY residue, broadcast over heads."""
-        b, n = [int(d) for d in t.shape]
-        return ops.reshape(t, [b, 1, n, 1])
+        """`[B, N] -> [B, 1, N, 1]`: indexed by the QUERY residue, broadcast over heads.
+
+        Memoised per `Frame`, because a reshape on this card is not free -- profiled at 135 us,
+        16.5 % of the forward over 688 calls -- and the twelve components are each reshaped into
+        the same two forms by three different point sets in a block.
+        """
+        return self._cached("column", t)
 
     def row(self, t):
         """`[B, N] -> [B, 1, 1, N]`: indexed by the KEY residue, broadcast over heads."""
-        b, n = [int(d) for d in t.shape]
-        return ops.reshape(t, [b, 1, 1, n])
+        return self._cached("row", t)
+
+    def _cached(self, kind: str, t):
+        key = (kind, id(t))
+        hit = self._views.get(key)
+        if hit is None:
+            b, n = [int(d) for d in t.shape]
+            shape = [b, 1, n, 1] if kind == "column" else [b, 1, 1, n]
+            hit = self._views[key] = ops.reshape(t, shape)
+        return hit
 
 
 def _apply(frame: Frame, pts, orient, *, invert: bool):
@@ -353,9 +367,19 @@ class DeviceIPA:
         h, pq = cfg.no_heads_ipa, cfg.no_qk_points
         acc = None
         for q_d, k_d in zip(q_pts, k_pts):
-            sq = ops.sub_square(q_d, k_d)
-            per_head = ops.sum_dim(ops.reshape(sq, [batch * h, pq, n_tok, n_tok]), 1)
-            term = ops.reshape(per_head, [batch, h, n_tok, n_tok])
+            sq = ops.reshape(ops.sub_square(q_d, k_d), [batch * h, pq, n_tok, n_tok])
+            # `sum_dim` and not slices-and-adds, which was built, measured and reverted. The
+            # forward profile says this reduction costs 5,119 us a call against ~127 us for a
+            # slice, so replacing it with 4 slices and 3 adds should have paid 6x -- and it made
+            # the step 2.7x WORSE, 15.032 s to 41.244 s. The cost is in the BACKWARD: a sliced
+            # gradient has to be put back, and with `ttnn.pad` refusing front padding that means
+            # allocating a 100 MB zeros tensor and concatenating, four times per coordinate per
+            # block, where this reduction's backward is one broadcast multiply.
+            #
+            # The lesson is about the instrument, not the op: the profile ranked the FORWARD, the
+            # backward is 2.25x the forward, and acting on half a profile is how an obvious win
+            # becomes a 2.7x regression.
+            term = ops.reshape(ops.sum_dim(sq, 1), [batch, h, n_tok, n_tok])
             acc = term if acc is None else ops.add(acc, term)
         return acc
 
