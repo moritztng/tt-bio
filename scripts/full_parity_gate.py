@@ -1061,12 +1061,15 @@ def parse_workers(spec: str) -> list[Worker]:
         host, _, rest = part.partition(":")
         card_str, _, rest2 = rest.partition(":")
         remote_cwd, _, remote_python = rest2.partition(":")
-        out.append(Worker(host=host, card=int(card_str or 0),
-                           is_local=_is_local(host, this_host),
+        # report.json records a worker name as provenance, so a local worker is recorded
+        # under the box's real name rather than the literal the caller typed: "localhost:0" in
+        # a release parity record names no box at all.
+        local = _is_local(host, this_host)
+        out.append(Worker(host=this_host if local else host, card=int(card_str or 0),
+                           is_local=local,
                            remote_cwd=remote_cwd or None,
                            remote_python=remote_python or None))
-    # Default worker names the host we are actually on — report.json records these as
-    # provenance, so "pc:0" on a different box would be a false record.
+    # Same reason for the default worker: "pc:0" on a different box would be a false record.
     return out or [Worker(host=this_host, card=0, is_local=True)]
 
 

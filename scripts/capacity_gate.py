@@ -645,7 +645,12 @@ def parse_workers(spec: str) -> list[Worker]:
         host, _, rest = part.partition(":")
         card, _, rest2 = rest.partition(":")
         cwd, _, py = rest2.partition(":")
-        out.append(Worker(host, int(card or 0), _is_local(host, this), cwd or None, py or None))
+        # A local worker is recorded under the box's real name, never the literal the caller
+        # typed: this string becomes the cell's provenance in docs/capacity_gate_baseline.json,
+        # and a cell that says it was measured on "localhost:0" cannot be compared with one that
+        # names a host. Recorded that way for p300c/opendde on 2026-09-17, before this fix.
+        local = _is_local(host, this)
+        out.append(Worker(this if local else host, int(card or 0), local, cwd or None, py or None))
     return out or [Worker(this, 0, True)]
 
 

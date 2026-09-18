@@ -39,10 +39,14 @@ venv you installed the wheel into, with `PYTHONPATH="$PWD"` so the tree under te
 stays the repository:
 
 ```bash
-python3 -m build && python3 -m venv /tmp/relvenv
-/tmp/relvenv/bin/pip install "$(echo dist/tt_bio-*.whl)[tenstorrent,test]"
-PYTHONPATH="$PWD" /tmp/relvenv/bin/python3 scripts/full_parity_gate.py ...
+python3 -m build && python3 -m venv ~/scratch/relvenv
+~/scratch/relvenv/bin/pip install "$(echo dist/tt_bio-*.whl)[tenstorrent,test]"
+PYTHONPATH="$PWD" ~/scratch/relvenv/bin/python3 scripts/full_parity_gate.py ...
 ```
+
+Keep that venv off `/tmp`. A gate chain runs for hours and a box can reboot under it:
+on 2026-09-17 qb2 rebooted mid-gate, `/tmp` went with it, and the next three arms
+each exited 127 in the same second and wrote a DONE marker over an empty gate.
 
 `full_parity_gate.py`, `perf_regression.py` and `ux_regression.py` all spawn their
 folds and scorers as `sys.executable`, so the choice propagates to every leg.
@@ -53,6 +57,34 @@ without it the legs resolve the cache root, find nothing, and report `checkpoint
 absent` as a GAP. That is not a failure and it is not a pass either -- it means the
 leg never ran, which reads the same as a leg that ran and had nothing to say. Check
 the log rather than the verdict for any leg you expected to open a card.
+
+### The gate host on qb2 (Blackhole p300c)
+
+0.9.0 was gated here, so this is the current recipe. Every path below was reconstructed from
+scratch that pass; none of it is discoverable from the gate output.
+
+```bash
+ESM_ROOT=/home/ttuser/esm                                        # the ESMC embedding-parity leg
+AF2IG_PARAMS=/home/ttuser/.boltz/af2/params/params_model_1_ptm.npz
+OF3_CKPT=/home/ttuser/.boltz/of3-p2-155k.pt
+OPENDDE_DOCKQ_PYTHON=/home/ttuser/.coworker/dockq-venv/bin/python # opendde-abag ERRORs without it
+```
+
+Write `--workers localhost:0,localhost:1`, never `pc:0`. `pc` is an ssh alias that exists in the
+orchestrator's config and not in qb2's, so the gate would ssh to nothing and every device leg would
+exit 255 in 0 s while the in-process legs passed. The preflight catches it, but only if you read it.
+
+**Cards 0 and 1 only.** qb2 has four chips on two boards; board `...410d` (cards 2 and 3) is
+excluded, and a `tt-smi -r` on any card takes its whole board pair down rather than that chip, so
+pass `--no-card-reset` to the capacity gate when anything else could land on the pair.
+
+Run the arms **serially**. The parity, capacity and size-ladder arms all take cards, and the perf
+arm is timed: an arm of your own gate running beside it is a co-tenant like any other.
+
+The clock sets the fold time on this part. `fold_s = 2.901 + 15355 / AICLK_MHz` on the 512 aa cell,
+so the same tree reads 21.90 s at 800 MHz and 17.34 s at ~1063. An idle card reports 800 because the
+governor has not ramped; sample the clock DURING a fold, not before, and record it beside any number
+you publish.
 
 ### The gate interpreter on the WH Galaxy
 
@@ -149,7 +181,7 @@ TT_VISIBLE_DEVICES=0 ESM_ROOT=/path/to/esm OPENDDE_DOCKQ_PYTHON=/path/to/dockq_v
 # swing on the boltz2-affinity leg alone. Cells are seeded on the release venv, so a
 # bare `python3` can hand you a 25% "regression" or "win" that is only the instrument.
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
-  /tmp/relvenv/bin/python3 scripts/perf_regression.py
+  ~/scratch/relvenv/bin/python3 scripts/perf_regression.py
 
 # Size-generality arm: folds every structure model at 256/512/640/768/896/1024 aa,
 # plus a model's own top rung where it reaches past that (rf3 also folds 1088)
@@ -590,7 +622,7 @@ Update a baseline only for an intentional performance change:
 
 ```bash
 TT_VISIBLE_DEVICES=0 PYTHONPATH="$PWD" \
-  /tmp/relvenv/bin/python3 scripts/perf_regression.py --update-baseline --note "reason"
+  ~/scratch/relvenv/bin/python3 scripts/perf_regression.py --update-baseline --note "reason"
 ```
 
 Seed a cell with the same release-venv interpreter that measures it. A cell written

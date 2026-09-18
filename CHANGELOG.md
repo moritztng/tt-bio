@@ -3,7 +3,18 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
-## [Unreleased]
+## [0.9.0] - 2026-09-18
+
+### Added
+
+- **A preflight warning when a host OpenMPI is set up to break the bundled one.** tt-metal ships
+  the OpenMPI it wants and single-host prediction needs no MPI setup; `OMPI_MCA_*`, `OPAL_PREFIX`
+  or a foreign `libmpi` on `LD_LIBRARY_PATH` aborts it in `MPI_Init` before any Python runs. Every
+  local-worker path now names what it saw and points at the `unset` line, and changes nothing for
+  you. README gained the matching troubleshooting note. Reported in #12 by @ssiddhantsharma.
+
+- **`tt-bio --version`.** `-V` works too. Both print `tt-bio, version X.Y.Z` from the
+  installed package metadata and exit, without importing ttnn or opening a card.
 
 ### Fixed
 
@@ -26,7 +37,127 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   account's processes; two accounts on one box still need a lock file both can write, and the
   warning says so. Nothing changes where the shared lock already works.
 
+- **A worker's native crash is no longer thrown away.** A spawned worker sent fd 2 to
+  `/dev/null`, so the fatals that never reach Python -- an `MPI_Init` abort, a tt-metal L1
+  circular-buffer throw -- left a 0-byte log and an opaque `SpawnProcess-1 exit 14`. fd 2 now
+  goes to a per-worker capture file and the launcher prints the tail when a worker dies, both
+  when the pool is empty and when the supervisor respawns one. From #13 by @ssiddhantsharma,
+  who also reported #12.
+
+- **A fold no longer dies on an L1 refusal its own ladder was built to absorb.** The
+  tri-attention SDPA ladder retries a narrower q_chunk when the device declines the wide one,
+  but the last rung was issued bare, so the identical refusal was survivable one rung up and
+  fatal on the final one. A padded length whose divisor set is sparse has nothing but the final
+  one: 736 tokens is 23 tiles, prime. That is the crash in #14.
+
+- **An absorbed L1 refusal says it was absorbed.** tt-metal writes its `TT_THROW` to fd 2 from
+  inside the failing op, so a by-design retry reads as a crash report. Every site that absorbs
+  one now labels it on the same stream and records its census, so it is attributable from inside
+  a fold instead of only from a private set.
+
+- **Matmul program configs are priced by one function against one budget.** Three sites carried
+  their own copy of the same circular-buffer arithmetic, and one was 201,760 B per core more
+  permissive than its neighbours on the same part. A plan one site admits and the allocator then
+  refuses is the shape of #14. Measured neutral first: 350 decisions in a protenix-v2 fold at
+  704 tokens, 8 distinct shapes, none moved, on a p300c 11x10 and a Wormhole 8x9.
+
+- **A weights download can no longer wait forever, and no checkpoint has a single door.** The
+  stall watchdog now fires on a download that stops making progress instead of hanging the run,
+  aria2c no longer preallocates the file the watchdog is watching (which made a live download look
+  finished), and a checkpoint that is available from several sources falls back instead of failing
+  on the first one. Landed after v0.8.0 was tagged, so it ships in the next release; the same hang
+  is present in 0.7.x, so this is a fix arriving late, not a regression.
+- **The Protenix capstone test reports why it failed.** `scripts/protenix_fold_e2e.py` declared its
+  progress callback as `prog(stage, step, total)` while the repo-wide contract is
+  `fn(stage, step=0, total=0)`, so the confidence stage's one-argument call raised `TypeError`
+  after the fold had paid for all 10 trunk cycles and 200 diffusion steps. The test also discarded
+  the subprocess's stderr, which is why the reason sat unread through three release passes. No
+  shipped code path was affected: both production callbacks take the one-argument call.
+
+- **Boltz-2 reports `plddt`, and RF3 reports it on the same 0..1 scale as every other model.**
+  Boltz-2 was the only model whose result metrics carried no `plddt` key, so a reader asking for
+  it fell through to whatever fallback it had: `confidence_score`, which is
+  `0.8*plDDT + 0.2*pTM` and therefore sat above the fold's own plDDT column at 298 aa and below
+  it at 512 aa. Boltz-2 now emits `plddt` as the complex mean. Separately, RF3 reported plDDT on
+  a 0-100 scale under a comment claiming that was the repo convention; it was not, and
+  `--early_stop_plddt` already compared against 0..1. **An RF3 `plddt` that read `81.7155` now
+  reads `0.817155`**, so rescale if you parse RF3 metrics. The engine's reported plDDT always
+  matched the B-factor column the same fold writes (0.0 gap at 298 and 512 aa, checked over 83
+  folds on disk); what was wrong was one missing key and one scale.
+
 ### Changed
+
+- **Triangle attention runs on the fused kernel above 1024 tokens, and a 1536-residue fold is
+  1.1856x faster.** The chunk ladder that picks a query and key chunk walked query chunks widest
+  first and took the first pair that ran at all, so above 1024 tokens it settled on a wide query the
+  fused kernel cannot take and handed the call to the stock attention. Every length from 1024 to
+  2592 tokens fell off the fast path that way. The ladder now offers the fused pair first above the
+  cap (`TT_BIO_SDPA_FUSED_LARGE_S`, on by default, was off in 0.8.0) and serves 36 of the 50 lengths
+  in that range on an 11x10 grid at 4 heads; the other 14 have no 32-aligned divisor and the kernel
+  declines them by construction. 4.23x on the attention op at 1536 tokens, 136.143 to 32.184 ms, and
+  174.178 s to 146.915 s on the fold at the shipped 200 sampling steps, off/on/off interleaved
+  against a 1.21 % same-session A/A floor. **Nothing at or below 1024 tokens changes**: there the
+  ladder already lands on a fused pair, 560 of 560 calls at both 512 and 1024 residues, and those
+  digests are bit-exact and shipped. Above 1024 it is not bit-exact and there is no shipped digest
+  to break, because no length above 1024 served this kernel before: the key chunk sets the
+  online-softmax reduction order, a 1536-residue structure moves 1.007 A all-atom where a different
+  seed moves it 36.6 A, and pLDDT goes from 0.786016 to 0.789493. An L1 refusal costs speed and not
+  correctness, falling back to the same stock attention bit-identically.
+  `TT_BIO_SDPA_FUSED_LARGE_S=0` restores the stock ladder everywhere.
+
+- **Each transition block sizes its row block from the card's own L1 budget, and Boltz-2 folds
+  512 residues 1.023-1.035x faster on Blackhole.** The block height was 16 rows everywhere, a number
+  fitted on Wormhole, so a 512-residue pair tensor was cut into 32 blocks where its own budget allows
+  11. It is now the tallest block whose live bytes fit the card's measured per-core L1, floored at
+  today's height so nothing gets shorter (`TT_BIO_TRANSITION_L1_ROWS`, on by default, Blackhole
+  only): 48 rows at 512 residues, 32 at 768, 24 at 1024, and 16 at 1536 where the old constant
+  already sat at the budget. One expression rather than a table, so the MSA track gets its own taller
+  block from the same budget and a wider channel gets a shorter one. 1.030x at 768 residues and
+  1.013x at 1024, four paired reps per measurement with the off arm run on both sides of the on arm.
+  Byte-identical CIF at 298, 512, 768 and 1024 residues on an 11x10 p300c, and byte-identical with
+  the MSA depth axis at its full 1024 rows. Bit-exactness is not a property of every shape: on the
+  no-MSA prot leg the arms differ by 0.165 A on a target whose arms both already sit 7 A from the
+  fp32 reference, and that leg is a documented bf16 floor whose verdict does not change. Reaches
+  Boltz-2, BoltzGen and OpenFold3; Protenix-v2 and OpenDDE have wider pair tracks and keep today's
+  height, because the budget was fitted at 128 channels and unbounded it kills every OpenDDE seed
+  with an L1 circular-buffer clash.
+
+- **Blackhole picks the confidence readback shape from its own part instead of the part the shape
+  was fitted on, and saves 9.58 ms a fold.** The pTM/pAE/pDE head untilized and sliced on the card
+  so only three channels crossed the bus, which wins on Wormhole: 2.097 MB in 17.500 ms against
+  32.644 ms for the whole 16.777 MB tile. On Blackhole a row-major readback is layout-bound at about
+  13 ms whatever its size, while the tiled readback of the full tile costs 4.419 ms, so the narrow
+  shape lost by more than it won by elsewhere. Blackhole now moves the tile whole and slices on the
+  host: 4.75 ms against 14.33 ms on the download stage at 512 residues, measured with both arms
+  interleaved in one process against one device open. The head output is asserted identical on every
+  fold, not just the first. No number the head reports changes, only which side of the bus slices.
+
+- **Three eltwise chains our pinned TT-NN already fuses now run as one op each.** `x * scale + bias`
+  becomes `ttnn.addalpha`, the gated-residual write-back becomes `ttnn.addcmul`, and an add whose
+  only consumer is a layer norm is passed to the norm as its residual input
+  (`TT_BIO_FUSE_SCALE_ADD`, `TT_BIO_FUSE_MASK_ADD`, `TT_BIO_FUSE_NORM_RESIDUAL`, all on by default).
+  Eleven call sites across six models go through three helpers, so there is no per-model fusion code.
+  The fused ops are closer to a float64 reference than the chains they replace, because a chain packs
+  the intermediate to the tensor dtype and reloads it while the fused op keeps the product in an fp32
+  register. `addalpha` is fused for fp32 operands only, and that restriction is the whole design: at
+  fp32 both arms round identically, measured bit-identical at every call shape, and 1500 of the 1503
+  calls a 298-residue fold makes are fp32. Fusing the other three, which are bf16, moved an OpenFold3
+  structure 1.475 A, so they keep the chain and both affected models come back byte-identical,
+  OpenFold3 `46fec3e5b027b36c` and Protenix-v2 `753f43c4f269e303` across every arm. Predicted saving
+  67.0 ms of a 6.92 s Protenix-v2 fold and 73.9 ms of a 9.93 s OpenFold3 fold, summed from measured
+  per-call times at the census shapes; that is under 1 %, below the 2.7-5.3 % A/A floor the
+  298-residue fold instrument reaches, so no wall-clock fold ratio is claimed for it.
+
+- **Six Wormhole size ceilings that read "unmeasured" now carry a measured number.** Walked on a
+  Wormhole Galaxy chip: ESMC-300M and ESMC-600M take 69,632 residues and first fail at 73,728;
+  SaProt-35M 73,728, SaProt-650M 65,537, SaProt-1.3B 57,344; ESMC-6B does 8,192 under `--fast`.
+  BoltzGen reaches 14,786 target atoms with no failure found, so that number is the top of the ladder
+  walked rather than a wall. OpenDDE and OpenDDE-abag still take 1,024 residues and their first
+  failure is now measured at 1,088, DRAM fragmentation rather than one oversized tensor. ESMFold2's
+  first failure moves from 1,057 to 1,056 and ESMFold2-fast's from 1,280 to 1,248, both refinements
+  of the same wall. `tt_bio/size_limits.py` also gained an atoms denominator with its own dimension
+  guard, so a 1,200-residue refusal can no longer offer BoltzGen as having room because its cap reads
+  14,786 atoms.
 
 - **Boltz-2 folds 1.0474x faster at 512 residues on Blackhole, with every atom unmoved.** The
   confidence head's pair input was assembled on the host and uploaded — 134 MB of fp32 at 512
@@ -39,6 +170,25 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   most 0.362 of 100 at 512 residues, 0.185 at 298. 16.537 s against 17.285 s, 8 paired folds an arm
   interleaved ABBA on one card under benchlock, all 8 pairs positive against a 1.00104x A/A floor.
 
+- **Boltz-2 folds 1.0543x faster at 512 residues on Blackhole, byte for byte the same structure.**
+  A triangle multiplication's channel move was followed by three eltwise passes over its result: a
+  chunk and two sigmoid gates. Those now happen inside the move
+  (`TT_BIO_REBLOCK_PERMUTE_GATED`, on by default), which reads the wide fused projection once
+  instead of writing a full-width intermediate for three consumers to re-read. The fused pair was
+  a measured LOSS when it first landed, +0.373 s a fold, and the reason was coverage rather than
+  the kernel: the eligibility test required no pair mask, and Boltz-2 always passes one, so only
+  64 of its 560 moves a fold could ever reach it and none of those were in the Pairformer.
+  Applying the mask after the channel move instead of before
+  (`TT_BIO_TRIMUL_MASK_AFTER_MOVE`, on by default) opens the path to a masked trimul, and the
+  same kernel then reads 1.2981x and 1.3329x per triangle multiplication at 512 residues.
+  Measured as a stack and not by summing: four arms of five folds each at 512 aa, 200 sampling
+  steps, 3 recycles on one Blackhole card, baseline 24.083 s against 22.843 s with both on, and a
+  baseline-repeat arm reading 0.9988x for an A/A floor of 0.125 %. It permutes and masks, it does
+  no new arithmetic, so the bar is equality and it clears it: all twenty folds across all four
+  arms wrote one CIF digest, `4f3995a69be5d610`, at one pLDDT, 0.849627, and the kernel itself is
+  hash-equal against a negative control at both slice widths on ones and on random input
+  (`perf/b2x_trimul/`, `perf/odde512/screen3.json`). Each triangle multiplication opts in
+  separately, so a model whose shapes the fused reader cannot address keeps the separate ops.
 
 - **Boltz-2 folds 1.0229x faster at 512 residues on Blackhole, byte for byte the same structure.**
   A triangle multiplication projects its gates and values in one matmul, and the channel move that
@@ -184,55 +334,121 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   recommends -- an off-lattice rung and the fleet-wide bucket off switch -- can now be used
   together.
 
-### Added
+### The release gate itself
 
-- **A preflight warning when a host OpenMPI is set up to break the bundled one.** tt-metal ships
-  the OpenMPI it wants and single-host prediction needs no MPI setup; `OMPI_MCA_*`, `OPAL_PREFIX`
-  or a foreign `libmpi` on `LD_LIBRARY_PATH` aborts it in `MPI_Init` before any Python runs. Every
-  local-worker path now names what it saw and points at the `unset` line, and changes nothing for
-  you. README gained the matching troubleshooting note. Reported in #12 by @ssiddhantsharma.
+Run on qb2 (`tt-quietbox2`), a four-chip Blackhole p300c box, from a venv built out of this tree
+and resolving the `pyproject.toml` ttnn pin (0.68.0). The gate scores the checkout, not an install.
 
-- **`tt-bio --version`.** `-V` works too. Both print `tt-bio, version X.Y.Z` from the
-  installed package metadata and exit, without importing ttnn or opening a card.
+**Implementation parity: PASS.** 43 legs, 38 PASS, 4 GAP, 1 PASS-caveated, 1 blocked on a missing
+fixture, 4 h 7 min wall. Every one of the four GAP legs (`boltz2-prot-nomsa`, `boltz2-9ncy-nomsa`,
+`openfold3-7xi5-notmpl`, `af2ig-trunk-device`) reproduces the deviation already committed for it, so
+none is new drift. Eight legs came in better than their committed gap: all three MSA Protenix-v2
+legs, three Boltz-2 affinity legs, and both OpenDDE legs.
 
-### Fixed
+The three ESMFold2 legs are worth naming because they were red four hours earlier in the same
+release. `scripts/esmfold2_e2e_parity.py` called `from_pretrained` without a `revision=`, so it
+fetched whatever `biohub/ESMFold2` served that minute and crashed on a config key the checkpoint
+does not have. The 09-14 fix that pinned every other ESMFold2 call site had missed this one and two
+siblings. Pinned, and the legs now score plddt PCC 0.9979 / 0.9981 / 0.9988 against reference.
 
-- **A worker's native crash is no longer thrown away.** A spawned worker sent fd 2 to
-  `/dev/null`, so the fatals that never reach Python -- an `MPI_Init` abort, a tt-metal L1
-  circular-buffer throw -- left a 0-byte log and an opaque `SpawnProcess-1 exit 14`. fd 2 now
-  goes to a per-worker capture file and the launcher prints the tail when a worker dies, both
-  when the pool is empty and when the supervisor respawns one. From #13 by @ssiddhantsharma,
-  who also reported #12.
+**Performance: PASS.** All 20 recorded p300c models inside the +-15 % band, on one chip with no
+co-tenant on it. The card ran at a median AICLK of 1350 MHz through the arm (2 s telemetry,
+n=534, p10 800 MHz, those being the idle gaps between models), so these are full-clock numbers and
+not a low-clock artifact. Best: BoltzGen +10.0 %, Boltz-2 +9.5 %. Worst: RF3 -14.5 % and RFD3
+-9.0 %. RF3 is a single-shot leg one noise draw from the threshold; it is inside the band and is
+reported as a screen, not re-run, and not treated as a regression.
 
-- **A fold no longer dies on an L1 refusal its own ladder was built to absorb.** The
-  tri-attention SDPA ladder retries a narrower q_chunk when the device declines the wide one,
-  but the last rung was issued bare, so the identical refusal was survivable one rung up and
-  fatal on the final one. A padded length whose divisor set is sparse has nothing but the final
-  one: 736 tokens is 23 tiles, prime. That is the crash in #14.
+**UX: PASS.** Every CLI surface cleared progress output, parse and results/manifest shape across
+the fold, design and affinity entry points.
 
-- **An absorbed L1 refusal says it was absorbed.** tt-metal writes its `TT_THROW` to fd 2 from
-  inside the failing op, so a by-design retry reads as a crash report. Every site that absorbs
-  one now labels it on the same stream and records its census, so it is attributable from inside
-  a fold instead of only from a private set.
+**Packaging: PASS.** The recursive kernel globs still resolve and no data file is dropped from the
+wheel.
 
-- **Matmul program configs are priced by one function against one budget.** Three sites carried
-  their own copy of the same circular-buffer arithmetic, and one was 201,760 B per core more
-  permissive than its neighbours on the same part. A plan one site admits and the allocator then
-  refuses is the shape of #14. Measured neutral first: 350 decisions in a protenix-v2 fold at
-  704 tokens, 8 distinct shapes, none moved, on a p300c 11x10 and a Wormhole 8x9.
+**Test suite: 3682 passed, 3 failed, 133 skipped** with a device attached. All three failures are
+the p150a baseline-coverage gap described below, and one of the three is derivative of the other
+two by its own message. Nothing red points at a Blackhole cell or at model code.
 
-- **A weights download can no longer wait forever, and no checkpoint has a single door.** The
-  stall watchdog now fires on a download that stops making progress instead of hanging the run,
-  aria2c no longer preallocates the file the watchdog is watching (which made a live download look
-  finished), and a checkpoint that is available from several sources falls back instead of failing
-  on the first one. Landed after v0.8.0 was tagged, so it ships in the next release; the same hang
-  is present in 0.7.x, so this is a fix arriving late, not a regression.
-- **The Protenix capstone test reports why it failed.** `scripts/protenix_fold_e2e.py` declared its
-  progress callback as `prog(stage, step, total)` while the repo-wide contract is
-  `fn(stage, step=0, total=0)`, so the confidence stage's one-argument call raised `TypeError`
-  after the fold had paid for all 10 trunk cycles and 200 diffusion steps. The test also discarded
-  the subprocess's stderr, which is why the reason sat unread through three release passes. No
-  shipped code path was affected: both production callbacks take the one-argument call.
+**Capacity.** The two p300c OpenDDE cells that existed nowhere are now measured and recorded. The
+arm still exits non-zero on the 15 stale p150a cells, which is the structurally unavailable column
+below and not this run s work.
+
+**Size ladder: re-recorded.** The previous p300c baseline predated two of this release's own
+default flips, so every model drifted against it in the lever census while completing every rung.
+Per the release checklist a perf lever may not ship default-ON on the strength of one sequence
+length, so the baseline was re-measured on this tree rather than compared against a stale one.
+Re-recorded 2026-09-17 20:22Z-23:31Z on one Blackhole card at a sampled 1350 MHz with nothing else
+on the board, rc=0: all nine ladder models walk 256 through 1024 tokens (RF3 to 1088) and no rung
+lost the ability to complete. The 182 dark levers that re-record surfaced each carry a written
+exemption naming the code line that declines them and a control from the same baseline showing the
+lever alive somewhere it should be. The baseline was then verified by a fresh CHECK against it,
+and the CHECK is clean: nine of nine models pass with no lever finding at all, so the 450 findings
+against the old baseline were the stale baseline and not drift. It ran in two pieces, eight models
+at 02:14Z-02:44Z on 2026-09-18 and OpenBind at 03:37Z-03:56Z, because one OpenBind fold hit a
+known Blackhole host-spin wedge and the chip it ran on then stopped reporting telemetry. OpenBind
+was re-run whole on a second chip of the same part and walked every rung, 6.6 s at 256 tokens to
+160.4 s at 1024, matching the baseline at each. Both pieces ran at a median 1350 MHz with nothing
+else on their board.
+
+### What this release does not cover
+
+- **No p150a (Wormhole) capacity or size-ladder baseline was re-recorded.** qb1 is powered down by
+  directive, and the only other p150a this fleet can reach is the card root-caused on 2026-08-17 as
+  silently miscomputing matmuls at a low, location-keyed rate. Recording a release baseline on it
+  would put a known-bad card into the file every future release is scored against, so the p150a
+  cells still carry v0.8.0 numbers and 15 of them are stale. Blackhole (p300c) coverage is complete,
+  and every default that flipped in this range was measured on Blackhole.
+
+  This is the whole of the host suite's remaining red. Three tests fail and all three have that one
+  cause: `test_a_moved_ceiling_re_runs_the_capacity_gate` (the 15 stale p150a cells),
+  `test_every_recorded_card_covers_every_rung_the_ladder_walks` (5 p150a models with no cell at 896
+  or 1024), and `test_this_file_does_not_break_the_files_that_run_after_it`, which is derivative and
+  says so in its own message. Nothing red points at a Blackhole cell or at model code. The fourth
+  failure this release started with, `test_every_runnable_model_has_a_recorded_cell`, is fixed: the
+  two p300c opendde cells it wanted were measured and recorded.
+
+- **The `protenix-9ncy-msa` parity leg has no reference structures** in the `parity-fixtures-latest`
+  asset at this commit, so it reports BLOCKED-REF-REGEN-NEEDED instead of a verdict. A reference has
+  since landed on main (994ae7b14) and will be scored in the next release.
+
+- **Eleven of the twenty p300c perf-baseline cells resolve at the card fallback**, whose own note
+  records them as stale low by 25-397 %: boltz2, boltz2-affinity, boltzgen, esmc-300m,
+  esmc-300m-single, esmc-600m, esmc-6b, esmfold2, esmfold2-fast, nesso1, rf3. At the +-15 % gate
+  threshold a regression smaller than that existing gap is not detectable for those models. The
+  other nine resolve at the machine layer and are 6 to 16 days old.
+
+- **The capacity gate reduces coverage in four named ways**, by its own report: diffusion_samples=1,
+  a committed MSA rather than a fresh search, target-first (1536 runs first and a pass ends the
+  cell), and a polymer-only fixture, so the ligand-token path is untested at any size.
+
+- **opendde and opendde-abag report FAIL at the capacity gate's fixed 1536-token bar.** The engine
+  caps opendde at 1024 on Blackhole because 1536 was measured to freeze the trunk, so it declines
+  the bar before any block runs. That is a shipped limit reported at a bar above it, not a
+  regression.
+
+- **Seven commits that are on main are not in this tag** (eab845ad1 and its ancestors): the C10
+  lever corpus under perf/, the protenix-9ncy reference fixture, and three reference-harvest
+  scripts. None of them changes anything under tt_bio/. They were left out because the parity
+  record is bound to a sha256 over tt_bio/ + scripts/, and pulling them in would have discarded a
+  4.5 h parity run for no user-facing change.
+
+- **Outside the gate entirely:** the hosted JapanFold service, tt-metal/ttnn itself, and any model
+  weights fetched from a third-party hub at run time.
+
+- **RF3 came in at -14.5 % against a +-15 % perf threshold.** It passes, and the arm ran at a
+  median 1350 MHz with no co-tenant on the chip, so it is not a low-clock artifact. It is still a
+  single-shot leg one noise draw from the band, and it was not re-run. Treat it as a screen rather
+  than a clean bill of health for RF3 throughput.
+
+- **Only the p300c size-ladder baseline was re-recorded, not p150a.** Same reason as the capacity
+  column: no trustworthy Wormhole card is reachable. The p150a ladder rows still carry v0.8.0
+  numbers.
+
+- **The published 512 aa perf page is a 2026-09-13 cell, not a measurement of this tag.**
+  `TT_BIO_TRANSITION_L1_ROWS` landed on 2026-09-15 and is worth 1.023-1.035x at 512 aa on
+  Blackhole, so the page understates current speed rather than overstating it. Refreshing the
+  Wormhole column needs a p150a this fleet cannot currently reach. Nothing on the page moves from
+  the fused-attention default flip: that route is offered only above 1024 tokens, and the
+  re-recorded baseline confirms it at 0 served across every 512 aa cell.
 
 ## [0.8.0] - 2026-09-10
 
