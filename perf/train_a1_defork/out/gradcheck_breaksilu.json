@@ -1,0 +1,435 @@
+{
+ "dtype": "bfloat16",
+ "fidelity": "HiFi2",
+ "seed": 7,
+ "break_silu": true,
+ "fd_bar": 2e-06,
+ "mask_bar": 0.99,
+ "bars": {
+  "eltwise/float32": {
+   "rel_l2": 3e-06,
+   "cos": 0.999999,
+   "from": "10x the measured fp32 eltwise floor 3.0e-07"
+  },
+  "eltwise/bfloat16": {
+   "rel_l2": 0.01,
+   "cos": 0.9999,
+   "from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03"
+  },
+  "reduction/float32": {
+   "rel_l2": 0.025,
+   "cos": 0.9999,
+   "from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here"
+  },
+  "reduction/bfloat16": {
+   "rel_l2": 0.01,
+   "cos": 0.9999,
+   "from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03"
+  },
+  "kink/float32": {
+   "rel_l2": null,
+   "cos": null,
+   "from": "not scored; split into MASK_BAR and the device-gate arm, see KINK"
+  },
+  "kink/bfloat16": {
+   "rel_l2": null,
+   "cos": null,
+   "from": "not scored; split into MASK_BAR and the device-gate arm, see KINK"
+  }
+ },
+ "cases": [
+  {
+   "case": "linear",
+   "fd_worst": 9.391100432527945e-10,
+   "fd_probed": 72,
+   "fd_eligible": 20576,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.002373963031356667,
+     "max_abs": 0.01059577044084925,
+     "max_rel": 0.11600142380514405,
+     "cos": 0.9999971929924963,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    },
+    "w": {
+     "rel_l2": 0.0024078918828761993,
+     "max_abs": 0.11403243396351925,
+     "max_rel": 0.13589567517512963,
+     "cos": 0.9999971082773315,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 0.0023449130441468994,
+     "max_abs": 0.04109120466796767,
+     "max_rel": 0.03507038603312708,
+     "cos": 0.9999973273537239,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "linear_nobias",
+   "fd_worst": 3.560207118950098e-10,
+   "fd_probed": 48,
+   "fd_eligible": 20480,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.002373963031356667,
+     "max_abs": 0.01059577044084925,
+     "max_rel": 0.11600142380514405,
+     "cos": 0.9999971929924963,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    },
+    "w": {
+     "rel_l2": 0.0024078918828761993,
+     "max_abs": 0.11403243396351925,
+     "max_rel": 0.13589567517512963,
+     "cos": 0.9999971082773315,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "linear_silu",
+   "fd_worst": 6.191243109109251e-10,
+   "fd_probed": 72,
+   "fd_eligible": 20576,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.34291525742132667,
+     "max_abs": 0.8311236589278425,
+     "max_rel": 20.795585647534597,
+     "cos": 0.9483148612133898,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "w": {
+     "rel_l2": 0.33847486258808324,
+     "max_abs": 8.143839789543588,
+     "max_rel": 14.282332458399772,
+     "cos": 0.9498024550988561,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "b": {
+     "rel_l2": 0.3895773033540546,
+     "max_abs": 5.611482166363241,
+     "max_rel": 16.503500934442858,
+     "cos": 0.9399076651699694,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "case": "linear_relu",
+   "fd_worst": 5.415963756799334e-10,
+   "fd_probed": 72,
+   "fd_eligible": 20576,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.06253325099202689,
+     "max_abs": 0.5360522497731194,
+     "max_rel": 9.967640057352352,
+     "cos": 0.9980452847228278,
+     "class": "kink",
+     "rel_l2_bar": null,
+     "cos_bar": null,
+     "bar_from": "not scored; split into MASK_BAR and the device-gate arm, see KINK",
+     "pass": true
+    },
+    "w": {
+     "rel_l2": 0.05820099787822113,
+     "max_abs": 6.0344751749671115,
+     "max_rel": 9.330559436928903,
+     "cos": 0.9983061528111489,
+     "class": "kink",
+     "rel_l2_bar": null,
+     "cos_bar": null,
+     "bar_from": "not scored; split into MASK_BAR and the device-gate arm, see KINK",
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 0.06330232261779647,
+     "max_abs": 2.44803730965738,
+     "max_rel": 0.8905828887393045,
+     "cos": 0.9980079090822749,
+     "class": "kink",
+     "rel_l2_bar": null,
+     "cos_bar": null,
+     "bar_from": "not scored; split into MASK_BAR and the device-gate arm, see KINK",
+     "pass": true
+    }
+   },
+   "mask_agreement": 0.99853515625,
+   "mask_bar": 0.99,
+   "mask_pass": true,
+   "device_gate": {
+    "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+    "rel_l2_bar": 0.01,
+    "cos_bar": 0.9999,
+    "x": {
+     "rel_l2": 0.0023931512979043956,
+     "max_abs": 0.008719809073683304,
+     "max_rel": 0.08364486771964856,
+     "cos": 0.9999971377439718,
+     "pass": true
+    },
+    "w": {
+     "rel_l2": 0.0023720779395308383,
+     "max_abs": 0.09512760629474926,
+     "max_rel": 0.12408400408287606,
+     "cos": 0.9999971966672885,
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 0.002475785943827397,
+     "max_abs": 0.0427257037819615,
+     "max_rel": 0.04325474165684968,
+     "cos": 0.9999969839964928,
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "linear_sigmoid",
+   "fd_worst": 9.652502802440476e-10,
+   "fd_probed": 72,
+   "fd_eligible": 20575,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.004804535988785295,
+     "max_abs": 0.00379960936342838,
+     "max_rel": 0.2511521107294513,
+     "cos": 0.999988466858967,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    },
+    "w": {
+     "rel_l2": 0.004827642680339405,
+     "max_abs": 0.04667638643708205,
+     "max_rel": 0.36095615140487186,
+     "cos": 0.9999883733697493,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 0.005371370882740364,
+     "max_abs": 0.01768818195362154,
+     "max_rel": 0.18420792689509316,
+     "cos": 0.9999856267704269,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "layernorm",
+   "fd_worst": 1.3984216713960726e-09,
+   "fd_probed": 72,
+   "fd_eligible": 8448,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.004117709557544748,
+     "max_abs": 0.013831350525433717,
+     "max_rel": 0.06397440553318642,
+     "cos": 0.999991650101767,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    },
+    "gamma": {
+     "rel_l2": 0.004837260072346739,
+     "max_abs": 0.1092323879280317,
+     "max_rel": 0.11151668129452282,
+     "cos": 0.9999884221184948,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    },
+    "beta": {
+     "rel_l2": 0.002437233208159429,
+     "max_abs": 0.058096399621600625,
+     "max_rel": 0.05714547447322209,
+     "cos": 0.9999971244616657,
+     "class": "reduction",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "mul",
+   "fd_worst": 1.9512399757236015e-10,
+   "fd_probed": 48,
+   "fd_eligible": 16383,
+   "fd_ok": true,
+   "grads": {
+    "a": {
+     "rel_l2": 0.0024134233441741103,
+     "max_abs": 0.026550983688000684,
+     "max_rel": 0.007396436825705845,
+     "cos": 0.9999970877234614,
+     "class": "eltwise",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 0.0023647134197909802,
+     "max_abs": 0.02737593804187277,
+     "max_rel": 0.006996758757511796,
+     "cos": 0.9999972056778467,
+     "class": "eltwise",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "add",
+   "fd_worst": 1.7362295200019849e-10,
+   "fd_probed": 48,
+   "fd_eligible": 16384,
+   "fd_ok": true,
+   "grads": {
+    "a": {
+     "rel_l2": 0.0016587287838948268,
+     "max_abs": 0.0077655317859326445,
+     "max_rel": 0.003865063013393843,
+     "cos": 0.9999986243834517,
+     "class": "eltwise",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 0.0016587287838948268,
+     "max_abs": 0.0077655317859326445,
+     "max_rel": 0.003865063013393843,
+     "cos": 0.9999986243834517,
+     "class": "eltwise",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "sigmoid",
+   "fd_worst": 2.3501895491010225e-10,
+   "fd_probed": 24,
+   "fd_eligible": 8192,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.003414630314280643,
+     "max_abs": 0.006017356337406299,
+     "max_rel": 0.04868489873940429,
+     "cos": 0.9999942637002321,
+     "class": "eltwise",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "silu",
+   "fd_worst": 7.230263289278248e-11,
+   "fd_probed": 24,
+   "fd_eligible": 8192,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.0036528907018003177,
+     "max_abs": 0.023245753096343247,
+     "max_rel": 0.035383319118070626,
+     "cos": 0.9999933960518261,
+     "class": "eltwise",
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": true
+    }
+   },
+   "pass": true
+  }
+ ],
+ "control_grad_off": {
+  "untaped_declined": true,
+  "untaped_bit_exact": true,
+  "frozen_untaped": true,
+  "frozen_bit_exact": true,
+  "nograd_untaped": true,
+  "nograd_bit_exact": true,
+  "live_call_is_taped": true,
+  "pass": true
+ },
+ "all_pass": false
+}
