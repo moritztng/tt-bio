@@ -1,12 +1,12 @@
 {
-  "label": "boltz2-512-rep0",
+  "label": "protenix-v1-640-rep0",
   "cli": [
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/ttuser/.coworker/wt/c14-p150a-ladder-record/perf/size512/fixtures/cdk2x2_512.yaml",
+    "/home/ttuser/.coworker/wt/c14-p150a-ladder-record/perf/size512/fixtures/cdk2x2_640.yaml",
     "--model",
-    "boltz2",
+    "protenix-v1",
     "--single_sequence",
     "--sampling_steps",
     "6",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/ttuser/.coworker/wt/c14-p150a-ladder-record/perf/sizegate/work/out_boltz2-512-rep0"
+    "/home/ttuser/.coworker/wt/c14-p150a-ladder-record/perf/sizegate/work/out_protenix-v1-640-rep0"
   ],
   "rc": 0,
   "processes": 2,
@@ -24,9 +24,9 @@
       "flag": "SPLIT_SWIGLU",
       "how": "stats",
       "counter": "tt_bio.esmc.SPLIT_STATS",
-      "resolved": "not-imported",
-      "served": null,
-      "declined": null,
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
       "rejects": null,
       "gauges": null
     },
@@ -34,9 +34,9 @@
       "flag": "SPLIT_SWIGLU_SMALL_GRID",
       "how": "stats-shared",
       "counter": "tt_bio.esmc.SPLIT_STATS",
-      "resolved": "not-imported",
-      "served": null,
-      "declined": null,
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
       "rejects": null,
       "gauges": null
     },
@@ -44,9 +44,9 @@
       "flag": "PAIR_FFN_L1_FC1",
       "how": "stats",
       "counter": "tt_bio.esmc.L1_FC1_STATS",
-      "resolved": "not-imported",
-      "served": null,
-      "declined": null,
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
       "rejects": null,
       "gauges": null
     },
@@ -54,9 +54,9 @@
       "flag": "PAIR_FFN_L1_LN",
       "how": "stats",
       "counter": "tt_bio.esmc.L1_LN_STATS",
-      "resolved": "not-imported",
-      "served": null,
-      "declined": null,
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
       "rejects": null,
       "gauges": null
     },
@@ -64,9 +64,9 @@
       "flag": "PAIR_FFN_L1_SLICE",
       "how": "stats",
       "counter": "tt_bio.esmc.L1_SLICE_STATS",
-      "resolved": "not-imported",
-      "served": null,
-      "declined": null,
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
       "rejects": null,
       "gauges": null
     },
@@ -74,9 +74,9 @@
       "flag": "PAIR_FFN_FUSED_RESIDUAL",
       "how": "stats",
       "counter": "tt_bio.esmc.FUSED_RESID_STATS",
-      "resolved": "not-imported",
-      "served": null,
-      "declined": null,
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
       "rejects": null,
       "gauges": null
     },
@@ -84,9 +84,9 @@
       "flag": "PAIR_FFN_FILL_ASSEMBLY",
       "how": "stats",
       "counter": "tt_bio.esmc.FILL_ASSEMBLY_STATS",
-      "resolved": "not-imported",
-      "served": null,
-      "declined": null,
+      "resolved": "True",
+      "served": 0,
+      "declined": 0,
       "rejects": null,
       "gauges": null
     },
@@ -95,7 +95,7 @@
       "how": "stats",
       "counter": "tt_bio.mm_dualnoc.STATS",
       "resolved": "True",
-      "served": 560,
+      "served": 424,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -105,7 +105,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 360,
+      "served": 405,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -136,9 +136,9 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 560,
+      "declined": 424,
       "rejects": {
-        "l1_dest_is_faster:512x512x128": 560
+        "l1_dest_is_faster:640x640x128": 424
       },
       "gauges": null
     },
@@ -167,7 +167,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 560,
+      "served": 424,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -197,7 +197,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_BACK",
       "resolved": "True",
-      "served": 560,
+      "served": 424,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -207,7 +207,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 1120,
+      "served": 848,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -217,7 +217,7 @@
       "how": "stats-shared",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 1120,
+      "served": 848,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -227,7 +227,7 @@
       "how": "stats",
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
-      "served": 560,
+      "served": 424,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -277,7 +277,7 @@
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.STATS",
       "resolved": "True",
-      "served": 560,
+      "served": 424,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -287,7 +287,7 @@
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.TAIL_STATS",
       "resolved": "True",
-      "served": 560,
+      "served": 424,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -297,7 +297,7 @@
       "how": "stats-shared",
       "counter": "tt_bio.triatt_qkv.TAIL_STATS",
       "resolved": "True",
-      "served": 560,
+      "served": 424,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -307,7 +307,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 3,
+      "served": 0,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -317,7 +317,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 72,
+      "served": 0,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -327,7 +327,7 @@
       "how": "stats",
       "counter": "tt_bio.tenstorrent.B2_TOKEN_DIT_SDPA_STATS",
       "resolved": "True",
-      "served": 144,
+      "served": 0,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -338,7 +338,7 @@
       "counter": "tt_bio.tenstorrent.APB_CONCAT_HEADS_STATS",
       "resolved": "False",
       "served": 0,
-      "declined": 408,
+      "declined": 340,
       "rejects": null,
       "gauges": null
     },
@@ -347,7 +347,7 @@
       "how": "stats",
       "counter": "tt_bio.tenstorrent.ATOM_AXIS_BUCKET_STATS",
       "resolved": "True",
-      "served": 6,
+      "served": 0,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -357,7 +357,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "1.25",
-      "served": 560,
+      "served": 424,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -397,7 +397,7 @@
       "how": "stats",
       "counter": "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS",
       "resolved": "16",
-      "served": 296,
+      "served": 226,
       "declined": 0,
       "rejects": null,
       "gauges": null

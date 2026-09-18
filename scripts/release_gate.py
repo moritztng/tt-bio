@@ -711,16 +711,12 @@ SIZE_LADDER_EXEMPT = {
 # NOT go in SIZE_LADDER_EXEMPT (transient-reason-in-structural-exemption-dict) — but a bare
 # "not in the baseline" error loses WHY the second the person reading it forgets the story,
 # so this attributes the gap: reason plus the follow-up slug that is supposed to close it.
-SIZE_LADDER_KNOWN_GAP = {
-    "protenix-v1": ("recorded on p300c (qb2, 2026-08-27) but not on p150a: pc card 0 is "
-                     "barred from providing a release baseline "
-                     "(pc-card0-512aa-fold-nondeterminism) and qb1 has been hard-down since "
-                     "2026-08-26, so no healthy p150a has been available to fold it. Not a "
-                     "port defect: the 512aa hang that WAS a real protenix-v1 bug (forced "
-                     "core_grid racing on 4-tile-wide matmuls) is fixed and re-verified, "
-                     "8/8 clean folds, parity and perf unaffected",
-                     "record its four rungs on the first healthy p150a host"),
-}
+# Currently empty, and an empty dict is the healthy state: a model here is one the gate cannot
+# score on a card. Its one entry, protenix-v1 on p150a, was retired on 2026-09-18 when the six
+# rungs were folded on qb1 card 1 (11x10) and the gap it described stopped existing. Retiring a
+# satisfied entry is part of using it -- an exemption nobody deletes reads as a permanent
+# licence, which is the failure `transient-reason-in-structural-exemption-dict` names.
+SIZE_LADDER_KNOWN_GAP: dict[str, tuple[str, str]] = {}
 # Not foldable by this arm at all: it drives `tt-bio predict` at four sequence lengths on a
 # shared cdk2x2 fixture (plus nesso1's own `tt-bio affinity` leg). A design or embed model
 # has no such input and gets its own release-gate arm instead. Listed rather than filtered by
