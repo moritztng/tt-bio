@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Price TT_BIO_APB_CONCAT_HEADS on the Boltz-2 fold, at 298 and 512 aa.
+"""Price a single tt-bio env flag on the Boltz-2 fold, at 298 and 512 aa.
+
+Taken from `c14-land-tail`'s `perf/c14_land/apb_fold_ab.py` with this row's flag
+added to FLAGS and the scratch directories repointed at this worktree. Its protocol
+is the reason it was reused rather than rewritten, and it is quoted unchanged below.
+The lever it was written for was TT_BIO_APB_CONCAT_HEADS:
 
 The lever collapses the token head re-assembly from four launches to one by keeping the pad lanes
 (`tenstorrent.py:1446`). The firing census (`perf/c14_land/firing.json`) established that it serves
@@ -145,7 +150,7 @@ def worker(args) -> int:
     dev = get_device()
     out: dict = {"arm": args.arm, "size": args.size, "folds": []}
 
-    work = Path(tempfile.mkdtemp(prefix="c14-apb-", dir=str(REPO / "perf" / "c14_land")))
+    work = Path(tempfile.mkdtemp(prefix="c14-bfp8-", dir=str(REPO / "perf" / "c14_bfp8")))
     struct_dir = work / "out"; struct_dir.mkdir(parents=True)
     msa_dir = work / "msa"; msa_dir.mkdir(parents=True)
     H._seed_msa(FIX / f"cdk2x2_{args.size}.yaml",
@@ -234,7 +239,11 @@ def driver(args) -> int:
         "blocks": [],
     }
     outp = Path(args.out)
-    tmpdir = Path(tempfile.mkdtemp(prefix="c14-apb-driver-", dir=str(REPO / "perf" / "c14_land")))
+    # this row's own directory, not the sibling's: `perf/c14_land` does not exist in this
+    # worktree, and a job rooted in another slug's tree gets its files deleted by fleet
+    # hygiene when that slug concludes.
+    tmpdir = Path(tempfile.mkdtemp(prefix="c14-bfp8-driver-",
+                                   dir=str(REPO / "perf" / "c14_bfp8")))
 
     def save():
         outp.parent.mkdir(parents=True, exist_ok=True)
