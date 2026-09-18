@@ -27,7 +27,8 @@ import ttnn
 
 __all__ = [
     "Tensor", "precise_config", "no_grad",
-    "linear", "matmul", "layer_norm", "softmax", "mul", "add", "sigmoid", "reshape",
+    "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
+    "reshape",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
 ]
 
@@ -326,6 +327,24 @@ def mul(a: Tensor, b: Tensor) -> Tensor:
         return bw
 
     return _tape(out_v, [a, b], make)
+
+
+def scale(x: Tensor, factor: float) -> Tensor:
+    """Multiply by a python scalar. The backward is the same scalar.
+
+    `mul` cannot do this: it takes two taped tensors of equal shape, and a scalar has
+    neither a shape nor a gradient. LoRA needs it for the `alpha/rank` factor, which
+    tt-train applies as `lora_update * scaling` (modules/lora.py:106).
+    """
+    f = float(factor)
+    out_v = ttnn.multiply(x.value, f)
+
+    def make():
+        def bw(g):
+            x.add_grad(ttnn.multiply(g, f))
+        return bw
+
+    return _tape(out_v, [x], make)
 
 
 def add(a: Tensor, b: Tensor) -> Tensor:
