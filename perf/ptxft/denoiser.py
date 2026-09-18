@@ -119,7 +119,10 @@ class TapedDenoiser:
         b = self._lin(xn, P + "linear_no_bias_b.weight")
         return self._lin(ag.mul(ag.mul(a, ag.sigmoid(a)), b), P + "linear_no_bias.weight")
 
-    def __call__(self, r_noisy, fou):
+    def __call__(self, r_noisy, fou, stop=None):
+        """`stop` returns early at a named stage, which is how the NaN gets localised:
+        take the gradient at each stage in turn and the first non-finite one names the op.
+        """
         ag, c = self.ag, self.cond
         nn_ = self._lin(self._ln(fou, "diffusion_conditioning.layernorm_n.weight"),
                         "diffusion_conditioning.linear_no_bias_n.weight")
@@ -133,18 +136,28 @@ class TapedDenoiser:
         for b in self.enc:
             x = b(x, c["c_la"], c["p"])
         q_skip = x
+        if stop == "enc":
+            return x
         a_tok = ag.matmul(c["Smean"], ag.relu(
             self._lin(x, "atom_attention_encoder.linear_no_bias_q.weight")))
         a_tok = ag.add(a_tok, self._lin(self._ln(s_single, "layernorm_s.weight"),
                                         "linear_no_bias_s.weight"))
+        if stop == "atok":
+            return a_tok
         a_t = a_tok
         for b in self.dit:
             a_t = b(a_t, s_single, c["dit_z"])
+        if stop == "dit":
+            return a_t
         a_t = self._ln(a_t, "layernorm_a.weight")
         q = ag.add(ag.matmul(c["S"], self._lin(
             a_t, "atom_attention_decoder.linear_no_bias_a.weight")), q_skip)
+        if stop == "q":
+            return q
         for b in self.dec:
             q = b(q, c["c_la"], c["p"])
+        if stop == "dec":
+            return q
         qn = self._ln(q, "atom_attention_decoder.layernorm_q.weight")
         return self._lin(qn, "atom_attention_decoder.linear_no_bias_out.weight")
 
@@ -154,10 +167,21 @@ def main():
     ap.add_argument("--ckpt", default=os.path.expanduser("~/.boltz/protenix-v2.pt"))
     ap.add_argument("--seq", default="MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ")
     ap.add_argument("--seed", type=int, default=7)
-    ap.add_argument("--eps", type=float, default=2e-2)
+    ap.add_argument("--eps-sweep", default="0.05,0.1,0.2,0.5,1.0")
     ap.add_argument("--fwd-bar", type=float, default=5.0e-2)
-    ap.add_argument("--fd-bar", type=float, default=0.10)
+    ap.add_argument("--fd-bar", type=float, default=0.05)
+    ap.add_argument("--fd-prod-bar", type=float, default=0.20,
+                    help="looser, and it has to be: the twin and production differ by "
+                         "2.15e-02 on the forward, so their derivatives are not owed "
+                         "better")
     ap.add_argument("--n-dit", type=int, default=24)
+    ap.add_argument("--dtype", default="bf16", choices=["bf16", "fp32"],
+                    help="the twin's activation dtype. Production ships a fp32 diffusion "
+                         "path of its own (PROTENIX_DIFFUSION_FP32_DEVICE), so this is a "
+                         "supported configuration and not a special case for the tape.")
+    ap.add_argument("--stages", action="store_true",
+                    help="bisect: take the gradient at each stage and print whether it "
+                         "is finite")
     a = ap.parse_args()
 
     import torch
@@ -199,7 +223,7 @@ def main():
         N = int(cond["c_l"].shape[0])
         NT = int(cond["s_inputs"].shape[0])
         print(f"# --denoiser: {len(a.seq)} aa -> {N} atoms, {NT} tokens, "
-              f"{a.n_dit} token blocks + 3 + 3 atom blocks")
+              f"{a.n_dit} token blocks + 3 + 3 atom blocks, twin in {a.dtype}")
 
         # One sampled sigma, upstream's own sampler.
         sigma = float(np.exp(rng.standard_normal() * 1.5 - 1.2) * SIGMA_DATA)
@@ -209,7 +233,7 @@ def main():
         tp = torch.log(t_hat / SIGMA_DATA) / 4
         fou = torch.cos(2 * math.pi * (tp.unsqueeze(-1) * wf + bf)).contiguous()
         r0 = (rng.standard_normal((N, 3)) * 1.0).astype(np.float32)
-        print(f"# sigma {sigma:.4f} from TrainingNoiseSampler, eps {a.eps}")
+        print(f"# sigma {sigma:.4f} from TrainingNoiseSampler")
 
         def production(r):
             out = dm._denoise_device(dm._up(torch.from_numpy(r)), dm._up(fou), cond)
@@ -238,10 +262,29 @@ def main():
         tcond = {"ss_base": r3(cond["ss_base"], NT), "c_la": r3(cond["c_la_dev"], N),
                  "p": leaf(cond["p_dev"]), "Smean": leaf(cond["Smean_dev"]),
                  "S": leaf(cond["S_dev"]), "dit_z": leaf(cond["dit_z"])}
-        twin = TapedDenoiser(sd, dev, dtype=ttnn.bfloat16, cond=tcond, n_dit=a.n_dit)
-        rt = ag.Tensor(ft.to_device(r0.reshape(1, N, 3), dev, dtype=ttnn.bfloat16),
+        tdt = ttnn.bfloat16 if a.dtype == "bf16" else ttnn.float32
+        twin = TapedDenoiser(sd, dev, dtype=tdt, cond=tcond, n_dit=a.n_dit)
+        rt = ag.Tensor(ft.to_device(r0.reshape(1, N, 3), dev, dtype=tdt),
                        requires_grad=True)
-        fout = leaf(ft.to_device(np.asarray(fou), dev, dtype=ttnn.bfloat16))
+        fout = leaf(ft.to_device(np.asarray(fou), dev, dtype=tdt))
+        if a.stages:
+            # Bisect: gradient at each stage in turn, first non-finite one names the op.
+            print()
+            print(f"{'stage':<10} {'out finite':>11} {'|d out/d r|':>14} {'finite':>8}")
+            for st in ("enc", "atok", "dit", "q", "dec", None):
+                rs = ag.Tensor(ft.to_device(r0.reshape(1, N, 3), dev, dtype=tdt),
+                               requires_grad=True)
+                o = twin(rs, fout, stop=st)
+                ov = ft.to_host(o.value)
+                shp = [int(d) for d in o.value.shape]
+                seed = (rng.standard_normal(shp) * 0.1).astype(np.float32)
+                o.backward(seed=ft.to_device(seed, dev, dtype=tdt))
+                gv = ft.to_host(rs.grad)
+                gn = float(np.linalg.norm(np.float64(gv[np.isfinite(gv)])))
+                print(f"{str(st):<10} {str(bool(np.isfinite(ov).all())):>11} "
+                      f"{gn:>14.6e} {str(bool(np.isfinite(gv).all())):>8}")
+            return 0
+
         out = twin(rt, fout)
         got = ft.to_host(out.value).reshape(-1, 3)[:N]
         print()
@@ -254,29 +297,67 @@ def main():
         if not (fr <= a.fwd_bar):
             fails.append(f"forward rel L2 {fr:.3e}")
 
-        # Directional finite difference THROUGH PRODUCTION.
+        # TWO finite differences, because they answer different questions and only
+        # together do they separate the two ways this can be wrong.
+        #
+        #   through the TWIN'S OWN forward: is the tape's backward the derivative of the
+        #     function the tape computes? Nothing but the tape is involved, so this is
+        #     tight and it is the gradient check proper.
+        #   through PRODUCTION's forward: is that function production's? This one is
+        #     floored by the forward mismatch -- the twin and production differ by
+        #     2.15e-02 and their DERIVATIVES need not differ by less -- and it is also
+        #     noisier, because production runs bf16 and an FD numerator of 2*eps*|dL|
+        #     has to stand clear of its quantisation jitter.
+        #
+        # eps is swept rather than guessed: too small and the numerator drowns in that
+        # jitter, too large and the truncation error of a nonlinear function shows.
         g = (rng.standard_normal((N, 3)) * 0.1).astype(np.float32)
         d = rng.standard_normal((N, 3)).astype(np.float32)
         d /= np.linalg.norm(d)
         full_g = np.zeros_like(r0)
         full_g[:N] = g
-        out.backward(seed=ft.to_device(full_g.reshape(1, N, 3), dev,
-                                       dtype=ttnn.bfloat16))
+        out.backward(seed=ft.to_device(full_g.reshape(1, N, 3), dev, dtype=tdt))
         an = float((np.float64(ft.to_host(rt.grad).reshape(-1, 3)[:N]) *
                     np.float64(d)).sum())
-        lp = float((np.float64(production(r0 + a.eps * d)) * np.float64(g)).sum())
-        lm = float((np.float64(production(r0 - a.eps * d)) * np.float64(g)).sum())
-        fd = (lp - lm) / (2 * a.eps)
-        # A NaN must FAIL. `nan > bar` is False, so a comparison alone would have
-        # reported PASS on a gradient that does not exist -- it did, once.
-        err = float("inf") if not np.isfinite(an) else abs(an - fd) / max(abs(fd), 1e-30)
-        print(f"{'directional FD through production':<40} {fd:>12.6f}")
-        print(f"{'twin analytic gradient, same direction':<40} {an:>12.6f}")
-        print(f"{'relative disagreement':<40} {err:>12.3e} {a.fd_bar:>10.1e}"
-              f"{'' if err <= a.fd_bar else '   <-- FAIL'}")
-        if not (err <= a.fd_bar):
-            fails.append(f"directional FD disagrees by {err:.3e}"
-                         + ("" if np.isfinite(an) else "; the analytic gradient is NaN"))
+
+        def twin_loss(r):
+            with ag.no_grad():
+                o = twin(ag.Tensor(ft.to_device(r.reshape(1, N, 3), dev, dtype=tdt)),
+                         fout)
+            v = ft.to_host(o.value).reshape(-1, 3)[:N]
+            return float((np.float64(v) * np.float64(g)).sum())
+
+        def prod_loss(r):
+            return float((np.float64(production(r)) * np.float64(g)).sum())
+
+        print()
+        print(f"{'eps':>8} {'FD twin':>12} {'err twin':>10} {'FD prod':>12} "
+              f"{'err prod':>10}")
+        best_t = best_p = float("inf")
+        for eps in [float(x) for x in a.eps_sweep.split(",")]:
+            ft_ = (twin_loss(r0 + eps * d) - twin_loss(r0 - eps * d)) / (2 * eps)
+            fp_ = (prod_loss(r0 + eps * d) - prod_loss(r0 - eps * d)) / (2 * eps)
+            et = abs(an - ft_) / max(abs(ft_), 1e-30)
+            ep = abs(an - fp_) / max(abs(fp_), 1e-30)
+            if np.isfinite(et):
+                best_t = min(best_t, et)
+            if np.isfinite(ep):
+                best_p = min(best_p, ep)
+            print(f"{eps:>8.3f} {ft_:>12.6f} {et:>10.3e} {fp_:>12.6f} {ep:>10.3e}")
+        print()
+        print(f"{'analytic gradient in direction d':<40} {an:>12.6f}")
+        print(f"{'best agreement, FD through the twin':<40} {best_t:>12.3e} "
+              f"{a.fd_bar:>10.1e}{'' if best_t <= a.fd_bar else '   <-- FAIL'}")
+        print(f"{'best agreement, FD through production':<40} {best_p:>12.3e} "
+              f"{a.fd_prod_bar:>10.1e}"
+              f"{'' if best_p <= a.fd_prod_bar else '   <-- FAIL'}")
+        if not (best_t <= a.fd_bar):
+            fails.append(f"the tape's own backward disagrees with a finite difference "
+                         f"through its own forward by {best_t:.3e}"
+                         + ("" if np.isfinite(an) else "; the gradient is NaN"))
+        if not (best_p <= a.fd_prod_bar):
+            fails.append(f"the gradient disagrees with a finite difference through "
+                         f"production by {best_p:.3e}")
     print()
     print(clk.line(0))
     print()
