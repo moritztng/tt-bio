@@ -49,6 +49,7 @@ from pathlib import Path
 import ttnn
 
 from . import sdpa_generic as SG
+from .mm_generic import fast_dtypes_ok
 from .envflags import env_flag, env_int
 
 # Five files, not the fifteen the stock kernel directory holds. Three carry our edits:
@@ -335,7 +336,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     shape = [int(d) for d in q.shape]
     if len(shape) != 4 or len(bias.shape) != 4:
         return _reject("rank", shape)
-    if any(t.dtype != ttnn.bfloat16 for t in (q, k, v, bias)):
+    if not fast_dtypes_ok(q.dtype, k.dtype, v.dtype, bias.dtype):
         return _reject("dtype", shape)
     if any(t.layout != ttnn.TILE_LAYOUT for t in (q, k, v, bias)):
         return _reject("layout", shape)
@@ -373,8 +374,12 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     split = (cores // (H * q_pf), H, q_pf)
 
     dev = q.device()
+    # The destination follows the operands rather than being pinned to bf16: the CB page sizes
+    # come from `tile_bytes(out.dtype)` and the writer takes its tile bytes from the CB, so a
+    # narrower destination is a page-size change and not a kernel change. Byte-identical while the
+    # gate above only admits bf16 operands.
     out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape(shape), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.Shape(shape), q.dtype, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     # The op's own default compute kernel config, not the trunk's -- see perf/triatt_fused/s4_gate.py
     ckc = ckc_default or _CKC_OVERRIDE or (ttnn.MathFidelity.HiFi2, True, False, False)
 
@@ -395,7 +400,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
             ttnn.deallocate(out)
             return _gate_reject("head_dim", shape)
         if (len(gate.shape) != 4 or str(gate.padded_shape) != str(q.padded_shape)
-                or gate.dtype != ttnn.bfloat16 or gate.layout != ttnn.TILE_LAYOUT
+                or gate.dtype != q.dtype or gate.layout != ttnn.TILE_LAYOUT
                 or gmc.buffer_type != ttnn.BufferType.DRAM
                 or gmc.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED):
             ttnn.deallocate(out)
@@ -478,7 +483,7 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
     if C != n_heads * head_dim or head_dim != 32:
         # The reader's K read is a tile-ORDER transpose, which is the identity only at DHt == 1.
         return _fuse_reject("head_dim", shape)
-    if any(t.dtype != ttnn.bfloat16 for t in (x, w, bias)):
+    if not fast_dtypes_ok(x.dtype, w.dtype, bias.dtype):
         return _fuse_reject("dtype", shape)
     if any(t.layout != ttnn.TILE_LAYOUT for t in (x, w, bias)):
         return _fuse_reject("layout", shape)
@@ -502,7 +507,7 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
 
     dev = x.device()
     out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape([B, n_heads, S, head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
+        ttnn.Shape([B, n_heads, S, head_dim]), x.dtype, ttnn.TILE_LAYOUT, dev,
         ttnn.DRAM_MEMORY_CONFIG)
     ckc = ckc_default or _CKC_OVERRIDE or (ttnn.MathFidelity.HiFi2, True, False, False)
     p = SG.plan(out, out, out, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)

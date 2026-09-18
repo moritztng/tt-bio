@@ -32,7 +32,28 @@ NOC_FOR_DRAM_WRITE = ttnn.NOC.NOC_1
 
 #: Bytes one TILE_HW x TILE_HW tile occupies, per dtype. sdpa_generic and softmax_generic
 #: size their CBs from this same table -- see `tile_bytes`.
-_TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096}
+_TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096, ttnn.bfloat8_b: 1088}
+
+#: The storage dtypes a hand-transcribed fast path may take. `bfloat8_b` is here because every CB
+#: page size in these transcriptions comes from `tile_bytes` and every tile size in their kernels
+#: from `get_tile_size(cb)`, so there is no 2-bytes-an-element assumption in the dataflow for a
+#: 1088-byte block-float tile to break. What the four gates below used to test was `== bfloat16`,
+#: which is our own line rather than a kernel limit: `ttnn.experimental.minimal_matmul` has taken
+#: BFLOAT8_B and BFLOAT4_B since before our pin.
+FAST_DTYPES = frozenset({ttnn.bfloat16, ttnn.bfloat8_b})
+
+
+def fast_dtypes_ok(*dtypes) -> bool:
+    """True when every operand dtype is one a fast path covers AND they are all the same.
+
+    Uniformity is not required by the SDPA kernel -- `is_uniform_dataformat` is a compile-time
+    hint it takes either way -- but each transcription was verified with one format throughout,
+    so a mixed pair stays out of scope until it is measured. Every call site that used to demand
+    bf16 everywhere is a strict subset of this, so turning the test around cannot make a call
+    that is served today decline.
+    """
+    seen = set(dtypes)
+    return len(seen) == 1 and seen <= FAST_DTYPES
 
 
 def tile_bytes(dtype):
@@ -40,8 +61,8 @@ def tile_bytes(dtype):
     try:
         return _TILE_BYTES[dtype]
     except KeyError:
-        raise ValueError(f"no tile size for {dtype}: these transcriptions cover the call the "
-                         "fold issues, which is bf16 and fp32 only") from None
+        raise ValueError(f"no tile size for {dtype}: these transcriptions cover bf16, fp32 and "
+                         "bfloat8_b") from None
 
 _CACHE: dict = {}
 

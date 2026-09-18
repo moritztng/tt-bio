@@ -50,7 +50,7 @@ def _reject(reason, shape):
 
 def _common_ok(x, w, dtype):
     """The dtype, layout and memory-config conditions the transcription was verified under."""
-    if dtype != ttnn.bfloat16 or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
+    if not G.fast_dtypes_ok(dtype, x.dtype, w.dtype):
         return False
     if x.layout != ttnn.TILE_LAYOUT or len(x.shape) != 3:
         return False
