@@ -239,15 +239,30 @@ not the collective. `perf/train_d_dp/` holds the harness and the raw results.
 Tensor parallelism is deliberately absent. A full replica is 14.8 % of one chip, so there is no
 memory argument for it, and it returns only if something later forces it.
 
-Multi-host runs, and the cable it wants is a speed-up rather than a prerequisite.
-`tt_bio/train/xhost.py` mirrors the shared-directory rendezvous to the other hosts over one
-persistent ssh channel per peer, so a rank still sums 0..world-1 over local files and the per-rank
-masters stay bit-identical across the boundary. Measured on ABodyBuilder3: two chips in one box
-step in 11.154 s, the same two chips split across qb1 and qb2 step in 14.096 s, 1.493x against one
-chip's 21.043 s where one box gives 1.887x. The whole gap is the exchange, and 28.4 MB per rank per
-step is 1.768 s over qb2's WiFi against ~0.24 s at 1000 Mb/s. `Mesh.auto()` still reports one host
-and `--chips` is still one box; crossing a host boundary today means your own launcher, of which
-`scripts/train_xhost/xhost_gate.py` is a worked example. `perf/train_xhost/` holds the results.
+Multi-host runs, and the cable it wants is a speed-up rather than a prerequisite. Name the other
+boxes on the mesh and it gives you the rendezvous the transport already takes:
+
+```python
+mesh = train.Mesh({"dp": [0, 1]}, hosts=["ttuser@tt-quietbox2"])
+mesh.rendezvous("/dev/shm/abb3-dp")     # /dev/shm/abb3-dp+ttuser@tt-quietbox2
+```
+
+Each host names the others. `tt_bio/train/xhost.py` mirrors the shared-directory rendezvous to
+those peers over one persistent ssh channel each, so a rank still sums 0..world-1 over local files
+and the per-rank masters stay bit-identical across the boundary, checked at every step of a 12-step
+run. Measured on ABodyBuilder3: two chips in one box step in 11.154 s, the same two chips split
+across qb1 and qb2 step in 13.545 s, the median of steps 2-12, so 1.554x against one chip's
+21.043 s where one box gives 1.887x at 94.3 %. The whole gap is the exchange.
+
+**77.7 % is close to a floor, not a typical result.** qb2 has no cable, so that run crossed its
+WiFi, where the 28.4 MB each rank sends per step costs 1.768 s. At 1000 Mb/s the same exchange is
+about 0.24 s each way, near 2 % of the step instead of 13-18 %, and two wired hosts should land
+much closer to the 94.3 % the same two chips give inside one box.
+
+`Mesh.auto()` still reports one host, because it can only count the chips on the box it runs on,
+and `--chips` is still one box: driving ranks across a host boundary today means your own launcher,
+of which `scripts/train_xhost/xhost_gate.py` is a worked example. `perf/train_xhost/` holds the
+results, including the 12-step run the numbers above come from.
 
 ## Featurisation is per model, on purpose
 

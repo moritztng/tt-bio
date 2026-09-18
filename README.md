@@ -946,7 +946,7 @@ must not open a card before the `finetune` call. Both are checked before anythin
 p150a chips on a QuietBox measured **1.96x** at a 0.33 MB adapter gradient and **1.70x** at 5.24
 MB, both at 1350 MHz; the gap is host-side Adam contending between the two processes, not the
 exchange, which costs 2.3 % of the step. Four chips runs the same path and is not measured yet.
-Two boxes work too and the link is what it costs: the same two chips split across two QuietBoxes give **1.493x** where one box gives 1.887x, all of the difference being the 28.4 MB gradient exchange over the second box's WiFi. That path needs your own launcher today rather than `--chips`.
+Two boxes work too and the link is what it costs: the same two chips split across two QuietBoxes give **1.554x** where one box gives 1.887x, all of the difference being the 28.4 MB gradient exchange over the second box's WiFi. That box has no cable, so 77.7 % efficiency is close to the floor for this; a wired link would cut the exchange to about 2 % of the step. Name the other box on the mesh, `train.Mesh({"dp": [0, 1]}, hosts=["ttuser@tt-quietbox2"])`, and it composes the rendezvous the transport takes. Starting the ranks on both boxes is still your own launcher rather than `--chips`.
 
 Every run carries the check that makes a multi-chip number mean something. The ranks' weights
 must stay identical, so the launcher compares every rank's master weights at the end and refuses
