@@ -38,7 +38,7 @@ for dts, fid in ARMS:
         fp32_dest_acc_en=(dts == "float32"), packer_l1_acc=True)
     dev = {k: ttnn.from_torch(v.to(tdt), dtype=dt, layout=ttnn.TILE_LAYOUT,
                               device=tt.get_device()) for k, v in rounded.items()}
-    got_pre = ttnn.to_torch(ops.shipped_linear(dev["x"], dev["w"], dev["b"],
+    got_pre = ttnn.to_torch(ops.linear.shipped(dev["x"], dev["w"], dev["b"],
                                                compute_kernel_config=ckc,
                                                core_grid=tt.CORE_GRID_MAIN)).to(torch.float64)
     n = ref_pre.numel()

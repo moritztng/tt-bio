@@ -68,13 +68,29 @@ BARS = {
     ("reduction", "float32"): (2.5e-02,  0.9999,    "3.5x the measured fp32 HiFi2 matmul floor "
                                                     "7.05e-03; fp32 does not mean exact here"),
     ("reduction", "bfloat16"):(1.0e-02,  0.9999,    "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03"),
-    # A kinked op is scored on DIRECTION and on its gate mask, never on rel_L2.
-    ("kink", "float32"):      (None,     0.9990,    "gradient is discontinuous; rel_L2 is not "
-                                                    "mantissa-bounded, see MASK_BAR"),
-    ("kink", "bfloat16"):     (None,     0.9990,    "gradient is discontinuous; rel_L2 is not "
-                                                    "mantissa-bounded, see MASK_BAR"),
+    # A kinked op is not scored against the true reference at all. See KINK below.
+    ("kink", "float32"):      (None,     None,      "not scored; split into MASK_BAR and the "
+                                                    "device-gate arm, see KINK"),
+    ("kink", "bfloat16"):     (None,     None,      "not scored; split into MASK_BAR and the "
+                                                    "device-gate arm, see KINK"),
 }
-MASK_BAR = 0.99          # fraction of gate coordinates the device and the reference agree on
+
+# KINK. A discontinuous gradient asks two questions and one number cannot answer both, so the
+# criterion splits them and scores each.
+#
+#   1. Did the forward land on the SAME SIDE of the kink? -> MASK_BAR, the fraction of gate
+#      coordinates on which the device and the float64 reference agree. This is the only part
+#      that is genuinely about the kink, and it is a property of the FORWARD.
+#   2. Is the backward's ARITHMETIC right? -> score the device gradient against a float64
+#      reference recomputed with the DEVICE'S OWN gate, on the ordinary reduction bar. Not
+#      circular: the gate itself is scored separately by (1), so a wrong gate cannot hide here
+#      and a wrong backward cannot hide behind a wrong gate.
+#
+# Cosine was the obvious third option and it is not independent. For an error made of a few
+# isolated large deviations, cos ~= 1 - rel_L2^2/2, and the measurement confirms it to three
+# digits: rel_L2 0.0625 against cos 0.99805, and 1 - 0.0625^2/2 = 0.99805. A cos bar on a
+# kinked op is a restatement of the rel_L2 bar it was meant to replace.
+MASK_BAR = 0.99
 
 # Which class each gradient falls in. The backward of a broadcast contains a reduction, so
 # "eltwise" means eltwise ALL THE WAY DOWN, not an eltwise forward.
@@ -215,23 +231,34 @@ def run_case(name, ttnn, ag, ops, tt, dt, torch_dt, ckc, seed):
         m["rel_l2_bar"] = rel_bar
         m["cos_bar"] = cos_bar
         m["bar_from"] = why
-        m["pass"] = bool(m["cos"] >= cos_bar and (rel_bar is None or m["rel_l2"] <= rel_bar))
+        m["pass"] = bool((cos_bar is None or m["cos"] >= cos_bar)
+                         and (rel_bar is None or m["rel_l2"] <= rel_bar))
         ok = ok and m["pass"]
         res["grads"][k] = m
 
     if name in KINK_CASES:
-        # A kinked op is scored on its GATE MASK, because that is the thing the backward
-        # actually reads and the thing a forward rounding error can flip outright.
         pre_dev = torch.from_numpy(
-            ttnn.to_torch(ops.shipped_linear(
+            ttnn.to_torch(ops.linear.shipped(
                 dev["x"].value, dev["w"].value, dev["b"].value,
                 compute_kernel_config=ckc, core_grid=tt.CORE_GRID_MAIN)).to(torch.float64).numpy())
         pre_ref = rounded["x"] @ rounded["w"] + rounded["b"]
+        # (1) the forward's kink placement
         agree = float(((pre_dev > 0) == (pre_ref > 0)).to(torch.float64).mean())
         res["mask_agreement"] = agree
         res["mask_bar"] = MASK_BAR
         res["mask_pass"] = bool(agree >= MASK_BAR)
         ok = ok and res["mask_pass"]
+        # (2) the backward's arithmetic, under the gate the device actually used
+        gate = (pre_dev > 0).to(torch.float64)
+        dg = {k: v.clone().requires_grad_(True) for k, v in rounded.items()}
+        ((dg["x"] @ dg["w"] + dg["b"]) * gate * wt).sum().backward()
+        rel_bar, cos_bar, why = BARS[("reduction", dts)]
+        res["device_gate"] = {"bar_from": why, "rel_l2_bar": rel_bar, "cos_bar": cos_bar}
+        for k, v in dg.items():
+            m = GC.metrics(got[k].reshape(tuple(v.shape)), v.grad.detach().numpy())
+            m["pass"] = bool(m["rel_l2"] <= rel_bar and m["cos"] >= cos_bar)
+            ok = ok and m["pass"]
+            res["device_gate"][k] = m
 
     res["pass"] = bool(ok)
     return res
@@ -247,7 +274,7 @@ def control_grad_off(ttnn, ag, ops, tt, dt, torch_dt, ckc, seed):
     raw = {k: ttnn.from_torch(torch.from_numpy(v).to(torch_dt), dtype=dt,
                               layout=ttnn.TILE_LAYOUT, device=tt.get_device())
            for k, v in t.items()}
-    shipped = ttnn.to_torch(ops.shipped_linear(raw["x"], raw["w"], raw["b"],
+    shipped = ttnn.to_torch(ops.linear.shipped(raw["x"], raw["w"], raw["b"],
                                                compute_kernel_config=ckc,
                                                core_grid=tt.CORE_GRID_MAIN))
     out = {}
