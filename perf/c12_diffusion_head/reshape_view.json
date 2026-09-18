@@ -1,0 +1,138 @@
+{
+ "all_pass": true,
+ "source": "/home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/ttnn/cpp/ttnn/operations/data_movement/reshape_view/reshape.cpp",
+ "anchors": [
+  "bool this_is_view =",
+  "(tensor_shape_last_dim == shape_last_dim)",
+  "(tensor.layout() == ttnn::ROW_MAJOR_LAYOUT) ||",
+  "(tensor_shape_second_last_dim == shape_second_last_dim) ||",
+  "(shape_second_last_dim % tile_second_dim == 0 &&",
+  "tensor_shape_second_last_dim % tile_first_dim == 0));"
+ ],
+ "cases": [
+  {
+   "case": "atom_q_metadata",
+   "in_logical": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out_logical": [
+    140,
+    4,
+    32,
+    32
+   ],
+   "shipped": false,
+   "is_view": false,
+   "reason": "last dim changes",
+   "programs_in_capture": 0,
+   "capture_agrees": null,
+   "why_it_matters": "COUNTERFACTUAL: the same 560-tile buffer in the same order. NOT a view, which is why the matmul has to write the destination rather than a ttnn.linear plus a reshape -- if this were free the whole q half of this row would be unnecessary"
+  },
+  {
+   "case": "atom_q_return",
+   "in_logical": [
+    140,
+    4,
+    32,
+    32
+   ],
+   "out_logical": [
+    1,
+    560,
+    32,
+    32
+   ],
+   "shipped": true,
+   "is_view": true,
+   "reason": "second-last dim unchanged",
+   "programs_in_capture": 0,
+   "capture_agrees": true,
+   "why_it_matters": "what atom_qkv_heads returns q as; must be free"
+  },
+  {
+   "case": "atom_kv_return",
+   "in_logical": [
+    140,
+    4,
+    128,
+    32
+   ],
+   "out_logical": [
+    1,
+    560,
+    128,
+    32
+   ],
+   "shipped": true,
+   "is_view": true,
+   "reason": "second-last dim unchanged",
+   "programs_in_capture": 0,
+   "capture_agrees": true,
+   "why_it_matters": "what it returns k and v as; must be free"
+  },
+  {
+   "case": "atom_fallback_kv",
+   "in_logical": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "out_logical": [
+    140,
+    1,
+    128,
+    128
+   ],
+   "shipped": true,
+   "is_view": true,
+   "reason": "second-last dim unchanged",
+   "programs_in_capture": 0,
+   "capture_agrees": true,
+   "why_it_matters": "the shipped chain's own reshape, free -- which is why the atom cost is the pad, the split and the slice and not this"
+  },
+  {
+   "case": "l2_token_merge",
+   "in_logical": [
+    1,
+    16,
+    48,
+    512
+   ],
+   "out_logical": [
+    1,
+    768,
+    512
+   ],
+   "shipped": true,
+   "is_view": false,
+   "reason": "second-last 48 -> 768, and 48 % 32 = 16",
+   "programs_in_capture": 192,
+   "capture_agrees": true,
+   "why_it_matters": "POSITIVE CONTROL: lead L2's merge, measured 0.10483 s over 4800 programs. Fails on the logical head_dim of 48, since 48 % 32 != 0"
+  },
+  {
+   "case": "l2_token_merge_24",
+   "in_logical": [
+    1,
+    16,
+    24,
+    512
+   ],
+   "out_logical": [
+    1,
+    384,
+    512
+   ],
+   "shipped": true,
+   "is_view": false,
+   "reason": "second-last 24 -> 384, and 24 % 32 = 24",
+   "programs_in_capture": 4,
+   "capture_agrees": true,
+   "why_it_matters": "the same site at a 24-wide head, 4 programs in the capture"
+  }
+ ]
+}

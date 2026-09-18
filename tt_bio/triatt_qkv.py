@@ -200,8 +200,15 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config, bias=None,
 # holds window `w`, rows 0..31, channels 32*col..32*col+31, and tile (window, head) of the second
 # holds window `w`, rows 0..31, head `col`'s 32 channels. Only the ttnn Shape differs. So q is
 # head-major by choosing its destination's shape, with no define and no kernel involved.
-# (`ttnn.reshape` cannot do this: it reads the last dim going 128 -> 32 as a re-tiling and moves the
-# data, which is what makes L2's merge expensive. Writing the destination is what is free.)
+#
+# `ttnn.reshape` cannot reach the same thing, and that is ttnn's own rule rather than an analogy:
+# `this_is_view` in the wheel's `reshape_view/reshape.cpp` requires the LAST dimension to be
+# unchanged, and 128 -> 32 fails it, so the call falls through to a real reshape that moves every
+# byte. The same predicate says the reshapes this function DOES rely on --
+# `[K, H, rows, 32] -> [1, K*H, rows, 32]` -- are free, and both halves are checked against the
+# executed capture in `perf/c12_diffusion_head/reshape_view.py`: a reshape the predicate calls a
+# view emits no device program and is absent from the fold's op list, while L2's token merge fails
+# the predicate on its logical head_dim of 48 and duly appears 4800 times at 0.10483 s.
 #
 # The kv half does need the transform, at `HEAD_MAJOR_MT = ATOM_DIM / 32 = 4`, and that is the shape
 # `perf/c12_diffusion_head/tile_map.py` checks as `atom_kv_512aa`.
