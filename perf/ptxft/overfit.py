@@ -121,6 +121,13 @@ def main():
     ap.add_argument("--weight-decay", type=float, default=0.0)
     ap.add_argument("--clip-norm", type=float, default=10.0,
                     help="upstream's own value, configs_base.py:80")
+    ap.add_argument("--accum", type=int, default=0,
+                    help="targets accumulated into one step; 0 means the whole set, "
+                         "which is what a tiny set should use")
+    ap.add_argument("--decay-every", type=int, default=50000,
+                    help="af3_lr step-decay period; upstream is 50000 over a 100k run, "
+                         "so scale it to the run rather than leaving it never firing")
+    ap.add_argument("--decay-factor", type=float, default=0.95)
     ap.add_argument("--warmup", type=int, default=50,
                     help="af3_lr warmup steps; upstream runs 1000-2000 over 100k steps")
     ap.add_argument("--seed", type=int, default=7)
@@ -152,39 +159,57 @@ def main():
               f"head must start exactly there")
         opt = ft.AdamW(params, lr=a.lr, weight_decay=a.weight_decay,
                        clip_norm=a.clip_norm,
-                       schedule=lambda st: ft.af3_lr(st, a.lr,
-                                                     warmup_steps=a.warmup))
+                       schedule=lambda st: ft.af3_lr(
+                           st, a.lr, warmup_steps=a.warmup,
+                           decay_every_n_steps=a.decay_every,
+                           decay_factor=a.decay_factor))
         tg = {p: load_target(p) for p in names}
         hist, failures = [], []
         print()
-        print(f"{'step':>5} {'target':<8} {'loss':>10} {'|g|':>10} {'kept':>7} {'s':>7}")
+        accum = len(names) if a.accum in (0, None) else int(a.accum)
+        print(f"# gradient accumulation: {accum} target(s) per optimizer step")
+        print(f"{'step':>5} {'targets':<8} {'loss':>10} {'|g|':>10} {'kept':>7} {'s':>7}")
         start = None
+        cursor = 0
         for step in range(1, a.steps + 1):
-            p = names[(step - 1) % len(names)]
-            t = tg[p]
-            n = int(t["target"].shape[0])
             t0 = time.perf_counter()
-            loss, out, _lg, seed, _pr = forward_loss(
-                blocks, head, t["z"], t["target"], t["pair_mask"], device,
-                checkpointed=True, n_real=n, want_grad=True)
-            full = np.zeros((out.value.shape[-3], out.value.shape[-2], D.N_BINS), np.float32)
-            full[:n, :n, :] = TB.symmetrize_bins(seed)
             opt.zero_grad()
-            out.backward(seed=ft.to_device(full, device, dtype=ttnn.bfloat16))
+            losses = []
+            # GRADIENT ACCUMULATION IS WHAT MAKES A MULTI-TARGET TINY SET CONVERGE, and it
+            # costs nothing to express: the tape's add_grad already accumulates into
+            # t.grad, so not zeroing between micro-batches IS the accumulation. The seed
+            # carries the 1/accum, so the step sees the mean gradient of the set rather
+            # than the gradient of whichever target came last. Without it, one step fully
+            # fits one target and breaks the other: two targets at lr 1e-4 plateau at CE
+            # 1.10 and 1.50 where a single target reaches 0.234.
+            for _ in range(accum):
+                p = names[cursor % len(names)]
+                cursor += 1
+                t = tg[p]
+                n = int(t["target"].shape[0])
+                loss, out, _lg, seed, _pr = forward_loss(
+                    blocks, head, t["z"], t["target"], t["pair_mask"], device,
+                    checkpointed=True, n_real=n, want_grad=True)
+                losses.append(loss)
+                full = np.zeros((out.value.shape[-3], out.value.shape[-2], D.N_BINS),
+                                np.float32)
+                full[:n, :n, :] = TB.symmetrize_bins(seed) / accum
+                out.backward(seed=ft.to_device(full, device, dtype=ttnn.bfloat16))
             gn = opt.grad_norm()
             rep = opt.step()
             mn = np.sqrt(sum(r["master_step"] ** 2 for r in rep.values()))
             dn = np.sqrt(sum(r["device_step"] ** 2 for r in rep.values()))
             dt = time.perf_counter() - t0
             kept = dn / mn if mn > 0 else float("nan")
+            loss = float(np.mean(losses))
             if start is None:
                 start = loss
             if step <= 4 or step % 25 == 0 or step == a.steps:
-                print(f"{step:>5} {p:<8} {loss:>10.5f} {gn:>10.3e} {kept:>7.3f} "
+                print(f"{step:>5} {accum:<8} {loss:>10.5f} {gn:>10.3e} {kept:>7.3f} "
                       f"{dt:>7.2f}  lr {opt.last_lr:.2e} clip {opt.last_clip:.3f}",
                       flush=True)
-            hist.append({"step": step, "target": p, "loss": loss, "grad_norm": gn,
-                         "kept": kept, "s": dt})
+            hist.append({"step": step, "loss": loss, "grad_norm": gn, "kept": kept,
+                         "s": dt})
         print()
         final = {}
         for p in names:
