@@ -26,9 +26,12 @@ runs `noc_local_state_init` for the kernel's own NOC, so a write issued on the o
 issues and `noc_async_write_barrier` spins forever. That is a first-call device hang at 100 % host
 CPU that looks exactly like a wedged card and is not one.
 
-The gates below are deliberately narrow: bf16 both sides, interleaved DRAM both sides, an
-unpadded activation, a 2-D weight, and the M > N orientation the transcription was verified under.
-Anything else falls through to the stock op.
+The gates below are deliberately narrow: a storage format `mm_generic.fast_dtypes_ok` covers
+(bf16 or bfp8, mixed allowed, one page size per circular buffer), interleaved DRAM both
+sides, an unpadded activation, a 2-D weight, and the M > N orientation the transcription was
+verified under. Anything else falls through to the stock op. Bit-exactness against the stock
+op holds for the bf16 case, which is what ships; a bfp8 destination is one rounding at the
+pack stage and is scored against a float64 reference, not against the bf16 arm.
 """
 
 from __future__ import annotations
@@ -119,8 +122,13 @@ def in_proj(x, w, ckc, dtype, memory_config, split=None):
         return _reject("split_not_uniform", shape)
 
     dev = x.device()
+    # `dtype`, not a hardcoded bf16. While the gate above demanded bf16 the constant was the same
+    # thing the caller asked for; once the gate takes `fast_dtypes_ok` it is not. `_dtype()`
+    # returns bfloat8_b under `_FAST_MODE`, so the widened gate plus this constant would have
+    # admitted a bfp8 request and silently returned a bf16 tensor twice the size the caller sized
+    # its downstream for -- the destination format is a program argument here, so honour it.
     outs = [ttnn.allocate_tensor_on_device(
-        ttnn.Shape(shape[:-1] + [c]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, memory_config)
+        ttnn.Shape(shape[:-1] + [c]), dtype, ttnn.TILE_LAYOUT, dev, memory_config)
         for c in widths]
     G.generic_minimal_matmul(
         dev, x, w, outs, (_MM_DEFAULT, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
