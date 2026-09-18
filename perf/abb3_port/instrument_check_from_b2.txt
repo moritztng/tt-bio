@@ -1,0 +1,6 @@
+
+control (N,CA,C,O backbone) max|delta|=0.64001 CDR-H3=2.660 -- must be >> 0.01 or the check is vacuous
+
+WORST max|delta| over everything: 0.00843  (bar: <= 0.01)
+  round-tripped 22 structures (3 skipped as short), worst region RMSD 0.0000 A at 3go1_H0-L0 rmsd_cdrl3
+PASS
