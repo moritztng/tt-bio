@@ -83,25 +83,40 @@ def check(arms, T):
 
     Setting an attribute nothing reads succeeds silently, so every arm would run the same code and
     the stack would score as a null for a reason that has nothing to do with the levers.
+
+    This used to also assert every flag reads False, on the reasoning that `base` must be the
+    shipped default. That assertion was written when every lever here was unlanded, and it
+    inverted the moment one of them landed: `TT_BIO_DIT_COND_HOIST` shipped on at 2026-09-18 and
+    the harness then refused to run at all, so the instrument that prices a lever broke on the
+    success of the lever it priced. What the measurement actually needs is that each flag EXISTS
+    and is settable per fold, which is what is checked now. `base` is the all-levers-off control
+    and is the right reference for an effect either way; whether it also happens to be the shipped
+    default is a separate fact, so it is RECORDED (`env.shipped_defaults`, `env.base_is_default`)
+    rather than assumed, and the `default` arm measures the shipped configuration directly.
     """
+    shipped = {}
     for arm in arms:
         assert arm in ARMS, f"unknown arm {arm!r}, known: {sorted(ARMS)}"
     for name, (env, attr) in FLAGS.items():
         assert env not in os.environ, f"{env} may not be pinned; the arm is set per fold"
         assert hasattr(T, attr), f"this checkout has no tt_bio.tenstorrent.{attr}"
-        assert getattr(T, attr) is False, f"{attr} does not ship off; base would not be the default"
+        v = getattr(T, attr)
+        assert isinstance(v, bool), f"tt_bio.tenstorrent.{attr} is {v!r}, not a bool flag"
+        shipped[env] = v
     assert hasattr(T, "DiffusionTransformer"), "no DiffusionTransformer to gate"
     if any(ARMS[a] is not None and ARMS[a][2] for a in arms):
         import tt_bio.eltwise_fusion as EF
         for name, (env, attr) in EFLAGS.items():
             assert env not in os.environ, f"{env} may not be pinned; the arm is set per fold"
             assert hasattr(EF, attr), f"this checkout has no tt_bio.eltwise_fusion.{attr}"
-            assert getattr(EF, attr) is False, (
-                f"{attr} does not ship off; base would not be the default")
+            v = getattr(EF, attr)
+            assert isinstance(v, bool), f"tt_bio.eltwise_fusion.{attr} is {v!r}, not a bool flag"
+            shipped[env] = v
         # The fusion helper the lever routes through must itself be live, or both arms run the
         # unfused chain and the lever scores as a null for a reason that is not the lever.
         assert EF.FUSE_MASK_ADD is True, "FUSE_MASK_ADD off: mask_add would not fuse on either arm"
         assert hasattr(T, "mask_add"), "tenstorrent.py does not import mask_add"
+    return shipped
 
 
 def main() -> int:
@@ -133,7 +148,7 @@ def main() -> int:
     _E.set_progress(lambda *a, **k: None)
     assert Path(_TB.__file__).resolve().is_relative_to(REPO), \
         f"imported tt_bio from {_TB.__file__}, not this worktree"
-    check(arms, T)
+    shipped = check(arms, T)
 
     AB.SAMPLING_STEPS, AB.RECYCLING_STEPS = args.steps, args.recycles
     AB.SEED = args.seed
@@ -157,6 +172,11 @@ def main() -> int:
         "commit": os.popen(f"git -C {REPO} rev-parse HEAD").read().strip(),
         "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "loadavg_at_start": os.getloadavg(), "clock_forced_mhz": args.mhz,
+        # Which configuration ships, recorded rather than assumed: `base` sets every lever off, so
+        # it is the shipped default only while every lever is unlanded. Read a delta against base
+        # as "what this lever is worth", and `base_is_default` as "whether base is what users get".
+        "shipped_defaults": shipped,
+        "base_is_default": not any(shipped.values()),
         "protocol": {"arms": arms, "reps": args.reps, "cold_reps": args.cold_reps,
                      "size": args.size, "seed": args.seed,
                      "recycling_steps": args.recycles, "sampling_steps": args.steps},
