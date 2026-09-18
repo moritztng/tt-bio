@@ -22,11 +22,10 @@ import torch
 import ttnn
 
 from tt_bio.abodybuilder3 import TILE, DeviceABB3, to_device_fp32
+from tt_bio.abodybuilder3_output import atom14_from_frames, device_outputs_to_host
 from tt_bio.abodybuilder3_reference import (ABB3Config, ABB3StructureModule,
-                                            frames_to_atom14_positions,
-                                            single_and_pair_features, torsion_angles_to_frames)
+                                            single_and_pair_features)
 from tt_bio.af2_data import RESTYPE_ATOM14_MASK
-from tt_bio.af2_reference import QuatAffine
 from tt_bio.tenstorrent import get_device
 from tt_bio.train import abodybuilder3_grad as grad
 
@@ -34,43 +33,32 @@ DT = torch.float64
 
 
 def host_outputs(out: dict, n_angles: int, *, taped: bool) -> dict:
-    """Reassemble the device outputs into the reference's format, on the host."""
-    def pull(t):
-        return ttnn.to_torch(t.value if taped else t).double()
+    """Every block reassembled into the reference's format, stacked.
 
-    blocks = len(out["states"])
-    frames, angles, unnorm, states = [], [], [], []
-    for i in range(blocks):
-        quat = torch.stack([pull(q) for q in out["quat"][i]], dim=-1)
-        trans = torch.stack([pull(t) for t in out["trans"][i]], dim=-1)
-        frames.append(torch.cat([quat, trans], dim=-1))
-        angles.append(torch.stack([pull(out["sin"][i])[..., :n_angles],
-                                   pull(out["cos"][i])[..., :n_angles]], dim=-1))
-        unnorm.append(torch.stack([pull(out["unnorm_sin"][i])[..., :n_angles],
-                                   pull(out["unnorm_cos"][i])[..., :n_angles]], dim=-1))
-        states.append(pull(out["states"][i]))
-    got = {"frames": torch.stack(frames), "angles": torch.stack(angles),
-           "unnormalized_angles": torch.stack(unnorm), "states": torch.stack(states),
-           "single": pull(out["single"])}
+    The per-block assembly is `abodybuilder3_output.device_outputs_to_host`, which the fold gate and
+    the training loop also call: one convention for turning the device's separate quaternion,
+    translation and sin/cos tensors back into `frames` and `angles`, so a gate and a fold cannot
+    disagree about it.
+    """
+    per_block = [device_outputs_to_host(out, n_angles, taped=taped, block=i)
+                 for i in range(len(out["states"]))]
+    got = {key: torch.stack([b[key] for b in per_block])
+           for key in ("frames", "angles", "unnormalized_angles", "states")}
+    got["single"] = ttnn.to_torch(out["single"].value if taped else out["single"]).double()
     if "plddt" in out:
-        got["plddt"] = pull(out["plddt"])
+        got["plddt"] = ttnn.to_torch(out["plddt"].value if taped else out["plddt"]).double()
     return got
 
 
-def positions(out: dict, aatype: torch.Tensor, block: int = -1) -> torch.Tensor:
-    """Atom14 positions from a block's frames and angles, through the host geometry tail.
 
-    This is the tail the training loop runs: `torsion_angles_to_frames` then
-    `frames_and_literature_positions_to_atom14_pos`, in torch on the host, already scored at
-    <= 8.7e-14 against upstream in float64 by `reference_gate.py`. Running it here on the DEVICE
-    outputs is what turns a relative error on a quaternion into the only unit the accuracy bar is
-    written in: Angstrom on an atom.
+def positions(out: dict, aatype: torch.Tensor, block: int = -1) -> torch.Tensor:
+    """Atom14 positions from a block's frames and angles, through the shared geometry tail.
+
+    Running that tail on the DEVICE outputs is what turns a relative error on a quaternion into the
+    only unit the accuracy bar is written in: Angstrom on an atom.
     """
-    frames = out["frames"][block]
-    affine = QuatAffine(frames[..., :4], frames[..., 4:])
-    rot, trans = torsion_angles_to_frames(aatype, affine.rotation, affine.translation,
-                                          out["angles"][block])
-    return frames_to_atom14_positions(aatype, rot, trans)
+    return atom14_from_frames(out["frames"][block], out["angles"][block], aatype)
+
 
 
 def grads(ref, cfg, args, single, pair, aatype, mask, sq_dev, bias_dev) -> int:

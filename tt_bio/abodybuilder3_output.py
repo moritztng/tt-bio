@@ -20,8 +20,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import torch
+import ttnn
 
 from . import antibody_rmsd
+from .abodybuilder3_reference import frames_to_atom14_positions, torsion_angles_to_frames
+from .af2_reference import QuatAffine
 from ._vendor.esm.utils import residue_constants as _rc
 
 #: Atom names per restype in atom14 order, indexed by the aatype the model consumes. Unknown
@@ -82,3 +85,43 @@ def score_fv(true_pdb: str | Path, pred_pdb: str | Path, regions,
     so there is exactly one place that could ever drift, and it is not ours.
     """
     return antibody_rmsd.score_pdb_pair(true_pdb, pred_pdb, regions, atoms)
+
+
+def device_outputs_to_host(out: dict, n_angles: int, *, taped: bool, block: int = -1) -> dict:
+    """One block's device outputs as the reference's own format: `frames` [B, N, 7], `angles`
+    [B, N, 7, 2] and the un-normalised pair.
+
+    The device carries the quaternion, the translation and the sin/cos blocks as separate tensors,
+    because that is what keeps the rotation a broadcast multiply and the sin/cos normalisation a
+    reduction-free elementwise add. Reassembling them is host bookkeeping and belongs here, in one
+    place, so the parity gate and the fold gate cannot drift into two conventions.
+    """
+    def pull(t):
+        return ttnn.to_torch(t.value if taped else t).double()
+
+    quat = torch.stack([pull(q) for q in out["quat"][block]], dim=-1)
+    trans = torch.stack([pull(t) for t in out["trans"][block]], dim=-1)
+    return {
+        "frames": torch.cat([quat, trans], dim=-1),
+        "angles": torch.stack([pull(out["sin"][block])[..., :n_angles],
+                               pull(out["cos"][block])[..., :n_angles]], dim=-1),
+        "unnormalized_angles": torch.stack([pull(out["unnorm_sin"][block])[..., :n_angles],
+                                            pull(out["unnorm_cos"][block])[..., :n_angles]],
+                                           dim=-1),
+        "states": pull(out["states"][block]),
+    }
+
+
+def atom14_from_frames(frames: torch.Tensor, angles: torch.Tensor,
+                       aatype: torch.Tensor) -> torch.Tensor:
+    """The geometry tail: torsion angles to frames, then frames and literature positions to atom14.
+
+    Host torch, and deliberately so. It is a few thousand gather-heavy operations on `[B, N, 8]`
+    frames and a 21-row rigid-group table -- no FLOPs worth a kernel -- and it is already scored at
+    <= 8.7e-14 against upstream in float64 by `scripts/abb3_port/reference_gate.py`. Keeping it on
+    the host is what lets the four losses be compared against upstream's own `loss.py` without a
+    device port of each.
+    """
+    affine = QuatAffine(frames[..., :4], frames[..., 4:])
+    rot, trans = torsion_angles_to_frames(aatype, affine.rotation, affine.translation, angles)
+    return frames_to_atom14_positions(aatype, rot, trans)
