@@ -47,44 +47,49 @@ def load(path: Path) -> list[dict]:
 def split_last_step(rows: list[dict]) -> tuple[list[dict], str]:
     """The last complete repeat of the step's op sequence.
 
-    Two things make this less trivial than an exact-halves split. The cold warmup step misses the
-    program cache and dispatches a slightly different number of programs (63 fewer here), so
-    halves are not equal and an adjacent-equal-blocks test fails on a file that is periodic at the
-    tail. And the step contains 8 structurally identical IPA blocks, so a probe window taken from
-    the MIDDLE of a step re-matches an inner block and reports a period of ~1000 instead of the
-    step's ~11 700 -- measured, that is exactly what a mid-file cross-check did.
+    `step_probe.py` always runs `--warmup 1 --steps 1`, so the report holds exactly TWO steps and
+    the period has to be close to half the file. That constraint is load-bearing, because a probe
+    window is not unique inside a step and three separate things break a naive split:
 
-    So the probe is always anchored at the END of the file, where the sequence is unique, and it is
-    cross-checked by widening the window rather than by moving it. Three widths that agree on one
-    period, each using the EARLIEST match so an inner repeat cannot shorten it, is the check.
+    * the cold warmup step misses the program cache and dispatches fewer programs than the warm one
+      (63 fewer at accumulate 1), so exact halves are not equal;
+    * the step contains 8 structurally identical IPA blocks, so a window taken from the MIDDLE of
+      the file re-matches an inner block and reports a period of ~1000 instead of ~11 700;
+    * at accumulate > 1 the step is N identical micro-batches, so even a window taken at the END
+      re-matches an earlier micro-batch's end. Measured at accumulate 4: the earliest match gives
+      72 782 where the step is ~48 300, which is 1.5 steps and silently wrong.
+
+    So candidates are all positions where the tail window recurs, and the period chosen is the one
+    closest to half the file. Cross-checked by widening the window rather than moving it.
     """
     codes = [r.get("OP CODE", "") for r in rows]
     n = len(codes)
 
-    def period(width: int) -> int | None:
+    def best_period(width: int) -> int | None:
         probe = codes[n - width:]
-        for i in range(n - width):
-            if codes[i:i + width] == probe:
-                return n - width - i
-        return None
+        cands = [n - width - i for i in range(n - width) if codes[i:i + width] == probe]
+        return min(cands, key=lambda p: abs(p - n / 2)) if cands else None
 
-    widths = [w for w in (200, 500, 1000) if w < n // 2]
-    found = {w: period(w) for w in widths}
+    widths = [w for w in (200, 500, 1000) if w < n // 4]
+    found = {w: best_period(w) for w in widths}
     vals = {v for v in found.values() if v is not None}
     if not vals:
         return [], f"no repeat of the tail's op sequence anywhere in {n} rows"
     if len(vals) > 1:
         return [], f"probe widths disagree on the period: {found} -- refusing to report a step"
     p = vals.pop()
-    if p > n:
-        return [], f"period {p} exceeds the {n} rows captured -- only part of a step was profiled"
-    note = f"period {p} ops, agreed by probe widths {widths} anchored at the file end"
+    off = (p - n / 2) / (n / 2) * 100
+    if abs(off) > 5:
+        return [], (f"period {p} is {off:+.1f} % off half of {n} rows -- the file is not the two "
+                    f"steps this split assumes; refusing to report")
+    note = (f"period {p} ops, agreed by probe widths {widths}, {off:+.2f} % from half of {n} rows "
+            f"(the file is one cold step and one warm one)")
     prev = n - 2 * p
     if prev >= 0:
         same = sum(1 for x, y in zip(codes[n - p:], codes[prev:n - p]) if x == y)
         note += f"; {same}/{p} op codes match the preceding block"
     else:
-        note += f"; the preceding block is short by {2 * p - n} ops (the cold step)"
+        note += f"; the cold step is {2 * p - n} ops shorter"
     return rows[n - p:], note
 
 

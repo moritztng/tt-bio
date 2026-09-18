@@ -1,6 +1,6 @@
 {
- "report": "/home/ttuser/tkd_prof/m4_a2/reports/2026_09_18_22_54_45/ops_perf_results_2026_09_18_22_54_45.csv",
- "split": "period 23970 ops, agreed by probe widths [200, 500, 1000] anchored at the file end; the preceding block is short by 63 ops (the cold step)",
+ "report": "ops_m4_a2.csv",
+ "split": "period 23970 ops, agreed by probe widths [200, 500, 1000], +0.13 % from half of 47877 rows (the file is one cold step and one warm one); the cold step is 63 ops shorter",
  "ops": 23970,
  "device_kernel_ms": 2112.934037,
  "device_fw_ms": 2939.059964,
