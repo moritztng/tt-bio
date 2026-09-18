@@ -221,6 +221,31 @@ def worker(args) -> int:
     return 0
 
 
+# --------------------------------------------------------------------------- preflight
+def preflight(card):
+    """Refuse the session unless BOTH couplings are clear: the board-pair sibling and the host.
+
+    The harness enforces this itself rather than trusting its caller. On 2026-09-18
+    c14-matmul-ceiling took a fold A/B with the sibling idle, benchlock held and the clock forced
+    1350-1350 during every fold, and had to retract the number: the release gate was folding on the
+    other BOARD, and same-host PSU, DRAM and PCIe put the base median 0.37 s above the number of
+    record with a 4.35 % base spread. benchlock does not serialise the gate, and the box read
+    loadavg 1.63 against benchlock's 2.00 ceiling while a fold child burned 100 % CPU, so neither
+    the lock nor the load ceiling is the guard. Exit 75 is benchlock's own "retry later, do not
+    measure anyway".
+    """
+    g = Path(__file__).resolve().parents[1] / "c12_orchestrator" / "pair_guard"
+    lines, ok = [], True
+    for chk, extra in (("pair_idle.py", ["--card", str(card)]), ("host_quiet.py", [])):
+        r = subprocess.run([sys.executable, str(g / chk)] + extra,
+                           capture_output=True, text=True)
+        lines += ["%s: %s" % (chk[:-3], l)
+                  for l in (r.stdout + r.stderr).strip().splitlines()]
+        if r.returncode != 0:
+            ok = False
+    return ok, lines
+
+
 # --------------------------------------------------------------------------- driver
 def driver(args) -> int:
     out: dict = {
@@ -233,6 +258,19 @@ def driver(args) -> int:
         "blocks": [],
     }
     outp = Path(args.out)
+    ok, pf = preflight(args.card)
+    out["preflight"] = {"admissible": ok, "checks": pf}
+    for l in pf:
+        print(l, flush=True)
+    if not ok and not args.force_contended:
+        outp.parent.mkdir(parents=True, exist_ok=True)
+        out["aborted"] = "preflight refused: not an admissible timing read"
+        outp.write_text(json.dumps(out, indent=1))
+        print("REFUSED (exit 75): wait for a clean pair AND a quiet host, or DEFER.", flush=True)
+        return 75
+    if not ok:
+        out["CONTAMINATED"] = ("--force-contended was passed: these seconds are NOT a number of "
+                               "record and must not be quoted")
     tmpdir = Path(tempfile.mkdtemp(prefix="c14-apb-driver-", dir=str(REPO / "perf" / "c14_land")))
 
     def save():
@@ -318,6 +356,9 @@ def main() -> int:
     ap.add_argument("--folds", type=int, default=3)
     ap.add_argument("--card", default="0")
     ap.add_argument("--cifdir", default=None)
+    # Deliberately awkward to reach: a contended session produces a void, and pass 1 already spent
+    # three of them. It exists only so a screen can be taken knowingly, stamped CONTAMINATED.
+    ap.add_argument("--force-contended", action="store_true")
     # worker-only
     ap.add_argument("--arm", choices=["base", "on"])
     ap.add_argument("--flag", default="TT_BIO_APB_CONCAT_HEADS", choices=sorted(FLAGS))

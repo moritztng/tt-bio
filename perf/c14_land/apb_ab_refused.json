@@ -1,0 +1,22 @@
+{
+ "started_utc": "2026-09-18T14:23:39Z",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "note": "One process per arm: TT_BIO_APB_CONCAT_HEADS is consumed at model construction and re-lanes proj_g/proj_o, so it cannot be flipped in process. Arms interleaved block by block; the A/A floor is the spread across the base blocks, compared the same way base is compared to apb.",
+ "blocks": [],
+ "preflight": {
+  "admissible": false,
+  "checks": [
+   "pair_idle: my card 3: no fd",
+   "pair_idle: sibling 2: no fd",
+   "pair_idle: ",
+   "pair_idle: sibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+   "host_quiet: release_gate pid 165327 live (owner c13-land-first) -- it folds in ~20 s children, so an instantaneous device check does not see it",
+   "host_quiet: release_gate pid 165328 live (owner c13-land-first) -- it folds in ~20 s children, so an instantaneous device check does not see it",
+   "host_quiet: device fd holder pid 745839 BUSY (727 ticks/2s, owner c13-land-first): /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s",
+   "host_quiet: loadavg1 1.78 (ceiling 2.00)",
+   "host_quiet: HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+  ]
+ },
+ "aborted": "preflight refused: not an admissible timing read"
+}
