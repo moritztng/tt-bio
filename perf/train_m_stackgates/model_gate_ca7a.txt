@@ -1,0 +1,26 @@
+2026-09-18 22:52:16.240 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+  sigma 0.05, 8 blocks, batch 2 x 64 tokens
+  output                    rel err   on vs off
+  ok   frames              7.66e-04    0.00e+00  (bars 5e-2 / 0)
+  ok   angles              1.47e-02    0.00e+00  (bars 5e-2 / 0)  [unconditional 3.71e-02 on 7000 angles; 6927 well-conditioned]
+  ok   unnormalized_angles   3.05e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   states              4.94e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   single              4.47e-03    0.00e+00  (bars 5e-2 / 0)
+  ok   plddt               1.60e-03    0.00e+00  (bars 5e-2 / 0)
+  grad off  atom14 positions: max 0.014 A, rmsd 0.004 A, median 0.0021 A over 1037 atoms
+  grad on   atom14 positions: max 0.014 A, rmsd 0.004 A, median 0.0021 A over 1037 atoms
+  gradient                         cos    L2 rel   max rel   sigma 0.05, bars tight
+  ok   d/d single             0.999681  2.53e-02  6.34e-02  (bars 0.999 / 5e-02)
+  ok   d/d pair               0.999723  2.35e-02  4.80e-02  (bars 0.999 / 5e-02)
+  ok   d/d linear_in_node.w   0.999617  2.78e-02  3.94e-02  (bars 0.999 / 5e-02)
+  ok   d/d linear_in_edge.w   0.999561  3.00e-02  2.87e-02  (bars 0.999 / 5e-02)
+  ok   d/d ipa[0] linear_q.w  0.999823  1.89e-02  2.03e-02  (bars 0.999 / 5e-02)
+  ok   d/d bb_update[7].w[0]  0.999993  4.81e-03  5.64e-03  (bars 0.999 / 5e-02)
+  ok   d/d angle[7] linear_out.w  0.999975  7.21e-03  9.85e-03  (bars 0.999 / 5e-02)
+  float32 control (torch vs torch, same weights)
+       forward states              nan  2.18e-03
+       d/d single             1.000000  9.34e-07
+       d/d pair               1.000000  7.33e-07
+       d/d ipa[0] linear_q.w  1.000000  8.77e-07
+
+PASS
