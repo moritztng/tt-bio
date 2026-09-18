@@ -4201,6 +4201,27 @@ _MM_IN1_BLOCK_TILES = 30
 #: Whether a SHORT-M 2-D projection gets a fitted `in0_block_w` instead of the 1 ttnn derives.
 #: Release-gated and default OFF: a wider inner block accumulates the contraction in a different
 #: order, so it is not bit-exact (measured, perf/c14_matmul_ceiling/bwladder_b3.json).
+#:
+#: NOT Boltz-2-only. `_short_m_proj_config`'s only call site is
+#: `ConditionedTransitionBlock._proj`, in this file, and `rf3/token_dit.py` imports its way into
+#: it through the shared `DiffusionTransformer`. Counted rather than grepped, on a 117 aa RF3 fold
+#: (`perf/c14_matmul_ceiling/fire_rf3_shim.json`): **4,419 of 4,419 calls served, 0 declined**, on
+#: (1,29,32,128)x(128,256) 594, (1,29,32,256)x(256,128) 297, (1,117,768)x(768,1536) 2,352 and
+#: (1,117,1536)x(1536,768) 1,176. Boltz-2 at 512 aa serves 19,200 and declines 4,800 per fold.
+#: RF3 therefore gets the rule on four shapes that were never in its fitted set, and any change
+#: to `_MM_IN1_BLOCK_TILES` moves RF3 too.
+#:
+#: Accuracy, both models, CA-lDDT against the EXPERIMENTAL structure, which is the only screen
+#: with power on this class (`state/b2z2-union-land.md:66`: a structural-RMSD-against-seed-scatter
+#: reading cleared `TT_BIO_UNFUSED_SILU` on Protenix-v2 while native CA-lDDT separated the arms
+#: completely). Four seeds, interleaved, arm order reversed on odd seeds, A/A bit-exact and
+#: 0.000000 in every domain:
+#:   rf3 7ROA        base 0.940131  bw 0.940581  paired +0.000450 CI +/-0.001138  seed spread 0.0054
+#:   boltz2 copy1    base 0.937552  bw 0.939291  paired +0.001739 CI +/-0.003130  seed spread 0.0274
+#:   boltz2 copy2    base 0.915806  bw 0.917025  paired +0.001219 CI +/-0.005315  seed spread 0.0238
+#: Unresolved and not rank-separated anywhere, sign positive everywhere, against a silu-class
+#: regression of -0.0509/-0.0721 CA-lDDT that is 16-65x these CIs. Artifacts
+#: `perf/c14_matmul_ceiling/acc_rf3.json` and `acc_b2_512.json`.
 _MM_SHORT_M_BW = env_flag("TT_BIO_MM_SHORT_M_BW", False)
 
 
