@@ -1,0 +1,586 @@
+{
+ "doc": "Paired same-seed accuracy folds for the bfp8 regions, one process, one device, one model load.\n\nThis row edits no production code. An arm is a set of module globals in `tt_bio.tenstorrent`\npatched between folds, which works because every one of them is read at CALL time\n(`_triatt_dtype()` returns `bfloat8_b if _TRIATT_B8 else _dtype()`), not at import. Running the\narms in one process is what makes the comparison paired: same device, same program cache, same\nweights, same MSA, and the seed set on the config rather than on the interpreter.\n\nArms (see --list). `base` touches nothing and is the reference every other arm is read against.\nThe last fold repeats the first, and that repeat is the A/A control: if it is not 0.0000 A the\npaired read above is not the lever.\n\nBoth sizes matter and neither substitutes for the other. cdk2x2_298 is the fixture the 0.35/0.60 A\nbar is written against; cdk2x2_512 is the production size and is chimeric, so whole-molecule RMSD\non it reads its unconstrained hinge and the per-pseudo-domain / CA-lDDT readings from\nperf/b2z2_fusebias/score.py are what decide there. A 298 aa pass is not evidence at 512 aa:\nb2z's transition site scored 0.266 A at 298 aa and moved the 512 aa fold 13.21 A.\n\nAICLK is sampled DURING each fold off the driver's own telemetry, per fold, min/median/max.\n\n    fold_b8.py --out <json> --cifdir <dir> --sizes 512 --plan base:0,1,2,3;T:0,1,2,3\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "torch": "2.8.0+cpu",
+  "tt_visible_devices": "3",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!3",
+  "bias_suppressor_installed": false,
+  "tt_bio_file": "/home/ttuser/.coworker/wt/bfp8-z-accumulator/tt_bio/__init__.py",
+  "commit": "8f06545dafbff951248f77e4b4aaf8c7847e5bd6",
+  "started_utc": "2026-09-18T15:27:42Z",
+  "loadavg": [
+   1.37158203125,
+   2.31494140625,
+   2.54541015625
+  ],
+  "arms": {
+   "base": {}
+  },
+  "protocol": {
+   "recycling_steps": 3,
+   "sampling_steps": 200,
+   "plan": "base:0,1,2,3"
+  }
+ },
+ "runs": [
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 19.432,
+   "sha256": "45781db716ebf020",
+   "aiclk": {
+    "n": 34,
+    "min": 1312,
+    "median": 1343,
+    "max": 1350
+   },
+   "region_on": {},
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 0,
+    "calls": 0,
+    "declined": 0
+   },
+   "levers": {
+    "reblock_permute.STATS_BACK": [
+     560,
+     0
+    ],
+    "reblock_permute.STATS_GATED": [
+     1120,
+     0
+    ],
+    "mm_dualnoc.STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.QKVGB_STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.QKVG_STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.TAIL_STATS": [
+     560,
+     0
+    ],
+    "triatt_sdpa.STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5064
+    ],
+    "tenstorrent.ATOM_AXIS_BUCKET_STATS": [
+     200,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     1200,
+     0
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     4800,
+     0
+    ],
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     16
+    ],
+    "tenstorrent.PAIR_Z_B8_STATS": [
+     0,
+     5
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     16,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     296,
+     0
+    ],
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     528,
+     0
+    ],
+    "wrap.PAIR_PROJ_MINIMAL_MATMUL": [
+     0,
+     0
+    ]
+   },
+   "plddt": 0.845919,
+   "tag": "base-s0"
+  },
+  {
+   "arm": "base",
+   "seed": 1,
+   "target": "cdk2x2_512",
+   "fold_s": 14.71,
+   "sha256": "ef9400e7dd4cc790",
+   "aiclk": {
+    "n": 28,
+    "min": 1306,
+    "median": 1343,
+    "max": 1350
+   },
+   "region_on": {},
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 0,
+    "calls": 0,
+    "declined": 0
+   },
+   "levers": {
+    "reblock_permute.STATS_BACK": [
+     560,
+     0
+    ],
+    "reblock_permute.STATS_GATED": [
+     1120,
+     0
+    ],
+    "mm_dualnoc.STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.QKVGB_STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.QKVG_STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.TAIL_STATS": [
+     560,
+     0
+    ],
+    "triatt_sdpa.STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5064
+    ],
+    "tenstorrent.ATOM_AXIS_BUCKET_STATS": [
+     200,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     1200,
+     0
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     4800,
+     0
+    ],
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     16
+    ],
+    "tenstorrent.PAIR_Z_B8_STATS": [
+     0,
+     5
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     16,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     296,
+     0
+    ],
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     528,
+     0
+    ],
+    "wrap.PAIR_PROJ_MINIMAL_MATMUL": [
+     0,
+     0
+    ]
+   },
+   "plddt": 0.862263,
+   "tag": "base-s1"
+  },
+  {
+   "arm": "base",
+   "seed": 2,
+   "target": "cdk2x2_512",
+   "fold_s": 15.147,
+   "sha256": "e161d657e826f80d",
+   "aiclk": {
+    "n": 28,
+    "min": 1312,
+    "median": 1343,
+    "max": 1350
+   },
+   "region_on": {},
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 0,
+    "calls": 0,
+    "declined": 0
+   },
+   "levers": {
+    "reblock_permute.STATS_BACK": [
+     560,
+     0
+    ],
+    "reblock_permute.STATS_GATED": [
+     1120,
+     0
+    ],
+    "mm_dualnoc.STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.QKVGB_STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.QKVG_STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.TAIL_STATS": [
+     560,
+     0
+    ],
+    "triatt_sdpa.STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5064
+    ],
+    "tenstorrent.ATOM_AXIS_BUCKET_STATS": [
+     200,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     1200,
+     0
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     4800,
+     0
+    ],
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     16
+    ],
+    "tenstorrent.PAIR_Z_B8_STATS": [
+     0,
+     5
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     16,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     296,
+     0
+    ],
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     528,
+     0
+    ],
+    "wrap.PAIR_PROJ_MINIMAL_MATMUL": [
+     0,
+     0
+    ]
+   },
+   "plddt": 0.854541,
+   "tag": "base-s2"
+  },
+  {
+   "arm": "base",
+   "seed": 3,
+   "target": "cdk2x2_512",
+   "fold_s": 15.126,
+   "sha256": "008af0e5ad1fd096",
+   "aiclk": {
+    "n": 29,
+    "min": 1325,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {},
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 0,
+    "calls": 0,
+    "declined": 0
+   },
+   "levers": {
+    "reblock_permute.STATS_BACK": [
+     560,
+     0
+    ],
+    "reblock_permute.STATS_GATED": [
+     1120,
+     0
+    ],
+    "mm_dualnoc.STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.QKVGB_STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.QKVG_STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.TAIL_STATS": [
+     560,
+     0
+    ],
+    "triatt_sdpa.STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5064
+    ],
+    "tenstorrent.ATOM_AXIS_BUCKET_STATS": [
+     200,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     1200,
+     0
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     4800,
+     0
+    ],
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     16
+    ],
+    "tenstorrent.PAIR_Z_B8_STATS": [
+     0,
+     5
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     16,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     296,
+     0
+    ],
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     528,
+     0
+    ],
+    "wrap.PAIR_PROJ_MINIMAL_MATMUL": [
+     0,
+     0
+    ]
+   },
+   "plddt": 0.875384,
+   "tag": "base-s3"
+  },
+  {
+   "arm": "base",
+   "seed": 0,
+   "target": "cdk2x2_512",
+   "fold_s": 15.194,
+   "sha256": "45781db716ebf020",
+   "aiclk": {
+    "n": 28,
+    "min": 1325,
+    "median": 1350,
+    "max": 1350
+   },
+   "region_on": {},
+   "env_on": {},
+   "bias_suppressed": false,
+   "bias_forced_bf16": false,
+   "sdpa_calls": 0,
+   "sdpa_calls_bfp8_bias": 0,
+   "bias_downcast_fired": 0,
+   "dualnoc": {
+    "asked_b8": 0,
+    "calls": 0,
+    "declined": 0
+   },
+   "levers": {
+    "reblock_permute.STATS_BACK": [
+     560,
+     0
+    ],
+    "reblock_permute.STATS_GATED": [
+     1120,
+     0
+    ],
+    "mm_dualnoc.STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.QKVGB_STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.QKVG_STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.STATS": [
+     560,
+     0
+    ],
+    "triatt_qkv.TAIL_STATS": [
+     560,
+     0
+    ],
+    "triatt_sdpa.STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     5064
+    ],
+    "tenstorrent.ATOM_AXIS_BUCKET_STATS": [
+     200,
+     0
+    ],
+    "tenstorrent.ATOM_SHIFT_GATHER_STATS": [
+     1200,
+     0
+    ],
+    "tenstorrent.B2_TOKEN_DIT_SDPA_STATS": [
+     4800,
+     0
+    ],
+    "tenstorrent.OPM_SMALL_DEPTH_STATS": [
+     0,
+     16
+    ],
+    "tenstorrent.PAIR_Z_B8_STATS": [
+     0,
+     5
+    ],
+    "tenstorrent.PWA_BATCH_HEAD_STATS": [
+     16,
+     0
+    ],
+    "tenstorrent.RESIDUAL_L1_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     296,
+     0
+    ],
+    "tenstorrent.TRIMUL_GOUT_STATS": [
+     560,
+     0
+    ],
+    "tenstorrent.TRIMUL_MASK_L1_STATS": [
+     528,
+     0
+    ],
+    "wrap.PAIR_PROJ_MINIMAL_MATMUL": [
+     0,
+     0
+    ]
+   },
+   "plddt": 0.845919,
+   "tag": "base-s0_r1"
+  }
+ ],
+ "model_load_s": 4.147,
+ "aa_floor_identical": {
+  "512": true
+ },
+ "aiclk_session": {
+  "min": 1306,
+  "max": 1350
+ }
+}
