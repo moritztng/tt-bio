@@ -21,6 +21,10 @@ import torch
 from tt_bio.train.abb3_dataset import (SabdabFvs, UNKNOWN_AATYPE, bucket_tokens,
                                        resolve_split)
 
+#: A stand-in card. Passing one keeps these tests off the hardware; the laziness of the REAL
+#: resolution is checked separately below, without opening anything.
+_STUB = object()
+
 REAL_STRUCTURES = Path("/home/ttuser/abb3_data/data/structures/structures")
 REAL_SPLIT = Path("/home/ttuser/abb3_src/ABodyBuilder3/data/split.csv")
 REAL_TRUE = Path("/home/ttuser/abb3/base-loss/true")
@@ -99,7 +103,7 @@ def test_the_assembler_produces_exactly_the_contract_the_step_reads(staged, monk
 
     ids, root = staged
     cfg = _cfg()
-    mb = SabdabFvs(ids, root, cfg, device=None).micro_batch([0, 1, 2])
+    mb = SabdabFvs(ids, root, cfg, device=_STUB).batch([0, 1, 2])
     syn = synthetic_micro_batch(cfg, 3, mb["tokens"], 0, None)
 
     assert set(mb["targets"]) == set(syn["targets"]), (
@@ -116,7 +120,7 @@ def test_the_assembler_produces_exactly_the_contract_the_step_reads(staged, monk
 def test_the_token_axis_is_a_whole_number_of_tiles(staged, monkeypatch):
     _no_device(monkeypatch)
     ids, root = staged
-    mb = SabdabFvs(ids, root, _cfg(), device=None).micro_batch([0, 1, 2])
+    mb = SabdabFvs(ids, root, _cfg(), device=_STUB).batch([0, 1, 2])
     assert mb["tokens"] % 32 == 0
     assert mb["tokens"] == 256, "241 is the longest of the three, so the bucket is 256"
     assert bucket_tokens(1) == 32 and bucket_tokens(256) == 256 and bucket_tokens(257) == 288
@@ -132,8 +136,8 @@ def test_padding_is_masked_and_the_two_degenerate_pads_are_not_zero(staged, monk
     """
     _no_device(monkeypatch)
     ids, root = staged
-    ds = SabdabFvs(ids, root, _cfg(), device=None)
-    mb = ds.micro_batch([0, 1, 2])
+    ds = SabdabFvs(ids, root, _cfg(), device=_STUB)
+    mb = ds.batch([0, 1, 2])
     t, n_tok = mb["targets"], mb["tokens"]
     for j, n in enumerate((227, 241, 209)):
         assert t["seq_mask"][j, :n].all() and not t["seq_mask"][j, n:].any()
@@ -160,13 +164,54 @@ def test_an_fv_longer_than_a_fixed_axis_is_refused_rather_than_cropped(staged, m
     ids, root = staged
     ds = SabdabFvs(ids, root, _cfg(), device=None, tokens=128)
     with pytest.raises(ValueError, match="different experiment"):
-        ds.micro_batch([0])
+        ds.batch([0])
 
 
 def test_a_missing_structure_is_caught_at_construction_not_at_step_one(staged, tmp_path):
     ids, root = staged
     with pytest.raises(FileNotFoundError, match="no .pt"):
-        SabdabFvs(ids + ["nope_H0-L0"], root, _cfg(), device=None)
+        SabdabFvs(ids + ["nope_H0-L0"], root, _cfg(), device=_STUB)
+
+
+def test_device_resolves_lazily_so_a_dp_driver_can_build_a_dataset_holding_no_card(staged):
+    """Constructing a dataset must open nothing. A contract term, not tidiness.
+
+    Data parallelism here is one process per chip, so the driver that spawns the ranks has to
+    reach the launcher holding no card. A dataset that resolved a device in its constructor
+    would take a chip in the driver and the launcher would refuse to start.
+
+    Checked without a card and without ``hasattr``, which CALLS a property to find out whether
+    it exists -- the exact move ``catalogue.load`` avoids for this reason.
+    """
+    from tt_bio.train import catalogue
+    from tt_bio.train.abb3_dataset import SabdabFvs, SyntheticFvs, _LazyDevice
+
+    ids, root = staged
+    for ds in (SabdabFvs(ids, root, _cfg()), SyntheticFvs(8, _cfg(), 4, 256)):
+        assert isinstance(type(ds).__dict__["device"], _LazyDevice)
+        assert vars(ds).get("_device") is None, "the constructor resolved a device"
+        # Member for member, what catalogue.load itself does.
+        missing = [m for m in catalogue.REQUIRED_DATASET_MEMBERS
+                   if not (hasattr(type(ds), m) or m in vars(ds))]
+        assert not missing, f"{type(ds).__name__} is missing {missing}"
+        assert vars(ds).get("_device") is None, "the contract check itself opened a device"
+        ds.device = _STUB
+        assert ds.device is _STUB
+
+
+def test_abodybuilder3_is_registered_so_tier_0_can_reach_it():
+    """`tt-bio finetune --model abodybuilder3` resolves without importing the run loop."""
+    from tt_bio.train import abb3_dataset, catalogue
+    abb3_dataset.register()
+    assert "abodybuilder3" in catalogue.names()
+    abb3_dataset.register()          # idempotent: registering twice is not an error
+    assert catalogue.names().count("abodybuilder3") == 1
+
+
+def test_the_adapter_refuses_a_root_with_no_structures_and_names_where_to_get_them(tmp_path):
+    from tt_bio.train.abb3_dataset import abodybuilder3_adapter
+    with pytest.raises(NotImplementedError, match="structures"):
+        abodybuilder3_adapter(tmp_path)
 
 
 @pytest.mark.skipif(not (REAL_STRUCTURES.is_dir() and REAL_SPLIT.is_file()),
@@ -176,7 +221,7 @@ def test_the_same_checks_hold_on_the_real_staged_split(monkeypatch):
     _no_device(monkeypatch)
     ids = resolve_split(REAL_SPLIT, REAL_TRUE if REAL_TRUE.is_dir() else None)["train"]
     assert len(ids) == 8395
-    mb = SabdabFvs(ids, REAL_STRUCTURES, _cfg(), device=None).micro_batch([0, 1, 2, 3])
+    mb = SabdabFvs(ids, REAL_STRUCTURES, _cfg(), device=_STUB).batch([0, 1, 2, 3])
     assert mb["tokens"] % 32 == 0
     t = mb["targets"]
     assert not any(torch.isnan(v).any() for v in t.values() if torch.is_floating_point(v))

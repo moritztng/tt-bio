@@ -15,6 +15,19 @@ without touching the mechanism being checked.
 pretends otherwise.** That is ``scripts/abb3_port/loss_gate.py``'s job and it is already
 bit-exact against upstream's own ``loss.py``. The accuracy claim belongs to the real dataset and
 to the 250-structure evaluation at the end of the run.
+
+Both datasets satisfy ``catalogue.REQUIRED_DATASET_MEMBERS`` -- ``__len__``, ``tokens``,
+``device`` and ``batch(indices) -> dict`` -- so ``tt-bio finetune --model abodybuilder3``
+reaches them without importing the run loop.
+
+**``device`` is a lazy property and must stay one.** Data parallelism here is one process per
+chip, so the driver that spawns the ranks has to reach the launcher holding no card; a dataset
+that resolved a device while being constructed would take a chip in the driver and the launcher
+would refuse to start. Constructing a dataset therefore opens nothing, and the first ``batch()``
+is what resolves the card. ``catalogue.load`` looks the four members up on the class and in
+``vars()`` rather than with ``hasattr`` for the same reason -- ``hasattr`` CALLS a property to
+find out whether it exists, which is how a contract check comes to open the device it is
+checking is not opened.
 """
 
 from __future__ import annotations
@@ -41,6 +54,33 @@ STEPS_PER_EPOCH = 132
 DROP_LAST = False
 
 _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts" / "abb3_port"
+
+
+class _LazyDevice:
+    """``dataset.device``, resolved on first USE and never at construction.
+
+    A descriptor rather than a ``@property`` on each class, so the two datasets cannot drift
+    apart on the one member whose timing is load-bearing. Reading it opens the card; building
+    the dataset does not, which is what lets a data-parallel driver construct one and hand the
+    ranks their own.
+    """
+
+    def __set_name__(self, owner, name):
+        self.slot = f"_{name}"
+
+    def __get__(self, obj, owner=None):
+        if obj is None:
+            return self          # class access, e.g. catalogue's contract check -- opens nothing
+        dev = getattr(obj, self.slot, None)
+        if dev is None:
+            from ..tenstorrent import get_device
+            dev = get_device()
+            setattr(obj, self.slot, dev)
+        return dev
+
+    def __set__(self, obj, value):
+        setattr(obj, self.slot, value)
+
 
 
 def resolve_split(split_csv, released_true_dir=None) -> dict:
@@ -97,17 +137,20 @@ class SyntheticFvs:
     inputs at every step and any divergence is the mechanism rather than the data.
     """
 
-    def __init__(self, n: int, cfg, micro: int, tokens: int, device):
+    def __init__(self, n: int, cfg, micro: int, tokens: int, device=None):
         if str(_SCRIPTS) not in sys.path:
             sys.path.insert(0, str(_SCRIPTS))
         from step_gate import synthetic_micro_batch
         self._make = synthetic_micro_batch
-        self.n, self.cfg, self.micro, self.tokens, self.device = n, cfg, micro, tokens, device
+        self.n, self.cfg, self.micro, self.tokens = n, cfg, micro, tokens
+        self._device = device
+
+    device = _LazyDevice()
 
     def __len__(self) -> int:
         return self.n
 
-    def micro_batch(self, indices) -> dict:
+    def batch(self, indices) -> dict:
         """One micro-batch. The indices set the seed, so the batch is reproducible from them.
 
         The whole micro-batch takes one seed derived from its indices rather than one sample
@@ -184,10 +227,13 @@ class SabdabFvs:
     removes them from attention either way.
     """
 
-    def __init__(self, ids, root, cfg, device, *, tokens: int | None = None):
+    device = _LazyDevice()
+
+    def __init__(self, ids, root, cfg, device=None, *, tokens: int | None = None):
         self.ids = list(ids)
         self.root = Path(root)
-        self.cfg, self.device = cfg, device
+        self.cfg = cfg
+        self._device = device
         #: Fixed token axis when given, else per-micro-batch bucketing off the longest member.
         #: Fixed costs one compile and wastes work on short Fvs; bucketing costs one compile per
         #: distinct bucket and there are few, since the Fv length distribution is narrow (median
@@ -206,8 +252,14 @@ class SabdabFvs:
     def load(self, index: int) -> dict:
         return torch.load(self.root / f"{self.ids[int(index)]}.pt", weights_only=False)
 
-    def micro_batch(self, indices) -> dict:
-        """Stack, pad and featurise. Returns the dict ``TrainStep.micro_batch`` reads."""
+    def batch(self, indices) -> dict:
+        """Stack, pad and featurise. Returns the dict ``TrainStep.micro_batch`` reads.
+
+        Named ``batch`` because that is ``catalogue.REQUIRED_DATASET_MEMBERS``. It returns one
+        DEVICE micro-batch; the run calls it once per micro-batch and the optimizer step spans
+        several, so the two senses of "batch" are the loop's to reconcile and not this method's
+        to rename around.
+        """
         from ..abodybuilder3 import to_device_fp32
         from ..abodybuilder3_reference import single_and_pair_features
 
@@ -304,3 +356,92 @@ def _pad_unit_sin_cos(raw, key, b, n_tok):
         t = d[key]
         out[j, :t.shape[0]] = t.to(torch.float32)
     return out
+
+
+# ------------------------------------------------------------------ Tier 0 reachability
+
+#: Where the reproduction's inputs live on qb2. Defaults, not policy: the adapter takes its data
+#: root from the command line and only falls back to these when the caller gives it nothing.
+DEFAULT_SPLIT_CSV = Path("/home/ttuser/abb3_src/ABodyBuilder3/data/split.csv")
+DEFAULT_RELEASED_TRUE = Path("/home/ttuser/abb3/base-loss/true")
+
+
+def _structures_dir(root: Path) -> Path:
+    """The directory holding ``*.pt``, found from whatever the user pointed at.
+
+    Accepts the data root, the ``structures`` directory inside it, or the leaf itself, because
+    all three are things a reader of upstream's tarball would reasonably pass.
+    """
+    for candidate in (root / "structures" / "structures", root / "structures", root):
+        if candidate.is_dir() and any(candidate.glob("*.pt")):
+            return candidate
+    raise NotImplementedError(
+        f"no ABodyBuilder3 structures under {root}. Expected {root}/structures/structures/*.pt "
+        f"from data.tar.gz of Zenodo 10.5281/zenodo.11354577, extracted with "
+        f"`tar xzf data.tar.gz`")
+
+
+def _training_ids(root: Path, structures: Path) -> list:
+    """Upstream's own training split when it can be found, else every structure present.
+
+    The split is never GUESSED: either their ``split.csv`` is there and its 8,395 training rows
+    are used, cross-checked against their released predictions, or the adapter says plainly that
+    it is training on everything it found. Silently substituting "all 11,820" for "their 8,395"
+    is the difference between reproducing their result and running a different experiment, and
+    it is invisible in the loss curve.
+    """
+    for candidate in (root / "split.csv", DEFAULT_SPLIT_CSV):
+        if candidate.is_file():
+            true_dir = DEFAULT_RELEASED_TRUE if DEFAULT_RELEASED_TRUE.is_dir() else None
+            return resolve_split(candidate, true_dir)["train"]
+    return sorted(p.stem for p in structures.glob("*.pt"))
+
+
+def abodybuilder3_adapter(path, tokens=None):
+    """``(path, tokens=None) -> (forward, dataset)`` for ``tt-bio finetune --model abodybuilder3``.
+
+    Both halves resolve their device LAZILY. The dataset's is a descriptor; the forward builds
+    its device model on the first call rather than here, because uploading weights opens a card
+    and a data-parallel driver has to reach the launcher holding none.
+    """
+    from ..abodybuilder3_reference import ABB3Config
+    root = Path(path)
+    structures = _structures_dir(root)
+    cfg = ABB3Config(use_plddt=False, no_blocks=8)
+    ds = SabdabFvs(_training_ids(root, structures), structures, cfg, tokens=tokens)
+
+    ckpt = next((c for c in (root / "best_second_stage.ckpt",
+                             root / "base-loss" / "best_second_stage.ckpt") if c.is_file()), None)
+    state = {"model": None}
+
+    def forward(b):
+        if state["model"] is None:
+            import torch
+            from ..abodybuilder3 import DeviceABB3, to_device_fp32
+            from ..abodybuilder3_reference import load_abb3_model
+            if ckpt is None:
+                raise NotImplementedError(
+                    f"no ABodyBuilder3 checkpoint beside {root}. Fine-tuning adapts a TRAINED "
+                    f"model, so this refuses rather than quietly adapting a random "
+                    f"initialisation, which would produce a healthy-looking loss curve for "
+                    f"nothing. Put base-loss/best_second_stage.ckpt from Zenodo "
+                    f"10.5281/zenodo.11354577 there, or train from scratch with "
+                    f"scripts/abb3_port/repro.py, which is what the reproduction itself uses")
+            ref = load_abb3_model(torch.load(ckpt, weights_only=False)["state_dict"])
+            state["model"] = DeviceABB3(ref.state_dict(), cfg, to_device=to_device_fp32)
+        m = state["model"]
+        return m(b["single_d"], b["pair_d"], b["square_d"], b["bias_d"])
+
+    return forward, ds
+
+
+def register() -> None:
+    """Put ABodyBuilder3 in the catalogue. Idempotent, so importing twice is not an error.
+
+    Called from ``cli.py`` at the point it resolves a featuriser rather than at package import,
+    which keeps ``--dry-run`` free of everything this module pulls in and keeps the registry
+    honest about what is actually reachable.
+    """
+    from . import catalogue
+    if "abodybuilder3" not in catalogue.names():
+        catalogue.register("abodybuilder3", abodybuilder3_adapter)

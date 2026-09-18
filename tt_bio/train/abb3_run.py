@@ -203,7 +203,7 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
     """Train ``step`` on ``dataset`` for ``cfg.steps`` optimizer steps, resuming if it can.
 
     ``step`` is a ``tt_bio.train.abodybuilder3_step.TrainStep`` built at ``cfg.accumulate``.
-    ``dataset`` needs ``__len__`` and ``micro_batch(indices) -> dict`` returning the sample
+    ``dataset`` needs ``__len__`` and ``batch(indices) -> dict`` returning the sample
     dict the step reads. Featurisation stays the model's, per r3: a shared data layer across
     model families would have to model every family's cropping, which is the part that is
     genuinely different.
@@ -254,7 +254,7 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
         for batch in plan:
             gs = batch.step + 1
             mine = batch.per_chip[cfg.rank]
-            micros = [dataset.micro_batch(mine[i:i + cfg.micro_batch])
+            micros = [dataset.batch(mine[i:i + cfg.micro_batch])
                       for i in range(0, len(mine), cfg.micro_batch)]
             t0 = time.perf_counter()
             parts, timing = step.step(micros)

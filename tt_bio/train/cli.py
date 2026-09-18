@@ -251,7 +251,13 @@ def finetune(data, model, out_dir, global_batch, steps, objective, recipe, token
 
     # The featuriser is resolved before anything reaches a device, so a model with no
     # training adapter registered costs a message rather than a card and a traceback.
+    from . import abb3_dataset
     from .catalogue import load
+
+    # Registered here rather than at package import, so `--dry-run` above stays free of
+    # everything the featuriser pulls in and the registry keeps telling the truth about what a
+    # real run can reach.
+    abb3_dataset.register()
     try:
         forward, dataset = load(model, Path(data), tokens=tokens)
     except NotImplementedError as exc:
