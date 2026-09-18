@@ -46,7 +46,7 @@ def arm(out: Path, chips: list, args, round_no: int) -> dict:
            "--blocks", str(args.blocks), "--seed", str(args.seed),
            "--global-batch", str(args.global_batch),
            "--checkpoint-minutes", "600", "--max-restarts", "0",
-           "--rendezvous", args.rendezvous]
+           "--rendezvous", args.rendezvous, "--data", args.data, "--split", args.split]
     print(f"\n[dp] world {len(chips)} on chips {chips}, round {round_no}", flush=True)
     t0 = time.monotonic()
     rc = subprocess.run(cmd, cwd=str(REPO)).returncode
@@ -93,6 +93,8 @@ def main() -> int:
     ap.add_argument("--blocks", type=int, default=8)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--rendezvous", default="/dev/shm/abb3-dp-gate")
+    ap.add_argument("--data", default="synthetic", help="synthetic | sabdab")
+    ap.add_argument("--split", default="train")
     args = ap.parse_args()
     chips = [int(c) for c in args.chips.split(",")]
     root = Path(args.out)
