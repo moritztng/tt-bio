@@ -5,7 +5,7 @@ import sys, os, numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import ttnn
 from tt_bio.tenstorrent import get_device
-from tt_bio import autograd as ag, finetune as ft
+from tt_bio import autograd as ag, train as ft
 
 def rel(a, b):
     a, b = np.float64(a), np.float64(b)

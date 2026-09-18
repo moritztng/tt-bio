@@ -1685,6 +1685,25 @@ class _Cli(click.Group):
     :class:`ControllerUnreachable` and land here.
     """
 
+    # Commands loaded only when named, by dotted path. `finetune` pulls in the training
+    # stack -- the tape, the optimizer, the loss set -- and none of that may be imported to
+    # print `tt-bio --help` or to run `tt-bio predict`. Training is opt-in and inert when
+    # off, and an eager import here would make the inference path pay for it. The path is
+    # data rather than an import statement, which is also what keeps the opt-in invariant
+    # test's census of training importers accurate.
+    LAZY = {"finetune": "tt_bio.train.cli:finetune"}
+
+    def list_commands(self, ctx):
+        return sorted({*super().list_commands(ctx), *self.LAZY})
+
+    def get_command(self, ctx, name):
+        target = self.LAZY.get(name)
+        if target is None:
+            return super().get_command(ctx, name)
+        import importlib
+        mod, attr = target.split(":")
+        return getattr(importlib.import_module(mod), attr)
+
     def invoke(self, ctx):
         from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError
         from tt_bio.distributed import ControllerUnreachable

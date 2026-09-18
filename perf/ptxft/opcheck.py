@@ -42,7 +42,7 @@ def main():
     import torch
     from tt_bio.tenstorrent import get_device
     from tt_bio import autograd as ag
-    from tt_bio import finetune as ft
+    from tt_bio import train as ft
     from perf.clocksample import during
 
     rng = np.random.default_rng(a.seed)
