@@ -50,7 +50,7 @@ def _reject(reason, shape):
 
 def _common_ok(x, w, dtype):
     """The dtype, layout and memory-config conditions the transcription was verified under."""
-    if not G.fast_dtypes_ok(dtype, x.dtype, w.dtype):
+    if not G.fast_dtypes_ok(x.dtype, w.dtype, dest=dtype):
         return False
     if x.layout != ttnn.TILE_LAYOUT or len(x.shape) != 3:
         return False
@@ -88,7 +88,7 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config):
 
     dev = x.device()
     outs = [ttnn.allocate_tensor_on_device(
-        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), dtype, ttnn.TILE_LAYOUT,
         dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
     G.generic_minimal_matmul(
         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
@@ -208,7 +208,7 @@ def gate_proj(x, w_g, w_o, ckc, n_heads, head_dim, dtype, mm_config):
 
     dev = x.device()
     out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), dtype, ttnn.TILE_LAYOUT,
         dev, ttnn.DRAM_MEMORY_CONFIG)
     G.generic_minimal_matmul(
         dev, x, w_g, out, (_mm_block_for(w_g), tuple(COMPUTE_GRID_MAIN)),
@@ -293,7 +293,7 @@ def qkvg_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config):
 
     dev = x.device()
     outs = [ttnn.allocate_tensor_on_device(
-        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), dtype, ttnn.TILE_LAYOUT,
         dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
     G.generic_minimal_matmul(
         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
@@ -316,7 +316,7 @@ def out_proj(gated, w, ckc, dtype, memory_config=None):
     pad = [int(d) for d in gated.padded_shape]
     dev = gated.device()
     out = ttnn.allocate_tensor_on_device(
-        ttnn.Shape([B, S, int(w.shape[-1])]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
+        ttnn.Shape([B, S, int(w.shape[-1])]), dtype, ttnn.TILE_LAYOUT, dev,
         memory_config if memory_config is not None else ttnn.DRAM_MEMORY_CONFIG)
     G.generic_minimal_matmul(
         dev, gated, w, out, (_mm_block_for(w), tuple(COMPUTE_GRID_MAIN)),
@@ -412,10 +412,13 @@ def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channe
 
     dev = x.device()
     outs = [ttnn.allocate_tensor_on_device(
-        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), dtype, ttnn.TILE_LAYOUT,
         dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
+    # One format across all five: `generic_minimal_matmul` sizes the output CB from `outs[0]`,
+    # so a bias destination of a different width than its four siblings would be written
+    # through the wrong page size.
     outs.append(ttnn.allocate_tensor_on_device(
-        ttnn.Shape([shape[0], shape[1], bias_channels]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+        ttnn.Shape([shape[0], shape[1], bias_channels]), dtype, ttnn.TILE_LAYOUT,
         dev, ttnn.DRAM_MEMORY_CONFIG))
     G.generic_minimal_matmul(
         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),

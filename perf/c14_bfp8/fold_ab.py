@@ -80,6 +80,28 @@ def _helpers():
     return m
 
 
+def _foreign_device_holders():
+    """Pids other than this process tree holding a /dev/tenstorrent fd, with their cwd."""
+    mine = {os.getpid(), os.getppid()}
+    out = []
+    for d in Path("/proc").glob("[0-9]*/fd"):
+        pid = int(d.parent.name)
+        if pid in mine:
+            continue
+        try:
+            if not any(str(f.resolve()).startswith("/dev/tenstorrent")
+                       for f in d.iterdir()):
+                continue
+        except OSError:
+            continue
+        try:
+            cwd = os.readlink(f"/proc/{pid}/cwd")
+        except OSError:
+            cwd = "?"
+        out.append({"pid": pid, "cwd": cwd})
+    return out
+
+
 class ClockSampler(threading.Thread):
     """Card AICLK and power from sysfs at 5 Hz. Opens no device, so it cannot be the contention."""
 
@@ -124,6 +146,45 @@ class ClockSampler(threading.Thread):
 
 
 # --------------------------------------------------------------------------- worker (one arm)
+#: The levers the region touches, each with its own [served, declined] counter next to its guard
+#: (the same ones `scripts/lever_census.py` reads). A silent fall back to a generic kernel is a
+#: failure of this campaign and not a cost, so every fold records these rather than inferring the
+#: kernel path from a ratio. `APB_CONCAT_HEADS_STATS`, which this harness carried for its original
+#: lever, says nothing about bfp8 and has been dropped.
+REGION_COUNTERS = [
+    ("TRIATT_PERSISTENT_MASK", "tt_bio.triatt_sdpa", "STATS", "REJECTS"),
+    ("TRIATT_GATE_EPILOGUE", "tt_bio.triatt_sdpa", "GATE_STATS", "GATE_REJECTS"),
+    ("TRIATT_HEAD_MAJOR_QKV", "tt_bio.triatt_qkv", "STATS", "REJECTS"),
+    ("TRIATT_HEAD_MAJOR_TAIL", "tt_bio.triatt_qkv", "TAIL_STATS", None),
+    ("TRIMUL_IN_PROJ_DUAL_NOC", "tt_bio.mm_dualnoc", "STATS", "REJECTS"),
+    ("TRIMUL_TAIL_F1", "tt_bio.trimul_tail", "STATS", "REJECTS"),
+]
+
+
+def _counters(reset=False):
+    """Read (and optionally zero) every region counter. Returns {lever: [served, declined]}."""
+    import importlib
+    out = {}
+    for lever, mod, stats, rejects in REGION_COUNTERS:
+        try:
+            m = importlib.import_module(mod)
+        except ImportError:
+            continue
+        s = getattr(m, stats, None)
+        if s is None:
+            continue
+        if reset:
+            s[0] = s[1] = 0
+            if rejects and isinstance(getattr(m, rejects, None), dict):
+                getattr(m, rejects).clear()
+        else:
+            r = getattr(m, rejects, None) if rejects else None
+            out[lever] = {"served_declined": list(s)}
+            if r:
+                out[lever]["rejects"] = {str(k): v for k, v in r.items()}
+    return out
+
+
 def worker(args) -> int:
     import torch
     torch.set_grad_enabled(False)
@@ -141,6 +202,11 @@ def worker(args) -> int:
     attr = FLAGS[args.flag]
     want = args.arm == "on"
     got = bool(getattr(TT, attr, False))
+    # The base arm must be the SHIPPED state, so no sibling bfp8 flag may be set either: the
+    # region composes with TT_BIO_TRIATT_BIAS_B8 and a stray one would price a stack as a single.
+    for other in FLAGS:
+        if other != args.flag:
+            assert not bool(getattr(TT, FLAGS[other], False)), f"{other} is set; arms are not clean"
     assert got == want, (
         f"arm={args.arm} wants {attr}={want} but the module imported {got}. The flag must be set "
         "in the ENVIRONMENT before import. For APB in particular a post-load flip would run "
@@ -148,6 +214,20 @@ def worker(args) -> int:
 
     H = _helpers()
     dev = get_device()
+
+    # CLOCK. The AICLK sets the fold time on this part -- the 512 aa cell reads 21.90 s at 800 MHz
+    # and 14.69 s at the 1350 burst -- so a governed arm measures the governor, not the lever. Hold
+    # it in-process, off our own fd table (TT_VISIBLE_DEVICES is a UMD logical id, not a device
+    # node), and let the watchdog repair the clears that every legacy device open causes. This is
+    # `tt_bio/aiclk.py` from wk/b2z2-aiclk-burst-pin, vendored here as a measurement tool rather
+    # than imported from an unmerged branch's production path.
+    spec = importlib.util.spec_from_file_location(
+        "_bfp8_aiclk", Path(__file__).resolve().parent / "aiclk_hold.py")
+    AICLK = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(AICLK)
+    held = AICLK.engage(str(dev.arch()).split(".")[-1].lower())
+    assert held == int(os.environ["TT_BIO_AICLK"]), (
+        f"asked for {os.environ.get('TT_BIO_AICLK')} MHz, engage() returned {held}")
     out: dict = {"arm": args.arm, "size": args.size, "folds": []}
 
     work = Path(tempfile.mkdtemp(prefix="c14-bfp8-", dir=str(REPO / "perf" / "c14_bfp8")))
@@ -172,7 +252,8 @@ def worker(args) -> int:
         "flag": args.flag, "attr": attr,
         "env_flag": os.environ.get(args.flag),
         "module_flag": got,
-        "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+        "counters": [c[0] for c in REGION_COUNTERS],
+        "aiclk_held_mhz": held,
         "git_head": os.popen(f"git -C {REPO} rev-parse HEAD").read().strip(),
         "protocol": {"recycling_steps": cfg["recycling_steps"],
                      "sampling_steps": cfg["sampling_steps"],
@@ -184,11 +265,11 @@ def worker(args) -> int:
     def one(tag: str) -> dict:
         for p in struct_dir.glob("*"):
             p.unlink() if p.is_file() else shutil.rmtree(p)
-        stats = getattr(TT, "APB_CONCAT_HEADS_STATS", [0, 0])
-        stats[0] = stats[1] = 0
+        _counters(reset=True)
         state.pfn = None
         cs = ClockSampler(args.card)
         cs.start()
+        foreign = _foreign_device_holders()
         ttnn.synchronize_device(dev)
         t = time.perf_counter()
         metrics, _b, _f = state.predict_one(target, cfg)
@@ -199,10 +280,16 @@ def worker(args) -> int:
         cifs = sorted(struct_dir.glob("*.cif"))
         row = {
             "tag": tag, "fold_s": round(wall, 3), "clock": clk,
-            "apb_served_declined": list(stats),
+            "kernel_path": _counters(),
             "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
             "cif_sha256": hashlib.sha256(cifs[0].read_bytes()).hexdigest() if cifs else None,
             "loadavg1": round(os.getloadavg()[0], 2),
+            # benchlock checks for co-tenants ONCE, at acquisition, and is blind to a fold that
+            # starts afterwards (memory `benchlock-one-shot-check-blind-to-mid-run-contention`).
+            # Sample the box per fold instead, so a contaminated fold can be named not guessed.
+            "foreign_device_holders": foreign,
+            "foreign_device_holders_end": _foreign_device_holders(),
+            "aiclk_hold": AICLK.status(),
         }
         if args.cifdir and tag != "warmup":
             d = Path(args.cifdir) / f"{args.size}_{args.arm}_{args.block}_{tag}"  # scorer reads the arm from the tag
@@ -221,7 +308,8 @@ def worker(args) -> int:
     shutil.rmtree(work, ignore_errors=True)
     med = st.median([f["fold_s"] for f in out["folds"]])
     print(f"    {args.arm:4s} block{args.block} {args.size}aa median {med:7.3f}s "
-          f"apb_counter={out['folds'][0]['apb_served_declined']} "
+          f"sdpa={out['folds'][0]['kernel_path'].get('TRIATT_PERSISTENT_MASK', {}).get('served_declined')} "
+          f"qkv={out['folds'][0]['kernel_path'].get('TRIATT_HEAD_MAJOR_QKV', {}).get('served_declined')} "
           f"clk={out['folds'][0]['clock'].get('aiclk_min')}-"
           f"{out['folds'][0]['clock'].get('aiclk_max')}", flush=True)
     return 0

@@ -43,8 +43,8 @@ _TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096, ttnn.bfloat8_b: 1088}
 FAST_DTYPES = frozenset({ttnn.bfloat16, ttnn.bfloat8_b})
 
 
-def fast_dtypes_ok(*dtypes) -> bool:
-    """True when every operand dtype is one a fast path covers AND they are all the same.
+def fast_dtypes_ok(*dtypes, dest=None) -> bool:
+    """True when every READ operand dtype is one a fast path covers AND they are all the same.
 
     Uniformity is LOAD BEARING, but not for the reason first recorded here, and the difference
     decides whether it can ever be relaxed. The original note cited a measurement -- bfp8 q/k/v
@@ -76,9 +76,19 @@ def fast_dtypes_ok(*dtypes) -> bool:
     B=512, i.e. the wrong SIGN on speed, because `sdpa_generic.cb_table` pins the five
     intermediate CB groups to bf16 unconditionally (`:231-233`) and the saved DRAM bytes come
     back as a per-tile unpack conversion on the math thread.
+    `dest` is the DESTINATION format and is exempt from uniformity, because the precondition the
+    paragraph above sets out is met for it: it is written through a circular buffer of its own,
+    `_cb(2, .., tile_bytes(out.dtype), .., out.dtype)`, the accumulator it is packed from is a
+    separate `interm_fmt` (fp32 under `fp32_dest_acc_en`) and not tied to it, and `_key` carries
+    `str(t.dtype)` for EVERY output, so a narrowed destination gets its own program rather than a
+    collision. The narrowing is therefore one rounding at the pack stage and touches no
+    contraction. Passing `dest` is still a membership test; leaving it `None` is the old
+    behaviour exactly, and a uniform call is unchanged either way.
     """
     seen = set(dtypes)
-    return len(seen) == 1 and seen <= FAST_DTYPES
+    if len(seen) != 1 or not seen <= FAST_DTYPES:
+        return False
+    return dest is None or dest in FAST_DTYPES
 
 
 def tile_bytes(dtype):
