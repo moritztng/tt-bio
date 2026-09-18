@@ -256,6 +256,37 @@ def preflight(card):
     return ok, lines
 
 
+def wait_admissible(card, cap_s: float, tag: str) -> dict:
+    """`preflight`, again, before EVERY arm process -- and block until it passes.
+
+    Running it once at launch protects the first second of a 25-minute session and nothing after
+    it. That is not a hypothetical: three `c14-matmul-ceiling` sessions failed their own A/A test
+    because a release gate started AFTER their launch check passed, on the other board of the same
+    host. Waiting beats aborting -- the arms stay interleaved and a transient neighbour costs
+    minutes instead of the session -- but it never proceeds quietly: past `cap_s` the run fails,
+    because a contaminated number costs more than a missing one.
+
+    Expect a wait between arms even on an empty box. `host_quiet`'s loadavg ceiling cannot tell
+    this session's own just-exited arm from a neighbour, and loadavg decays over about a minute,
+    so a clean session self-throttles ~90 s per arm. That is a real cost and it is the safe
+    direction to be wrong in; the settle also lets the board's power budget recover before the
+    next arm's first fold.
+    """
+    t0 = time.time()
+    ok, lines = preflight(card)
+    while not ok:
+        waited = time.time() - t0
+        if waited > cap_s:
+            raise SystemExit("NOT ADMISSIBLE after %.0fs at %s: %s. Refusing to time a "
+                             "contaminated session." % (waited, tag, " | ".join(lines)))
+        print("  %s: waiting %.0fs of %.0fs -- %s" % (tag, waited, cap_s, " | ".join(lines)),
+              flush=True)
+        time.sleep(30)
+        ok, lines = preflight(card)
+    return {"admissible": True, "checks": lines, "waited_s": round(time.time() - t0, 1),
+            "loadavg1": round(os.getloadavg()[0], 2)}
+
+
 # --------------------------------------------------------------------------- driver
 def driver(args) -> int:
     out: dict = {
@@ -303,8 +334,12 @@ def driver(args) -> int:
                        "--block", str(b), "--card", str(args.card), "--out", str(jf)]
                 if args.cifdir:
                     cmd += ["--cifdir", str(args.cifdir)]
+                tag = f"{size} aa block {b} {arm}"
+                guard = ({"skipped": "--force-contended"} if args.force_contended
+                         else wait_admissible(args.card, args.quiet_wait, tag))
                 r = subprocess.run(cmd, env=env)
-                row = {"size": size, "arm": arm, "block": b, "returncode": r.returncode}
+                row = {"size": size, "arm": arm, "block": b, "returncode": r.returncode,
+                       "guard_before": guard}
                 if jf.exists():
                     row["result"] = json.loads(jf.read_text())
                 out["blocks"].append(row)
@@ -372,6 +407,9 @@ def main() -> int:
     ap.add_argument("--blocks", type=int, default=3)
     ap.add_argument("--folds", type=int, default=3)
     ap.add_argument("--card", default="0")
+    ap.add_argument("--quiet-wait", type=float, default=2400.0, dest="quiet_wait",
+                    help="seconds to wait for an admissible box BEFORE EACH ARM, not once at "
+                         "launch; past it the run fails rather than timing a loud box")
     ap.add_argument("--cifdir", default=None)
     # Deliberately awkward to reach: a contended session produces a void, and pass 1 already spent
     # three of them. It exists only so a screen can be taken knowingly, stamped CONTAMINATED.
