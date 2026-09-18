@@ -8,8 +8,10 @@ sides, and checks the replay is bit-identical to the module it copies (torch.equ
 are the shares a decomposition rather than a sample.
 
 Every op also gets its analytic byte traffic and FLOP count, so each line lands on a named roof:
-DRAM read 410.9 GB/s, DRAM write 277.6 GB/s, HiFi4 dense bf16 137.1 TFLOP/s (WARROOM ground
-truth, re-measured per card). The L1-resident ops are additionally compared against a same-shape
+DRAM read 410.9 GB/s, DRAM write 277.6 GB/s, HiFi4 dense bf16 109.56 TFLOP/s (measured on
+qb2 card 0, state/trimul-bottleneck-rootcause.md; the 137.1 this script carried until 2026-09-19
+was WARROOM's asserted figure and it is 1.25x too high, so every compute share printed before that
+date reads 1.25x too small). The L1-resident ops are additionally compared against a same-shape
 ttnn.clone measured on this card, because their roof is L1 bandwidth, not DRAM.
 
 Variants (`--variant`, repeatable) each turn one thing off and are checked for bit-exactness
@@ -43,7 +45,11 @@ from tt_bio.tenstorrent import CORE_GRID_MAIN, get_device  # noqa: E402
 
 READ_ROOF_GBS = 410.9
 WRITE_ROOF_GBS = 277.6
-HIFI4_TFLOPS = 137.1
+# Measured, not asserted: 109.56 TFLOP/s on qb2 card 0 (state/trimul-bottleneck-rootcause.md P1),
+# against 102.41 on the same card a pass earlier. `trix-floor` is re-deriving this in the kernel
+# config the shipped code uses, since fp32_dest_acc_en/packer_l1_acc move the same cube 1.40x --
+# update here when it lands rather than reintroducing a hard-coded campaign constant.
+HIFI4_TFLOPS = 109.56
 
 
 class Tape:
