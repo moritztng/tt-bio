@@ -299,10 +299,25 @@ _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 # is silu-specific and program-config-invariant: a fused relu costs +2.4 us and a fused gelu +141.3
 # against its own 135.3 standalone, and the +174 holds across eight explicit
 # MatmulMultiCoreReuseMultiCast configs. So unfusing pays a full L1 round trip and still wins,
-# because the fused path runs silu at half the SFPU rate the standalone op reaches. Release-gated:
-# the unfused form applies silu to the bf16-packed matmul output rather than to the fp32 dest
-# accumulator, so it is not bit-exact.
-_UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
+# because the fused path runs silu at half the SFPU rate the standalone op reaches.
+#
+# DEFAULT ON since 2026-09-18. Not bit-exact -- the unfused form applies silu to the bf16-packed
+# matmul output rather than to the fp32 dest accumulator -- and that is not the bar. Landed with
+# TT_BIO_DIT_COND_HOIST as one stack, measured and approved as a stack: 512 aa cdk2x2 on a qb2
+# p300c at a forced 1350 MHz reads 14.588 -> 14.108 s, +0.4798 s paired over 5 interleaved reps
+# (95 % CI [+0.4355,+0.5241]) against the same session's paired A/A floor of +0.0324 s +/-0.1087.
+# Accuracy on the shipped pair: 298 aa, the cell the 0.35/0.60 A bar is written against, deviates
+# 0.25705 A all-atom at worst over two seeds, which is inside the PASS band and 0.321x that
+# fixture's own base-against-base seed floor of 0.7998 A, with a 0.0000 A same-seed A/A control.
+# Set TT_BIO_UNFUSED_SILU=0 for the fused form.
+#
+# SCOPE, because this one is wide and the flag's name does not say so: `Transition` is the shared
+# swiglu block, so the default reaches every model that builds it -- boltz-2, protenix
+# (protenix.py:911, :2110, :2143, :2472, :2502), openfold3's MSA embedder
+# (openfold3_msa_embedder.py:81) and the pairformer/msa stacks in this file. It is not a boltz-2
+# lever. openfold3's diffusion stack has its own _SwiGLUTransition and af2 its own ReluTransition,
+# neither of which reads this flag.
+_UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", True)
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
 _DIFFUSION_FP32_DEVICE = False
@@ -1440,12 +1455,17 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 # The saving is a per-call fixed cost, not bandwidth: the deleted norm traffic grows 2.58x from
 # 298 to 768 aa while the saving falls to 0.64x, and the saving is 13.9x / 7.0x / 3.5x what those
 # bytes are worth at the measured 435.2 GB/s DRAM roof.
-# `_cond_weights()` is now built in `__init__` when this is on, so its 0.34-0.57 s lands at model
-# load: lazily it fell inside the first hoisted fold, which left a one-fold process worse off than
-# leaving the lever off. Default OFF, gated on one remaining thing: a benchlocked fold arm on a
-# quiet box.
+# `_cond_weights()` is built in `__init__` when this is on, so its ~0.30 s lands at model load:
+# lazily it fell inside the first hoisted fold, which left a one-fold process worse off than
+# leaving the lever off.
+#
+# DEFAULT ON since 2026-09-18, together with TT_BIO_UNFUSED_SILU and measured with it as one
+# stack: 512 aa cdk2x2 at a forced 1350 MHz reads 14.588 -> 14.108 s for the pair, +0.4798 s
+# paired over 5 interleaved reps against a +0.0324 s A/A floor. This lever alone reads +0.2052 s
+# (CI [+0.1561,+0.2543]) in the same session. Set TT_BIO_DIT_COND_HOIST=0 to get the per-step
+# form back.
 # Read at CALL time, not import time, so an interleaved A/B can flip it.
-_B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", False)
+_B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", True)
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
