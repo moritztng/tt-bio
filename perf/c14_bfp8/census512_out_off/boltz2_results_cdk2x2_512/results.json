@@ -1,0 +1,25 @@
+[
+  {
+    "id": "cdk2x2_512",
+    "status": "ok",
+    "confidence_score": 0.813578,
+    "ptm": 0.667149,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.850185,
+    "complex_iplddt": 0.850185,
+    "complex_pde": 0.746887,
+    "complex_ipde": 0.0,
+    "plddt": 0.850185,
+    "pair_chains_iptm": {
+      "0": {
+        "0": 0.667149
+      }
+    },
+    "chains_ptm": {
+      "0": 0.667149
+    },
+    "runtime_s": 48.4
+  }
+]

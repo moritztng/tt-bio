@@ -1,0 +1,324 @@
+diff --git a/tt_bio/mm_dualnoc.py b/tt_bio/mm_dualnoc.py
+index eb4a716c0..3b1c77d09 100644
+--- a/tt_bio/mm_dualnoc.py
++++ b/tt_bio/mm_dualnoc.py
+@@ -83,7 +83,9 @@ def in_proj(x, w, ckc, dtype, memory_config, split=None):
+     if not _ENABLED:
+         return None
+     shape = [int(d) for d in x.shape]
+-    if dtype != ttnn.bfloat16 or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
++    # `dtype` is the destination format; `build` sizes the output CB from the output tensor, so it
++    # is free of the operands'.
++    if not G.fast_dtypes_ok(dtype, x.dtype, w.dtype):
+         return _reject("dtype", shape)
+     if x.layout != ttnn.TILE_LAYOUT or len(w.shape) != 2:
+         return _reject("layout_or_rank", shape)
+diff --git a/tt_bio/mm_generic.py b/tt_bio/mm_generic.py
+index 7af8922ed..9989bf448 100644
+--- a/tt_bio/mm_generic.py
++++ b/tt_bio/mm_generic.py
+@@ -32,7 +32,38 @@ NOC_FOR_DRAM_WRITE = ttnn.NOC.NOC_1
+ 
+ #: Bytes one TILE_HW x TILE_HW tile occupies, per dtype. sdpa_generic and softmax_generic
+ #: size their CBs from this same table -- see `tile_bytes`.
+-_TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096}
++_TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096, ttnn.bfloat8_b: 1088}
++
++#: The storage dtypes a hand-transcribed fast path may take. `bfloat8_b` is here because every CB
++#: page size in these transcriptions comes from `tile_bytes` and every tile size in their kernels
++#: from `get_tile_size(cb)`, so there is no 2-bytes-an-element assumption in the dataflow for a
++#: 1088-byte block-float tile to break. What the four gates below used to test was `== bfloat16`,
++#: which is our own line rather than a kernel limit: `ttnn.experimental.minimal_matmul` has taken
++#: BFLOAT8_B and BFLOAT4_B since before our pin.
++FAST_DTYPES = frozenset({ttnn.bfloat16, ttnn.bfloat8_b})
++
++
++def fast_dtypes_ok(*dtypes) -> bool:
++    """True when every dtype is one a fast path covers. Mixed formats are allowed.
++
++    The first version of this required them all to be the SAME, on the grounds that each
++    transcription was verified with one format throughout. Reading `build` settles it the other
++    way and the mixed case is the one the region needs: every circular buffer's page size and
++    data format comes from its OWN tensor -- `_cb(0, .., tile_bytes(in0.dtype), .., in0.dtype)`,
++    `_cb(1, .., in1.dtype)`, `_cb(2, .., out.dtype)` -- and the accumulator is a separate
++    `interm_fmt`, fp32 whenever `fp32_dest_acc_en` is set, so it is not tied to the destination
++    at all. A narrower destination is therefore one rounding at the pack stage, not a change to
++    the contraction, and a narrower activation against a bf16 weight is two independent page
++    sizes. The SDPA is the same story: `sdpa_generic` passes `_uniform_dataformat` as the
++    `is_uniform_dataformat` COMPILE-TIME ARG, a hint the kernel takes either way, not a
++    precondition it enforces.
++
++    Every call site this replaces demanded bf16 everywhere, which is a strict subset, so turning
++    the test around cannot make a call that is served today decline. What it does admit is a call
++    no shipped path can currently produce, since nothing in the tree hands a fast kernel a
++    block-float operand unless `TT_BIO_TRIATT_B8` is set.
++    """
++    return all(d in FAST_DTYPES for d in dtypes)
+ 
+ 
+ def tile_bytes(dtype):
+@@ -40,8 +71,8 @@ def tile_bytes(dtype):
+     try:
+         return _TILE_BYTES[dtype]
+     except KeyError:
+-        raise ValueError(f"no tile size for {dtype}: these transcriptions cover the call the "
+-                         "fold issues, which is bf16 and fp32 only") from None
++        raise ValueError(f"no tile size for {dtype}: these transcriptions cover bf16, fp32 and "
++                         "bfloat8_b") from None
+ 
+ _CACHE: dict = {}
+ 
+diff --git a/tt_bio/tenstorrent.py b/tt_bio/tenstorrent.py
+index fea6eb934..b49c60284 100644
+--- a/tt_bio/tenstorrent.py
++++ b/tt_bio/tenstorrent.py
+@@ -1471,6 +1471,37 @@ def _pad_head_lanes(t: torch.Tensor, n_heads: int, head_dim: int, padded_head_di
+ # SDPA reader pays once per (q_chunk, k_chunk) pair.
+ _TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
+ 
++# Triangle attention's INTERIOR in bfp8, and nothing else. This is its own flag and not a mode:
++# `_FAST_MODE` bundles unrelated changes and measures 0.95x on the fold, and `_dtype()` staying
++# bf16 is what keeps the fused qkv+gate weight built at all (`__init__` only concatenates it when
++# `_dtype() == bfloat16`).
++#
++# Scope, chosen from the byte ledger and from what already failed. The two largest pair-scale
++# buffers a trunk PairformerLayer moves are the 268.4 MB concatenated q/k/v/gate of the two
++# triangle attentions, written by our fused qkv kernel and read three times by our fused SDPA
++# kernel, so producer and every consumer is ours (`perf/c14_bfp8/region_census.py`). Narrowing
++# them deletes 3.75 Z a buffer. Three things stay bf16 on purpose:
++#
++#   * `z`, the residual accumulator, and every `z_update`. Quantising an accumulation 5 times a
++#     layer through 64 layers and 3 recycles is the mechanism behind the 1.4965 A that killed the
++#     whole-track arm and the 13.21 A at 512 aa that killed b2z's `transition` site. The out
++#     projection keeps `_dtype()` for exactly this reason, so the region's exit rounds once into
++#     bf16 and the accumulator never sees block float.
++#   * the stored weights. `_FAST_MODE` demoting them is what put esmfold2's confidence at NaN.
++#   * the normed pair tensor. `ttnn.layer_norm` has no output-dtype argument and returns the input
++#     format, so introducing bfp8 there would cost a typecast (0.2577 ms measured) to buy a
++#     0.166 ms saving -- a debit, rejected on paper.
++#
++# There is no `typecast` anywhere in the region: every producer in it is a matmul whose
++# destination format is a program argument, and the accumulator CB is a separate `interm_fmt`
++# (fp32 under `fp32_dest_acc_en`), so the narrowing is one rounding at the pack stage.
++_TRIATT_B8 = env_flag("TT_BIO_TRIATT_B8", False)
++
++
++def _triatt_dtype():
++    """The storage format for triangle attention's q/k/v/gate/bias, i.e. the region's interior."""
++    return ttnn.bfloat8_b if _TRIATT_B8 else _dtype()
++
+ 
+ # When the production q_chunk does not divide the padded length, offer the dividing chunks below
+ # it before falling back to one that pads. See the block in `_tri_att_q_chunks` for the 896 aa
+@@ -1680,7 +1711,7 @@ def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None, pad: bool = False):
+ 
+ 
+ def _tri_att_sdpa_inner(q, k, v, bias, scale: float, ckc=None):
+-    if _TRIATT_BIAS_B8 and bias is not None and bias.dtype != ttnn.bfloat8_b:
++    if (_TRIATT_BIAS_B8 or _TRIATT_B8) and bias is not None and bias.dtype != ttnn.bfloat8_b:
+         b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
+         try:
+             return _tri_att_sdpa_at(q, k, v, b8, scale, ckc)
+@@ -7181,7 +7212,8 @@ class TriangleAttention(Module):
+             return None, None
+         return _triatt_qkv.qkvg_heads(
+             x, self.qkvg_weight, self.o_weight, self.compute_kernel_config,
+-            self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkvg_weight),
++            self.n_heads, self.head_dim, _triatt_dtype(),
++            _qkv_mm_config(x, self.qkvg_weight),
+         ) or (None, None)
+ 
+     def _fused_qkvgb(self, x):
+@@ -7201,7 +7233,8 @@ class TriangleAttention(Module):
+             return None, None, None
+         return _triatt_qkv.qkvgb_heads(
+             x, self.qkvgb_weight, self.o_weight, self.compute_kernel_config,
+-            self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkvgb_weight),
++            self.n_heads, self.head_dim, _triatt_dtype(),
++            _qkv_mm_config(x, self.qkvgb_weight),
+             int(self.bias_weight.shape[-1]),
+         ) or (None, None, None)
+ 
+@@ -7459,14 +7492,14 @@ class TriangleAttention(Module):
+                         input_tensor=x_chunk,
+                         weight_tensor=self.qkv_weight,
+                         compute_kernel_config=self.compute_kernel_config,
+-                        dtype=_dtype(),
++                        dtype=_triatt_dtype(),
+                         config=qkv_cfg_chunk,
+                     )
+                 g_cfg_chunk = _qkv_mm_config(x_chunk, self.g_weight)
+                 if g_chunk is None and isinstance(qkv_chunk, tuple) and not self.biased:
+                     g_chunk = _triatt_qkv.gate_proj(
+                         x_chunk, self.g_weight, self.o_weight, self.compute_kernel_config,
+-                        self.n_heads, self.head_dim, _dtype(), g_cfg_chunk,
++                        self.n_heads, self.head_dim, _triatt_dtype(), g_cfg_chunk,
+                     )
+                 g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
+                 if g_chunk is None:
+@@ -7601,14 +7634,15 @@ class TriangleAttention(Module):
+                         input_tensor=x,
+                         weight_tensor=self.qkv_weight,
+                         compute_kernel_config=self.compute_kernel_config,
+-                        dtype=_dtype(),
++                        dtype=_triatt_dtype(),
+                         config=_qkv_mm_config(x, self.qkv_weight),
+                     )
+             if g is None and (isinstance(qkv, tuple) or fold_o is not None) \
+                     and not self.biased:
+                 g = _triatt_qkv.gate_proj(
+                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
+-                    self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.g_weight),
++                    self.n_heads, self.head_dim, _triatt_dtype(),
++                    _qkv_mm_config(x, self.g_weight),
+                 )
+             g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
+             if g is None:
+diff --git a/tt_bio/triatt_qkv.py b/tt_bio/triatt_qkv.py
+index 4c2c8831e..2df29033f 100644
+--- a/tt_bio/triatt_qkv.py
++++ b/tt_bio/triatt_qkv.py
+@@ -49,8 +49,12 @@ def _reject(reason, shape):
+ 
+ 
+ def _common_ok(x, w, dtype):
+-    """The dtype, layout and memory-config conditions the transcription was verified under."""
+-    if dtype != ttnn.bfloat16 or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
++    """The dtype, layout and memory-config conditions the transcription was verified under.
++
++    `dtype` is the DESTINATION format and is checked in the same set as the operands, because
++    `mm_generic.build` sizes the output CB from the output tensor alone.
++    """
++    if not G.fast_dtypes_ok(dtype, x.dtype, w.dtype):
+         return False
+     if x.layout != ttnn.TILE_LAYOUT or len(x.shape) != 3:
+         return False
+@@ -88,7 +92,7 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config):
+ 
+     dev = x.device()
+     outs = [ttnn.allocate_tensor_on_device(
+-        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
++        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), dtype, ttnn.TILE_LAYOUT,
+         dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
+     G.generic_minimal_matmul(
+         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
+@@ -208,7 +212,7 @@ def gate_proj(x, w_g, w_o, ckc, n_heads, head_dim, dtype, mm_config):
+ 
+     dev = x.device()
+     out = ttnn.allocate_tensor_on_device(
+-        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
++        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), dtype, ttnn.TILE_LAYOUT,
+         dev, ttnn.DRAM_MEMORY_CONFIG)
+     G.generic_minimal_matmul(
+         dev, x, w_g, out, (_mm_block_for(w_g), tuple(COMPUTE_GRID_MAIN)),
+@@ -293,7 +297,7 @@ def qkvg_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config):
+ 
+     dev = x.device()
+     outs = [ttnn.allocate_tensor_on_device(
+-        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
++        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), dtype, ttnn.TILE_LAYOUT,
+         dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
+     G.generic_minimal_matmul(
+         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
+@@ -316,7 +320,7 @@ def out_proj(gated, w, ckc, dtype, memory_config=None):
+     pad = [int(d) for d in gated.padded_shape]
+     dev = gated.device()
+     out = ttnn.allocate_tensor_on_device(
+-        ttnn.Shape([B, S, int(w.shape[-1])]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
++        ttnn.Shape([B, S, int(w.shape[-1])]), dtype, ttnn.TILE_LAYOUT, dev,
+         memory_config if memory_config is not None else ttnn.DRAM_MEMORY_CONFIG)
+     G.generic_minimal_matmul(
+         dev, gated, w, out, (_mm_block_for(w), tuple(COMPUTE_GRID_MAIN)),
+@@ -412,10 +416,13 @@ def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channe
+ 
+     dev = x.device()
+     outs = [ttnn.allocate_tensor_on_device(
+-        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
++        ttnn.Shape([shape[0], n_heads, shape[1], head_dim]), dtype, ttnn.TILE_LAYOUT,
+         dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(4)]
++    # One format across all five: `generic_minimal_matmul` sizes the output CB from `outs[0]`, so
++    # a bias destination of a different width than its four siblings would be written through the
++    # wrong page size.
+     outs.append(ttnn.allocate_tensor_on_device(
+-        ttnn.Shape([shape[0], shape[1], bias_channels]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
++        ttnn.Shape([shape[0], shape[1], bias_channels]), dtype, ttnn.TILE_LAYOUT,
+         dev, ttnn.DRAM_MEMORY_CONFIG))
+     G.generic_minimal_matmul(
+         dev, x, w, outs, (blk, tuple(COMPUTE_GRID_MAIN)), G.ckc_args(ckc),
+diff --git a/tt_bio/triatt_sdpa.py b/tt_bio/triatt_sdpa.py
+index a29cd78a5..6613c0a0d 100644
+--- a/tt_bio/triatt_sdpa.py
++++ b/tt_bio/triatt_sdpa.py
+@@ -49,6 +49,7 @@ from pathlib import Path
+ import ttnn
+ 
+ from . import sdpa_generic as SG
++from .mm_generic import fast_dtypes_ok
+ from .envflags import env_flag, env_int
+ 
+ # Five files, not the fifteen the stock kernel directory holds. Three carry our edits:
+@@ -335,7 +336,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
+     shape = [int(d) for d in q.shape]
+     if len(shape) != 4 or len(bias.shape) != 4:
+         return _reject("rank", shape)
+-    if any(t.dtype != ttnn.bfloat16 for t in (q, k, v, bias)):
++    if not fast_dtypes_ok(q.dtype, k.dtype, v.dtype, bias.dtype):
+         return _reject("dtype", shape)
+     if any(t.layout != ttnn.TILE_LAYOUT for t in (q, k, v, bias)):
+         return _reject("layout", shape)
+@@ -373,8 +374,12 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
+     split = (cores // (H * q_pf), H, q_pf)
+ 
+     dev = q.device()
++    # The destination follows the operands rather than being pinned to bf16: the CB page sizes
++    # come from `tile_bytes(out.dtype)` and the writer takes its tile bytes from the CB, so a
++    # narrower destination is a page-size change and not a kernel change. Byte-identical while the
++    # gate above only admits bf16 operands.
+     out = ttnn.allocate_tensor_on_device(
+-        ttnn.Shape(shape), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
++        ttnn.Shape(shape), q.dtype, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+     # The op's own default compute kernel config, not the trunk's -- see perf/triatt_fused/s4_gate.py
+     ckc = ckc_default or _CKC_OVERRIDE or (ttnn.MathFidelity.HiFi2, True, False, False)
+ 
+@@ -395,7 +400,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
+             ttnn.deallocate(out)
+             return _gate_reject("head_dim", shape)
+         if (len(gate.shape) != 4 or str(gate.padded_shape) != str(q.padded_shape)
+-                or gate.dtype != ttnn.bfloat16 or gate.layout != ttnn.TILE_LAYOUT
++                or gate.dtype != q.dtype or gate.layout != ttnn.TILE_LAYOUT
+                 or gmc.buffer_type != ttnn.BufferType.DRAM
+                 or gmc.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED):
+             ttnn.deallocate(out)
+@@ -478,7 +483,7 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
+     if C != n_heads * head_dim or head_dim != 32:
+         # The reader's K read is a tile-ORDER transpose, which is the identity only at DHt == 1.
+         return _fuse_reject("head_dim", shape)
+-    if any(t.dtype != ttnn.bfloat16 for t in (x, w, bias)):
++    if not fast_dtypes_ok(x.dtype, w.dtype, bias.dtype):
+         return _fuse_reject("dtype", shape)
+     if any(t.layout != ttnn.TILE_LAYOUT for t in (x, w, bias)):
+         return _fuse_reject("layout", shape)
+@@ -502,7 +507,7 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
+ 
+     dev = x.device()
+     out = ttnn.allocate_tensor_on_device(
+-        ttnn.Shape([B, n_heads, S, head_dim]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
++        ttnn.Shape([B, n_heads, S, head_dim]), x.dtype, ttnn.TILE_LAYOUT, dev,
+         ttnn.DRAM_MEMORY_CONFIG)
+     ckc = ckc_default or _CKC_OVERRIDE or (ttnn.MathFidelity.HiFi2, True, False, False)
+     p = SG.plan(out, out, out, bias, out, q_chunk, k_chunk, grid, ckc, scale, split)
+diff --git a/tt_bio/trimul_tail.py b/tt_bio/trimul_tail.py
+index d74ed2a35..ed647fa58 100644
+--- a/tt_bio/trimul_tail.py
++++ b/tt_bio/trimul_tail.py
+@@ -125,7 +125,9 @@ def eligible(xa, xb, wa, wb):
+ 
+     Every clause is a real assumption of the fork, so a decline names which one.
+     """
+-    if ttnn.bfloat16 not in (xa.dtype, xb.dtype, wa.dtype, wb.dtype):
++    # Membership widened, the pair tests below untouched: this clause used to be "bf16 must
++    # appear somewhere", and a fast dtype appearing somewhere is a strict superset of it.
++    if not (MG.FAST_DTYPES & {xa.dtype, xb.dtype, wa.dtype, wb.dtype}):
+         return "dtype"
+     if xa.dtype != xb.dtype or wa.dtype != wb.dtype:
+         return "dtype_pair"
