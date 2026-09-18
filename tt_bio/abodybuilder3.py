@@ -438,6 +438,41 @@ class DeviceIPA:
         return ops.add(out, ops.reshape(self.b_out, [1, 1, cfg.embed_dim]))
 
 
+class Dropout:
+    """Inverted dropout with HOST-generated masks, applied at upstream's two sites per block.
+
+    `params.yaml` sets `dropout_rate: 0.1`, and upstream applies it twice per block -- after the
+    IPA residual (`ipa_dropout`) and inside the transition before its layer norm -- so it is part
+    of the recipe rather than a regulariser we get to choose.
+
+    The mask is generated on the host from a seeded `torch.Generator` and uploaded, which is a
+    deliberate trade of about 1 MB per site per micro-batch against something a training run needs
+    more than bandwidth: a step that reproduces exactly from one integer. A device-side RNG would
+    be cheaper and would make a diverging run impossible to replay.
+
+    Scaling is torch's: the kept entries are divided by `1 - rate` in the mask itself, so the
+    forward is one multiply and the backward is the same multiply, with the mask an untracked leaf.
+    """
+
+    def __init__(self, rate: float, seed: int = 0, *, upload=None):
+        self.rate = float(rate)
+        self.generator = torch.Generator().manual_seed(int(seed))
+        self.upload = upload or to_device_fp32
+        self.calls = 0
+
+    def mask(self, shape) -> torch.Tensor:
+        """The next mask, on the host. Separated from `__call__` so the part that decides whether a
+        run is replayable can be tested without a device."""
+        keep = (torch.rand(list(shape), generator=self.generator) >= self.rate).to(torch.float32)
+        self.calls += 1
+        return keep / (1.0 - self.rate)
+
+    def __call__(self, x):
+        if self.rate <= 0.0:
+            return x
+        return ops.mul(x, self.upload(self.mask([int(d) for d in x.shape])))
+
+
 def to_device_fp32(t: torch.Tensor):
     """Upload a weight as fp32 in tile layout. One place, so the port has one weight dtype."""
     return ttnn.from_torch(t.contiguous().float(), layout=ttnn.TILE_LAYOUT, device=get_device(),
