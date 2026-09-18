@@ -98,10 +98,19 @@ def load_model(ckpt):
 # ----------------------------------------------------------------- targets
 
 def target_set(a):
-    """The training and held-out targets, as (pdb_id, role)."""
+    """Every target as (pdb_id, role), over three disjoint roles.
+
+    THE SPLIT IS THREE-WAY ON PURPOSE. Stopping a run at whichever step the held-out loss
+    happens to be lowest is model selection, and a set used for selection is not held out
+    any more: quote its number and you are quoting a minimum you picked. So ``--val``
+    chooses the step and ``--heldout`` is read exactly twice, at step 0 and at the chosen
+    step, and decides nothing.
+    """
     train = [t for t in a.train.split(",") if t]
+    val = [t for t in a.val.split(",") if t]
     held = [t for t in a.heldout.split(",") if t]
-    return [(t, "train") for t in train] + [(t, "heldout") for t in held]
+    return ([(t, "train") for t in train] + [(t, "val") for t in val]
+            + [(t, "heldout") for t in held])
 
 
 def arm_prepare(a):
@@ -308,11 +317,14 @@ def arm_train(a, device):
           f"(rank {a.rank}, alpha {a.alpha}, scaling {lora.scaling}), depth {a.depth}")
     opt = ft.AdamW(params, lr=a.lr, weight_decay=a.weight_decay)
     train = [p for p, r in target_set(a) if r == "train"]
+    val = [p for p, r in target_set(a) if r == "val"]
     held = [p for p, r in target_set(a) if r == "heldout"]
-    tg = {p: load_target(p) for p in train + held}
-    hist = []
+    tg = {p: load_target(p) for p in train + val + held}
+    print(f"# {len(train)} train / {len(val)} val / {len(held)} held-out, lr {a.lr}, "
+          f"wd {a.weight_decay}, {a.steps} steps, val every {a.eval_every}")
+    hist, curve = [], []
 
-    def evaluate(names, tag):
+    def evaluate(names, tag=None):
         out = {}
         for p in names:
             t = tg[p]
@@ -320,12 +332,39 @@ def arm_train(a, device):
             loss, *_ = forward_loss(blocks, head, t["z"], t["target"], t["pair_mask"],
                                     device, want_grad=False, n_real=n)
             out[p] = loss
-        print(f"{tag:<22} " + "  ".join(f"{p}={out[p]:.5f}" for p in names))
+        if tag:
+            print(f"{tag:<22} " + "  ".join(f"{p}={out[p]:.5f}" for p in names))
         return out
+
+    def snapshot():
+        """The whole optimizer state, host-side, so a chosen step can be restored exactly.
+
+        The moments travel with the masters. Restoring the masters alone would leave Adam's
+        second moment belonging to a later step, and the adapter that then gets saved would
+        not be the one that produced the number it is reported against.
+        """
+        return ({n: v.copy() for n, v in opt.master.items()},
+                {n: v.copy() for n, v in opt.exp_avg.items()},
+                {n: v.copy() for n, v in opt.exp_avg_sq.items()},
+                opt.steps, opt.beta1_pow, opt.beta2_pow)
+
+    def restore(snap):
+        m, ea, eas, steps, b1p, b2p = snap
+        for n, t in params.items():
+            opt.master[n] = m[n].copy()
+            opt.exp_avg[n] = ea[n].copy()
+            opt.exp_avg_sq[n] = eas[n].copy()
+            t.value = ft.to_device(opt.master[n], device, dtype=t.value.dtype)
+        opt.steps, opt.beta1_pow, opt.beta2_pow = steps, b1p, b2p
 
     print()
     pre_train = evaluate(train, "BEFORE (train)")
+    pre_val = evaluate(val, "BEFORE (val)")
     pre_held = evaluate(held, "BEFORE (held-out)")
+    vmean = lambda d: float(np.mean([d[q] for q in val]))
+    best = {"step": 0, "val": vmean(pre_val), "snap": snapshot()}
+    curve.append({"step": 0, "val_mean": best["val"], "val": dict(pre_val)})
+    print(f"# step 0 val mean {best['val']:.5f}")
     print()
     print(f"{'step':>5} {'target':<8} {'loss':>10} {'|g|':>10} {'kept':>7} {'s':>7}")
     for step in range(1, a.steps + 1):
@@ -348,41 +387,62 @@ def arm_train(a, device):
         dn = np.sqrt(sum(r["device_step"] ** 2 for r in rep.values()))
         dt = time.perf_counter() - t0
         kept = dn / mn if mn > 0 else float("nan")
-        print(f"{step:>5} {p:<8} {loss:>10.5f} {gn:>10.3e} {kept:>7.3f} {dt:>7.2f}")
+        print(f"{step:>5} {p:<8} {loss:>10.5f} {gn:>10.3e} {kept:>7.3f} {dt:>7.2f}",
+              flush=True)
         hist.append({"step": step, "target": p, "loss": loss, "grad_norm": gn,
                      "kept": kept, "s": dt})
+        if a.eval_every and (step % a.eval_every == 0 or step == a.steps):
+            vv = evaluate(val)
+            vm = vmean(vv)
+            curve.append({"step": step, "val_mean": vm, "val": vv})
+            better = vm < best["val"]
+            if better:
+                best = {"step": step, "val": vm, "snap": snapshot()}
+            print(f"{'':>5} {'val':<8} {vm:>10.5f} {'':>10} {'':>7} {'':>7}"
+                  f"{'  <- best' if better else ''}", flush=True)
+
     print()
+    print(f"# val picked step {best['step']} at val mean {best['val']:.5f} "
+          f"(step 0 was {curve[0]['val_mean']:.5f}); restoring it before the held-out read")
+    restore(best["snap"])
     post_train = evaluate(train, "AFTER (train)")
+    post_val = evaluate(val, "AFTER (val)")
     post_held = evaluate(held, "AFTER (held-out)")
     ckpt_path = os.path.join(ART, "adapter_trained.safetensors")
     ft.save_adapter(ckpt_path, opt, meta={"steps": opt.steps, "lr": a.lr,
                                           "rank": a.rank, "alpha": a.alpha,
                                           "depth": a.depth, "train": train,
-                                          "heldout": held})
+                                          "val": val, "heldout": held,
+                                          "best_step": best["step"]})
     with open(os.path.join(ART, "train_hist.json"), "w") as fh:
-        json.dump({"hist": hist, "pre_train": pre_train, "post_train": post_train,
+        json.dump({"hist": hist, "curve": curve, "best_step": best["step"],
+                   "pre_train": pre_train, "post_train": post_train,
+                   "pre_val": pre_val, "post_val": post_val,
                    "pre_held": pre_held, "post_held": post_held,
-                   "lr": a.lr, "rank": a.rank, "steps": a.steps,
+                   "lr": a.lr, "rank": a.rank, "steps": opt.steps,
                    "depth": a.depth, "params": n_par}, fh, indent=2)
     print()
     print(f"{'target':<8} {'role':<9} {'before':>10} {'after':>10} {'delta':>10} {'%':>8}")
     failures = []
-    for p in train:
-        d = post_train[p] - pre_train[p]
-        print(f"{p:<8} {'train':<9} {pre_train[p]:>10.5f} {post_train[p]:>10.5f} "
-              f"{d:>10.5f} {100 * d / pre_train[p]:>7.2f}%")
-    improved = 0
-    for p in held:
-        d = post_held[p] - pre_held[p]
-        print(f"{p:<8} {'HELD-OUT':<9} {pre_held[p]:>10.5f} {post_held[p]:>10.5f} "
-              f"{d:>10.5f} {100 * d / pre_held[p]:>7.2f}%")
-        if d < 0:
-            improved += 1
+    for role, names, pre, post in (("train", train, pre_train, post_train),
+                                   ("val", val, pre_val, post_val),
+                                   ("HELD-OUT", held, pre_held, post_held)):
+        for p in names:
+            d = post[p] - pre[p]
+            print(f"{p:<8} {role:<9} {pre[p]:>10.5f} {post[p]:>10.5f} "
+                  f"{d:>10.5f} {100 * d / pre[p]:>7.2f}%")
+    improved = sum(1 for p in held if post_held[p] < pre_held[p])
+    hm_pre = float(np.mean([pre_held[p] for p in held]))
+    hm_post = float(np.mean([post_held[p] for p in held]))
     print()
+    print(f"HELD-OUT MEAN: {hm_pre:.5f} -> {hm_post:.5f} "
+          f"({100 * (hm_post - hm_pre) / hm_pre:+.2f}%), {improved}/{len(held)} targets fell")
     print(f"adapter saved: {ckpt_path} ({os.path.getsize(ckpt_path):,} B)")
     if not improved:
         failures.append("no held-out target improved -- a training loss that falls on the "
                         "examples being fitted is memorisation, not fine-tuning")
+    if hm_post >= hm_pre:
+        failures.append(f"held-out mean did not fall ({hm_pre:.5f} -> {hm_post:.5f})")
     return failures
 
 
@@ -407,8 +467,9 @@ def arm_roundtrip(a, device):
     with open(os.path.join(ART, "train_hist.json")) as fh:
         hist = json.load(fh)
     blocks, head, params, _l = build_stack(a, device, adapt_all=True)
-    names = sorted(set(hist["pre_held"]) | set(hist["post_held"])
-                   | set(hist["pre_train"]) | set(hist["post_train"]))
+    names = sorted(set().union(*(hist[k] for k in ("pre_held", "post_held", "pre_train",
+                                                   "post_train", "pre_val", "post_val")
+                                 if k in hist)))
     tg = {p: load_target(p) for p in names}
 
     def losses():
@@ -432,9 +493,10 @@ def arm_roundtrip(a, device):
           f"{'fresh post':>10} {'d(pre)':>9} {'d(post)':>9}")
     failures, worst = [], 0.0
     for p in names:
-        role = "heldout" if p in hist["pre_held"] else "train"
-        base = (hist["pre_held"] if role == "heldout" else hist["pre_train"])[p]
-        trained = (hist["post_held"] if role == "heldout" else hist["post_train"])[p]
+        role = ("heldout" if p in hist["pre_held"]
+                else "val" if p in hist.get("pre_val", {}) else "train")
+        base = hist[f"pre_{'held' if role == 'heldout' else role}"][p]
+        trained = hist[f"post_{'held' if role == 'heldout' else role}"][p]
         dpre, dpost = before[p] - base, after[p] - trained
         worst = max(worst, abs(dpre), abs(dpost))
         print(f"{p:<8} {role:<9} {base:>10.5f} {before[p]:>10.5f} {trained:>10.5f} "
@@ -462,7 +524,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ckpt", default=os.path.expanduser("~/.boltz/protenix-v2.pt"))
     ap.add_argument("--train", default="1UBQ,1VII,2GB1,1PGB")
-    ap.add_argument("--heldout", default="1SHG,2MHR")
+    ap.add_argument("--val", default="1SHG,2MHR,1HRC",
+                    help="picks the step; not a held-out set")
+    ap.add_argument("--heldout", default="1STN,1SSO,1AKI",
+                    help="read twice and never used for any decision")
+    ap.add_argument("--eval-every", type=int, default=8)
     ap.add_argument("--max-len", type=int, default=224)
     ap.add_argument("--depth", type=int, default=48)
     ap.add_argument("--rank", type=int, default=8)
