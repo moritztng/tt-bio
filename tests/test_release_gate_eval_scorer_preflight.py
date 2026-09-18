@@ -109,13 +109,70 @@ def test_the_opendde_abag_entry_points_at_the_python_that_scores_it():
     assert rg._EVAL_SCORERS["opendde-abag"][3] == rg.OPENDDE_DOCKQ_PYTHON
 
 
+def test_the_esmc_leg_env_is_refused_before_the_fold_not_after_it():
+    """This check was the last statement in main(): 3h36m of folding, then a one-line exit."""
+    saved = os.environ.get("ESM_ROOT")
+    try:
+        os.environ.pop("ESM_ROOT", None)
+        rg._preflight_esmc_root([])          # leg not selected: silent
+        try:
+            rg._preflight_esmc_root(["esmc-300m"])
+        except SystemExit as exc:
+            for want in ("ESM_ROOT", "esmc-300m", "before any device work"):
+                assert want in str(exc), (want, str(exc))
+        else:
+            raise AssertionError("a missing ESM_ROOT must stop the gate at startup")
+    finally:
+        if saved is None:
+            os.environ.pop("ESM_ROOT", None)
+        else:
+            os.environ["ESM_ROOT"] = saved
+
+
+def test_an_esm_root_that_is_not_a_directory_is_refused_too():
+    """Set-but-wrong is the likelier mistake, and it fails identically 3 h in."""
+    saved = os.environ.get("ESM_ROOT")
+    try:
+        os.environ["ESM_ROOT"] = "/no/such/esm/clone"
+        try:
+            rg._preflight_esmc_root(["esmc-300m"])
+        except SystemExit as exc:
+            assert "/no/such/esm/clone" in str(exc), str(exc)
+            assert "measures nothing" in str(exc), str(exc)
+        else:
+            raise AssertionError("a non-directory ESM_ROOT must stop the gate")
+        os.environ["ESM_ROOT"] = REPO      # a real directory: the control
+        rg._preflight_esmc_root(["esmc-300m"])
+    finally:
+        if saved is None:
+            os.environ.pop("ESM_ROOT", None)
+        else:
+            os.environ["ESM_ROOT"] = saved
+
+
+def test_the_late_esmc_path_no_longer_aborts_the_run():
+    """A sys.exit there discards every arm's verdict above it and the contention notice below.
+
+    Comments are stripped first: the fix's own comment says the words "sys.exit", and a check
+    that reads prose as code passes or fails for the wrong reason.
+    """
+    src = open(os.path.join(REPO, "scripts", "release_gate.py")).read()
+    tail = src[src.index("    if esmc_models:"):]
+    seg = tail[:tail.index("if _CONTENDED")]
+    code = "\n".join(l.split("#", 1)[0] for l in seg.splitlines())
+    assert "sys.exit" in seg, "guard is vacuous if the region stops mentioning it at all"
+    assert "sys.exit" not in code, (
+        "the ESMC leg must not sys.exit after the folds have run")
+
+
 def test_it_runs_before_the_msa_preflight_and_before_any_fold():
     """Ordering is the point: both preflights must precede the first device call in main()."""
     src = open(os.path.join(REPO, "scripts", "release_gate.py")).read()
     i_eval = src.index("_preflight_eval_scorers(models)")
+    i_esmc = src.index("_preflight_esmc_root(esmc_models)")
     i_msa = src.index("_preflight_msa_cache(models)")
     i_rows = src.index("rows = [run_model(")
-    assert i_eval < i_msa < i_rows, (i_eval, i_msa, i_rows)
+    assert i_eval < i_esmc < i_msa < i_rows, (i_eval, i_esmc, i_msa, i_rows)
 
 
 if __name__ == "__main__":

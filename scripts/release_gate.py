@@ -1162,6 +1162,29 @@ def _preflight_eval_scorers(models: list) -> None:
                  f"device work on purpose.")
 
 
+def _preflight_esmc_root(esmc_models: list) -> None:
+    """Fail before any device work if the ESMC leg has no esm clone to score against.
+
+    Same class as the two preflights around it, and the most expensive instance of it: this
+    check used to be the LAST statement in main(), so on 2026-09-18 a full default-set run
+    folded for 3h36m and then exited on a one-line env precondition. Its sys.exit also threw
+    away every arm's verdict and the _CONTENDED notice printed after it, so the run's actual
+    results -- including two red ladder rows that needed adjudicating -- were reported as a
+    bare missing-variable message.
+    """
+    if not esmc_models:
+        return
+    root = os.environ.get("ESM_ROOT")
+    if not root:
+        sys.exit(f"release gate: the ESMC parity leg ({', '.join(esmc_models)}) needs ESM_ROOT, "
+                 f"the path to the esm clone tests/esmc_reference.py imports its golden from.\n"
+                 f"Set it, or deselect the leg with --models. Checked before any device work on "
+                 f"purpose: this used to be found after the whole gate had folded.")
+    if not Path(root).is_dir():
+        sys.exit(f"release gate: ESM_ROOT={root} is not a directory, so the ESMC parity leg "
+                 f"({', '.join(esmc_models)}) could only produce a FAIL that measures nothing.")
+
+
 def _preflight_msa_cache(models: list) -> None:
     """Fail before any device work if the offline MSA dir cannot serve a target it will fold.
 
@@ -4314,6 +4337,7 @@ def main() -> int:
     want_size_ladder = "size-ladder" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
     _preflight_eval_scorers(models)
+    _preflight_esmc_root(esmc_models)
     _preflight_msa_cache(models)
 
     rows = []
@@ -4700,8 +4724,9 @@ def main() -> int:
               "GATE FAIL — a result depends on a target's position in the batch (see above)")
 
     if esmc_models:
-        if "ESM_ROOT" not in os.environ:
-            sys.exit("ESMC parity leg needs ESM_ROOT (path to the esm clone for tests/esmc_reference.py)")
+        # ESM_ROOT was settled by _preflight_esmc_root before any fold ran. Nothing is
+        # re-checked here on purpose: a sys.exit at this point discards every arm's verdict
+        # above it and the contention notice below it.
         parity = _load_esmc_parity_harness()
         erows = [run_esmc(m, parity) for m in esmc_models]
         esmc_pass = all(r["gate"] for r in erows)
