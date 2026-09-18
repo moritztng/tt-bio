@@ -62,7 +62,7 @@ def _load_helpers():
     return m
 
 
-def snapshot(TT, trimul_tail, triatt_sdpa) -> dict:
+def snapshot(TT, trimul_tail, triatt_sdpa, block_pairwise_calls=None) -> dict:
     """Every firing counter the candidates touch. Copied, so the next arm cannot mutate it."""
     def g(mod, name):
         v = getattr(mod, name, None)
@@ -89,6 +89,8 @@ def snapshot(TT, trimul_tail, triatt_sdpa) -> dict:
         "trimul_tail_out_l1": g(trimul_tail, "OUT_L1_STATS"),
         "trimul_tail_rejects": g(trimul_tail, "REJECTS"),
         "triatt_gate": g(triatt_sdpa, "GATE_STATS"),
+        "block_pairwise_calls": list(block_pairwise_calls)
+        if block_pairwise_calls is not None else None,
     }
 
 
@@ -150,6 +152,19 @@ def main() -> int:
     import ttnn
     import tt_bio.tenstorrent as TT
     from tt_bio import trimul_tail, triatt_sdpa
+    from tt_bio import boltz2 as _B2
+    # TT_BIO_HOST_BLOCK_PAIRWISE has no counter in production, so without this the census
+    # would report it as "does not fire" on an instrument blind to it. Wrap the predicate:
+    # BLOCK_PAIRWISE_CALLS = [taken, not taken] at boltz2.py:1569.
+    BLOCK_PAIRWISE_CALLS = [0, 0]
+    _orig_block_pairwise = _B2._block_pairwise
+
+    def _counted_block_pairwise():
+        r = _orig_block_pairwise()
+        BLOCK_PAIRWISE_CALLS[0 if r else 1] += 1
+        return r
+
+    _B2._block_pairwise = _counted_block_pairwise
     from tt_bio.tenstorrent import get_device
     from tt_bio.worker import _WorkerState, _ensure_local_artifacts
     from tt_bio import esmfold2 as _E
@@ -188,6 +203,7 @@ def main() -> int:
             "TRIATT_BIAS_B8": getattr(TT, "_TRIATT_BIAS_B8", None),
             "SDPA_WIDE_Q": getattr(TT, "_SDPA_WIDE_Q", None),
             "SDPA_DIV_K": getattr(TT, "_SDPA_DIV_K", None),
+            "_env_APB_CONCAT_HEADS": os.environ.get("TT_BIO_APB_CONCAT_HEADS"),
         },
     }
     dump()
@@ -260,6 +276,7 @@ def main() -> int:
         for p in struct_dir.glob("*"):
             p.unlink() if p.is_file() else shutil.rmtree(p)
         reset_counters(TT, trimul_tail, triatt_sdpa)
+        BLOCK_PAIRWISE_CALLS[0] = BLOCK_PAIRWISE_CALLS[1] = 0
         state.pfn = None
         ttnn.synchronize_device(dev)
         t0 = time.perf_counter()
@@ -279,7 +296,7 @@ def main() -> int:
             "wall_s_NOT_A_MEASUREMENT": wall,
             "plddt": (metrics or {}).get("complex_plddt", (metrics or {}).get("plddt")),
             "cif_sha256": hashlib.sha256(cifs[0].read_bytes()).hexdigest() if cifs else None,
-            "counters": snapshot(TT, trimul_tail, triatt_sdpa),
+            "counters": snapshot(TT, trimul_tail, triatt_sdpa, BLOCK_PAIRWISE_CALLS),
         }
         return row
 
@@ -290,7 +307,7 @@ def main() -> int:
         w = fold(size, "warmup")
         w["warmup"] = True
         rows.append(w); OUT["rows"] = rows; dump()
-        print(f"[{size}] warmup err={w[error]} cif={str(w[cif_sha256])[:12]}", flush=True)
+        print(f"[{size}] warmup err={w['error']} cif={str(w['cif_sha256'])[:12]}", flush=True)
         for arm in arms:
             restore = None
             if arm != "base":
@@ -303,8 +320,8 @@ def main() -> int:
             r["warmup"] = False
             rows.append(r); OUT["rows"] = rows; dump()
             picks = r["counters"].get("sdpa_chunk_picks") or {}
-            print(f"[{size}] {arm:20s} err={r[error]} plddt={r[plddt]} "
-                  f"picks={len(picks)} cif={str(r[cif_sha256])[:12]}", flush=True)
+            print(f"[{size}] {arm:20s} err={r['error']} plddt={r['plddt']} "
+                  f"picks={len(picks)} cif={str(r['cif_sha256'])[:12]}", flush=True)
 
     # ---- firing verdict: an arm fires iff some counter or pick differs from base -------------
     verdict = {}
@@ -320,7 +337,7 @@ def main() -> int:
                 bv = base["counters"].get(k)
                 if v != bv:
                     diffs[k] = {"base": bv, "arm": v}
-            verdict[f"{size}/{r[arm]}"] = {
+            verdict[f"{size}/{r['arm']}"] = {
                 "fires": bool(diffs),
                 "error": r["error"],
                 "cif_changed": r["cif_sha256"] != base["cif_sha256"],
@@ -332,8 +349,8 @@ def main() -> int:
     dump()
     shutil.rmtree(work, ignore_errors=True)
     for k, v in verdict.items():
-        print(f"VERDICT {k:34s} fires={v[fires]!s:5s} cif_changed={v[cif_changed]!s:5s} "
-              f"err={v[error]}", flush=True)
+        print(f"VERDICT {k:34s} fires={v['fires']!s:5s} cif_changed={v['cif_changed']!s:5s} "
+              f"err={v['error']}", flush=True)
     return 0
 
 
