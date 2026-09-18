@@ -182,8 +182,10 @@ class TrainStep:
             angle_norm_weight=r["angle_norm_weight"]))
         final = timed("final_backbone", lambda: L.final_output_backbone_loss(out, batch))
         total = r["fape_weight"] * fape + chi + r["final_backbone_weight"] * final
-        return total, {"fape": float(fape), "supervised_chi": float(chi),
-                       "final_output_backbone": float(final), "loss": float(total)}
+        # Detached before the float(): reporting a loss must not reach into the graph.
+        return total, {"fape": float(fape.detach()), "supervised_chi": float(chi.detach()),
+                       "final_output_backbone": float(final.detach()),
+                       "loss": float(total.detach())}
 
     # ------------------------------------------------------------------ one optimizer step
 
