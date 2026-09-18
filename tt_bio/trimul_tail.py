@@ -127,8 +127,19 @@ def eligible(xa, xb, wa, wb):
     """
     # Membership widened, the pair tests below untouched: this clause used to be "bf16 must
     # appear somewhere", and a fast dtype appearing somewhere is a strict superset of it.
-    if not (MG.FAST_DTYPES & {xa.dtype, xb.dtype, wa.dtype, wb.dtype}):
+    seen = {xa.dtype, xb.dtype, wa.dtype, wb.dtype}
+    if not (MG.FAST_DTYPES & seen):
         return "dtype"
+    # The clauses above and below admit an activation pair and a weight pair of DIFFERENT dtypes,
+    # which is deliberate and predates bfp8. bfp8 is the one dtype that may not take part in that:
+    # `mm_generic.fast_dtypes_ok` documents a measurement (perf/bfp8_sdpa/probe2_qb1c1.json) where
+    # bfp8 operands meeting a bf16 tensor on a sibling transcription are SERVED, return a finite
+    # result, raise nothing, and score 12.55 rel_rms against 0.0267 for the bf16 control -- wrong
+    # values, silently. Uniform bfp8 on that path scores 0.0283 and is fine. So require uniformity
+    # of the whole set once bfp8 appears in it, and let every non-bfp8 combination through exactly
+    # as before. Declines nothing the fold issues today: no default-path buffer is bfp8.
+    if ttnn.bfloat8_b in seen and len(seen) != 1:
+        return "dtype_mixed_bfp8"
     if xa.dtype != xb.dtype or wa.dtype != wb.dtype:
         return "dtype_pair"
     if tuple(xa.padded_shape) != tuple(xb.padded_shape):
