@@ -83,6 +83,8 @@ def in_proj(x, w, ckc, dtype, memory_config, split=None):
     if not _ENABLED:
         return None
     shape = [int(d) for d in x.shape]
+    # `dtype` is the destination format; `build` sizes the output CB from the output tensor, so it
+    # is free of the operands'.
     if not G.fast_dtypes_ok(dtype, x.dtype, w.dtype):
         return _reject("dtype", shape)
     if x.layout != ttnn.TILE_LAYOUT or len(w.shape) != 2:

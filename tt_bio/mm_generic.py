@@ -44,16 +44,26 @@ FAST_DTYPES = frozenset({ttnn.bfloat16, ttnn.bfloat8_b})
 
 
 def fast_dtypes_ok(*dtypes) -> bool:
-    """True when every operand dtype is one a fast path covers AND they are all the same.
+    """True when every dtype is one a fast path covers. Mixed formats are allowed.
 
-    Uniformity is not required by the SDPA kernel -- `is_uniform_dataformat` is a compile-time
-    hint it takes either way -- but each transcription was verified with one format throughout,
-    so a mixed pair stays out of scope until it is measured. Every call site that used to demand
-    bf16 everywhere is a strict subset of this, so turning the test around cannot make a call
-    that is served today decline.
+    The first version of this required them all to be the SAME, on the grounds that each
+    transcription was verified with one format throughout. Reading `build` settles it the other
+    way and the mixed case is the one the region needs: every circular buffer's page size and
+    data format comes from its OWN tensor -- `_cb(0, .., tile_bytes(in0.dtype), .., in0.dtype)`,
+    `_cb(1, .., in1.dtype)`, `_cb(2, .., out.dtype)` -- and the accumulator is a separate
+    `interm_fmt`, fp32 whenever `fp32_dest_acc_en` is set, so it is not tied to the destination
+    at all. A narrower destination is therefore one rounding at the pack stage, not a change to
+    the contraction, and a narrower activation against a bf16 weight is two independent page
+    sizes. The SDPA is the same story: `sdpa_generic` passes `_uniform_dataformat` as the
+    `is_uniform_dataformat` COMPILE-TIME ARG, a hint the kernel takes either way, not a
+    precondition it enforces.
+
+    Every call site this replaces demanded bf16 everywhere, which is a strict subset, so turning
+    the test around cannot make a call that is served today decline. What it does admit is a call
+    no shipped path can currently produce, since nothing in the tree hands a fast kernel a
+    block-float operand unless `TT_BIO_TRIATT_B8` is set.
     """
-    seen = set(dtypes)
-    return len(seen) == 1 and seen <= FAST_DTYPES
+    return all(d in FAST_DTYPES for d in dtypes)
 
 
 def tile_bytes(dtype):
