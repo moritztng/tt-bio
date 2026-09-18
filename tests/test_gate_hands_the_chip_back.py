@@ -1,16 +1,20 @@
 """Proof that the release gate does not hold the card against its own later arms.
 
-Device-free. Two arms run model code IN the gate process (pxdesign's ``ProtenixDesign.design``
-and the ESMC parity leg), so they leave tt_bio's module-level device open and its CardSetLease
-held. Every other arm folds in a SUBPROCESS, which then finds a live lease under the gate's own
-holder name at a different pid -- a real co-tenant by the lease's own rule -- and exits 75 without
-opening the card.
+Device-free. An arm that runs model code IN the gate process leaves tt_bio's module-level device
+open and its CardSetLease held. Every fold arm runs in a SUBPROCESS, which then finds a live lease
+under the gate's own holder name at a different pid -- a real co-tenant by the lease's own rule --
+and exits 75 without opening the card.
 
-Measured on 2026-09-18: gate2 on `c13-land-first` passed seven arms, pxdesign took the card, and
-then opendde-abag and capacity came back BLOCKED, every model in the size-ladder failed at its
-256 aa warm-up, the run printed "GATE FAIL -- size-ladder drift" for a ladder that never folded,
-and the l1-budget arm's raw ttnn.open_device(0) blocked at the fd level until its 600 s timeout
-killed the gate 49 minutes in. None of that was an accuracy result.
+Measured on 2026-09-18: gate2 on `c13-land-first` passed seven arms, pxdesign folded in the driver
+and took the card, and then opendde-abag and capacity came back BLOCKED, every model in the
+size-ladder failed at its 256 aa warm-up, the run printed "GATE FAIL -- size-ladder drift" for a
+ladder that never folded, and the l1-budget arm's raw ttnn.open_device(0) blocked at the fd level
+until its 600 s timeout killed the gate 49 minutes in. None of that was an accuracy result.
+
+Dropping the lease is a backstop, not the fix, and that distinction is measured too: after
+cleanup() the card was still un-openable and a raw open probe hung 5m39s at 0.5 % CPU, because
+tt-metal holds the UMD fds and the CHIP_IN_USE mutex until the process exits. So an on-device leg
+runs in its own process, and pxdesign is checked here for exactly that.
 
 The same run also scored a report five hours older than itself: nesso1's harness exited 75 and
 wrote nothing, and the arm parsed the leftover file and printed PASS, 3.604xR and "device spread
@@ -18,6 +22,7 @@ wrote nothing, and the arm parsed the leftover file and printed PASS, 3.604xR an
 
 Run: python3 tests/test_gate_hands_the_chip_back.py, or via pytest in the release suite.
 """
+import ast
 import json
 import os
 import sys
@@ -34,6 +39,7 @@ from tt_bio.device_lease import CONTENDED_EXIT_CODE  # noqa: E402
 import release_gate as rg  # noqa: E402
 
 MOD = "tt_bio.tenstorrent"
+GATE_SRC = Path(REPO, "scripts", "release_gate.py").read_text()
 
 
 class _Chip:
@@ -63,13 +69,21 @@ def _with_stub(chip, fn):
             del sys.modules[MOD]
 
 
+def _func_source(name):
+    """The source of one top-level function, so a claim about where code runs is checkable."""
+    for node in ast.parse(GATE_SRC).body:
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return ast.get_source_segment(GATE_SRC, node)
+    raise AssertionError(f"{name} is gone from the gate")
+
+
 def test_no_chip_open_means_nothing_to_hand_back():
     """The gate must not import tt_bio.tenstorrent just to release it: on a host where no arm
     needs the module, importing it turns a working gate into an ImportError."""
     had = MOD in sys.modules
     prev = sys.modules.pop(MOD, None)
     try:
-        rg._hand_back_chip()
+        rg._release_driver_device()
         assert MOD not in sys.modules, "released a chip nobody opened, by importing the module"
     finally:
         if had:
@@ -100,25 +114,43 @@ def test_the_chip_comes_back_even_when_the_arm_raises():
     assert chip.closed == 1, "a raising arm kept the card"
 
 
-def test_a_close_that_fails_is_reported_not_swallowed(capsys=None):
+def test_a_close_that_fails_is_reported_not_swallowed():
     """If the close raises, the card really is still ours. That has to be loud: the next arm
     would otherwise meet it as an unexplained co-tenant, which is how this cost 49 minutes."""
     chip = _Chip(raises=RuntimeError("chip wedged"))
-    _with_stub(chip, rg._hand_back_chip)          # must not propagate
+    _with_stub(chip, rg._release_driver_device)   # must not propagate
     assert chip.closed == 1
 
 
-def test_every_in_process_arm_call_site_is_wrapped():
-    """The source check, because the bug is one forgotten wrap. pxdesign and esmc run model code
-    in this process; boltzgen is wrapped as well since its harness runs in-process too."""
-    src = Path(REPO, "scripts", "release_gate.py").read_text()
-    for call in ("_arm(run_pxdesign, args.keep)",
-                 "_arm(run_boltzgen, bg, args.keep)",
-                 "_arm(run_esmc, m, parity)"):
-        assert call in src, f"in-process arm call site is not wrapped: {call}"
+def test_every_fold_subprocess_releases_the_lease_before_it_spawns():
+    """The backstop that does not depend on remembering a wrapper. Every fold leg goes through
+    _run_fold, so the release belongs there rather than at each of its ~20 call sites."""
+    chip = _Chip()
+    rc, timed_out = _with_stub(chip, lambda: rg._run_fold(["/bin/true"], 30))
+    assert (rc, timed_out) == (0, False), (rc, timed_out)
+    assert chip.closed == 1, "_run_fold spawned a fold while the driver still held the lease"
+
+
+def test_pxdesigns_device_half_runs_in_its_own_process():
+    """Dropping the lease is not enough for pxdesign and that is measured, not stylistic: after
+    cleanup() a raw open probe still hung 5m39s, because only process exit returns the chip."""
+    child = _func_source("_pxdesign_child")
+    parent = _func_source("run_pxdesign")
+    assert "ProtenixDesign" in child, "the device half is not in the child"
+    assert "ProtenixDesign" not in parent, \
+        "run_pxdesign folds in the driver again -- that is the 2026-09-18 gate2 failure"
+    assert "--pxdesign-child" in parent, "the parent does not spawn the child"
+    assert "--pxdesign-child" in _func_source("main"), "the child mode is unreachable from main"
+
+
+def test_in_process_arm_call_sites_are_wrapped():
+    """The source check, because the bug is one forgotten wrap. The ESMC parity leg runs model
+    code in this process; boltzgen's harness is wrapped as well since it loads in-process."""
+    for call in ("_arm(run_boltzgen, bg, args.keep)", "_arm(run_esmc, m, parity)"):
+        assert call in GATE_SRC, f"in-process arm call site is not wrapped: {call}"
     # Non-vacuous: an unwrapped call of the same arm must not also be present.
-    for bare in ("= run_pxdesign(", "= run_boltzgen(", "[run_esmc("):
-        assert bare not in src, f"an unwrapped call survives: {bare}"
+    for bare in ("= run_boltzgen(", "[run_esmc("):
+        assert bare not in GATE_SRC, f"an unwrapped call survives: {bare}"
 
 
 def test_nesso1_refuses_to_score_a_report_from_an_earlier_run():

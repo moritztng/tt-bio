@@ -1376,8 +1376,8 @@ def _gate_line(rows, passed: str, failed: str, what: str) -> str:
     return failed
 
 
-def _hand_back_chip():
-    """Close the chip this process opened and drop its card lease.
+def _release_driver_device():
+    """Drop any device, and its physical-card lease, that this DRIVER process still holds.
 
     Two arms run model code IN THIS PROCESS rather than in a subprocess -- pxdesign
     (``ProtenixDesign.design``) and the ESMC parity leg -- so once one of them runs, tt_bio's
@@ -1394,6 +1394,14 @@ def _hand_back_chip():
 
     ``run_nesso1``'s docstring already had this right for its own leg ("this process must stay
     free to run the other arms after it"); the in-process arms are the ones that never got it.
+
+    It frees the LEASE, which is all it can free. It does NOT hand the chip back: tt-metal keeps
+    the UMD cluster's /dev/tenstorrent fds and its CHIP_IN_USE mutex until the process exits
+    (tenstorrent._close_device_locked says so), so a driver that has folded once still wedges the
+    next subprocess in futex_wait inside start_device. Measured on 2026-09-18: after cleanup() the
+    card was still un-openable and a raw open probe hung 5m39s at 0.5 % CPU. So this is a backstop
+    for the lease only. An on-device leg belongs in its OWN process, which is how pxdesign, the one
+    leg that ever folded in the driver, is written again.
 
     Only touches tt_bio.tenstorrent if an arm already imported it: importing it here would open
     nothing, but it would make the gate depend on the module on a host where no arm needs it.
@@ -1415,13 +1423,14 @@ def _arm(fn, *a, **kw):
     try:
         return fn(*a, **kw)
     finally:
-        _hand_back_chip()
+        _release_driver_device()
 
 
 def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
     """Run a fold subprocess in its OWN process group; on timeout kill the whole group so a
     hung MSA-server wait or a hung multiprocessing shutdown cannot orphan device-holding
     children (which would wedge the card for later legs). Returns (returncode, timed_out)."""
+    _release_driver_device()  # a driver still on the card is this leg's co-tenant
     proc = subprocess.Popen(cmd, start_new_session=True, **popen_kw)
     try:
         rc = proc.wait(timeout=timeout)
@@ -1868,48 +1877,74 @@ def run_rfd3(keep: bool) -> dict:
     return row
 
 
-def run_pxdesign(keep: bool) -> dict:
-    """Design one binder through the shipped CLI path, parse it, and score the conditioning."""
+def _pxdesign_child(out: Path, js: Path) -> int:
+    """The pxdesign leg's device half, in its OWN process. Writes the scores as JSON.
+
+    It cannot run in the driver, and that is not a style preference. cleanup() closes the
+    device and drops the card lease, but tt-metal holds the UMD fds and the CHIP_IN_USE mutex
+    until the process exits, so a driver that has folded once wedges every later leg's
+    subprocess instead of merely failing it. Only process exit hands the chip back.
+    """
     import hashlib
 
     import torch
 
+    from tt_bio.pxdesign.inputs import design_inputs_from_yaml
+    from tt_bio.pxdesign.model import ProtenixDesign
+    from tt_bio.pxdesign.write import write_design_cifs
+    from tt_bio.main import ensure_pxdesign_weights, ensure_p300_mesh_descriptor
+
+    feats = design_inputs_from_yaml(PXDESIGN_SPEC)
+    feats = {k: (v.float() if torch.is_tensor(v) and v.dtype == torch.float64 else v)
+             for k, v in feats.items()}
+    ckpt = ensure_pxdesign_weights(Path(os.path.expanduser("~/.boltz")))
+    ensure_p300_mesh_descriptor()
+    model = ProtenixDesign.load_from_checkpoint(str(ckpt))
+    coords = model.design(feats, n_step=PXDESIGN_N_STEP, n_sample=PXDESIGN_NUM_DESIGNS,
+                          seed=PXDESIGN_SEED)
+    rows = write_design_cifs(coords, feats, out, stem="PDL1")
+    # Only the two fields the leg scores cross the process boundary, as plain floats and ints:
+    # a row straight off the writer can carry numpy scalars, which json refuses.
+    js.write_text(json.dumps({
+        "rows": [{"fit_rmsd": float(r["fit_rmsd"]),
+                  "binder_residues": int(r["binder_residues"])} for r in rows],
+        "sha16": hashlib.sha256(coords.contiguous().numpy().tobytes()).hexdigest()[:16],
+    }) + "\n")
+    return 0
+
+
+def run_pxdesign(keep: bool) -> dict:
+    """Design one binder through the shipped CLI path, parse it, and score the conditioning."""
     out = REPO_ROOT / "pxdesign_gate_designs"
     if out.exists():
         shutil.rmtree(out)  # never score a stale run if this design run crashes
+    js = REPO_ROOT / "pxdesign_gate.json"
+    js.unlink(missing_ok=True)
+    log = REPO_ROOT / "pxdesign_gate.log"
 
     print(f"\n{'='*70}\n[pxdesign] designing against {PXDESIGN_SPEC.name} "
           f"({PXDESIGN_NUM_DESIGNS} design, {PXDESIGN_N_STEP} steps)\n{'='*70}", flush=True)
 
     row = {"model": "pxdesign", "seconds": None, "fit_rmsd": None, "sha16": None,
            "binder_residues": None, "parse": False, "gate": False, "error": None}
-    try:
-        from tt_bio.pxdesign.inputs import design_inputs_from_yaml
-        from tt_bio.pxdesign.model import ProtenixDesign
-        from tt_bio.pxdesign.write import write_design_cifs
-        from tt_bio.main import ensure_pxdesign_weights, ensure_p300_mesh_descriptor
-    except Exception as e:
-        row["error"] = f"import failed: {type(e).__name__}: {e}"
+    cmd = [sys.executable, str(Path(__file__).resolve()), "--pxdesign-child",
+           "--pxdesign-out", str(out), "--pxdesign-json", str(js)]
+    t0 = time.monotonic()
+    with open(log, "wb") as fh:
+        rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT,
+                                  stdout=fh, stderr=subprocess.STDOUT)
+    row["seconds"] = time.monotonic() - t0
+    if timed_out:
+        row["error"] = f"design timed out after {FOLD_TIMEOUT_S}s (see {log})"
+        return row
+    if rc or not js.exists():
+        row["error"] = f"design exited {rc} and wrote no scores; see {log}"
         return row
 
-    t0 = time.monotonic()
-    try:
-        feats = design_inputs_from_yaml(PXDESIGN_SPEC)
-        feats = {k: (v.float() if torch.is_tensor(v) and v.dtype == torch.float64 else v)
-                 for k, v in feats.items()}
-        ckpt = ensure_pxdesign_weights(Path(os.path.expanduser("~/.boltz")))
-        ensure_p300_mesh_descriptor()
-        model = ProtenixDesign.load_from_checkpoint(str(ckpt))
-        coords = model.design(feats, n_step=PXDESIGN_N_STEP, n_sample=PXDESIGN_NUM_DESIGNS,
-                              seed=PXDESIGN_SEED)
-        rows = write_design_cifs(coords, feats, out, stem="PDL1")
-    except Exception as e:
-        row["error"] = f"{type(e).__name__}: {e}"
-        return row
-    row["seconds"] = time.monotonic() - t0
-    row["fit_rmsd"] = max(r["fit_rmsd"] for r in rows)
-    row["binder_residues"] = rows[0]["binder_residues"]
-    row["sha16"] = hashlib.sha256(coords.contiguous().numpy().tobytes()).hexdigest()[:16]
+    rec = json.loads(js.read_text())
+    row["fit_rmsd"] = max(r["fit_rmsd"] for r in rec["rows"])
+    row["binder_residues"] = rec["rows"][0]["binder_residues"]
+    row["sha16"] = rec["sha16"]
 
     try:
         _parse_gate(sorted(out.rglob("*.cif")), name="pxdesign")
@@ -4247,6 +4282,7 @@ def run_l1_budget_static() -> dict:
 def _l1_budget_physical_grid() -> tuple:
     """The running part's compute grid, read in a throwaway subprocess so this driver never
     holds a device while the fold legs below need it."""
+    _release_driver_device()  # the docstring above is an invariant, not a hope
     code = ("import ttnn;d=ttnn.open_device(device_id=0);g=d.compute_with_storage_grid_size();"
             "print(int(g.x),int(g.y));ttnn.close_device(d)")
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
@@ -4503,7 +4539,15 @@ def main() -> int:
                          f"nproc (default {gate_guard.DEFAULT_LOAD_CEILING}; 0 disables). Every "
                          "leg here folds in a subprocess, so a gate started on an already-"
                          "loaded box both measures noise and helps overcommit the host.")
+    ap.add_argument("--pxdesign-child", action="store_true",
+                    help=argparse.SUPPRESS)  # internal: run_pxdesign's device half
+    ap.add_argument("--pxdesign-out", default=None, help=argparse.SUPPRESS)
+    ap.add_argument("--pxdesign-json", default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
+
+    if args.pxdesign_child:
+        return _pxdesign_child(Path(args.pxdesign_out), Path(args.pxdesign_json))
+
     global FAST, DIFFUSION_TRACE
     FAST = args.fast
     DIFFUSION_TRACE = args.diffusion_trace
@@ -4694,7 +4738,7 @@ def main() -> int:
             "rfd3 designs"))
 
     if want_pxdesign:
-        pr = _arm(run_pxdesign, args.keep)
+        pr = run_pxdesign(args.keep)
         print(f"\n{'#'*78}\nRELEASE GATE — {PXDESIGN_SPEC.name} (pxdesign), "
               f"{PXDESIGN_NUM_DESIGNS} design, {PXDESIGN_N_STEP} steps\n{'#'*78}")
         print(f"{'model':<15}{'fit RMSD':>12}{'binder res':>12}{'floor':>18}{'wall':>9}  result")
