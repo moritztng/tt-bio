@@ -1,0 +1,204 @@
+{
+ "started_utc": "2026-09-18T13:23:42Z",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "note": "One process per arm: TT_BIO_APB_CONCAT_HEADS is consumed at model construction and re-lanes proj_g/proj_o, so it cannot be flipped in process. Arms interleaved block by block; the A/A floor is the spread across the base blocks, compared the same way base is compared to apb.",
+ "blocks": [
+  {
+   "size": "298",
+   "arm": "base",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "298",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 10.397,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.8,
+       "aiclk_n": 45,
+       "power_w_mean": 68.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.908011,
+      "cif_sha256": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28",
+      "loadavg1": 8.83
+     },
+     {
+      "tag": "1",
+      "fold_s": 10.453,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.6,
+       "aiclk_n": 45,
+       "power_w_mean": 73.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.908011,
+      "cif_sha256": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28",
+      "loadavg1": 7.74
+     }
+    ],
+    "model_load_s": 3.03,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "env_flag": null,
+     "module_flag": false,
+     "apb_counter_name": "APB_CONCAT_HEADS_STATS",
+     "git_head": "2b9edb59585f7ec1f7cc49684ccc9f9e8e5803ef",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 10.875,
+     "clock": {
+      "aiclk_min": 1306,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1345.0,
+      "aiclk_n": 48,
+      "power_w_mean": 65.8
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.908011,
+     "cif_sha256": "a8c6fd65f70f44186feb0352883e339e8fcb2351e43dd2873cbf0055668b4e28",
+     "loadavg1": 6.3,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "298",
+   "arm": "apb",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "apb",
+    "size": "298",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 10.935,
+      "clock": {
+       "aiclk_min": 1325,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1344.2,
+       "aiclk_n": 47,
+       "power_w_mean": 67.3
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.909892,
+      "cif_sha256": "eb4674be818f931ba771a9cb44ff93a2801ed3caed39ca32b9f2d7db09bf26b3",
+      "loadavg1": 8.68
+     },
+     {
+      "tag": "1",
+      "fold_s": 10.56,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1344.5,
+       "aiclk_n": 45,
+       "power_w_mean": 70.3
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.909892,
+      "cif_sha256": "eb4674be818f931ba771a9cb44ff93a2801ed3caed39ca32b9f2d7db09bf26b3",
+      "loadavg1": 8.9
+     }
+    ],
+    "model_load_s": 3.679,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "env_flag": "1",
+     "module_flag": true,
+     "apb_counter_name": "APB_CONCAT_HEADS_STATS",
+     "git_head": "2b9edb59585f7ec1f7cc49684ccc9f9e8e5803ef",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 10.608,
+     "clock": {
+      "aiclk_min": 1318,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.9,
+      "aiclk_n": 49,
+      "power_w_mean": 68.3
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.909892,
+     "cif_sha256": "eb4674be818f931ba771a9cb44ff93a2801ed3caed39ca32b9f2d7db09bf26b3",
+     "loadavg1": 7.79,
+     "discarded": true
+    }
+   }
+  }
+ ],
+ "summary": {
+  "298": {
+   "base_median_s": 10.425,
+   "apb_median_s": 10.748,
+   "base_n": 2,
+   "apb_n": 2,
+   "delta_s": -0.3225,
+   "ratio_base_over_apb": 0.96999,
+   "aa_floor_ratio_max": null,
+   "base_block_medians": [
+    10.425
+   ],
+   "apb_block_medians": [
+    10.748
+   ],
+   "clock_min": 1312,
+   "clock_max": 1350,
+   "clock_samples": 182,
+   "verdict_rule": "a ratio inside aa_floor_ratio_max is a NULL, not a win"
+  }
+ },
+ "finished_utc": "2026-09-18T13:24:59Z"
+}
