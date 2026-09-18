@@ -236,10 +236,20 @@ class DistogramHead:
         return ag.linear(z, self.w, self.b)
 
 
-def symmetrize_bins(logits_np):
+def symmetrize_bins(t):
     """The distogram is over UNORDERED pairs, so the head's output is symmetrised.
 
-    Protenix takes `z + z^T` before the head; doing it on the logits is equivalent for a
-    linear head and keeps the tape one op shorter.
+    Upstream is a SUM, not a mean: Protenix's DistogramHead.forward is
+    `logits = linear(z); logits = logits + logits.transpose(-2, -3)`
+    (protenix/model/modules/head.py:54-56, AF3 Algorithm 1 line 17). The mean this
+    originally used computes exactly HALF of that head, bias included, which flattens
+    every predicted distribution toward uniform and scales the loss gradient with it.
+    Argmax is scale-invariant, so no calibration readout can see the difference -- only
+    the cross-entropy can, which is why this is fixed against the source rather than
+    against a plot.
+
+    It is applied to the LOGITS, not to z, which is what upstream does too. The same
+    function symmetrises the gradient seed: for S = L + L^T the seed on L is g + g^T,
+    the identical operation.
     """
-    return 0.5 * (logits_np + logits_np.transpose(1, 0, 2))
+    return t + t.transpose(1, 0, 2)
