@@ -1384,9 +1384,27 @@ _ATOM_SHIFT_GATHER_OFF = not env_flag("TT_BIO_ATOM_SHIFT_GATHER", True)
 _ATOM_AXIS_BUCKET = env_flag("TT_BIO_ATOM_AXIS_BUCKET", True)
 ATOM_AXIS_BUCKET_STATS = [0, 0]      # [served, declined], one pair per fold
 
-# Boltz-2 diffusion, three levers under A/B. All three are boltz-2-exclusive by construction:
-# DiffusionTransformer is built only by tenstorrent.Diffusion, and atom_level=True AdaLN exists
-# nowhere else (protenix and openfold3 have their own classes and pass atom_level=False).
+# Three diffusion levers under A/B. Only ONE of them is boltz-2-exclusive; the earlier claim here
+# that all three were is wrong, and wrong in the direction that hides an unmeasured default.
+# The actual scope, checked against every construction site:
+#
+#   L7 BOLTZ2_BIAS_SLICE_HOIST   boltz-2 only. It lives in `DiffusionModule._hoist_layer_bias`,
+#                                and tenstorrent.DiffusionModule is built only by boltz2.py:4232
+#                                and main.py:3486. RF3, protenix and pxdesign each have their own
+#                                DiffusionModule class with a different signature.
+#   L6 BOLTZ2_ADALN_S_MEMO       NOT exclusive. It gates on `atom_level`, and RF3 passes
+#                                atom_level=True at rf3/atom_encoder.py:139 and
+#                                rf3/diffusion_atom_decoder.py:50. RF3 inherits this default today.
+#   L8 TT_BIO_DIT_COND_HOIST     NOT exclusive. It gates on `not atom_level`, and RF3 passes
+#                                atom_level=False at rf3/token_dit.py:84, which imports this very
+#                                class. Flipping L8's default flips it for RF3's token DiT too.
+#
+# `tenstorrent.DiffusionTransformer` is built at seven sites, not three: boltz-2's atom encoder
+# (:10628), token transformer (:10645) and atom decoder (:10658), RF3's token DiT, atom encoder
+# and atom decoder, and reference.py:1449. BoltzGen is genuinely out of scope, it has its own
+# torch DiffusionTransformer at boltzgen/model/modules/transformers.py:70, and so is openfold3
+# via OF3DiffusionTransformer. Keep the levers unified rather than gating them per model
+# (standing rule), but measure the models that inherit them before a default flips.
 #
 # L7: cut each layer's head-range out of the attention bias once per fold instead of once per
 # denoise step. The bias is uploaded by _populate_diffusion_cache and is constant across all
