@@ -1,0 +1,67 @@
+{
+ "micro": 4,
+ "accumulate": 16,
+ "tokens": 256,
+ "blocks": 8,
+ "steps": [
+  21.838400556000124,
+  22.195311737999873,
+  21.89116248800019,
+  21.612002998999742
+ ],
+ "stages": [
+  {
+   "forward": 4.856062489998294,
+   "download": 0.0717987939970044,
+   "losses": 2.859854919999634,
+   "host_backward": 2.2579933059987525,
+   "device_backward": 11.53164083900083,
+   "optimizer": 0.03544454099937866,
+   "total": 21.838400556000124,
+   "micro_batches": 16
+  },
+  {
+   "forward": 4.846885534998364,
+   "download": 0.08736551100628276,
+   "losses": 3.0261278490015684,
+   "host_backward": 2.40802961600275,
+   "device_backward": 11.538999906000754,
+   "optimizer": 0.0625387790005334,
+   "total": 22.195311737999873,
+   "micro_batches": 16
+  },
+  {
+   "forward": 4.888903492006648,
+   "download": 0.11931201199513453,
+   "losses": 2.7696707420018356,
+   "host_backward": 2.315604468998572,
+   "device_backward": 11.54040359100145,
+   "optimizer": 0.035937856999225914,
+   "total": 21.89116248800019,
+   "micro_batches": 16
+  },
+  {
+   "forward": 4.808997049998652,
+   "download": 0.07252193200110923,
+   "losses": 2.697097100000974,
+   "host_backward": 2.2497877440018783,
+   "device_backward": 11.530205613000362,
+   "optimizer": 0.03533765000065614,
+   "total": 21.612002998999742,
+   "micro_batches": 16
+  }
+ ],
+ "median": 21.864781522000158,
+ "stage_median": {
+  "forward": 4.851474012498329,
+  "download": 0.079943721503696,
+  "losses": 2.814762831000735,
+  "host_backward": 2.2867988874986622,
+  "device_backward": 11.535320372500792,
+  "optimizer": 0.03569119899930229
+ },
+ "clock": "AICLK during the run: card 0 min 1343 median 1350 max 1350 MHz over 38",
+ "cotenants_same_node": 0,
+ "cotenants_elsewhere": 0,
+ "when": "2026-09-18T22:42:52Z"
+}
