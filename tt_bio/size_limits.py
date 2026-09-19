@@ -143,7 +143,7 @@ MECHANISMS = (L1_CLASH, L1_BUDGET, DRAM, DRAM_MSA, FRAGMENTATION, TRUNK_FREEZE,
 
 # WHAT THE NUMBER COUNTS. Not decoration: the two design models were measured in DIFFERENT
 # denominators, and holding one against the other would be a silent unit substitution. RFD3's 704 is
-# motif PLUS designed residues, while PXDesign's 768 is TARGET residues only, with its 80-residue
+# motif PLUS designed residues, while PXDesign's 960 is TARGET residues only, with the designed
 # binder on top and outside the number. A guard that compared a total against a target-only cap
 # would refuse correct work on one model and pass oversized work on the other. Each row names its
 # denominator, each model has a sizer that produces that denominator, and the guard test asserts the
@@ -565,15 +565,34 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                 "Wormhole's 768 is a LADDER TOP from a different chip and does not bound this",
         ),
         "wormhole_b0": Ceiling(
-            residues=768, pass_at=768, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            residues=960, pass_at=960, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
             counts=DESIGN_TARGET,
-            evidence="catalog.py, measured 2026-08-29 on the serving pool (engine a189fdbb) with "
-                     "the ladder in perf/pxdesign/targets -- 1DP0 chain A cut around one epitope, "
-                     "80-residue binder, n_step 400, one design. EVERY rung ran: 128 aa in 62.0 s, "
-                     "256 in 50.8 s, 512 in 70.7 s, 768 in 99.9 s. No crash-class failure anywhere, "
-                     "so 768 is the largest size PROVEN and not the rung below a first failure. "
-                     "Nobody has run 1024, and 1DP0 chain A is 1011 residues so this ladder's own "
-                     "fixture source cannot reach it",
+            evidence="perf/pxdesign/targets/laczc_960_b64.yaml -- 960 conditioned target residues "
+                     "plus a 64-residue binder, 1024 tokens, the platform's shipped defaults "
+                     "(4 designs, n_step 200, seed 42). Walked twice on the serving Galaxy "
+                     "UF-EV-A13-GWH02, both times a clean pass with no device refusal: 2026-09-08 "
+                     "on 4fbc152f in 210.3 s (ws:japanfold-pxdesign-1024-uncap) and re-measured "
+                     "2026-09-19 on 72596df4f in 164 s with fit 0.114-0.136 A and the live "
+                     "engine.pin d29d9a823 alongside it (ws:cov-stale-pxdesign-whgalaxy). "
+                     "The binders come back geometrically clean -- 64 residues, 257 atoms, zero "
+                     "backbone breaks, 100 % of Ca-Ca steps in band at 3.79-3.80 A, zero clashes. "
+                     "WHY THIS ROW MOVED, and it is not new headroom: the platform has advertised "
+                     "and enforced target+binder <= 1024 since 2026-09-08 (japanfold/limits.py) "
+                     "and japanfold/size_evidence.py has recorded 1024 tokens proven since the "
+                     "same day, while this row stayed at 768. Because the platform shells out to "
+                     "`tt-bio design` and sets no TT_BIO_SIZE_LIMIT, every pxdesign job above 768 "
+                     "TARGET residues was accepted by the service and then refused here, measured "
+                     "2026-09-19 through the serving engine's own CLI. 768 was a LADDER TOP from "
+                     "a fixture that could not reach higher (1DP0 chain A is 1011 residues), not "
+                     "a wall. The 2026-08-29 ladder it came from still stands: 128 aa in 62.0 s, "
+                     "256 in 50.8 s, 512 in 70.7 s, 768 in 99.9 s at n_step 400, one design. "
+                     "Above this row there is still no measured failure until 1664 TOKENS "
+                     "(ws:ceiling-pxdesign, one 1.42 GB pair-transition buffer), with 1088 and "
+                     "1408 tokens both passing twice. NOTE THE DENOMINATOR: counts=DESIGN_TARGET, "
+                     "so this ignores binder_length while the wall above is on tokens. That gap "
+                     "predates this change and is unchanged by it -- 768+896 and 960+704 are both "
+                     "1664 and both slip past -- but the platform caps the sum at 1024, so "
+                     "nothing it dispatches can reach it",
         ),
     },
     "esmc-6b": {
