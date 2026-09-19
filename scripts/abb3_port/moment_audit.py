@@ -71,6 +71,10 @@ def audit(path: Path) -> dict:
             # Per-parameter liveness is the verdict; the element-wise count is the honest scalar
             # figure underneath it, because a live tensor can still be mostly zero.
             "nonzero": int(np.count_nonzero(avg)),
+            # The other side of the same question. A dead moment says the gradient was always
+            # zero; a dead moment over an identically zero WEIGHT says why, because no gradient
+            # passes back through W = 0 and none reaches a layer whose input is already zero.
+            "master_zero": not bool(np.any(master != 0.0)),
             "abs_max": float(np.abs(avg).max()),
             "steps": float(opt_steps[i]) if i < len(opt_steps) else float("nan"),
         })
@@ -97,6 +101,13 @@ def report(result: dict, min_live: float, show: int) -> int:
     print(f"OPT_STEPS:  {len(stepped)} of {len(rows)} parameters stepped by the optimizer, "
           f"min {min((r['steps'] for r in rows), default=0):.0f}, "
           f"max {max((r['steps'] for r in rows), default=0):.0f}")
+
+    dead_at_zero = sum(1 for r in dead if r["master_zero"])
+    live_at_zero = sum(1 for r in live if r["master_zero"])
+    print(f"MASTERS:    {dead_at_zero} of the {len(dead)} dead parameters have an identically "
+          f"zero master weight, against {live_at_zero} of the {len(live)} live ones. A dead "
+          f"moment over a zero weight is an initialisation that never happened, not a tape that "
+          f"dropped a gradient")
 
     disagree = [r for r in rows if r["live"] != r["live_sq"]]
     if disagree:
