@@ -1,0 +1,20 @@
+{
+  "tag": "q256p1",
+  "model": "boltz2",
+  "rung": 256,
+  "folds": 5,
+  "rc": 0,
+  "wall_s": 51.91,
+  "log": "/home/ttuser/.coworker/wt/c14-gate-256-warmup/perf/c14_gate_256/work/q256p1/predict.log",
+  "host": "tt-quietbox",
+  "tt_visible_devices": "3",
+  "loadavg": [
+    7.42138671875,
+    4.5439453125,
+    2.703125
+  ],
+  "t_start_utc": "2026-09-18T23:39:14Z",
+  "t_end_utc": "2026-09-18T23:40:06Z",
+  "rows": [],
+  "sequence_s": []
+}

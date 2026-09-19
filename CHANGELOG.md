@@ -7,6 +7,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **The size-ladder gate takes its rep count from the rung that is noisy.** One sigma, measured
+  at 512 aa only, set both the exponent tolerance and how many folds every rung is measured
+  over. runtime_s carries a size-independent host term, so the smallest rung is mostly made of
+  it and is the rung that moves: boltz2 on p300c recorded `reps: 1` off a 0.41 % sigma at 512
+  and then failed its own 256->512 exponent at four commits. The arm now measures the lowest
+  gated rung at the sigma rep count too and takes the rep count from the worst of them; the
+  tolerance still comes from the middle rung. Measured on qb1 p150a, benchlocked, AICLK pinned
+  at 1350 MHz: two single draws of k(256->512) disagree by more than the +-0.50 band 0.9 % of
+  the time, three reps takes that to 0.1 %. Existing baselines are unaffected until re-recorded.
+
 - **A tt-bio verb no longer turns off its caller's autograd.** `predict`, `warmup`, `embed`,
   `affinity`, `saprot` and `design` called `torch.set_grad_enabled(False)` in their bodies, which
   is process-wide and nothing restored it, so reaching any of them from a script, a notebook or a
