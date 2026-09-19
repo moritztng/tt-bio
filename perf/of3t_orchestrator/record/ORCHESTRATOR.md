@@ -291,6 +291,19 @@ GAP: the open defects are enumerated in `state/of3t/DEFECTS.md` and every UNFIXE
 named here by number, which the compose audit now checks mechanically so this field cannot
 drift again unnoticed.
 
+**D25: THE PUBLISHED REFERENCE HAS A BOX-TO-BOX FLOOR OF 6.224e-02 WITH NO MODEL OF OURS IN
+IT.** `perf/of3t_gradients/replay_vs_r0.json` compares a qb2-CPU r = 0 replay against the
+republished r = 0 tape produced on a rented A100 — **upstream against upstream**, same revision,
+same batch, same replayed draws, dropout off both sides — and reads median **6.224e-02 over 171
+tensors with 151 over the 5.0e-02 bar** (per block 5.707e-02 / 6.198e-02 / 7.379e-02). D19 records
+a diffusion-scope floor of 6.444e-02 and attributes it to our forward gap; **the causal story D19
+tells cannot produce this one**, because our model is absent from it. So a scope-independent
+~6.2e-02 term exists with no port defect in it, and how the two contributions divide is open. It
+also leaves an inconsistency to settle before any trunk arm is read: at block 0 the floor is
+5.707e-02 while the `tb-off` arm reads **1.15e-02**, *below* the floor under it — either the A14
+rule removes the near-degenerate tensors the floor is concentrated in, or the terms partially
+cancel. UNFIXED. Owner `of3t-rebase`.
+
 **D24 IS A SHIPPED-INFERENCE DEFECT ON THE SHIPPED DEFAULT, independent of D1.** On a single
 chain `openfold3_fold.py:277` ranks samples with `0.8*iptm + 0.2*ptm + 0.5*disorder -
 100*has_clash`, and **ipTM and `has_clash` are identically zero by construction** — ipTM averages
@@ -415,8 +428,8 @@ validation is sound (median 0.353 at h = 1e-5 is truncation; an h-sweep is choos
 either side**: the GPU baseline's method is pre-registered and nothing is measured, so the
 second half of Moritz's bar is untouched.
 
-VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Sixteen concluded rows; twenty-four
-defects on the record, ten of them UNFIXED**, two raised in the last four passes.
+VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Sixteen concluded rows; twenty-five
+defects on the record, eleven of them UNFIXED**, three raised in the last five passes.
 
 **PASS 91: THE CEILING THIS CAMPAIGN CLOSED ON IS GONE FOR THE DIFFUSION HALF, AND IT WAS THE
 REFERENCE.** Pass 88 closed on A18's first clause — a disagreeing forward invalidates the gradient
@@ -3116,3 +3129,49 @@ regression to undo. The row's own finding is sharper than either reading: the he
 the worst sample mode on 5 of 9 seeds against a 22 % base rate, P = 0.030**, and in the
 corrected-trunk arm it **selects worse than a coin flip**, 1.245 A against 1.079 A. That is one
 decision, not a distribution, which is why D24 is a credible mechanism for it.
+
+PASS 93. **The reference has a box-to-box floor of 6.224e-02 with none of our code in it, and a
+row had sized its control from a withdrawn tape.**
+
+`of3t-rebase` found a confound I missed when I wrote D23's remedy, and it is a real one: the
+published bundle was produced on a rented A100 under CUDA while the 0.4.3 rebuild runs on qb2 CPU,
+so the rebuild moves upstream revision and box together. Its answer — build a third bundle, 0.5.0
+on qb2 CPU, to separate them — is right and is running.
+
+Checking the figures it sized that control with turned up two things. The numbers it quoted
+(worst 2.256 / 1.971 / 1.563, forward 1.686e-02) come from
+`capture_trunk_boundary_nodropout.json`, which carries `standing = HISTORICAL` and a
+`superseded_by` field naming its replacement: that block scores against the **D18-withdrawn
+train-mode tape**, whose own median of 1.096 sits within noise of the zero-model answer of 1.0.
+*The artifact said it was superseded and was read past.* The correct comparison is
+`replay_vs_r0.json`, against the republished r = 0 tape.
+
+And the correct numbers are the finding. Upstream against upstream — same revision, same batch,
+same replayed draws, dropout off on both sides, only the box differing — reads **median 6.224e-02
+over 171 tensors, 151 of them over the 5.0e-02 bar**, per block 5.707e-02 / 6.198e-02 / 7.379e-02.
+**No model of ours is in that comparison.**
+
+**Which reframes D19's floor.** D19 records 6.444e-02 at diffusion scope and attributes it to our
+forward gap: *"a 6.7e-03 forward gap is roughly a tenfold larger gradient gap, so until D19 closes
+nothing compared against the bundle at this scope can read below 6.4e-02."* The trunk-scope figure
+is 6.224e-02 with our model absent. Two scopes, essentially one number, and D19's causal story
+cannot produce the second. A scope-independent ~6.2e-02 term exists that no port fix will remove.
+How the two contributions divide is **not** established and I am not asserting it.
+
+**It also leaves an inconsistency that must be settled before any corrected trunk arm is read.**
+At block 0 the floor is median 5.707e-02 while the arms being replaced read shipped 6.48e-02 and
+`tb-off` **1.15e-02** over 52 tensors — the tb-off arm sits *below* the floor under it, which a
+comparison should not do. Either the A14 zero-reference rule removes the near-degenerate tensors
+the floor is concentrated in (its worst tensor is a LayerNorm bias at 2.24, exactly that shape) or
+the two error terms partially cancel. The row is instructed to settle it with A14 applied to both
+sides, and to report the trunk result as **bounded rather than measured** if it cannot.
+
+**None of this touches D23's diffusion half, and the reason is worth stating** so the two are not
+dismissed together. The DiT bisection feeds *both* references the same captured `dit_in` on the
+same box and changes only the upstream revision — the row itself noted it "needs only a
+`PYTHONPATH` change", which is why A18 is harder. The trunk arms require a bundle rebuild, which is
+what drags the box in. So the DiT result is clean and the trunk result is confounded, by
+construction rather than by luck.
+
+`of3t-confhead` is folding on qb2 — the repin took, `queue.tsv` reads `qb2 any`, and it reports
+1 of 18 folds captured across two campaigns.

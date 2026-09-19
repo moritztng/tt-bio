@@ -134,6 +134,55 @@ bias must arrive pre-baked by `sqrt(head_dim)` under both revisions and D1's dia
 revision-stable.** Owner `of3t-confhead`, dispatched pass 90 — D1 and D10 ship together or not at
 all.
 
+### D25. The published reference's own box-to-box floor is 6.224e-02, above the bar, and it bounds every comparison taken against it regardless of any port defect. MEASURED, UNFIXED.
+
+Surfaced by `of3t-orchestrator` pass 93 while checking a figure `of3t-rebase` had cited, and it is
+already on disk: `perf/of3t_gradients/replay_vs_r0.json`, an **upstream-against-upstream**
+comparison — a qb2-CPU r = 0 replay against the republished r = 0 tape produced on a rented A100,
+same revision, same batch `batch_step003.pt`, same replayed `draws_recycles0.pt`, dropout
+disabled on both sides:
+
+| block | n | median | over 5.0e-02 bar | worst |
+|---|---|---|---|---|
+| 0 | 57 | **5.707e-02** | 50/57 | 2.2439 `blocks.0.attn_pair_bias.layer_norm_z.bias` |
+| 23 | 57 | **6.198e-02** | 52/57 | 1.0804 same tensor |
+| 47 | 57 | **7.379e-02** | 49/57 | 0.8150 same tensor |
+| **all three** | **171** | **6.224e-02** | **151/171** | |
+
+**No model of ours is in this comparison.** It is upstream's own gradient against upstream's own
+gradient, and it still misses the per-tensor bar on 151 of 171 tensors. So the floor is the
+reference artifact's, not the port's.
+
+**This reframes D19's floor.** D19 records a diffusion-scope floor of **6.444e-02** and attributes
+it to our forward gap — *"a 6.7e-03 forward gap is roughly a tenfold larger gradient gap, so until
+D19 closes nothing compared against the bundle at this scope can read below 6.4e-02"*. The
+trunk-scope figure here is **6.224e-02**, measured with our model absent entirely. **Two scopes,
+one number, and the causal story D19 tells cannot produce the second one** — so at least part of
+what D19 calls its own floor is the reference's box-to-box reproducibility, present whether or not
+D19 ever closes. How the two contributions divide is not established here and should not be
+asserted; what is established is that a scope-independent ~6.2e-02 term exists with no port
+defect in it.
+
+**And it leaves an inconsistency that must be resolved before any trunk arm is read.** At block 0
+the floor is median 5.707e-02 while the instrument_a arms read shipped 6.48e-02 and **tb-off
+1.15e-02** over 52 tensors. The tb-off arm reads *below* the floor under it, which a comparison
+should not do. Two candidate explanations, both testable: the floor is concentrated in
+near-degenerate tensors that the A14 zero-reference rule removes from the instrument_a arms — its
+worst tensor is a LayerNorm bias at 2.24, exactly that shape — or the two error terms partially
+cancel. `of3t-rebase` is instructed to settle it with the A14 exclusion applied to both sides
+before reading a corrected trunk number, and to report the trunk result as **bounded rather than
+measured** if it cannot.
+
+**Provenance note, because it is the reusable part.** `of3t-rebase` sized its box-vs-revision
+control from `capture_trunk_boundary_nodropout.json`, quoting worst 2.256 / 1.971 / 1.563 and a
+forward of 1.686e-02. That artifact carries `reference_standing.standing = HISTORICAL` and a
+`superseded_by` field naming its replacement: its `capture_vs_bundle` block scores against the
+**D18-withdrawn train-mode tape**, whose own median of 1.096 is within noise of the zero-model
+answer of 1.0. The row's instinct — that rebuilding on qb2 CPU moves box and revision together and
+needs a third control bundle — is right and the control is being built. Only the magnitude was
+wrong, by roughly 20x. *The artifact said it was superseded; the stamping worked and was read
+past.* Owner `of3t-rebase`.
+
 ### D24. On a single chain, OpenFold3 ranks its samples with a rule two of whose four terms are identically zero — and it is the only model of five that leaves it unhandled. UNFIXED. Affects every monomer fold shipped today.
 
 Found by `of3t-confhead` pass 1, machine-checked in `perf/of3t_confhead/rank_rule.py`. Independent
