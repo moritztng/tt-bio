@@ -157,6 +157,77 @@ if upper.is_file():
 # Each instrument can be internally correct and still disagree with its neighbour about a fact
 # both depend on. Nothing in this campaign caught instrument B configuring OF3's schedule at
 # max_lr 1e-3 while instrument C drove the optimizer at 1.8e-3, because each passed on its own.
+# --- D17 on a card, and the ceiling it puts on every SS3d number ---------------------------
+d = j("perf/of3t_gradients/reach_by_norm.json")
+if d:
+    r = d["reach"]
+    check("D17 reference tensors", d["n_tensors"], 4147)
+    check("D17 none absent", d["n_absent"], 0)
+    close("D17 tracer reach by norm", r["k22_tracer_bijection"]["norm_share"], 0.06543442172265604)
+    close("D17 device reach by norm", r["device_bijection_mat64"]["norm_share"], 0.9444419461556877)
+    check("D17 device tensors mapped", r["device_bijection_mat64"]["tensors"], 3497)
+    # The published global norm is the one number that ties this artifact to the manifest.
+    close("D17 global norm vs manifest", d["total_norm"], 3.908301894520238, tol=1e-12)
+    # The ceiling. These two are what every SS3d figure in EVIDENCE is measured inside.
+    close("D17 block-0 share of the squared norm",
+          r["instrument_a_block0_53"]["norm_share"], 0.0020038559007500654)
+    close("D17 whole-trunk share of the squared norm",
+          r["pairformer_stack_all"]["norm_share"], 0.05274678966027111)
+    if r["pairformer_stack_all"]["norm_share"] < 0.10:
+        ok.append(f"D17 ceiling stands: the whole 48-block trunk is "
+                  f"{r['pairformer_stack_all']['norm_share']:.2%} of the squared norm, block 0 "
+                  f"is {r['instrument_a_block0_53']['norm_share']:.2%}")
+    else:
+        bad.append("D17's ceiling has moved -- EVIDENCE's scope note says no trunk-scope "
+                   "instrument can speak for the gradient's magnitude, and that sentence is "
+                   "built on the trunk holding ~5 % of it")
+
+# --- D14's crop ladder: both units at every rung, and the 384 refusal's own arithmetic -----
+_rungs = {}
+for _n in (128, 256, 384):
+    _d = j(f"perf/of3t_l1/out/r2_{_n}.json")
+    if _d:
+        _rungs[_n] = _d
+if len(_rungs) == 3:
+    for _n, _want_fwd, _want_bwd, _ok in ((128, 1696363520, 3929519104, True),
+                                          (256, 2929000000, 14755173376, True),
+                                          (384, 4795000000, 32369505280, False)):
+        _b = _rungs[_n]["backward"]
+        check(f"D14 rung {_n} backward fits", _b["ok"], _ok)
+        close(f"D14 rung {_n} backward DRAM peak", _b["dram_peak_b"], _want_bwd, tol=1e-3)
+    # The claim that 384 is FRAGMENTATION and not capacity rests on one comparison: the
+    # requested block against the largest free one. If the request ever stops being the
+    # largest allocation, the diagnosis changes and so does the remedy.
+    _req = _rungs[384]["backward"].get("dram_largest_b")
+    if _req == 1207959552:
+        ok.append("D14 the 384 request is 1207959552 B -- the fragmentation diagnosis is about "
+                  "THIS allocation, 3.26 MB above the largest contiguous block")
+    else:
+        bad.append(f"D14's 384 request is now {_req} B, not 1207959552 -- the '3.26 MB short' "
+                   f"figure is about a block size that has changed")
+    # Both units, every rung (R16's lesson). A rung reported in one unit hides which limit bound it.
+    if all(_rungs[_n]["backward"].get("dram_live_allocs") for _n in (128, 256, 384)):
+        ok.append("D14 ladder reports allocations AND bytes at every rung: "
+                  + ", ".join(f"{_n}:{_rungs[_n]['backward']['dram_live_allocs']}"
+                              for _n in (128, 256, 384)))
+    else:
+        bad.append("D14 ladder is missing a live-allocation count at some rung -- one unit "
+                   "hides which limit bound it")
+
+d = j("perf/of3t_l1/out/gradient_control.json")
+if d:
+    # This artifact is the CONTROL (a perturbed run), so FAIL is its correct verdict. The
+    # campaign's claim is the unperturbed comparison; what is asserted here is that the
+    # control discriminates at all.
+    check("D14 control compared", d["compared"], 172)
+    check("D14 control set identical", (d["n_only_in_a"], d["n_only_in_b"]), (0, 0))
+    if d["worst_rel_l2"] > d["bar_per_tensor"]:
+        ok.append(f"D14 one-bf16-ulp control is rejected at {d['worst_rel_l2']:.3f} on "
+                  f"{d['worst_tensor'].split('.')[-1]}, {d['worst_rel_l2']/d['bar_per_tensor']:.1f}x the bar")
+    else:
+        bad.append("D14's one-ulp control no longer fails -- a gate nobody has watched fail is "
+                   "not a gate, and the bit-identity result leans on this one discriminating")
+
 # --- of3t-gradients: instrument A at block scope, and the reference that disqualified itself
 d = j("perf/of3t_gradients/instrument_a_bundle_block0.json")
 if d:

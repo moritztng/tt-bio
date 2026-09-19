@@ -130,9 +130,28 @@ fi
 # generator and twenty frozen batches, and the campaign's critical path was diagnosed from
 # `origin` twice and called stuck. This is a WARNING rather than a failure: the row owns its
 # branch and may be mid-work, and pushing for it would race a live agent.
+THIS_HOST="$(hostname -s)"
 for r in $ROWS; do
   wt="$D_WT/of3t-$r"
-  [ -d "$wt" ] || continue
+  lg="$D_WT/../workers/of3t-$r.log"
+  # A row whose worktree is on ANOTHER host has no directory here, and `continue` used to skip
+  # it in silence -- so for every carded row this check has been reporting nothing while
+  # looking like it reported "clean". That is the failure mode this check exists to catch,
+  # turned on itself. When qb2 hard-hung on 2026-09-19 the two rows holding the campaign's
+  # critical path were both there, and the compose said nothing about either.
+  if [ ! -d "$wt" ]; then
+    rhost=$(grep -oE 'START of3t-[a-z0-9]+ host=[^ ]+' "$lg" 2>/dev/null | tail -1 | \
+            sed 's/.*host=//')
+    # Only for a LIVE row. A concluded row's worktree holds nothing the campaign is waiting
+    # on -- what origin has IS its final answer -- and noting nine of them buries the one
+    # that matters, which is how a check gets ignored.
+    if [ -n "$rhost" ] && [ "$rhost" != "$THIS_HOST" ] \
+       && [ ! -f "$D_WT/../state/concluded/of3t-$r" ]; then
+      echo "  NOTE of3t-$r: worktree is on $rhost, not $THIS_HOST -- unpushed work there is"\
+           " INVISIBLE to this compose. What origin has is all this composition can carry."
+    fi
+    continue
+  fi
   ah=$(git -C "$wt" rev-list --count "origin/wk/of3t-$r..HEAD" 2>/dev/null || echo 0)
   dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l)
   [ "$ah" -gt 0 ] && echo "  NOTE of3t-$r: worktree is $ah commit(s) ahead of origin -- not in this composition"
@@ -141,7 +160,6 @@ for r in $ROWS; do
   # it pushes, which looks identical to disobedience from `origin` and is not. Asking such a
   # row to push cannot work -- its work has to be reshaped to fit the wall. (K38; this cost
   # two passes of wrong remedies on of3t-reference.)
-  lg="$D_WT/../workers/of3t-$r.log"
   if [ -f "$lg" ] && [ "$ah" -gt 0 ]; then
     last=$(grep -oE 'it[0-9]+ rc=[0-9]+' "$lg" | tail -1)
     case "$last" in *rc=124) echo "  NOTE of3t-$r: last turn was KILLED by the 3000s cap ($last)"\
