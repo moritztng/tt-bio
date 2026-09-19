@@ -184,7 +184,7 @@ Recomputed from the artifacts on every compose (146 checks, 0 drifted):
   step at `num_recycles = 0`, determinism pinned: **4,147 of 4,147**, worst 0.0, median 0.0 —
   A13's detector, which D18 demanded. Unpinned, 55 of 4,147 sit over the bar from cuBLAS
   reduction order alone, which is the measurement of what the pinning is worth.
-- **The method, durably.** Tolerances fixed before any number existed, **seventeen amendments** on
+- **The method, durably.** Tolerances fixed before any number existed, **eighteen amendments** on
   the record each marked for whether a number already existed, and negative controls that have
   caught **five of the campaign's own instruments** — including §5's mirror (D15), the
   reference's own dropout floor (D18), and a relative bar dividing by 1.4e-19 (A14).
@@ -297,12 +297,24 @@ accounts for 3.2x (**D9**), the in-place residual is refuted. **D10** the confid
 mis-ranks, picking a 1.59 A sample over a 0.56 A one on 6 of 9 seeds, which is why **D1**'s
 measured fix must not ship alone.
 
-**D20 is the ceiling, and D19 is the floor under everything measured against the reference.**
-D20: no taped OF3 training forward past the trunk, so `diffusion_module` (91.21 % of the
-squared gradient norm) and `aux_heads` (3.57 %) cannot produce a gradient on our side — 95.5 %
-of the magnitude is a port gap, not an unrun measurement. D19: our forward and theirs differ
-by **6.73e-03** with every draw pinned, and no gradient comparison can be tighter than the
-forward it is taken at. Owners `of3t-gradients` and `of3t-reference`.
+**D19 is the floor under everything measured against the reference, and D21 is the campaign's
+live edge.** D19: our forward and theirs differ by **6.73e-03** with every draw pinned, and no
+gradient comparison can be tighter than the forward it is taken at — measured, that buys a
+**6.444e-02** median floor at diffusion scope, above the 5.0e-02 bar. Owners `of3t-gradients`
+and `of3t-reference`.
+
+**D21: the device arm of instrument A now RUNS, and its first reading is an instrument defect
+rather than a result** — median **0.7672**, worst **87.82**, 283 of 283 over the bar, against a
+zero-model baseline of **1.0**. It is **not** published as a ceiling, under **A18**, because two
+specific defects that would produce it are named: the bijection reaches **283 of 870** reachable
+device weights, and 0.77 is the wrong *shape* for an fp32-vs-float64 gap, which reads ~1e-2.
+The forward discriminator at the sub-boundary gates all further gradient work. Owner
+`of3t-diffusion`, live.
+
+**D20's coverage half is CLOSED** (pass 71): the diffusion path is 100 % taped forward and
+backward and all 870 reachable weights carry a gradient, so `diffusion_module`'s 91.21 % of the
+squared norm is an unrun — now partly run — measurement, not a port gap. What remains of D20 is
+`aux_heads` (3.57 %) and the conditioning block our module does not contain.
 
 **D18 is the one that decides what any gradient number means.** BUNDLE-MIN was taped in
 **train mode**: one `Dropout` at rate 0.25, a mask no RNG snapshot reproduces across devices,
@@ -368,7 +380,7 @@ set identical to main.
   reproduces bit-identically (A13), and upstream's own training test passes on a GPU. The one
   thing left is not a blocker to work around — it is a **port that stops at the trunk**.
 
-**Twenty defects**, of which **six remain UNFIXED** (D18's fix is in flight and its own detector passes; **D20**'s coverage half closed in pass 71 — the diffusion path is 100 % taped and every reachable weight carries a gradient — leaving **D19**, the 6.735e-03 forward gap, as the tightest open bound) — two in inference users get today, three
+**Twenty-one defects**, of which **seven remain UNFIXED** (D18's fix is in flight and its own detector passes; **D20**'s coverage half closed in pass 71 — the diffusion path is 100 % taped and every reachable weight carries a gradient — leaving **D19**, the 6.735e-03 forward gap, as the tightest open bound) — two in inference users get today, three
 affecting models other than OpenFold3, one a near-miss in which the central claim would have
 passed with our trunk deleted, and **five found in the campaign's own instruments** rather
 than in the model. A protocol whose bars were fixed before any number existed and **amended
@@ -411,6 +423,44 @@ bf16 probe, 1.0e-03 sits below one ulp at magnitude 1 (3.9e-03), so it was measu
 rather than correctness. The rule this sets: **a PROTOCOL bar may never move once a number exists;
 an instrument's own self-check may, if the old value was measuring the instrument instead of the
 thing, and only with the disclosure and the arithmetic stated up front.**
+
+PASS 81. **The device arm ran, and the right answer was to refuse its number.**
+`of3t-diffusion` got the campaign's central measurement to execute: 48 noised structures
+accumulated on one p300c at the captured r=0 boundary, seeded with the reference's own
+cotangent. **283 tensors, 61.02 % of the diffusion squared norm, median relative L2 0.7672,
+worst 87.82, 283 of 283 over the 5.0e-02 bar, zero-model baseline 1.0** — a **1.30x**
+separation from a deleted model.
+
+**A16 says publish that as a ceiling. The row declined, and the row is right**, which means
+A16 was underspecified. **A18** now bounds it: *a ceiling is publishable only from an
+instrument whose completeness you can assert*, and the discriminating question is whether you
+can **name a specific defect that would produce this reading**. The row named two — the
+bijection reaches **283 of 870** reachable device weights, and **0.77 is the wrong shape**
+(fp32 against float64 reads ~1e-2; a median at the baseline with a worst of 87.8 is a mis-wired
+operand). A16 forbids retrying a measurement to improve the number; it does not forbid
+repairing an instrument and measuring again — with A18's one condition that keeps those apart:
+**state the repair and its expected effect before the re-run.** Recorded as **D21**, and the
+cheap discriminator the run skipped — our `xl_out` against theirs in `sub_boundary.pt` — now
+gates all further gradient work. That is D19's lesson applied one boundary in.
+
+Three things stand regardless: 48-tape accumulation is exact **and probed** (1.73e-4 → 3.84e-4
+→ 5.23e-4, which a replacing `backward` cannot produce); cost collapsed to **1.2 s per
+structure** after 39 s of compile, making a matched-N re-run ~2 minutes, which is what makes
+repair-and-remeasure affordable; and the row caught its own near-miss — a single-structure
+**0.985** that was pure scope mismatch against a sum over 48, landing where `sqrt(49/48)` says
+it must, committed labelled as a mismatch.
+
+**And a concluded row's armed cron waiter wants my live row's card.** `c14-land-tail` is
+concluded and left `*/3 * * * * CARD=2 ... waiter_tick.sh` ticking to a **22:28:29Z** deadline,
+when it fires a timed A/B on card 2 — the card `of3t-diffusion` holds. I **did not disarm it**:
+it matches the stale-crontab pattern exactly but is not stale, and *a pattern match is not a
+licence to destroy someone's last measurement.* Their admission gate samples loadavg once at
+entry and is blind to a tenant arriving mid-run, so I constrained my own side — off card 2
+until 22:40:00Z, `TT_BIO_LEASE_CARDS=0` set explicitly rather than merely preferring card 0,
+because a grant that merely includes a card is enough for something to open it. The window's
+critical path is host-side, so it costs nothing. Tenancy left on their state doc, since a
+concluded row has no brief to amend. Separately, qb2's **SSH host key rotated** at the
+19:35:53Z boot: `tt-quietbox2.fritz.box` now fails verification, `tt-quietbox2` works.
 
 PASS 80. **A gate whose only remedy is to reword a true sentence.** `of3t-diffusion`
 reported that my DONE_CHECK placeholder guard fired three times in one correct document:

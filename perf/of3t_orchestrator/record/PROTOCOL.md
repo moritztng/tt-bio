@@ -743,3 +743,42 @@ blind files, and `openfold3_fold.py:415-416` writes `si_trunk`/`zij_trunk` to ho
 it, so as shipped a confidence-loss gradient cannot reach the trunk at all. §6's "non-zero weight
 AND non-zero gradient contribution" is exactly the check that catches this, and `finetune_3.yml`
 is the confidence-only stage, so it is not a corner case.
+
+**A18 — 2026-09-19, raised by the device arm of instrument A (`of3t-diffusion`, pass 79),
+bounding A16. A number already existed: median 0.7672 against a zero-model baseline of 1.0.**
+
+A16 says that a median at or above the measured zero-model baseline is a **CEILING**, published
+as a result rather than retried until it looks better. That rule exists to stop a row grinding a
+disappointing number into a pleasing one. It must not become the opposite licence — **publishing
+the output of an instrument you already know is incomplete, because A16 said to publish.**
+
+The device arm's first reading is the case. 283 tensors, **median relative L2 0.7672, worst
+87.82, 283 of 283 over the 5.0e-02 bar, zero-model baseline 1.0** — a **1.30x** separation from a
+deleted model. Under A16 alone that publishes as a ceiling. It must not, because the row can name
+two specific defects in the instrument that would produce exactly that number:
+
+1. **The bijection reaches 283 of 870 reachable device weights** (283 of the reference's 738).
+   Three load sites were patched; the diffusion transformer, the decoder and the noisy-position
+   embedder load by paths none of them cover. An incomplete name map is not a base for a
+   model-scope claim.
+2. **0.77 is the wrong shape for a precision disagreement.** An fp32-against-float64 gap reads
+   ~1e-2. A median sitting at the zero-model baseline with a worst of 87.8 is the signature of a
+   **mis-wired operand**, not of arithmetic.
+
+**The rule.** A ceiling is publishable only from an instrument whose completeness you can
+assert. The discriminating question is: *can you name a specific defect in the instrument that
+would produce this reading?* If you can, you have a broken instrument and the obligation is to
+fix it. If you cannot — after looking — you have a ceiling and the obligation is to publish it.
+A16 forbids retrying a measurement to improve the number; it does not forbid, and here requires,
+**repairing the instrument and measuring again.** The repair must be specified and its expected
+effect stated **before** the re-run, so that "fix the instrument" cannot itself become the
+grinding A16 exists to stop.
+
+**And the discriminator must be the cheap one.** Here it is the *forward*: `sub_boundary.pt`
+already holds their `xl_out` at exactly these inputs, so comparing our `xl_out` against it
+separates a wiring defect from a genuine gradient gap in one short run — before any further
+gradient work is worth doing. **A gradient instrument must be gated on the forward at its own
+boundary agreeing first.** This is D19's lesson (a gradient comparison is never tighter than the
+forward it is taken at) applied at the sub-boundary the comparison actually uses, and the device
+arm skipped it.
+

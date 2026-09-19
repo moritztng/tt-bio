@@ -771,3 +771,43 @@ which matters more for a fold.
   explained away by the row that found them.
 - **111 of 176 confidence-head parameter gradients miss the §3d bars**, worst **1.0188e+00**,
   cause localised to bf16 backward arithmetic. Reported as the finding with no bar moved.
+
+### D21. The device arm of instrument A runs, and its first reading is an instrument defect, not a result. UNFIXED — the forward discriminator has not been run.
+
+Found by `of3t-diffusion`, pass 79, on the first end-to-end device arm at the captured r=0
+boundary: all 48 noised structures accumulated on one p300c, seeded with the reference's own
+cotangent.
+
+| quantity | value |
+|---|---|
+| tensors compared | **283** (of the reference's 738; of our 870 reachable) |
+| share of the diffusion squared norm | **61.02 %** |
+| median relative L2 | **0.7672** |
+| worst | **87.82** on `diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight` |
+| over the 5.0e-02 bar | **283 of 283** |
+| measured zero-model baseline | **1.0** |
+| separation from a deleted model | **1.30x** |
+
+**Two named defects, either of which produces this.** The **bijection reaches 283 of 870**: three
+load sites were patched, and the diffusion transformer, the decoder and the noisy-position
+embedder load by paths none of them cover. And **0.77 is the wrong shape** — an fp32-vs-float64
+gap reads ~1e-2; a median at the zero-model baseline with a worst of 87.8 is a **mis-wired
+operand**. Under **A18** this is therefore a broken instrument, not a ceiling, and it does not
+publish as a result.
+
+**The discriminator is cheap and was skipped.** `sub_boundary.pt` already carries their `xl_out`
+at exactly these inputs. One short forward run separates wiring from arithmetic. Nothing further
+on the gradient is worth doing before it.
+
+**Two mechanical things came out right and should not be relitigated.** Accumulating 48 tapes is
+**exact, and probed rather than assumed** — the leaf gradient norm grows 1.73e-4 → 3.84e-4 →
+5.23e-4 over the first three structures, which a `backward` that replaced instead of accumulating
+could not do. And the cost collapsed: first structure 39 s of compile, **1.2 s each** after, so
+the matched-N run is ~2 minutes against the ~31 budgeted.
+
+**A near-miss worth keeping.** An earlier single-structure run read median **0.985** — a
+publishable-looking number that was pure **scope mismatch**, one noised structure compared against
+a reference that is the sum over 48. For terms of similar magnitude and uncorrelated direction
+that ratio must land near `sqrt(49/48)`, and it did. It is committed **labelled as a mismatch, not
+a result**.
+

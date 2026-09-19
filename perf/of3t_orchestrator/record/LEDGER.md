@@ -4656,3 +4656,66 @@ against the **same regex objects the gate uses** rather than a re-parse of the s
 
 *A gate that fires on a true statement teaches the writer to stop making true statements.*
 Standing instruction now in the briefs: report the gate, never edit the statement.
+
+### R116 -- The device arm ran, and the right answer was to refuse its number
+
+`of3t-diffusion` got the campaign's central measurement to execute end to end: 48 noised
+structures accumulated on one p300c at the captured r=0 boundary, seeded with the reference's
+own cotangent. **283 tensors, 61.02 % of the diffusion squared norm, median relative L2
+0.7672, worst 87.82, 283 of 283 over the 5.0e-02 bar, against a measured zero-model baseline
+of 1.0.** A **1.30x** separation from a deleted model.
+
+**A16 says publish that as a ceiling. The row declined, and the row is right** — which means
+A16 was underspecified, so it is now bounded by **A18**: *a ceiling is publishable only from an
+instrument whose completeness you can assert.* The discriminating question is whether you can
+**name a specific defect in the instrument that would produce this reading**. The row named
+two: the bijection reaches **283 of 870** reachable device weights, and **0.77 is the wrong
+shape** — fp32 against float64 reads ~1e-2, whereas a median sitting at the zero-model baseline
+with a worst of 87.8 is a mis-wired operand. So this is a broken instrument, not a ceiling.
+
+A16 forbids retrying a measurement to improve the number. It does not forbid repairing an
+instrument and measuring again — and A18 attaches the one condition that keeps the two apart:
+**state the repair and its expected effect before the re-run.** Recorded as **D21**.
+
+**The discriminator was identified and skipped, and that is D19's lesson one boundary in.**
+`sub_boundary.pt` already holds their `xl_out` at exactly these inputs. A gradient comparison is
+never tighter than the forward it is taken at — and the forward it is taken at here is the
+sub-boundary's, not the whole-model loss. A18's second clause now gates all further gradient
+work on that one short run.
+
+**Three things stand regardless of the number.** 48-tape accumulation is exact **and probed**
+(1.73e-4 -> 3.84e-4 -> 5.23e-4 across three structures, which a replacing `backward` cannot
+produce). The cost collapsed: 39 s of compile then **1.2 s** per structure, so a matched-N
+re-run is ~2 minutes against the ~31 budgeted — which is precisely what makes repair-and-
+remeasure affordable rather than a plea for more time. And the row caught its own near-miss: a
+single-structure run read **0.985**, a publishable-looking number that was pure scope mismatch
+against a reference summed over 48, landing where `sqrt(49/48)` says it must. Committed
+labelled as a mismatch.
+
+*The campaign's central claim now has a number and a documented reason to distrust it, which is
+not the same as having the answer — and saying so is the result.*
+
+### R117 -- A concluded row's armed cron waiter and my live row want the same card
+
+Following the diffusion row's co-tenancy note to its source. `c14-land-tail` is **concluded**,
+and it left behind `*/3 * * * * CARD=2 QUEUE=TT_BIO_APB_CONCAT_HEADS:apb3 .../waiter_tick.sh`,
+ticking against a deadline of **2026-09-19T22:28:29Z**, at which point it fires a **timed paired
+A/B on card 2** — the card `of3t-diffusion`'s grant names, on the box it is live on.
+
+**I did not disarm it.** It matches the stale-infrastructure pattern exactly
+(`killed-chain-crontab-entry-outlives-worktree`), and it is not stale: their doc says the
+stopping rule is spent and the box has finally offered a clean window. That is their spend to
+make, not mine to delete — *a pattern match is not a licence to destroy someone's last
+measurement.*
+
+Their admission gate samples loadavg **once at entry**, so it cannot see a tenant arriving
+mid-run — their own finding, `benchlock-one-shot-check-blind-to-mid-run-contention`. So I
+constrained my side instead: `of3t-diffusion` is **off card 2 until 22:40:00Z**, with
+`TT_BIO_LEASE_CARDS=0` set explicitly rather than merely preferring card 0, *because a grant
+that merely includes a card is enough for something to open it.* Its critical path in that
+window — completing the name map — is host-side, so this costs the campaign nothing. And I left
+the tenancy on the record in their state doc, since a concluded row has no brief to amend.
+
+Also: qb2's **SSH host key rotated** at the 19:35:53Z boot, so `tt-quietbox2.fritz.box` now
+fails verification while `tt-quietbox2` works. The reboot is permitted (never power off; reboot
+is allowed) but an unplanned one that rotates a host key will fail a long run closed.
