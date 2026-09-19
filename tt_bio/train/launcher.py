@@ -63,6 +63,7 @@ from typing import Dict, Optional, Sequence
 from .mesh import Axis
 
 __all__ = ["drive", "driving", "inside", "rank", "world", "reducer", "replicas",
+           "host_threads",
            "out_dir", "node", "master_sha", "report", "tick", "RANK_ENV", "WORLD_ENV",
            "RUN_ENV"]
 
@@ -83,6 +84,22 @@ BARRIER_TIMEOUT_S = 900.0
 #: two steps back, which is safe because the barrier one step back already proved every peer
 #: read it, and it bounds the run at 2 x world x gradient bytes instead of steps x that.
 _KEEP_STEPS = 2
+
+
+def host_threads(world: int) -> int:
+    """The host's physical cores divided across ``world`` ranks, at least one.
+
+    Physical rather than logical: torch's intra-op pool is sized for compute, and two threads
+    on one core contend for the same vector units rather than adding any. ``os.cpu_count()``
+    reports the logical count, so it is halved when the machine reports SMT.
+    """
+    logical = os.cpu_count() or 1
+    try:
+        smt = int(Path("/sys/devices/system/cpu/smt/active").read_text().strip())
+    except (OSError, ValueError):
+        smt = 0
+    cores = max(1, logical // 2) if smt else logical
+    return max(1, cores // max(1, world))
 
 
 def _sweep_shm() -> None:
@@ -409,6 +426,18 @@ def drive(axis: Axis, *, out_dir, steps: int, timeout_s: Optional[float] = None)
             # The lease covers the whole axis: tt-bio refuses a card outside the grant at the
             # device open, and every rank's card has to be inside it.
             env["TT_BIO_LEASE_CARDS"] = ",".join(str(c) for c in ranks)
+            # The host's cores, divided. Torch sizes its intra-op pool from the machine and has
+            # no idea how many ranks share it, so every rank asks for the whole box and a
+            # `world`-rank run oversubscribes by `world`. Measured on qb1 (16 physical cores,
+            # ABodyBuilder3, four micro-batches a rank): four ranks at torch's default 16
+            # threads spend 913.98 s of a 931.05 s step in `losses` and `host_backward`, at
+            # load average 62 with no swap and 298 GB free; the same per-rank work with the
+            # cores divided spends 2.50 s. The device stages do not move between the two.
+            #
+            # A caller who set OMP_NUM_THREADS meant it and keeps it -- that is the override,
+            # and it is the same variable `tt_bio/runtime.py` already binds to both the
+            # intra-op and the inter-op pool, so there is no second knob.
+            env.setdefault("OMP_NUM_THREADS", str(host_threads(n)))
             log = open(run / f"rank{r}.log", "w")
             procs.append((r, card, subprocess.Popen(cmd, env=env, stdout=log,
                                                     stderr=subprocess.STDOUT), log))
