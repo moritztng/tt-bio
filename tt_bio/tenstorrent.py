@@ -7094,9 +7094,11 @@ _MM_BLOCK = {
     # concatenated weight and `qkvg_heads` declined 1208 of 1208 protenix-v2 calls per 512 aa fold
     # while boltz2 served 560 of 560 (perf/pvx_eligibility/out/). Same K_block = kt = 8 = the whole
     # contraction as the two entries it fuses, so every output element is accumulated in the order
-    # the two separate matmuls accumulate it today.
-    (8, 32): (4, 8, 1, 4, 1),   # protenix-v2 / esmfold2 qkv+gate      at c_z=256
-    (8, 33): (4, 8, 1, 4, 1),   # protenix-v2 / esmfold2 qkv+gate+bias at c_z=256
+    # the two separate matmuls accumulate it today. protenix-v2 is the only consumer measured:
+    # esmfold2 is c_z=256 too but never reaches `_qkv_mm_config` on a 512 aa fold at all
+    # (`perf/pvx_eligibility/out/mmkey_esm512.json`, zero calls), so it is not claimed here.
+    (8, 32): (4, 8, 1, 4, 1),   # protenix-v2 qkv+gate      at c_z=256
+    (8, 33): (4, 8, 1, 4, 1),   # protenix-v2 qkv+gate+bias at c_z=256
     (2, 12): (4, 2, 1, 4, 1),   # openfold3 qkv            at c_z=64
     (2, 2): (4, 2, 1, 4, 1),    # openfold3 gate           at c_z=64
     # protenix-v2's template pair stack is 2 heads of 32 at c_z=64, so its qkv is 6 tiles where
