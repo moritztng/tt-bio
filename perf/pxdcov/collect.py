@@ -70,14 +70,16 @@ def designs(d: Path, tres: int) -> list[dict]:
     j = out_dir / "designs.json"
     if j.is_file():
         for r in json.loads(j.read_text()):
-            recs[Path(r["cif"]).name] = r
+            recs[f'{r["id"]}.cif'] = r
     rows = []
     for cif in sorted(out_dir.rglob("*.cif")):
         r = recs.get(cif.name, {})
         row = {"cif": cif.name, "md5": hashlib.md5(cif.read_bytes()).hexdigest(),
                "fit_rmsd": r.get("fit_rmsd"), "binder_residues": r.get("binder_residues"),
                "binder_atoms": r.get("binder_atoms"),
-               "conditioned_tokens": r.get("conditioned_tokens")}
+               "conditioned_tokens": r.get("conditioned_tokens"),
+               # The engine's own token count for this design, which is what the bar is in.
+               "n_token": r.get("n_token"), "engine_runtime_s": r.get("runtime_s")}
         rep = score(cif, d / f"struct_{cif.stem}.json")
         if rep:
             ch = rep["checks"]["chains"][0] if rep["checks"].get("chains") else {}
