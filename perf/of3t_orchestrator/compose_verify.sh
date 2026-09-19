@@ -23,6 +23,7 @@ SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a sha
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
 CO="$SLUG_TMP/compose"; BASE="$SLUG_TMP/basemain"
+D_WT="${D_WT:-/home/moritz/.coworker/wt}"   # worktrees on THIS host, for the unpushed-work note
 
 cd "$REPO"; git fetch -q origin
 rm -rf "$CO" "$BASE"; mkdir -p "$SLUG_TMP"; git worktree prune
@@ -96,6 +97,21 @@ else
     | awk '{printf " %s",$1}'; echo; done <<< "$dup"
   exit 1
 fi
+
+# (1c) UNPUSHED WORK. A composition can only ever see `origin`, and a row whose worktree is ahead
+# of its remote is invisible to it -- not stalled, invisible. `of3t-reference` sat at its
+# pass-1 commit on origin for five passes while its worktree held two commits, an untracked
+# generator and twenty frozen batches, and the campaign's critical path was diagnosed from
+# `origin` twice and called stuck. This is a WARNING rather than a failure: the row owns its
+# branch and may be mid-work, and pushing for it would race a live agent.
+for r in $ROWS; do
+  wt="$D_WT/of3t-$r"
+  [ -d "$wt" ] || continue
+  ah=$(git -C "$wt" rev-list --count "origin/wk/of3t-$r..HEAD" 2>/dev/null || echo 0)
+  dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l)
+  [ "$ah" -gt 0 ] && echo "  NOTE of3t-$r: worktree is $ah commit(s) ahead of origin -- not in this composition"
+  [ "$dirty" -gt 0 ] && echo "  NOTE of3t-$r: $dirty uncommitted file(s) in its worktree"
+done
 
 # (2) collection against the control
 # pytest exits nonzero whenever anything failed to collect, and on a host without the ttnn/torch
