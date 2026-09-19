@@ -1,0 +1,33 @@
+Host test suite, branch vs origin/main control. Detached /tmp trees cloned from the shared
+object store, same interpreter, same invocation, TT_VISIBLE_DEVICES empty so no card opens.
+Run sequentially by perf/c14_opm_layout/hosttests_pair.sh on 2026-09-19. The .log files are
+gitignored (*.log), so the verdicts are transcribed here.
+
+control  origin/main 350773d0922295c55d8ebd4f95264e82d3e55055
+8 failed, 3835 passed, 204 skipped, 115 warnings in 146.96s (0:02:26)
+  FAILED tests/test_capacity_gate.py::test_a_moved_ceiling_re_runs_the_capacity_gate
+  FAILED tests/test_capacity_gate.py::test_this_file_does_not_break_the_files_that_run_after_it
+  FAILED tests/test_input_capabilities.py::test_every_folding_model_reports_the_depth_it_used[opendde]
+  FAILED tests/test_input_capabilities.py::test_every_folding_model_reports_the_depth_it_used[opendde-abag]
+  FAILED tests/test_packaging_smoke.py::test_live_tree_has_no_undeclared_imports
+  FAILED tests/test_perf_citations.py::test_cited_perf_artifact_exists[tt_bio/train/checks.py-perf/abb3_port/precision_probe_qb1c3.txt]
+  FAILED tests/test_template_l1_consumer_margin.py::test_the_residency_window_is_still_the_projections_only
+  FAILED tests/test_tuning_flag_docs.py::test_every_flag_the_release_notes_name_has_a_readme_row
+
+branch   wk/c14-stack-land 48dd33d43d3068e81adbc6e7d4be4341dada880b
+9 failed, 3836 passed, 204 skipped, 115 warnings in 216.59s (0:03:36)
+  FAILED tests/test_capacity_gate.py::test_a_moved_ceiling_re_runs_the_capacity_gate
+  FAILED tests/test_capacity_gate.py::test_this_file_does_not_break_the_files_that_run_after_it
+  FAILED tests/test_input_capabilities.py::test_every_folding_model_reports_the_depth_it_used[opendde]
+  FAILED tests/test_input_capabilities.py::test_every_folding_model_reports_the_depth_it_used[opendde-abag]
+  FAILED tests/test_packaging_smoke.py::test_live_tree_has_no_undeclared_imports
+  FAILED tests/test_perf_citations.py::test_cited_perf_artifact_exists[tt_bio/train/checks.py-perf/abb3_port/precision_probe_qb1c3.txt]
+  FAILED tests/test_template_l1_consumer_margin.py::test_the_residency_window_is_still_the_projections_only
+  FAILED tests/test_tuning_flag_docs.py::test_every_flag_the_release_notes_name_has_a_readme_row
+  FAILED tests/test_weights_download_lock.py::test_lock_is_released_when_the_holder_dies
+
+The 8 control failures appear on the branch by the same names and the same assertions;
+test_tuning_flag_docs names TT_PROTENIX_CONF_DEVICE on both sides, which is not this
+branch flag. The branch ninth, test_weights_download_lock, ran while the release gate
+was loading models on the same host (216 s against the control 147 s) and passes 3/3 on
+BOTH trees when run alone. It is host load, not a regression.

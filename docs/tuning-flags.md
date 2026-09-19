@@ -310,6 +310,57 @@ this flag is worth more on the reference fixture than on a deep-MSA target.
 Boltz-2's MSA module and trunk read the ladder, and BoltzGen reaches it through the trunk it shares.
 Protenix-v2, OpenFold3 and RF3 have their own MSA modules and do not read it.
 
+## `TT_BIO_OPM_LEGACY_LAYOUT` — off
+
+`OuterProductMean` averages the MSA depth and projects the result into the pair tensor. Two things
+about how it finished that job cost a full pass over the pair tensor on every call. The `1/depth`
+mean is a scalar, so it belongs on the smallest tensor in the chain, and this path had it on the
+largest: it multiplied the assembled pair rows, 536,870,912 B at 512 residues, where the per-row
+MSA tensor is 2,097,152 B. The output projection was also issued once per token row with the core
+grid pinned, which makes it re-read the whole contraction for every 32x32 it writes; one matmul
+over the flattened rows reads each operand once. Set this flag to get both of the old behaviours
+back.
+
+**Accuracy: not bit-identical, and inside the sampler's own seed spread.** Against a float64
+reference built from the same bf16 inputs and driven through the real module both ways, the two
+arms read the same max error, 5.3899e-3, and mean error 6.18831e-4 legacy against 6.18829e-4
+default. They differ from each other by at most 1.953e-3, which is one bf16 step at that
+magnitude: left unpinned the projection picks its own contraction blocking, so the sum lands in a
+different order. Folding the scale earlier is exact whenever the MSA depth is a power of two, and
+off a power of two it moves the same last bit.
+
+At the fold, read this as a sampler basin question rather than a geometry one. The 512-residue
+reference fixture is two CDK2 copies on a hinge, and the hinge swings under any bf16 perturbation,
+including a change of seed with neither arm touched. Both arms were folded at four seeds in one
+process on one card, arms interleaved:
+
+| worst pseudo-domain, all-atom, flag on vs off | seed 0 | seed 1 | seed 2 | seed 3 |
+|---|---|---|---|---|
+| | 1.59156 A | 0.30342 A | 0.30570 A | 0.29390 A |
+
+The floor to read that against is the legacy arm against itself at a different seed, six pairs:
+1.08885 to 1.42169 A, median 1.18521. Three of the four seeds land at a quarter of that floor and
+the worst one lands inside it. lDDT-CA, which no superposition can flatter, agrees: 0.93294 at
+seed 0 rising to 0.99892, against 0.90622 to 0.93923 for the legacy arm against its own seeds.
+Against the crystal (1HCL), four seeds per arm, nothing separates the two: lDDT-CA 0.93908 mean
+legacy against 0.93657 default on the first copy, 0.91616 against 0.91539 on the second. Scoring a
+structure against itself reads 0.000000 A, so that is the instrument and not the result.
+
+**Speed: 1.0111x on the fold**, 14.3923 s down to 14.2346 s at 512 residues, worth 0.1577 s. Six
+reps per arm interleaved inside one process on one Blackhole processor of a p300c, 10x11 grid,
+cold fold discarded, under the bench lock. The session's own floor is a third arm repeating the
+legacy one: it reads 14.4262 s, so the floor is 0.0339 s, a fifth of the effect. The clock was
+forced and sampled during the folds rather than before, 133,876 samples with minimum and maximum
+both 1350 MHz.
+
+The gain lands where the code is. Splitting the fold at its stage boundaries puts 0.1535 s of the
+0.1577 s in prepare-and-trunk and -0.0347 s in the sampler, and `OuterProductMean` runs inside
+`MSALayer`. A sampler-side gain here would have meant something else was using the box.
+
+Every model that builds the shared `OuterProductMean` reaches this: the Boltz-2 and BoltzGen
+trunk through `MSALayer`, Protenix, OpenFold3's MSA embedder, RF3's MSA stack and AF2. ESMFold2
+has its own `OuterProductMean` in `tt_bio/esmfold2.py` and does not.
+
 ## `TT_BIO_PAIR_FFN_L1_FC1` — on, ESMFold2 only
 
 ESMFold2's trunk runs its pair transition in 32-row blocks. Inside a block the first matmul is

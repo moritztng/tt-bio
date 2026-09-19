@@ -1,0 +1,76 @@
+gates: host quiet + sibling idle at 2026-09-18T16:23:51Z
+device fd holder pid 1057880 idle, not contention (owner bfp8-revive-accuracy-killed)
+loadavg1 1.06 (ceiling 2.00)
+host quiet -- timing read admissible
+my card 0: no fd
+sibling 1: no fd
+
+sibling 1 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.
+benchlock: c14-opm-fold-ab acquired after 2s, loadavg 1.06 1.70 2.66
+2026-09-18 16:23:56.249 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+[cold] discarded
+  cold 18.523 s
+  rep 0 A    14.7234 s  trunk   9.2859  plddt 0.845919  cif 45781db716ebf020
+  rep 0 B    14.9613 s  trunk   9.4876  plddt 0.845343  cif 7f001afcefc724bd
+  rep 0 A2   14.6773 s  trunk   9.2480  plddt 0.845919  cif 45781db716ebf020
+  rep 1 A2   14.7094 s  trunk   9.2732  plddt 0.845919  cif 45781db716ebf020
+  rep 1 B    14.7423 s  trunk   9.0844  plddt 0.845343  cif 7f001afcefc724bd
+  rep 1 A    14.7022 s  trunk   9.2574  plddt 0.845919  cif 45781db716ebf020
+  rep 2 A    14.6947 s  trunk   9.2347  plddt 0.845919  cif 45781db716ebf020
+  rep 2 B    14.5579 s  trunk   9.1195  plddt 0.845343  cif 7f001afcefc724bd
+  rep 2 A2   14.6937 s  trunk   9.2616  plddt 0.845919  cif 45781db716ebf020
+  rep 3 A2   14.6897 s  trunk   9.2377  plddt 0.845919  cif 45781db716ebf020
+  rep 3 B    14.5482 s  trunk   9.1117  plddt 0.845343  cif 7f001afcefc724bd
+  rep 3 A    14.7162 s  trunk   9.2698  plddt 0.845919  cif 45781db716ebf020
+  rep 4 A    14.7278 s  trunk   9.2662  plddt 0.845919  cif 45781db716ebf020
+  rep 4 B    14.5673 s  trunk   9.1191  plddt 0.845343  cif 7f001afcefc724bd
+  rep 4 A2   14.6455 s  trunk   9.2206  plddt 0.845919  cif 45781db716ebf020
+{
+ "median_fold_s": {
+  "A": 14.7162,
+  "B": 14.5673,
+  "A2": 14.6897
+ },
+ "AA_floor_pct": 0.1801,
+ "delta_s": 0.1489,
+ "x_vs_A": {
+  "A": 1.0,
+  "B": 1.0102,
+  "A2": 1.0018
+ },
+ "trunk_delta_s": 0.1471,
+ "sampler_delta_s": -0.0123,
+ "per_rep_delta_s": [
+  -0.2379,
+  -0.0401,
+  0.1368,
+  0.168,
+  0.1605
+ ],
+ "rmsd_A": {
+  "n_atoms": 4116,
+  "A_vs_A2_floor": 0.0,
+  "A_vs_B": 0.516487,
+  "kill_bar": 0.6,
+  "seed_floor": 1.84
+ },
+ "clock": {
+  "n": 115819,
+  "min": 1350,
+  "max": 1350,
+  "mean": 1350.0
+ },
+ "plddt": {
+  "A": [
+   0.845919
+  ],
+  "B": [
+   0.845343
+  ],
+  "A2": [
+   0.845919
+  ]
+ }
+}
+benchlock: c14-opm-fold-ab released, rc=0, loadavg 1.51 1.64 2.40
