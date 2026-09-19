@@ -158,6 +158,12 @@ Measured, and each carries its source:
   **10.63 GB, 31.1 %**. It is not, because masters and both Adam moments are host-side.
 - **1.87x on two chips, 93.5 % efficiency**: 8.08 tokens/s on one chip, 15.11 on two, 1350 MHz
   sampled during on both.
+- The **diffusion module's backward costs 3.036x its forward**, 44.0 ms against 133.6 ms for the
+  24-block token DiT at a 384-token crop in fp32, 1350 MHz sampled during, A/A floor 0.22 %,
+  reproduced across two runs. Protenix differentiates one denoise call per step, so that is
+  89.6 ms added per training step.
+- The same backward **retains 4.25 GiB**, 4.324 GiB peak against 0.077 GiB forward-only, i.e.
+  190 MB per block and 12.6 % of the card. bf16 activations halve it.
 
 Refused rather than estimated:
 
