@@ -92,7 +92,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--module", default="triangle_attention",
                     choices=("triangle_attention", "transition",
-                             "triangle_multiplication", "pairformer_layer"))
+                             "triangle_multiplication", "pairformer_layer",
+                             "attention_pair_bias_z", "attention_pair_bias_s"))
     ap.add_argument("--tokens", type=int, default=64)
     ap.add_argument("--c-z", type=int, default=128)
     ap.add_argument("--heads", type=int, default=4)
@@ -147,7 +148,55 @@ def main():
                 "fc1.weight": t(hidden, c_z), "fc2.weight": t(hidden, c_z),
                 "fc3.weight": t(c_z, hidden)}
 
-    if a.module == "pairformer_layer":
+    def apb_weights(c_s, c_z, heads, head_dim, rng):
+        """`AttentionPairBias` as `PairformerLayer` builds it: compute_pair_bias=True,
+        atom_level=False, and no query/key layer norm, which is the Protenix and Boltz
+        shape (`kq_norm` is `"query_layer_norm.weight" in self.weights`)."""
+        t = lambda *sh: torch.tensor(rng.standard_normal(sh) / math.sqrt(sh[-1]),
+                                     dtype=torch.float32)
+        w = heads * head_dim
+        return {"proj_q.weight": t(w, c_s), "proj_k.weight": t(w, c_s),
+                "proj_v.weight": t(w, c_s), "proj_g.weight": t(w, c_s),
+                "proj_o.weight": t(c_s, w),
+                "proj_q.bias": torch.tensor(rng.standard_normal(w) * 0.05,
+                                            dtype=torch.float32),
+                "proj_z.0.weight": torch.tensor(rng.standard_normal(c_z) * 0.2 + 1.0,
+                                                dtype=torch.float32),
+                "proj_z.0.bias": torch.tensor(rng.standard_normal(c_z) * 0.05,
+                                              dtype=torch.float32),
+                "proj_z.1.weight": t(heads, c_z)}
+
+    if a.module.startswith("attention_pair_bias"):
+        # The single-track class, and the last of the five. It takes TWO inputs, so it is
+        # checked along each in turn: `_z` varies the pair tensor, which is the path
+        # unique to this module (compute_bias: layer norm then a per-head projection),
+        # and `_s` varies the single track, which is the qkv, gate and output projection.
+        c_s = c_z
+        cls = (ttnn.types.WormholeComputeKernelConfig if dev.arch() == ttnn.Arch.WORMHOLE_B0
+               else ttnn.types.BlackholeComputeKernelConfig)
+        apb = tt.AttentionPairBias(
+            a.head_dim, a.heads, True, False,
+            apb_weights(c_s, c_z, a.heads, a.head_dim, rng),
+            cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                fp32_dest_acc_en=True, packer_l1_acc=True))
+        s_fixed = torch.tensor(rng.standard_normal((1, S, c_s)), dtype=torch.float32)
+        z_fixed = torch.tensor(rng.standard_normal((1, S, S, c_z)), dtype=torch.float32)
+
+        if a.module.endswith("_z"):
+            class VaryZ:
+                def __call__(self, z):
+                    return apb(D(s_fixed), z)
+            module, in_shape = VaryZ(), (1, S, S, c_z)
+        else:
+            class VaryS:
+                def __init__(self):
+                    self.z = None
+                def __call__(self, s_in):
+                    if self.z is None:
+                        self.z = D(z_fixed)
+                    return apb(s_in, self.z)
+            module, in_shape = VaryS(), (1, S, c_s)
+    elif a.module == "pairformer_layer":
         # The module the brief names. transform_s=False runs the z track: two triangle
         # multiplications, two triangle attentions and the transition, with the four
         # residual `add_`s and the deallocates between them -- the composition, not the
@@ -174,6 +223,7 @@ def main():
                 return layer(None, z)[1]
 
         module = ZOnly()
+        in_shape = (1, S, S, c_z)
     elif a.module == "triangle_multiplication":
         # Four of the eleven fused-sigmoid gate sites live here (tenstorrent.py:6664,
         # 6667, 6877, 6925), along with the trimul chunking, so it is the module most
@@ -181,23 +231,27 @@ def main():
         cls = (ttnn.types.WormholeComputeKernelConfig if dev.arch() == ttnn.Arch.WORMHOLE_B0
                else ttnn.types.BlackholeComputeKernelConfig)
         module = tt.TriangleMultiplication(
-            False, trimul_weights(c_z, c_z, rng), cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
-                           fp32_dest_acc_en=True, packer_l1_acc=True))
+            False, trimul_weights(c_z, c_z, rng),
+            cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                fp32_dest_acc_en=True, packer_l1_acc=True))
+        in_shape = (1, S, S, c_z)
     elif a.module == "transition":
         # The CONTROL. This module's gradient is independently verified against a float64
         # reference at 5.5e-03 to 7.0e-03 by `shipped_gradcheck.py`, so if the finite
         # difference disagrees HERE the harness is what is wrong, not the gradient.
         cls = (ttnn.types.WormholeComputeKernelConfig if dev.arch() == ttnn.Arch.WORMHOLE_B0
                else ttnn.types.BlackholeComputeKernelConfig)
-        module = tt.Transition(transition_weights(c_z, 4 * c_z, rng), cls(math_fidelity=ttnn.MathFidelity.HiFi4,
-                                       math_approx_mode=False, fp32_dest_acc_en=True,
-                                       packer_l1_acc=True))
+        module = tt.Transition(
+            transition_weights(c_z, 4 * c_z, rng),
+            cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                fp32_dest_acc_en=True, packer_l1_acc=True))
+        in_shape = (1, S, S, c_z)
     else:
         module = triangle_attention_module(tt, ttnn, dev, c_z, a.heads, a.head_dim, rng)
+        in_shape = (1, S, S, c_z)
 
-    x0 = torch.tensor(rng.standard_normal((1, S, S, c_z)), dtype=torch.float32)
-    lw = torch.tensor(rng.standard_normal((1, S, S, c_z)), dtype=torch.float32)
-    d_rand = torch.tensor(rng.standard_normal((1, S, S, c_z)), dtype=torch.float32)
+    x0 = torch.tensor(rng.standard_normal(in_shape), dtype=torch.float32)
+    d_rand = torch.tensor(rng.standard_normal(in_shape), dtype=torch.float32)
     d_rand = d_rand / d_rand.norm()
 
     stop, samples = threading.Event(), []
@@ -208,9 +262,12 @@ def main():
         xa = ag.Tensor(D(x0), requires_grad=True)
         with ag.tape():
             out = module(xa)
+        lw = torch.tensor(rng.standard_normal([int(v) for v in out.value.shape]),
+                          dtype=torch.float32)
         out.backward(seed=D(lw))
         g = ttnn.to_torch(xa.grad).to(torch.float64)
-        print(f"{a.module}  z [1,{S},{S},{c_z}] heads {a.heads} head_dim {a.head_dim}")
+        print(f"{a.module}  input {tuple(in_shape)} heads {a.heads} "
+              f"head_dim {a.head_dim}")
         print(f"  |dL/dz| {float(g.norm()):.4f}")
 
         # -- numeric, through production's own forward, eps swept ---------------------

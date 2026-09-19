@@ -109,10 +109,12 @@ class Tensor:
         # Set by `_tape` the moment a closure is built that can read this value. It is the
         # whole of the lifetime rule: `free` refuses a pinned tensor and nothing else.
         self.pinned = False
-        # Whether `free` may move this value to DRAM. Cleared by the few ops whose backward
-        # reads their own OUTPUT -- relu, sigmoid, softmax, max -- because those closures
-        # hold the handle directly and deliberately do not hold the `Tensor` (a closure that
-        # did would make the cycle out -> node -> fn -> out that CPython cannot collect).
+        # Whether `free` may touch this value at all. Cleared in two cases. First, the few
+        # ops whose backward reads their own OUTPUT -- relu, sigmoid, softmax, max --
+        # because those closures hold the handle directly and deliberately do not hold the
+        # `Tensor` (a closure that did would make the cycle out -> node -> fn -> out that
+        # CPython cannot collect). Second, a tensor that SHARES STORAGE with another taped
+        # tensor, which `_tape` detects.
         self.evictable = True
 
     @property
@@ -144,10 +146,11 @@ class Tensor:
         several layers away. A leaf parameter is never freed either -- it is not an
         intermediate, and its gradient lands on it.
         """
+        if not self.evictable:
+            return
         if not self.pinned and not self.requires_grad:
             ttnn.deallocate(self.value)
-        elif (self.evictable
-                and self.value.memory_config().buffer_type == ttnn.BufferType.L1):
+        elif self.value.memory_config().buffer_type == ttnn.BufferType.L1:
             # EVICT rather than refuse. The tuned forward puts an activation in L1 and then
             # frees it the moment its consumer has read it, and the next kernel's circular
             # buffers are sized against the room that leaves. A tape that simply declines
@@ -274,6 +277,28 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
     """
     needs = _GRAD_ENABLED and any(p.requires_grad for p in parents)
     out = Tensor(out_value, requires_grad=needs)
+    # A ttnn shape op can return a VIEW rather than a copy -- measured, `ttnn.reshape` of
+    # (1,4,32,64) to (1,128,64) hands back the input's own buffer -- and the tape then
+    # holds two `Tensor`s over one allocation. Freeing or evicting either kills both, and
+    # the throw lands much later and somewhere else: in AttentionPairBias it surfaced as
+    # "Buffer is not allocated" inside a sigmoid in the gate's backward, two ops
+    # downstream of the reshape that caused it. Neither may be released.
+    #
+    # Checked on EVERY op, not only the differentiated ones: a view whose own gradient
+    # nobody wants still shares storage with one that somebody does, and it is the view
+    # that the shipped code deallocates.
+    try:
+        addr = out_value.buffer_address()
+    except Exception:                                       # host tensor, or no buffer yet
+        addr = None
+    if addr is not None:
+        for p in parents:
+            try:
+                shared = p.value.buffer_address() == addr
+            except Exception:
+                shared = False
+            if shared:
+                p.evictable = out.evictable = False
     if needs:
         # `make_fn` takes no arguments and the closure it returns takes the output gradient,
         # so no backward closure ever captures `out`. That matters for more than style: a
@@ -990,17 +1015,47 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
 _ACTIVATIONS = {"relu": relu, "sigmoid": sigmoid, "silu": silu}
 
 
-def _on_tape(*ts):
-    return any(isinstance(t, Tensor) for t in ts)
-
-
-def _differentiating(*ts):
-    return _GRAD_ENABLED and any(isinstance(t, Tensor) and t.requires_grad for t in ts)
+# Wrappers built over raw ttnn handles the CALLER still owns, keyed by the handle's id.
+# Cleared when the tape closes; the wrapper holds the handle, so the id cannot be reused
+# while the entry is live.
+_WRAPPED: dict = {}
 
 
 def _wrap(t):
-    """A raw ttnn tensor joins the tape as an untracked leaf; a `Tensor` passes through."""
-    return t if t is None or isinstance(t, Tensor) else Tensor(t)
+    """A raw ttnn tensor joins the tape as an untracked leaf; a `Tensor` passes through.
+
+    The wrapper is REMEMBERED, and that is not bookkeeping for its own sake. A raw handle
+    can reach a taped op as one operand among taped ones -- the shipped attention does it
+    twice, `batched_matmul(probs, v)` at `tenstorrent.py:8209` and the gate multiply at
+    `:8290`, where the pair track is taped and the single track is not. The tape wraps and
+    pins the raw operand, but the pin is invisible to the caller, which still holds the raw
+    handle and deallocates it three lines later. The buffer goes, and the throw arrives
+    much later inside the backward: "Buffer is not allocated" in a sigmoid, in a module
+    whose forward completed cleanly. `deallocate` consults this map so a raw handle the
+    tape has wrapped is routed through `Tensor.free` and respects the pin.
+    """
+    if t is None or isinstance(t, Tensor):
+        return t
+    w = _WRAPPED.get(id(t))
+    if w is not None and w.value is t:
+        # Idempotent per handle. Wrapping the same raw tensor twice would give the tape a
+        # pinned parent and the caller's deallocate a DIFFERENT, unpinned wrapper over the
+        # same buffer, and the unpinned one takes the release branch.
+        return w
+    w = Tensor(t)
+    _WRAPPED[id(t)] = w
+    return w
+
+
+def wrapper_for(raw):
+    """The `Tensor` the tape built over this raw handle, if it built one."""
+    w = _WRAPPED.get(id(raw))
+    return w if w is not None and w.value is raw else None
+
+
+def forget_wrappers() -> None:
+    """Drop the raw-handle map. Called when a tape closes; nothing survives it."""
+    _WRAPPED.clear()
 
 
 def _unwrap(t):
@@ -1022,15 +1077,6 @@ def _on_tape(args, kwargs):
 def _differentiating(args, kwargs):
     return _GRAD_ENABLED and any(isinstance(v, Tensor) and v.requires_grad
                                  for v in _walk(args, kwargs))
-
-
-def _wrap(t):
-    """A raw ttnn tensor joins the tape as an untracked leaf; a `Tensor` passes through."""
-    return t if t is None or isinstance(t, Tensor) else Tensor(t)
-
-
-def _unwrap(t):
-    return t.value if isinstance(t, Tensor) else t
 
 
 def _deep_unwrap(v):

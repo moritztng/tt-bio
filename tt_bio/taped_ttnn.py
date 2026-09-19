@@ -138,7 +138,13 @@ def _v_matmul(shipped, args, kwargs):
             if b.requires_grad:
                 # The weight reduces over every token, so it is `_flat2d`'s DRAM-normalised
                 # long-K path and fp32 out, for the reason documented there.
-                if not ta and not tb and len(a.value.shape) > 2:
+                # A 2-D right operand is a WEIGHT, and only then does the contraction
+                # run over every leading axis. A batched matmul whose right operand is
+                # another activation contracts over the batch as well, and `_flat2d`
+                # would fold that away: measured as a (64, 32) gradient arriving at a
+                # (1, 4, 64, 32) value in AttentionPairBias.
+                if (not ta and not tb and len(a.value.shape) > 2
+                        and len(b.value.shape) == 2):
                     b.add_grad(ttnn.matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
                                            compute_kernel_config=cfg, dtype=ttnn.float32))
                 else:
@@ -185,12 +191,6 @@ def _unary(fn, reads_output=False):
         inplace = kwargs.get("output_tensor") is not None
         kw = {k: v for k, v in kwargs.items() if k != "output_tensor"}
         out_v = shipped(x.value, *[_unwrap(a) for a in args[1:]], **kw)
-        if inplace and not reads_output:
-            # `ttnn.silu(x, output_tensor=x)` is the unary form of the same signal. Only
-            # safe when the rule reads the INPUT: a rule that reads the output would be
-            # reading the tensor this releases.
-            x.free()
-
         def make():
             def bw(g):
                 # Through the Tensor: `free` may have evicted the input to DRAM.
@@ -200,6 +200,12 @@ def _unary(fn, reads_output=False):
         out = _tape(out_v, [x], make)
         if reads_output:
             out.evictable = False
+        elif inplace:
+            # `ttnn.silu(x, output_tensor=x)` is the unary form of the same signal, and
+            # the same ordering rule applies: after `_tape`, so `free` can see that a
+            # closure reads this and evict instead of releasing. Only safe when the rule
+            # reads the INPUT; a rule that reads the output would be reading this tensor.
+            x.free()
         return out
     return impl
 
@@ -310,18 +316,6 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
         fa = _activation(kwargs, "input_tensor_a_activations")
         fb = _activation(kwargs, "input_tensor_b_activations")
         out_v = shipped(a.value, b.value, **kw)
-        if inplace:
-            # An in-place verb is a free of its destination plus a write, and the tuned
-            # forward budgets the next kernel's L1 against that free. Taping it out of
-            # place gives the result a new home and leaves the old one with no owner to
-            # release it -- one stranded L1 tensor per residual, per chunk. Measured on
-            # the shipped Transition at a [1,256,256,128] pair track: the row loop leaks
-            # `x_1` on every chunk, because `multiply_` is what consumed it in inference
-            # and nothing else deallocates it, and fc1 then cannot lay out its circular
-            # buffers. So the verb's own signal is honoured here: the destination's PLACE
-            # is released now, and `free` evicts rather than frees if a backward reads it.
-            a.free()
-
         def make():
             def bw(g):
                 # Read through the Tensors: either operand may have been evicted to DRAM
@@ -341,7 +335,25 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
                     b.add_grad(ttnn.multiply(db, fb[1](bv, eb)) if fb else db)
             return bw
 
-        return _tape(out_v, [a, b], make)
+        out = _tape(out_v, [a, b], make)
+        if inplace:
+            # An in-place verb is a free of its destination plus a write, and the tuned
+            # forward budgets the next kernel's L1 against that free. Taping it out of
+            # place gives the result a new home and leaves the old one with no owner to
+            # release it -- one stranded L1 tensor per residual, per chunk. Measured on
+            # the shipped Transition at a [1,256,256,128] pair track: the row loop leaks
+            # `x_1` on every chunk, because `multiply_` is what consumed it in inference
+            # and nothing else deallocates it, and fc1 then cannot lay out its circular
+            # buffers. So the verb's own signal is honoured: the destination's PLACE is
+            # released, and `free` evicts rather than frees if a backward reads it.
+            #
+            # AFTER `_tape`, never before. `free` reads `pinned` to choose between
+            # releasing and evicting, and `_tape` is what sets it, so releasing first
+            # deallocates an operand the node is about to read. The throw lands far
+            # away -- "TT_THROW @ ttnn/core/tensor/storage.cpp:60", in
+            # AttentionPairBias's backward, from a free issued in the forward.
+            a.free()
+        return out
     return impl
 
 
@@ -688,6 +700,10 @@ def _v_deallocate(shipped, args, kwargs):
     refuses the rest. A raw handle never reaches here -- the wrapper below passes it
     straight to ttnn -- so nothing an inference run frees today stays live."""
     t = args[0]
+    if not isinstance(t, Tensor):
+        # A raw handle the tape has wrapped is still one the tape may be reading; one it
+        # has never seen is nobody's activation and goes straight through.
+        t = ag.wrapper_for(t) or t
     if isinstance(t, Tensor):
         t.free()
     else:
@@ -733,11 +749,22 @@ class _Ttnn:
         return out
 
 
+# Verbs that must reach their tape entry even when no argument is a `Tensor`. There is
+# exactly one, and the reason is the raw-handle map: a raw ttnn tensor can be an operand of
+# a taped op -- the shipped attention does it at `tenstorrent.py:8209` and `:8290`, where
+# the pair track is taped and the single track is not -- and the tape wraps and pins it.
+# The caller then deallocates the RAW handle, whose argument list contains no `Tensor` at
+# all, so an `_on_tape` short circuit hands it straight to ttnn and the pin never gets a
+# say. The buffer goes and the throw arrives later, in the backward, in a different module.
+_ALWAYS_DISPATCH = frozenset({"deallocate"})
+
+
 def _taped_verb(qual, shipped):
     impl = _VERBS.get(qual)
+    always = qual in _ALWAYS_DISPATCH
 
     def call(*args, **kwargs):
-        if not _on_tape(args, kwargs):
+        if not always and not _on_tape(args, kwargs):
             return shipped(*args, **kwargs)
         if impl is None:
             raise NotImplementedError(
@@ -810,6 +837,7 @@ def tape():
         yield
     finally:
         _swap(False)
+        ag.forget_wrappers()
         from . import ops
         ops.set_grad_hook(prev)
 
