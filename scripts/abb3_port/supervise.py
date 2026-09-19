@@ -46,6 +46,27 @@ REPO = HERE.parents[1]
 RUN_ID_ENV = "ABB3_RUN_ID"
 
 
+def chip_order(args, restarts: int) -> list:
+    """Which chip each rank takes, which is allowed to differ after a restart.
+
+    A ``tt-smi -r`` on p300c resets the whole board pair and node numbers are not guaranteed
+    stable across it, so over 5 days the run can plausibly come back with its ranks on
+    different nodes than it started on. If the result depends on that, the reproduction is not
+    reproducible -- "output that depends on which card ran it" is a standing hard stop. This
+    exists so the property can be TESTED on purpose in ten minutes instead of discovered on
+    day 3, and it is inert unless ``--chips-after-restart`` is given.
+    """
+    base = [int(c) for c in args.chips.split(",")]
+    if restarts and args.chips_after_restart:
+        swapped = [int(c) for c in args.chips_after_restart.split(",")]
+        if sorted(swapped) != sorted(base):
+            raise SystemExit(f"--chips-after-restart {args.chips_after_restart} is not a "
+                             f"reordering of --chips {args.chips}: the grant is the pair, and "
+                             f"a restart onto a chip outside it takes a co-tenant's card")
+        return swapped
+    return base
+
+
 def launch(rank: int, chips: list, args) -> subprocess.Popen:
     env = dict(os.environ)
     chip = chips[rank]
@@ -118,6 +139,10 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--steps", type=int, default=193_512)
     ap.add_argument("--chips", default="0")
+    ap.add_argument("--chips-after-restart", default="",
+                    help="rank->chip order to use from the first restart onward, as a "
+                         "REORDERING of --chips. Proves the result does not depend on which "
+                         "node ran which rank")
     ap.add_argument("--global-batch", type=int, default=64)
     ap.add_argument("--micro", type=int, default=8)
     ap.add_argument("--tokens", type=int, default=256)
@@ -194,9 +219,12 @@ def main() -> int:
                 if args.max_seconds <= 0:
                     print(f"[sup] grant reached after {restarts} restart(s); stopping")
                     return 0
-            print(f"[sup] launching {len(chips)} rank(s) on chips {chips} "
+            here = chip_order(args, restarts)
+            if here != chips:
+                print(f"[sup] rank->chip order changed to {here} for this restart", flush=True)
+            print(f"[sup] launching {len(here)} rank(s) on chips {here} "
                   f"(restart {restarts})", flush=True)
-            procs = [launch(r, chips, args) for r in range(len(chips))]
+            procs = [launch(r, here, args) for r in range(len(here))]
             while True:
                 time.sleep(2.0)
                 dead = [p for p in procs if p.poll() is not None]
@@ -212,7 +240,7 @@ def main() -> int:
                 kill_all(procs, "one rank is gone, the world restarts together")
                 break
             done = list(out.glob("COMPLETE-rank*"))
-            if len(done) == len(chips):
+            if len(done) == len(here):
                 print(f"[sup] run complete: {[p.name for p in done]}")
                 return 0
             restarts += 1

@@ -161,3 +161,34 @@ def test_a_grant_with_no_run_in_it_yet_reads_cleanly(tmp_path):
     code, state = _run(tmp_path)
     assert code == 0 and state["verdict"] == "NOT-STARTED"
     assert state["remaining_hours"] == pytest.approx(120.0, abs=0.1)
+
+
+# ---------------------------------------------------------- the cross-chip restart order
+
+def _sup():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "sup", REPO / "scripts" / "abb3_port" / "supervise.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class _Args:
+    def __init__(self, chips, after=""):
+        self.chips, self.chips_after_restart = chips, after
+
+
+def test_the_rank_to_chip_order_only_changes_when_it_is_asked_to():
+    order = _sup().chip_order
+    plain = _Args("0,1")
+    assert order(plain, 0) == [0, 1] and order(plain, 7) == [0, 1]
+    swap = _Args("0,1", "1,0")
+    assert order(swap, 0) == [0, 1], "the first launch is never the swapped one"
+    assert order(swap, 1) == [1, 0] and order(swap, 9) == [1, 0]
+
+
+def test_a_restart_order_that_is_not_a_reordering_of_the_grant_is_refused():
+    """The grant is the pair. A restart onto a chip outside it takes a co-tenant's card."""
+    with pytest.raises(SystemExit, match="not a reordering"):
+        _sup().chip_order(_Args("0,1", "1,2"), 1)
