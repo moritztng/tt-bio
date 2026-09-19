@@ -53,7 +53,7 @@ for run in A B; do
   trap 'kill $SAMPLER 2>/dev/null || true' EXIT
   CUBLAS_WORKSPACE_CONFIG=:4096:8 python bundle_min.py --batch batch_step003.pt --batch-sha256 "$BATCH_SHA" \
       --out "out_$run" --dtype float64 --num-recycles 0 --checkpoint of3-p2-155k.pt \
-      --fd-h 1e-4 --fd-samples 16 $extra 2>&1 | tail -40
+      --fd-h 1e-4 --fd-samples 16 $extra 2>&1 | tee -a "run_${run}.log" | tail -40
   kill $SAMPLER 2>/dev/null || true
   echo "clock samples: $(grep -c MHz "clock_${run}.txt") range $(grep MHz "clock_${run}.txt" | sort -n | sed -n '1p;$p' | tr '\n' ' ')"
 done

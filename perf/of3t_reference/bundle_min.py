@@ -47,24 +47,66 @@ def sha256_file(p: Path) -> str:
 
 
 class DrawRecorder:
-    """Records the stochastic draws a training step makes, by observing and calling through."""
+    """Records the stochastic draws a training step makes, and optionally replays recorded ones.
 
-    def __init__(self):
+    Replay is not a convenience. Restoring an RNG state reproduces a STATE, not a VALUE: the same
+    state on another device, or on the same device after any other consumer of that stream is
+    added or removed, yields different numbers. Both happen here. Putting the Pairformer's
+    Dropout in eval removes 61 consumers of the CUDA generator, so the very next `torch.randn`
+    in the diffusion head returns something else -- measured, the noise levels go from
+    [23.705, 5.853, 10.730, ...] to [2.612, 1.467, 5.936, ...] with nothing else changed. PROTOCOL
+    4a makes those draws inputs to the update rule, so two stacks that did not consume the same
+    ones are evaluating different functions and their gradients are not comparable.
+
+    Pass `replay` (a draws dict) to consume recorded values in order instead of sampling. Entering
+    the context resets the cursor, so every finite-difference forward replays the same sequence
+    from the start.
+    """
+
+    def __init__(self, replay=None):
         self.randn = []
         self.random = []
+        self.replay = replay
+        self.i_randn = self.i_random = 0
+        self.mismatch = []
         self._torch_randn = None
         self._random_random = None
 
     def __enter__(self):
         self._torch_randn = torch.randn
         self._random_random = random.random
+        self.randn, self.random = [], []
+        self.i_randn = self.i_random = 0
+        self.mismatch = []
 
         def randn(*args, **kwargs):
+            # Always draw, even when replaying, so the generator advances by the same amount it
+            # would have: anything downstream that reads the same stream stays in step.
             out = self._torch_randn(*args, **kwargs)
+            if self.replay is not None:
+                rec = self.replay["torch_randn"]
+                if self.i_randn >= len(rec):
+                    self.mismatch.append(f"randn call {self.i_randn}: no recorded draw left")
+                elif tuple(rec[self.i_randn].shape) != tuple(out.shape):
+                    self.mismatch.append(
+                        f"randn call {self.i_randn}: recorded "
+                        f"{tuple(rec[self.i_randn].shape)} != asked {tuple(out.shape)}")
+                else:
+                    out = rec[self.i_randn].to(device=out.device, dtype=out.dtype)
+                self.i_randn += 1
             self.randn.append(out.detach().cpu().clone())
             return out
 
         def rnd():
+            if self.replay is not None:
+                rec = self.replay["python_random"]
+                if self.i_random < len(rec):
+                    v = rec[self.i_random]
+                    self.i_random += 1
+                    self._random_random()   # keep the stream advancing in step
+                    self.random.append(v)
+                    return v
+                self.mismatch.append(f"random.random call {self.i_random}: none left")
             v = self._random_random()
             self.random.append(v)
             return v
@@ -328,6 +370,11 @@ def main() -> int:
                          "with more cycles the FD measures the total derivative through all of "
                          "them while the analytic gradient is the partial derivative through the "
                          "final one.")
+    ap.add_argument("--replay-draws", type=Path,
+                    help="a draws.pt to consume instead of sampling. PROTOCOL 4a: the draws are "
+                         "inputs to the update rule, and restoring an RNG state reproduces a "
+                         "state rather than a value, so a run that must be comparable with an "
+                         "earlier one has to be handed the earlier one's draws.")
     ap.add_argument("--nondeterministic", action="store_true",
                     help="do NOT pin deterministic kernels. Off by default, and leaving it off "
                          "is what makes this artifact reproducible: cuBLAS split-k and the "
@@ -387,9 +434,20 @@ def main() -> int:
     # stochastic one.
     pinned = rng_state(model)
 
+    replay = replay_info = None
+    if args.replay_draws:
+        replay = torch.load(args.replay_draws, map_location="cpu", weights_only=False)
+        replay_info = {
+            "file": args.replay_draws.name,
+            "sha256": sha256_file(args.replay_draws),
+            "n_torch_randn_recorded": len(replay["torch_randn"]),
+            "n_python_random_recorded": len(replay["python_random"]),
+            "recorded_num_recycles": int(replay["num_recycles"]),
+        }
+
     t0 = time.time()
     set_rng_state(pinned, model)
-    rec = DrawRecorder()
+    rec = DrawRecorder(replay)
     no_ac = dtype is torch.float64
     loss, breakdown, out = forward_loss(model, loss_fn, batch, rec, disable_autocast=no_ac)
     t_fwd = time.time() - t0
@@ -468,11 +526,11 @@ def main() -> int:
         with torch.no_grad():
             p.data[idx] = original + args.fd_h
         set_rng_state(pinned, model)
-        lp = float(forward_loss(model, loss_fn, batch, disable_autocast=no_ac)[0])
+        lp = float(forward_loss(model, loss_fn, batch, rec, disable_autocast=no_ac)[0])
         with torch.no_grad():
             p.data[idx] = original - args.fd_h
         set_rng_state(pinned, model)
-        lm = float(forward_loss(model, loss_fn, batch, disable_autocast=no_ac)[0])
+        lm = float(forward_loss(model, loss_fn, batch, rec, disable_autocast=no_ac)[0])
         with torch.no_grad():
             p.data[idx] = original
         fd = (lp - lm) / (2 * args.fd_h)
@@ -488,7 +546,7 @@ def main() -> int:
     # A determinism control for the check itself: the same pinned state must reproduce the loss
     # bit for bit, or every finite difference above is noise rather than a derivative.
     set_rng_state(pinned, model)
-    loss_again = float(forward_loss(model, loss_fn, batch, disable_autocast=no_ac)[0])
+    loss_again = float(forward_loss(model, loss_fn, batch, rec, disable_autocast=no_ac)[0])
 
     import openfold3
 
@@ -514,6 +572,10 @@ def main() -> int:
             "cuda": torch.version.cuda,
         },
         "deterministic_kernels": deterministic,
+        "replayed_draws": (None if replay_info is None else
+                           {**replay_info, "n_randn_consumed": rec.i_randn,
+                            "n_python_random_consumed": rec.i_random,
+                            "n_mismatch": len(rec.mismatch), "mismatch": rec.mismatch[:8]}),
         "loss": float(loss),
         "loss_replayed_same_rng": loss_again,
         "loss_bit_identical_on_replay": loss_again == float(loss),
