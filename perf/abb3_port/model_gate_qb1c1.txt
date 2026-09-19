@@ -1,36 +1,45 @@
 # The 8-block ABodyBuilder3 model against tt_bio/abodybuilder3_reference.py in float64,
-# re-recorded at the branch head. Replaces model_gate_qb1c3.txt, which was recorded at ca7a7573e
-# and had been invalidated by six later commits to the model it scores.
-RECORDED-AT: 5d50a2f0e scripts/abb3_port/model_gate.py
+# re-recorded on the composed tree.
+RECORDED-AT: db857fe72 scripts/abb3_port/model_gate.py
 #
-# Host qb1, card 1 (/dev/tenstorrent/1), Blackhole p150a. All four cards on this host are p150a;
-# the old file's c3 was card 3, which another row held while this ran. Card index does not enter
-# the result and the read below says so: qb1 card 0 at B2's head returns 0.018 A / 0.0020 A /
-# 8.14e-04 on the first arm, digit for digit what card 1 returns here.
+# COMPOSED: origin/main 81d3d3dd4, then wk/train-n-padfloor 85fe8c72f, then
+# wk/train-o-b2-orphans 18c798ad9, both merges clean. The previous recording (5d50a2f0e, on O
+# alone) was invalidated by N's 85fe8c72f, which widened linear_b to 32 output columns in
+# tt_bio/abodybuilder3.py, inside this script's import closure.
+#
+# Host qb1, card 1, Blackhole p150a. Card 1 is /dev/tenstorrent/2 here: the UMD chip IDs order by
+# PCI BDF and chip 1 is 0000:41:00.0, so the node number and the card number are not the same and
+# the old header's "(/dev/tenstorrent/1)" named the wrong node. Same physical board either way.
+# Card index does not enter the result; the previous recording checked that on qb1 card 0 and got
+# the same digits.
 #
 # Commands, run in this order:
 #   for sigma in 0.05 0.3; do for tokens in 64 256; do
-#     TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=1 PYTHONPATH=$PWD python3 \
-#       scripts/abb3_port/model_gate.py --tokens $tokens --sigma $sigma
+#     TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=1 TT_BIO_LEASE_HOLDER=worker:train-q-rerecord \
+#       PYTHONPATH=$PWD python3 scripts/abb3_port/model_gate.py --tokens $tokens --sigma $sigma
 #   done; done
 #
-# NO TIMING CLAIM. Every row here is an accuracy comparison against a float64 reference, and the
+# NO TIMING CLAIM. Every row here is an accuracy comparison against a float64 reference and the
 # host halves of the four runs are torch float64 on the CPU. AICLK on card 1, sampled every 2 s
-# DURING the four runs: 1350 MHz on 10 of 15 samples and 800 MHz on 5, i.e. the card boosts for
+# DURING the four runs: 1350 MHz on 14 of 20 samples and 800 MHz on 6, i.e. the card boosts for
 # the device halves and idles at 800 between them. Recorded because a number on this hardware
 # without its clock is not a measurement, not because any number below depends on it.
 #
-# WHAT MOVED since ca7a7573e, and it is not the hardware:
-#   sigma 0.05, 64 tokens: atom14 max 0.014 -> 0.018 A, median 0.0021 -> 0.0020 A,
-#   frames 7.66e-04 -> 8.14e-04.
-#   sigma 0.3, 256 tokens: the `angles` row is 5.11e-02 against its own 5e-02 bar, so the arm
-#   FAILS at the head. The stale file recorded 4.98e-02, inside it. The gate crossed its bar
-#   somewhere in those six commits and the stale artifact is why nobody saw it. Left to the owner
-#   of tt_bio/: it is a 2 % overshoot on the deliberately wide sigma 0.3 arm, whose weights are
-#   far wider than any trained checkpoint, and the 4 660 angles the row excludes as
-#   ill-conditioned are excluded by the script rather than by this note -- the unconditional
-#   figure it prints beside it is 2.6e-01. The trained-scale arm, sigma 0.05, passes every row at
-#   both token counts.
+# WHAT N MOVED: nothing. All 24 accuracy rows, all 8 atom14 readings and all 12 float32 control
+# rows are digit for digit what 5d50a2f0e recorded, on all four arms. Spot-checking the three the
+# previous re-record called out: sigma 0.05 at 64 tokens reads atom14 max 0.018 A, median
+# 0.0020 A, frames 8.14e-04, the same three values; sigma 0.3 at 256 tokens reads angles
+# 5.11e-02, the same value. N widened a weight to 32 output columns whose extra channels hold
+# zero and take zero gradient, and at this gate's resolution it is exactly the no-op N measured
+# it to be on its own seven gradients.
+#
+# STILL FAILING, and unchanged by N: the sigma 0.3 / 256-token arm, angles 5.11e-02 against its
+# own 5e-02 bar. train-o-b2-orphans found this when it re-recorded at the head and it is the same
+# 2 % overshoot here, on the deliberately wide stress arm whose weights are far wider than any
+# trained checkpoint; the 151 angles the row excludes as ill-conditioned are excluded by the
+# script, and the unconditional figure it prints beside them is 2.61e-01. The trained-scale arm,
+# sigma 0.05, passes every row at both token counts. Still owned by tt_bio/, still not this row's
+# to fix, and re-recording confirms it is not drift: it did not move a digit in either direction.
 #
 === sigma=0.05, 64 tokens, 8 blocks, batch 2 ===
   sigma 0.05, 8 blocks, batch 2 x 64 tokens
