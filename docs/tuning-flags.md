@@ -725,58 +725,23 @@ block A/B has not been run on Wormhole with the kernel built, so the flag ships 
 
 ## `TT_BIO_TRIATT_B8` — off
 
-Triangle attention's interior in `bfloat8_b`. The fused qkv+gate(+bias) matmul writes its five
-destinations in the block format, the fused SDPA's destination follows `q.dtype`, and the gate
-multiply runs on block-float operands. A bfp8 tile is 1088 bytes against bf16's 2048, and the two
-concatenated q/k/v/gate buffers are 268.4 MB each, the largest pair-scale tensors a Pairformer
-block moves.
+Triangle attention's interior in `bfloat8_b`: the fused qkv+gate matmul writes the block format and
+the fused SDPA reads it. The pair representation, the stored weights and every residual update stay
+bf16, so the region rounds once on the way out and the accumulator never sees block float.
 
-Three things deliberately stay bf16. The pair representation `z` and every update written back into
-it, because this model fails when block float quantises an accumulation rather than an operand: the
-whole-track arm cost 1.4965 Å and a single residual site cost 13.21 Å. The stored weights. And the
-normed pair tensor, because `ttnn.layer_norm` returns its input's format and narrowing there would
-need a cast that costs more than it saves. The out projection keeps the model dtype, so the region
-rounds once on the way out and the residual never sees block float.
+Enabling it is worth **+0.2020 s a fold at 512 residues** (1.01422x, on a p300c at a pinned
+1350 MHz, measured against the rest of the shipping default) and costs **0.37848 Å against the
+0.60 Å bar**, which is well inside the variation the sampler already produces between seeds.
 
-**Speed: 1.01422x, +0.2020 s at 512 residues**, measured with the rest of the
-shipping default underneath it. One Blackhole processor of a p300c, `cdk2x2_512`,
-11x10 grid, production protocol (3 recycles, 200 sampling steps), AICLK held at 1350 MHz and sampled
-during every fold at min = max = 1350 over 1827 samples, arms interleaved block by block on an idle
-board pair: **14.410 s off against 14.208 s on**, over four blocks of three folds an arm. Every
-block favours the flag, and the effect clears the run's own off-against-off floor by 2.2x. All 560 triangle-attention calls per fold still serve on the fused SDPA and the fused qkv path with
-zero declines, so this is the same kernels on narrower operands and not a fallback.
+**It is off because the output depends on the core grid.** Block float shares one exponent across a
+block of values, and the block boundaries follow how the work is split across cores, so the same
+input folded on two different grids gives two different structures. The release gate's `l1-budget`
+arm fails on exactly that with the flag on and passes with it off. Turn it on per run if you want
+the second and your results do not need to match across parts; `TT_BIO_TRIATT_B8=0` is the default
+and the way back.
 
-That figure is the one to quote, because it was taken against the default everything else ships at.
-Two earlier sessions measured the same lever at 1.01211x and 1.01358x against a tree that predated
-`TT_BIO_DIT_COND_HOIST`; composing the two did not shrink either of them
-(`perf/c14_bfp8/compose_result.md`).
-
-An earlier reading of this flag was **1.04588x, +0.6640 s**. It is refuted, not superseded: the
-same lever divided by a 15.135 s off-arm fold taken while the board pair was busy. The two chips of
-a p300c share a power budget, so a busy sibling inflates the arm you divide by. Book +0.2020 s.
-
-**Accuracy: 0.37848 Å worst at 512 residues against the 0.60 Å bar**, per pseudo-domain and
-hinge-free, four seeds, paired same seed, card-independent, re-scored on the tree that ships it.
-Against the experimental structure the cost is 0.0005-0.0026 CA-lDDT, inside the 0.011-0.016 the
-sampler moves between seeds on its own. Whole-molecule single-seed all-atom Kabsch between the two arms of the
-speed run reads 0.523934 Å with the same-arm floor at 0.000000 Å exactly; re-folding with a different
-seed moves the structure 1.02436-1.42336 Å, so the flag's effect is roughly half the variation the
-sampler already produces. plDDT moves by 0.000017. Bit-exactness is lost by construction, which is
-why it is a flag.
-
-**Why it is off, and it is not the accuracy.** Block float shares one exponent across a block of
-values, so the rounding depends on where the block boundaries fall, and those move when the work is
-split across a different number of cores. With this flag on, folding the same input on a different
-core grid gives a different structure. The release gate checks exactly that and fails on it: on
-protenix-v2, the native grid and an 8x8 grid produce two different structures with the flag on, and
-one identical structure with it off. A user on a p150a and a user on a p300c would not get the same
-answer.
-
-That is a different objection from accuracy, and the accuracy is fine: 0.37848 Å against a 0.60 Å
-bar. Turn it on per run if you want the second and your work does not need to reproduce across
-parts. It stays off by default until the block boundaries can be made independent of the grid.
-
-Also still unmeasured: 298 residues, and any combination with `TT_BIO_TRIATT_BIAS_B8`.
+Unmeasured: 298 residues, and any combination with `TT_BIO_TRIATT_BIAS_B8`. The measurements and
+the grid-dependence evidence are in `perf/c14_bfp8/compose_result.md`.
 
 ## `TT_BIO_TRIMUL_MASK_L1` — on
 
