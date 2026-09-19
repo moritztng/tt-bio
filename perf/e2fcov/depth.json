@@ -1,0 +1,39 @@
+{
+  "checkpoints": {
+    "biohub/ESMFold2-Fast": {
+      "msa_encoder_enabled": false,
+      "folding_trunk_layers": 24,
+      "revision": "c6c7958d63f5f2f1f0fed0bb9462316f8ccceea6"
+    },
+    "biohub/ESMFold2": {
+      "msa_encoder_enabled": true,
+      "folding_trunk_layers": 48,
+      "revision": "8fc3ff471022fdce52c77030685eb775de0c00a3"
+    }
+  },
+  "1024": {
+    "per_chain_aa": [
+      1024
+    ],
+    "msa_shape": [
+      1,
+      1,
+      1024
+    ],
+    "msa_rows_reaching_model": 1,
+    "tokens": 1024
+  },
+  "1536": {
+    "per_chain_aa": [
+      1024,
+      512
+    ],
+    "msa_shape": [
+      1,
+      1,
+      1536
+    ],
+    "msa_rows_reaching_model": 1,
+    "tokens": 1536
+  }
+}
