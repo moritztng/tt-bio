@@ -111,6 +111,16 @@ for r in $ROWS; do
   dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l)
   [ "$ah" -gt 0 ] && echo "  NOTE of3t-$r: worktree is $ah commit(s) ahead of origin -- not in this composition"
   [ "$dirty" -gt 0 ] && echo "  NOTE of3t-$r: $dirty uncommitted file(s) in its worktree"
+  # WHY it is behind. `rc=124` is the 3000s per-turn cap: the row commits and is killed before
+  # it pushes, which looks identical to disobedience from `origin` and is not. Asking such a
+  # row to push cannot work -- its work has to be reshaped to fit the wall. (K38; this cost
+  # two passes of wrong remedies on of3t-reference.)
+  lg="$D_WT/../workers/of3t-$r.log"
+  if [ -f "$lg" ] && [ "$ah" -gt 0 ]; then
+    last=$(grep -oE 'it[0-9]+ rc=[0-9]+' "$lg" | tail -1)
+    case "$last" in *rc=124) echo "  NOTE of3t-$r: last turn was KILLED by the 3000s cap ($last)"\
+      " -- it likely commits and never reaches a push; reshape the work, do not re-ask";; esac
+  fi
 done
 
 # (2) collection against the control
