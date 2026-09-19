@@ -120,6 +120,18 @@ does block any claim about validation metrics or about matching a published chec
 **The honest status: the state-free half of OpenFold3's update rule is verified, and the
 model-dependent half is verified only on single modules.**
 
+## What this branch fixes, and what it has found but not fixed
+
+`~/.coworker/state/of3t/DEFECTS.md` is the full list with attribution and measurements. In
+short: this branch **fixes** weight discovery that was blind to anything a module built for
+itself (on four models, not just OF3), clipping that differed from upstream in two independent
+ways, and four silent tape blind spots. It **does not fix**, and deliberately leaves
+release-gated, OpenFold3's trunk pair bias arriving at 20 % of its intended value in all 48
+blocks — because one flag drives three attentions and two of them need opposite values, so the
+fix is to split the flag and the end-to-end Angstrom cost has not been measured yet. It also
+records that **AF2 receives no gradient at all** and cannot train, which is outside this
+campaign and needs its own row.
+
 ## Defect found by composing, and it is not a merge artifact
 
 `NOTICE` cited `docs/openfold3-vendor.md` for the eleven flag-gated vendor modifications, and
