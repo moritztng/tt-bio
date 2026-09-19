@@ -138,3 +138,5 @@ perf/wchunk-p2/*.results.json
 # an [L, dim] npz, so one 98304-residue esmc-6b rung alone is 300 MB and GitHub refuses the push
 # at 100 MB. The evidence is the jsonl row (shape, finite, nonzero_frac), not the array.
 perf/bhdesign/**/work/
+perf/c14_gate_256/work/
+perf/c14_gate_256/out/*.jsonl

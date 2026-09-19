@@ -568,7 +568,7 @@ def _ok_fold(runtime):
 def test_top_rung_failure_keeps_the_rungs_that_measured(rg_fresh, monkeypatch, tmp_path):
     measured = {"256": 25.4, "512": 70.4, "640": 115.0}
 
-    def fake(model, rung, workdir, tag):
+    def fake(model, rung, workdir, tag, need_runtime=True, warmups=0):
         if rung == 768:
             return {"error": "census fold timed out after 1800s"}
         return _ok_fold(measured[str(rung)])
@@ -577,11 +577,46 @@ def test_top_rung_failure_keeps_the_rungs_that_measured(rg_fresh, monkeypatch, t
     out = rg_fresh._size_ladder_measure_model("opendde", RUNGS, tmp_path, 1, 1)
 
     assert "timed out after 1800s" in out["error"]
-    assert "rung 768 warm-up" in out["error"]
+    assert "rung 768 rep 0" in out["error"]
     assert out["partial"] is True
     # the three rungs that completed are still reportable, and the one that failed is absent
     assert out["runtime_s"] == measured
     assert "768" not in out["runtime_s"]
+
+
+def test_the_warmup_fold_shares_a_process_with_the_fold_it_warms(rg_fresh, monkeypatch,
+                                                                  tmp_path):
+    """The discard has to be IN the measuring process, on BOTH sides of the arm.
+
+    It used to be its own `_run_census_fold` call. One call is one process, so the warm-up
+    warmed a process that then exited and every kept fold was still a fresh process's first
+    fold. Measured on qb1 p150a, boltz2, 256 aa, ten fresh processes folding four times each
+    at a pinned 1350 MHz: fold 0 was the slowest in all ten, 7.6-10.6 s against 4.3-8.2 s for
+    the later folds in the same process. That is the whole bimodality the p300c 256 rung
+    false-reds on.
+
+    Asserted as a call signature rather than a timing, because the defect is structural: the
+    arm looked like it had a warm-up policy and effectively had none.
+    """
+    calls = []
+
+    def fake(model, rung, workdir, tag, need_runtime=True, warmups=0):
+        calls.append((rung, tag, warmups))
+        return _ok_fold(10.0)
+
+    monkeypatch.setattr(rg_fresh, "_run_census_fold", fake)
+    out = rg_fresh._size_ladder_measure_model("boltz2", (256, 512), tmp_path, 3, 1)
+
+    assert "error" not in out
+    # every fold that runs carries its own warm-up, and none is spent on a throwaway process
+    assert all(w >= 1 for _, _, w in calls), calls
+    assert [r for r, _, _ in calls] == [256] + [512] * 3
+    # and both sides of the arm reach it through this one function
+    reached = []
+    monkeypatch.setattr(rg_fresh, "_size_ladder_measure_model",
+                        lambda *a, **k: reached.append(a[:1]) or {"error": "stop"})
+    rg_fresh._size_ladder_check_model("boltz2", (256,), {"reps": 1}, tmp_path)
+    assert reached == [("boltz2",)]
 
 
 def test_check_model_propagates_the_partial_rungs_to_the_printer(rg_fresh, monkeypatch, tmp_path):
@@ -619,7 +654,7 @@ def test_a_rung_above_the_size_guard_is_recorded_not_a_failure(rg_fresh, monkeyp
     guard = ("'cdk2x2_1024.yaml' has 1024 residues, and openbind is measured to handle at "
              "most 960 on wormhole_b0")
 
-    def fake_fold(model, rung, workdir, tag, need_runtime=True):
+    def fake_fold(model, rung, workdir, tag, need_runtime=True, warmups=0):
         if rung >= 1024:
             return {"refused": guard}
         return {"levers": {"X": dict(FIRING)}, "runtime_s": float(rung) / 8,
@@ -931,7 +966,7 @@ def test_all_pair_exponents_cover_every_consecutive_rung(rg):
 def _rec(rg, base, rungs, runtimes, refuse_at=None, card="tt-galaxy-wh l",
          commit="fc7df2a7", host="GWH02", monkeypatch=None):
     """One record pass over `rungs`, folding at the given per-rung runtimes."""
-    def fake(model, rung, workdir, tag, need_runtime=True):
+    def fake(model, rung, workdir, tag, need_runtime=True, warmups=0):
         if refuse_at is not None and rung >= refuse_at:
             return {"refused": f"has {rung} residues, and openbind is measured to handle "
                                 f"at most {refuse_at - 64} on wormhole_b0"}

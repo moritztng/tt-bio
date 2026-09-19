@@ -65,26 +65,21 @@ def main() -> int:
         rc = subprocess.call(cmd, cwd=REPO, stdout=fp, stderr=subprocess.STDOUT)
     wall = time.monotonic() - t0
 
-    rows = []
-    for s in stems:
-        hits = sorted(out_dir.glob("*_results_" + s))
-        if not hits:
-            continue
-        rj = hits[0] / "results.json"
-        if not rj.exists():
-            continue
+    # `predict` on a DIRECTORY writes ONE <model>_results_<dirname>/results.json holding every
+    # row, in fold order, keyed by the input stem -- not one results dir per target.
+    recs = []
+    for rj in sorted(out_dir.glob("*_results_*/results.json")):
         try:
-            recs = json.loads(rj.read_text())
+            recs += json.loads(rj.read_text())
         except Exception as e:
             print("unreadable %s: %s" % (rj, e), file=sys.stderr)
+    by_id = {r.get("id"): r for r in recs}
+    rows = []
+    for i, s in enumerate(stems):
+        r = by_id.get(s)
+        if r is None or r.get("status") != "ok" or r.get("runtime_s") is None:
             continue
-        ts = [r["runtime_s"] for r in recs
-              if r.get("status") == "ok" and r.get("runtime_s") is not None]
-        if ts:
-            rows.append({"stem": s, "runtime_s": max(ts), "mtime": rj.stat().st_mtime})
-    rows.sort(key=lambda r: r["mtime"])
-    for i, r in enumerate(rows):
-        r["order"] = i
+        rows.append({"stem": s, "order": i, "runtime_s": r["runtime_s"]})
 
     seq = [round(r["runtime_s"], 2) for r in rows]
     rec = {"tag": a.tag, "model": a.model, "rung": a.rung, "folds": a.folds,

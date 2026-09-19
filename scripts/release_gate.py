@@ -764,6 +764,9 @@ SIZE_LADDER_BASELINE = REPO_ROOT / "docs" / "size_ladder_baseline.json"
 SIZE_LADDER_STEPS = 6
 SIZE_LADDER_FRAC_TOL = 0.05
 SIZE_LADDER_SIGMA_REPS = 5
+# Folds thrown away INSIDE each measuring process before its kept fold. The warm-up has to
+# share a process with the fold it warms; see _run_census_fold.
+SIZE_LADDER_WARMUP_FOLDS = 1
 SIZE_LADDER_EXP_TOL_FLOOR = 0.50
 # The diluted N^2 -> N^3.6 cliff reads as an apparent exponent jump of ~1.4 once
 # the size-independent term in runtime_s biases both exponents downward. A 3-sigma
@@ -2509,7 +2512,7 @@ def _size_limit_refusal(text: str) -> str | None:
 
 
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
-                     need_runtime: bool = True) -> dict:
+                     need_runtime: bool = True, warmups: int = 0) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
     {"levers": {flag: {resolved, served, declined, frac, how}}, "runtime_s": ...,
     "wall": ...} or {"error": ...}.
@@ -2520,6 +2523,18 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     (single-sequence, 6 steps, 1 sample, seed 0) — enough to resolve every guard
     without paying for a production fold. runtime_s comes from the fold's own
     results.json, which excludes model load and process startup.
+
+    ``warmups`` folds the fixture that many extra times FIRST, in this same worker, and keeps
+    only the last fold's runtime. A warm-up in its own process warms nothing: this function is
+    one process per call, so the cost it pays dies with it and the next call starts cold again.
+    Measured on qb1 p150a, boltz2, 256 aa, clock pinned at 1350 MHz, ten fresh processes folding
+    four times each: the first fold of a process ran 7.7-9.9 s and later folds in the SAME
+    process 4.3-8.2 s, the first fold slowest in all ten. The gate spends one process per fold,
+    so every cell it has ever recorded is a first fold.
+
+    Only the plain `predict` models take a warm-up. nesso1 folds in the launcher and the design
+    models write their own manifests, so both would need a different multi-target shape; they
+    keep one fold per process and their rungs stay as noisy as they were.
     """
     from tt_bio.main import predict_results_dir_name
     fixture = _size_ladder_fixture(model, rung)
@@ -2531,6 +2546,17 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     log = workdir / f"{label}.log"
     shutil.rmtree(out_dir, ignore_errors=True)
     workdir.mkdir(parents=True, exist_ok=True)
+    target = fixture
+    if warmups and model != "nesso1" and model not in SIZE_LADDER_DESIGN:
+        # Hand `predict` a DIRECTORY and it folds every entry in one worker, in name order,
+        # into one results.json. The copies are numbered so that order is the fold order and
+        # the kept fold is the last row.
+        stage = workdir / f"in_{label}"
+        shutil.rmtree(stage, ignore_errors=True)
+        stage.mkdir(parents=True)
+        for i in range(warmups + 1):
+            shutil.copy(fixture, stage / f"{fixture.stem}_{i:02d}{fixture.suffix}")
+        target = stage
     census = ([sys.executable, str(REPO_ROOT / "scripts" / "lever_census.py"),
                "--tt-bio", sys.executable, "--label", label, "--out", str(census_json)]
               + _census_pythonpath_args() + ["--"])
@@ -2558,7 +2584,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
           + list(SIZE_LADDER_DESIGN[model]["steps"])
     else:
         cmd = census + [
-            "-m", "tt_bio.main", "predict", str(fixture),
+            "-m", "tt_bio.main", "predict", str(target),
             "--model", model,
             "--single_sequence",
             "--sampling_steps", str(SIZE_LADDER_STEPS),
@@ -2613,7 +2639,8 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
             # compares like with like.
             runtime_s, where = wall, "the run's own wall (no designs.json)"
     else:
-        results = out_dir / predict_results_dir_name(model, fixture.stem) / "results.json"
+        stem = target.name if target.is_dir() else target.stem
+        results = out_dir / predict_results_dir_name(model, stem) / "results.json"
         where = results.name
         runtime_s = None
         if results.exists():
@@ -2621,7 +2648,13 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
                 rows = json.loads(results.read_text())
                 ts = [row["runtime_s"] for row in rows
                       if row.get("status") == "ok" and row.get("runtime_s") is not None]
-                runtime_s = max(ts) if ts else None
+                # Without warm-ups there is one row and max() == the row. With them the
+                # warm-ups are the slow ones, so max() would keep exactly what this is
+                # discarding; the kept fold is the last.
+                runtime_s = (ts[-1] if warmups else max(ts)) if ts else None
+                if warmups and len(ts) != warmups + 1:
+                    return {"error": f"expected {warmups + 1} folds in {results.name}, "
+                                     f"got {len(ts)}"}
             except Exception:
                 runtime_s = None
     if runtime_s is None and need_runtime:
@@ -2933,7 +2966,7 @@ def _size_ladder_model_rungs(model: str, want=None) -> tuple:
 
 def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                                reps_sigma: int, reps_other: int) -> dict:
-    """Census-fold every rung, discarding the first fold AT EACH RUNG, then report.
+    """Census-fold every rung, discarding a warm-up fold AT EACH RUNG, then report.
 
     Returns {"levers": {rung: ...}, "runtime_s": {rung: median}, "sigma": relative
     runtime noise at the sigma rung | None, "census_jsons": {rung: path}} or
@@ -2948,6 +2981,15 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     sigma = 3.9 % and +-0.40, tighter than boltz-2. The old one-warm-up-per-model
     policy was calibrated on boltz-2, where a single fold is enough -- the same
     one-size-fits-all mistake this whole arm exists to catch, in the arm itself.
+
+    The discard is also IN the measuring process, which it was not until 2026-09-19. It used
+    to be its own `_run_census_fold` call, i.e. its own process, so it warmed a process that
+    then exited and every kept fold was still the first fold of a fresh one. That is what made
+    boltz2's 256 rung bimodal on p300c and false-red the gate at four commits: the recorded
+    4.1 s cell and the 6.8 s draw that failed against it are the same measurement taken from
+    the two ends of one process's warm-up. It costs nothing to fix. At reps=1 the arm folds
+    twice either way and now pays one process instead of two, which on qb1 p150a at 256 aa is
+    ~17 s of process start and device open saved per rung.
     """
     levers, runtimes, census_jsons, refused = {}, {}, {}, {}
     sigma, grid, drift, runtime_src = None, None, [], None
@@ -2956,9 +2998,9 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
         reps = reps_sigma if rung == sigma_rung else reps_other
         runs = []
         guard = None
-        for rep in range(reps + 1):
-            r = _run_census_fold(model, rung, workdir,
-                                 "warmup" if rep == 0 else f"rep{rep - 1}")
+        for rep in range(reps):
+            r = _run_census_fold(model, rung, workdir, f"rep{rep}",
+                                 warmups=SIZE_LADDER_WARMUP_FOLDS)
             if r.get("refused"):
                 guard = r["refused"]
                 break
@@ -2968,12 +3010,8 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                 # in every cell, which reads as "this model cannot fold at all" instead of "this
                 # model folds up to 640 and died at 768". That cost a bisect on 2026-08-23 to
                 # recover information the leg already had.
-                return {"error": f"rung {rung} "
-                                 f"{'warm-up' if rep == 0 else f'rep {rep - 1}'}: "
-                                 f"{r['error']}",
+                return {"error": f"rung {rung} rep {rep}: {r['error']}",
                         "runtime_s": runtimes, "partial": True}
-            if rep == 0:
-                continue          # cold: kernels for this shape compile on this fold
             grid = grid or r.get("grid")
             runtime_src = runtime_src or r.get("runtime_src")
             runs.append(r)

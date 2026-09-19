@@ -60,6 +60,36 @@ with open(out, "w") as f:
 PY
 SPID=$!
 
+# 1 Hz host-load + foreign-device-holder stamp, so every fold can be read back against the box
+# it actually ran on. Pass 1 could only stamp load per PROCESS, which cannot tell a fold slowed
+# by a co-tenant from one slowed by warm-up.
+LOADLOG="$D/out/load_${TAG}.jsonl"
+$PY - "$LOADLOG" <<PY &
+import json, os, sys, time
+out = sys.argv[1]
+def holders():
+    n = 0
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit() or pid == str(os.getpid()):
+            continue
+        fd = "/proc/%s/fd" % pid
+        try:
+            for f in os.listdir(fd):
+                if "tenstorrent" in os.readlink(os.path.join(fd, f)):
+                    n += 1
+                    break
+        except OSError:
+            pass
+    return n
+with open(out, "w") as f:
+    while True:
+        la = os.getloadavg()
+        f.write(json.dumps({"t": time.time(), "load1": la[0], "dev": holders()}) + "\n")
+        f.flush()
+        time.sleep(1.0)
+PY
+LPID=$!
+
 $PY "$WT/perf/c10_core_grid/force_aiclk.py" "$NODE" 1350 36000 \
     > "$D/out/force_${TAG}.log" 2>&1 &
 FPID=$!
@@ -78,6 +108,7 @@ done
 
 kill "$FPID" 2>/dev/null; wait "$FPID" 2>/dev/null
 kill "$SPID" 2>/dev/null; wait "$SPID" 2>/dev/null
+kill "$LPID" 2>/dev/null; wait "$LPID" 2>/dev/null
 for p in $BURN; do kill "$p" 2>/dev/null; done
 for p in $BURN; do wait "$p" 2>/dev/null; done
 
