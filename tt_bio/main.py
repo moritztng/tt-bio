@@ -1685,6 +1685,25 @@ class _Cli(click.Group):
     :class:`ControllerUnreachable` and land here.
     """
 
+    # Commands loaded only when named, by dotted path. `finetune` pulls in the training
+    # stack -- the tape, the optimizer, the loss set -- and none of that may be imported to
+    # print `tt-bio --help` or to run `tt-bio predict`. Training is opt-in and inert when
+    # off, and an eager import here would make the inference path pay for it. The path is
+    # data rather than an import statement, which is also what keeps the opt-in invariant
+    # test's census of training importers accurate.
+    LAZY = {"finetune": "tt_bio.train.cli:finetune"}
+
+    def list_commands(self, ctx):
+        return sorted({*super().list_commands(ctx), *self.LAZY})
+
+    def get_command(self, ctx, name):
+        target = self.LAZY.get(name)
+        if target is None:
+            return super().get_command(ctx, name)
+        import importlib
+        mod, attr = target.split(":")
+        return getattr(importlib.import_module(mod), attr)
+
     def invoke(self, ctx):
         from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError
         from tt_bio.distributed import ControllerUnreachable
@@ -2953,6 +2972,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "rf3: RoseTTAFold3 (AF3-family; MSA + template embedder + 48-block Pairformer "
                    "+ atom diffusion), MSA on by default; proteins, nucleic acids and ligands. "
                    "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
+@torch.no_grad()
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, partial_t, partial_structure, early_stop_plddt,
             max_parallel_samples, step_scale, output_format, override,
@@ -3029,7 +3049,6 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     if fast and not use_tt:
         click.echo("Note: --fast is only used with --accelerator tenstorrent; ignoring.")
     warnings.filterwarnings("ignore", ".*Tensor Cores.*")
-    torch.set_grad_enabled(False)
     torch.set_float32_matmul_precision("highest")
     Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AllProps)
 
@@ -3391,6 +3410,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
 @click.option("--max_msa", default=16384, type=int, help="Maximum MSA depth to warm up")
 @click.option("--n_samples", default=1, type=int, help="Diffusion batch (multiplicity)")
 @click.option("--cache", default=lambda: os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
+@torch.no_grad()
 def warmup(max_seq, max_msa, n_samples, cache):
     """Pre-compile all ttnn kernels for Boltz-2 inference."""
     import gc
@@ -3403,8 +3423,6 @@ def warmup(max_seq, max_msa, n_samples, cache):
     )
     from tt_bio.token_axis import msa_ladder
     from tt_bio.boltz2 import get_indexing_matrix
-
-    torch.set_grad_enabled(False)
 
     seq_bk = list(range(SEQ_PAD, max_seq + 1, SEQ_PAD))
     # The depth axis pads to a ladder below MSA_PAD and to multiples of it above, so warm both:
@@ -3605,6 +3623,7 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
 @click.option("--owner", default=None,
               help="Opaque fairness key the controller uses to fair-share workers across users. "
                    "Requires --controller.")
+@torch.no_grad()
 def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch_size, devices,
               controller, owner):
     """Compute ESMC protein-language-model embeddings for protein sequences.
@@ -3637,7 +3656,6 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
             os.environ["TT_VISIBLE_DEVICES"] = _ids[0]
     from tt_bio import esmc
 
-    torch.set_grad_enabled(False)
     try:
         seqs = esmc.load_sequences(data)
     except ValueError as e:
@@ -3729,6 +3747,7 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
               help="HuggingFace cache dir for the checkpoint and the ESM-2 encoder.")
 @click.option("--devices", default=None,
               help="Physical TT card id to pin, e.g. '2'. Default: this machine's first card.")
+@torch.no_grad()
 def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, tokens_budget,
                  num_workers, seed, ccd, cache, devices):
     """Predict protein-ligand binding affinity without folding a structure.
@@ -3764,7 +3783,6 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
         ensure_p300_mesh_descriptor()
     from tt_bio.nesso1 import DEFAULT_SEED, REPORTED_SCALARS, screen
 
-    torch.set_grad_enabled(False)
     out = Path(out_dir).expanduser()
     click.echo(f"Loading {model} ({'tenstorrent' if use_tt else 'cpu'}, trunk {trunk}) …")
     try:
@@ -3844,6 +3862,7 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
 @click.option("--owner", default=None,
               help="Opaque fairness key the controller uses to fair-share workers across users. "
                    "Requires --controller.")
+@torch.no_grad()
 def saprot_cmd(data, model, structure, foldseek_bin, out_dir, out_format, pool,
                return_logits, fast, batch_size, devices, controller, owner):
     """Compute SaProt structure-aware protein-language-model embeddings.
@@ -3864,7 +3883,6 @@ def saprot_cmd(data, model, structure, foldseek_bin, out_dir, out_format, pool,
     _require_ttnn()  # SaProt runs on the TT device only; fail clearly without the wheel
     from tt_bio import saprot, esmc
 
-    torch.set_grad_enabled(False)
     if controller and structure:
         raise click.ClickException(
             "--controller runs are sequence-only (structures stay on the submitting "
@@ -4054,6 +4072,7 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
 @click.option("--owner", default=None,
               help="Opaque fairness key (e.g. a hashed session id) the controller uses to "
                    "fair-share devices across users. Requires --controller.")
+@torch.no_grad()
 def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                checkpoint, golden_dir, num_timesteps, seed, partial_t, fp32_residual,
                spec_subset, from_pdb, batch_size, n_step, host_threads,
@@ -4211,7 +4230,6 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
     num_designs = num_designs if num_designs is not None else 1
     out_dir = out_dir or "./designs"
 
-    torch.set_grad_enabled(False)
     src = Path(inputs).expanduser()
     text = src.read_text()
     try:

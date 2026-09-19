@@ -60,14 +60,13 @@ class Predict(Task):
         self.writer = writer
         self.checkpoint_diffusion_conditioning = checkpoint_diffusion_conditioning
 
+    @torch.no_grad()
     def run(self, config: dict = None, run_prediction: bool = True) -> None:  # noqa: ARG002
         quiet_startup()
 
         if len(self.data.predict_set) == 0:
             print("No predictions required")
             return
-
-        torch.set_grad_enabled(False)
 
         # Always load in-process (no DataLoader worker subprocesses). The BoltzGen
         # pipeline runs inside the ttnn device runtime, which spawns many host

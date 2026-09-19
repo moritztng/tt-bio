@@ -536,7 +536,7 @@ MSA results are cached in `<out_dir>/msa/` (default `./msa/`), keyed by sequence
 
 ### Confidence Scores
 
-Each target entry in `results.json` contains confidence metrics. The fields below are Boltz-2's; Protenix-v2 and OpenFold3 report the same `confidence_score` / `ptm` / `iptm` / `plddt` (and `all_runs` when `--diffusion_samples` > 1, ranked best-first), while an ESMFold2 entry instead carries `plddt` (mean, 0-1), `ptm` when available, and `n_residues` / `n_chains`. Every model reports its complex mean pLDDT under `plddt`.
+Each target entry in `results.json` contains confidence metrics. The fields below are Boltz-2's; Protenix-v2 and OpenFold3 report the same `confidence_score` / `ptm` / `iptm` / `plddt` (and `all_runs` when `--diffusion_samples` > 1, ranked best-first), while an ESMFold2 entry instead carries `plddt` (mean, 0-1), `ptm` when available, and `n_residues` / `n_chains`. Every model reports its complex mean pLDDT under `plddt`. Boltz-2, Protenix-v2 and OpenDDE also report the two per-chain fields below on a multi-chain target, in `all_runs` as well as for the best sample.
 
 ```json
 {
@@ -563,7 +563,7 @@ Each target entry in `results.json` contains confidence metrics. The fields belo
 - `iptm`: Interface TM-score (0-1)
 - `complex_plddt`, `plddt`: Mean confidence (0-1), the same value under both names. It is the mean of the B-factor column of the structure file the same fold wrote, so averaging that column reproduces it. Boltz-2 writes one pLDDT per residue, so average over one atom per residue (CA); Protenix-v2, OpenFold3, OpenBind-0 and OpenDDE write one per atom, so average over all of them
 - `chains_ptm`: Per-chain TM-scores (0-1)
-- `pair_chains_iptm`: Per-chain-pair interface TM-scores (0-1)
+- `pair_chains_iptm`: Per-chain-pair interface TM-scores (0-1), with each chain's own `chains_ptm` on the diagonal. Read `pair_chains_iptm[binder][target]` to score one named interface of a complex; the global `iptm` is the whole-interface number and on a two-chain target the two agree. Like every other confidence value, these are comparable between targets of the same model, not between models
 
 ### Affinity Predictions
 
@@ -772,6 +772,7 @@ The engine ships its device optimizations on. Each one is an environment variabl
 | `TT_BIO_DEVICE_CONFIDENCE` | on | Boltz-2 only: assembles the confidence head's pair input on the card, where the trunk already left the tensor, instead of building it on the host and uploading it. Together with the flag below it folds 512 residues **1.0474x faster on Blackhole**. Coordinates are bit-identical; only the confidence scores move (pLDDT by at most 0.362 of 100). |
 | `TT_BIO_DEVICE_CONF_HEADS` | on | Boltz-2 only: runs the confidence head's pae/pde projections and their bin contractions on the card, so three numbers per token pair come down instead of a tile of bin logits: 67.1 MB becomes 2.1 MB at 512 residues on Wormhole, and 16.8 MB on Blackhole, where reading the tile whole and slicing on the host is 3x faster than the narrower row-major read. Coordinates and per-residue pLDDT are bit-identical; the confidence scores shift by a bf16 rounding, 0.0031 of pTM at 512 residues against a 0.0758 four-seed spread. Measured with the flag above. |
 | `TT_BIO_DEVICE_ZINIT` | on | Boltz-2 only: builds the trunk's `z_init` pair tensor on the card instead of in torch, so the 134 MB upload at 512 tokens never happens. Folds 512 residues **1.01955x faster on Blackhole**, ten of ten paired reps positive. **Not bit-exact** — device bf16 where the host path was fp32. Moves a 298 aa structure 0.264 Å all-atom inside its 0.35 Å bar, and native CA-lDDT against 1HCL is flat over eight seeds. |
+| `TT_BIO_DIT_COND_HOIST` | on | Hoists the token diffusion transformer's conditioning out of the layer loop: every layer reads the same vector through six projections of its own, so folding each layer's norm scale into its own weight block replaces 144 matmuls and 48 layer norms per sampling step with one parameter-free norm and two concatenated matmuls. Same dot products, same FLOPs; the launches are grouped differently. RF3's token DiT builds the same block and inherits this default. **Not bit-exact** — one bf16 rounding changes order. Worth **+0.2052 s** of a 512-residue fold (14.588 s to 14.392 s at 1350 MHz, five interleaved reps, 95 % CI [+0.1561, +0.2543] against a +0.0324 s A/A floor). |
 | `TT_BIO_FUSE_BIAS_STACKS` | on | Boltz-2 only: builds the diffusion conditioning's per-layer bias stack in one pass instead of one call per layer. **Not bit-exact** — moves a 298 aa structure 0.218 Å all-atom, inside its 0.35 Å bar. |
 | `TT_BIO_FUSE_MASK_ADD` | on | Runs the gated-residual write-back as one `ttnn.addcmul` instead of a multiply then an add. Same structure, bit for bit at fold level; it deletes 1504 dispatches per 298-residue OpenFold3 fold. |
 | `TT_BIO_FUSE_NORM_RESIDUAL` | on | Passes an add whose only consumer is a layer norm to the norm as its residual input instead of running the add first. Same structure, bit for bit; 1.880x on a [1,512,512,128] norm. Its one call site is Protenix-v2’s pde confidence branch, which the 298-residue protocol never reaches, so the fold-level saving is unpriced rather than measured. |
@@ -881,6 +882,70 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 **[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. A `designs.json` lands beside them with each design's numbers: fit RMSD against the target, binder residue and atom counts, and how many target tokens it was conditioned on. The binder is written as GLY because PXDesign generates a backbone with no sequence. Hotspot residues are `label_seq` numbers, not the author numbering a viewer shows, and a number that names no residue is refused rather than dropped. `--num_designs` is also the batch axis for this model: every requested design comes from one batched diffusion trajectory, and 8 at a time runs about 1.25x faster per design than one at a time. A given `--seed` and `--num_designs` always reproduce the same designs, but `--num_designs 1` and `--num_designs 2` do not share their design 0: asking for more designs currently changes which ones you get, so pin both values when you want a run back. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
 
 Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card locally, or one design per card across a fleet with `--controller http://host:8765`. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
+
+## Training
+
+Fine-tune a model you can already run, with the same forward the inference path uses. The
+surface has four levels and you pick the one that matches what you want to write, not how much
+configuration you are willing to tolerate.
+
+| Level | You write | You own |
+|---|---|---|
+| `tt-bio finetune ...` | a command line | the config |
+| `train.finetune(...)` | one call | the objective |
+| `plan`, `batches`, `objectives`, `AdamW`, `Checkpointer`, `Mesh`, `LoraConfig` | the loop | the `for` statement |
+| `tt_bio.autograd` + `train.gradcheck` | an op and its backward | the gradient |
+
+Dropping a level is not a rewrite. `train.recipes.source("lora")` prints the body the one-call
+version runs, written only in names the level below exports, and a test keeps it that way: if
+the recipe ever needed a private hook, the test fails and the hook becomes public.
+
+```bash
+# will this fit, and how long? answered without opening a card
+tt-bio finetune data/ --model protenix-v2 --out runs/a     --global-batch 8 --steps 2000 --tokens 256 --dry-run
+
+tt-bio finetune --show-recipe        # the loop it would run, as source you can edit
+tt-bio finetune --list-objectives    # the named loss rows
+```
+
+**What works today:** the interface, the dry run, the LoRA adapters, the optimizer, gradient
+checking, checkpoints, and data parallelism across the chips in one box. **What does not:** no
+model ships a training featuriser yet, so a real `tt-bio finetune` run stops with a named error
+at the point it would read your data. Featurisation is per model on purpose, and a model
+registers its own with `tt_bio.train.catalogue.register`.
+
+Four things the API enforces rather than documents, because each is a bug we hit:
+
+- `plan()` answers from measured numbers or returns `UNMEASURED`. It refuses a crop size whose
+  forward is measured to run out of memory instead of estimating one, and it will not report a
+  4-chip step time from a 2-chip measurement.
+- The optimizer refuses a bfloat16 master copy of the weights. An update accumulated at
+  bfloat16 stops moving the weight while the gradient still looks healthy.
+- `opt.step()` raises if you spread training over several chips and never gave it a way to
+  combine their gradients. Otherwise you train one model per chip and see one loss curve.
+- Every run records the clock it actually ran at, sampled during the work, plus the seed and
+  the commit. A time without its clock is not a measurement on this hardware.
+
+Global batch is always yours to set and is never derived from how many chips you have, so a
+recipe means the same thing on a bigger box.
+
+Training on several chips is one flag, `--chips 2`, or one argument,
+`mesh=train.Mesh({"dp": [0, 1]})`. Under it a launcher runs your program once per chip and sums
+the gradients between them, the way `torchrun` does, so the program has to be re-runnable and
+must not open a card before the `finetune` call. Both are checked before anything starts. Two
+p150a chips on a QuietBox measured **1.96x** at a 0.33 MB adapter gradient and **1.70x** at 5.24
+MB, both at 1350 MHz; the gap is host-side Adam contending between the two processes, not the
+exchange, which costs 2.3 % of the step. Four chips runs the same path and is not measured yet.
+One host: reaching a second box needs a cable, not a code change.
+
+Every run carries the check that makes a multi-chip number mean something. The ranks' weights
+must stay identical, so the launcher compares every rank's master weights at the end and refuses
+a run where they differ, and it reads each rank's chip off that rank's own open file descriptors
+rather than trusting `TT_VISIBLE_DEVICES`, which names a different number than the device node.
+Both failures look like a healthy run otherwise.
+
+Tiers, cut lines, the escape-hatch test and where `plan()` gets its numbers:
+[`docs/training.md`](docs/training.md).
 
 ## Cite
 
