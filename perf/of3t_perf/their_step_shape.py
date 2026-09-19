@@ -6,6 +6,12 @@ published stage configs run four structurally different steps. Before anything i
 reads the shape out of the upstream sdist so the comparison is against a stage that is named,
 and so nobody has to trust a hand reading of their model.py.
 
+The campaign's reference and reproduction target is **0.5.0** (PROTOCOL amendment A3); tt-bio's
+production pin stays 0.4.3 and a bump is release-gated. Run against both and they agree: the
+four training yamls are byte-identical across the two versions, and the architecture defaults
+and grad scoping below come out the same. So the version amendment moves nothing this row
+measures, which is worth having on the record rather than assumed.
+
 What it extracts, and why each matters to a per-stage cost breakdown:
 
   token_budget            the crop. 384 / 640 / 768 / 768 across the four stages.
