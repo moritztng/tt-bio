@@ -5,15 +5,16 @@ half was ever instrumented, so the first was free in the history and not free in
 2.232 s a step on the first 5-day leg, 17.7 % of its cadence, with the card idle for all of it.
 
 The seam is :meth:`SabdabFvs.host` / :meth:`SabdabFvs.upload`. The host half is ``torch.load``
-plus a 138 MB one-hot and touches no device; the upload half is four ``ttnn.from_torch`` calls
-and must stay on the thread that owns the card, because one process owns one device context and
-ttnn is not re-entrant across threads. So the worker thread runs ahead building host tensors and
-the training thread does nothing but upload them.
+plus padding and stacking and touches no device; the upload half is the ``ttnn.from_torch`` calls
+and the two on-card feature expansions, and must stay on the thread that owns the card, because
+one process owns one device context and ttnn is not re-entrant across threads. So the worker
+thread runs ahead building host tensors and the training thread does nothing but upload them.
 
 **Depth is bounded and small on purpose.** Each queued step holds its whole micro-batch set in
-host memory, and at micro 4, 256 tokens that is 8 x 138 MB = 1.1 GB per step in flight. Depth 1
-is enough to cover one step of device work, which is the entire opportunity; depth 4 would buy
-nothing and cost 4.4 GB.
+host memory. Depth 1 covers one step of device work, which is the entire opportunity, and deeper
+queues buy nothing. The host half used to build the 132-channel pair one-hot as well, 138 MB a
+micro-batch, so depth was also a memory decision; :mod:`tt_bio.train.abb3_features_device` now
+expands that on the card from 8 KB of index and the memory argument is gone with it.
 """
 
 from __future__ import annotations
