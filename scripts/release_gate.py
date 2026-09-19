@@ -1470,9 +1470,29 @@ def _arm_members(arm: str, models) -> list:
     return [arm] if arm in models else []
 
 
+# What a resume key means by "dirty": the SOURCE that decides an arm's verdict, not the working
+# directory. Without a pathspec this asked `git status --porcelain` about the whole tree, and the
+# gate writes its own run outputs (boltz2_results_prot/, pxdesign_gate.json, rfd3_gate_designs/, ...)
+# into the repo root, so the gate dirtied its own tree. Every arm after the first then journalled
+# with dirty=True, and gate_journal.resumable() returns {} for a dirty tree, so --resume could never
+# discharge anything. Measured on 2026-09-19: qb2 hard-reset 16:21:00Z with nine arms green and
+# nineteen untracked output paths in the tree; all nine were unresumable, and the nineteen were
+# output directories with not one tracked source file modified. The crash-resume written for exactly
+# that reset had never been able to fire.
+_SOURCE_PATHS = ("tt_bio", "scripts", "tests", "pyproject.toml")
+
+
 def _repo_dirty() -> bool:
+    """Is the source that determines an arm's verdict different from its commit?
+
+    Scoped to _SOURCE_PATHS deliberately. An untracked results directory does not change what an
+    arm scores, so counting it loses the resume; an edit under tt_bio/ or scripts/ does, so it must
+    still refuse. Untracked files inside those paths count too (no --untracked-files=no here): a
+    stray module under tt_bio/ can shadow a real one, which is a source change by any other name.
+    """
     try:
-        return bool(subprocess.check_output(["git", "status", "--porcelain"],
+        return bool(subprocess.check_output(["git", "status", "--porcelain", "--"]
+                                            + list(_SOURCE_PATHS),
                                             cwd=REPO_ROOT, text=True, timeout=10).strip())
     except Exception:
         return True   # cannot prove it is clean, so it is not resumable
