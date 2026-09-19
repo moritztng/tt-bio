@@ -34,6 +34,14 @@ has been wrong twice recently by promoting a plausible shape to a finding.
 | **D8** | assembled block's pair-track **gradients** 4.3e-01 to 1.4e+00 while every sub-module passes alone (0.0092–0.0172); graded by attention/pair involvement — `tri_att_end` 0.3838, `attn_pair_bias` 0.1470, `tri_att_start` 0.0865, and `single_transition`, the one sub-module with no attention and no pair coupling, is the **only passer** at 0.0212 | pairformer block, gradient |
 | **D9** | `fp32_softmax` alone moves the triangle-attention weight gradient **3.2x** while the forward moves **12 %** | triangle attention, gradient-only |
 
+**PASS 89 — D23 SUPERSEDES THE CAUSE OF D19 IN THIS MAP.** The reference bundle is upstream
+0.5.0 loading the preview2 checkpoint, a combination upstream's own registry marks unsupported.
+Two code changes separate the revisions: `transpose_bias` on the trunk's ending node, and a
+`layer_norm_z` that 0.5.0's new `DiffusionAttentionPairBias` no longer has. D19 is the first of
+those measured against a reference that cannot run these weights. **D8/D9 are NOT explained by
+it** — they are gradient-scope and the trunk change is a forward one, so this map's co-location
+claim stands for them. See D23.
+
 **What follows, and it is load-bearing for the verdict.** D9 proves a class of error here that a
 forward comparison **structurally cannot see**. Therefore **closing D19 would not make instrument
 A pass**: a forward fix cannot reach a gradient-only defect, and D8's grading by attention
@@ -761,6 +769,50 @@ by composing the branches, since each looked fine alone, and closed by `of3t-dat
 
 ### D8. The assembled pairformer block's pair-track gradients are an order of magnitude outside the bar. UNFIXED.
 
+**PASS 90 RE-ATTRIBUTION: D8 IS LARGELY D23, and what survives is graded by DEPTH rather than by
+attention involvement.** The `tb-off` arms already on the branch equalise our ending-node function
+with the 0.5.0 reference's (the wrong side, but the mismatch is what is removed, so it is a valid
+proxy). Recomputed with the campaign's own A14 rule and bars, not read from a summary
+(`perf/of3t_orchestrator/revision/d8_vs_endnode.py`, `d8_vs_endnode.json`):
+
+| arm | n | median | vs 2.0e-02 | over 5.0e-02 | over-bar norm share | worst |
+|---|---|---|---|---|---|---|
+| block 0, shipped | 52 | 0.0648 | FAIL | 36/52 | 23.7 % | 1.3208 `blocks.0.pair_stack.tri_att_end.layer_norm.weight` |
+| block 0, tb-off | 52 | **0.0115** | **PASS** | **7/52** | **1.9 %** | 0.7918 `blocks.0.attn_pair_bias.linear_z.weight` |
+| block 23, shipped | 52 | 0.0930 | FAIL | 46/52 | 64.1 % | 11.3914 `blocks.23.attn_pair_bias.layer_norm_a.weight` |
+| block 23, tb-off | 52 | **0.0174** | **PASS** | 12/52 | 53.7 % | 11.1199 same tensor |
+| block 47, shipped | 52 | 0.4270 | FAIL | 52/52 | 100 % | 2.9857 `blocks.47.attn_pair_bias.layer_norm_a.weight` |
+| block 47, tb-off | 52 | 0.4004 | FAIL | 52/52 | 100 % | 1.4068 same tensor |
+
+**The worst tensor in the shipped block-0 arm is `tri_att_end.layer_norm.weight`** — the ending
+node, the one sub-module D23's trunk change modifies. The instrument pointed at the cause for
+forty passes and the reading was "the pair track fails in composition".
+
+**What this closes.** At blocks 0 and 23 the median goes FAIL to PASS once both sides compute the
+same function: 0.0648 to 0.0115, and 0.0930 to 0.0174. D8's headline — every sub-module passes
+alone while the assembled block reads 4.3e-01 to 1.4e+00 — is dominated by the reference
+mismatch, not by composition.
+
+**What survives, and it is real.** 7 of 52 at block 0 holding 1.9 % of the block's norm, 12 of 52
+at block 23 holding **53.7 %**, and **block 47 barely moves** — 0.4270 to 0.4004, 52 of 52 over
+bar under either arm. A median inside the bar with 53.7 % of the norm over it is not a pass, so
+D8 is **reduced and re-localised, not closed**, and it stays UNFIXED.
+
+**The grading changes, which redirects the hunt.** The standing lead was that the failure is
+graded by attention and pair-track involvement, `single_transition` the only passer. With the
+function mismatch removed the residual is graded by **depth** — block 0 nearly clean, block 23
+partly, block 47 not at all — and the same tensor, `attn_pair_bias.layer_norm_a.weight`, is worst
+at both 23 and 47. That is a different mechanism from the one D8/D9 were chasing, and the block
+ladder rather than the sub-module ranking is where to cut next. D9's `fp32_softmax` 3.2x was
+measured on the alone arm and R123 already showed the logit/value split does not survive
+assembly, so nothing here revives it.
+
+**Caveat, stated rather than buried:** the tb-off arm equalises on 0.5.0's side. The correct
+configuration is our shipped flag against a 0.4.3 reference, which `of3t-rebase` produces. The
+proxy answers "how much of D8 is the function mismatch" because equalising either way removes it;
+it does not give the final numbers.
+
+
 Every pair-track sub-module passes alone against a 0.05 bar — `tri_mul_out` **0.0172**,
 `tri_mul_in` **0.0156**, `pair_transition` **0.0092** — and **the assembled block reads 4.3e-01
 to 1.4e+00**, while the single track passes in the same run at 6.1e-03 to 6.4e-02
@@ -989,3 +1041,124 @@ whether the hand-written ttnn modules were written against 0.4.3 throughout. The
 0.4.3-era is evidence about the vendor, not proof about hand-written code that was never
 vendored at all.
 
+**RECONCILIATION — the row concluded at 23:00:42 still calling revision skew the leading
+explanation, and did not see the three checks above.** Its final DONE reads *"the leading
+explanation is revision skew rather than a port defect"*; the amendment carrying the refutation
+reached its brief minutes after it exited. **The campaign's position is the one recorded here**:
+the skew is real, it is 0.4.3-against-0.5.0, and it is **not** the cause at this boundary. The
+row is not wrong to have said it — it is the reading its own evidence supported, and it named
+the gap in that evidence itself (*"the DiT is hand-written and unvendored, so the skew evidence
+cannot exhibit the specific change"*). The missing piece was the release trees, which were on
+the disk the whole time.
+
+**And the row itself produced the strongest evidence that this is NOT one mechanism with D19 —
+by measuring the composition law rather than matching shapes.** D19's trunk error grows
+**near-linearly, at 0.74x of block count**. The DiT's grows **sub-linearly, at 0.32x**, and its
+curve is flat and then jumps: **2.07e-02, 2.28e-02, 2.23e-02** through four blocks, **3.42e-02**
+at eight, **1.42e-01** at sixteen, **1.59e-01** at 24. *A shared mechanism should compose the
+same way.* This supersedes the "both are per-block forward errors compounding with depth"
+resemblance that this record noted at pass 83 — resemblance of shape is not resemblance of law,
+and the law is measurable.
+
+
+---
+
+### D23. The reference bundle runs the preview2 checkpoint on upstream 0.5.0, which upstream declares unsupported. CONFIRMED on CPU. It is the cause of D19 and of the DiT forward gap, and it clears our shipped inference. UNFIXED (the reference must be rebuilt at 0.4.3).
+
+Found by `of3t-orchestrator` pass 89 from the release trees on pc. No card. Scripts and results:
+`perf/of3t_orchestrator/revision/` (`dit_apb_identity.py`, `dit_apb_control.py`, `FINDING.md`).
+
+**Upstream's own registry settles the compatibility question.** `entry_points/parameters.py` in
+the 0.5.0 sdist gives `of3-p2-155k.pt` `version_compatibility=">=0.4,<0.4.4dev0"` and lists it in
+`LEGACY_CHECKPOINTS`, commented *"not supported for download and use in the current version"*.
+The same file in 0.4.3 gives it `">=0.4"` unbounded and makes it `DEFAULT_CHECKPOINT_NAME`.
+v0.4.0 is the "OpenFold3 Preview2" release; v0.5.0 is the "OpenBind Model Release". The campaign's
+bundle is 0.5.0 (D22, `c4771653`) loading `of3-p2-155k.pt`.
+
+**Two code changes separate the revisions, one per track, and both are on the paths the campaign
+measures.**
+
+*Trunk.* `transpose_bias=True` on `PairFormerBlock.tri_att_end` occurs in `base_blocks.py` zero
+times in 0.4.0, 0.4.3, 0.4.4 and 0.4.5, and once in 0.5.0.
+
+*Diffusion transformer.* 0.5.0 splits `AttentionPairBias` into a plain class and a new
+`DiffusionAttentionPairBias`, and the new class has **no `layer_norm_z`** — not constructed, not
+applied. 0.4.3's single class constructs it (line 107) and applies it to the pair bias (line 156)
+on both tracks. The p2 checkpoint carries the weights it needs: 24 tensors
+`diffusion_module.diffusion_transformer.blocks.{0..23}.attention_pair_bias.layer_norm_z.weight`,
+shape `(128,)`.
+
+**Measured.** Loading p2's block-0 attention weights into each of upstream's own constructions:
+0.4.3 reports `missing=[] unexpected=[]`; 0.5.0 reports `missing=[] unexpected=['layer_norm_z.weight']`
+— it has nowhere to put the norm and drops it silently. Relative L2 between the two constructions
+in float64 on the same weights: **3.995e-01 at N=64, 3.868e-01 at N=384**, flat in N, which is the
+campaign's own DiT size ladder. **Sufficiency control: pre-normalising `z` with the checkpoint's
+own `layer_norm_z` makes 0.5.0 reproduce 0.4.3 at 0.000000e+00, bit-identical.** `layer_norm_z` is
+the entire difference, not one contribution among several.
+
+**This corrects D22.** D22 concluded every DiT-path layer file is functionally inert between the
+revisions. It compared the two `forward` methods, which are line-for-line identical; the change is
+in `_prep_bias`, which `forward` calls. The wider primitive set D22 did not cover
+(`normalization.py`, `activations.py`, `linear.py`) **is** inert under a float64 reference — those
+diffs are bf16 autocast branches, an opt-in Triton kernel flag and an init-time bias guard.
+
+**This clears our shipped inference, and that is the load-bearing consequence.** `of3t-reopen`
+reported that our shipped OpenFold3 trunk computes the ending-node function 0.5.0's
+`PairFormerBlock` does not call. True of 0.5.0, which does not support these weights. tt-bio sets
+`tri_att_end_bias_follows_pair = not is_openbind(state_dict)` (`openfold3_trunk.py:133`) and
+selects the per-block `layer_norm_z` on `shared_ln is None` (`openfold3_diffusion_transformer.py:265`)
+— giving each checkpoint the convention of the release that produced it, which is upstream's own
+binding reproduced. **No flag is to be flipped.** Flipping the end node would have put a real
+regression into shipped OpenFold3 inference on the authority of a reference that cannot run these
+weights.
+
+**`of3t-reopen`'s own bisection corroborates the DiT half.** Inside one DiT block it measured
+`d_attention_pair_bias` over bar at **5.522e-02** with the shared AdaLN conditioning clean at
+**6.027e-03**. `layer_norm_z` is on the pair-bias path and not on the AdaLN path, so the one op
+that differs between the revisions is the one op the bisection indicted.
+
+**The composition-law refutation stands.** D19 composes near-linearly at 0.74x of block count and
+the DiT sub-linearly at 0.32x, so they are not one mechanism — they are two different code changes
+on two tracks. They have one *cause*.
+
+**Remedy, and the predictions that falsify it.** Rebuild the bundle at **0.4.3**: the revision the
+port targets and the last inside upstream's declared window. 0.4.4's model tree is byte-identical
+to 0.4.3's; 0.4.5 changes 13 model files, so 0.4.5 and later are not substitutes. pc's installed
+tree at `/home/moritz/.coworker/scratch/of3-upstream/repo` (0.4.6.dev12+g72fc3a953) still carries
+the unified `AttentionPairBias` with `layer_norm_z` and no `transpose_bias`, so it behaves as
+0.4.3 on both changes. Written before the rebuild exists:
+
+1. The 48-block forward on the **shipped** arm falls from **2.792e-01** toward the bf16
+   composition floor and the `tb-off` arm, better against 0.5.0 at **4.965e-02**, gets worse. Both
+   arms moving the same way refutes this.
+2. `d_attention_pair_bias` falls from **5.522e-02** toward **6.027e-03**, and `block_out` from
+   **2.072e-02**. If it stays over bar the DiT has a second defect and this closes only part.
+3. D19's near-linear 0.74x composition disappears, one differing sub-module per block being what
+   produces a per-block constant that composes linearly.
+
+**PASS 90 — the skew is completely bounded, and upstream's own loader refuses it.** The two
+changes above were found by reading diffs, which is not a bound. Building the whole `OpenFold3`
+model from each revision's own `model_config` and diffing parameter names against the checkpoint
+(`full_model_keys.py`): **0.4.3 gives missing 1 (`version_tensor`), unexpected 0** against 4,936
+model params and 4,935 checkpoint tensors; **0.5.0 gives missing 3, unexpected 48** against 4,890.
+The 48 are exactly the `layer_norm_z` hoist counted across both paths the checkpoint carries, 24
+under `diffusion_module.` and 24 under `sample_diffusion.`. **There is no other parameter-level
+divergence at whole-model scope**, and p2 fits 0.4.3 exactly.
+
+And upstream 0.5.0 **already ships this check**: `entry_points/experiment_runner.py:750-772`,
+`_load_state_dict_with_version_validation`, computes the same two sets, warns and loads
+`strict=False` only when `missing == {"model.version_tensor"}` with nothing unexpected, and
+otherwise **raises ValueError**. At missing=3 / unexpected=48 the p2-on-0.5.0 case takes the raise
+branch, so **upstream's supported entry point will not load this checkpoint on 0.5.0 at all** —
+the bundle went around it with a direct `load_state_dict(..., strict=False)`. 0.5.0 also registers
+`version_tensor = MODEL_VERSION = [2,0,0]` and raises on a mismatch, so upstream treats the
+checkpoint-to-architecture binding as a correctness gate rather than a convention.
+
+**Correction to the gate this campaign is installing: it is necessary and not sufficient.** A
+key-set check catches the diffusion half and is structurally blind to the trunk half —
+`transpose_bias` carries no parameter, so a model computing the wrong ending-node function loads
+with missing 0 and unexpected 0. Pair it with an explicit assertion that the installed revision
+sits inside the checkpoint's declared `version_compatibility` window, which catches both kinds.
+`of3t-rebase`'s brief is amended accordingly and the live session was told directly.
+
+Owner: `of3t-rebase`, dispatched pass 89.
