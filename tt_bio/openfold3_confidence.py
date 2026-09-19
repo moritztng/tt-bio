@@ -90,8 +90,9 @@ class OF3ConfidenceHead:
         # the s-path runs host-fp32 via _host_s_block for precision).
         self.pf = Pairformer(n_blocks, tri_att_head_dim, tri_att_n_heads,
                              att_head_dim, att_n_heads, True, pf_sd, compute_kernel_config,
-                             scale_pair_bias=False, fp32_softmax=True,
-                             accurate_softmax=accurate_softmax_site("openfold3.confidence"))
+                             scale_pair_bias=True, fp32_softmax=True,
+                             accurate_softmax=accurate_softmax_site("openfold3.confidence"),
+                             s_fp32_residual=True)
         self.n_blocks = n_blocks
 
         bins = torch.linspace(_MIN_BIN, _MAX_BIN, _NO_BIN, dtype=torch.float32)
@@ -284,10 +285,10 @@ class OF3ConfidenceHead:
         N = si_trunk.shape[0]
         self._dtype = dtype or torch.float32
         if (s_path or _S_PATH_DEFAULT) == "device":
-            to_dev = lambda x: ttnn.from_torch(x.float().unsqueeze(0), layout=ttnn.TILE_LAYOUT,
-                                               device=self.dev, dtype=ttnn.bfloat16)
+            to_dev = lambda x, dt=ttnn.bfloat16: ttnn.from_torch(
+                x.float().unsqueeze(0), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=dt)
             out = self.forward_device(
-                to_dev(si_input), to_dev(si_trunk), to_dev(zij_trunk),
+                to_dev(si_input), to_dev(si_trunk, ttnn.float32), to_dev(zij_trunk),
                 self.distance_onehot(repr_x_pred),
                 use_zij_trunk_embedding=use_zij_trunk_embedding)
             host = {k: torch.Tensor(ttnn.to_torch(v)).float() for k, v in out.items()}
