@@ -5,7 +5,7 @@
     "of3_defaults": {
       "config": {
         "base_lr": 0.0,
-        "max_lr": 0.001,
+        "max_lr": 0.0018,
         "warmup_no_steps": 1000,
         "start_decay_after_n_steps": 50000,
         "decay_every_n_steps": 50000,
@@ -22,53 +22,53 @@
           "equal": true
         },
         "1": {
-          "theirs": 1e-06,
-          "ours": 1e-06,
+          "theirs": 1.8e-06,
+          "ours": 1.8e-06,
           "equal": true
         },
         "999": {
-          "theirs": 0.000999,
-          "ours": 0.000999,
+          "theirs": 0.0017982,
+          "ours": 0.0017982,
           "equal": true
         },
         "1000": {
-          "theirs": 0.001,
-          "ours": 0.001,
+          "theirs": 0.0018,
+          "ours": 0.0018,
           "equal": true
         },
         "1001": {
-          "theirs": 0.001,
-          "ours": 0.001,
+          "theirs": 0.0018,
+          "ours": 0.0018,
           "equal": true
         },
         "49999": {
-          "theirs": 0.001,
-          "ours": 0.001,
+          "theirs": 0.0018,
+          "ours": 0.0018,
           "equal": true
         },
         "50000": {
-          "theirs": 0.001,
-          "ours": 0.001,
+          "theirs": 0.0018,
+          "ours": 0.0018,
           "equal": true
         },
         "50001": {
-          "theirs": 0.00095,
-          "ours": 0.00095,
+          "theirs": 0.00171,
+          "ours": 0.00171,
           "equal": true
         },
         "99999": {
-          "theirs": 0.00095,
-          "ours": 0.00095,
+          "theirs": 0.00171,
+          "ours": 0.00171,
           "equal": true
         },
         "100000": {
-          "theirs": 0.0009025,
-          "ours": 0.0009025,
+          "theirs": 0.0016244999999999999,
+          "ours": 0.0016244999999999999,
           "equal": true
         },
         "100001": {
-          "theirs": 0.0009025,
-          "ours": 0.0009025,
+          "theirs": 0.0016244999999999999,
+          "ours": 0.0016244999999999999,
           "equal": true
         }
       }
