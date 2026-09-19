@@ -49,12 +49,14 @@ def _arange(width: int, device):
     number of buckets rather than by the number of steps.
     """
     key = (id(device), int(width))
-    t = _ARANGE.get(key)
-    if t is None:
+    hit = _ARANGE.get(key)
+    if hit is None:
         t = ttnn.from_torch(torch.arange(int(width), dtype=torch.float32).reshape(1, 1, 1, width),
                             layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.float32)
-        _ARANGE[key] = t
-    return t
+        # The device is kept in the value, not just its id in the key: a cache keyed on id()
+        # alone hands back a tensor belonging to a closed device if the address is recycled.
+        _ARANGE[key] = hit = (device, t)
+    return hit[1]
 
 
 def _up(t: torch.Tensor, shape, device):
