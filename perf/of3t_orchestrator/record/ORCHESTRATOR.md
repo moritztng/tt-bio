@@ -412,6 +412,23 @@ rather than correctness. The rule this sets: **a PROTOCOL bar may never move onc
 an instrument's own self-check may, if the old value was measuring the instrument instead of the
 thing, and only with the disclosure and the arithmetic stated up front.**
 
+PASS 79. **The verification only ever ran for one person on one machine, and nothing said
+so.** Every check reading the campaign's record — GAP against DEFECTS, the summary figures,
+D20's shares, the amendment count — resolved an **absolute path into a gitignored state dir on
+pc**. On any other machine they simply do not appear and the summary still says "confirmed":
+**fewer checks, same word.** *"141 confirmed" looks exactly like "146 confirmed" to someone who
+has never seen 146.*
+
+They now resolve authoritative-source-first and fall back to the copies the compose publishes
+into the branch, with the state doc joining the record so the summary checks have something to
+read — and **the fallback is announced**: a reviewer gets **146 confirmed, 2 warnings**, one
+naming the documents read from the copy and one saying the concluded-row count reads a
+directory that exists only on my host and **DID NOT RUN — it is not a pass**. Verified by
+simulating a reviewer: deny the state dir entirely, run the audit from the composition.
+
+*A verification only its author can run is not a verification of the deliverable, it is a
+property of his laptop.*
+
 PASS 78. **The derived reference proved itself the same function, bit for bit: worst relative
 error 0.000e+00 across all 738 tensors.** Re-running *their* diffusion module alone from the
 saved boundary, seeded with the saved cotangent, returns exactly the parameter gradients the

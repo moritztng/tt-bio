@@ -4602,3 +4602,27 @@ Cheap, which matters for a reference that will be iterated: forward **37 s**, pr
 **112 s**, against 307 s of trunk in a 344 s full forward. *Capturing once and re-running the
 tail turns a 23-minute instrument into a 3-minute one* — the trunk was the entire expense and
 it is now paid once.
+
+### R114 -- The verification only ever ran for one person on one machine, and nothing said so
+
+**How found.** Pass 79, following last pass's question — what does a reviewer actually
+receive — one step further: they now receive the record, but can they run the checks? Every
+check that reads it resolved an **absolute path into a gitignored state dir on pc**: GAP
+against `DEFECTS.md`, the `PROVES`/`DOESNOT`/`VERDICT` figures, D20's shares, the amendment
+count. On any other machine those simply do not appear, and the summary line still says
+"confirmed" — **fewer checks, same word**.
+
+**Fixed both halves.** The checks resolve authoritative-source-first and fall back to the
+copies the compose publishes into the branch; the orchestrator state doc joins the record so
+the summary checks have something to read. And the fallback is **announced**: a reviewer now
+gets **146 confirmed, 2 warnings** — one naming the four documents read from the published
+copy, one saying that the concluded-row count reads a directory that exists only on my host
+and **DID NOT RUN — it is not a pass.**
+
+Verified by simulating a reviewer: patching `Path.is_file`/`is_dir` to deny the state dir
+entirely, then running the audit from the composition. Before the state doc was published it
+read **141 confirmed** and said nothing; now it reads 146 with the two warnings.
+
+*"141 confirmed" looks exactly like "146 confirmed" to someone who has never seen 146.* A
+check that cannot run has to say so (K60) — and a verification that only its author can run is
+not a verification of the deliverable, it is a property of his laptop.
