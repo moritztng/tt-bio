@@ -157,6 +157,60 @@ if upper.is_file():
 # Each instrument can be internally correct and still disagree with its neighbour about a fact
 # both depend on. Nothing in this campaign caught instrument B configuring OF3's schedule at
 # max_lr 1e-3 while instrument C drove the optimizer at 1.8e-3, because each passed on its own.
+# --- of3t-gradients: instrument A at block scope, and the reference that disqualified itself
+d = j("perf/of3t_gradients/instrument_a_bundle_block0.json")
+if d:
+    s = d["summary"]
+    close("A block0 median", s["median"], 0.0781291094815586)
+    check("A block0 median passes its bar", s["median_pass"], False)
+    check("A block0 per-tensor passes its bar", s["per_tensor_pass"], False)
+    check("A block0 compared", s["compared"], 53)
+    check("A block0 absent (fused qkv)", s["absent"], 4)
+    close("A block0 forward s, real tokens", d["forward_rel"]["s_masked"], 0.008061467639837464)
+    close("A block0 forward z, real tokens", d["forward_rel"]["z_masked"], 0.007978705045610828)
+    # A14(i): the worst figure is quoted WITHOUT the degenerate denominator, and the scoreboard
+    # says 0.952. Recompute the split here rather than trusting either number in isolation --
+    # if a second tensor ever falls under the floor, the headline changes and this says so.
+    pp = d.get("per_parameter", [])
+    FLOOR = 1e-12
+    tiny = [q for q in pp if q.get("ref_norm") is not None and q["ref_norm"] < FLOOR]
+    rest = [q["rel_l2"] for q in pp if q.get("ref_norm") is not None and q["ref_norm"] >= FLOOR]
+    if len(tiny) == 1 and abs(max(rest) - 0.9519554376602173) <= 1e-2 * 0.952:
+        ok.append(f"A14 denominator floor: 1 tensor under 1e-12 (ref_norm "
+                  f"{tiny[0]['ref_norm']:.3g}), worst of the rest {max(rest):.4g}")
+    else:
+        bad.append(f"A14 split moved: {len(tiny)} tensor(s) under the {FLOOR:g} floor, worst of "
+                   f"the rest {max(rest) if rest else float('nan'):.4g}. The scoreboard quotes "
+                   f"1 and 0.952 -- a relative computed on a reference norm below its own "
+                   f"population's scale is not a measurement")
+    # A14(ii): the protocol's own 1 % control did NOT fire here. If that ever flips, the
+    # amendment's justification is gone and the row should be re-read, not silently trusted.
+    nc = d.get("negative_control", {})
+    if nc.get("protocol_1pct", {}).get("fires") is False and nc.get("calibrated", {}).get("fires"):
+        ok.append("A14 control sizing: the protocol's 1 % does not fire at this baseline, the "
+                  "calibrated x1.10 does")
+    else:
+        warn.append("A14's premise has changed -- the 1 % control now fires, so the sizing "
+                    "amendment needs re-reading against this artifact")
+
+d = j("perf/of3t_gradients/dropout_floor_block0.json")
+if d:
+    on1 = d["dropout_on_pairs"]["1_vs_2"]
+    off = d["dropout_off_control"]
+    close("D18 dropout-on worst (seeds 1 vs 2)", on1["worst"], 1.166879500823583)
+    close("D18 dropout-on median (seeds 1 vs 2)", on1["median"], 0.5499371745996952)
+    check("D18 dropout-on over bar", on1["over_bar"], 47)
+    # The whole identification rests on this being EXACTLY zero, twice. Not "small".
+    check("D18 dropout-off worst is exactly 0", off["worst"], 0.0)
+    check("D18 dropout-off median is exactly 0", off["median"], 0.0)
+    check("D18 dropout-off over bar", off["over_bar"], 0)
+    if on1["median"] > 10 * d["bar"]:
+        ok.append(f"D18 the reference's own floor ({on1['median']:.3f}) is "
+                  f"{on1['median']/d['bar']:.0f}x the bar it would be judged at ({d['bar']})")
+    else:
+        warn.append("D18's floor no longer exceeds its bar by an order of magnitude -- if the "
+                    "bundle was republished, this check and EVIDENCE's row both need rewriting")
+
 # --- of3t-updaterule: D11, D12, and the bijection's true reach (D17) -----------------------
 d = j("perf/of3t_updaterule/lr_wiring.json")
 if d:
