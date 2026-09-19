@@ -1,6 +1,6 @@
 # ABodyBuilder3 port: what each gate proves
 
-Eight scripts, each answering one question. They are ordered by what they rest on: a number from a
+Each script answers one question. They are ordered by what they rest on: a number from a
 lower row is only meaningful if the rows above it pass. `train-b3-train` owns the schedule and the
 run; this directory is how it can re-establish that the port is still what these numbers say.
 
@@ -19,6 +19,8 @@ All of them take `PYTHONPATH=$PWD`. The device ones need `TT_VISIBLE_DEVICES=<ca
 | `loss_gate.py` | are the losses upstream's? | all terms 0.00e+00 vs their `loss.py` in float64 | upstream checkout |
 | `output_gate.py` | does the PDB writer round-trip? | 52 structures, worst region 0.0000 A | Zenodo `output/` |
 | `fold_gate.py` | does the port reproduce their predictions? | reference exact on 17, device 0.020 A mean CDR-H3 | Zenodo `output/` + card |
+| `moment_audit.py` | did a run ever train its parameters? | `base-loss` step 1,248: 80 live, 356 dead of 436, 2,704 of 7,992,080 scalars (0.034 %) under a live `exp_avg` | a checkpoint |
+| `../../tests/test_gradient_reaches_every_parameter.py` | does one real step reach every parameter? | red on today's tree: 380 of 436 take an identically zero gradient from the run's own starting weights, control arm green | card |
 | `step_time.py` | what does the device half of a step cost? | 14.472 s median over 100 steps | card |
 | `step_gate.py` | what does a COMPLETE step cost? | `perf/abb3_port/step_gate_default_qb1c1.txt` at the shipped default, and `step_gate_complete_qb1c3.txt` for the attribution | card |
 
