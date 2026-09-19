@@ -71,6 +71,14 @@ def supervise(out: Path, args, *, kill_at: int = 0, extra=()) -> int:
     return rc
 
 
+def _nodes(out: Path, rank: int) -> list:
+    """The device nodes rank ``rank`` held, from the provenance it wrote when it finished."""
+    path = out / f"provenance-rank{rank}.json"
+    if not path.is_file():
+        return []
+    return list(json.loads(path.read_text()).get("device_nodes") or [])
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="runs/resume-gate")
@@ -81,6 +89,9 @@ def main() -> int:
     ap.add_argument("--blocks", type=int, default=8)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--chips", default="0")
+    ap.add_argument("--chips-after-restart", default="",
+                    help="resume the killed arm with this rank->chip order, to prove the "
+                         "masters do not depend on which node ran which rank")
     ap.add_argument("--rendezvous", default="/dev/shm/abb3-resume-gate")
     #: Every step, so a short gate still exercises a real checkpoint-and-resume. The run itself
     #: uses 30 minutes; what the cadence changes is how much work a reset costs, not whether
@@ -98,7 +109,9 @@ def main() -> int:
     if supervise(control, args) != 0:
         print("FAIL: the control arm did not finish")
         return 1
-    if supervise(killed, args, kill_at=args.kill_at) != 0:
+    extra = (["--chips-after-restart", args.chips_after_restart]
+             if args.chips_after_restart else [])
+    if supervise(killed, args, extra=extra, kill_at=args.kill_at) != 0:
         print("FAIL: the killed arm did not finish after its restart")
         return 1
 
@@ -117,6 +130,21 @@ def main() -> int:
         print(f"{s:>5} {a['digest'][s][:16]:<20} {b['digest'][s][:16]:<20} "
               f"{'yes' if same else 'NO':<6} {a['loss'][s]:>13.6f} {b['loss'][s]:>12.6f} "
               f"{b['wall'][s]:>8.2f}")
+    # The node each rank ACTUALLY held, read off its own /proc/<pid>/fd during the run and
+    # carried in the provenance. Not the chip id we asked for: TT_VISIBLE_DEVICES=3 has opened
+    # /dev/tenstorrent/0 on this host, so the request and the node are different facts.
+    before = {r: _nodes(control, r) for r in range(len(args.chips.split(",")))}
+    after = {r: _nodes(killed, r) for r in before}
+    moved = [r for r in before if before[r] and after[r] and before[r] != after[r]]
+    print(f"\nNODES control {before} -> killed {after}")
+    if args.chips_after_restart:
+        if not moved:
+            print(f"FAIL: --chips-after-restart {args.chips_after_restart} was asked for and no "
+                  f"rank changed node, so the cross-chip property was NOT exercised. A pass "
+                  f"here would be a pass on the same-chip gate wearing a different name")
+            return 1
+        print(f"CROSS-CHIP: ranks {moved} resumed on a node they did not start on")
+
     restarts = len(list((killed / 'logs').glob('rank0.log')))
     resumed = [ln for ln in (killed / "logs" / "rank0.log").read_text().splitlines()
                if "resumed from" in ln]

@@ -22,7 +22,7 @@ from typing import Iterator, List, Optional, Sequence
 
 from .mesh import Axis
 
-__all__ = ["batches", "Batch"]
+__all__ = ["batches", "steps_per_epoch", "Batch"]
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,21 @@ class Batch:
     @property
     def indices(self) -> list:
         return [i for chunk in self.per_chip for i in chunk]
+
+
+def steps_per_epoch(n_examples: int, global_batch: int, drop_last: bool = True) -> int:
+    """Optimizer steps in one pass over the data.
+
+    One definition, two readers: :func:`batches` lays the epochs out with it, and the
+    learning-rate schedule places itself with it. Upstream anneals per EPOCH, so a schedule
+    driven by the global step has to divide by exactly the number the batcher counts with --
+    two transcriptions of "how long is an epoch" is a schedule that drifts from its own data
+    order with no signature in the loss curve.
+    """
+    if n_examples < 1 or global_batch < 1:
+        raise ValueError(f"n_examples {n_examples} and global_batch {global_batch} must both "
+                         f"be at least 1")
+    return n_examples // global_batch if drop_last else -(-n_examples // global_batch)
 
 
 def batches(n_examples: int, *, global_batch: int, steps: Optional[int] = None,
@@ -84,8 +99,7 @@ def batches(n_examples: int, *, global_batch: int, steps: Optional[int] = None,
                          f"{global_batch}; pass drop_last=False to train on a partial batch")
 
     import numpy as np
-    per_epoch = (n_examples // global_batch if drop_last
-                 else -(-n_examples // global_batch))
+    per_epoch = steps_per_epoch(n_examples, global_batch, drop_last)
     total = steps if steps is not None else epochs * per_epoch
     step = 0
     epoch = 0

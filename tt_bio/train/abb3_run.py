@@ -12,6 +12,10 @@ in rather than documented:
 * the checkpoint cadence is in MINUTES, not steps. What a reset costs is wall clock, so the
   quantity to bound is wall clock, and a step-count cadence silently changes what it caps
   whenever the step time moves -- which it did, from 14.472 s to 38.5 s, within one pass;
+* ``max_seconds`` is per PROCESS and the run's cap is not. See ``tt_bio.train.deadline``: the
+  5-day grant of ask 9115 is an epoch instant in the output directory, and each launch turns
+  what is left of it into this process's budget. A cap measured from process start would be a
+  cap on the gap between two watchdog resets, which is not a cap on anything;
 * the optimizer state is not optional to restore. See ``abb3_checkpoint``;
 * the checkpoint is **chip-count agnostic**. It holds the global batch's divisor, not the chip
   count, so a 2-chip run interrupted by a reset can resume on 1 chip when only one card is
@@ -43,6 +47,28 @@ the only check with any power over the failure it addresses. It also covers the 
 rank loads the same file, so equality on the first post-resume step is a positive statement that
 the resume restored all of them and not three of four.
 
+**The learning rate follows the recipe's cosine, and it is driven by the GLOBAL STEP.**
+``params.yaml``'s ``optimiser:`` block is RAdam at 5e-4 *plus* ``T_0: 50``, ``T_mult: 1`` and
+``eta_min: 0``, which ``lightning_module.py:144`` turns into ``CosineAnnealingWarmRestarts``
+stepped once per epoch. The first version of this run built a bare ``RAdam`` and nothing wrapped
+its lr, so it held a constant 5e-4: 1.96x upstream's mean over a full schedule, and none of the
+four troughs. :class:`CosineRestartsByStep` installs upstream's own scheduler class and samples
+it at the FRACTIONAL epoch of the step about to run, ``(global_step - 1) / steps_per_epoch``.
+
+Fractional rather than upstream's 50-value staircase for one reason that matters more here than
+the smoothness does: the lr becomes a pure function of the global step, so a run that comes back
+from a checkpoint lands on exactly the value the step index says and no scheduler state has to
+survive in the checkpoint. A call-counted scheduler restarts at the top of the cosine on every
+resume, and over a schedule containing 9 to 47 watchdog resets that is a different recipe every
+time, with a perfectly healthy loss curve. The fractional form is also the closer of the two to
+the continuous schedule in integral.
+
+**And the lr and the gradient norm are in every history row.** Neither was logged before
+2026-09-19, which is why the missing scheduler survived two readers: each inferred the lr from a
+different file instead of reading it out of the run. ``schedule.json`` records the schedule's own
+parameters beside them, and ``scripts/abb3_port/heartbeat.py`` re-evaluates the cosine from it and
+fails on a row whose lr does not match.
+
 **One recipe fact the provenance records on purpose.** ``batch_collapsed_periodicity`` is left at
 ``True``, which REPRODUCES the defect in upstream's ``supervised_chi_loss`` -- their einsum
 output spec drops the batch ellipsis, so pi-periodicity was mostly disabled in the training that
@@ -69,9 +95,10 @@ from .cotenancy import CotenantSampler
 from .hostreduce import HostReduce, master_hash
 from .prefetch import host_stream
 from .mesh import Mesh
-from .sharding import batches
+from .sharding import batches, steps_per_epoch
 
-__all__ = ["RunConfig", "ReducedRAdam", "run", "TRIPWIRE_FRACTIONS"]
+__all__ = ["RunConfig", "ReducedRAdam", "CosineRestartsByStep", "run",
+           "TRIPWIRE_FRACTIONS"]
 
 #: r2's rule, kept as the run's falsifiability check: a folding model reaches ~90 % of its final
 #: accuracy in the first few percent of its budget, so a validation curve that is flat at 3 % is
@@ -179,26 +206,96 @@ class ReducedRAdam:
 
     def step(self, *a, **kw):
         self.steps += 1
+        flat = self._flatten()
         if self.comm.world > 1:
-            flat = np.empty(int(self._offsets[-1]), dtype=np.float32)
-            for i, m in enumerate(self.mirrors):
-                lo, hi = self._offsets[i], self._offsets[i + 1]
-                g = m.grad
-                flat[lo:hi] = (np.zeros(hi - lo, dtype=np.float32) if g is None
-                               else g.detach().cpu().numpy().astype(np.float32).ravel())
-            total = self.comm.allreduce(flat, step=self.steps)
-            for i, m in enumerate(self.mirrors):
-                lo, hi = self._offsets[i], self._offsets[i + 1]
-                m.grad = torch.from_numpy(
-                    total[lo:hi].reshape(tuple(m.shape)).copy())
+            flat = self.comm.allreduce(flat, step=self.steps)
+            self._scatter(flat)
         out = self.inner.step(*a, **kw)
         digest = master_hash([m.detach().cpu().numpy() for m in self.mirrors])
         self.comm.check_equal(digest, step=self.steps)
-        self.last = {"master_digest": digest.hex()}
+        # The norm of the gradient the update was actually taken from, after the reduce, so it
+        # means the same thing on one chip and on two. Logged every step because a loss curve
+        # alone cannot distinguish a run that has converged from one whose gradient has
+        # vanished or blown up, and this run's history carried neither this nor the lr.
+        self.last = {"master_digest": digest.hex(), "grad_norm": float(np.linalg.norm(flat))}
         return out
+
+    def _flatten(self) -> np.ndarray:
+        """Every gradient in one contiguous float32 vector, in a fixed parameter order.
+
+        One 28.4 MB transfer beats ~450 small ones on any transport, and the fixed order is what
+        the bit-identical cross-rank sum depends on. Built on one chip as well, where it costs a
+        copy the norm needs anyway and keeps the one-chip and two-chip paths identical.
+        """
+        flat = np.empty(int(self._offsets[-1]), dtype=np.float32)
+        for i, m in enumerate(self.mirrors):
+            lo, hi = self._offsets[i], self._offsets[i + 1]
+            g = m.grad
+            flat[lo:hi] = (np.zeros(hi - lo, dtype=np.float32) if g is None
+                           else g.detach().cpu().numpy().astype(np.float32).ravel())
+        return flat
+
+    def _scatter(self, flat: np.ndarray) -> None:
+        for i, m in enumerate(self.mirrors):
+            lo, hi = self._offsets[i], self._offsets[i + 1]
+            m.grad = torch.from_numpy(flat[lo:hi].reshape(tuple(m.shape)).copy())
 
     def zero_grad(self, *a, **kw):
         return self.inner.zero_grad(*a, **kw)
+
+
+class CosineRestartsByStep:
+    """Upstream's per-epoch cosine restarts, evaluated at the fractional epoch of a global step.
+
+    ``torch.optim.lr_scheduler.CosineAnnealingWarmRestarts`` is used rather than re-derived, so
+    the formula is upstream's own and cannot drift from it; what changes is only where it is
+    sampled. See the module docstring for why the sampling point is the global step.
+
+    ``schedule.json`` in the run directory is written by :meth:`write` and read back by
+    :meth:`load`, which is how a reader checks a logged lr against the same class the run drove
+    rather than against a second copy of the cosine.
+    """
+
+    def __init__(self, optimizer, *, steps_per_epoch: int, T_0: int, T_mult: int = 1,
+                 eta_min: float = 0.0):
+        if int(steps_per_epoch) < 1:
+            raise ValueError(f"steps_per_epoch must be at least 1, got {steps_per_epoch}")
+        self.steps_per_epoch = int(steps_per_epoch)
+        self.inner = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer, T_0=int(T_0), T_mult=int(T_mult), eta_min=float(eta_min))
+
+    @property
+    def spec(self) -> dict:
+        return {"scheduler": "CosineAnnealingWarmRestarts",
+                "lr": float(self.inner.base_lrs[0]), "T_0": int(self.inner.T_0),
+                "T_mult": int(self.inner.T_mult), "eta_min": float(self.inner.eta_min),
+                "steps_per_epoch": self.steps_per_epoch,
+                "interval": "step, at the fractional epoch (global_step - 1)/steps_per_epoch"}
+
+    def set_step(self, global_step: int) -> float:
+        """Place the lr for the 1-based ``global_step`` about to run, and return it.
+
+        Step 1 sits at fractional epoch 0, which is upstream's first epoch and the base lr.
+        """
+        self.inner.step(epoch=(int(global_step) - 1) / self.steps_per_epoch)
+        return float(self.inner.optimizer.param_groups[0]["lr"])
+
+    def write(self, out_dir) -> Path:
+        path = Path(out_dir) / "schedule.json"
+        path.write_text(json.dumps(self.spec, indent=2) + "\n")
+        return path
+
+    @classmethod
+    def load(cls, spec: dict) -> "CosineRestartsByStep":
+        """Rebuild the schedule on a dummy parameter, for a reader with no model.
+
+        The optimizer only exists to hold a parameter group for the cosine to write into, so
+        one scalar is enough and nothing is ever stepped through it.
+        """
+        p = torch.zeros(1, requires_grad=True)
+        return cls(torch.optim.RAdam([p], lr=float(spec["lr"])),
+                   steps_per_epoch=int(spec["steps_per_epoch"]), T_0=int(spec["T_0"]),
+                   T_mult=int(spec.get("T_mult", 1)), eta_min=float(spec.get("eta_min", 0.0)))
 
 
 # ------------------------------------------------------------------------------- the loop
@@ -219,6 +316,14 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
     """
     comm = HostReduce(cfg.rendezvous, cfg.rank, cfg.world)
     step.optimizer = ReducedRAdam(step.optimizer, step.mirror, comm)
+    # Built BEFORE the resume, so the cosine's base lr is the recipe's own rather than whatever
+    # a restored optimizer happens to be carrying in its parameter groups.
+    sched = CosineRestartsByStep(
+        step.optimizer.inner,
+        steps_per_epoch=steps_per_epoch(len(dataset), cfg.global_batch,
+                                        abb3_dataset.DROP_LAST),
+        T_0=step.recipe["T_0"], T_mult=step.recipe["T_mult"],
+        eta_min=step.recipe["eta_min"])
     ckpt_dir = cfg.out_dir / "checkpoints"
     start, history = 0, []
     if resume:
@@ -239,6 +344,8 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
         start, None)
 
     cfg.out_dir.mkdir(parents=True, exist_ok=True)
+    if cfg.rank == 0:
+        sched.write(cfg.out_dir)
     log = open(cfg.out_dir / f"history-rank{cfg.rank}.jsonl", "a", buffering=1)
     tripwires = {int(f * cfg.steps) for f in TRIPWIRE_FRACTIONS}
     last_ckpt = time.monotonic()
@@ -278,6 +385,7 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             except StopIteration:
                 break
             gs = batch.step + 1
+            lr = sched.set_step(gs)
             micros = [dataset.upload(h) for h in hosts]
             t0 = time.perf_counter()
             parts, timing = step.step(micros)
@@ -285,8 +393,12 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             terms = {k: round(v - prev_terms.get(k, 0.0), 4)
                      for k, v in step.loss_terms.items()}
             prev_terms = dict(step.loss_terms)
+            # The epoch stamp is what makes the history readable as a HEARTBEAT and not only as
+            # a curve: `wall` is device time and says nothing about the gap a watchdog reset
+            # leaves behind, and that gap is the thing a watcher has to be able to see.
             row = {"step": gs, "t": round(time.time(), 3), "wall": round(wall, 4),
                    "data": round(t0 - t_data, 4), "outer": round(outer, 4), **parts,
+                   "lr": lr, "grad_norm": step.optimizer.last.get("grad_norm"),
                    "digest": step.optimizer.last.get("master_digest"),
                    "stages": timing.as_dict(), "loss_terms": terms}
             history.append(row)
@@ -297,7 +409,14 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             # Cadence in wall clock, and only rank 0 writes: one file that every rank loads is
             # what makes the post-resume hash equality a fact rather than a hope. Four ranks
             # each writing their own would also be four chances to restore a different one.
-            due = (time.monotonic() - last_ckpt >= cadence) or gs == cfg.steps or gs in tripwires
+            # A run that stops on the clock stops ON a checkpoint. Ask 9115 capped this leg at
+            # 5 days of wall clock and called it a decision point rather than a truncation, so
+            # the state at the cap is the deliverable -- losing up to a 30-minute cadence of it
+            # because the cap landed between two saves throws away the one thing an extension
+            # would resume from.
+            out_of_time = bool(cfg.max_seconds) and time.monotonic() - t_run > cfg.max_seconds
+            due = ((time.monotonic() - last_ckpt >= cadence) or gs == cfg.steps
+                   or gs in tripwires or out_of_time)
             if due and cfg.rank == 0:
                 path = save_run_state(
                     ckpt_dir / f"step-{gs:09d}.safetensors", step, global_step=gs,
@@ -310,7 +429,7 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
                 # Every rank waits for the write, so a reset between rank 0's save and another
                 # rank's next step cannot leave the ranks on different sides of a checkpoint.
                 comm.allgather(f"ckpt-{gs:09d}", b"ok")
-            if cfg.max_seconds and time.monotonic() - t_run > cfg.max_seconds:
+            if out_of_time:
                 print(f"[rank {cfg.rank}] max_seconds reached at step {gs}", flush=True)
                 break
             t_outer = time.perf_counter()

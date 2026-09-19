@@ -1,0 +1,36 @@
+
+$ /home/ttuser/tt-bio-dev/env/bin/python3 /home/ttuser/.coworker/wt/train-i-run/scripts/abb3_port/supervise.py --out runs/resume-gate-crosschip/control --steps 8 --chips 2,3 --micro 4 --tokens 256 --blocks 8 --seed 0 --checkpoint-minutes 0.0001 --settle 5.0 --max-restarts 3 --rendezvous /dev/shm/abb3-resume-gate
+[sup] launching 2 rank(s) on chips [2, 3] (restart 0)
+[sup] every rank exited 0 after 104s
+[gate] supervisor exited 0 after 104s
+
+$ /home/ttuser/tt-bio-dev/env/bin/python3 /home/ttuser/.coworker/wt/train-i-run/scripts/abb3_port/supervise.py --out runs/resume-gate-crosschip/killed --steps 8 --chips 2,3 --micro 4 --tokens 256 --blocks 8 --seed 0 --checkpoint-minutes 0.0001 --settle 5.0 --max-restarts 3 --rendezvous /dev/shm/abb3-resume-gate --kill-at 4 --chips-after-restart 3,2
+[sup] launching 2 rank(s) on chips [2, 3] (restart 0)
+[sup] rank(s) gone: {1168388: -9}
+[sup] killing pid 1168389 (one rank is gone, the world restarts together)
+[sup] settling 5s, then resuming from the last checkpoint
+[sup] rank->chip order changed to [3, 2] for this restart
+[sup] launching 2 rank(s) on chips [3, 2] (restart 1)
+[sup] rank(s) gone: {1170747: 0}
+[sup] killing pid 1170748 (one rank is gone, the world restarts together)
+[sup] run complete: ['COMPLETE-rank0', 'COMPLETE-rank1']
+[gate] supervisor exited 0 after 145s
+
+ step control digest       killed digest        match   control loss  killed loss   wall s
+    1 302d0986eb8df1a7     302d0986eb8df1a7     yes         4.148041     4.148041    10.85
+    2 ccb4ee0bba003249     ccb4ee0bba003249     yes         4.915069     4.915069    10.50
+    3 2f0bf7cee0d61d4a     2f0bf7cee0d61d4a     yes         5.004891     5.004891    15.75
+    4 8151f63a510c2c2e     8151f63a510c2c2e     yes         5.022738     5.022738    11.86
+    5 016fd4be811e67d2     016fd4be811e67d2     yes         4.992638     4.992638    12.30
+    6 ad07d67551c37cfb     ad07d67551c37cfb     yes         4.982700     4.982700    12.50
+    7 8e8584f215395b7e     8e8584f215395b7e     yes         4.991430     4.991430    11.77
+    8 23c6a69f3bb68d0b     23c6a69f3bb68d0b     yes         4.974484     4.974484    10.80
+
+NODES control {0: [2], 1: [3]} -> killed {0: [3], 1: [2]}
+CROSS-CHIP: ranks [0, 1] resumed on a node they did not start on
+
+RESUMES PERFORMED: 1 -- ['[rank 0] resumed from step-000000003.safetensors at step 3']
+
+PASS: bit-identical masters on all 8 shared steps, across a SIGKILL after step 4 and an unattended resume. The killed arm lost step 4 and redid it, which is what a reset costs.
+STEP (control arm, 1 chip): median 10.225 s over 8 steps, min 10.002, max 10.374
+GATE_EXIT=0
