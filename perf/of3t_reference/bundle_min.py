@@ -387,6 +387,10 @@ def main() -> int:
                          "gradient is taken at a random initialisation, where 2,271 of 4,890 "
                          "tensors are exactly zero by design and the step-1 gradient reaches only "
                          "the zero-initialised output projections -- see the doc.")
+    ap.add_argument("--allow-unexpected", action="store_true",
+                    help="build even though the checkpoint carries tensors this model has "
+                         "nowhere to put. Only for producing the D23 negative control on "
+                         "purpose; a reference built this way is not a reference.")
     args = ap.parse_args()
 
     deterministic = pin_deterministic_kernels(not args.nondeterministic)
@@ -418,10 +422,25 @@ def main() -> int:
             "n_unexpected": len(incompatible.unexpected_keys),
             "missing_sample": list(incompatible.missing_keys)[:8],
             "unexpected_sample": list(incompatible.unexpected_keys)[:8],
+            "unexpected_all": sorted(incompatible.unexpected_keys),
+            "gate_enforced": not args.allow_unexpected,
         }
         print(f"checkpoint {args.checkpoint.name}: loaded {len(sd)} tensors, "
               f"{ckpt_info['n_missing']} missing, {ckpt_info['n_unexpected']} unexpected",
               flush=True)
+        # D23/R126. This bundle was built for forty passes on a checkpoint upstream's own
+        # registry declares incompatible with the code it was loaded into, and the 48 tensors
+        # that had nowhere to go were dropped by strict=False. The count was already recorded
+        # right above; recording a number is not gating on it. A reference build with a
+        # non-empty unexpected set is not a reference, so it fails here rather than producing
+        # a gradient that a later pass reads as a statement about our port.
+        if incompatible.unexpected_keys and not args.allow_unexpected:
+            raise SystemExit(
+                f"KEY GATE FAILED: {len(incompatible.unexpected_keys)} tensors of "
+                f"{args.checkpoint.name} have nowhere to go in this model and are dropped "
+                f"silently. First four: {sorted(incompatible.unexpected_keys)[:4]}. Build the "
+                f"reference at the revision this checkpoint belongs to, or pass "
+                f"--allow-unexpected if a mismatched build is deliberately what you want.")
 
     # w_0, exactly the weights the gradient below is taken at.
     w0 = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
