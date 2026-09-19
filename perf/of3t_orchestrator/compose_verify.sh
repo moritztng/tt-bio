@@ -96,7 +96,14 @@ done
 #   tt_bio/tenstorrent.py: of3t-leaves owns the weight-discovery seam on `Module` (~5857-5890);
 #   of3t-confidence owns the confidence path's `PairformerLayer`/`Pairformer` plumbing
 #   (~8764-8953). ~2900 lines apart, different classes, verified 2026-09-19 pass 6.
-ALLOWED_COEDIT="tt_bio/tenstorrent.py"
+#   tt_bio/train/optim.py: of3t-updaterule owns `AdamW.step` (~192-206, where the schedule is
+#   read relative to the counter, D11); of3t-gradients owns `displacement` and
+#   `check_displacement` (~289-336, the D13 resolution floor). Different methods, ~85 lines
+#   apart, hunk ranges compared 2026-09-19 pass 37. NOTE the semantic coupling, which
+#   disjointness does NOT cover: D13's relaxation was justified by a 0.810 displacement ratio
+#   measured under the pre-D11 schedule read, and after D11 the same arm moves strictly less.
+#   of3t-updaterule's brief is amended to re-state that number under the merged code.
+ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py"
 
 dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
 for a in $ALLOWED_COEDIT; do
