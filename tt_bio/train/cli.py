@@ -27,7 +27,7 @@ import click
 # A name absent here is not adaptable today and the refusal says so rather than failing later
 # with an empty census. Kept as a list because it is a fact about the attach work that has
 # landed, not a preference -- when a model gets routed it gets added here in the same change.
-ADAPTABLE = ("protenix-v2", "openfold3")
+ADAPTABLE = ("protenix-v2", "openfold3", "abodybuilder3")
 
 # The Tier-1 bodies, by name. Duplicated from `recipes._RECIPES` on purpose and pinned by a
 # test: validating `--recipe` must not import the bodies, because importing them imports the
@@ -156,6 +156,10 @@ def _echo_recipe(ctx, param, value):
 @click.option("--warmup-steps", default=1000, show_default=True, type=int)
 @click.option("--checkpoint-every", default=100, show_default=True, type=int)
 @click.option("--seed", default=0, show_default=True, type=int)
+@click.option("--seconds-per-step", default=None, type=float,
+              help="Your own measured single-chip step time, in seconds. With it the dry run "
+                   "answers how long the run takes; without it that half is UNMEASURED, "
+                   "because no Protenix-v2 training step has been measured on this hardware.")
 @click.option("--dry-run", is_flag=True,
               help="Answer 'will this fit and how long' and exit, WITHOUT opening a device.")
 @click.option("--show-recipe", is_flag=False, flag_value="default", default=None,
@@ -166,7 +170,7 @@ def _echo_recipe(ctx, param, value):
               callback=_echo_objectives, help="Print the objective rows and exit.")
 def finetune(data, model, out_dir, global_batch, steps, objective, train_mode, recipe, tokens,
              chip_ids, rank, alpha, targets, lr, warmup_steps, checkpoint_every, seed,
-             dry_run):
+             seconds_per_step, dry_run):
     """Fine-tune or pre-train a shipped model.
 
     \b
@@ -217,8 +221,18 @@ def finetune(data, model, out_dir, global_batch, steps, objective, train_mode, r
         raise click.BadParameter("must be at least 1", param_hint="--rank")
 
     fit = plan(tokens=tokens or 256, chips=chips, global_batch=global_batch,
-               frozen_trunk=train_mode == "adapters")
+               frozen_trunk=train_mode == "adapters",
+               seconds_per_step_1chip=seconds_per_step)
     click.echo(str(fit))
+    # plan() takes no model: its replica arithmetic is train-r5's measured Protenix-v2 figure,
+    # so the VERDICT transfers to a smaller model but the gigabytes do not. Said out loud
+    # because "5.06 GB of 34.23 GB" reads like a fact about whatever --model names, and for
+    # ABodyBuilder3's 7.1 M parameters it is two orders of magnitude out. Fixing plan() to be
+    # model-aware belongs to whoever owns dryrun.py, not to this print.
+    if model != "protenix-v2" and fit.replica_gb is not None:
+        click.echo(f"\nnote: the replica size above is the MEASURED protenix-v2 figure; plan() "
+                   f"takes no model. For {model} it is an upper bound, so 'fits' holds and the "
+                   f"gigabytes do not describe {model}.")
     if fit.verdict == "refused":
         raise click.ClickException(
             "refusing to start on a configuration measured not to fit. Lower --tokens, or "
@@ -228,11 +242,55 @@ def finetune(data, model, out_dir, global_batch, steps, objective, train_mode, r
             click.echo("\nnote: UNMEASURED is an answer, not an error. It means we have no "
                        "measurement for this shape and will not print a projection shaped "
                        "like one.")
+        # The README's example asks two questions, "will this fit, and how long?", and the
+        # second one gets an answer here even when that answer is UNMEASURED. `plan()` is
+        # right to withhold a step time nobody has measured and that does not change; what
+        # was missing is saying so. The note above fires on `fit.measured`, which is a
+        # property of the whole verdict, so a plan whose MEMORY is measured printed nothing
+        # at all about duration -- and a reader cannot tell a missing answer from a skipped
+        # question. `plan()` does emit its own "no step time" source line, but only above one
+        # chip, which is not the shape the README example uses.
+        if fit.seconds_per_step is None and seconds_per_step is None:
+            click.echo(
+                f"\nduration: UNMEASURED for {steps:,} steps. plan() reports a step time only "
+                f"from one you measured yourself, and dividing a projection by the measured "
+                f"1.87x two-chip speedup would keep it a projection. Measure one step and "
+                f"pass --seconds-per-step to get this answered.")
+        elif not fit.measured:
+            # `--train weights` with a step time in hand. The two halves of the dry run were
+            # built on different branches and only meet here, so this case is reachable for
+            # the first time: plan() withheld the whole verdict, not just the speedup, and
+            # naming a missing speedup would send the reader after the wrong thing.
+            click.echo(
+                f"\nduration: UNMEASURED for {steps:,} steps. Your {seconds_per_step:.3f} s "
+                f"step IS measured, but the fit above is not, so there is nothing to scale it "
+                f"against. The reason plan() gives for that is the reason here too.")
+        elif fit.seconds_per_step is None:
+            # The step time is measured -- the user just gave us one -- and the thing that is
+            # missing is the speedup for this chip count. Repeating "measure a step" here
+            # would be advice they have already taken, so point at the reason `plan()` printed
+            # rather than restating it and risking a second copy that drifts from it.
+            click.echo(
+                f"\nduration: UNMEASURED for {steps:,} steps. Your {seconds_per_step:.3f} s "
+                f"single-chip step IS measured; what is missing is the {chips}-chip speedup "
+                f"that would turn it into a run length, for the reason given above.")
+        else:
+            total = fit.seconds_per_step * steps
+            click.echo(
+                f"\nduration: {fit.seconds_per_step:.3f} s/step x {steps:,} steps = "
+                f"{total / 3600:.1f} h ({total / 86400:.2f} days), from the single-chip step "
+                f"time you measured and the DP speedup named above.")
         return
 
     # The featuriser is resolved before anything reaches a device, so a model with no
     # training adapter registered costs a message rather than a card and a traceback.
+    from . import abb3_dataset
     from .catalogue import load
+
+    # Registered here rather than at package import, so `--dry-run` above stays free of
+    # everything the featuriser pulls in and the registry keeps telling the truth about what a
+    # real run can reach.
+    abb3_dataset.register()
     try:
         forward, dataset = load(model, Path(data), tokens=tokens)
     except NotImplementedError as exc:

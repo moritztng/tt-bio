@@ -1,0 +1,65 @@
+=== blocks=1, batch 64 (16 x 4), 256 tokens ===
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 3 elsewhere, 569 pid(s) unreadable
+  elsewhere  pid 3398336 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/tr
+  elsewhere  pid 3429394 -> /dev/tenstorrent/3  /home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_m
+  elsewhere  pid 3438190 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+taped parameters on device: 66
+host [device open, before timing]: our node(s) ['/dev/tenstorrent/0']; 0 cotenant(s) on our node, 3 elsewhere, 569 pid(s) unreadable
+  elsewhere  pid 3398336 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/tr
+  elsewhere  pid 3429394 -> /dev/tenstorrent/3  /home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_m
+  elsewhere  pid 3438190 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+STEP: median 2.022 s over 2 steps at batch 64 (16 x 4) and 256 tokens, micro-batch median 0.126 s, min step 2.022 s, max 2.023 s
+CLOCK: AICLK during the run: card 0 min 1350 median 1350 max 1350 MHz over 1
+EXCLUDES: host geometry tail, the four losses, the optimizer
+CONTENDED: 0 cotenant(s) on our node and 3 elsewhere on the host during timing, so this median is an UPPER bound and not a kill-line reading
+=== blocks=2, batch 64 (16 x 4), 256 tokens ===
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 3 elsewhere, 569 pid(s) unreadable
+  elsewhere  pid 3398336 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/tr
+  elsewhere  pid 3429394 -> /dev/tenstorrent/3  /home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_m
+  elsewhere  pid 3438190 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+taped parameters on device: 120
+host [device open, before timing]: our node(s) ['/dev/tenstorrent/0']; 0 cotenant(s) on our node, 3 elsewhere, 568 pid(s) unreadable
+  elsewhere  pid 3398336 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/tr
+  elsewhere  pid 3429394 -> /dev/tenstorrent/3  /home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_m
+  elsewhere  pid 3438190 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+STEP: median 3.910 s over 2 steps at batch 64 (16 x 4) and 256 tokens, micro-batch median 0.240 s, min step 3.843 s, max 3.977 s
+CLOCK: AICLK during the run: card 0 min 1350 median 1350 max 1350 MHz over 3
+EXCLUDES: host geometry tail, the four losses, the optimizer
+CONTENDED: 0 cotenant(s) on our node and 3 elsewhere on the host during timing, so this median is an UPPER bound and not a kill-line reading
+=== blocks=8, batch 64 (16 x 4), 256 tokens ===
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 3 elsewhere, 568 pid(s) unreadable
+  elsewhere  pid 3398336 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/tr
+  elsewhere  pid 3429394 -> /dev/tenstorrent/3  /home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_m
+  elsewhere  pid 3438190 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+taped parameters on device: 444
+host [device open, before timing]: our node(s) ['/dev/tenstorrent/0']; 0 cotenant(s) on our node, 3 elsewhere, 568 pid(s) unreadable
+  elsewhere  pid 3398336 -> /dev/tenstorrent/1  /home/ttuser/tt-bio-dev/env/bin/python3 -m tt_bio.main design /home/ttuser/.coworker/wt/tr
+  elsewhere  pid 3429394 -> /dev/tenstorrent/3  /home/ttuser/pr15/venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_m
+  elsewhere  pid 3438190 -> /dev/tenstorrent/2  /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s
+STEP: median 15.036 s over 2 steps at batch 64 (16 x 4) and 256 tokens, micro-batch median 0.924 s, min step 15.020 s, max 15.051 s
+CLOCK: AICLK during the run: card 0 min 1343 median 1350 max 1350 MHz over 10
+EXCLUDES: host geometry tail, the four losses, the optimizer
+CONTENDED: 0 cotenant(s) on our node and 3 elsewhere on the host during timing, so this median is an UPPER bound and not a kill-line reading
+
+=== after the fused point term and with the micro-batch raised, blocks=8, 256 tokens ===
+micro 4:  STEP median 15.032 s, micro-batch 0.934 s   (fused sub_square: 15.036 -> 15.032, i.e. 0.000)
+micro 8:  STEP median 14.568 s, micro-batch 1.820 s   (did not fit before the bias and recompute fixes)
+micro 16: OOM
+AICLK 1350 MHz sampled during every run above.
+
+=== where the time goes (scripts note: /tmp/opcount.py, one micro-batch of 4 at 256 tokens) ===
+forward   0.296 s over 3224 taped ops = 92 us/op
+backward  0.666 s
+per block 120.3 ms, 403 forward ops
+At the 55 us launch ceiling the 3224 forward programs would cost 0.177 s, 60% of the measured
+forward -- but doubling the micro-batch doubled the per-micro-batch time (0.934 -> 1.820 s), which
+a dispatch-bound block would not do. So the cost scales with the DATA, the 60% figure is an upper
+bound on what dispatch could explain rather than a measurement of it, and the next instrument is
+the device profiler and not more arithmetic.
+
+=== the brief specification: 100 steps, batch 64 (8 x 8), 256 tokens, 8 blocks ===
+STEP: median 14.472 s over 100 steps, micro-batch median 1.809 s, min 14.461 s, max 14.512 s
+CLOCK: AICLK during the run, our card only: min 1343 median 1350 max 1350 MHz over 460 samples
+host: 0 cotenants on /dev/tenstorrent/0 (our node), 1 elsewhere, 563 pids unreadable
+EXCLUDES: host geometry tail, the four losses, the optimizer
+Spread over 100 steps is 0.35 %, so the 2-step medians quoted earlier were not optimistic.

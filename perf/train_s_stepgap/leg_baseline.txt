@@ -1,0 +1,11 @@
+the leg, recomputed from its own history-rank{0,1}.jsonl (374 rows as of this pass)
+  the brief's original window, 84 settled steps:
+      rank0 n= 84  wall 10.404  gap mean 2.232  median 2.121
+      rank1 n= 84  wall 10.408  gap mean 2.229  median 2.125
+  the orchestrator's corrected window, 96 intervals:
+      rank0 n= 96  wall 10.556  gap mean 2.266  median 2.134
+      rank1 n= 96  wall 10.556  gap mean 2.267  median 2.141
+  everything settled to date:
+      rank0 n=274  wall 10.972  gap mean 2.320  median 2.249
+      rank1 n=274  wall 10.978  gap mean 2.315  median 2.235
+  gap by quarter of that range (rank0): 2.236  2.409  2.311  2.329
