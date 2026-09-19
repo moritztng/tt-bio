@@ -41,6 +41,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
+from perf.clocksample import during   # noqa: E402
+
 CKPT = Path(os.environ.get("OF3_CKPT", str(Path.home() / ".boltz" / "of3-p2-155k.pt")))
 
 
@@ -77,6 +79,24 @@ class _Watch:
             return attr
         object.__setattr__(self, name, out)
         return out
+
+
+
+def _histogram(sizes, top=14):
+    """Distinct allocation sizes with their multiplicity, ranked by total bytes.
+
+    Also returns the classes ranked by COUNT, because the two rankings answer different
+    questions and this row's whole finding is that they disagree: the biggest allocation is
+    never the problem and the most numerous one is not always the biggest contributor either.
+    """
+    from collections import Counter
+    c = Counter(sizes)
+    by_bytes = sorted(c.items(), key=lambda kv: -kv[0] * kv[1])[:top]
+    by_count = sorted(c.items(), key=lambda kv: -kv[1])[:top]
+    fmt = lambda kv: {"each_b": kv[0], "n": kv[1], "total_b": kv[0] * kv[1]}
+    return {"distinct_sizes": len(c),
+            "top_by_bytes": [fmt(kv) for kv in by_bytes],
+            "top_by_count": [fmt(kv) for kv in by_count]}
 
 
 class Peak:
@@ -138,6 +158,12 @@ class Peak:
                 "p90_b": sizes[int(0.9 * (len(sizes) - 1))] if sizes else 0,
                 "smallest_b": sizes[0] if sizes else 0,
                 "top10_b": sizes[-10:][::-1],
+                # Distinct sizes, because a shape class IS a distinct size at fixed dims and
+                # `get_buffers` reports no shape. "1219 allocations" only becomes a lever when
+                # it says WHICH allocations, and the forward's keeper census cannot answer for
+                # the backward: the backward allocates gradients and recompute intermediates
+                # that were never on any Python-visible list.
+                "by_size": _histogram(sizes),
             }
         out["total_buffers"] = len(bufs)
         return out
@@ -153,6 +179,8 @@ class Peak:
         call, so it is sampled at the DRAM peak and nowhere else.
         """
         self.calls += 1
+        if self.every <= 0:
+            return              # probing OFF: the only mode whose wall clock means anything
         if self.every > 1 and self.calls % self.every:
             return
         d = self.dram_now()
@@ -271,6 +299,123 @@ def _stats_delta(before, after):
 
 # --- the run ------------------------------------------------------------------------------
 
+
+def _ckpt_ab(n, nb, c_s, c_z, pf, dev, ttnn, peak, reps):
+    """Interleaved checkpoint on/off timing on the taped arm, with the clock sampled DURING.
+
+    The exchange rate `of3t-perf` and this row share is "what does per-block checkpointing cost
+    in time for what it saves in bytes". The bytes half is measured elsewhere in this file; this
+    is the time half, and it needs three things the rest of the script deliberately does not do:
+    probing OFF (the per-verb allocator read drains the pipeline, so any wall clock taken with it
+    on measures the probe), the arms INTERLEAVED inside each repeat (compile and warmup bias
+    whichever runs first), and the AICLK sampled during rather than before.
+    """
+    import gc
+    import time as _t
+    import torch
+    from tt_bio import autograd as ag
+    from tt_bio import taped_ttnn as TT
+    from tt_bio import ops as _ops
+    prev_every, peak.every = peak.every, 0
+    rows = []
+
+    def _teardown():
+        """Give the card back between reps, or rep 1 measures rep 0's leftovers.
+
+        Rep 0 passed and reps 1 and 2 then died on an OOM and an L1 clash until this existed:
+        a tape leaves the checkpoint PINS held, the parameter registry populated and a gradient
+        on every leaf, none of which `tape()`'s exit clears because a caller normally wants the
+        gradients it just computed. An A/B that does not reset between arms measures the
+        accumulation, not the arms.
+        """
+        try:
+            ag.release_pins()
+        except Exception:
+            pass
+        for t in list(getattr(ag, "_PARAMS", {}).values()):
+            try:
+                t.grad = None
+            except Exception:
+                pass
+        for fn in ("forget_parameters", "forget_wrappers"):
+            try:
+                getattr(ag, fn)()
+            except Exception:
+                pass
+        gc.collect()
+
+    try:
+        with during() as clk:
+            for r in range(reps):
+                for ckpt in (True, False):
+                    gc.collect()
+                    t0 = _t.perf_counter()
+                    verdict, err = "PASS", None
+                    st = zt = so = zo = None
+                    cm = TT.tape()
+                    cm.__enter__()
+                    try:
+                        if not ckpt:
+                            _ops.set_checkpoint_hook(None)
+                        st = ag.Tensor(ttnn.from_torch(
+                            torch.randn(1, n, c_s) * 0.5, dtype=ttnn.bfloat16,
+                            layout=ttnn.TILE_LAYOUT, device=dev), requires_grad=True)
+                        zt = ag.Tensor(ttnn.from_torch(
+                            torch.randn(1, n, n, c_z) * 0.5, dtype=ttnn.bfloat16,
+                            layout=ttnn.TILE_LAYOUT, device=dev), requires_grad=True)
+                        so, zo = pf(st, zt, None, None, None)
+                        ttnn.synchronize_device(dev)
+                        t_fwd = _t.perf_counter()
+                        cm.__exit__(None, None, None)
+                        cm = None
+                        rs = TT.recompute_scope()
+                        rs.__enter__()
+                        try:
+                            ag.backward([t for t in (so, zo) if isinstance(t, ag.Tensor)])
+                            ttnn.synchronize_device(dev)
+                        finally:
+                            rs.__exit__(None, None, None)
+                    except Exception as exc:
+                        verdict, err, t_fwd = "FAIL", str(exc)[:200], _t.perf_counter()
+                    finally:
+                        if cm is not None:
+                            try:
+                                cm.__exit__(None, None, None)
+                            except Exception:
+                                pass
+                    t1 = _t.perf_counter()
+                    for t_ in (st, zt, so, zo):
+                        try:
+                            ttnn.deallocate(t_.value if hasattr(t_, "value") else t_)
+                        except Exception:
+                            pass
+                    del st, zt, so, zo
+                    _teardown()
+                    rows.append({"rep": r, "checkpointing": ckpt, "verdict": verdict,
+                                 "fwd_s": round(t_fwd - t0, 3), "total_s": round(t1 - t0, 3),
+                                 "bwd_s": round(t1 - t_fwd, 3), "error": err})
+                    print("  ckpt-ab rep %d ckpt=%-5s %s fwd %6.2f s  bwd %6.2f s  total %6.2f s"
+                          % (r, ckpt, verdict, rows[-1]["fwd_s"], rows[-1]["bwd_s"],
+                             rows[-1]["total_s"]), flush=True)
+        clock = clk.summary() if hasattr(clk, "summary") else None
+    finally:
+        peak.every = prev_every
+    # Rep 0 is warmup and is recorded but NOT scored: whichever arm runs first pays the JIT
+    # compile for both, which at one block is larger than the effect being measured.
+    ok = lambda c: [x["total_s"] for x in rows
+                    if x["checkpointing"] is c and x["verdict"] == "PASS" and x["rep"] > 0]
+    on, off = ok(True), ok(False)
+    res = {"tokens": n, "blocks": nb, "reps": reps, "rows": rows, "aiclk_during": clock,
+           "scored": "reps 1.. ; rep 0 is warmup and absorbs the JIT compile for both arms",
+           "aiclk_note": "index 0 is the GRANTED card: tt-smi honours TT_VISIBLE_DEVICES "
+                         "(perf/clocksample.py sample_aiclk)"}
+    if on and off:
+        res["median_on_s"] = sorted(on)[len(on)//2]
+        res["median_off_s"] = sorted(off)[len(off)//2]
+        res["ratio_on_over_off"] = round(res["median_on_s"] / res["median_off_s"], 3)
+    return res
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
@@ -278,11 +423,17 @@ def main() -> int:
     ap.add_argument("--blocks", type=int, default=4, help="pairformer blocks; 0 = all 48")
     ap.add_argument("--arms", default="off,tape")
     ap.add_argument("--backward", action="store_true", help="also run and watch the backward")
+    ap.add_argument("--ckpt-ab", type=int, default=0, metavar="N",
+                    help="N interleaved checkpoint on/off pairs on the taped arm, probing OFF "
+                         "so wall_s is a time. Arms alternate within each pair because compile "
+                         "and warmup bias whichever runs first.")
     ap.add_argument("--no-checkpoint", action="store_true",
                     help="run the taped arm with per-block checkpointing OFF, so the A/B says "
                          "what the lever buys in bytes instead of what an extrapolation says")
     ap.add_argument("--probe-every", type=int, default=1,
-                    help="read the allocator every Nth verb call (1 = every call)")
+                    help="read the allocator every Nth verb call; 1 = every call, 0 = OFF. "
+                         "Only with 0 is wall_s a time rather than a measure of the probe: "
+                         "get_memory_view drains the pipeline (tenstorrent.dram_peak).")
     ap.add_argument("--ckpt", type=Path, default=CKPT)
     args = ap.parse_args()
 
@@ -303,7 +454,7 @@ def main() -> int:
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True,
         packer_l1_acc=True)
     peak = Peak(dev, ttnn, reports)
-    peak.every = max(1, args.probe_every)
+    peak.every = args.probe_every
     g = dev.compute_with_storage_grid_size()
 
     out = {
@@ -375,6 +526,11 @@ def main() -> int:
         for arm in arms:
             gc.collect()
             peak.reset()
+            if arm == "ckptab":
+                out.setdefault("ckpt_ab", []).append(
+                    _ckpt_ab(n, nb, c_s, c_z, pf, dev, ttnn, peak, args.ckpt_ab or 3))
+                dump()
+                continue
             rec = {"tokens": n, "arm": arm, "blocks": nb,
                    "resting_dram_b": peak.bytes_now()[0],
                    "z_bytes": n * n * c_z * 2, "s_bytes": n * c_s * 2}
