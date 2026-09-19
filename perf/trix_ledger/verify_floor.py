@@ -72,7 +72,7 @@ def main():
           f"2.16 * 1.16 = {2.16*1.16:.2f}x")
 
 
-if __name__ == "__main__" and not (set(__import__("sys").argv) & {"--carryout", "--ceiling", "--floors"}):
+if __name__ == "__main__" and not (set(__import__("sys").argv) & {"--carryout", "--ceiling", "--floors", "--progress"}):
     main()
 
 
@@ -221,3 +221,33 @@ def floors():
 
 if __name__ == "__main__" and "--floors" in __import__("sys").argv:
     floors()
+
+
+# ---------------------------------------------------------------------------
+# What the campaign is actually worth, past and future, on the same fixture.
+# Run: python3 verify_floor.py --progress
+# ---------------------------------------------------------------------------
+
+FOLD_AUG, TRIMUL_AUG = 78.24, 30.939      # trimul-bottleneck-rootcause, protenix-v2 512 aa
+COMPULSORY_MS = 2.223                     # trix-radical, compute-bound
+
+
+def progress():
+    rest_aug, rest_now = FOLD_AUG - TRIMUL_AUG, FOLD_S - MODULE_INFOLD_S
+    print("Same protenix-v2 cdk2x2_512 fixture, Aug 2026 against today:\n")
+    print(f"  {'':16s}{'Aug':>10s}{'today':>10s}{'speedup':>10s}")
+    for lbl, a, b in (("fold", FOLD_AUG, FOLD_S),
+                      ("trimul", TRIMUL_AUG, MODULE_INFOLD_S),
+                      ("everything else", rest_aug, rest_now)):
+        print(f"  {lbl:16s}{a:9.2f}s{b:9.2f}s{a/b:9.2f}x")
+    print(f"\n  trimul share of fold: {100*TRIMUL_AUG/FOLD_AUG:.1f} % -> {100*MODULE_INFOLD_S/FOLD_S:.1f} %")
+    print(f"  trimul outpaced the rest of the fold by "
+          f"{(TRIMUL_AUG/MODULE_INFOLD_S)/(rest_aug/rest_now):.2f}x")
+    floor_s = COMPULSORY_MS * 1e-3 * TRIMUL_CALLS
+    end = FOLD_S - MODULE_INFOLD_S + floor_s
+    print(f"\n  REMAINING CEILING: trimul at its compulsory floor ({floor_s:.3f} s) takes the fold")
+    print(f"  {FOLD_S:.2f} -> {end:.2f} s = {FOLD_S/end:.4f}x. Size every proposal against that.")
+
+
+if __name__ == "__main__" and "--progress" in __import__("sys").argv:
+    progress()
