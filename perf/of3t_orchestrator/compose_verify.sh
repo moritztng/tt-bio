@@ -18,14 +18,23 @@ set -euo pipefail
 # A row is listed here from the moment it is dispatched, not from its first push, so a new row
 # cannot be silently left out of the composition. Rows with no branch yet are skipped with a line
 # saying so -- silence would be the bug.
-ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias"
+ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1"
 SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a shared /tmp name
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
 CO="$SLUG_TMP/compose"; BASE="$SLUG_TMP/basemain"
 D_WT="${D_WT:-/home/moritz/.coworker/wt}"   # worktrees on THIS host, for the unpushed-work note
 
-cd "$REPO"; git fetch -q origin
+cd "$REPO"
+# A bare `git fetch origin` fails outright if ANOTHER campaign's worker is updating its refs at
+# the same moment ("cannot lock ref refs/remotes/origin/wk/pvx-...") and takes the whole compose
+# down for a reason that has nothing to do with this campaign. Fetch only what we read, and
+# retry once, so a neighbour's push cannot abort the composition.
+_refs="main"; for _r in $ROWS; do _refs="$_refs wk/of3t-$_r"; done
+_refs="$_refs wk/of3t-orchestrator"
+# shellcheck disable=SC2086
+git fetch -q origin $_refs 2>/dev/null || { sleep 5; git fetch -q origin $_refs 2>/dev/null || {
+  echo "fetch failed twice for this campaign's own refs -- not a neighbour race"; exit 1; }; }
 rm -rf "$CO" "$BASE"; mkdir -p "$SLUG_TMP"; git worktree prune
 git branch -f wk/of3t origin/main >/dev/null 2>&1 || git branch wk/of3t origin/main
 git worktree add -q "$CO" wk/of3t
