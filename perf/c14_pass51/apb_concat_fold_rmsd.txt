@@ -1,0 +1,11 @@
+pair                                            direct A  kabsch A   note
+298 aa  A/A control        off vs off2           0.00000   0.00000   2397 atoms
+298 aa  seed floor         off vs offseed       19.62766   1.17542   2397 atoms
+298 aa  LEVER              off vs on             0.45037   0.22921   2397 atoms
+                                                                     off==off2 BIT-EXACT, on=734bcd15d325
+
+512 aa  A/A control        off vs off2           0.00000   0.00000   4116 atoms
+512 aa  seed floor         off vs offseed       30.77937  19.90639   4116 atoms
+512 aa  LEVER              off vs on             1.38817   0.34381   4116 atoms
+                                                                     off==off2 BIT-EXACT, on=304ce9c0790d
+
