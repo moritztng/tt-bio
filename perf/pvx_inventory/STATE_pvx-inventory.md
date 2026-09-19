@@ -21,8 +21,8 @@ decayed governor.
 `state/pvx/DESIGN.md` states its own falsifier: *"If `pvx-inventory` comes back with a populated
 bucket 2 — several shared levers with counted firing rates near zero on Protenix and materially
 above zero on Boltz-2 — then world 2 is live after all."* **That is what the counts say.** Seven
-shared, default-ON levers fire on 100 % of Boltz-2's calls and on 0-37 % of Protenix's, and three
-of them fire on Protenix at **exactly zero**:
+shared, default-ON levers fire on every Boltz-2 call they are offered and on 0-37 % of
+Protenix's, and three of them fire on Protenix at **exactly zero**:
 
 | lever | Boltz-2 | Protenix v2 | Protenix rate |
 |---|---|---|---|
@@ -30,7 +30,6 @@ of them fire on Protenix at **exactly zero**:
 | `TRIATT_FUSED_QKVGB` | **560 / 0** | **0 / 1208** | **0.0 %** |
 | `PAIR_PROJ_MINIMAL_MATMUL` | 0 / 0 (never reached) | 0 / 1208 | 0.0 % |
 | `TRIMUL_MASK_L1` | **528 / 0** | **0 / 0** (never reached) | **0.0 %** |
-| `TRIMUL_TAIL_F1_L1_OUT` | 0 / 0 (never reached) | 0 / 1048 | 0.0 % |
 | `TT_BIO_RESIDUAL_L1` | **560 / 0** | **80 / 1048** | **7.1 %** |
 | `TT_BIO_TRANSITION_L1_ROWS` (LEDGER N1) | **296 / 0** | **110 / 526** | **17.3 %** |
 | `QKV_MM_CONFIG` (`_MM_BLOCK` lookup) | **560 / 0** | **2256 / 3784** | **37.4 %** |
@@ -145,6 +144,88 @@ A row is one of three things and the instrument separates them:
 is the whole content of it.
 
 ### 2.2 The per-fold counts, both models
+
+### 2.3 Every lever, both models, one table
+
+The updated brief asks for the count on **every** lever including the ones that fire, because
+bucket 1 is what tells `pvx-protenix-specific` which levers are **already priced into the shared
+stack's 1.1988x and must not be counted again**. Generated from the two artifacts by
+`perf/pvx_inventory/fulltable.py`, so it cannot drift from them.
+
+The bucket column is **not** derived from the counts alone. `served=0, declined=0` means the code
+path never executed, and whether that is bucket 2 or bucket 3 is a judgement about the tree; every
+such judgement is written into `fulltable.py:OVERRIDE` with its reason and shows up in the last
+column. Everything without a reason fell out of the counts.
+
+Totals: **12 bucket 1, 7 bucket 2, 4 reverse-direction, 35 bucket 3.**
+
+| lever | resolved | Boltz-2 s/d | Protenix s/d | px rate | bucket | why, where the count alone cannot say |
+|---|---|---|---|---|---|---|
+| `SPLIT_SWIGLU` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `SPLIT_SWIGLU_SMALL_GRID` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `PAIR_FFN_L1_FC1` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `PAIR_FFN_L1_LN` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `PAIR_FFN_L1_SLICE` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `PAIR_FFN_FUSED_RESIDUAL` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `PAIR_FFN_FILL_ASSEMBLY` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `TRIMUL_IN_PROJ_DUAL_NOC` | `True` | 560 / 0 | 1208 / 0 | 100.0 % | **1** |  |
+| `ADALN_S_HOIST` | `True` | 2400 / 0 | 13209 / 0 | 100.0 % | **1** |  |
+| `FP32_SOFTMAX_BIAS_HOIST` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `FP32_SOFTMAX_L1_GRID` | `(8, 8)` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `PAIR_TRANSPOSE_VIA_ROW_MAJOR` | `True` | 0 / 560 | 0 / 1208 | 0.0 % | 3 | l1_dest_is_faster on both; a correct decline |
+| `PAIR_PROJ_MINIMAL_MATMUL` | `True` | 0 / 0 | 0 / 1208 | 0.0 % | **2** | 0/1208 on protenix, no_mm_block:(8,1) -- same table as QKV_MM_CONFIG |
+| `TRIMUL_TAIL_F1` | `True` | 0 / 0 | 1048 / 0 | 100.0 % | **2-rev** |  |
+| `QKV_MM_CONFIG` | `True` | 560 / 0 | 2256 / 3784 | 37.4 % | **2** | 2256/6040 on protenix, 3784 missing _MM_BLOCK keys |
+| `DEVICE_LM_HANDOFF` | `-` | not-imported | not-imported | - | 3 |  |
+| `REBLOCK_PERMUTE` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `REBLOCK_PERMUTE_BACK` | `True` | 560 / 0 | 1208 / 0 | 100.0 % | **1** |  |
+| `REBLOCK_PERMUTE_GATED` | `True` | 1120 / 0 | 2416 / 0 | 100.0 % | **1** |  |
+| `TRIMUL_MASK_AFTER_MOVE` | `True` | 1120 / 0 | 2416 / 0 | 100.0 % | **1** |  |
+| `TRIATT_PERSISTENT_MASK` | `True` | 560 / 0 | 1208 / 0 | 100.0 % | **1** |  |
+| `SDPA_WIDE_K` | `False` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `SDPA_FUSED_LARGE_S` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `RFD3_SPARSE_BIAS` | `-` | not-imported | not-imported | - | 3 |  |
+| `RFD3_FUSED_SCORES` | `-` | not-imported | not-imported | - | 3 |  |
+| `TRIATT_HEAD_MAJOR_QKV` | `True` | 560 / 0 | 1048 / 160 | 86.8 % | **1** | 1048/1208; the 160 declines are the _MM_BLOCK miss, not this gate |
+| `TRIATT_HEAD_MAJOR_TAIL` | `True` | 560 / 0 | 1048 / 0 | 100.0 % | **1** |  |
+| `TRIATT_TAIL_OVER_L1` | `True` | 560 / 0 | 1048 / 0 | 100.0 % | **1** |  |
+| `B2_BIAS_SLICE_HOIST` | `True` | 3 / 0 | 0 / 0 | never reached | 3 | boltz2.py-exclusive; protenix has its own diffusion module |
+| `B2_ADALN_S_MEMO` | `True` | 2400 / 0 | 0 / 0 | never reached | 3 | same |
+| `B2_TOKEN_DIT_SDPA` | `True` | 4800 / 0 | 0 / 0 | never reached | 3 | same |
+| `APB_CONCAT_HEADS` | `False` | 0 / 5064 | 0 / 5284 | 0.0 % | 3 |  |
+| `ATOM_AXIS_BUCKET` | `True` | 200 / 0 | 0 / 0 | never reached | 3 | same |
+| `TRANSPOSE_L1_RESIDENT` | `1.25` | 560 / 0 | 1208 / 0 | 100.0 % | **1** |  |
+| `SDPA_Q_CHUNK_FITS` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `RFD3_SOFTMAX_PV_FUSED` | `-` | not-imported | not-imported | - | 3 |  |
+| `RFD3_FC1_SPLIT_SILU` | `-` | not-imported | not-imported | - | 3 |  |
+| `TRANSITION_H_CHUNK` | `16` | 296 / 0 | 110 / 526 | 17.3 % | **2** | 110/636 on protenix, base-unraised x526 at c=256 (LEDGER N1) |
+| `TRIMUL_MASK_L1` | `True` | 528 / 0 | 0 / 0 | never reached | **2** |  |
+| `RESIDUAL_L1` | `True` | 560 / 0 | 80 / 1048 | 7.1 % | **2** | 80/1128 on protenix, capacity refusal at c_z=256 |
+| `PWA_BATCH_HEAD_WEIGHTS` | `True` | 16 / 0 | 30 / 0 | 100.0 % | **1** |  |
+| `ATOM_SHIFT_GATHER_OFF` | `False` | 1200 / 0 | 0 / 0 | never reached | 3 | same |
+| `SDPA_RAGGED_PAD` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `TRIMUL_FUSED_GOUT` | `True` | 560 / 0 | 160 / 1048 | 13.2 % | **1** | 160/1208, the 1048 declines read f1_tail_serves and are correct |
+| `TRIMUL_TAIL_L1` | `False` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `TRIMUL_TAIL_F1_L1_OUT` | `True` | 0 / 0 | 0 / 1048 | 0.0 % | **2-rev** | 0/1048 on protenix, never offered on boltz2 |
+| `TRIATT_FUSED_QKVG` | `True` | 560 / 0 | 0 / 1208 | 0.0 % | **2** |  |
+| `TRIATT_FUSED_QKVGB` | `True` | 560 / 0 | 0 / 1208 | 0.0 % | **2** |  |
+| `TRIATT_GATE_EPILOGUE` | `False` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `TRIATT_FUSED_HIFI` | `False` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `OPM_ROW_BLOCK` | `256` | 0 / 16 | 0 / 40 | 0.0 % | 3 |  |
+| `PWA_DEPTH_BLOCK` | `268435456` | 0 / 16 | 0 / 30 | 0.0 % | 3 |  |
+| `OPM_SMALL_DEPTH` | `False` | 0 / 16 | 0 / 40 | 0.0 % | 3 |  |
+| `FP32_SOFTMAX_FUSED` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `FUSE_SCALE_ADD` | `True` | 0 / 0 | 6000 / 3 | 100.0 % | **2-rev** |  |
+| `FUSE_MASK_ADD` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `FUSE_NORM_RESIDUAL` | `True` | 0 / 0 | 0 / 0 | never reached | 3 |  |
+| `PROTENIX_RELP_SCATTER` | `True` | not-imported | 1 / 0 | 100.0 % | **2-rev** |  |
+
+**The bucket-1 rows are the double-counting hazard.** Every one of them already fires on Protenix
+at 100 % (or, for `TRIATT_HEAD_MAJOR_QKV` and `TRIMUL_FUSED_GOUT`, at a rate whose shortfall has a
+different owner). Their value is inside whatever `pvx-baseline` anchors Protenix at, exactly as the
+shared stack's 1.1988x is. **No row may propose them as an opportunity.** `REBLOCK_PERMUTE_GATED`
+at 2416/2416 is the specific one to watch: it is E6, it is closed in the ledger, and it reads like
+a headline lever to anyone who has not seen the count.
 
 **Fires on both (bucket 1).** Counts scale with the trunk, as they should: Protenix runs 1208
 trimuls and 1208 triangle attentions against Boltz-2's 560, a ratio of **2.157x**, against a trunk
@@ -327,8 +408,14 @@ at all. Rate provenance is named per line; the arithmetic is a screen and not a 
 | `TRIMUL_TAIL_F1_L1_OUT` | no fold-level figure | **unpriced** | — |
 | `TRIMUL_FUSED_GOUT` | — | **excluded**: the decline is correct (B2-f) | 0 |
 
-    priced bucket-2 total          -2.76 s on a 52.193 s contended fold   ->  1.056x     UPPER BOUND
-    against the measured gap        ~3.19x same-board-class (LEDGER R3)
+    priced bucket-2 total     1.0352 x 1.01705 x 1.0023  ->  1.056x     UPPER BOUND, as a RATIO
+    expressed in seconds ONLY for scale, against this pass's own contended 52.2 s fold:  ~-2.8 s
+    against the same-board-class gap                       ~3.19x     (LEDGER R3, itself DERIVED)
+
+**The ratio is the claim; the seconds are an illustration.** The updated brief forbids scoring
+against 54.760 s and this row does not: the 1.056x is composed from three per-lever ratios, none of
+which needs a Protenix anchor to state. The moment `pvx-baseline` lands a clocked, floored anchor,
+multiply it through and the seconds follow. Nothing downstream should quote the -2.8 s.
 
 **Every caveat on that number, stated rather than implied:**
 
@@ -346,9 +433,10 @@ at all. Rate provenance is named per line; the arithmetic is a screen and not a 
    larger (more bytes to keep resident) or negative (the clash the bound exists to prevent).
    Pricing it at Boltz-2's ratio is the most optimistic reading available, which is what makes it
    an upper bound.
-4. **The denominator is contaminated.** 52.193 s is this pass's contended fold, not an anchor.
-   `pvx-baseline` owns the number and nothing here should be re-expressed against 54.760 s
-   (LEDGER R3).
+4. **The denominator is contaminated and this row does not lean on one.** 52.193 s is this pass's
+   contended fold, not an anchor, and 54.760 s is a p150a with no recorded AICLK against a p300c
+   14.4 s. The screen is stated as a ratio for exactly that reason. `pvx-baseline` owns both
+   anchors (LEDGER R3, and the brief's own instruction not to score against 3.4x).
 5. **The two largest-count bucket-2 rows are the two that cannot be priced.** 3784 `_MM_BLOCK`
    misses and 1208 refused K3 fusions are the biggest call counts in the table and neither has a
    fold figure. The screen is therefore an underestimate in coverage and an overestimate in
