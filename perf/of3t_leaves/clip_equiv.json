@@ -1,0 +1,45 @@
+{
+  "instrument": "R26 -- our clipping against their grad_manager, after the fix",
+  "protocol_bar": 1e-12,
+  "f32_floor": 6e-07,
+  "clip_norm": 10.0,
+  "their_source": "/tmp/of3t/of3t-leaves/of3pkg",
+  "stubbed_imports": [
+    "pytorch_lightning",
+    "torchmetrics"
+  ],
+  "disabled_params": {
+    "ours_norm_before_the_fix": 99.19030703903505,
+    "ours_clip_before_the_fix": 0.1008163025048872,
+    "relative_before_the_fix": 0.8332793292043092,
+    "ours_norm": 16.53707419702914,
+    "theirs_norm": 16.53707504272461,
+    "ours_clip": 0.6047018886688242,
+    "theirs_clip": 0.6047018766403198,
+    "relative_now": 1.989162739424421e-08,
+    "within_f32_floor": true,
+    "within_protocol_s4_bar": false
+  },
+  "per_sample": {
+    "samples": 3,
+    "outlier_scale": 40.0,
+    "ours_per_sample_vs_theirs": 0.0,
+    "ours_per_batch_vs_theirs": 0.19573110342025757,
+    "participation": {
+      "a": 3
+    },
+    "within_f32_floor": true
+  },
+  "negative_control": {
+    "arm1_perturbation": "clip_norm x1.01",
+    "arm1_rel": 0.010000020090543661,
+    "arm1_rejected": true,
+    "arm1_margin": 16666.7001509061,
+    "arm2_perturbation": "one sample left unclipped",
+    "arm2_rel": 38.390682220458984,
+    "arm2_rejected": true,
+    "arm2_margin": 63984470.36743164
+  },
+  "verdict": "PASS",
+  "failures": []
+}
