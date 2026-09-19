@@ -1,0 +1,300 @@
+[release-gate] granted card(s) [1]
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/c14-land-tail/tt_bio (commit fe3723c61)
+
+======================================================================
+[protenix-v2] folding prot.yaml (200 steps, 5 samples)
+======================================================================
+16:14:56  [tt-quietbox2:tt1] loading model…
+16:15:08  [tt-quietbox2:tt1] prot
+16:15:08  [tt-quietbox2:tt1]   msa
+16:15:10  [tt-quietbox2:tt1]   prep
+16:15:11  [tt-quietbox2:tt1]   trunk 0/10
+16:15:18  [tt-quietbox2:tt1]   trunk 1/10
+16:15:18  [tt-quietbox2:tt1]   trunk 2/10
+16:15:18  [tt-quietbox2:tt1]   trunk 3/10
+16:15:19  [tt-quietbox2:tt1]   trunk 4/10
+16:15:19  [tt-quietbox2:tt1]   trunk 5/10
+16:15:19  [tt-quietbox2:tt1]   trunk 6/10
+16:15:19  [tt-quietbox2:tt1]   trunk 7/10
+16:15:20  [tt-quietbox2:tt1]   trunk 8/10
+16:15:20  [tt-quietbox2:tt1]   trunk 9/10
+16:15:21  [tt-quietbox2:tt1]   diffusion 0/200
+16:15:22  [tt-quietbox2:tt1]   diffusion 1/200
+16:15:22  [tt-quietbox2:tt1]   diffusion 2/200
+16:15:22  [tt-quietbox2:tt1]   diffusion 3/200
+16:15:22  [tt-quietbox2:tt1]   diffusion 4/200
+16:15:22  [tt-quietbox2:tt1]   diffusion 5/200
+16:15:22  [tt-quietbox2:tt1]   diffusion 6/200
+16:15:22  [tt-quietbox2:tt1]   diffusion 7/200
+16:15:22  [tt-quietbox2:tt1]   diffusion 8/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 9/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 10/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 11/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 12/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 13/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 14/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 15/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 16/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 17/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 18/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 19/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 20/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 21/200
+16:15:23  [tt-quietbox2:tt1]   diffusion 22/200
+16:15:24  [tt-quietbox2:tt1]   diffusion 23/200
+16:15:24  [tt-quietbox2:tt1]   diffusion 24/200
+16:15:24  [tt-quietbox2:tt1]   diffusion 25/200
+16:15:24  [tt-quietbox2:tt1]   diffusion 26/200
+16:15:24  [tt-quietbox2:tt1]   diffusion 27/200
+16:15:24  [tt-quietbox2:tt1]   diffusion 28/200
+16:15:24  [tt-quietbox2:tt1]   diffusion 29/200
+16:15:24  [tt-quietbox2:tt1]   diffusion 30/200
+16:15:24  [tt-quietbox2:tt1]   diffusion 31/200
+16:15:24  [tt-quietbox2:tt1]   diffusion 32/200
+16:15:24  [tt-quietbox2:tt1]   diffusion 33/200
+16:15:24  [tt-quietbox2:tt1]   diffusion 34/200
+16:15:24  [tt-quietbox2:tt1]   diffusion 35/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 36/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 37/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 38/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 39/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 40/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 41/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 42/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 43/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 44/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 45/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 46/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 47/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 48/200
+16:15:25  [tt-quietbox2:tt1]   diffusion 49/200
+16:15:26  [tt-quietbox2:tt1]   diffusion 50/200
+16:15:26  [tt-quietbox2:tt1]   diffusion 51/200
+16:15:26  [tt-quietbox2:tt1]   diffusion 52/200
+16:15:26  [tt-quietbox2:tt1]   diffusion 53/200
+16:15:26  [tt-quietbox2:tt1]   diffusion 54/200
+16:15:26  [tt-quietbox2:tt1]   diffusion 55/200
+16:15:26  [tt-quietbox2:tt1]   diffusion 56/200
+16:15:26  [tt-quietbox2:tt1]   diffusion 57/200
+16:15:26  [tt-quietbox2:tt1]   diffusion 58/200
+16:15:26  [tt-quietbox2:tt1]   diffusion 59/200
+16:15:26  [tt-quietbox2:tt1]   diffusion 60/200
+16:15:26  [tt-quietbox2:tt1]   diffusion 61/200
+16:15:26  [tt-quietbox2:tt1]   diffusion 62/200
+16:15:27  [tt-quietbox2:tt1]   diffusion 63/200
+16:15:27  [tt-quietbox2:tt1]   diffusion 64/200
+16:15:27  [tt-quietbox2:tt1]   diffusion 65/200
+16:15:27  [tt-quietbox2:tt1]   diffusion 66/200
+16:15:27  [tt-quietbox2:tt1]   diffusion 67/200
+16:15:27  [tt-quietbox2:tt1]   diffusion 68/200
+16:15:27  [tt-quietbox2:tt1]   diffusion 69/200
+16:15:27  [tt-quietbox2:tt1]   diffusion 70/200
+16:15:27  [tt-quietbox2:tt1]   diffusion 71/200
+16:15:27  [tt-quietbox2:tt1]   diffusion 72/200
+16:15:27  [tt-quietbox2:tt1]   diffusion 73/200
+16:15:27  [tt-quietbox2:tt1]   diffusion 74/200
+16:15:27  [tt-quietbox2:tt1]   diffusion 75/200
+16:15:28  [tt-quietbox2:tt1]   diffusion 76/200
+16:15:28  [tt-quietbox2:tt1]   diffusion 77/200
+16:15:28  [tt-quietbox2:tt1]   diffusion 78/200
+16:15:28  [tt-quietbox2:tt1]   diffusion 79/200
+16:15:28  [tt-quietbox2:tt1]   diffusion 80/200
+16:15:28  [tt-quietbox2:tt1]   diffusion 81/200
+16:15:28  [tt-quietbox2:tt1]   diffusion 82/200
+16:15:28  [tt-quietbox2:tt1]   diffusion 83/200
+16:15:28  [tt-quietbox2:tt1]   diffusion 84/200
+16:15:28  [tt-quietbox2:tt1]   diffusion 85/200
+16:15:28  [tt-quietbox2:tt1]   diffusion 86/200
+16:15:28  [tt-quietbox2:tt1]   diffusion 87/200
+16:15:28  [tt-quietbox2:tt1]   diffusion 88/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 89/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 90/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 91/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 92/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 93/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 94/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 95/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 96/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 97/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 98/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 99/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 100/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 101/200
+16:15:29  [tt-quietbox2:tt1]   diffusion 102/200
+16:15:30  [tt-quietbox2:tt1]   diffusion 103/200
+16:15:30  [tt-quietbox2:tt1]   diffusion 104/200
+16:15:30  [tt-quietbox2:tt1]   diffusion 105/200
+16:15:30  [tt-quietbox2:tt1]   diffusion 106/200
+16:15:30  [tt-quietbox2:tt1]   diffusion 107/200
+16:15:30  [tt-quietbox2:tt1]   diffusion 108/200
+16:15:30  [tt-quietbox2:tt1]   diffusion 109/200
+16:15:30  [tt-quietbox2:tt1]   diffusion 110/200
+16:15:30  [tt-quietbox2:tt1]   diffusion 111/200
+16:15:30  [tt-quietbox2:tt1]   diffusion 112/200
+16:15:30  [tt-quietbox2:tt1]   diffusion 113/200
+16:15:30  [tt-quietbox2:tt1]   diffusion 114/200
+16:15:30  [tt-quietbox2:tt1]   diffusion 115/200
+16:15:31  [tt-quietbox2:tt1]   diffusion 116/200
+16:15:31  [tt-quietbox2:tt1]   diffusion 117/200
+16:15:31  [tt-quietbox2:tt1]   diffusion 118/200
+16:15:31  [tt-quietbox2:tt1]   diffusion 119/200
+16:15:31  [tt-quietbox2:tt1]   diffusion 120/200
+16:15:31  [tt-quietbox2:tt1]   diffusion 121/200
+16:15:31  [tt-quietbox2:tt1]   diffusion 122/200
+16:15:31  [tt-quietbox2:tt1]   diffusion 123/200
+16:15:31  [tt-quietbox2:tt1]   diffusion 124/200
+16:15:31  [tt-quietbox2:tt1]   diffusion 125/200
+16:15:31  [tt-quietbox2:tt1]   diffusion 126/200
+16:15:31  [tt-quietbox2:tt1]   diffusion 127/200
+16:15:31  [tt-quietbox2:tt1]   diffusion 128/200
+16:15:32  [tt-quietbox2:tt1]   diffusion 129/200
+16:15:32  [tt-quietbox2:tt1]   diffusion 130/200
+16:15:32  [tt-quietbox2:tt1]   diffusion 131/200
+16:15:32  [tt-quietbox2:tt1]   diffusion 132/200
+16:15:32  [tt-quietbox2:tt1]   diffusion 133/200
+16:15:32  [tt-quietbox2:tt1]   diffusion 134/200
+16:15:32  [tt-quietbox2:tt1]   diffusion 135/200
+16:15:32  [tt-quietbox2:tt1]   diffusion 136/200
+16:15:32  [tt-quietbox2:tt1]   diffusion 137/200
+16:15:32  [tt-quietbox2:tt1]   diffusion 138/200
+16:15:32  [tt-quietbox2:tt1]   diffusion 139/200
+16:15:32  [tt-quietbox2:tt1]   diffusion 140/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 141/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 142/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 143/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 144/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 145/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 146/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 147/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 148/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 149/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 150/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 151/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 152/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 153/200
+16:15:33  [tt-quietbox2:tt1]   diffusion 154/200
+16:15:34  [tt-quietbox2:tt1]   diffusion 155/200
+16:15:34  [tt-quietbox2:tt1]   diffusion 156/200
+16:15:34  [tt-quietbox2:tt1]   diffusion 157/200
+16:15:34  [tt-quietbox2:tt1]   diffusion 158/200
+16:15:34  [tt-quietbox2:tt1]   diffusion 159/200
+16:15:34  [tt-quietbox2:tt1]   diffusion 160/200
+16:15:34  [tt-quietbox2:tt1]   diffusion 161/200
+16:15:34  [tt-quietbox2:tt1]   diffusion 162/200
+16:15:34  [tt-quietbox2:tt1]   diffusion 163/200
+16:15:34  [tt-quietbox2:tt1]   diffusion 164/200
+16:15:34  [tt-quietbox2:tt1]   diffusion 165/200
+16:15:34  [tt-quietbox2:tt1]   diffusion 166/200
+16:15:34  [tt-quietbox2:tt1]   diffusion 167/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 168/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 169/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 170/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 171/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 172/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 173/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 174/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 175/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 176/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 177/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 178/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 179/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 180/200
+16:15:35  [tt-quietbox2:tt1]   diffusion 181/200
+16:15:36  [tt-quietbox2:tt1]   diffusion 182/200
+16:15:36  [tt-quietbox2:tt1]   diffusion 183/200
+16:15:36  [tt-quietbox2:tt1]   diffusion 184/200
+16:15:36  [tt-quietbox2:tt1]   diffusion 185/200
+16:15:36  [tt-quietbox2:tt1]   diffusion 186/200
+16:15:36  [tt-quietbox2:tt1]   diffusion 187/200
+16:15:36  [tt-quietbox2:tt1]   diffusion 188/200
+16:15:36  [tt-quietbox2:tt1]   diffusion 189/200
+16:15:36  [tt-quietbox2:tt1]   diffusion 190/200
+16:15:36  [tt-quietbox2:tt1]   diffusion 191/200
+16:15:36  [tt-quietbox2:tt1]   diffusion 192/200
+16:15:36  [tt-quietbox2:tt1]   diffusion 193/200
+16:15:36  [tt-quietbox2:tt1]   diffusion 194/200
+16:15:37  [tt-quietbox2:tt1]   diffusion 195/200
+16:15:37  [tt-quietbox2:tt1]   diffusion 196/200
+16:15:37  [tt-quietbox2:tt1]   diffusion 197/200
+16:15:37  [tt-quietbox2:tt1]   diffusion 198/200
+16:15:37  [tt-quietbox2:tt1]   diffusion 199/200
+16:15:37  [tt-quietbox2:tt1]   confidence
+16:15:39  [tt-quietbox2:tt1]   saving
+16:15:39  [tt-quietbox2:tt1] ✓ prot — 31.0s
+
+Done: 1 ok, 0 failed — /home/ttuser/.coworker/wt/c14-land-tail/protenix_results_prot/results.json
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 0
+RMSD: 1.9965 Å   TM-score: 0.8669
+==================================================
+
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 1
+RMSD: 1.4646 Å   TM-score: 0.9385
+==================================================
+
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 2
+RMSD: 1.8414 Å   TM-score: 0.8799
+==================================================
+
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 3
+RMSD: 2.1443 Å   TM-score: 0.8281
+==================================================
+
+Predicted chains: [('A', 117)]
+Ground truth chains: [('A', 117)]
+
+Best chain matching (117 common residues of 117 predicted / 117 ground truth):
+  A -> A (117 common residues)
+
+==================================================
+Protein: prot, Model: 4
+RMSD: 3.7236 Å   TM-score: 0.7251
+==================================================
+
+############################################################
+GROUND-TRUTH ACCURACY — prot (5 samples)
+  model 0: RMSD  1.997 Å   TM 0.867 <- best confidence (gated)
+  model 1: RMSD  1.465 Å   TM 0.939
+  model 2: RMSD  1.841 Å   TM 0.880
+  model 3: RMSD  2.144 Å   TM 0.828
+  model 4: RMSD  3.724 Å   TM 0.725
+  oracle-best sample: model 1 RMSD 1.465 Å TM 0.939
+############################################################
+
+[protenix-v2] geometry (5 sample(s), worst): in band 1.0 (A/protein), backbone gaps 0, clashes 2/900 (0.0022, worst contact 1.836 A)
+
+##############################################################################
+RELEASE GATE — prot.yaml (prot), 200 steps / 5 samples, seed 0
+##############################################################################
+model            RMSD (A)      TM           floor  in band  gaps        clash    wall  result
+protenix-v2         1.997   0.867     <=6.0/>=0.5   1.0000     0    2(0.0022)     72s  PASS
+##############################################################################
+geometry floors, check_structure.py's own bands: in band >= 0.9 (protein) / 0.85 (nucleic), zero backbone gaps beyond 5.0 / 9.5 A, clashes <= max(2, 0.02 x heavy atoms)
+GATE PASS — all models cleared parse + ground-truth floor + geometry
