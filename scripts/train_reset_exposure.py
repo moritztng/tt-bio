@@ -67,8 +67,14 @@ def main() -> int:
                          "2026-09-15/16, which was a different regime -- the watchdog was armed "
                          "at 60s against a 150s design value and was itself causing most of the "
                          "resets it was meant to recover from")
-    ap.add_argument("--step-seconds", type=float, default=11.282,
-                    help="warm median; pass 105 measured this at AICLK 1350 during the run")
+    ap.add_argument("--step-seconds", type=float, default=12.415,
+                    help="the RESET-FREE cadence (t-to-t median while healthy), NOT a realized "
+                         "rate. This script adds the reset cost itself, so handing it a realized "
+                         "rate -- which already contains outages and replays -- counts resets "
+                         "twice. Default is the t-to-t median over 846 rows, 2026-09-19. The "
+                         "earlier default of 11.282 was a `wall` number and `wall` excludes the "
+                         "2.232 s micro-batch build entirely (train-s-stepgap), so it understated "
+                         "the cadence by ~18 %")
     ap.add_argument("--checkpoint-minutes", type=float, default=CHECKPOINT_MINUTES)
     ap.add_argument("--step", type=int, required=True,
                     help="the CURRENT step, read live. There is no safe default: a stale one "
@@ -124,6 +130,15 @@ def main() -> int:
     print(f"grant left {left_h:.2f} h, to {DEADLINE:%Y-%m-%dT%H:%M:%S}Z")
     exp = left_h / mean_up
     print(f"  expected resets before the cap: {exp:.1f}")
+    # A realized rate already contains the outages and replays this script is about to add. The
+    # three rates on 2026-09-19 were wall 10.152, t-to-t 12.415, realized 15.280, so anything at
+    # or above ~15 s is almost certainly the wrong one. Warn rather than refuse: the cadence will
+    # genuinely grow on a bigger crop and a hard ceiling would age badly.
+    if a.step_seconds >= 15.0:
+        print(f"  WARNING: --step-seconds {a.step_seconds:.3f} looks like a REALIZED rate. This "
+              f"script adds the reset cost itself; a realized rate already contains it, so the "
+              f"figures below double-count. Pass the t-to-t cadence.\n")
+
     replay_h = a.checkpoint_minutes / 2.0 / 60.0        # expected, uniform over the interval
     print(f"  per reset: {RESTART_SECONDS / 60:.1f} min to restart (measured) + "
           f"{replay_h * 60:.1f} min replayed from the last checkpoint "
