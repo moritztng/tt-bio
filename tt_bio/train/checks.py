@@ -19,7 +19,10 @@ The three levels, in the order that makes each trustworthy:
 
 **One bar for all ops is wrong twice over.** The bars below are per op class off measured
 floors, not one number off the bf16 mantissa. Two reasons, both measured on qb1 card 3 at
-1350 MHz (``perf/abb3_port/precision_probe_qb1c3.txt``):
+1350 MHz. The matmul and K-ladder figures are
+``perf/abb3_port/precision_probe_qb1c3.txt``; the eltwise floor is A1's fp32 arm,
+``perf/train_a1_defork/out/gradcheck_fp32.json``, where mul, add, sigmoid and silu land at
+2.53e-08 to 7.55e-08:
 
 * A matmul on fp32 operands keeps about 11 mantissa bits whatever the kernel config says --
   1.25e-03 relative at HiFi4 with ``fp32_dest_acc_en``, 7.05e-03 at HiFi2, 2.85e-02 at LoFi
@@ -132,8 +135,15 @@ def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6):
     for p in params:
         if p.grad is not None:
             p.grad = None
-    loss = loss_fn()
-    loss.backward()
+    # Explicitly, because `torch.set_grad_enabled(False)` is process-wide and several modules
+    # in this repo call it at import time to keep an inference reference cheap. Nothing
+    # restores it, so whether this function works came down to what else the process had
+    # imported -- and the failure is `element 0 of tensors does not require grad`, which reads
+    # like a caller mistake rather than ambient state. Asking for the gradient we are about to
+    # take is free and does not reach outside this block.
+    with torch.enable_grad():
+        loss = loss_fn()
+        loss.backward()
     resolution_floor = 1.0e4 * 2.22e-16 * abs(loss.item()) / (2.0 * h)
     worst, probed, eligible = 0.0, 0, 0
     for p in params:

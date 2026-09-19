@@ -90,9 +90,10 @@ def test_frozen_lora_base_weights_are_declared_and_really_are_frozen():
     assert GC.FROZEN["lora"] == ("w",)
     assert GC.FROZEN["lora_bias"] == ("w", "bias")
     rng = np.random.default_rng(7)
-    t = {k: torch.from_numpy(v).to(torch.float64).requires_grad_(True)
-         for k, v in GC.case_lora(rng).items()}
-    GC.torch_forward("lora", t).sum().backward()
+    with torch.enable_grad():
+        t = {k: torch.from_numpy(v).to(torch.float64).requires_grad_(True)
+             for k, v in GC.case_lora(rng).items()}
+        GC.torch_forward("lora", t).sum().backward()
     assert t["w"].grad is not None, "sanity: torch would give W a gradient if asked"
     assert t["a"].grad.abs().max() > 0, "the adapter must move, or the case proves nothing"
 
