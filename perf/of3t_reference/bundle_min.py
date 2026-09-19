@@ -176,8 +176,60 @@ def build(dtype, seed, device, num_recycles=None):
     pl.seed_everything(seed, workers=True)
     model = OpenFold3(cfg).to(device=device, dtype=dtype)
     model.train()
+    dropout = disable_dropout(model)
     loss_fn = OpenFold3Loss(config=cfg.architecture.loss_module).to(device)
-    return cfg, model, loss_fn
+    return cfg, model, loss_fn, dropout
+
+
+def disable_dropout(model):
+    """Pin every Dropout to r = 0, which is what makes this artifact a reference at all.
+
+    Taped in train mode, the published gradient is ONE DRAW. The Pairformer block carries a
+    Dropout at rate 0.25 whose mask comes from generators an RNG-state snapshot does not
+    reproduce across devices, and `of3t-gradients` measured the cost on the identical captured
+    boundary: two seeds with dropout live read worst 1.167 / median 0.550 with 47 of 57 tensors
+    over PROTOCOL 3d's 5.0e-02 bar, and a second pair read worst 2.419 / median 0.481. The same
+    pair with dropout off read 0.000e+00 worst AND median over 57 of 57, bit-identical. An
+    artifact whose own draw-to-draw floor is an order of magnitude above the bar it is used at
+    is a measurement, not a reference.
+
+    So this is an **r = 0 reference**, and it is the function our side already computes:
+    `tt_bio/train/lora.py:46` records that the tape carries no dropout op. Dropout is a
+    regulariser, not part of the update rule, and PROTOCOL 4a's requirement is that both stacks
+    draw the same randomness -- which for a mask neither stack can reproduce means drawing none.
+
+    Two mechanisms, because one of them has to survive a later `.train()`. Eval mode makes their
+    `Dropout.forward` return its input unchanged (`dropout.py:56`), and rate 0 makes `nn.Dropout`
+    identity as well: verified on this torch that p = 0 in train mode returns the input bit for
+    bit and does not advance the RNG.
+
+    Only the Dropout submodules move. `OpenFold3.training` stays True, because it selects the
+    memory settings, the recycle-count draw and the confidence path (`model.py:150, 650, 707`),
+    and flipping the whole model would change the function in ways that have nothing to do with
+    the mask.
+    """
+    from openfold3.core.model.primitives.dropout import Dropout
+
+    rates, n_inner = [], 0
+    for m in model.modules():
+        if isinstance(m, Dropout):
+            rates.append(float(m.r))
+            m.eval()
+            m.r = 0.0
+        if isinstance(m, torch.nn.Dropout):
+            n_inner += 1
+            m.eval()
+            m.p = 0.0
+    assert all(not m.training and m.p == 0.0
+               for m in model.modules() if isinstance(m, torch.nn.Dropout))
+    return {
+        "disabled": True,
+        "n_of3_dropout_modules": len(rates),
+        "n_nn_dropout_modules": n_inner,
+        "rates_before": sorted(set(rates)),
+        "why": "r = 0 reference: the mask is not reproducible across devices, so the published "
+               "gradient would be one draw. See disable_dropout() in bundle_min.py.",
+    }
 
 
 def move(batch, device, dtype):
@@ -261,7 +313,7 @@ def main() -> int:
         raise SystemExit(f"batch sha256 {got} != expected {args.batch_sha256}")
 
     raw_batch = torch.load(args.batch, weights_only=False)
-    cfg, model, loss_fn = build(dtype, args.seed, device, args.num_recycles)
+    cfg, model, loss_fn, dropout = build(dtype, args.seed, device, args.num_recycles)
 
     ckpt_info = None
     if args.checkpoint:
@@ -346,15 +398,32 @@ def main() -> int:
             n_zero += 1
     zero_entry_fraction = n_zero / n_probe
 
-    checks = []
-    tries = 0
-    while len(checks) < args.fd_samples and tries < args.fd_samples * 4000:
-        tries += 1
-        name, p = flat[rs.randrange(len(flat))]
-        idx = tuple(rs.randrange(s) for s in p.shape)
-        analytic = float(p.grad[idx])
-        if abs(analytic) < args.fd_min_grad:
+    # Stratified by TENSOR, one entry each, which is the sampling this row owed on re-issue.
+    # Drawing entries uniformly from the whole parameter vector concentrates the sample in the
+    # largest tensors: on the previous draw ten of twelve entries landed in the pairformer stack
+    # and the diffusion decoder was represented once. Stratifying costs nothing and makes the
+    # coverage statement -- how many DISTINCT tensors the check touched -- a real one. A tensor
+    # with no entry above --fd-min-grad anywhere is recorded as uncovered, not silently skipped.
+    order = list(range(len(flat)))
+    rs.shuffle(order)
+    checks, uncovered = [], []
+    for ti in order:
+        if len(checks) >= args.fd_samples:
+            break
+        name, p = flat[ti]
+        # Exact, not probed: on this batch most individual entries are exactly zero, so drawing
+        # blind indices and retrying finds a valid entry by luck and reports "uncovered" for
+        # tensors that are perfectly well covered. Enumerate the entries above the floor and
+        # draw from those, and record how many there were.
+        above = (p.grad.abs() >= args.fd_min_grad).flatten().nonzero(as_tuple=True)[0]
+        n_above = int(above.numel())
+        if n_above == 0:
+            uncovered.append({"param": name, "numel": int(p.numel())})
             continue
+        idx = np.unravel_index(int(above[rs.randrange(n_above)]), tuple(p.shape))
+        idx = tuple(int(i) for i in idx)
+        analytic = float(p.grad[idx])
+        del above
         original = p.data[idx].item()
         with torch.no_grad():
             p.data[idx] = original + args.fd_h
@@ -371,6 +440,7 @@ def main() -> int:
         checks.append({
             "param": name, "index": list(idx), "analytic": analytic, "finite_difference": fd,
             "abs_err": abs(analytic - fd), "rel_err": abs(analytic - fd) / denom,
+            "n_entries_above_floor": n_above, "numel": int(p.numel()),
         })
         print(f"fd {name}{list(idx)}: analytic={analytic:.6e} fd={fd:.6e} "
               f"rel={checks[-1]['rel_err']:.3e}", flush=True)
@@ -395,6 +465,7 @@ def main() -> int:
         "checkpoint": ckpt_info,
         "dtype": args.dtype,
         "their_fp32_autocast_blocks_disabled": bool(dtype is torch.float64),
+        "dropout": dropout,
         "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu",
         "versions": {
             "openfold3": getattr(openfold3, "__version__", "0.5.0 (git checkout)"),
@@ -434,7 +505,12 @@ def main() -> int:
             "h": args.fd_h,
             "min_abs_analytic_sampled": args.fd_min_grad,
             "zero_gradient_entry_fraction": zero_entry_fraction,
+            "sampling": "stratified by tensor, one entry per tensor",
             "n_samples": len(checks),
+            "n_tensors_covered": len({c["param"] for c in checks}),
+            "n_tensors_total": len(flat),
+            "n_tensors_uncovered": len(uncovered),
+            "uncovered_sample": uncovered[:8],
             "max_rel_err": max(c["rel_err"] for c in checks) if checks else None,
             "median_rel_err": float(np.median([c["rel_err"] for c in checks])) if checks else None,
             "worst": max(checks, key=lambda c: c["rel_err"]) if checks else None,
