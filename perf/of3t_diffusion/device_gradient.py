@@ -40,6 +40,9 @@ def main() -> int:
     p.add_argument("--structs", default="0",
                    help="'0' for one structure, 'all' for the 48 the bundle gradient sums")
     p.add_argument("--tag", default="")
+    p.add_argument("--bisect", action="store_true",
+                   help="compare every stage against their captured intermediates, "
+                        "which localises a forward gap instead of reporting it")
     a = p.parse_args()
     t0 = time.perf_counter()
 
@@ -67,50 +70,40 @@ def main() -> int:
     print(f"[{time.perf_counter()-t0:.0f}s] checkpoint: {len(name_by_id)} tensors under "
           f"diffusion_module.", flush=True)
 
-    # ---- the bijection: every load site resolves a checkpoint tensor first -------------------
-    reg = {}          # id(device tensor) -> checkpoint name (relative to diffusion_module.)
-    import tt_bio.openfold3_atom_transformer as AT
+    # ---- the bijection: fingerprint, so no load path can be missed ---------------------------
+    # The previous version patched three named load sites and reached 283 of 870 device
+    # weights, because three more classes load by paths those three do not cover. Patching
+    # `ttnn.from_torch` for the duration of construction cannot miss a path by construction,
+    # and the tensor it is handed is matched back to the checkpoint by a transpose-invariant
+    # fingerprint rather than by identity -- `_w_tt` hands it `w.t().contiguous()`, a fresh
+    # object whose id maps to nothing.
+    def fingerprint(x):
+        x = x.double()
+        return (tuple(sorted(x.shape)), round(float(x.sum()), 9),
+                round(float(x.abs().max()), 9), x.numel())
 
-    def record(dev_t, torch_t):
-        n = name_by_id.get(id(torch_t))
-        if n is not None and dev_t is not None:
-            reg[id(dev_t)] = n
+    fp_name, fp_clash = {}, set()
+    for k, v in dmsd.items():
+        if not torch.is_tensor(v) or not v.is_floating_point():
+            continue
+        f = fingerprint(v)
+        if f in fp_name:
+            fp_clash.add(f)
+        fp_name[f] = k
 
-    orig_dm_wtt = OF3DiffusionModule._w_tt
-    def dm_wtt(self, w, transpose=True):
-        v = orig_dm_wtt(self, w, transpose)
-        record(v, w)
-        return v
-    OF3DiffusionModule._w_tt = dm_wtt
+    reg = {}
+    orig_from_torch = ttnn.from_torch
 
-    at_patched = []
-    for cls_name in dir(AT):
-        cls = getattr(AT, cls_name)
-        if isinstance(cls, type) and "_w_tt" in cls.__dict__:
-            orig = cls.__dict__["_w_tt"]
-            def make(orig):
-                def f(self, key, transpose=True):
-                    v = orig(self, key, transpose)
-                    try:
-                        record(v, self._w[key])
-                    except Exception:
-                        pass
-                    return v
-                return f
-            setattr(cls, "_w_tt", make(orig))
-            at_patched.append(cls_name)
-
-    orig_t2t = T.Module.torch_to_tt
-    def t2t(self, key, *args, **kw):
-        v = orig_t2t(self, key, *args, **kw)
+    def recording_from_torch(tensor, *args, **kw):
+        v = orig_from_torch(tensor, *args, **kw)
         try:
-            record(v, self.weights[key])
+            if torch.is_tensor(tensor) and tensor.is_floating_point():
+                f = fingerprint(tensor)
+                if f in fp_name and f not in fp_clash:
+                    reg[id(v)] = fp_name[f]
         except Exception:
             pass
         return v
-    T.Module.torch_to_tt = t2t
-    print(f"[{time.perf_counter()-t0:.0f}s] load sites patched: OF3DiffusionModule._w_tt, "
-          f"{at_patched}, Module.torch_to_tt", flush=True)
 
     # ---- the reference boundary ---------------------------------------------------------------
     B = torch.load(f"{CAP}/diffusion_boundary.pt", map_location="cpu", weights_only=False)
@@ -178,8 +171,12 @@ def main() -> int:
         nb=nb, NP=NP, n_tok_pad=n_tok_pad)
     print(f"[{time.perf_counter()-t0:.0f}s] device aux built", flush=True)
 
-    with device_dtype_override(act):
-        mod = OF3DiffusionModule(dmsd, cfg)
+    ttnn.from_torch = recording_from_torch
+    try:
+        with device_dtype_override(act):
+            mod = OF3DiffusionModule(dmsd, cfg)
+    finally:
+        ttnn.from_torch = orig_from_torch
     walked = _device_weights(mod)
     for t in walked.values():
         ag.parameter(t)
@@ -199,9 +196,78 @@ def main() -> int:
     print(f"[{time.perf_counter()-t0:.0f}s] structures: {which[:5]}{'...' if len(which)>5 else ''}"
           f" ({len(which)} of {N_STRUCT})", flush=True)
 
+
+    def _np(x):
+        return ttnn.to_torch(x.value if hasattr(x, "value") else x).double()
+
+    def _rel(x, y):
+        x = x.reshape(-1)[: y.numel()] if x.numel() >= y.numel() else x.reshape(-1)
+        y = y.reshape(-1)[: x.numel()]
+        return float(torch.linalg.vector_norm(x - y)
+                     / (torch.linalg.vector_norm(y) + 1e-300))
+
+    def _pick(v, k):
+        """Their intermediates carry the 48-sample axis; take structure k's slice."""
+        if not torch.is_tensor(v):
+            return None
+        return v[0, k] if v.dim() >= 3 and v.shape[0] == 1 and v.shape[1] == N_STRUCT else \
+            (v[0, 0] if v.dim() >= 3 and v.shape[0] == 1 and v.shape[1] == 1 else v)
+
+    def bisect_stages(res, k):
+        _, ai_glue, ai_dit, rl_upd, plm_pu, ql_enc = res
+        dit_in = S["dit_in"][1]
+        dec_in = S["dec_in"][1]
+        out = {}
+        try:
+            out["ai_into_dit"] = _rel(_np(ai_glue), _pick(dit_in.get("a"), k))
+        except Exception as e:
+            out["ai_into_dit"] = f"ERR {e}"
+        try:
+            ours = _np(ai_dit)
+            theirs = _pick(S["dit_out"], k)
+            out["ai_out_of_dit"] = _rel(ours, theirs)
+            # Split by the token mask. This crop is 56 real tokens of 384, so a DiT that
+            # leaks across pad rows shows up here and is invisible on a fixture at 79 %
+            # occupancy. If the error sits in the pad rows the cause is masking; if it sits
+            # in the real rows it is arithmetic and masking is exonerated.
+            o = ours.reshape(-1, ours.shape[-1])[:theirs.shape[-2]]
+            th = theirs.reshape(-1, theirs.shape[-1])
+            m = token_mask.bool()[: o.shape[0]]
+            for lbl, sel in (("real", m), ("pad", ~m)):
+                if int(sel.sum()) == 0:
+                    continue
+                a_, b_ = o[sel], th[sel]
+                out[f"ai_out_of_dit_{lbl}"] = float(
+                    torch.linalg.vector_norm(a_ - b_)
+                    / (torch.linalg.vector_norm(b_) + 1e-300))
+                out[f"ai_out_of_dit_{lbl}_theirnorm"] = float(torch.linalg.vector_norm(b_))
+                out[f"ai_out_of_dit_{lbl}_ournorm"] = float(torch.linalg.vector_norm(a_))
+                out[f"ai_out_of_dit_{lbl}_rows"] = int(sel.sum())
+        except Exception as e:
+            out["ai_out_of_dit"] = f"ERR {e}"
+        for nm, key in (("ql_encoder", "ql"), ("plm_encoder", "plm"), ("cl_encoder", "cl")):
+            try:
+                src = {"ql": ql_enc, "plm": plm_pu, "cl": None}[key]
+                out[nm] = "n/a" if src is None else _rel(_np(src), _pick(dec_in.get(key), k))
+            except Exception as e:
+                out[nm] = f"ERR {e}"
+        try:
+            # their decoder output, reconstructed from the published xl_out
+            sd2 = sigma_data ** 2
+            tk_ = float(t_all[0, k])
+            c_skip = sd2 / (sd2 + tk_ * tk_)
+            c_out = sigma_data * tk_ / math.sqrt(sd2 + tk_ * tk_)
+            their_rl = (S["xl_out"][0, k].double() - c_skip * xl_all[0, k].double()) / c_out
+            out["rl_update_decoder"] = _rel(_np(rl_upd), their_rl)
+        except Exception as e:
+            out["rl_update_decoder"] = f"ERR {e}"
+        return out
+
     err = None
     done = []
     probe = []
+    fwd = []
+    stages = {}
     for k in which:
         tk = float(t_all[0, k])
         xl_k = xl_all[0, k].float()
@@ -221,13 +287,22 @@ def main() -> int:
         tk0 = time.perf_counter()
         try:
             with device_dtype_override(act), ag.tape():
-                out = mod(call["si_trunk"], call["si"], call["zij"], call["cl0"], call["plm0"],
+                res = mod(call["si_trunk"], call["si"], call["zij"], call["cl0"], call["plm0"],
                           call["rl_noisy"], call["xl_noisy"],
                           aux["amc_d"], aux["amc_na_d"], aux["idx_tt"], aux["flat_tt"],
                           aux["zij_mask_d"], aux["kidx_tt"], aux["valid_d"], aux["mb_d"],
                           aux["pm_d"], aux["mean_d"], aux["tok_pad_tt"], aux["tok_col_pad_tt"],
-                          n_atom, NP, nb, n_token, n_tok_pad, tk, sigma_data)
+                          n_atom, NP, nb, n_token, n_tok_pad, tk, sigma_data,
+                          _return_intermediates=a.bisect)
+                out = res[0] if a.bisect else res
+                if a.bisect:
+                    stages[k] = bisect_stages(res, k)
                 ag.backward([out], [seed])
+            fwd_here = ttnn.to_torch(out.value if hasattr(out, "value") else out).double()
+            fwd_ref = S["xl_out"][0, k].double()
+            fwd_here = fwd_here.reshape(fwd_ref.shape)
+            fwd.append(float(torch.linalg.vector_norm(fwd_here - fwd_ref)
+                             / (torch.linalg.vector_norm(fwd_ref) + 1e-300)))
             done.append(k)
             # Accumulation probe. The 48 structures are summed by running 48 tapes and letting
             # the leaves accumulate, which is exact only if `backward` adds into an existing
@@ -243,7 +318,8 @@ def main() -> int:
                     break
             probe.append(pr)
             print(f"[{time.perf_counter()-t0:.0f}s]   structure {k}: "
-                  f"{time.perf_counter()-tk0:.1f}s, probe grad norm {pr}", flush=True)
+                  f"{time.perf_counter()-tk0:.1f}s, forward rel {fwd[-1]:.6e}, "
+                  f"probe grad norm {pr}", flush=True)
         except Exception as e:
             err = e
             print(f"STRUCTURE {k} RAISED {type(e).__name__}: {e}", flush=True)
@@ -291,7 +367,8 @@ def main() -> int:
     zero = sorted(1.0 for _ in cmp_rows)
     zmed = zero[len(zero) // 2] if zero else None
 
-    rep = {"structures_done": done, "accumulation_probe": probe, "structures_asked": which, "n_struct_total": N_STRUCT,
+    rep = {"structures_done": done, "accumulation_probe": probe, "bisect": stages, "forward_rel": fwd,
+           "forward_rel_median": (sorted(fwd)[len(fwd)//2] if fwd else None), "structures_asked": which, "n_struct_total": N_STRUCT,
            "tokens": n_token, "atoms": n_atom, "nb": nb, "NP": NP,
            "device_weights_reachable": len(walked), "device_weights_named": n_named,
            "weights_with_grad": len(rows), "weights_without_grad": len(missing),
