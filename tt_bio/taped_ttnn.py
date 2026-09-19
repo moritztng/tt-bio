@@ -280,6 +280,12 @@ def _unary_scalar(op):
     attribute -- so the value is read out of the repr, which prints `params=[0.25]`. A
     format dependency is not something a gradient may rest on, so the number is not
     trusted: `_fused_param` measures it against the kernel the first time it sees it.
+
+    The repr rounds -- 1/sqrt(32) prints as `params=[0.17677669]`, eight significant digits
+    against the double's seventeen -- which is 3e-08 relative and three orders below bf16's
+    own resolution at every site in this tree. It is recorded rather than corrected: there
+    is nothing to correct it against, and a gradient carrying it is closer to the kernel's
+    own fp32 constant than to the double the caller wrote.
     """
     m = _SCALAR_RE.search(repr(op))
     if m is None:
@@ -298,10 +304,13 @@ def _check_param(op, fwd, probe):
 
     One comparison per distinct activation, on the operand already in hand: the kernel
     computes `f(x) + 0` through the fused path, and the model computes `f(x)` directly.
-    The bar is loose on purpose. This is not a precision check -- it is here to catch the
-    parse returning something that is not the scale at all, which is what an fp32 bit
-    pattern (`rfd3_bias._scale_bits`) would look like if ttnn ever stored one: off by nine
-    orders, not by a rounding.
+    The bar is loose on purpose, and it has to be: the probe is bf16, so one ulp at
+    magnitude 1 is already 3.9e-03 and a tighter bar measures the dtype rather than the
+    parse. This is not a precision check. It is here to catch the parse returning something
+    that is not the scale at all, which is what an fp32 bit pattern
+    (`rfd3_bias._scale_bits`) would look like if ttnn ever stored one: off by nine orders,
+    not by a rounding. 5e-02 leaves a factor of twelve over the bf16 floor and still
+    refuses a scalar wrong by more than 5 %.
     """
     key = repr(op)
     if key in _PARAM_CHECKED:
@@ -316,7 +325,7 @@ def _check_param(op, fwd, probe):
     sc = float(ttnn.to_torch(scale).flatten()[0])
     for t in (zero, kern, ours, diff, scale):
         ttnn.deallocate(t)
-    if d > 1.0e-3 * (sc + 1.0e-30):
+    if d > 5.0e-2 * (sc + 1.0e-30):
         raise NotImplementedError(
             f"tt_bio.autograd read the scalar of {op!r} out of its repr and the kernel "
             f"disagrees: max |kernel - model| {d:.3e} against |kernel| {sc:.3e}. The "
