@@ -959,8 +959,7 @@ def _v_max(shipped, args, kwargs):
     (`tenstorrent.py:3444`). There the gradient through the max provably contributes zero
     whatever the tie rule: softmax is invariant to a uniform row shift, so the perturbation
     this path sends into the softmax lies along the all-ones direction, and the softmax
-    Jacobian annihilates it. `perf/ptx_fastpath/softmaxcheck.py` measures that rather than
-    asserting it. A caller wanting max as a real selection should ask for one.
+    Jacobian annihilates it. A caller wanting max as a real selection should ask for one.
     """
     x = _wrap(args[0])
     keepdim = bool(kwargs.get("keepdim", False))
