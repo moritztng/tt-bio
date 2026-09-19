@@ -536,6 +536,8 @@
     "smooth_lddt_loss": 0.7153506207496403
   },
   "seed": 20260919,
+  "status": "GRADIENT ARTIFACT ON HOLD -- only 6 of 4147 parameter tensors carry a non-zero gradient. This file is the RUN RECORD of one bundle_min.py invocation, not the publication. The publication is MANIFEST.json in this directory; read that one.",
+  "superseded_by": "MANIFEST.json",
   "their_fp32_autocast_blocks_disabled": true,
   "timings_s": {
     "backward": 14.717142105102539,

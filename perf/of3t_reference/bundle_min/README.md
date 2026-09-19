@@ -11,7 +11,8 @@ manifest rather than editing this one; a downstream row that verified a hash mus
 
 | file | what it is |
 |---|---|
-| `manifest.json` | the record: hashes, versions, the upstream commit, the draws, the finite-difference result. This file is in git. |
+| `MANIFEST.json` | THE PUBLICATION: hashes, versions, the upstream commit, the draws, the finite-difference result, and the current hold. In git. Read this one. |
+| `run_record.json` | one `bundle_min.py` invocation, kept for its full finite-difference table. In git. If it disagrees with MANIFEST.json, MANIFEST.json wins. |
 | `grad_presence.json` | per parameter, whether it had a gradient at all. In git. |
 | `batch_step003.pt` | the frozen batch, hashed in the manifest |
 | `w0.pt` | the weights the gradient was taken at |
@@ -56,3 +57,15 @@ neutralises them for the duration of one forward. Every change only ever removes
 finite-difference check is run against this same forward, not the unpatched one.
 
 Full method and results: `~/.coworker/state/of3t-reference.md`.
+
+## Status: the gradient artifact is on hold
+
+`grads_f64.pt` is not fit for instrument A. Only 6 of 4,147 parameter tensors in it carry a
+non-zero gradient, while `grad is not None` for all 4,147 and the global norm looks healthy at
+4.642245878270448. Their own runner does not behave this way — 4,850 of 4,890 state-dict tensors
+move over a 20-step fp32 trajectory through `OpenFold3AllAtom` — so the defect is in the direct-call
+path this script uses, and it is not the float64 mode: the same script at `--dtype float32` gives
+6 of 4,147 as well.
+
+The batch, the seed, `w0.pt`, `draws.pt` and `grad_presence.json` are sound. `MANIFEST.json` carries
+the hold and the list of the six surviving tensors.

@@ -85,12 +85,12 @@
       "what": "per parameter, whether it had a gradient at all. None must match None; never fill with zeros."
     },
     {
-      "file": "manifest.json",
+      "file": "run_record.json",
       "bytes": 11325,
-      "sha256": "494bf43257433b7f97e0a0ac7ab0331583599d5994458f672ea8f1ada4b2af28",
+      "sha256": "recomputed-on-rename",
       "on_qb2": true,
       "also_in_git": true,
-      "what": "the run's own record, written by bundle_min.py, including every finite-difference check"
+      "what": "the run's own record from bundle_min.py, including every finite-difference check. Renamed from manifest.json so it cannot be mistaken for this publication on a case-sensitive filesystem; it carries the same hold notice."
     },
     {
       "file": "grads_f64.pt",
@@ -132,5 +132,6 @@
     "fp32_direct_call_total": 4147,
     "conclusion": "float64 mode ruled out: the same script at --dtype float32, with no autocast or .float() patching active, gives 6 of 4147 as well. The cause is the direct call, not the precision mode.",
     "their_runner_contrast": "4850 of 4890 state-dict tensors moved over the 20-step fp32 trajectory driven through OpenFold3AllAtom and pl.Trainer."
-  }
+  },
+  "reading_order": "MANIFEST.json is the publication. run_record.json is one invocation of bundle_min.py. If they ever disagree, MANIFEST.json wins."
 }
