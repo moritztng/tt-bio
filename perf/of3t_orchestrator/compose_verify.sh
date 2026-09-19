@@ -176,7 +176,8 @@ done
 # (3) recompute the CPU-only instruments
 for f in perf/of3t_equivalence/instrument_b_lr.py \
          perf/of3t_equivalence/instrument_c_optim.py \
-         perf/of3t_orchestrator/instrument_b2_clip.py; do
+         perf/of3t_orchestrator/instrument_b2_clip.py \
+         perf/of3t_orchestrator/instrument_c2_clip_in_step.py; do
   [ -f "$CO/$f" ] || continue
   echo "--- $(basename "$f" .py)"
   ( cd "$CO" && PYTHONPATH=. timeout 1800 "$PY" "$f" 2>&1 | tail -8 ) || \
