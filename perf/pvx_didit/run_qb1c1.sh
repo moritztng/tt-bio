@@ -22,7 +22,7 @@ run() {   # run <tree> <cellpath> <tag> <model> <reps> [extra...]
   fi
   echo "=== $(date -u +%H:%M:%SZ) $tag tree=$tree model=$model reps=$reps $* ==="
   BENCHLOCK_WAIT_S=1200 BENCHLOCK_LOAD_WAIT_S=600 "$BL" pvx-didittransfer -- \
-    env TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=1 TT_BIO_LEASE_HOLDER=worker:pvx-didittransfer \
+    env ${EXTRAENV:-} TT_VISIBLE_DEVICES=1 TT_BIO_LEASE_CARDS=1 TT_BIO_LEASE_HOLDER=worker:pvx-didittransfer \
         PYTHONPATH="$tree" \
     "$PY" -u "$tree/$cell" --model "$model" --reps "$reps" --clock 1350 --fixdir "$FIX" \
       --out "$OUT/$tag.json" --tag "$tag" "$@"
@@ -33,5 +33,13 @@ ptx_old() { run "$OLDP" perf/pvx_didit/cell.py "ptx_old_$1" protenix-v2 "${2:-3}
 ptx_new() { run "$NEW"  perf/pvx_didit/cell.py "ptx_new_$1" protenix-v2 "${2:-3}"; }
 b2_old()  { run "$OLDB" perf/pvx_baseline/cell.py "b2_old_$1" boltz2 "${2:-3}"; }
 b2_new()  { run "$NEW"  perf/pvx_didit/cell.py "b2_new_$1" boltz2 "${2:-3}"; }
+
+
+# The 78ed5a1e attribution arm. NOT a proposal to turn the accurate softmax off: it asks how much
+# of this window's Protenix time is the correctness fix that landed inside it. -protenix.trunk and
+# -protenix.confidence are the only two accurate_softmax_site tokens protenix.py builds for
+# protenix-v2, so this puts today's tree in its pre-78ed5a1e softmax state and changes nothing else.
+ptx_nosm() { EXTRAENV="TT_BIO_ACCURATE_SOFTMAX_AB=-protenix.trunk,-protenix.confidence" \
+             run "$NEW" perf/pvx_didit/cell.py "ptx_nosm_$1" protenix-v2 "${2:-3}"; }
 
 "$@"
