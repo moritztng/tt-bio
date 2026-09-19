@@ -72,7 +72,7 @@ def main():
           f"2.16 * 1.16 = {2.16*1.16:.2f}x")
 
 
-if __name__ == "__main__" and "--carryout" not in __import__("sys").argv:
+if __name__ == "__main__" and not (set(__import__("sys").argv) & {"--carryout", "--ceiling"}):
     main()
 
 
@@ -126,3 +126,47 @@ def carryout():
 
 if __name__ == "__main__" and "--carryout" in __import__("sys").argv:
     carryout()
+
+
+# ---------------------------------------------------------------------------
+# The campaign's ceiling, on measured denominators.
+#
+# `trix-scaffold-attribute` measured the module IN-FOLD on today's tree and, with it, the fold wall
+# itself -- the two denominators that had been stale. This turns "eliminate the trimul bottleneck"
+# into a number. Run: python3 verify_floor.py --ceiling
+# ---------------------------------------------------------------------------
+
+MODULE_INFOLD_S, FOLD_S, TRIMUL_CALLS = 12.6881, 48.62, 1208   # 512 aa protenix-v2 cdk2x2_512
+GATED_SHARE, GATED_CALLS = 0.1969, 2096                        # reblock_permute_gated
+BANK_RATIO = BASE_MS / BANK8_MS                                # 1.2797x, measured on the shipped op
+
+
+def ceiling():
+    floor_s = 2.648e-3 * TRIMUL_CALLS
+    print(f"module in-fold          {MODULE_INFOLD_S} s over {TRIMUL_CALLS} calls "
+          f"= {MODULE_INFOLD_S/TRIMUL_CALLS*1e3:.3f} ms/call")
+    print(f"trimul share of fold    {100*MODULE_INFOLD_S/FOLD_S:.2f} %   "
+          f"(the campaign was framed at 30.939/78.24 = {100*30.939/78.24:.1f} %)")
+    print()
+    print("WHAT 'ELIMINATE THIS BOTTLENECK' IS WORTH, on measured denominators:")
+    print(f"  trimul deleted entirely      {FOLD_S/(FOLD_S-MODULE_INFOLD_S):.4f}x on the fold")
+    print(f"  trimul at its compulsory floor ({floor_s:.3f} s)"
+          f"  {FOLD_S/(FOLD_S-MODULE_INFOLD_S+floor_s):.4f}x   <- the achievable ceiling")
+    print("  NOTE the floor is the 512 aa / D=256 figure applied to all 1208 calls; ~160 run the")
+    print("  narrow C=64 path with a SMALLER floor, so the true ceiling is marginally HIGHER.")
+    print()
+    print("BANK SPREAD re-grounded on the measured in-fold share (not a carried-out factor):")
+    gated_s = GATED_SHARE * MODULE_INFOLD_S
+    sav = gated_s * (1 - 1 / BANK_RATIO)
+    print(f"  reblock_permute_gated        {gated_s:.4f} s in-fold over {GATED_CALLS} calls "
+          f"= {gated_s/GATED_CALLS*1e3:.4f} ms/call")
+    print(f"  in-fold factor for this op   {gated_s/GATED_CALLS*1e3/BASE_MS:.4f} "
+          f"(the carry-out assumed 0.906)")
+    print(f"  saving at the measured {BANK_RATIO:.4f}x  {sav:.4f} s "
+          f"-> {FOLD_S/(FOLD_S-sav):.4f}x on the fold")
+    print(f"  the carry-out said 0.693 s / 1.0097x: smaller absolute, LARGER ratio, because the")
+    print(f"  fold is {FOLD_S} s and not the 71.9 s it divided by.")
+
+
+if __name__ == "__main__" and "--ceiling" in __import__("sys").argv:
+    ceiling()
