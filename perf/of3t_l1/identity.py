@@ -81,6 +81,7 @@ def main() -> int:
         from tt_bio.tenstorrent import get_device
         from tt_bio.openfold3_msa_embedder import MSAModule
         from tt_bio.openfold3_template import TemplatePairStack
+        from tt_bio.openfold3_weights import _sub
 
         dev = get_device()
         out["env"]["arch"] = str(dev.arch())
@@ -101,7 +102,10 @@ def main() -> int:
 
         n, d, nt = a.tokens, a.depth, a.templates
         msa = MSAModule(sd, ckc)
-        tps = TemplatePairStack(sd, ckc)
+        # The stack lives under  in the checkpoint, so the
+        # sub-dict is what its remap expects; handed the whole dict it finds no
+        # blocks and raises on an empty max().
+        tps = TemplatePairStack(_sub(sd, "template_embedder"), ckc)
         # Dims off the checkpoint, never guessed: a wrong c_z builds a module that runs and
         # digests a different function on each side.
         c_m = int(sd["msa_module_embedder.linear_m.weight"].shape[0])

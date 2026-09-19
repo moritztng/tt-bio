@@ -1,0 +1,49 @@
+{
+ "argv": [
+  "--repo",
+  "/home/ttuser/.coworker/wt/of3t-l1",
+  "--perturb",
+  "--out",
+  "perf/of3t_l1/out/ident_control.json"
+ ],
+ "repo": "/home/ttuser/.coworker/wt/of3t-l1",
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "0",
+  "head": "fcab645a6fefc40b84002a65b6bc65b03bf2b45a",
+  "branch": "wk/of3t-l1",
+  "started_utc": "2026-09-19T16:02:41Z",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/of3t-l1/tt_bio/__init__.py",
+  "arch": "Arch.BLACKHOLE"
+ },
+ "control": "PRESENT (--perturb)",
+ "perturbed_key": "msa_module.blocks.0.msa_att_row.layer_norm_m.weight",
+ "shapes": {
+  "m": [
+   1,
+   16,
+   128,
+   64
+  ],
+  "z": [
+   1,
+   128,
+   128,
+   128
+  ],
+  "t": [
+   2,
+   128,
+   128,
+   64
+  ]
+ },
+ "msa_module": {
+  "m_sha256": "bf5daa068c4b31d1f291c5f437c90110e1b4e5ef111553eefd001c38ae4b69d2",
+  "z_sha256": "a064b05704e88a0a71a47a416c666feb9917da7bfd9cc0bda74e1019d2eb845a"
+ },
+ "template_pair_stack": {
+  "sha256": "60eeefac203a74e00603df26ddf00f54f5cef4fe417b8e3aa18f924f67695393"
+ },
+ "ok": true
+}
