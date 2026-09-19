@@ -57,6 +57,47 @@ class FrozenBatches(torch.utils.data.Dataset):
         return self.batches[i]
 
 
+def frozen_datamodule(loader):
+    """Minimal LightningDataModule carrying the frozen loader.
+
+    Their on_train_epoch_start / on_train_epoch_end log
+    `self.trainer.datamodule.next_dataset_indices`, which only their DataModule has. Passing a
+    dataloader alone leaves `trainer.datamodule` as None and both hooks raise. The attribute is
+    used for logging only (grep says these are its only two readers in runner.py), so a stub that
+    reports the frozen order keeps their hooks on their normal path without standing in for their
+    DataModule anywhere that matters.
+    """
+    import pytorch_lightning as pl
+
+    class FrozenDataModule(pl.LightningDataModule):
+        next_dataset_indices = "frozen"
+
+        def train_dataloader(self):
+            return loader
+
+    return FrozenDataModule()
+
+
+class FrozenSampler(torch.utils.data.SequentialSampler):
+    """SequentialSampler that answers to `.epoch`.
+
+    Their `on_train_epoch_start` logs `sampler.epoch`, which only their OF3DistributedSampler
+    carries. Adding the attribute keeps their hook on its normal path; it does not change what is
+    sampled, because the order is already the frozen one.
+    """
+
+    epoch = 0
+
+    def set_epoch(self, epoch: int) -> None:
+        self.epoch = epoch
+
+
+# Lightning swaps the sampler out unless told not to (use_distributed_sampler=False below), and if
+# it ever does the swap anyway their logging hook hits a bare SequentialSampler. Giving the base
+# class the attribute costs nothing and keeps a log line from ending a 20-step run.
+torch.utils.data.SequentialSampler.epoch = 0
+
+
 def build_module(upstream_cfg_overrides: dict):
     from openfold3.projects.of3_all_atom.project_entry import OF3ProjectEntry
     from openfold3.projects.of3_all_atom.runner import OpenFold3AllAtom
@@ -110,7 +151,7 @@ def mode_bundle(args):
     }
 
     captured = {"loss_terms": None, "unclipped_norm": None, "clip_coef": None,
-                "disabled": None, "grad_presence": None}
+                "disabled": None, "grad_presence": None, "lr_used": None}
 
     # module.loss is an nn.Module held in _modules, so it cannot be replaced by a plain function
     # (nn.Module.__setattr__ refuses). Patch its bound forward instead: __call__ looks up
@@ -169,6 +210,13 @@ def mode_bundle(args):
     gm.sync_and_average_grads = sync_hook
 
     class Capture(pl.Callback):
+        def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
+            # The LR the optimizer USES at this step. Their step() calls opt.step() and then
+            # lr_schedulers().step(), so by on_train_batch_end the group already holds the NEXT
+            # step's value. Reading it at the end is off by one, and at step 1 that turns the
+            # measured lr = 0 into 1.8e-06 -- exactly the fact this bundle exists to record.
+            captured["lr_used"] = float(pl_module.optimizers().param_groups[0]["lr"])
+
         def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
             w = pl_module.model.state_dict()
             deltas, per_tensor = {}, {}
@@ -188,7 +236,8 @@ def mode_bundle(args):
                 "step": step,
                 "pdb_id": batch["pdb_id"],
                 "n_tokens": int(batch["token_mask"].sum()),
-                "lr": float(pl_module.optimizers().param_groups[0]["lr"]),
+                "lr_used": captured["lr_used"],
+                "lr_after_sched_step": float(pl_module.optimizers().param_groups[0]["lr"]),
                 "loss_terms": captured["loss_terms"],
                 "unclipped_grad_norm": captured["unclipped_norm"],
                 "clip_coef": captured["clip_coef"],
@@ -202,7 +251,7 @@ def mode_bundle(args):
                 "delta_saved": step in args.save_delta_steps,
                 "per_tensor": per_tensor,
             })
-            print(f"step {step}: lr={record['steps'][-1]['lr']:.6g} "
+            print(f"step {step}: lr_used={record['steps'][-1]['lr_used']:.6g} "
                   f"loss={captured['loss_terms'].get('loss'):.6g} "
                   f"|d_k|={record['steps'][-1]['delta_global_l2']:.6g} "
                   f"clip={captured['clip_coef']:.6g} "
@@ -217,12 +266,14 @@ def mode_bundle(args):
         enable_checkpointing=False,
         enable_progress_bar=False,
         num_sanity_val_steps=0,
+        use_distributed_sampler=False,
         callbacks=[Capture()],
     )
+    ds = FrozenBatches(batches)
     loader = torch.utils.data.DataLoader(
-        FrozenBatches(batches), batch_size=None, shuffle=False, num_workers=0
+        ds, batch_size=None, sampler=FrozenSampler(ds), num_workers=0
     )
-    trainer.fit(module, train_dataloaders=loader)
+    trainer.fit(module, datamodule=frozen_datamodule(loader))
 
     body = json.dumps(record, indent=2, sort_keys=True) + "\n"
     (out / "trajectory.json").write_text(body)
@@ -257,12 +308,13 @@ def mode_timing(args):
     trainer = pl.Trainer(
         accelerator="gpu", devices=1, precision=args.precision, max_epochs=1,
         logger=False, enable_checkpointing=False, enable_progress_bar=False,
-        num_sanity_val_steps=0, callbacks=[Timer()],
+        num_sanity_val_steps=0, use_distributed_sampler=False, callbacks=[Timer()],
     )
+    ds = FrozenBatches(seq)
     loader = torch.utils.data.DataLoader(
-        FrozenBatches(seq), batch_size=None, shuffle=False, num_workers=0
+        ds, batch_size=None, sampler=FrozenSampler(ds), num_workers=0
     )
-    trainer.fit(module, train_dataloaders=loader)
+    trainer.fit(module, datamodule=frozen_datamodule(loader))
 
     kept = times[args.warmup:]
     tok = [int(b["token_mask"].sum()) for b in seq][args.warmup:]

@@ -48,7 +48,9 @@ def main() -> int:
     interior = [
         round(i * args.max_step / (args.interior - 1)) for i in range(args.interior)
     ]
-    steps = sorted({0, 1, 2, 3, *knees, *interior, args.max_step})
+    # 0..31 explicitly: the N-step trajectory lives entirely inside warmup, so the
+    # comparison needs every one of its step indices present, not just the knees.
+    steps = sorted({*range(0, 32), *knees, *interior, args.max_step})
 
     # The scheduler reports the LR for its current last_epoch, so drive one instance forward and
     # read it at every step rather than constructing one per step: constructing with last_epoch=k
