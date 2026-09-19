@@ -300,7 +300,7 @@ def _stats_delta(before, after):
 # --- the run ------------------------------------------------------------------------------
 
 
-def _ckpt_ab(n, nb, c_s, c_z, pf, dev, ttnn, peak, reps):
+def _ckpt_ab(n, nb, c_s, c_z, pf, dev, ttnn, peak, reps, which="both"):
     """Interleaved checkpoint on/off timing on the taped arm, with the clock sampled DURING.
 
     The exchange rate `of3t-perf` and this row share is "what does per-block checkpointing cost
@@ -347,8 +347,10 @@ def _ckpt_ab(n, nb, c_s, c_z, pf, dev, ttnn, peak, reps):
     try:
         with during() as clk:
             for r in range(reps):
-                for ckpt in (True, False):
+                arms = {"both": (True, False), "on": (True,), "off": (False,)}[which]
+                for ckpt in arms:
                     gc.collect()
+                    dram0 = peak.dram_now()
                     t0 = _t.perf_counter()
                     verdict, err = "PASS", None
                     st = zt = so = zo = None
@@ -391,12 +393,20 @@ def _ckpt_ab(n, nb, c_s, c_z, pf, dev, ttnn, peak, reps):
                             pass
                     del st, zt, so, zo
                     _teardown()
-                    rows.append({"rep": r, "checkpointing": ckpt, "verdict": verdict,
+                    # DRAM the rep did NOT give back. A tape that grows its floor every
+                    # iteration is a training defect and not a measurement artifact, so it is
+                    # recorded per rep rather than inferred from the next rep failing.
+                    dram1 = peak.dram_now()
+                    rows.append({"rep": r, "checkpointing": ckpt,
+                                 "dram_before_b": dram0, "dram_after_teardown_b": dram1,
+                                 "retained_b": dram1 - dram0, "verdict": verdict,
                                  "fwd_s": round(t_fwd - t0, 3), "total_s": round(t1 - t0, 3),
                                  "bwd_s": round(t1 - t_fwd, 3), "error": err})
-                    print("  ckpt-ab rep %d ckpt=%-5s %s fwd %6.2f s  bwd %6.2f s  total %6.2f s"
+                    print("  ckpt-ab rep %d ckpt=%-5s %s fwd %6.2f s  bwd %6.2f s  "
+                          "total %6.2f s  dram %6.3f -> %6.3f GB (kept %+.3f)"
                           % (r, ckpt, verdict, rows[-1]["fwd_s"], rows[-1]["bwd_s"],
-                             rows[-1]["total_s"]), flush=True)
+                             rows[-1]["total_s"], dram0/1e9, dram1/1e9,
+                             (dram1 - dram0)/1e9), flush=True)
         clock = clk.summary() if hasattr(clk, "summary") else None
     finally:
         peak.every = prev_every
@@ -405,7 +415,8 @@ def _ckpt_ab(n, nb, c_s, c_z, pf, dev, ttnn, peak, reps):
     ok = lambda c: [x["total_s"] for x in rows
                     if x["checkpointing"] is c and x["verdict"] == "PASS" and x["rep"] > 0]
     on, off = ok(True), ok(False)
-    res = {"tokens": n, "blocks": nb, "reps": reps, "rows": rows, "aiclk_during": clock,
+    res = {"tokens": n, "blocks": nb, "reps": reps, "arms": which, "rows": rows,
+           "aiclk_during": clock,
            "scored": "reps 1.. ; rep 0 is warmup and absorbs the JIT compile for both arms",
            "aiclk_note": "index 0 is the GRANTED card: tt-smi honours TT_VISIBLE_DEVICES "
                          "(perf/clocksample.py sample_aiclk)"}
@@ -423,6 +434,12 @@ def main() -> int:
     ap.add_argument("--blocks", type=int, default=4, help="pairformer blocks; 0 = all 48")
     ap.add_argument("--arms", default="off,tape")
     ap.add_argument("--backward", action="store_true", help="also run and watch the backward")
+    ap.add_argument("--ab-arms", choices=("both", "on", "off"), default="both",
+                    help="which checkpointing arm the --ckpt-ab loop runs. Interleaving is the "
+                         "default and the right thing, but the OFF arm leaves ~23 GB of a "
+                         "34 GB card allocated after every Python reference is dropped and "
+                         "collected, so an ON rep that follows an OFF rep OOMs. Running one arm "
+                         "per process is how a steady state is reachable for both.")
     ap.add_argument("--ckpt-ab", type=int, default=0, metavar="N",
                     help="N interleaved checkpoint on/off pairs on the taped arm, probing OFF "
                          "so wall_s is a time. Arms alternate within each pair because compile "
@@ -528,7 +545,8 @@ def main() -> int:
             peak.reset()
             if arm == "ckptab":
                 out.setdefault("ckpt_ab", []).append(
-                    _ckpt_ab(n, nb, c_s, c_z, pf, dev, ttnn, peak, args.ckpt_ab or 3))
+                    _ckpt_ab(n, nb, c_s, c_z, pf, dev, ttnn, peak, args.ckpt_ab or 3,
+                             args.ab_arms))
                 dump()
                 continue
             rec = {"tokens": n, "arm": arm, "blocks": nb,
