@@ -1,0 +1,135 @@
+{
+ "argv": [
+  "--repo",
+  "/home/ttuser/of3t_rebase/main_wt",
+  "--out",
+  "run/identity_main.json"
+ ],
+ "repo": "/home/ttuser/of3t_rebase/main_wt",
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "1",
+  "head": "ec4b66412c8e66dbc3792b75d0baafd854550b2f",
+  "branch": "HEAD",
+  "started_utc": "2026-09-19T23:52:18Z",
+  "tt_bio_file": "/home/ttuser/of3t_rebase/main_wt/tt_bio/__init__.py",
+  "arch": "Arch.BLACKHOLE"
+ },
+ "control": "ABSENT",
+ "checkpoints": {
+  "p2-155k": {
+   "file": "of3-p2-155k.pt",
+   "is_openbind": false,
+   "tri_att_end_bias_follows_pair": true,
+   "binding_source": "openfold3_trunk.py:133, openfold3_diffusion_transformer.py:265",
+   "dit_has_shared_layer_norm_z": false,
+   "dit_per_block_layer_norm_z": true,
+   "pairformer_kwargs": {
+    "passed": {
+     "scale_pair_bias": true,
+     "fp32_softmax": true,
+     "transpose_bias": true
+    },
+    "dropped_this_tree_has_no_such_kwarg": [
+     "tri_att_scale_pair_bias"
+    ]
+   },
+   "pairformer": {
+    "s_sha256": "c950f3f936274e0728a3cf34d49fb9ed3b5e0179d618d6ced2b99d8d653d221a",
+    "z_sha256": "eafb4cad5c0fd01a6dddadbc02ff068781c9740948af311ab8ef7541bc57761e",
+    "shapes": {
+     "s": [
+      1,
+      128,
+      384
+     ],
+     "z": [
+      1,
+      128,
+      128,
+      128
+     ]
+    }
+   },
+   "diffusion_transformer": {
+    "sha256": "9818b18f7397a9ffd114a8bb74959a1b9e07d590c04b426bc2a93396de3c07b0",
+    "shapes": {
+     "a": [
+      1,
+      128,
+      768
+     ],
+     "s": [
+      1,
+      128,
+      384
+     ],
+     "z": [
+      1,
+      128,
+      128,
+      128
+     ]
+    }
+   }
+  },
+  "openbind-174k": {
+   "file": "of3-ob-2025-06-30-174k.pt",
+   "is_openbind": true,
+   "tri_att_end_bias_follows_pair": false,
+   "binding_source": "openfold3_trunk.py:133, openfold3_diffusion_transformer.py:265",
+   "dit_has_shared_layer_norm_z": true,
+   "dit_per_block_layer_norm_z": false,
+   "pairformer_kwargs": {
+    "passed": {
+     "scale_pair_bias": true,
+     "fp32_softmax": true,
+     "transpose_bias": false
+    },
+    "dropped_this_tree_has_no_such_kwarg": [
+     "tri_att_scale_pair_bias"
+    ]
+   },
+   "pairformer": {
+    "s_sha256": "be7f7eebb94c0d1c9b9ccad268e86507b98d3be8394e6d9e37a38c244866b6e5",
+    "z_sha256": "3aa23fe0eb3ffde36bab9bf348e2502d4b54d59303cbaccd36a0a3bbbcec2bb1",
+    "shapes": {
+     "s": [
+      1,
+      128,
+      384
+     ],
+     "z": [
+      1,
+      128,
+      128,
+      128
+     ]
+    }
+   },
+   "diffusion_transformer": {
+    "sha256": "2860ecffecc3f0e99d0bc69e651df9ac0f6cf4d249085f9d3349748f5667e7f8",
+    "shapes": {
+     "a": [
+      1,
+      128,
+      768
+     ],
+     "s": [
+      1,
+      128,
+      384
+     ],
+     "z": [
+      1,
+      128,
+      128,
+      128
+     ]
+    }
+   }
+  }
+ },
+ "bindings_differ_between_checkpoints": true,
+ "ok": true
+}
