@@ -3,6 +3,28 @@
   "published": "2026-09-19",
   "row": "of3t-reference",
   "what_it_is": "One frozen training batch, the weights it was taken at, the per-parameter float64 step-1 gradient with its presence pattern, and every random draw the step made. This is the artifact PROTOCOL instrument A is measured against.",
+  "hold": {
+    "state": "WITHDRAWN as a section-3d reference, pending republication as an r = 0 reference",
+    "date": "2026-09-19",
+    "what_is_wrong": "The gradient was taped with the model in train mode, so the Pairformer's rate-0.25 Dropout was live. Its mask comes from generators an RNG-state snapshot does not reproduce across devices, which makes the published per-parameter gradient ONE DRAW rather than a function of its recorded inputs.",
+    "measured_by": "of3t-gradients, on the identical captured boundary (D18, PROTOCOL A13): two seeds with dropout live read worst 1.167 / median 0.550 with 47 of 57 tensors over the 5.0e-02 bar, a second pair read worst 2.419 / median 0.481, and the same pair with dropout OFF read 0.000e+00 worst AND median over 57 of 57, bit-identical.",
+    "why_it_disqualifies_the_artifact": "The artifact's own draw-to-draw floor is an order of magnitude above the bar it is used at. A reference has to be reproducible, not merely internally consistent.",
+    "what_is_NOT_wrong": [
+      "The finite-difference validation stands on its own terms: it restores the same RNG state on the same device per evaluation, so the mask is fixed inside the run. But max_rel_err 2.1817e-03 describes the train-mode tape and does not carry over to the r = 0 tape, which is a different function. It is being re-run.",
+      "No bar moved. A bar is not wrong because a reference turned out to be noisier than it.",
+      "tt-bio's side is unaffected: tt_bio/train/lora.py:46 records that the tape carries no dropout op, so we already compute the r = 0 function."
+    ],
+    "affected_hashes": {
+      "grads_f64_recycles0.pt": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
+      "grads_f64_recycles3.pt": "2a19e011640a080ca51f2939961a2f51845438d16db48b825da32b62c49ee657",
+      "cited_in": [
+        "perf/of3t_updaterule/reference_profile.json",
+        "perf/of3t_gradients/*.json",
+        "state/of3t/EVIDENCE.md"
+      ]
+    },
+    "fix": "perf/of3t_reference/bundle_min.py disable_dropout(): every Dropout in eval AND at rate 0, only the Dropout submodules, OpenFold3.training left True. Republication re-hashes and runs PROTOCOL A13's detector (perf/of3t_reference/compare_grads.py) on the new artifact: two independent tapings, compared per tensor."
+  },
   "canonical_location": {
     "host": "tt-quietbox2",
     "path": "/home/ttuser/of3t/bundle_min/",
