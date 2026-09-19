@@ -46,8 +46,15 @@ BUNDLE = "/home/ttuser/of3t/bundle_min"
 #: `of3t-reference`'s published half, read from ITS branch rather than from a copy, so this row
 #: cannot drift from the reference it verifies against. `wk/of3t-reference` at `f898ca3c2`.
 REF_BRANCH = "origin/wk/of3t-reference"
-MANIFEST_GIT = "perf/of3t_reference/bundle_min/manifest.json"
-PRESENCE_GIT = "perf/of3t_reference/bundle_min/grad_presence.json"
+#: `manifest.json` was renamed `MANIFEST.json` so it could not be mistaken for the publication
+#: on a case-sensitive filesystem, and its schema changed from a `files` dict to an `artifacts`
+#: list. Both are followed here rather than worked around: a consumer pinned to the old name
+#: fails closed, which is what happened on the first run of this pass.
+MANIFEST_GIT = "perf/of3t_reference/bundle_min/MANIFEST.json"
+#: The presence pattern OF THE VALIDATED GRADIENT, not of the withdrawn random-init one. Git
+#: carries only the latter under its original name, so this is read from the host and hashed
+#: against the manifest like every other artifact.
+PRESENCE_FILE = "grad_presence_recycles0.json"
 
 
 def from_ref_branch(path):
@@ -73,10 +80,8 @@ def verify_bundle(manifest_path):
     """Every declared artifact, hashed before anything reads it. Absence is a result."""
     man = from_ref_branch(manifest_path)
     out = {"manifest": f"{REF_BRANCH}:{manifest_path}", "bundle_dir": BUNDLE, "files": {}}
-    decl = dict(man.get("files", {}))
-    b = man.get("batch", {})
-    if b.get("file"):
-        decl[b["file"]] = {"sha256": b.get("sha256"), "bytes": None}
+    decl = {x["file"]: x for x in man.get("artifacts", []) if x.get("sha256")}
+    decl = {k: v for k, v in decl.items() if v["sha256"] != "recomputed-on-rename"}
     for name, meta in sorted(decl.items()):
         p = os.path.join(BUNDLE, name)
         if not os.path.isfile(p):
@@ -257,10 +262,10 @@ def main() -> int:
 
     # ---- SS3b presence, against the hash-verified frozen set ------------------------------------
     pres = None
-    if "grad_presence.json" in ver["verified"]:
-        pres = from_ref_branch(PRESENCE_GIT)
-    rep["presence"] = {"reference": "of3t-reference BUNDLE-MIN grad_presence.json",
-                       "reference_hash_verified": "grad_presence.json" in ver["verified"]}
+    if PRESENCE_FILE in ver["verified"]:
+        pres = json.load(open(os.path.join(BUNDLE, PRESENCE_FILE)))
+    rep["presence"] = {"reference": "of3t-reference BUNDLE-MIN " + PRESENCE_FILE,
+                       "reference_hash_verified": PRESENCE_FILE in ver["verified"]}
     if pres is not None:
         table = pres if isinstance(pres, dict) else {}
         for key in ("presence", "grad_present", "parameters"):
@@ -274,8 +279,15 @@ def main() -> int:
             their_total=len(table), their_with_gradient=len(theirs_with),
             their_without_gradient=sorted(theirs_without)[:40],
             ours_carried_by_a_device_tensor=len(ours_reachable & set(table)),
-            their_with_gradient_we_cannot_carry=sorted(theirs_with - ours_reachable)[:60],
+            # The FULL set, not a sample. It was truncated to 60 here, and a consumer that
+            # read the list rather than the count computed a reach over 60 of 610 missing
+            # tensors -- which is exactly the shape of the defect D17 names, arriving through
+            # the artifact instead of through the metric. A field whose count and whose length
+            # disagree is a trap; the sample now lives under its own name.
+            their_with_gradient_we_cannot_carry=sorted(theirs_with - ours_reachable),
+            their_with_gradient_we_cannot_carry_sample=sorted(theirs_with - ours_reachable)[:60],
             n_their_with_gradient_we_cannot_carry=len(theirs_with - ours_reachable),
+            their_placed_with_gradient=sorted(ours_reachable & theirs_with),
             rule="SS3b: compared as a set, before any magnitude. Nothing was zero-filled.")
         print(f"[{time.perf_counter()-t0:.0f}s] presence: theirs {len(theirs_with)}/{len(table)} "
               f"with a gradient; we carry {len(ours_reachable & set(table))} of them on a device "
