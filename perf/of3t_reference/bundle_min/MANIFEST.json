@@ -126,5 +126,11 @@
     "grad_norm_bit_identical": true,
     "worst_per_tensor_rel_l2": 1.8768118414081684e-16,
     "note": "file sha256 differs between two runs that agree to 1.9e-16, so a file-hash comparison is the wrong instrument; the hashes here verify a transfer, not a computation"
+  },
+  "hold_investigation": {
+    "fp32_direct_call_nonzero_gradient_tensors": 6,
+    "fp32_direct_call_total": 4147,
+    "conclusion": "float64 mode ruled out: the same script at --dtype float32, with no autocast or .float() patching active, gives 6 of 4147 as well. The cause is the direct call, not the precision mode.",
+    "their_runner_contrast": "4850 of 4890 state-dict tensors moved over the 20-step fp32 trajectory driven through OpenFold3AllAtom and pl.Trainer."
   }
 }
