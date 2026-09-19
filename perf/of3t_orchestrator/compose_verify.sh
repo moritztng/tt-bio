@@ -196,7 +196,26 @@ echo "main:        $(tail -1 "$SLUG_TMP/col_base.txt")"
 echo "composition: $(tail -1 "$SLUG_TMP/col_comp.txt")"
 diff -q "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt" >/dev/null \
   && echo "error sets: IDENTICAL -- no new import breakage" \
-  || { echo "NEW IMPORT BREAKAGE:"; diff "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt"; exit 1; }
+  || { echo "NEW IMPORT BREAKAGE:"; diff "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt"
+       # Say WHAT KIND of new error it is. 84 of the ~107 baseline errors on a CPU host are a
+       # top-level `import ttnn`, and three tests already avoid that with
+       # `pytest.importorskip("ttnn")` and skip instead. A new file of that class is a
+       # one-line convention miss, not broken code -- and a reader who has to run pytest by
+       # hand to learn which it is will start ignoring this gate.
+       for _f in $(diff "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt" \
+                   | grep '^> ERROR' | awk '{print $3}'); do
+         if ( cd "$CO" && "$PY" -m pytest "$_f" --collect-only -q 2>&1 \
+              | grep -q "No module named 'ttnn'" ); then
+           echo "  $_f: top-level \`import ttnn\` on a host without it -- the class 84 of the"
+           echo "    baseline errors already are. The convention that avoids it is"
+           echo "    \`pytest.importorskip(\"ttnn\")\` (see tests/test_sdpa_cb_model.py,"
+           echo "    tests/test_training_full_weights.py, tests/test_sdpa_fused_pairs.py),"
+           echo "    which SKIPS instead. One line, and the error set stays identical."
+         else
+           echo "  $_f: NOT the ttnn class -- read it, this one may be real."
+         fi
+       done
+       exit 1; }
 echo "NOTE: no test EXECUTED -- without ttnn everything errors on extras or skips. Behaviour unverified."
 
 # (2b) a reference to a file that does not exist. Composing found exactly this in NOTICE last
