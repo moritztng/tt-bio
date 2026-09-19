@@ -232,6 +232,11 @@ def main() -> int:
     ap.add_argument("--fd-min-grad", type=float, default=1e-6,
                     help="only validate entries whose analytic gradient is at least this large")
     ap.add_argument("--clip-val", type=float, default=10.0)
+    ap.add_argument("--checkpoint", type=Path,
+                    help="trained weights to load before taking the gradient. Without this the "
+                         "gradient is taken at a random initialisation, where 2,271 of 4,890 "
+                         "tensors are exactly zero by design and the step-1 gradient reaches only "
+                         "the zero-initialised output projections -- see the doc.")
     args = ap.parse_args()
 
     dtype = torch.float64 if args.dtype == "float64" else torch.float32
@@ -244,6 +249,27 @@ def main() -> int:
 
     raw_batch = torch.load(args.batch, weights_only=False)
     cfg, model, loss_fn = build(dtype, args.seed, device)
+
+    ckpt_info = None
+    if args.checkpoint:
+        ck = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+        sd = ck.get("state_dict", ck) if isinstance(ck, dict) else ck
+        sd = {(k[6:] if k.startswith("model.") else k): v for k, v in sd.items()}
+        sd = {k: v.to(dtype) if torch.is_tensor(v) and v.is_floating_point() else v
+              for k, v in sd.items()}
+        incompatible = model.load_state_dict(sd, strict=False)
+        ckpt_info = {
+            "file": args.checkpoint.name,
+            "sha256": sha256_file(args.checkpoint),
+            "n_loaded": len(sd),
+            "n_missing": len(incompatible.missing_keys),
+            "n_unexpected": len(incompatible.unexpected_keys),
+            "missing_sample": list(incompatible.missing_keys)[:8],
+            "unexpected_sample": list(incompatible.unexpected_keys)[:8],
+        }
+        print(f"checkpoint {args.checkpoint.name}: loaded {len(sd)} tensors, "
+              f"{ckpt_info['n_missing']} missing, {ckpt_info['n_unexpected']} unexpected",
+              flush=True)
 
     # w_0, exactly the weights the gradient below is taken at.
     w0 = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
@@ -352,6 +378,7 @@ def main() -> int:
             "n_tokens": int(raw_batch["token_mask"].sum()),
         },
         "seed": args.seed,
+        "checkpoint": ckpt_info,
         "dtype": args.dtype,
         "their_fp32_autocast_blocks_disabled": bool(dtype is torch.float64),
         "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu",
@@ -376,6 +403,13 @@ def main() -> int:
             "n_params": len(presence),
             "n_with_gradient": sum(presence.values()),
             "n_absent": sum(1 for v in presence.values() if not v),
+            "n_nonzero": sum(
+                1 for g in grads.values()
+                if g is not None and float(torch.linalg.vector_norm(g)) > 0
+            ),
+            "n_zero_init_weight_tensors": sum(
+                1 for v in w0.values() if v.numel() and float(v.abs().max()) == 0.0
+            ),
             "global_norm": global_norm,
             "clip_coef_their_grad_manager_would_apply": clip_coef,
             "note": ("grads_f64.pt holds the per-sample gradient BEFORE clipping. At world size 1 "
