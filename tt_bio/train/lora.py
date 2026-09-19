@@ -35,7 +35,8 @@ from .. import ops
 from .tensors import to_device
 
 __all__ = ["LoraConfig", "LoraSite", "lora_factors", "lora_factors_for", "lora_linear",
-           "census", "select", "attach", "weights_for", "trainable", "Parameters"]
+           "census", "select", "attach", "weights_for", "walked_weights", "trainable",
+           "Parameters"]
 
 
 @dataclass
@@ -169,6 +170,26 @@ def _linear_operands(args, kwargs):
     return args[0], args[1], (args[2] if args[2] is not None else kwargs.get("bias"))
 
 
+def _decline(base, name, shipped, args, kwargs):
+    """Hand the call on: to the hook below us, or -- with none -- to production itself.
+
+    Returning a bare `None` with no hook below is what a listener wants right up to the moment
+    an operand is an `autograd.Tensor`. Then the fall-through reaches a ttnn pybind, which
+    refuses it: `ttnn.layer_norm(): incompatible function arguments ... called with
+    (tt_bio.autograd.Tensor, ...)`. That TypeError is why a census over a triangle
+    multiplication could not complete at all, and `weights_for` reports "no adaptable site" for
+    a census that raised as readily as for one that found nothing.
+
+    `wrap=False`, deliberately: a census must compute exactly what an inference pass computes
+    and hand back exactly what production hands back. Returning a `Tensor` here would make the
+    rest of the forward carry taped operands into raw `ttnn` calls this module never sees, which
+    is the same TypeError one op later.
+    """
+    if base is not None:
+        return base(name, shipped, args, kwargs)
+    return ag.untaped(shipped, args, kwargs, wrap=False)
+
+
 class _Census:
     """A grad hook that records every ``ops.linear`` it sees and declines all of them.
 
@@ -181,12 +202,13 @@ class _Census:
     they are -- and it declines along with every other op by falling through the name test.
     """
 
-    def __init__(self):
+    def __init__(self, base=None):
         self.sites: Dict[str, LoraSite] = {}
+        self.base = base
 
     def __call__(self, name, shipped, args, kwargs):
         if name != "linear":
-            return None
+            return _decline(self.base, name, shipped, args, kwargs)
         _, w, bias = _linear_operands(args, kwargs)
         activation = kwargs.get("activation")
         site = _site_name()
@@ -208,7 +230,7 @@ class _Census:
             self.sites[site] = LoraSite(
                 name=site, in_features=prev.in_features, out_features=prev.out_features,
                 calls=prev.calls + 1, has_bias=prev.has_bias, activation=prev.activation)
-        return None
+        return _decline(self.base, name, shipped, args, kwargs)
 
 
 def census(forward, *args, **kwargs) -> Dict[str, LoraSite]:
@@ -219,8 +241,9 @@ def census(forward, *args, **kwargs) -> Dict[str, LoraSite]:
     list, and a census that also returned a structure would invite using it as a prediction
     made under a hook nobody audited.
     """
-    rec = _Census()
-    prev = ops.set_grad_hook(rec)
+    prev = ops.grad_hook()
+    rec = _Census(prev)
+    ops.set_grad_hook(rec)
     try:
         with ag.no_grad():
             forward(*args, **kwargs)
@@ -313,6 +336,17 @@ def attach(installed, cfg: Optional[LoraConfig] = None):
     falls.
     """
     if cfg is None:
+        if getattr(installed, "slots", None):
+            # Walk-discovered weights need no hook at all. `autograd.parameter` registered each
+            # one by the identity of the handle the MODEL holds, so the tape resolves it at
+            # every taped call rather than at the four `ops.linear` sites a call-site census can
+            # reach. What the run owes instead is `installed.rebind()` after each optimizer
+            # step, which is how the forward keeps reading the tensors the optimizer moves.
+            try:
+                yield installed
+            finally:
+                ag.forget_parameters()
+            return
         prev = ops.grad_hook()
         ops.set_grad_hook(_Substitute(installed, prev, frozen=True))
         try:
@@ -339,7 +373,7 @@ def attach(installed, cfg: Optional[LoraConfig] = None):
         def __call__(self, name, shipped, args, kwargs):
             pair = factors.get(_site_name()) if name == "linear" else None
             if pair is None:
-                return None if self.base is None else self.base(name, shipped, args, kwargs)
+                return _decline(self.base, name, shipped, args, kwargs)
             x, w, bias = _linear_operands(args, kwargs)
             activation = kwargs.get("activation")
             if activation is not None:
@@ -390,11 +424,44 @@ class Parameters(dict):
     against, so the re-upload check is skipped rather than failing on an honest Tier-2 user.
     """
 
-    __slots__ = ("origin",)
+    __slots__ = ("origin", "slots")
 
-    def __init__(self, *args, origin=None, **kwargs):
+    def __init__(self, *args, origin=None, slots=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.origin = {} if origin is None else origin
+        self.slots = {} if slots is None else slots
+
+    def rebind(self) -> int:
+        """Write each leaf's current value back where the walk found it. Returns how many moved.
+
+        `AdamW.step` replaces `t.value` with a fresh device tensor. A model still holding the
+        handle discovery saw then reads the checkpoint's weights for the rest of the run, with
+        real gradients, a falling loss curve and a model standing still -- the same shape of
+        failure a zero-filled missing gradient produces. Call it after every step; the recipe
+        does.
+
+        A parameter set from the call-site census has no slots and this is a no-op, correctly:
+        there the substituting hook hands the forward the leaf itself, so there is nothing to
+        write back.
+        """
+        moved = 0
+        for name, (owner, key) in self.slots.items():
+            value = self[name].value
+            if isinstance(owner, tuple):
+                raise TypeError(
+                    f"{name!r} lives in a tuple, so the optimizer's new weight cannot be "
+                    f"written back and the forward would keep reading the old one. Hold that "
+                    f"weight in a list or an attribute")
+            if isinstance(owner, (dict, list)):
+                if owner[key] is value:
+                    continue
+                owner[key] = value
+            else:
+                if getattr(owner, key) is value:
+                    continue
+                setattr(owner, key, value)
+            moved += 1
+        return moved
 
 
 class _Substitute:
@@ -475,7 +542,7 @@ class _Substitute:
         the substituted site untaped -- a parameter the optimizer owns that no gradient ever
         reaches.
         """
-        return None if self.base is None else self.base(name, shipped, args, kwargs)
+        return _decline(self.base, name, shipped, args, kwargs)
 
     def __call__(self, name, shipped, args, kwargs):
         if name != "linear":
@@ -500,8 +567,54 @@ class _Substitute:
         return self._delegate(name, shipped, args, kwargs)
 
 
-def weights_for(forward, cfg: Optional[LoraConfig], *args, **kwargs) -> Dict[str, ag.Tensor]:
-    """The model's OWN weights at the adaptable sites, as taped parameters.
+def walked_weights(forward, cfg: Optional[LoraConfig], model, *args,
+                   **kwargs) -> "Parameters":
+    """Every device weight the BUILT MODEL reaches, as taped parameters. Discovery, not a hook.
+
+    The general form of :func:`weights_for`, and the one that is right for a model nobody
+    audited. A census at the call site sees a weight only where the forward routes through
+    ``tt_bio.ops.linear``, and ``tenstorrent.py`` calls it at four sites in 13k lines; a census
+    at the loader sees only what the loader produced. Walking the model reaches both, because
+    ``autograd.parameter`` makes a raw handle a leaf at every taped call by the identity of the
+    handle itself rather than by where it was passed.
+
+    **The forward runs first, and that ordering is the finding this function exists for.**
+    ``TriangleMultiplication`` does not hold its in-projection after ``__init__`` at all: it
+    keeps host torch and pushes the fused device weights on the first call at a given chunk
+    width (``_gp_in_chunks``). So a walk of a freshly built model misses exactly the tensors
+    that motivated the walk, and it misses them silently -- the paths are simply absent from the
+    denominator. One forward under ``no_grad`` materialises them. It costs the same one
+    inference the call-site census costs.
+
+    No hook is installed. Under a tape the forward below runs frozen, which is production's own
+    arithmetic, and with no tape it is plain inference.
+    """
+    from ..tenstorrent import walk_device_weights
+    with ag.no_grad():
+        forward(*args, **kwargs)
+    found = {path: (owner, key, t)
+             for path, owner, key, t in walk_device_weights(model)}
+    if not found:
+        raise ValueError(
+            f"the walk reached no device tensor from {type(model).__name__}. Either the object "
+            f"passed as model= is not the built model, or its weights are held somewhere a "
+            f"walk of attributes, lists and dicts does not reach")
+    chosen = select(found, cfg) if cfg is not None else found
+    params = Parameters()
+    for name, (owner, key, t) in chosen.items():
+        params[name] = ag.parameter(t)
+        params.slots[name] = (owner, key)
+    return params
+
+
+def weights_for(forward, cfg: Optional[LoraConfig], *args, model=None,
+                **kwargs) -> Dict[str, ag.Tensor]:
+    """The model's OWN weights, as taped parameters. ``model=`` walks; without it, a census.
+
+    Pass ``model=`` and discovery is :func:`walked_weights`, which is what every caller should
+    do: it reaches the weights a module derived for itself, and those are the optimised paths.
+    Without it the parameter set is the call-site census below, which is what shipped and is
+    kept because a Tier-2 caller may hold a forward and no model object.
 
     One forward under a collecting hook -- the same one forward ``lora_factors_for`` spends on
     its census, and for the same reason: the parameter set comes from the model rather than
@@ -513,6 +626,8 @@ def weights_for(forward, cfg: Optional[LoraConfig], *args, **kwargs) -> Dict[str
     is not initialised here at all -- it comes off the checkpoint every rank loaded -- so
     there is no randomness to pin and a seed parameter would imply one.
     """
+    if model is not None:
+        return walked_weights(forward, cfg, model, *args, **kwargs)
     params = Parameters()
     prev = ops.grad_hook()
     hook = _Substitute(params, prev, targets=tuple(cfg.targets) if cfg else ())
@@ -532,7 +647,8 @@ def weights_for(forward, cfg: Optional[LoraConfig], *args, **kwargs) -> Dict[str
     return params
 
 
-def trainable(forward, cfg: Optional[LoraConfig], device, *args, rng=None, **kwargs):
+def trainable(forward, cfg: Optional[LoraConfig], device, *args, model=None, rng=None,
+              **kwargs):
     """What this run trains, from one discovery forward. ``(installed, params)``.
 
     The whole of the LoRA / full-weight choice, in one call, so the Tier-1 body does not
@@ -546,9 +662,12 @@ def trainable(forward, cfg: Optional[LoraConfig], device, *args, rng=None, **kwa
     Hand ``installed`` to :func:`attach` and ``params`` to the optimizer, in that order.
     """
     if cfg is None:
-        params = weights_for(forward, None, *args, **kwargs)
+        params = weights_for(forward, None, *args, model=model, **kwargs)
         return params, params
+    # `model=` is not passed on here, and that asymmetry is the point. A LoRA factor pair is
+    # shaped by a linear CALL's (in, out), not by a weight, so its discovery is the call-site
+    # census by construction -- there is no factor to build for a weight no routed call reads.
     factors = lora_factors_for(forward, cfg, device, *args, rng=rng, **kwargs)
-    return factors, {f"{site}.{which}": t
-                     for site, pair in factors.items()
-                     for which, t in zip(("A", "B"), pair)}
+    return factors, Parameters({f"{site}.{which}": t
+                                for site, pair in factors.items()
+                                for which, t in zip(("A", "B"), pair)})
