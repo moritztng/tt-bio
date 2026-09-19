@@ -21,7 +21,11 @@ the run has to remember to feed. It answers four questions:
 * **do the ranks agree** -- the master-weight digest at the last step both ranks reached. The
   run's own ``check_equal`` already fails on a mismatch, so a disagreement here means the run
   died before it could; the value is that a *dead* run still shows you where it diverged;
-* **will it get anywhere** -- the recent step rate projected onto the remaining grant.
+* **will it get anywhere** -- the recent step rate projected onto the remaining grant;
+* **is it on the recipe's learning rate** -- every logged lr re-evaluated against the cosine
+  the run recorded in ``schedule.json``. Added 2026-09-19 after the run was found holding a
+  constant 5e-4 because nothing wrapped the optimizer's lr: the history carried no lr at all,
+  so two readers inferred it from two different files and neither read it out of the run.
 
 Exit status is the verdict: 0 healthy or finished, 1 an incident that wants a human. That makes
 it usable from a relaunch check and from cron without parsing the text.
@@ -45,6 +49,15 @@ from tt_bio.train import deadline as deadline_mod  # noqa: E402
 #: and a model build. 15 minutes is roughly an order of magnitude over that, so it does not fire
 #: on a healthy restart and still catches a death inside one checkpoint cadence.
 STALL_MINUTES = 15.0
+
+#: How far a logged lr may sit from the cosine before it is an incident. The comparison is
+#: between two evaluations of the same class on the same integer, so anything above float noise
+#: means the run is not on the schedule it recorded.
+LR_TOL = 1e-9
+
+#: Trailing rows the lr is re-checked on. The schedule is a pure function of the step, so a
+#: window is as strong as the whole file and stays cheap on a five-day history.
+LR_WINDOW = 500
 
 
 def _rows(path: Path) -> list:
@@ -83,6 +96,39 @@ def resumes(rows: list, checkpoints: dict) -> list:
                       "from_checkpoint": bool(from_ckpt),
                       "verdict": "RESUMED" if from_ckpt else "RESTARTED-FROM-SCRATCH"})
     return found
+
+
+def lr_check(out: Path, rows: list) -> dict:
+    """Does the lr the run logged match the cosine at that global step?
+
+    Evaluated with the run's own scheduler class, rebuilt from the ``schedule.json`` the run
+    wrote, rather than with a second transcription of the formula here. A second transcription
+    is exactly how the schedule went missing: the step file's recipe carried lr and weight decay
+    and dropped ``T_0``, ``eta_min`` and ``T_mult``, and every reader believed a different file.
+    """
+    spec_path = out / "schedule.json"
+    last = rows[-1] if rows else {}
+    if not spec_path.is_file():
+        return {"checked": 0, "ok": False, "lr": last.get("lr"),
+                "note": f"{spec_path} is missing: the run did not record its schedule"}
+    if last.get("lr") is None:
+        return {"checked": 0, "ok": False, "lr": None,
+                "note": f"step {last.get('step')} logged no lr, so nothing can check it"}
+    from tt_bio.train.abb3_run import CosineRestartsByStep
+    sched = CosineRestartsByStep.load(json.loads(spec_path.read_text()))
+    worst, worst_step, checked = 0.0, None, 0
+    for r in rows[-LR_WINDOW:]:
+        if r.get("lr") is None:
+            continue
+        checked += 1
+        d = abs(sched.set_step(int(r["step"])) - float(r["lr"]))
+        if d > worst:
+            worst, worst_step = d, int(r["step"])
+    ok = worst <= LR_TOL
+    return {"checked": checked, "ok": ok, "lr": float(last["lr"]), "worst_abs": worst,
+            "worst_step": worst_step,
+            "note": None if ok else (f"step {worst_step} logged an lr {worst:.3e} away from "
+                                     f"the schedule in {spec_path.name}")}
 
 
 def supervisor_restarts(out: Path) -> int:
@@ -181,6 +227,9 @@ def main() -> int:
         agree = (len(set(seen.values())) == 1) if len(seen) == len(live) else None
         state["digest_agree"] = {"step": common, "per_rank": seen, "agree": agree}
 
+    state["lr"] = lr_check(out, rows0)
+    state["grad_norm"] = rows0[-1].get("grad_norm")
+
     res = resumes(rows0, checkpoints)
     state["resumes"] = res
     state["restarts_logged"] = supervisor_restarts(out)
@@ -206,6 +255,8 @@ def main() -> int:
             f"(supervisor {'alive' if sup_alive else 'GONE'})")
     elif not sup_alive:
         verdict, incident = "INCIDENT", "the supervisor is gone, so nothing will restart the ranks"
+    elif state["lr"]["ok"] is False:
+        verdict, incident = "INCIDENT", state["lr"]["note"]
     else:
         verdict = "LIVE"
     state["verdict"] = verdict
@@ -228,6 +279,9 @@ def _emit(state: dict, as_json: bool) -> None:
         print(f"  master digest {(state.get('digest') or '')[:16]}"
               + (f", ranks agree: {state['digest_agree']['agree']}"
                  if state.get("digest_agree") else ""))
+        lr = state["lr"]
+        print(f"  lr {lr['lr']}, grad norm {state['grad_norm']}"
+              f" (schedule {'OK' if lr['ok'] else 'MISMATCH'} on {lr['checked']} rows)")
         print(f"  resumes survived {state['resumes_survived']} "
               f"({state['restarts_logged']} in the supervisor log)"
               + "".join(f"\n    {r['verdict']} died@{r['died_at']} -> {r['resumed_at']} "

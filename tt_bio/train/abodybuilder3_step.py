@@ -47,9 +47,18 @@ from . import abodybuilder3_grad as grad
 from . import losses_geometry as L
 from .fape_device import prepare_sidechain_constants, sidechain_fape_device
 
-#: `params.yaml` `optimiser:` and `loss:`. The loss weights are upstream's `ABB3Loss` for the
-#: `base-loss` variant, which carries no pLDDT head and no violation terms in stage 1.
-RECIPE = dict(lr=5e-4, weight_decay=1e-4, chi_weight=0.5, angle_norm_weight=0.02,
+#: `params.yaml` `optimiser:` and `loss:`, both blocks in full. The loss weights are upstream's
+#: `ABB3Loss` for the `base-loss` variant, which carries no pLDDT head and no violation terms in
+#: stage 1.
+#:
+#: `T_0`, `T_mult` and `eta_min` are the cosine schedule `lightning_module.py:144` builds on the
+#: `optimiser: RAdam` branch, and they are named here because they were once missing. The block
+#: was transcribed as lr and weight decay alone while this comment claimed to be all of it, so
+#: nothing wrapped the optimizer's lr and the run held a constant 5e-4 -- 1.96x upstream's mean
+#: over a full schedule, and missing every trough. `abb3_run.CosineRestartsByStep` reads them and
+#: `tests/test_abb3_lr_schedule.py` compares them against `params.yaml` itself.
+RECIPE = dict(lr=5e-4, weight_decay=1e-4, T_0=50, T_mult=1, eta_min=0.0,
+              chi_weight=0.5, angle_norm_weight=0.02,
               fape_weight=1.0, final_backbone_weight=0.5, dropout_rate=0.1)
 
 

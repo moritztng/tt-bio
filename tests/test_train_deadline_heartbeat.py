@@ -42,11 +42,28 @@ def _history(path: Path, rows) -> None:
     path.write_text("".join(json.dumps(r) + "\n" for r in rows))
 
 
-def _row(step, t, digest="ab" * 16):
-    return {"step": step, "t": t, "wall": 11.3, "loss": 1.0, "digest": digest}
+#: The run's own schedule, as `abb3_run` writes it: 8,395 structures at global batch 64 with
+#: the short final batch kept is 132 steps per epoch, and the rest is `params.yaml`.
+SPEC = {"scheduler": "CosineAnnealingWarmRestarts", "lr": 5e-4, "T_0": 50, "T_mult": 1,
+        "eta_min": 0.0, "steps_per_epoch": 132}
+
+
+def _lr(step):
+    from tt_bio.train.abb3_run import CosineRestartsByStep
+    return CosineRestartsByStep.load(SPEC).set_step(step)
+
+
+def _row(step, t, digest="ab" * 16, lr=None):
+    return {"step": step, "t": t, "wall": 11.3, "loss": 1.0, "digest": digest,
+            "lr": _lr(step) if lr is None else lr, "grad_norm": 0.42}
 
 
 def _run(out, *extra):
+    # A healthy run records its schedule, so the fixture does too unless a test is about its
+    # absence.
+    spec = Path(out) / "schedule.json"
+    if not spec.is_file():
+        spec.write_text(json.dumps(SPEC))
     p = subprocess.run([sys.executable, str(HEARTBEAT), "--out", str(out), "--world", "1",
                         "--json", *extra], capture_output=True, text=True, cwd=str(REPO))
     return p.returncode, json.loads(p.stdout)
@@ -104,6 +121,33 @@ def test_a_death_on_a_checkpoint_step_is_still_counted_from_the_supervisor_log(t
     assert code == 0 and state["verdict"] == "LIVE"
     assert state["resumes"] == [] and state["restarts_logged"] == 1
     assert state["resumes_survived"] == 1
+
+
+def test_a_learning_rate_off_the_recipe_schedule_is_an_incident(tmp_path):
+    """The defect this run actually shipped with: a constant lr behind a healthy loss curve.
+
+    The run held 5e-4 for its whole length because nothing wrapped the optimizer -- 1.96x
+    upstream's mean over a full schedule. Nothing in a loss curve says so, and the history
+    carried no lr to compare, so the check is worth only as much as its ability to fail.
+    """
+    _history(tmp_path / "history-rank0.jsonl",
+             [_row(6000, 1000.0), _row(6001, 1011.0, lr=5e-4)])
+    (tmp_path / "supervisor.pid").write_text("1\n")
+    code, state = _run(tmp_path, "--stall-minutes", "1e9")
+    assert code == 1 and state["verdict"] == "INCIDENT"
+    assert "away from the schedule" in state["incident"]
+    assert state["lr"]["worst_step"] == 6001
+
+
+def test_a_history_without_a_learning_rate_cannot_be_checked_and_says_so(tmp_path):
+    rows = [_row(10, 1000.0), _row(11, 1011.0)]
+    for r in rows:
+        r.pop("lr")
+    _history(tmp_path / "history-rank0.jsonl", rows)
+    (tmp_path / "supervisor.pid").write_text("1\n")
+    code, state = _run(tmp_path, "--stall-minutes", "1e9")
+    assert code == 1 and state["verdict"] == "INCIDENT"
+    assert "logged no lr" in state["incident"]
 
 
 def test_a_stalled_step_counter_is_an_incident_and_not_a_quiet_night(tmp_path):
