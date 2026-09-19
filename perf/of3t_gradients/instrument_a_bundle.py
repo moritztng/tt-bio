@@ -73,6 +73,15 @@ def manifest_from_git():
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--block", type=int, default=0, help="which pairformer block")
+    ap.add_argument("--stack", type=int, default=0, metavar="N",
+                    help="run N consecutive blocks from --block as ONE taped stack instead "
+                         "of one block. The composition is the point: every sub-module of "
+                         "the pair track passes alone and the assembled block does not "
+                         "(D8), so a per-block result cannot be extrapolated over 48 of "
+                         "them. The boundary is still theirs -- the first block's captured "
+                         "inputs in, the LAST block's captured output cotangent back -- "
+                         "which is exact because the stack's parameters appear once in "
+                         "their graph and at num_recycles 0 the trunk runs once.")
     ap.add_argument("--tag", default="")
     ap.add_argument("--scale-pair-bias", default="shipped", choices=("shipped", "on", "off"),
                     help="the ATTENTION pair bias scale. `shipped` is True, with the triangle "
@@ -120,9 +129,12 @@ def main() -> int:
 
     t0 = time.perf_counter()
     i = a.block
-    tag = a.tag or f"block{i}" + ("" if a.fp32_softmax == "on" else "_nofp32softmax")
+    nb = a.stack or 1
+    last = i + nb - 1
+    tag = a.tag or (f"stack{i}_{last}" if a.stack else f"block{i}") + \
+        ("" if a.fp32_softmax == "on" else "_nofp32softmax")
     rep = {"instrument": "PROTOCOL SS3 instrument A, magnitude, against BUNDLE-MIN",
-           "block": i, "checkpoint": CKPT,
+           "block": i, "n_blocks": nb, "last_block": last, "checkpoint": CKPT,
            "bars": {"per_tensor": PER_TENSOR_BAR, "median": MEDIAN_BAR},
            "reference_is_the_frozen_bundle": True,
            "fp32_softmax": a.fp32_softmax == "on", "crop": a.crop}
@@ -145,10 +157,19 @@ def main() -> int:
 
     cap = torch.load(os.path.join(CAP, f"block{i}_boundary.pt"),
                      map_location="cpu", weights_only=False)
+    #: In stack mode the cotangent belongs to the LAST block's output, not the first's. Taking
+    #: it from the wrong end would drive the backward with a cotangent for a different tensor
+    #: and produce a number that looks like a gradient and is not one.
+    cap_out = cap if not a.stack else torch.load(
+        os.path.join(CAP, f"block{last}_boundary.pt"), map_location="cpu", weights_only=False)
     caprep = json.load(open(a.capture_report))
     rep["capture"] = {"forward_loss_rel_vs_bundle": caprep["forward"]["rel"],
                       "global_norm_rel": caprep["global_norm_rel"],
-                      "block_grad_vs_bundle": caprep["capture_vs_bundle"][str(i)],
+                      "block_grad_vs_bundle": {b: caprep["capture_vs_bundle"][b]
+                                               for b in ({str(i), str(last)}
+                                                         & set(caprep["capture_vs_bundle"]))},
+                      "cotangent_from_block": last,
+                      "inputs_from_block": i,
                       "replay_mismatches": caprep["replay"]["n_mismatch"]}
 
     rep["reference_mode"] = a.reference
@@ -162,8 +183,9 @@ def main() -> int:
                 single_mask = v.to(torch.float64)
             elif "pair" in k or "mask" in k:
                 pair_mask = v.to(torch.float64)
-    s_ref_out, z_ref_out = cap["out"][0].to(torch.float64), cap["out"][1].to(torch.float64)
-    cot_s, cot_z = cap["cot"][0], cap["cot"][1]
+    s_ref_out = cap_out["out"][0].to(torch.float64)
+    z_ref_out = cap_out["out"][1].to(torch.float64)
+    cot_s, cot_z = cap_out["cot"][0], cap_out["cot"][1]
     if cot_s is None or cot_z is None:
         raise SystemExit("captured cotangent missing -- the boundary is unusable")
     cot_s, cot_z = cot_s.to(torch.float64), cot_z.to(torch.float64)
@@ -185,11 +207,13 @@ def main() -> int:
           f"|z|={float(z_in.norm()):.4g} |cot_z|={float(cot_z.norm()):.4g}", flush=True)
 
     # ---- the reference: the bundle's own entries for this block -----------------------------
-    pre = f"pairformer_stack.blocks.{i}."
+    pre = "pairformer_stack." if a.stack else f"pairformer_stack.blocks.{i}."
+    keep = (lambda k: k.startswith(pre) and int(k[len(pre) + len("blocks."):].split(".")[0])
+            in range(i, last + 1)) if a.stack else (lambda k: k.startswith(pre))
     if a.reference == "bundle":
         ref_all = torch.load(os.path.join(BUNDLE, gfile), map_location="cpu", weights_only=False)
         g_ref = {k[len(pre):]: (v.to(torch.float64) if v is not None else None)
-                 for k, v in ref_all.items() if k.startswith(pre)}
+                 for k, v in ref_all.items() if keep(k)}
         del ref_all
     else:
         from instrument_a_stack import their_stack, load_ckpt
@@ -212,11 +236,13 @@ def main() -> int:
     sd = torch.load(CKPT, map_location="cpu", weights_only=False, mmap=True)
     if isinstance(sd, dict) and "state_dict" in sd and isinstance(sd["state_dict"], dict):
         sd = sd["state_dict"]
-    atoms = {k[len(pre):]: v.detach().to(torch.float32) for k, v in sd.items()
-             if k.startswith(pre)}
-    no_heads_pair = sd[pre + "pair_stack.tri_att_start.linear_z.weight"].shape[0]
-    no_heads_pair_bias = sd[pre + "attn_pair_bias.linear_z.weight"].shape[0]
-    c_s = sd[pre + "attn_pair_bias.layer_norm_a.weight"].shape[0]
+    atoms = {k[len(pre):]: v.detach().to(torch.float32) for k, v in sd.items() if keep(k)}
+    #: the shape probes below read block `i`'s entries whatever the scope, so they are keyed
+    #: through the block-local prefix rather than through `pre`.
+    bp = f"pairformer_stack.blocks.{i}."
+    no_heads_pair = sd[bp + "pair_stack.tri_att_start.linear_z.weight"].shape[0]
+    no_heads_pair_bias = sd[bp + "attn_pair_bias.linear_z.weight"].shape[0]
+    c_s = sd[bp + "attn_pair_bias.layer_norm_a.weight"].shape[0]
 
     loaded, orig = [], T.Module.torch_to_tt
 
@@ -231,8 +257,11 @@ def main() -> int:
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
         fp32_dest_acc_en=True, packer_l1_acc=True)
     flat_all = remap_pairformer_stack(sd, prefix="pairformer_stack")
-    src = f"layers.{i}."
-    flat = {"layers.0." + k[len(src):]: v for k, v in flat_all.items() if k.startswith(src)}
+    flat = {}
+    for j in range(i, last + 1):
+        src = f"layers.{j}."
+        flat.update({f"layers.{j - i}." + k[len(src):]: v
+                     for k, v in flat_all.items() if k.startswith(src)})
     head_dim = flat["layers.0.tri_att_start.mha.linear_q.weight"].shape[0] // no_heads_pair
     # The SHIPPED configuration, not a plausible neighbour of it. An earlier run of this
     # instrument pinned `scale_pair_bias` and `fp32_softmax` and left `transpose_bias` and
@@ -261,7 +290,7 @@ def main() -> int:
                              "accurate_softmax": acc,
                              "arm": a.transpose_bias,
                              "source": "openfold3_trunk.py:137"}
-    mod = T.Pairformer(1, head_dim, no_heads_pair, c_s // no_heads_pair_bias,
+    mod = T.Pairformer(nb, head_dim, no_heads_pair, c_s // no_heads_pair_bias,
                        no_heads_pair_bias, True, flat, ckc,
                        scale_pair_bias=spb, tri_att_scale_pair_bias=SHIPPED_TRI_SPB,
                        fp32_softmax=(a.fp32_softmax == "on"),
@@ -329,10 +358,39 @@ def main() -> int:
 
     # ---- the bijection, by value against the built model -------------------------------------
     dev_all = {p: ttnn.to_torch(t).to(torch.float32) for p, t in device_weights(mod).items()}
-    dv = {k[len("blocks.0."):] if k.startswith("blocks.0.") else k: v
-          for k, v in dev_all.items()}
-    b = device_bijection(dev_all, atoms)
-    placements, per_device = b["placements"], b["per_device"]
+    if not a.stack:
+        b = device_bijection(dev_all, atoms)
+        placements, per_device = b["placements"], b["per_device"]
+        rep["bijection_scope"] = "one block, matched by value over the whole built module"
+    else:
+        # PER BLOCK, deliberately, and this is not a micro-optimisation. `device_bijection`
+        # confirms a candidate elementwise, so over 48 blocks at once any two tensors that are
+        # elementwise EQUAL are interchangeable candidates -- and OF3 zero-initialises the gate
+        # and output projection of nearly every residual branch, which puts thousands of
+        # identical all-zero tensors in the pool. A whole-stack match could pair their block 3
+        # with our block 17 and produce a comparison that is either garbage or an accidental
+        # pass, with nothing in the output to say so. Restricting each match to one block's
+        # tensors makes the block index structural instead of something the values have to
+        # carry, and their block i+j is matched against our block j by construction.
+        placements, per_device, amb = {}, {}, []
+        for j in range(i, last + 1):
+            tp, dp = f"blocks.{j}.", f"blocks.{j - i}."
+            atoms_j = {k[len(tp):]: v for k, v in atoms.items() if k.startswith(tp)}
+            dev_j = {k[len(dp):]: v for k, v in dev_all.items() if k.startswith(dp)}
+            bj = device_bijection(dev_j, atoms_j)
+            for k, pls in bj["placements"].items():
+                placements[tp + k] = [dict(pl, device_path=dp + pl["device_path"]) for pl in pls]
+            for k, m in bj["per_device"].items():
+                per_device[dp + k] = m
+            if bj["their_unplaced"]:
+                amb.append({"block": j, "unplaced": bj["their_unplaced"]})
+        b = {"their_unplaced": [x for e in amb for x in e["unplaced"]],
+             "device_unmatched": sorted(set(dev_all) - {pl["device_path"]
+                                                        for pls in placements.values()
+                                                        for pl in pls})}
+        rep["bijection_scope"] = ("per block, %d blocks matched independently so an all-zero "
+                                  "tensor cannot pair across blocks" % nb)
+        rep["bijection_unplaced_by_block"] = amb
     rep["bijection_device"] = {
         "device_tensors": len(dev_all), "their_tensors": len(atoms),
         "their_placed": len(placements), "their_unplaced": b["their_unplaced"],
@@ -418,8 +476,13 @@ def main() -> int:
     ok = (rep["summary"]["per_tensor_pass"] and rep["summary"]["median_pass"] and not absent
           and rep.get("negative_control", {}).get("pass", False) and err is None)
     rep["verdict"] = "PASS" if ok else "FAIL"
-    rep["scope_note"] = ("Pairformer block %d only, driven by the bundle's own boundary. A PASS "
-                         "covers the tensors in `per_parameter` and nothing in `absent`." % i)
+    rep["scope_note"] = (
+        ("Pairformer blocks %d..%d as ONE taped stack, driven by the bundle's own boundary: "
+         "block %d's captured inputs in, block %d's captured output cotangent back. A PASS "
+         "covers the tensors in `per_parameter` and nothing in `absent`." % (i, last, i, last))
+        if a.stack else
+        ("Pairformer block %d only, driven by the bundle's own boundary. A PASS covers the "
+         "tensors in `per_parameter` and nothing in `absent`." % i))
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, f"instrument_a_bundle_{tag}.json")
     json.dump(rep, open(path, "w"), indent=1, default=str)
