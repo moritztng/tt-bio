@@ -782,3 +782,28 @@ boundary agreeing first.** This is D19's lesson (a gradient comparison is never 
 forward it is taken at) applied at the sub-boundary the comparison actually uses, and the device
 arm skipped it.
 
+**A18 (addendum) — 2026-09-19, same pass, correcting my own clause before a row acts on it. The
+number already existed, in D9, since pass 47.**
+
+A18's second clause says *a gradient instrument must be gated on the forward at its own boundary
+agreeing first.* That is right as a **necessary** condition and I wrote it without saying it is
+**not a sufficient** one. A row reading it as "forward agrees, therefore proceed with
+confidence" would be reading in a guarantee the campaign has already measured to be false.
+
+**D9 is the counterexample and it is ours.** Same module, same probe, same reference, one flag:
+`fp32_softmax` moves `tri_att_start`'s weight gradient **1.389e-01 → 4.283e-02** and
+`tri_att_end`'s **1.449e-01 → 5.239e-02** — a **3.2x** change — while the corresponding forwards
+move **2.610e-02 → 2.923e-02** and **2.390e-02 → 2.677e-02**, about **12 %**. A 3.2x gradient
+change hiding under a 12 % forward change is, in D9's own words, *the shape of error a forward
+comparison structurally cannot see.*
+
+**So the clause reads, in full:** a disagreeing forward invalidates the gradient comparison taken
+at it, and must be resolved first — that is why the gate exists. **An agreeing forward clears
+nothing.** It removes mis-wiring and gross input mismatch from the list; it does not bound the
+gradient error, and a `softmax` dtype, an accumulation order, or a backward-only kernel can sit
+entirely inside an agreeing forward. Any report that passes the forward gate must say that it
+passed a **necessary** condition, and must not describe the path as verified.
+
+This is the campaign's own recurring shape rather than a new caution: **the check that would
+have caught it was run at the wrong altitude.** D9 found a 3.2x gradient defect precisely
+because somebody stopped trusting the forward.

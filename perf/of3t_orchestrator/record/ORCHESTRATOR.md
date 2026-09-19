@@ -311,6 +311,15 @@ device weights, and 0.77 is the wrong *shape* for an fp32-vs-float64 gap, which 
 The forward discriminator at the sub-boundary gates all further gradient work. Owner
 `of3t-diffusion`, live.
 
+**And closing D19 would NOT make instrument A pass.** D9 measured a **3.2x** change in the
+triangle-attention weight gradient under a **12 %** change in the corresponding forward — the
+shape of error a forward comparison structurally cannot see. So D19 (forward, 7.811e-03 per
+block, composing near-linearly to 2.792e-01 over 48) and D8/D9 (gradient, graded by attention
+involvement, `single_transition` the only sub-module that passes) must be closed **separately**,
+and any plan treating the forward gap as the single blocker is mis-scoped. A mechanism map now
+heads `DEFECTS.md`; a **common cause is not asserted** — pass 47 explicitly bounded D9 out as
+the explanation for D8.
+
 **D20's coverage half is CLOSED** (pass 71): the diffusion path is 100 % taped forward and
 backward and all 870 reachable weights carry a gradient, so `diffusion_module`'s 91.21 % of the
 squared norm is an unrun — now partly run — measurement, not a port gap. What remains of D20 is
@@ -461,6 +470,28 @@ because a grant that merely includes a card is enough for something to open it. 
 critical path is host-side, so it costs nothing. Tenancy left on their state doc, since a
 concluded row has no brief to amend. Separately, qb2's **SSH host key rotated** at the
 19:35:53Z boot: `tt-quietbox2.fritz.box` now fails verification, `tt-quietbox2` works.
+
+PASS 83. **Three UNFIXED defects sit in the same pair track and no entry named the others.**
+D19 (forward: 7.811e-03 per pairformer block, composing near-linearly to 2.792e-01 over 48),
+D8 (gradient: assembled block 4.3e-01 to 1.4e+00 while every sub-module passes alone, graded by
+attention involvement, `single_transition` the only passer at 0.0212) and D9 (`fp32_softmax`
+alone: **3.2x** on the triangle-attention weight gradient under a **12 %** forward change). A
+reader — me, twice — cannot assemble that from three entries that do not cross-reference, so a
+mechanism map now heads `DEFECTS.md`. **Co-location is stated as fact; a common cause is not
+asserted**, because pass 47 already bounded D9 out as the explanation for D8 and this campaign
+has twice promoted a plausible shape to a finding.
+
+**The load-bearing consequence: closing D19 would not make instrument A pass.** D9 proves a
+class of error a forward comparison structurally cannot see, so the forward and gradient sides
+must close separately, and any plan treating the forward gap as the single blocker is mis-scoped.
+
+**And that corrects a clause I wrote one pass ago, before a row acts on it.** A18 said a
+gradient instrument must be gated on the forward at its own boundary agreeing first. Necessary —
+but I did not say **not sufficient**, and a row could read it as "forward agrees, therefore
+proceed with confidence". An agreeing forward removes mis-wiring and gross input mismatch from
+the list; it does not bound the gradient error, and a softmax dtype, an accumulation order or a
+backward-only kernel sits entirely inside one. The addendum says so, with D9 as the campaign's
+own counterexample.
 
 PASS 82. **D19's hypothesis was refuted twenty passes ago and its entry never said so.** Its
 paragraph *"A hypothesis with a decisive test, offered rather than asserted"* — that 6.735e-03

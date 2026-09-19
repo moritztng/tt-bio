@@ -21,6 +21,31 @@ measured, because an unattributed defect list is a rumour.
 
 ## Affects inference that users get today
 
+### MECHANISM MAP — three UNFIXED defects sit in the same pair track and no entry named the others
+
+Added pass 83 because the record described them separately for forty passes and a reader (me,
+twice) cannot assemble them from three entries that do not cross-reference. **Co-location is
+stated as fact; a common cause is NOT asserted** — it is the open question, and this campaign
+has been wrong twice recently by promoting a plausible shape to a finding.
+
+| defect | what was measured | where |
+|---|---|---|
+| **D19** | forward masked-z error **7.811e-03** per pairformer block, composing **near-linearly** to **2.792e-01** over 48 blocks — five times the `sqrt(48)` rounding predicts, so **correlated**, i.e. systematic | pairformer block, forward |
+| **D8** | assembled block's pair-track **gradients** 4.3e-01 to 1.4e+00 while every sub-module passes alone (0.0092–0.0172); graded by attention/pair involvement — `tri_att_end` 0.3838, `attn_pair_bias` 0.1470, `tri_att_start` 0.0865, and `single_transition`, the one sub-module with no attention and no pair coupling, is the **only passer** at 0.0212 | pairformer block, gradient |
+| **D9** | `fp32_softmax` alone moves the triangle-attention weight gradient **3.2x** while the forward moves **12 %** | triangle attention, gradient-only |
+
+**What follows, and it is load-bearing for the verdict.** D9 proves a class of error here that a
+forward comparison **structurally cannot see**. Therefore **closing D19 would not make instrument
+A pass**: a forward fix cannot reach a gradient-only defect, and D8's grading by attention
+involvement says the gradient side has its own contribution. The two must be closed
+**separately**, and any plan that treats the forward gap as the single blocker is mis-scoped.
+
+**What is NOT established.** That D19 and D8 share a cause. They are different quantities
+(forward activation vs weight gradient) measured at different scopes, and pass 47 explicitly
+bounded D9 out as the explanation for D8 — projected onto block 0 at D9's own factors the block
+median moves only 0.07813 → 0.07024 with 32 of 52 tensors still over bar. Three defects in one
+pair track is a lead, not a mechanism.
+
 ### D1. OpenFold3's trunk pair bias arrives at 20 % of its intended value. Fix WRITTEN and MEASURED; must not ship alone (blocked by D10). Release-gated.
 
 `openfold3_trunk.py:139` builds all 48 pairformer blocks with `scale_pair_bias=False`. The

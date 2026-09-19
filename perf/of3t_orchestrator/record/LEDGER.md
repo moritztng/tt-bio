@@ -4792,3 +4792,37 @@ must carry a resolution word. `REFUTED`, `CONFIRMED`, `still open`, `what would 
 satisfy it — the campaign is not asked to answer every question, only to stop presenting a
 question as live in an entry whose evidence has already moved on. Controlled both ways: it fires
 on the pre-fix D19 and is quiet after.
+
+### R120 -- Three defects in one pair track, and no entry named the others
+
+D19 (forward: **7.811e-03** per pairformer block, composing **near-linearly** to **2.792e-01**
+over 48), D8 (gradient: the assembled block at **4.3e-01 to 1.4e+00** while every sub-module
+passes alone at 0.0092-0.0172, graded by attention involvement -- `tri_att_end` 0.3838,
+`attn_pair_bias` 0.1470, `tri_att_start` 0.0865, and `single_transition`, the one sub-module
+with no attention and no pair coupling, the **only passer** at 0.0212), and D9 (`fp32_softmax`
+alone moving the triangle-attention weight gradient **3.2x** under a **12 %** forward change).
+
+**Same pair track, three entries, zero cross-references, forty passes.** Each is individually
+well-measured; the campaign's reader cannot assemble them, and I am the demonstration -- twice
+in two passes I went looking for something the record already held. A mechanism map now heads
+`DEFECTS.md`.
+
+**Co-location is stated as fact. A common cause is NOT asserted** -- D19 and D8 are different
+quantities at different scopes, and pass 47 already bounded D9 out as D8's explanation
+(projected onto block 0 at D9's own factors the block median moves only 0.07813 -> 0.07024, 32
+of 52 still over bar). *Three defects in one pair track is a lead, not a mechanism*, and this
+campaign has twice this week promoted a plausible shape to a finding.
+
+**The consequence is load-bearing for the verdict: closing D19 would not make instrument A
+pass.** D9 proves a class of error a forward comparison **structurally cannot see**, so a
+forward fix cannot reach it and D8's grading says the gradient side carries its own
+contribution. Forward and gradient close **separately**.
+
+**Which corrects A18, one pass after I wrote it and before a row acted on it.** Its second
+clause -- gate the gradient instrument on the forward at its own boundary -- is **necessary and
+not sufficient**, and I had written only the first half. A row reading it as "forward agrees,
+therefore proceed" would import a guarantee the campaign has already measured to be false. The
+addendum states it with D9 as our own counterexample: an agreeing forward removes mis-wiring and
+gross input mismatch from the list and bounds nothing else. *The check that would have caught
+D9 was the one run at the wrong altitude -- it was found because somebody stopped trusting the
+forward.*
