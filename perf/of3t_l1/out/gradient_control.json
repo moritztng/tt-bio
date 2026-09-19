@@ -1,0 +1,48 @@
+{
+ "a": {
+  "path": "/tmp/of3t/of3t-l1/grad_branch.pt",
+  "head": "fcab645a6fefc40b84002a65b6bc65b03bf2b45a",
+  "n_grads": 172
+ },
+ "b": {
+  "path": "/tmp/of3t/of3t-l1/grad_perturb.pt",
+  "head": "fcab645a6fefc40b84002a65b6bc65b03bf2b45a",
+  "n_grads": 172
+ },
+ "compared": 172,
+ "only_in_a": [],
+ "only_in_b": [],
+ "n_only_in_a": 0,
+ "n_only_in_b": 0,
+ "bit_identical": 0,
+ "worst_tensor": "pairformer_stack.blocks.1.attention_pair_bias.z_norm_weight",
+ "worst_rel_l2": 0.18119958818883952,
+ "median_rel_l2": 0.0019299994599419111,
+ "bar_per_tensor": 0.05,
+ "bar_median": 0.02,
+ "top5": [
+  {
+   "tensor": "pairformer_stack.blocks.1.attention_pair_bias.z_norm_weight",
+   "rel_l2": 0.18119958818883952
+  },
+  {
+   "tensor": "pairformer_stack.blocks.1.attention_pair_bias.z_weight",
+   "rel_l2": 0.15839336432295717
+  },
+  {
+   "tensor": "pairformer_stack.blocks.2.transition_s.norm_weight",
+   "rel_l2": 0.15347242388072851
+  },
+  {
+   "tensor": "pairformer_stack.blocks.1.transition_s.norm_weight",
+   "rel_l2": 0.13112978347488996
+  },
+  {
+   "tensor": "pairformer_stack.blocks.2.transition_s.norm_bias",
+   "rel_l2": 0.13019798152690007
+  }
+ ],
+ "verdict": "FAIL",
+ "host": "tt-quietbox2",
+ "utc": "2026-09-19T16:03:03Z"
+}
