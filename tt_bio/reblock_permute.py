@@ -38,6 +38,56 @@ FACE_H = FACE_W = 16
 GROUP_TILES = 32
 IN_CB, OUT_CB, STAGE_CB = 0, 16, 24
 
+# --- the gated reader's two read-order knobs, both measured and both OFF -------------------------
+#
+# Blackhole interleaved DRAM puts page p in bank p % 8. The gated reader walks the permuted axis
+# with page stride Nt*Ctw, which is 0 mod 8 at every shape the trimul runs, so every read of a
+# group goes to the two banks `p_off + ct` and `g_off + ct`. Two of eight, at an outstanding depth
+# of two. That looked like the same defect the ungated kernel has, and it is not, because the
+# production shape puts the two slices 4 channel tiles apart and 4 is not 0 mod 8: this reader
+# ALREADY holds two banks, where the ungated one holds one.
+#
+#   CT_STREAM   a group covers S consecutive channel tiles instead of one, so a row's reads cover
+#               up to 2*S banks behind a single barrier. Bank count and depth move together, and
+#               the work split divides by S, since the channel tile is part of the group key.
+#   ROW_BATCH   R rows issued behind one barrier. Every row of a group is on the same bank, so
+#               this is depth with the bank count held fixed -- the separation the ungated kernel
+#               cannot make. The writer, the group key and the work split are untouched.
+#
+# Both are bit-exact by construction (same pages, different order) and measured to be so. Both
+# stay at 1, which is the shipped walk from this source, because both LOSE at the shape a 512 aa
+# fold runs: xw [1,512,512,512], slice_c 128, Ct 4, Ctw 16, 1120 calls a fold. Interleaved arms,
+# 40 calls a batch, 9 rounds, A/A floor 0.12 %, qb1 card 0 at a during-sampled 1350 MHz
+# (`perf/trix_gatedbank/op_ab_512_qb1c0.json`):
+#
+#   CT_STREAM  2  0.8837x     4  0.6560x     4 with a single c_16 buffer  0.5218x
+#   ROW_BATCH  2  1.0038x     4  0.9988x     8  0.9809x
+#   CT_STREAM 2 + ROW_BATCH 2  0.8655x
+#
+# Depth alone is flat inside the A/A floor, which says the DRAM reads are already hidden behind
+# the writer's gather, and the op runs at 306.3 GB/s -- 70.4 % of the measured 435.2 GB/s
+# Blackhole DRAM roof (`perf/trix_gatedbank/roof_512_qb1c0.json`). There is no read-latency
+# headroom here to recover, so the knobs are kept as measurement handles and not as a lever.
+CT_STREAM = int(os.environ.get("TT_BIO_REBLOCK_CT_STREAM", "1"))
+ROW_BATCH = int(os.environ.get("TT_BIO_REBLOCK_ROW_BATCH", "1"))
+# c_16 buffer count. Never 1: at a depth of exactly one block the reader cannot start the next
+# block until the writer has drained this one, which costs 0.6560x -> 0.5218x at CT_STREAM = 4.
+CT_BUFS = int(os.environ.get("TT_BIO_REBLOCK_CT_BUFS", "2"))
+
+
+def _ct_stream(Ct):
+    """``(CT_STREAM, c_16 depth in tiles)`` for a slice of ``Ct`` channel tiles.
+
+    One place, derived from the shape rather than pinned per shape: ``CT_STREAM`` is clamped to a
+    divisor of ``Ct``, and the c_16 depth follows it so the writer's L1 window cannot drift from
+    the kernel's block size.
+    """
+    S = max(1, min(CT_STREAM, Ct))
+    while Ct % S:
+        S -= 1
+    return S, GROUP_TILES * S * CT_BUFS
+
+
 # How the cached descriptor gets its two per-call addresses. Set on first use; kept as module state
 # only so a probe can report which path the wheel took.
 ADDR_WRITE_MODE = None
@@ -658,6 +708,10 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
         str(x.memory_config()), str(out.memory_config()),
         g.x, g.y, WALK,
         tuple(reader_ct), tuple(writer_ct),
+        # The c_16 depth is the one build input that is NOT a function of the compile-time args:
+        # the buffer count is a measurement handle on its own, so an A/B that moves it would
+        # otherwise get the first arm's compiled program back for both legs.
+        _ct_stream(int(out.shape[1]) // TILE_W)[1],
         # `_build_gated` bakes this into the compute kernel's compile-time args AND into four CB
         # depths, so it has to be in the key. Without it an A/B that flips the granularity gets the
         # FIRST arm's compiled program back for both legs and reads a 1.000x that means nothing.
@@ -676,11 +730,15 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     Ct = int(out.shape[1]) // TILE_W      # channel tiles of one slice
     Nt = (N + TILE_H - 1) // TILE_H
     Nrt = (int(x.shape[1]) + TILE_H - 1) // TILE_H
-    # A group is (row-tile, col-tile, channel-tile). Keeping the channel tile INSIDE the group
-    # index is what makes the split even on a row block: a 64-row block at 512 aa is 2*16*8 = 256
-    # groups over 110 cores where (row-tile, col-tile) alone would be 32, i.e. 8 waves against the
-    # whole-tensor move's 3. `_build_back` does the same and records the same arithmetic.
-    num_groups = Nrt * Nt * Ct
+    # A group is (row-tile, col-tile, channel-tile block). Keeping the channel tile INSIDE the
+    # group index is what makes the split even on a row block: a 64-row block at 512 aa is
+    # 2*16*4 = 128 groups over 110 cores where (row-tile, col-tile) alone would be 32, i.e. 8 waves
+    # against the whole-tensor move's 3. `_build_back` does the same and records the same
+    # arithmetic. `ct_stream` is how many channel tiles one group covers; it is 1 on the shipped
+    # walk and the unit count divides by it.
+    ct_stream = reader_ct[0]
+    assert Ct % ct_stream == 0, (Ct, ct_stream)
+    num_groups = Nrt * Nt * (Ct // ct_stream)
 
     plan = _split_plan(device, num_groups)
     assert plan is not None, f"no expressible work split for {num_groups} groups"
@@ -701,9 +759,15 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     # one tile at a time, and a deeper ring would only hold more of a stream the writer is already
     # the slow end of. That last clause is exactly what GATE_GRANULARITY tests -- if the writer is
     # the slow end then removing compute barriers buys nothing and the A/B reads 1.00x.
-    cbs = [cb(P_CB, 2 * GATE_GRANULARITY), cb(G_CB, 2 * GATE_GRANULARITY),
+    #
+    # c_0 and c_1 additionally have to hold a whole `ct_stream` block, because the reader reserves
+    # that many slots at once; c_2 and c_3 are compute-internal and stay at the granularity.
+    _, out_cb_depth = _ct_stream(Ct)
+    assert out_cb_depth % (GROUP_TILES * ct_stream) == 0, (out_cb_depth, ct_stream)
+    pg_depth = 2 * max(ct_stream * reader_ct[1], GATE_GRANULARITY)
+    cbs = [cb(P_CB, pg_depth), cb(G_CB, pg_depth),
            cb(SIG_CB, 2 * GATE_GRANULARITY), cb(MUL_CB, 2 * GATE_GRANULARITY),
-           cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
+           cb(OUT_CB, out_cb_depth), cb(STAGE_CB, 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
@@ -715,7 +779,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
                 for cy in range(cr.start.y, cr.end.y + 1):
                     g0, gs, ghi, glo = _walk(WALK, first, block, per_core, num_cores)
                     reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, Ctw, gs, ghi, glo]
-                    compute_rt[cx][cy] = [per_core * GROUP_TILES]
+                    compute_rt[cx][cy] = [per_core * GROUP_TILES * ct_stream]
                     writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
                     first += 1
                     block += per_core
@@ -761,8 +825,11 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
 
 
 def _prepare_gated(x, out, device, fidelity, fp32_acc):
-    reader_ct = list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
-    writer_ct = [_elem(), OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB]
+    tile_bytes = TILE_H * TILE_W * _elem()
+    ct_stream, _ = _ct_stream(int(out.shape[1]) // TILE_W)
+    reader_ct = [ct_stream, ROW_BATCH, tile_bytes]
+    reader_ct.extend(ttnn.TensorAccessorArgs(x).get_compile_time_args())
+    writer_ct = [_elem(), OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB, ct_stream]
     writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     key = _cache_key_gated(x, out, device, reader_ct, writer_ct)
     entry = _CACHE_GATED.get(key)

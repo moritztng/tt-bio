@@ -5,21 +5,25 @@
 // reblock_permute GATED gather writer. A fork of writer_reblock_permute.cpp with two changes and
 // nothing else; the gather, the staging and the DRAM write are identical.
 //
-//   1. THE WORK UNIT IS (it, jt, ct), not (it, jt). The ungated writer owns a tile column and
+//   1. THE WORK UNIT IS (it, jt, channel-tile block), not (it, jt). The ungated writer owns a
+//      tile column and
 //      loops the channel tiles inside it, which is even at a whole-tensor move -- Nt*Nt = 256
 //      groups over 110 cores -- and badly uneven at a row block: a 64-row block is Nrt*Nt = 32
 //      groups, so 8 blocks cost 8 waves against the whole move's 3. Keying on the channel tile
 //      too gives 2*16*8 = 256 groups per block and puts the packing back. This is exactly what
-//      writer_reblock_permute_back.cpp already does, for the same reason.
+//      writer_reblock_permute_back.cpp already does, for the same reason. A group covers
+//      CT_STREAM channel tiles, so the unit count is Nrt*Nt*(Ct/CT_STREAM).
 //   2. A ROW-TILE OFFSET. The destination is always the full [1, C, D1, N] tensor, so a row
 //      block writes a slab of it and every page index here is absolute.
 //
 // Produces output = permute(x, (0,3,1,2)) for x [1, N, N, C] -> [1, C, N, N], C a multiple of 32,
 // Ct = C/32 channel tiles.
 //
-// The compute kernel feeds, per group (it, jt) and channel tile ct, the 32
-// post-WH tiles in il-ascending order, where tile `il` is
-// WHtile_il[c, kl] = x[it*32+il, jt*32+kl, ct*32+c].
+// The compute kernel feeds, per group (it, jt) and block of CT_STREAM channel
+// tiles starting at ct0, 32*CT_STREAM post-WH tiles: il ascending outermost, the
+// CT_STREAM channel tiles of the block innermost, so tile (il, ct0+k) is at slot
+// il*CT_STREAM + k and
+// WHtile_il[c, kl] = x[it*32+il, jt*32+kl, (ct0+k)*32+c].
 //
 // Output tile (ch_plane = ct*32+c, it, jt) has within-tile element
 //   O_ch[row=il, col=kl] = x[it*32+il, jt*32+kl, ch] = WHtile_il[c, kl],
@@ -99,13 +103,20 @@ void kernel_main() {
     constexpr uint32_t FACE_HEIGHT = get_compile_time_arg_val(4);  // 16
     constexpr uint32_t FACE_WIDTH = get_compile_time_arg_val(5);   // 16
     constexpr uint32_t stage_cb_id = get_compile_time_arg_val(6);  // c_24
-    constexpr auto dst_args = TensorAccessorArgs<7>();
+    // The reader hands over 32*CT_STREAM tiles at a time, CT_STREAM channel tiles interleaved along
+    // il, so tile (il, ct0+k) sits at CB slot il*CT_STREAM + k. The gather below walks il, so its
+    // source stride is CT_STREAM tiles and its base is offset by k. CT_STREAM = 1 collapses to the
+    // one-channel-tile-at-a-time window this kernel had. See the reader for why the order changed.
+    constexpr uint32_t CT_STREAM = get_compile_time_arg_val(7);
+    constexpr auto dst_args = TensorAccessorArgs<8>();
 
     constexpr uint32_t NUM_FACES_W = TILE_WIDTH / FACE_WIDTH;                 // 2
     constexpr uint32_t face_height_width = FACE_HEIGHT * FACE_WIDTH;          // 256
     constexpr uint32_t tile_bytes = TILE_HEIGHT * TILE_WIDTH * element_size;  // 2048
     constexpr uint32_t FACE_ROW_BYTES = FACE_WIDTH * element_size;            // 32
     constexpr uint32_t FACE_BYTES = face_height_width * element_size;         // 512
+    constexpr uint32_t il_stride = CT_STREAM * tile_bytes;   // CB distance between consecutive il
+    constexpr uint32_t block_tiles = TILE_HEIGHT * CT_STREAM;
 
     const auto s = TensorAccessor(dst_args, dst_addr);
 
@@ -120,14 +131,15 @@ void kernel_main() {
     bool slot_dirty[2] = {false, false};
 
     const uint32_t NtNt = Nt * Nt;
-    const uint32_t NtCt = Nt * Ct;
+    const uint32_t Cs = Ct / CT_STREAM;
+    const uint32_t NtCs = Nt * Cs;
     uint32_t group = first_group;
     for (uint32_t gi = 0; gi < num_groups; ++gi) {
-        // (it, jt, ct) with ct fastest, the same order the reader walks.
-        const uint32_t itl = group / NtCt;
-        const uint32_t rem = group - itl * NtCt;
-        const uint32_t jt = rem / Ct;
-        const uint32_t ct = rem - jt * Ct;
+        // (it, jt, channel-tile block) with the block fastest, the same order the reader walks.
+        const uint32_t itl = group / NtCs;
+        const uint32_t rem = group - itl * NtCs;
+        const uint32_t jt = rem / Cs;
+        const uint32_t ct0 = (rem - jt * Cs) * CT_STREAM;
         const uint32_t it = itl + it_off;
         const uint32_t page_base = it * Nt + jt;
 
@@ -161,63 +173,67 @@ void kernel_main() {
         const uint32_t rows_lo = rows_valid < FACE_HEIGHT ? rows_valid : FACE_HEIGHT;
         const uint32_t rows_hi = rows_valid > FACE_HEIGHT ? rows_valid - FACE_HEIGHT : 0;
 
-        // Channel plane ct*32 + c lives at page (ct*32 + c) * Nt*Nt + it*Nt + jt.
-        uint32_t out_page = page_base + ct * TILE_HEIGHT * NtNt;
         {
-            cb_wait_front(cb_id_in, TILE_HEIGHT);
-            const uint32_t group_l1_base = get_read_ptr(cb_id_in);
+            cb_wait_front(cb_id_in, block_tiles);
+            const uint32_t block_l1_base = get_read_ptr(cb_id_in);
 
-            for (uint32_t c = 0; c < TILE_HEIGHT; ++c) {
-                const uint32_t slot = c & 1u;
-                const uint32_t stage_base = stage_base0 + slot * tile_bytes;
-                if (slot_dirty[slot]) {
-                    noc_async_writes_flushed();
-                }
+            for (uint32_t k = 0; k < CT_STREAM; ++k) {
+                // Channel plane (ct0+k)*32 + c lives at page ((ct0+k)*32 + c) * Nt*Nt + it*Nt + jt.
+                uint32_t out_page = page_base + (ct0 + k) * TILE_HEIGHT * NtNt;
+                const uint32_t group_l1_base = block_l1_base + k * tile_bytes;
 
-                // Source offset of channel `c`, invariant in `il`: (c / 16) selects the source face
-                // pair, (c % 16) the row inside it.
-                const uint32_t src_c = group_l1_base
-                                     + (c / FACE_HEIGHT) * NUM_FACES_W * FACE_BYTES
-                                     + (c % FACE_HEIGHT) * FACE_ROW_BYTES;
-                uint32_t s0 = src_c;                // face_w = 0
-                uint32_t s1 = src_c + FACE_BYTES;   // face_w = 1
-                uint32_t d0 = stage_base;
-                uint32_t d1 = stage_base + FACE_BYTES;
-                for (uint32_t il = 0; il < rows_lo; ++il) {
-                    noc_async_read_one_packet_with_state(s0, d0);
-                    noc_async_read_one_packet_with_state(s1, d1);
-                    s0 += tile_bytes;
-                    s1 += tile_bytes;
-                    d0 += FACE_ROW_BYTES;
-                    d1 += FACE_ROW_BYTES;
-                }
-                if (rows_hi) {
-                    s0 = src_c + FACE_HEIGHT * tile_bytes;
-                    s1 = s0 + FACE_BYTES;
-                    d0 = stage_base + 2 * FACE_BYTES;
-                    d1 = stage_base + 3 * FACE_BYTES;
-                    for (uint32_t il = 0; il < rows_hi; ++il) {
+                for (uint32_t c = 0; c < TILE_HEIGHT; ++c) {
+                    const uint32_t slot = c & 1u;
+                    const uint32_t stage_base = stage_base0 + slot * tile_bytes;
+                    if (slot_dirty[slot]) {
+                        noc_async_writes_flushed();
+                    }
+
+                    // Source offset of channel `c`, invariant in `il`: (c / 16) selects the source
+                    // face pair, (c % 16) the row inside it.
+                    const uint32_t src_c = group_l1_base
+                                         + (c / FACE_HEIGHT) * NUM_FACES_W * FACE_BYTES
+                                         + (c % FACE_HEIGHT) * FACE_ROW_BYTES;
+                    uint32_t s0 = src_c;                // face_w = 0
+                    uint32_t s1 = src_c + FACE_BYTES;   // face_w = 1
+                    uint32_t d0 = stage_base;
+                    uint32_t d1 = stage_base + FACE_BYTES;
+                    for (uint32_t il = 0; il < rows_lo; ++il) {
                         noc_async_read_one_packet_with_state(s0, d0);
                         noc_async_read_one_packet_with_state(s1, d1);
-                        s0 += tile_bytes;
-                        s1 += tile_bytes;
+                        s0 += il_stride;
+                        s1 += il_stride;
                         d0 += FACE_ROW_BYTES;
                         d1 += FACE_ROW_BYTES;
                     }
+                    if (rows_hi) {
+                        s0 = src_c + FACE_HEIGHT * il_stride;
+                        s1 = s0 + FACE_BYTES;
+                        d0 = stage_base + 2 * FACE_BYTES;
+                        d1 = stage_base + 3 * FACE_BYTES;
+                        for (uint32_t il = 0; il < rows_hi; ++il) {
+                            noc_async_read_one_packet_with_state(s0, d0);
+                            noc_async_read_one_packet_with_state(s1, d1);
+                            s0 += il_stride;
+                            s1 += il_stride;
+                            d0 += FACE_ROW_BYTES;
+                            d1 += FACE_ROW_BYTES;
+                        }
+                    }
+                    noc_async_read_barrier();  // drain the L1->L1 gather before the DRAM write
+
+                    // One aligned, contiguous 2KB tile write to DRAM page, walked as an induction
+                    // variable inside the channel tile.
+                    noc_async_write(stage_base, s.get_noc_addr(out_page), tile_bytes);
+                    out_page += NtNt;
+                    slot_dirty[slot] = true;
                 }
-                noc_async_read_barrier();  // drain the L1->L1 gather before the DRAM write
 
-                // One aligned, contiguous 2KB tile write to DRAM page
-                //   page = (ct*32 + c) * Nt*Nt + it*Nt + jt, walked as an induction variable.
-                noc_async_write(stage_base, s.get_noc_addr(out_page), tile_bytes);
-                out_page += NtNt;
-                slot_dirty[slot] = true;
+                noc_async_write_barrier();
+                slot_dirty[0] = false;
+                slot_dirty[1] = false;
             }
-
-            noc_async_write_barrier();
-            slot_dirty[0] = false;
-            slot_dirty[1] = false;
-            cb_pop_front(cb_id_in, TILE_HEIGHT);
+            cb_pop_front(cb_id_in, block_tiles);
         }
 
         group += group_stride;

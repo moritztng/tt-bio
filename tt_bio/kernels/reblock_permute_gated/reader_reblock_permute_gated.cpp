@@ -65,22 +65,45 @@ void kernel_main() {
     constexpr uint32_t cb_g = 1;   // c_1
     constexpr uint32_t TILE_HEIGHT = 32;
 
-    constexpr auto src_args = TensorAccessorArgs<0>();
+    // How many channel tiles a group covers, and therefore how many pages of each slice are read
+    // back to back before the row index advances. The row stride along the permuted axis is
+    // Nt*Ctw, which is 0 mod 8 at every shape the trimul runs, so a group that holds ONE channel
+    // tile issues all of its reads to the two banks p_off+ct and g_off+ct and to no others. At
+    // CT_STREAM > 1 the group holds CT_STREAM consecutive channel tiles of each slice, so the
+    // reads of one row cover up to 2*CT_STREAM banks, and they go out behind a single barrier
+    // instead of ceil/CT_STREAM of them. Same pages, same transactions, same values, different
+    // order and different depth. CT_STREAM = 1 is the shipped walk, from this source.
+    //
+    // The group index carries the channel-tile BLOCK rather than the channel tile, so the work
+    // split has Nrt*Nt*(Ct/CT_STREAM) units. What bounds CT_STREAM is the writer, which holds
+    // 32*CT_STREAM tiles instead of 32; see `_ct_stream` in tt_bio/reblock_permute.py.
+    constexpr uint32_t CT_STREAM = get_compile_time_arg_val(0);
+    // How many ROWS are issued behind one barrier. Orthogonal to CT_STREAM and it exists to
+    // separate the two mechanisms: CT_STREAM adds banks and depth together, ROW_BATCH adds depth
+    // alone, because every row of a group sits on the same bank. It also costs nothing in the
+    // writer -- the CB order is still il-ascending with the CT_STREAM block innermost, so the
+    // group key, the work split and the writer are all untouched. ROW_BATCH = 1 is the shipped
+    // walk, from this source.
+    constexpr uint32_t ROW_BATCH = get_compile_time_arg_val(1);
+    constexpr uint32_t TILE_BYTES = get_compile_time_arg_val(2);
+    constexpr uint32_t BATCH_TILES = CT_STREAM * ROW_BATCH;
+
+    constexpr auto src_args = TensorAccessorArgs<3>();
     const auto s = TensorAccessor(src_args, src_addr);
 
-    constexpr uint32_t onetile = 1;
     const uint32_t row_stride = Nt * Ctw;
-    const uint32_t NtCt = Nt * Ct;
+    const uint32_t Cs = Ct / CT_STREAM;   // channel-tile blocks per (row tile, col tile)
+    const uint32_t NtCs = Nt * Cs;
     uint32_t group = first_group;
     for (uint32_t gi = 0; gi < num_groups; ++gi) {
-        // A group is (it, jt, ct) with ct fastest, not (it, jt) with the channel tiles looped
-        // inside. At a row block the (it, jt) key leaves most of the grid idle -- 32 groups for a
-        // 64-row block against 110 cores -- and this key gives 256. writer_reblock_permute_back
-        // already does the same thing for the same reason.
-        const uint32_t it = group / NtCt;
-        const uint32_t rem = group - it * NtCt;
-        const uint32_t jt = rem / Ct;
-        const uint32_t ct = rem - jt * Ct;
+        // A group is (row-tile, col-tile, channel-tile block) with the block fastest, not
+        // (it, jt) with the channel tiles looped inside. At a row block the (it, jt) key leaves
+        // most of the grid idle -- 32 groups for a 64-row block against 110 cores -- and this key
+        // gives 256/CT_STREAM. writer_reblock_permute_back already does the same thing.
+        const uint32_t it = group / NtCs;
+        const uint32_t rem = group - it * NtCs;
+        const uint32_t jt = rem / Cs;
+        const uint32_t ct0 = (rem - jt * Cs) * CT_STREAM;
         const uint32_t row_abs = (it + it_off) * TILE_HEIGHT;
         const uint32_t rows_valid = (row_abs + TILE_HEIGHT <= D1) ? TILE_HEIGHT
                                                                   : (D1 - row_abs);
@@ -89,29 +112,58 @@ void kernel_main() {
         const uint32_t pad_page = jt * Ctw;  // row 0 of this tile column; always valid
 
         {
-            uint32_t p_page = first_page + p_off + ct;
-            uint32_t g_page = first_page + g_off + ct;
-            for (uint32_t il = 0; il < rows_valid; ++il) {
-                cb_reserve_back(cb_p, onetile);
-                cb_reserve_back(cb_g, onetile);
-                noc_async_read_page(p_page, s, get_write_ptr(cb_p));
-                noc_async_read_page(g_page, s, get_write_ptr(cb_g));
+            uint32_t p_page = first_page + p_off + ct0;
+            uint32_t g_page = first_page + g_off + ct0;
+            uint32_t il = 0;
+            for (; il + ROW_BATCH <= rows_valid; il += ROW_BATCH) {
+                cb_reserve_back(cb_p, BATCH_TILES);
+                cb_reserve_back(cb_g, BATCH_TILES);
+                uint32_t wp = get_write_ptr(cb_p);
+                uint32_t wg = get_write_ptr(cb_g);
+                for (uint32_t r = 0; r < ROW_BATCH; ++r) {
+                    for (uint32_t k = 0; k < CT_STREAM; ++k) {
+                        noc_async_read_page(p_page + k, s, wp + k * TILE_BYTES);
+                        noc_async_read_page(g_page + k, s, wg + k * TILE_BYTES);
+                    }
+                    wp += CT_STREAM * TILE_BYTES;
+                    wg += CT_STREAM * TILE_BYTES;
+                    p_page += row_stride;
+                    g_page += row_stride;
+                }
                 noc_async_read_barrier();
-                cb_push_back(cb_p, onetile);
-                cb_push_back(cb_g, onetile);
+                cb_push_back(cb_p, BATCH_TILES);
+                cb_push_back(cb_g, BATCH_TILES);
+            }
+            // Rows left over when ROW_BATCH does not divide the valid row count, one at a time.
+            for (; il < rows_valid; ++il) {
+                cb_reserve_back(cb_p, CT_STREAM);
+                cb_reserve_back(cb_g, CT_STREAM);
+                const uint32_t wp = get_write_ptr(cb_p);
+                const uint32_t wg = get_write_ptr(cb_g);
+                for (uint32_t k = 0; k < CT_STREAM; ++k) {
+                    noc_async_read_page(p_page + k, s, wp + k * TILE_BYTES);
+                    noc_async_read_page(g_page + k, s, wg + k * TILE_BYTES);
+                }
+                noc_async_read_barrier();
+                cb_push_back(cb_p, CT_STREAM);
+                cb_push_back(cb_g, CT_STREAM);
                 p_page += row_stride;
                 g_page += row_stride;
             }
-            const uint32_t p_pad = pad_page + p_off + ct;
-            const uint32_t g_pad = pad_page + g_off + ct;
-            for (uint32_t il = rows_valid; il < TILE_HEIGHT; ++il) {
-                cb_reserve_back(cb_p, onetile);
-                cb_reserve_back(cb_g, onetile);
-                noc_async_read_page(p_pad, s, get_write_ptr(cb_p));
-                noc_async_read_page(g_pad, s, get_write_ptr(cb_g));
+            const uint32_t p_pad = pad_page + p_off + ct0;
+            const uint32_t g_pad = pad_page + g_off + ct0;
+            for (il = rows_valid; il < TILE_HEIGHT; ++il) {
+                cb_reserve_back(cb_p, CT_STREAM);
+                cb_reserve_back(cb_g, CT_STREAM);
+                const uint32_t wp = get_write_ptr(cb_p);
+                const uint32_t wg = get_write_ptr(cb_g);
+                for (uint32_t k = 0; k < CT_STREAM; ++k) {
+                    noc_async_read_page(p_pad + k, s, wp + k * TILE_BYTES);
+                    noc_async_read_page(g_pad + k, s, wg + k * TILE_BYTES);
+                }
                 noc_async_read_barrier();
-                cb_push_back(cb_p, onetile);
-                cb_push_back(cb_g, onetile);
+                cb_push_back(cb_p, CT_STREAM);
+                cb_push_back(cb_g, CT_STREAM);
             }
         }
 
