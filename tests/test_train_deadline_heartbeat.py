@@ -236,3 +236,108 @@ def test_a_restart_order_that_is_not_a_reordering_of_the_grant_is_refused():
     """The grant is the pair. A restart onto a chip outside it takes a co-tenant's card."""
     with pytest.raises(SystemExit, match="not a reordering"):
         _sup().chip_order(_Args("0,1", "1,2"), 1)
+
+
+# ----------------------------------------------------- what the 2026-09-19 host resets taught
+
+def _hb():
+    """The heartbeat as a module, so the wrapper can be tested without an interpreter that
+    happens to be missing a dependency."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("hb", HEARTBEAT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_a_resume_is_still_a_resume_when_the_first_row_seen_is_past_the_checkpoint(tmp_path):
+    """The predicate that latched this instrument at INCIDENT on a healthy run.
+
+    qb2 reset at 04:29Z, the run resumed from checkpoint 683 and the first row the detector
+    compared was 685. The old test was `after - 1 in checkpoints`, so 684 was not a checkpoint
+    and it recorded RESTARTED-FROM-SCRATCH on an append-only record. A resume replays from
+    checkpoint + 1; the first row a reader sees can be later.
+    """
+    ckpts = tmp_path / "checkpoints"
+    ckpts.mkdir()
+    (ckpts / "step-000000683.safetensors").write_text("x")
+    _history(tmp_path / "history-rank0.jsonl",
+             [_row(691, 1000.0), _row(692, 1011.0), _row(685, 1200.0), _row(686, 1211.0)])
+    (tmp_path / "supervisor.pid").write_text("1\n")
+    code, state = _run(tmp_path, "--stall-minutes", "1e9")
+    assert code == 0 and state["verdict"] == "LIVE"
+    assert state["resumes"][0]["verdict"] == "RESUMED"
+
+
+def test_a_jump_back_that_lands_before_every_checkpoint_is_named_rather_than_excused(tmp_path):
+    """Widening the predicate must not make it unfalsifiable. This is the negative control."""
+    ckpts = tmp_path / "checkpoints"
+    ckpts.mkdir()
+    (ckpts / "step-000005000.safetensors").write_text("x")
+    _history(tmp_path / "history-rank0.jsonl",
+             [_row(5119, 1000.0), _row(5120, 1011.0), _row(300, 1200.0), _row(301, 1211.0)])
+    (tmp_path / "supervisor.pid").write_text("1\n")
+    code, state = _run(tmp_path, "--stall-minutes", "1e9")
+    assert code == 1 and state["verdict"] == "INCIDENT"
+    assert state["resumes"][0]["verdict"] == "UNEXPLAINED-JUMP-BACK"
+    # And the message says where it came back, rather than the hardcoded "step 1" the old one
+    # printed while its own data said 685.
+    assert "step 300" in state["incident"] and "step 1," not in state["incident"]
+
+
+def test_the_line_a_host_reset_tore_is_recovered_and_not_dropped(tmp_path):
+    """ext4 journalled the append's size across the crash but not its data.
+
+    Line 694 of both rank files came back as ~697 NUL bytes followed by a complete step-684
+    record. Dropping it costs more than a step: the reader then sees 692 -> 685 and the resume
+    detector has to decide about a jump it was never shown the middle of.
+    """
+    ckpts = tmp_path / "checkpoints"
+    ckpts.mkdir()
+    (ckpts / "step-000000683.safetensors").write_text("x")
+    path = tmp_path / "history-rank0.jsonl"
+    _history(path, [_row(691, 1000.0), _row(692, 1011.0)])
+    torn = "\x00" * 697 + json.dumps(_row(684, 1200.0))
+    path.write_text(path.read_text() + torn + "\n"
+                    + json.dumps(_row(685, 1211.0)) + "\n")
+    (tmp_path / "supervisor.pid").write_text("1\n")
+    code, state = _run(tmp_path, "--stall-minutes", "1e9")
+    assert code == 0 and state["verdict"] == "LIVE"
+    assert state["resumes"][0] == {"died_at": 692, "resumed_at": 684, "lost_steps": 9,
+                                   "from_checkpoint": True, "verdict": "RESUMED"}
+
+
+def test_a_relaunched_supervisor_counts_as_a_restart(tmp_path):
+    """A host reset kills the supervisor too, and its replacement logs `(restart 0)`.
+
+    Counting only the lines the supervisor numbered above zero read zero restarts across two
+    reboots in 25 minutes.
+    """
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    (logs / "supervisor.log").write_text(
+        "[sup] launching 2 rank(s) on chips [2, 3] (restart 0)\n"
+        "[sup] launching 2 rank(s) on chips [2, 3] (restart 0)\n"
+        "[sup] launching 2 rank(s) on chips [2, 3] (restart 0)\n")
+    _history(tmp_path / "history-rank0.jsonl", [_row(10, 1000.0)])
+    (tmp_path / "supervisor.pid").write_text("1\n")
+    code, state = _run(tmp_path, "--stall-minutes", "1e9")
+    assert code == 0 and state["restarts_logged"] == 2
+
+
+def test_the_instruments_own_failure_exits_2_so_1_keeps_meaning_act():
+    """It died on `ModuleNotFoundError: numpy` and exited 1, the code the runbook reserves for
+    an incident. A dependency this script is missing says nothing about the run."""
+    hb = _hb()
+
+    def boom():
+        raise ModuleNotFoundError("No module named 'numpy'")
+
+    hb.main = boom
+    assert hb._cli() == 2
+
+
+def test_being_called_wrong_is_also_the_instrument_failing_and_not_the_run():
+    p = subprocess.run([sys.executable, str(HEARTBEAT)], capture_output=True, text=True,
+                       cwd=str(REPO))
+    assert p.returncode == 2

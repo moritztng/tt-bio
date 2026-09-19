@@ -27,8 +27,12 @@ the run has to remember to feed. It answers four questions:
   constant 5e-4 because nothing wrapped the optimizer's lr: the history carried no lr at all,
   so two readers inferred it from two different files and neither read it out of the run.
 
-Exit status is the verdict: 0 healthy or finished, 1 an incident that wants a human. That makes
-it usable from a relaunch check and from cron without parsing the text.
+Exit status is the verdict: 0 healthy or finished, 1 an incident that wants a human, 2 THIS
+SCRIPT failed and is saying nothing about the run. The third code exists because it did fail --
+on 2026-09-19 it died at import on `ModuleNotFoundError: numpy` under the system interpreter and
+exited 1, the code the runbook reserves for *act*. Two causes sharing one code is how a reader
+learns to ignore the code. Every repo import is therefore inside a function, so the wrapper at
+the bottom of this file can catch it.
 """
 
 from __future__ import annotations
@@ -37,12 +41,11 @@ import argparse
 import json
 import sys
 import time
+import traceback
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
-
-from tt_bio.train import deadline as deadline_mod  # noqa: E402
 
 #: The longest gap between two logged steps that is not yet an incident. A pair step is ~11-12 s,
 #: and the longest legitimate gap is a restart: the supervisor's 20 s settle, then a device open
@@ -61,41 +64,54 @@ LR_WINDOW = 500
 
 
 def _rows(path: Path) -> list:
-    out = []
-    if not path.is_file():
-        return out
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            out.append(json.loads(line))
-        except json.JSONDecodeError:
-            # The last line of a file whose process was SIGKILLed mid-write. Dropping it is
-            # right: it is one step, and refusing to read the history because the run died the
-            # way it was expected to die would break the tool exactly when it is needed.
-            pass
-    return out
+    """The run's own history, with the lines a crash tore recovered rather than dropped.
+
+    One parser, shared with the curve writer, because dropping a NUL-torn line is not a lost
+    step: it is a step counter that appears to jump, which is what latched this instrument at
+    INCIDENT on a healthy run. See ``tt_bio.train.history``.
+    """
+    from tt_bio.train.history import read_rows
+    return read_rows(path)
 
 
 def resumes(rows: list, checkpoints: dict) -> list:
-    """Every point where the step counter went backwards, and whether it resumed or restarted.
+    """Every point where the step counter went backwards, and what kind of restart it was.
 
-    ``checkpoints`` maps step -> path. A resume that lands on ``checkpoint + 1`` restored the
-    run. A resume that lands on 1 while checkpoints existed threw the run away and started
-    again, which is the silent failure.
+    ``checkpoints`` maps step -> path. The predicate is **did it land past a checkpoint we
+    hold**, not *exactly one past one*. A resume replays from ``checkpoint + 1``, but the first
+    row a reader sees can be later: the 2026-09-19 host reset resumed from checkpoint 683 and
+    the first row this compared was 685, because the torn step-684 line was being dropped. The
+    old predicate called that ``RESTARTED-FROM-SCRATCH`` and the record is append-only, so a
+    healthy run carried that verdict permanently.
+
+    ``RESTARTED-FROM-SCRATCH`` now means what its name says: the counter back at 1 while
+    checkpoints existed. That is the silent failure worth an incident, a perfectly healthy loss
+    curve for a model that threw away three days.
+
+    Deliberately *not* "did it land past the LATEST checkpoint". Checkpoints written after the
+    death are on disk by the time anyone reads, so the latest is not the one it resumed from,
+    and a tighter predicate would invent alarms the way the old one did.
     """
     found = []
     for i in range(1, len(rows)):
         before, after = rows[i - 1]["step"], rows[i]["step"]
         if after > before:
             continue
-        prior = [s for s in checkpoints if s < before or s == before]
-        from_ckpt = (after - 1) in checkpoints or (after == 1 and not prior)
+        prior = [s for s in checkpoints if s <= before]
+        if after == 1:
+            verdict = "RESTARTED-FROM-SCRATCH" if prior else "RESTARTED-NO-CHECKPOINT"
+        elif any(s < after for s in prior):
+            verdict = "RESUMED"
+        else:
+            verdict = "UNEXPLAINED-JUMP-BACK"
         found.append({"died_at": before, "resumed_at": after, "lost_steps": before - after + 1,
-                      "from_checkpoint": bool(from_ckpt),
-                      "verdict": "RESUMED" if from_ckpt else "RESTARTED-FROM-SCRATCH"})
+                      "from_checkpoint": verdict == "RESUMED", "verdict": verdict})
     return found
+
+
+#: Restart verdicts that want a human. ``RESTARTED-NO-CHECKPOINT`` is not one: the run went back
+#: to 1 with nothing on disk to resume from, so nothing recoverable was thrown away.
+BAD_RESTARTS = ("RESTARTED-FROM-SCRATCH", "UNEXPLAINED-JUMP-BACK")
 
 
 def lr_check(out: Path, rows: list) -> dict:
@@ -132,18 +148,25 @@ def lr_check(out: Path, rows: list) -> dict:
 
 
 def supervisor_restarts(out: Path) -> int:
-    """How many times the supervisor relaunched the world, from its own log.
+    """How many times the world was relaunched, from the supervisor's own log.
 
-    The history's backward jumps miss one case: a rank that died on the very step a checkpoint
-    was written resumes at that step plus one and leaves a perfectly monotonic history. So the
+    Every ``[sup] launching`` line is one launch of the world and the first one is not a
+    restart, so the count is the lines minus one. Counting only the lines the supervisor
+    numbered ``(restart N>0)`` missed a whole class: a host reset kills the supervisor too, and
+    the process that replaces it logs ``(restart 0)``. qb2 did that twice inside 25 minutes on
+    2026-09-19 and this counter read zero.
+
+    The history's backward jumps miss the other case: a rank that died on the very step a
+    checkpoint was written resumes at that step plus one and leaves a monotonic history. So the
     log is the count and the jumps are the diagnosis -- the jumps say whether each restart
     RESUMED or threw the run away, which is the thing no counter can tell you.
     """
     log = out / "logs" / "supervisor.log"
     if not log.is_file():
         return 0
-    return sum(1 for line in log.read_text().splitlines()
-               if "[sup] launching" in line and "(restart 0)" not in line)
+    launches = sum(1 for line in log.read_text(errors="replace").splitlines()
+                   if "[sup] launching" in line)
+    return max(launches - 1, 0)
 
 
 def rate(rows: list, window_s: float) -> tuple:
@@ -171,6 +194,7 @@ def main() -> int:
     ap.add_argument("--window-minutes", type=float, default=60.0)
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
+    from tt_bio.train import deadline as deadline_mod
     out = Path(args.out)
     now = time.time()
 
@@ -245,8 +269,11 @@ def main() -> int:
         verdict = "COMPLETE"
     elif rec and deadline_mod.remaining(out, now=now) <= 0:
         verdict = "CAP-REACHED"
-    elif any(r["verdict"] == "RESTARTED-FROM-SCRATCH" for r in res):
-        verdict, incident = "INCIDENT", "a restart did not resume: the run began again at step 1"
+    elif [r for r in res if r["verdict"] in BAD_RESTARTS]:
+        bad = [r for r in res if r["verdict"] in BAD_RESTARTS][0]
+        verdict, incident = "INCIDENT", (
+            f"a restart did not resume: the run died at step {bad['died_at']} and came back at "
+            f"step {bad['resumed_at']}, which is not past any checkpoint on disk")
     elif agree is False:
         verdict, incident = "INCIDENT", "the ranks' master digests disagree"
     elif since is not None and since > args.stall_minutes * 60.0:
@@ -295,5 +322,22 @@ def _emit(state: dict, as_json: bool) -> None:
           f"alive={state['supervisor']['alive']}")
 
 
+def _cli() -> int:
+    """``main`` plus the one rule the runbook rests on: the instrument's own death is not a verdict.
+
+    Anything this script fails at -- a missing dependency, a repo import, an unreadable run
+    directory -- exits 2, so 1 keeps meaning *the run needs a human*.
+    """
+    try:
+        return main()
+    except SystemExit as e:  # argparse usage errors already mean "the instrument was misused"
+        return 2 if e.code else 0
+    except BaseException:
+        traceback.print_exc()
+        print("HEARTBEAT: BROKEN  the heartbeat itself failed and says nothing about the run",
+              file=sys.stderr)
+        return 2
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_cli())

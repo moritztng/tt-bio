@@ -1,0 +1,52 @@
+# heartbeat repair + curve reader, train-i-run pass 4, 2026-09-19
+
+## The latched verdict, before the repair (captured 04:47Z, run at step 736)
+cat: /tmp/hb_before.txt: No such file or directory
+
+## After: same run directory, same data, nothing in the history edited
+HEARTBEAT: LIVE  runs/base-loss
+  step 742, 5.2s ago, 17.033s/step over 212 samples
+  master digest 974d8d682a3a9c0b, ranks agree: True
+  lr 0.0004846095559400958, grad norm 0.3311837315559387 (schedule OK on 256 rows)
+  resumes survived 3 (2 in the supervisor log)
+    RESUMED died@552 -> 552 (lost 1)
+    RESUMED died@692 -> 684 (lost 9)
+    RESUMED died@739 -> 684 (lost 56)
+  checkpoints 3, latest step 683
+  grant 116.82 h left, projected step at cap 25431
+  supervisor pid 11990 alive=True
+exit=0
+
+## The instrument failing is exit 2, not exit 1 (system interpreter, no numpy)
+ModuleNotFoundError: No module named 'numpy'
+HEARTBEAT: BROKEN  the heartbeat itself failed and says nothing about the run
+
+## The curve reader, on the leg so far
+CURVE  runs/base-loss rank 0
+  steps 1..742, 742 distinct from 808 rows (66 replayed)
+  cadence 13.249 s/step mean, 12.408 median, 15.392 p90, 48.644 max, n=737
+  restart gaps excluded from it: 1, 27.1 min of grant
+  restart: died@552 -> 552, 1 steps redone, 35.3 s
+  restart: died@692 -> 684, 9 steps redone, 389.7 s
+  restart: died@739 -> 684, 56 steps redone, 333.8 s
+  replayed steps 66, 1 DISAGREE
+    step 552: loss 5.232002258300781 vs 5.232002258300781, digest 9b9ea53730052005da2d7cbd65a8ee8e vs 1266e7c3941b3b9ed1b8ab7c6d47d15b
+  loss 4.713202 -> 5.303143, lr 0.0004846095559400958
+  realized 15.431 s/step end to end, every restart charged to it
+  grant 116.82 h left, projected step at cap 32483 at the clean cadence, 27994 at the realized rate
+         steps         loss           lr    grad_norm fape_backbone fape_sidechain final_backbone   renamed_gt supervised_chi
+  1-62          5.22608                               0.713405     0.522215     0.155147       0.2489     0.113498
+  63-124         5.22887                               0.611608      0.52344     0.152927     0.223055     0.134765
+  125-186         5.21558                               0.510761     0.514515    0.0718839     0.197642     0.102623
+  187-248         5.21522                                0.95349     0.519923     0.196818     0.282942     0.147685
+  249-310          5.2185                                0.73785     0.514921     0.139761     0.233855     0.117471
+  311-371         5.24117                               0.677107     0.518538     0.145667     0.244859      0.15742
+  372-433         5.22443                               0.392845     0.512084     0.057421     0.186831    0.0947065
+  434-495         5.22833                               0.390106     0.512565    0.0575323     0.188619    0.0889468
+  496-557         5.23071  0.000491373     0.227862     0.667213     0.520552     0.131223     0.247555     0.088579
+  558-619         5.22698  0.000490279     0.227204     0.662668     0.521561     0.113168     0.238021     0.117179
+  620-681         5.21583  0.000488139     0.205416     0.891715     0.527329     0.240229     0.276723     0.143834
+  682-742         5.21312  0.000485811     0.191955     0.581202     0.525351     0.116769     0.223141      0.13209
+
+## AICLK, 40 samples per node from sysfs DURING the run, 04:56-05:00Z
+node 2: 1350 MHz x40   node 3: 1350 MHz x40   (median=min=max=1350)
