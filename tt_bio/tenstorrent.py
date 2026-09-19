@@ -1871,7 +1871,17 @@ def _tri_att_sdpa_inner(q, k, v, bias, scale: float, ckc=None):
 #
 # NOT bit-exact -- k_chunk sets the online-softmax reduction order -- so the accuracy arm is the
 # fold's own structure and confidence, not a digest. See docs/sdpa-wide-k-parity.md.
-_SDPA_WIDE_K_DEFAULT = False
+#
+# ON by default. The ladder is neutral-by-construction where it does not fire: at every padded
+# length whose q guard refuses, both arms run the same pick and the output is bit-identical. Where
+# it does fire it is 1.27x-4.39x on the op and 1.1285x on Protenix-v2's trunk stage (120.0 -> 106.3
+# s at padded 704, 1208 calls served, zero fall-backs). The deviation it costs is 0.060-0.146 A on
+# a 686-residue chain against a 3.69-7.28 A seed spread, and pLDDT 0.0001 against a seed-to-seed
+# 0.0041. Protenix-v2 is bit-deterministic at a fixed seed on this path, so that deviation sits
+# above a zero floor rather than inside one -- which is why this was held opt-in until the accuracy
+# policy was read the right way round: the bar is accuracy, not bit-exactness, and 25x inside the
+# smallest seed control clears it.  restores the old pick exactly.
+_SDPA_WIDE_K_DEFAULT = True
 
 
 def _sdpa_wide_k() -> bool:

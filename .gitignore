@@ -143,3 +143,7 @@ perf/c14_gate_256/out/*.jsonl
 
 # Release-gate arm journal: one host's run history, not tree content (scripts/gate_journal.py)
 perf/gate_journal/
+
+# pvx-land: gate transcripts and run scratch
+perf/pvx_land/gate.log
+perf/pvx_land/*.json
