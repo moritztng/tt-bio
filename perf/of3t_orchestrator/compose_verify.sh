@@ -15,7 +15,10 @@
 # It does NOT verify behaviour: on a host without ttnn no test executes. Say so when reporting.
 set -euo pipefail
 
-ROWS="reference tape equivalence data perf memory"
+# A row is listed here from the moment it is dispatched, not from its first push, so a new row
+# cannot be silently left out of the composition. Rows with no branch yet are skipped with a line
+# saying so -- silence would be the bug.
+ROWS="reference tape equivalence data perf memory confidence"
 SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a shared /tmp name
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
@@ -28,21 +31,27 @@ git worktree add -q "$CO" wk/of3t
 git worktree add -q --detach "$BASE" origin/main
 
 cd "$CO"
+PRESENT=""
 for r in $ROWS; do
-  git merge --no-edit -q "origin/wk/of3t-$r" || { echo "CONFLICT merging of3t-$r:"; \
-    git diff --name-only --diff-filter=U; exit 1; }
+  if git rev-parse --verify -q "origin/wk/of3t-$r" >/dev/null; then
+    git merge --no-edit -q "origin/wk/of3t-$r" || { echo "CONFLICT merging of3t-$r:"; \
+      git diff --name-only --diff-filter=U; exit 1; }
+    PRESENT="$PRESENT $r"
+  else
+    echo "of3t-$r: dispatched but has not pushed a branch yet, skipped"
+  fi
 done
 git merge --no-edit -q wk/of3t-orchestrator || true
 
 # (1) ancestry, asserted AFTER the merges
-for r in $ROWS; do
+for r in $PRESENT; do
   git merge-base --is-ancestor "origin/wk/of3t-$r" HEAD \
     || { echo "of3t-$r is NOT in the composition -- it advanced mid-compose; rerun"; exit 1; }
 done
-echo "ancestry: all 6 rows in $(git rev-parse --short HEAD), $(git rev-list --count origin/main..HEAD) ahead of main"
+echo "ancestry:$(echo $PRESENT | wc -w) of $(echo $ROWS | wc -w) rows in $(git rev-parse --short HEAD), $(git rev-list --count origin/main..HEAD) ahead of main"
 
 # (1b) the ownership claim: no two row branches may touch the same file
-dup=$(for r in $ROWS; do git diff --name-only "origin/main...origin/wk/of3t-$r"; done \
+dup=$(for r in $PRESENT; do git diff --name-only "origin/main...origin/wk/of3t-$r"; done \
       | sort | uniq -d)
 [ -z "$dup" ] && echo "ownership: disjoint, 0 files touched by more than one row" \
               || { echo "OWNERSHIP COLLISION:"; echo "$dup"; exit 1; }
@@ -61,6 +70,15 @@ diff -q "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt" >/dev/null \
   && echo "error sets: IDENTICAL -- no new import breakage" \
   || { echo "NEW IMPORT BREAKAGE:"; diff "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt"; exit 1; }
 echo "NOTE: no test EXECUTED -- without ttnn everything errors on extras or skips. Behaviour unverified."
+
+# (2b) a reference to a file that does not exist. Composing found exactly this in NOTICE last
+# pass, on a branch that looked fine alone, so it is a standing check rather than a one-off.
+missing=""
+for d in $(git diff origin/main...HEAD | grep -oE 'docs/[a-z0-9_-]+\.md' | sort -u); do
+  [ -f "$d" ] || missing="$missing $d"
+done
+[ -z "$missing" ] && echo "doc refs: every docs/*.md the diff mentions exists" \
+                  || { echo "DANGLING DOC REFERENCE:$missing"; exit 1; }
 
 # (3) recompute the CPU-only instruments
 for i in instrument_b_lr instrument_c_optim; do
