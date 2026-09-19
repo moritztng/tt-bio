@@ -7088,6 +7088,15 @@ _MM_BLOCK = {
     # ... and with the one-tile pair-bias projection on the end of it, so the normed pair tensor
     # is read once instead of three times (`triatt_qkv.qkvgb_heads`). Same K_block again.
     (4, 17): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv+gate+bias at c_z=128
+    # The same two fused keys at c_z=256, which is protenix-v2's and esmfold2's tri-attention
+    # width. Their separate (8, 24) qkv and (8, 8) gate entries have shipped since c9bfcaef, but
+    # the fused pair was only ever added at kt=4, so `_qkv_mm_config` returned None for the
+    # concatenated weight and `qkvg_heads` declined 1208 of 1208 protenix-v2 calls per 512 aa fold
+    # while boltz2 served 560 of 560 (perf/pvx_eligibility/out/). Same K_block = kt = 8 = the whole
+    # contraction as the two entries it fuses, so every output element is accumulated in the order
+    # the two separate matmuls accumulate it today.
+    (8, 32): (4, 8, 1, 4, 1),   # protenix-v2 / esmfold2 qkv+gate      at c_z=256
+    (8, 33): (4, 8, 1, 4, 1),   # protenix-v2 / esmfold2 qkv+gate+bias at c_z=256
     (2, 12): (4, 2, 1, 4, 1),   # openfold3 qkv            at c_z=64
     (2, 2): (4, 2, 1, 4, 1),    # openfold3 gate           at c_z=64
     # opendde tri-att at c_z=384. These two are NOT bit-exact -- K_block = 12 folds the contraction
