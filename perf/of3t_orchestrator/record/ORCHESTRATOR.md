@@ -529,12 +529,12 @@ PASS 79. **The verification only ever ran for one person on one machine, and not
 so.** Every check reading the campaign's record — GAP against DEFECTS, the summary figures,
 D20's shares, the amendment count — resolved an **absolute path into a gitignored state dir on
 pc**. On any other machine they simply do not appear and the summary still says "confirmed":
-**fewer checks, same word.** *"141 confirmed" looks exactly like "146 confirmed" to someone who
+**fewer checks, same word.** *"141 confirmed" looks exactly like "147 confirmed" to someone who
 has never seen 146.*
 
 They now resolve authoritative-source-first and fall back to the copies the compose publishes
 into the branch, with the state doc joining the record so the summary checks have something to
-read — and **the fallback is announced**: a reviewer gets **146 confirmed, 2 warnings**, one
+read — and **the fallback is announced**: a reviewer gets **147 confirmed, 2 warnings**, one
 naming the documents read from the copy and one saying the concluded-row count reads a
 directory that exists only on my host and **DID NOT RUN — it is not a pass**. Verified by
 simulating a reviewer: deny the state dir entirely, run the audit from the composition.
