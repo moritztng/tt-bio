@@ -91,7 +91,7 @@ def sample_digest(sample: dict) -> tuple[str, list[tuple[str, str, str]]]:
     return h.hexdigest(), rows
 
 
-def build_dataset(pkg: str, data_dir: Path, n_templates: int):
+def build_dataset(pkg: str, data_dir: Path, n_templates: int, token_budget: int | None = None):
     """Instantiate their ValidationPDBDataset over the pinned subset."""
     validation = importlib.import_module(f"{pkg}.core.data.framework.single_datasets.validation")
     dataset_configs = importlib.import_module(f"{pkg}.projects.of3_all_atom.config.dataset_configs")
@@ -128,7 +128,24 @@ def build_dataset(pkg: str, data_dir: Path, n_templates: int):
         dataset_paths=dataset_configs.TrainingDatasetPaths(**paths),
         msa={"subsample_main": False},
         template={"n_templates": n_templates, "take_top_k": True},
-        crop={"token_crop": {"enabled": False}},
+        crop=(
+            {"token_crop": {"enabled": False}}
+            if token_budget is None
+            # The training stages crop to 384 / 640 / 768. Cropping is the stochastic
+            # step the seed has to control, so it is worth digesting on its own.
+            else {
+                "token_crop": {
+                    "enabled": True,
+                    "token_budget": token_budget,
+                    "crop_weights": {
+                        "contiguous": 0.2,
+                        "spatial": 0.4,
+                        "spatial_interface": 0.4,
+                    },
+                },
+                "chain_crop": {"enabled": True},
+            }
+        ),
     )
     return validation.ValidationPDBDataset(cfg)
 
@@ -169,12 +186,14 @@ def main() -> int:
     ap.add_argument("--n", type=int, default=4, help="Samples to draw (default: all 4).")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--n-templates", type=int, default=4)
+    ap.add_argument("--token-budget", type=int, default=None,
+                    help="Enable token cropping to this budget (384/640/768 upstream).")
     ap.add_argument("--json", type=Path, default=None)
     ap.add_argument("--per-feature", action="store_true")
     args = ap.parse_args()
 
     seed_everything(args.seed)
-    ds = build_dataset(args.package, args.data_dir, args.n_templates)
+    ds = build_dataset(args.package, args.data_dir, args.n_templates, args.token_budget)
     print(f"package {args.package}   dataset {type(ds).__name__}   len {len(ds)}   seed {args.seed}")
 
     guard = install_retry_guard(ds)
