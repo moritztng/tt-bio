@@ -490,7 +490,9 @@ def _v_chunk(shipped, args, kwargs):
     that reads only some of the blocks -- which the row-chunked transition does, one
     block at a time -- contributes only those, and the fan-in sum does the rest."""
     x = _wrap(args[0])
-    n = int(kwargs.get("chunks", args[1]))
+    #  must not be evaluated when  arrives as a keyword, which is how
+    # the trimul calls it (tenstorrent.py:6659).
+    n = int(kwargs["chunks"] if "chunks" in kwargs else args[1])
     dim = int(kwargs.get("dim", args[2] if len(args) > 2 else 0))
     shape = [int(d) for d in x.value.shape]
     ax = _axis(dim, len(shape))

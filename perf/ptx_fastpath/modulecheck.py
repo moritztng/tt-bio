@@ -91,7 +91,8 @@ def triangle_attention_module(tt, ttnn, dev, c_z, heads, head_dim, rng):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--module", default="triangle_attention",
-                    choices=("triangle_attention", "transition"))
+                    choices=("triangle_attention", "transition",
+                             "triangle_multiplication", "pairformer_layer"))
     ap.add_argument("--tokens", type=int, default=64)
     ap.add_argument("--c-z", type=int, default=128)
     ap.add_argument("--heads", type=int, default=4)
@@ -108,21 +109,87 @@ def main():
     dev = tt.get_device()
     D = lambda x: ttnn.from_torch(x.to(torch.bfloat16), dtype=ttnn.bfloat16,
                                   layout=ttnn.TILE_LAYOUT, device=dev)
-    if a.module == "transition":
+    def trimul_weights(c_z, hidden, rng):
+        t = lambda *sh: torch.tensor(rng.standard_normal(sh) / math.sqrt(sh[-1]),
+                                     dtype=torch.float32)
+        return {"norm_in.weight": torch.tensor(rng.standard_normal(c_z) * 0.2 + 1.0,
+                                               dtype=torch.float32),
+                "norm_in.bias": torch.tensor(rng.standard_normal(c_z) * 0.05,
+                                             dtype=torch.float32),
+                "norm_out.weight": torch.tensor(rng.standard_normal(hidden) * 0.2 + 1.0,
+                                                dtype=torch.float32),
+                "norm_out.bias": torch.tensor(rng.standard_normal(hidden) * 0.05,
+                                              dtype=torch.float32),
+                "g_in.weight": t(2 * hidden, c_z), "p_in.weight": t(2 * hidden, c_z),
+                "g_out.weight": t(c_z, c_z), "p_out.weight": t(c_z, hidden)}
+
+    def triatt_weights(c_z, heads, head_dim, rng):
+        t = lambda *sh: torch.tensor(rng.standard_normal(sh) / math.sqrt(sh[-1]),
+                                     dtype=torch.float32)
+        return {"layer_norm.weight": torch.tensor(rng.standard_normal(c_z) * 0.2 + 1.0,
+                                                  dtype=torch.float32),
+                "layer_norm.bias": torch.tensor(rng.standard_normal(c_z) * 0.05,
+                                                dtype=torch.float32),
+                "linear_q.weight": t(heads * head_dim, c_z),
+                "linear_k.weight": t(heads * head_dim, c_z),
+                "linear_v.weight": t(heads * head_dim, c_z),
+                "linear_g.weight": t(heads * head_dim, c_z),
+                "linear_o.weight": t(c_z, heads * head_dim),
+                "linear.weight": t(heads, c_z)}
+
+    def transition_weights(c_z, hidden, rng):
+        t = lambda *sh: torch.tensor(rng.standard_normal(sh) / math.sqrt(sh[-1]),
+                                     dtype=torch.float32)
+        return {"norm.weight": torch.tensor(rng.standard_normal(c_z) * 0.3 + 1.0,
+                                            dtype=torch.float32),
+                "norm.bias": torch.tensor(rng.standard_normal(c_z) * 0.1,
+                                          dtype=torch.float32),
+                "fc1.weight": t(hidden, c_z), "fc2.weight": t(hidden, c_z),
+                "fc3.weight": t(c_z, hidden)}
+
+    if a.module == "pairformer_layer":
+        # The module the brief names. transform_s=False runs the z track: two triangle
+        # multiplications, two triangle attentions and the transition, with the four
+        # residual `add_`s and the deallocates between them -- the composition, not the
+        # parts. AttentionPairBias needs a single-track input and is checked separately.
+        hidden = c_z
+        sd = {}
+        for scope, w in (("tri_mul_out", trimul_weights(c_z, hidden, rng)),
+                         ("tri_mul_in", trimul_weights(c_z, hidden, rng)),
+                         ("transition_z", transition_weights(c_z, 4 * c_z, rng))):
+            sd.update({f"{scope}.{k}": v for k, v in w.items()})
+        for scope in ("tri_att_start", "tri_att_end"):
+            sd.update({f"{scope}.mha.{k}": v
+                       for k, v in triatt_weights(c_z, a.heads, a.head_dim, rng).items()})
+        cls = (ttnn.types.WormholeComputeKernelConfig if dev.arch() == ttnn.Arch.WORMHOLE_B0
+               else ttnn.types.BlackholeComputeKernelConfig)
+        layer = tt.PairformerLayer(
+            a.head_dim, a.heads, None, None, False, sd,
+            cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                fp32_dest_acc_en=True, packer_l1_acc=True))
+
+        class ZOnly:
+            """`PairformerLayer` returns (s, z); the harness differentiates one output."""
+            def __call__(self, z):
+                return layer(None, z)[1]
+
+        module = ZOnly()
+    elif a.module == "triangle_multiplication":
+        # Four of the eleven fused-sigmoid gate sites live here (tenstorrent.py:6664,
+        # 6667, 6877, 6925), along with the trimul chunking, so it is the module most
+        # worth checking after the one that found the gate defect.
+        cls = (ttnn.types.WormholeComputeKernelConfig if dev.arch() == ttnn.Arch.WORMHOLE_B0
+               else ttnn.types.BlackholeComputeKernelConfig)
+        module = tt.TriangleMultiplication(
+            False, trimul_weights(c_z, c_z, rng), cls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                           fp32_dest_acc_en=True, packer_l1_acc=True))
+    elif a.module == "transition":
         # The CONTROL. This module's gradient is independently verified against a float64
         # reference at 5.5e-03 to 7.0e-03 by `shipped_gradcheck.py`, so if the finite
         # difference disagrees HERE the harness is what is wrong, not the gradient.
-        hidden = 4 * c_z
-        t = lambda *sh: torch.tensor(rng.standard_normal(sh) / math.sqrt(sh[-1]),
-                                     dtype=torch.float32)
-        sd = {"norm.weight": torch.tensor(rng.standard_normal(c_z) * 0.3 + 1.0,
-                                          dtype=torch.float32),
-              "norm.bias": torch.tensor(rng.standard_normal(c_z) * 0.1, dtype=torch.float32),
-              "fc1.weight": t(hidden, c_z), "fc2.weight": t(hidden, c_z),
-              "fc3.weight": t(c_z, hidden)}
         cls = (ttnn.types.WormholeComputeKernelConfig if dev.arch() == ttnn.Arch.WORMHOLE_B0
                else ttnn.types.BlackholeComputeKernelConfig)
-        module = tt.Transition(sd, cls(math_fidelity=ttnn.MathFidelity.HiFi4,
+        module = tt.Transition(transition_weights(c_z, 4 * c_z, rng), cls(math_fidelity=ttnn.MathFidelity.HiFi4,
                                        math_approx_mode=False, fp32_dest_acc_en=True,
                                        packer_l1_acc=True))
     else:
