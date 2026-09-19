@@ -76,7 +76,7 @@ def z_block(m, z, pair_mask):
 
 
 def forward(head, blocks, si_input, si_trunk, zij_trunk, repr_x, mask,
-            dtype=torch.float64):
+            dtype=torch.float64, round_to=None):
     """The whole confidence head in ``dtype``, returning the same dict as the device path."""
     head._dtype = dtype
     si_input, si_trunk = si_input.to(dtype), si_trunk.to(dtype)
@@ -93,10 +93,16 @@ def forward(head, blocks, si_input, si_trunk, zij_trunk, repr_x, mask,
     s = si_trunk
     zb = z.unsqueeze(0)
     pair = torch.ones(1, N, N, dtype=dtype)
+    # ``round_to`` keeps the arithmetic in float64 and rounds only the two activations
+    # that cross a block boundary. That isolates the REPRESENTATION of the pair and single
+    # tracks from everything else, which is what a control for "is this bf16's floor or
+    # ours" has to do -- running the whole reference in bf16 would also change every
+    # reduction and would not separate the two.
+    rnd = (lambda t: t.to(round_to).to(dtype)) if round_to is not None else (lambda t: t)
     with no_demotion():
         for i, m in enumerate(blocks):
-            zb = z_block(m, zb, pair)
-            s = head._host_s_block(s, zb[0], i)
+            zb = rnd(z_block(m, zb, pair))
+            s = rnd(head._host_s_block(s, zb[0], i))
     zc = zb[0]
     if zc.dtype != dtype or s.dtype != dtype:
         raise AssertionError(f"reference demoted to z={zc.dtype} s={s.dtype}, wanted {dtype}")
