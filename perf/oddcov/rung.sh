@@ -64,7 +64,7 @@ trap cleanup EXIT INT TERM
 # Pick the fattest child instead: the other one is the 3 MB resource tracker.
 worker() {
   for c in $(pgrep -P "$PID"); do
-    echo "$(awk {print } /proc/$c/statm 2>/dev/null || echo 0) $c"
+    echo "$(awk '{print $2}' /proc/$c/statm 2>/dev/null || echo 0) $c"
   done | sort -rn | head -1 | cut -d" " -f2
 }
 
