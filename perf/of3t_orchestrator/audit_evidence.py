@@ -113,6 +113,27 @@ if d:
     check("trajectory N", d["N"], 20)
     check("trajectory verdict", d["verdict"], "PASS")
 
+# --- CROSS-INSTRUMENT CONSISTENCY -----------------------------------------------------------
+# Each instrument can be internally correct and still disagree with its neighbour about a fact
+# both depend on. Nothing in this campaign caught instrument B configuring OF3's schedule at
+# max_lr 1e-3 while instrument C drove the optimizer at 1.8e-3, because each passed on its own.
+# Upstream settles it: `runner.py:863` builds the scheduler with
+# `max_lr=optimizer_config.learning_rate`, so the two are THE SAME NUMBER by construction and
+# any instrument pair that disagrees has one of them wrong.
+b = j("perf/of3t_equivalence/instrument_b_lr.json")
+c = j("perf/of3t_equivalence/instrument_c_optim.json")
+if b and c:
+    b_lr = b.get("configs", {}).get("of3_defaults", {}).get("config", {}).get("max_lr")
+    c_lr = c.get("their_config", {}).get("learning_rate")
+    if b_lr == c_lr:
+        ok.append(f"cross-instrument lr agrees: B max_lr == C lr == {b_lr}")
+    else:
+        bad.append(f"cross-instrument lr DISAGREES: instrument B's 'of3_defaults' max_lr is "
+                   f"{b_lr} while instrument C drives the optimizer at {c_lr}. Upstream ties "
+                   f"them (runner.py:863, max_lr=optimizer_config.learning_rate), so one is "
+                   f"wrong -- 1e-3 is the scheduler's Python signature default, not what OF3 "
+                   f"ships")
+
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
 for line in ok:
     print(f"  ok    {line}")

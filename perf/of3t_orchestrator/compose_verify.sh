@@ -77,7 +77,12 @@ done
 #   tt_bio/tenstorrent.py: of3t-leaves owns the weight-discovery seam on `Module` (~5857-5890);
 #   of3t-confidence owns the confidence path's `PairformerLayer`/`Pairformer` plumbing
 #   (~8764-8953). ~2900 lines apart, different classes, verified 2026-09-19 pass 6.
-ALLOWED_COEDIT="tt_bio/tenstorrent.py"
+#   perf/of3t_equivalence/instrument_b_lr.{py,json}: of3t-equivalence wrote it and has
+#   CONCLUDED; of3t-orchestrator corrected its `of3_defaults` arm from the scheduler's Python
+#   signature default 1e-3 to OpenFold3's shipped 1.8e-3 after the cross-instrument audit caught
+#   instruments B and C disagreeing about the same number. A concluded row cannot fix its own
+#   artifact, so ownership transferred rather than being shared. Declared 2026-09-19 pass 12.
+ALLOWED_COEDIT="tt_bio/tenstorrent.py perf/of3t_equivalence/instrument_b_lr.py perf/of3t_equivalence/instrument_b_lr.json"
 
 dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
 for a in $ALLOWED_COEDIT; do
