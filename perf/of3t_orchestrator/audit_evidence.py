@@ -275,6 +275,39 @@ if d:
         bad.append("D14's one-ulp control no longer fails -- a gate nobody has watched fail is "
                    "not a gate, and the bit-identity result leans on this one discriminating")
 
+# --- the pre-registered targets for the rebuilt reference ----------------------------------
+# `of3t-gradients` banked what `of3t-reference`'s A100 rebuild should produce, BEFORE it
+# existed. A prediction is only worth anything if it is still the same prediction when the
+# result lands, so it is read from the artifact here rather than quoted from a brief -- and
+# EVIDENCE must carry the same three numbers.
+d = j("perf/of3t_gradients/capture_trunk_boundary_nodropout.json")
+if d:
+    close("pre-registered loss at r=0", d["breakdown"]["loss"], 1.6311432393241485, tol=1e-12)
+    close("pre-registered global norm at r=0", d["global_norm_here"], 3.7278454543745516,
+          tol=1e-12)
+    check("pre-registered non-zero tensors", d["n_nonzero_here"], 4138)
+    # The r=0 vs published-r=0.25 spread is quoted as EXPECTED evidence, not as a regression.
+    # If it ever collapses toward zero, the dropout story changes and the row should be re-read.
+    _cv = d.get("capture_vs_bundle", {})
+    _w = [v["worst_rel"] for v in _cv.values() if isinstance(v, dict)]
+    if _w and min(_w) > 1.0:
+        ok.append(f"r=0 vs the published r=0.25 gradient spans {min(_w):.3f}-{max(_w):.3f} "
+                  f"worst rel across {len(_w)} blocks -- the dropout-floor order, as expected")
+    else:
+        bad.append(f"the r=0 / r=0.25 spread has collapsed ({_w}) -- EVIDENCE reads that "
+                   f"spread as evidence of two different functions, and that reading depends "
+                   f"on it being the same order as the dropout floor")
+    _ev = Path("/home/moritz/.coworker/state/of3t/EVIDENCE.md")
+    if _ev.is_file():
+        _txt = _ev.read_text()
+        _missing = [s for s in ("1.631143239324149", "3.727845454375", "4,138 of 4,147")
+                    if s not in _txt]
+        if _missing:
+            bad.append(f"EVIDENCE does not quote the pre-registered targets {_missing} -- a "
+                       f"prediction nobody can find is not a prediction")
+        else:
+            ok.append("EVIDENCE quotes all three pre-registered rebuild targets")
+
 # --- one SS3b presence answer, not two -----------------------------------------------------
 # Two committed artifacts from the same row state how many of their 4,147 gradient-carrying
 # tensors we can carry, and on 2026-09-19 they disagreed by 48: `full_model_of3_full_mat64`
