@@ -229,6 +229,33 @@ if d:
                    "instrument can speak for the gradient's magnitude, and that sentence is "
                    "built on the trunk holding ~5 % of it")
 
+# --- the two sides at crop 384, recomputed so the ratio cannot drift -----------------------
+# The scoreboard quotes 870.75 s against 7-8 s and calls the comparison flattering to TT. The
+# TT half is arithmetic on an artifact; recompute it, and assert the scope fields the caveat
+# depends on -- one cycle, and the clock sampled DURING. If either changes, the sentence about
+# what is and is not being compared stops being true.
+_t384 = j("perf/of3t_l1/out/r3_384.json")
+if _t384:
+    _f, _b = _t384["forward"], _t384["backward"]
+    _tot = (_f.get("s") or 0) + (_b.get("s") or 0)
+    close("TT crop-384 trunk cycle, forward+backward seconds", _tot, 870.75, tol=1e-3)
+    check("TT crop-384 ran ONE trunk cycle (num_recycles 0)", _f.get("cycles"), 1)
+    _clk = _t384.get("env", {}).get("aiclk_during", {}).get("0", {})
+    if _clk.get("median") and _clk.get("n", 0) >= 100:
+        ok.append(f"TT crop-384 AICLK median {_clk['median']} MHz over {_clk['n']} samples "
+                  f"polled DURING")
+    else:
+        bad.append("TT crop-384 has no DURING-sampled clock with enough samples -- PROTOCOL "
+                   "4a makes a timing figure without its clock not a figure")
+    # The ratio is quoted as ~116x. It is a ratio between DIFFERENT amounts of work and the
+    # scoreboard says so; what must not drift is the number the sentence is built on.
+    _ratio = _tot / 7.5
+    if 100 <= _ratio <= 130:
+        ok.append(f"crop-384 cross-stack ratio {_ratio:.0f}x (TT trunk cycle vs GPU full step) "
+                  f"-- quoted as ~116x, and as favourable to TT")
+    else:
+        bad.append(f"the crop-384 ratio is now {_ratio:.0f}x, not ~116x")
+
 # --- D14's crop ladder, CLOSED at 384 (pass 51) ---------------------------------------------
 # The r2_* rungs are kept as history; r3_* is the ladder that decides the defect. 384's
 # backward fell 32.370 -> 17.983 GB and now completes, which is the whole claim, so the PASS
