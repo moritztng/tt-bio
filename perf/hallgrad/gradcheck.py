@@ -25,89 +25,24 @@ import argparse
 import math
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
 import torch
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+# `metrics` and `fd_check` live in the shipped package, not here. They were copied into
+# `tt_bio/train/checks.py` when the training stack landed and the two drifted apart in wording
+# while staying bit-identical in behaviour -- checked over all 26 reference cases and 200 random
+# metric pairs before this import replaced the copy. Two copies of the arithmetic that decides
+# whether a gradient is right is how a tightened resolution floor lands in one and not the
+# other, which is the same disease as two tapes.
+from tt_bio.train.checks import case_rng, fd_check, metrics  # noqa: E402
+
 REL_L2_BAR = 1.0e-2
 COS_BAR = 0.9999
 BF16_FLOOR = math.sqrt(2.0) * 2.0 ** -9
-
-
-def metrics(got: np.ndarray, ref: np.ndarray) -> dict:
-    g, r = got.astype(np.float64).ravel(), ref.astype(np.float64).ravel()
-    diff = g - r
-    rn = np.linalg.norm(r)
-    big = np.abs(r) > 0.01 * np.abs(r).max() if r.size else np.zeros(0, bool)
-    return {
-        "rel_l2": float(np.linalg.norm(diff) / rn) if rn > 0 else float("nan"),
-        "max_abs": float(np.abs(diff).max()) if diff.size else 0.0,
-        "max_rel": float((np.abs(diff[big]) / np.abs(r[big])).max()) if big.any() else 0.0,
-        "cos": float(g @ r / (np.linalg.norm(g) * rn)) if rn > 0 and np.linalg.norm(g) > 0 else 0.0,
-    }
-
-
-def fd_check(loss_fn, params, n_probe=40, h=1e-5, seed=0, mag_floor=1e-6):
-    """Central differences in float64 against torch's float64 analytic gradient.
-
-    This validates the REFERENCE, so it runs entirely in float64 and never touches a device.
-
-    Only coordinates carrying real signal are probed. A central difference can resolve a
-    component only if its contribution to the loss clears float64 roundoff on the loss
-    itself: |dL/dx| * 2h has to beat eps * |L| ~= 2e-16 * |L|, so with h = 1e-5 anything
-    below ~1e-11 * |L| is measuring roundoff rather than a gradient. Softmax is what forces
-    this: a peaked row has components at 1e-12 and probing them returns pure cancellation
-    noise. Coordinates under ``mag_floor`` times the largest analytic component are skipped
-    and the eligible count is returned, so the skipping is visible in the output rather
-    than buried in a tolerance.
-
-    Returns (worst relative disagreement, coordinates probed, coordinates eligible).
-    """
-    rng = np.random.default_rng(seed)
-    for p in params:
-        if p.grad is not None:
-            p.grad = None
-    loss = loss_fn()
-    loss.backward()
-    # The resolution floor, derived rather than tuned: a central difference recovers
-    # |dL/dx| * 2h, and the loss itself is only known to eps * |L|. Demand 1e4 of margin
-    # over that so the probe reads gradient and not float64 roundoff.
-    resolution_floor = 1.0e4 * 2.22e-16 * abs(loss.item()) / (2.0 * h)
-    worst, probed, eligible = 0.0, 0, 0
-    for p in params:
-        flat = p.detach().reshape(-1)
-        ana = p.grad.detach().reshape(-1).clone()
-        scale = ana.abs().max().item()
-        if scale == 0.0:
-            continue
-        floor = max(mag_floor * scale, resolution_floor)
-        ok = (ana.abs() >= floor).nonzero().reshape(-1).numpy()
-        eligible += int(ok.size)
-        if ok.size == 0:
-            continue
-        idx = rng.choice(ok, size=min(n_probe, ok.size), replace=False)
-        for i in idx:
-            i = int(i)
-            orig = flat[i].item()
-            with torch.no_grad():
-                flat[i] = orig + h
-            lp = loss_fn().item()
-            with torch.no_grad():
-                flat[i] = orig - h
-            lm = loss_fn().item()
-            with torch.no_grad():
-                flat[i] = orig
-            num = (lp - lm) / (2.0 * h)
-            a = ana[i].item()
-            # Scaled by the gradient's own magnitude, not by this element's. A per-element
-            # ratio is dominated by whichever probed coordinate is smallest -- its finite
-            # difference is a difference of two nearly equal float64 loss values, so its
-            # relative noise blows up while its absolute contribution stays negligible.
-            # The question being asked is whether the reference agrees with finite
-            # differences to within a small fraction of the gradient it reports.
-            worst = max(worst, abs(num - a) / scale)
-            probed += 1
-    return worst, probed, eligible
 
 
 # ---------------------------------------------------------------- cases
@@ -409,7 +344,7 @@ def main():
     for name in args.cases.split(","):
         # Seeded per case so `--cases softmax` gives the same inputs as `--cases a,b,softmax`.
         # Sharing one generator across cases made every number depend on the case list.
-        rng = np.random.default_rng([args.seed, abs(hash(name)) % (2 ** 31)])
+        rng = case_rng(args.seed, name)
         raw = CASES[name](rng)
         frozen = FROZEN.get(name, ())
         # Round to the device dtype FIRST, then upcast for the reference, so the comparison

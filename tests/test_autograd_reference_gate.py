@@ -40,6 +40,8 @@ def _load(name, relpath):
     return mod
 
 
+from tt_bio.train import checks as CK
+
 GC = _load("_gc_ref", "perf/hallgrad/gradcheck.py")
 GD = _load("_gd_ref", "perf/train_a1_defork/gradcheck_dispatch.py")
 
@@ -53,7 +55,7 @@ SITE_CASES = ["linear", "linear_nobias", "linear_silu", "linear_relu", "linear_s
 
 def _fd(build, forward, name, seed=7, frozen=()):
     """Central differences against torch's analytic float64 gradient. No device, ever."""
-    rng = np.random.default_rng([seed, abs(hash(name)) % (2 ** 31)])
+    rng = CK.case_rng(seed, name)
     raw = build(name, rng)
     ref = {k: torch.from_numpy(v).to(torch.float64).clone().requires_grad_(k not in frozen)
            for k, v in raw.items()}
@@ -135,3 +137,27 @@ def test_the_gate_can_fail(name, forward):
     assert probed > 0
     assert worst >= FD_BAR, (f"{name}: the injected backward defect passed at {worst:.2e}, so "
                              f"this gate cannot detect that class of error")
+
+
+def test_the_same_seed_gives_the_same_inputs_in_a_DIFFERENT_process():
+    """`--seed 7` has to mean one set of inputs, or a failing case cannot be re-run on it.
+
+    The harness used to seed each case from ``hash(name)``, which Python salts per process.
+    Within one process that reads correct -- the case list stops affecting the numbers, which
+    is what the seeding was for -- so nothing caught it. Across processes every recorded
+    gradcheck number was unreproducible. Two subprocesses, because one process cannot observe
+    its own hash salt.
+    """
+    import subprocess
+    prog = (
+        "import sys, json; sys.path.insert(0, %r);"
+        "from tt_bio.train.checks import case_rng;"
+        "print(json.dumps([case_rng(7, n).standard_normal(3).tolist()"
+        " for n in ('softmax','linear','triatt')]))" % str(REPO)
+    )
+    runs = [subprocess.run([sys.executable, "-c", prog], capture_output=True, text=True,
+                           check=True, env={"PATH": "/usr/bin:/bin", "PYTHONHASHSEED": s})
+            for s in ("0", "12345")]
+    a, b = (r.stdout.strip() for r in runs)
+    assert a == b, (f"case_rng depends on the hash salt: PYTHONHASHSEED=0 gave {a} and "
+                    f"PYTHONHASHSEED=12345 gave {b}")
