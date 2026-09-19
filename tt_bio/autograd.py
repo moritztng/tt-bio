@@ -241,6 +241,7 @@ def backward(roots, seeds=None) -> None:
     if len(seeds) != len(roots):
         raise ValueError(f"{len(roots)} roots but {len(seeds)} seeds")
     order = _reverse_topo(roots)
+    keep = {id(r) for r in roots}
     for r, sd in zip(roots, seeds):
         g = ttnn.ones_like(r.value) if sd is None else sd
         r.grad = g if r.grad is None else ttnn.add(r.grad, g)
@@ -264,6 +265,48 @@ def backward(roots, seeds=None) -> None:
             # place rather than one per verb: the dispatch point is where every closure gets
             # its gradient, so a verb added next week is covered without being asked.
             t.node.fn(_unshard(g))
+            if id(t) not in keep:
+                _retire(t)
+
+
+def _retire(t) -> None:
+    """Release an intermediate's value and gradient the moment its own closure has run.
+
+    The ordering this relies on is the one `_reverse_topo` already guarantees and `add_grad`
+    already depends on: every CONSUMER of a tensor runs before the tensor's own closure. So by
+    the time `backward` reaches `t`, every closure that could read `t.value` has read it and
+    `t.grad` has just been propagated to `t`'s parents. Nothing can want either again, and
+    holding them to the end of the tape is what made the backward's high-water the whole tape
+    instead of its live frontier. At crop 384 the taped backward peaked at 32.370 GB of a
+    34.22 GB card and was refused a 1 207 959 552 B buffer with the largest contiguous block
+    3.26 MB short (`perf/of3t_l1/out/r2_384.json`).
+
+    Three things are deliberately NOT retired.
+
+    A LEAF: `t.node is None` is exactly a parameter or a model input, and its gradient is what
+    the caller came for. This only ever runs inside the `t.node is not None` branch.
+
+    A ROOT: the caller may still read the output it seeded, so the roots are held by id.
+
+    A TENSOR SHARING STORAGE: `evictable` is false for it and `free` declines, unchanged.
+
+    `pinned` is cleared before the call because the pin means "a closure is live over this
+    value" and that closure has just run; left set, `free` would evict to DRAM rather than
+    release, which buys nothing at the point where the release is the whole objective. The
+    deallocate is direct rather than through `free`'s release branch because that branch also
+    tests `requires_grad`, which is true for every intermediate downstream of a weight -- and
+    clearing THAT flag instead would make a stray later `add_grad` drop its contribution
+    silently, where a dead buffer raises.
+    """
+    t.grad = None
+    if not t.evictable:
+        return
+    t.pinned = False
+    try:
+        if t.value.is_allocated():
+            ttnn.deallocate(t.value)
+    except Exception:                                        # noqa: BLE001
+        pass
 
 
 def _reverse_topo(roots) -> list:

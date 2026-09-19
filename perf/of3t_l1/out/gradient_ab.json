@@ -1,7 +1,7 @@
 {
  "a": {
-  "path": "/tmp/of3t/of3t-l1/grad_branch.pt",
-  "head": "fcab645a6fefc40b84002a65b6bc65b03bf2b45a",
+  "path": "/tmp/of3t/of3t-l1/grad_retire.pt",
+  "head": "3f13afe18cb39b2ead8c84fbc8d268d5878c2e40",
   "n_grads": 172
  },
  "b": {
@@ -44,5 +44,5 @@
  ],
  "verdict": "PASS",
  "host": "tt-quietbox2",
- "utc": "2026-09-19T16:03:01Z"
+ "utc": "2026-09-19T17:03:52Z"
 }
