@@ -1,0 +1,579 @@
+{
+  "host": "qb1c0",
+  "reps": 9,
+  "grid": [
+    11,
+    10
+  ],
+  "counters": "(back_kernel, gated_kernel, fwd_kernel) calls per trimul call",
+  "parity": [
+    {
+      "n": 256,
+      "mod": "start",
+      "arm": "back",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        0
+      ],
+      "calls_arm": [
+        0,
+        0,
+        0
+      ],
+      "fired": false
+    },
+    {
+      "n": 256,
+      "mod": "start",
+      "arm": "gated",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        0
+      ],
+      "calls_arm": [
+        0,
+        0,
+        0
+      ],
+      "fired": false
+    },
+    {
+      "n": 256,
+      "mod": "start",
+      "arm": "stack",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        0
+      ],
+      "calls_arm": [
+        0,
+        0,
+        0
+      ],
+      "fired": false
+    },
+    {
+      "n": 256,
+      "mod": "end",
+      "arm": "back",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        0
+      ],
+      "calls_arm": [
+        0,
+        0,
+        0
+      ],
+      "fired": false
+    },
+    {
+      "n": 256,
+      "mod": "end",
+      "arm": "gated",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        0
+      ],
+      "calls_arm": [
+        0,
+        0,
+        0
+      ],
+      "fired": false
+    },
+    {
+      "n": 256,
+      "mod": "end",
+      "arm": "stack",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        0
+      ],
+      "calls_arm": [
+        0,
+        0,
+        0
+      ],
+      "fired": false
+    },
+    {
+      "n": 288,
+      "mod": "start",
+      "arm": "back",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        10
+      ],
+      "calls_arm": [
+        4,
+        0,
+        8
+      ],
+      "fired": true
+    },
+    {
+      "n": 288,
+      "mod": "start",
+      "arm": "gated",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        10
+      ],
+      "calls_arm": [
+        0,
+        8,
+        0
+      ],
+      "fired": true
+    },
+    {
+      "n": 288,
+      "mod": "start",
+      "arm": "stack",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        10
+      ],
+      "calls_arm": [
+        4,
+        8,
+        0
+      ],
+      "fired": true
+    },
+    {
+      "n": 288,
+      "mod": "end",
+      "arm": "back",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        8
+      ],
+      "calls_arm": [
+        4,
+        0,
+        8
+      ],
+      "fired": true
+    },
+    {
+      "n": 288,
+      "mod": "end",
+      "arm": "gated",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        8
+      ],
+      "calls_arm": [
+        0,
+        8,
+        0
+      ],
+      "fired": true
+    },
+    {
+      "n": 288,
+      "mod": "end",
+      "arm": "stack",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        8
+      ],
+      "calls_arm": [
+        4,
+        8,
+        0
+      ],
+      "fired": true
+    },
+    {
+      "n": 320,
+      "mod": "start",
+      "arm": "back",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        8
+      ],
+      "calls_arm": [
+        4,
+        0,
+        8
+      ],
+      "fired": true
+    },
+    {
+      "n": 320,
+      "mod": "start",
+      "arm": "gated",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        8
+      ],
+      "calls_arm": [
+        0,
+        8,
+        0
+      ],
+      "fired": true
+    },
+    {
+      "n": 320,
+      "mod": "start",
+      "arm": "stack",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        8
+      ],
+      "calls_arm": [
+        4,
+        8,
+        0
+      ],
+      "fired": true
+    },
+    {
+      "n": 320,
+      "mod": "end",
+      "arm": "back",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        8
+      ],
+      "calls_arm": [
+        4,
+        0,
+        8
+      ],
+      "fired": true
+    },
+    {
+      "n": 320,
+      "mod": "end",
+      "arm": "gated",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        8
+      ],
+      "calls_arm": [
+        0,
+        8,
+        0
+      ],
+      "fired": true
+    },
+    {
+      "n": 320,
+      "mod": "end",
+      "arm": "stack",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        0,
+        0,
+        8
+      ],
+      "calls_arm": [
+        4,
+        8,
+        0
+      ],
+      "fired": true
+    },
+    {
+      "n": 512,
+      "mod": "start",
+      "arm": "back",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        1,
+        2,
+        0
+      ],
+      "calls_arm": [
+        1,
+        2,
+        0
+      ],
+      "fired": false
+    },
+    {
+      "n": 512,
+      "mod": "start",
+      "arm": "gated",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        1,
+        2,
+        0
+      ],
+      "calls_arm": [
+        1,
+        2,
+        0
+      ],
+      "fired": false
+    },
+    {
+      "n": 512,
+      "mod": "start",
+      "arm": "stack",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        1,
+        2,
+        0
+      ],
+      "calls_arm": [
+        1,
+        2,
+        0
+      ],
+      "fired": false
+    },
+    {
+      "n": 512,
+      "mod": "end",
+      "arm": "back",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        1,
+        2,
+        0
+      ],
+      "calls_arm": [
+        1,
+        2,
+        0
+      ],
+      "fired": false
+    },
+    {
+      "n": 512,
+      "mod": "end",
+      "arm": "gated",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        1,
+        2,
+        0
+      ],
+      "calls_arm": [
+        1,
+        2,
+        0
+      ],
+      "fired": false
+    },
+    {
+      "n": 512,
+      "mod": "end",
+      "arm": "stack",
+      "torch_equal": true,
+      "max_abs": 0.0,
+      "calls_base": [
+        1,
+        2,
+        0
+      ],
+      "calls_arm": [
+        1,
+        2,
+        0
+      ],
+      "fired": false
+    }
+  ],
+  "ab": [
+    {
+      "n": 256,
+      "mod": "start",
+      "aa_floor": 1.0011,
+      "base_ms": 2.8562,
+      "back_ms": 2.8571,
+      "gated_ms": 2.8558,
+      "stack_ms": 2.8582,
+      "base2_ms": 2.8594,
+      "back_ratio": 0.9997,
+      "gated_ratio": 1.0001,
+      "stack_ratio": 0.9993
+    },
+    {
+      "n": 256,
+      "mod": "end",
+      "aa_floor": 1.0291,
+      "base_ms": 2.9383,
+      "back_ms": 2.8667,
+      "gated_ms": 2.8517,
+      "stack_ms": 2.8591,
+      "base2_ms": 2.8551,
+      "back_ratio": 1.025,
+      "gated_ratio": 1.0304,
+      "stack_ratio": 1.0277
+    },
+    {
+      "n": 288,
+      "mod": "start",
+      "aa_floor": 1.0,
+      "base_ms": 3.2858,
+      "back_ms": 3.2471,
+      "gated_ms": 3.1281,
+      "stack_ms": 3.0995,
+      "base2_ms": 3.2856,
+      "back_ratio": 1.0119,
+      "gated_ratio": 1.0504,
+      "stack_ratio": 1.0601
+    },
+    {
+      "n": 288,
+      "mod": "end",
+      "aa_floor": 1.0012,
+      "base_ms": 3.2847,
+      "back_ms": 3.2538,
+      "gated_ms": 3.1271,
+      "stack_ms": 3.0984,
+      "base2_ms": 3.2886,
+      "back_ratio": 1.0095,
+      "gated_ratio": 1.0504,
+      "stack_ratio": 1.0601
+    },
+    {
+      "n": 320,
+      "mod": "start",
+      "aa_floor": 1.0001,
+      "base_ms": 3.8931,
+      "back_ms": 3.8238,
+      "gated_ms": 3.6157,
+      "stack_ms": 3.5491,
+      "base2_ms": 3.8927,
+      "back_ratio": 1.0181,
+      "gated_ratio": 1.0767,
+      "stack_ratio": 1.0969
+    },
+    {
+      "n": 320,
+      "mod": "end",
+      "aa_floor": 1.0008,
+      "base_ms": 3.8865,
+      "back_ms": 3.8181,
+      "gated_ms": 3.6036,
+      "stack_ms": 3.5355,
+      "base2_ms": 3.8896,
+      "back_ratio": 1.0179,
+      "gated_ratio": 1.0785,
+      "stack_ratio": 1.0993
+    },
+    {
+      "n": 512,
+      "mod": "start",
+      "aa_floor": 1.0105,
+      "base_ms": 6.3138,
+      "back_ms": 6.2339,
+      "gated_ms": 6.2398,
+      "stack_ms": 6.2679,
+      "base2_ms": 6.248,
+      "back_ratio": 1.0128,
+      "gated_ratio": 1.0119,
+      "stack_ratio": 1.0073
+    },
+    {
+      "n": 512,
+      "mod": "end",
+      "aa_floor": 1.0008,
+      "base_ms": 6.4404,
+      "back_ms": 6.4404,
+      "gated_ms": 6.4148,
+      "stack_ms": 6.4566,
+      "base2_ms": 6.4453,
+      "back_ratio": 1.0,
+      "gated_ratio": 1.004,
+      "stack_ratio": 0.9975
+    }
+  ],
+  "negative_control": [
+    {
+      "n": 256,
+      "differs": false,
+      "max_abs": 0.0
+    },
+    {
+      "n": 288,
+      "differs": true,
+      "max_abs": 3.1953125
+    },
+    {
+      "n": 320,
+      "differs": true,
+      "max_abs": 3.0078125
+    },
+    {
+      "n": 512,
+      "differs": true,
+      "max_abs": 3.0078125
+    }
+  ],
+  "clock": {
+    "0": {
+      "min": 1343,
+      "max": 1350,
+      "median": 1350,
+      "n": 8
+    }
+  }
+}

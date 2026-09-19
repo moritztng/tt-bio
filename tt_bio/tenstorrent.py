@@ -553,6 +553,45 @@ def trunk_compute_kernel_config(base):
 # DRAM, and that costs more than the clone saves: 7.122 -> 7.431 (start) / 7.863 (end) ms per
 # trimul at 298 aa. Bit-exact either way, and still a loss.
 _TRIMUL_OUT_MOVE_DRAM = False
+# The same question asked of the KERNEL rather than of `ttnn.permute`, and it answers the other
+# way. On the L1 path the output channel move writes to L1 and a separate `ttnn.clone` then moves
+# the chunk to DRAM for the concat: two full passes over a tensor that only has to be read once.
+# `_TRIMUL_OUT_MOVE_DRAM` above is the loss that follows from asking `ttnn.permute` to skip the
+# clone, and its mechanism is that op's forced 64-byte stores, which cost more in DRAM than in L1.
+# `reblock_permute_back` does not have that store pattern -- it writes whole pages from 100 cores --
+# so it can take the destination directly and the clone drops out. Bit-exact: the kernel is a pure
+# index reordering, `torch.equal` against `ttnn.permute`, and an L1 source changes the
+# TensorAccessor and not the arithmetic.
+#
+# Only where `reblock_permute.eligible_back` serves (N a multiple of 32, N >= 256, DRAM
+# destination); every other shape keeps today's permute-then-clone unchanged.
+TRIMUL_BACK_ONE_PASS_L1 = True
+_TRIMUL_BACK_ONE_PASS_L1 = env_flag("TT_BIO_TRIMUL_BACK_ONE_PASS_L1", TRIMUL_BACK_ONE_PASS_L1)
+
+
+def set_trimul_back_one_pass_l1(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _TRIMUL_BACK_ONE_PASS_L1
+    prev, _TRIMUL_BACK_ONE_PASS_L1 = _TRIMUL_BACK_ONE_PASS_L1, bool(on)
+    return prev
+
+# The gated channel move on the L1 path. `reblock_permute.eligible_gated` has always had an L1
+# clause -- 288 <= N <= 352, the forward kernel's own measured L1 window -- but the call site
+# asked for a DRAM destination on top of it, so the clause was unreachable and every L1-path
+# trimul kept the four-way split: `ttnn.chunk` plus two `multiply_` plus two plain channel moves,
+# where the fused kernel does all five in two passes. Let the kernel's own gate decide.
+#
+# Bit-exact: the same kernel, `torch.equal` against the sequence it replaces at 24 shapes, and an
+# L1 destination changes the TensorAccessor and not the arithmetic.
+TRIMUL_GATED_MOVE_L1 = True
+_TRIMUL_GATED_MOVE_L1 = env_flag("TT_BIO_TRIMUL_GATED_MOVE_L1", TRIMUL_GATED_MOVE_L1)
+
+
+def set_trimul_gated_move_l1(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _TRIMUL_GATED_MOVE_L1
+    prev, _TRIMUL_GATED_MOVE_L1 = _TRIMUL_GATED_MOVE_L1, bool(on)
+    return prev
 # The trimul's per-chunk TAIL -- the two transformed operands and their product -- is the only part
 # of the channel loop whose footprint is set by the chunk width rather than by the whole pair
 # tensor. At 512 aa the loop's head, the fused in-projection and its four-way split, is 402.7 MB
@@ -6633,7 +6672,8 @@ class TriangleMultiplication(Module):
                             and (mask is None or mask_moved_ok)
                             and not _FAST_MODE
                             and not _TRIMUL_RAW_CHANNEL_MOVES
-                            and memory_config.buffer_type == ttnn.BufferType.DRAM
+                            and (_TRIMUL_GATED_MOVE_L1
+                                 or memory_config.buffer_type == ttnn.BufferType.DRAM)
                             and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
                         )
                         branch = "gated-move" if gated else "four-way-split"
@@ -6709,22 +6749,27 @@ class TriangleMultiplication(Module):
                     # equivalent transpose(1,2) then transpose(2,3) is ~2.6ms (the inner
                     # transpose is tile-local) and BIT-EXACT. On the small-L L1 path the
                     # single permute is marginally faster, so keep it there.
-                    if large_seq and not _TRIMUL_RAW_CHANNEL_MOVES:
-                        x_chunk_t = _channel_move_back(x_chunk, memory_config)
+                    # The chunk's next stop is DRAM on both paths -- the concat holds all
+                    # n_pairs of them -- so where the one-pass kernel serves, it takes that
+                    # destination itself and the clone below drops out. `ttnn.permute` cannot:
+                    # see `_TRIMUL_OUT_MOVE_DRAM`, where the same shortcut is a measured loss
+                    # for that op's forced 64-byte stores.
+                    back_mc = memory_config if large_seq else ttnn.DRAM_MEMORY_CONFIG
+                    one_pass = not _TRIMUL_RAW_CHANNEL_MOVES and (
+                        large_seq
+                        or (_TRIMUL_BACK_ONE_PASS_L1
+                            and _reblock.eligible_back(x_chunk, back_mc)))
+                    if one_pass:
+                        x_chunk_t = _channel_move_back(x_chunk, back_mc)
                         ttnn.deallocate(x_chunk)
                         x_chunk = x_chunk_t
                     else:
-                        # The channel move is the last touch of the chunk before the concat, so
-                        # on the L1 path it writes its result straight to DRAM: the separate
-                        # clone that used to move it there was a whole extra round trip of the
-                        # chunk (13.1 MB each way at 298 aa) for no arithmetic. Index-only, so
-                        # bit-exact either way.
                         x_chunk = ttnn.permute(
                             x_chunk, (0, 2, 3, 1),
                             memory_config=ttnn.DRAM_MEMORY_CONFIG if _TRIMUL_OUT_MOVE_DRAM
                             else memory_config,
                         )
-                    if large_seq or _TRIMUL_OUT_MOVE_DRAM:
+                    if large_seq or _TRIMUL_OUT_MOVE_DRAM or one_pass:
                         _acc_append(x_chunks, x_chunk, host_acc)
                     else:
                         # L1-resident chunk: move it to DRAM so all n_pairs can be held at
