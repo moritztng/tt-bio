@@ -5,6 +5,23 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+
+- **Triangle attention picks a wider SDPA `k_chunk` by default.** At padded token lengths that the
+  old 256-capped search could not divide, the fused triangle-attention kernel declined every call
+  and the fold fell back to the stock op on a re-padded mask. The wider pick keeps the fused kernel
+  and is worth 2.2x to 4.4x on the op at padded 288, 352, 416, 704 and 864 (qb1, Blackhole p150a,
+  arms interleaved, median of three blocks of three). Protenix-v2, OpenDDE, Boltz-2 and BoltzGen
+  reach this path; OpenFold3, ESMFold2 and RFD3 do not.
+
+  **It changes the numbers you get at 20 padded lengths.** `k_chunk` sets the online-softmax
+  reduction order, so a fold at one of those lengths is no longer byte-identical to what 0.9.0
+  wrote: on a 686-residue chain the structure moves 0.06-0.15 A, against a 3.69 A spread between
+  two seeds of the same model. Set **`TT_BIO_SDPA_WIDE_K=0`** to restore the old pick exactly, which
+  is what to do if you are comparing against a stored run. Every other length is untouched, and
+  that includes every multiple of 256, so a 512-token fold is unchanged either way. Accuracy
+  envelope and the full length list: `docs/sdpa-wide-k-parity.md`.
+
 ### Fixed
 
 - **The size-ladder gate takes its rep count from the rung that is noisy.** One sigma, measured

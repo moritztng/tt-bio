@@ -147,3 +147,5 @@ perf/gate_journal/
 # pvx-land: gate transcripts and run scratch
 perf/pvx_land/gate.log
 perf/pvx_land/*.json
+perf/pvx_land/stage_clocked_work/
+perf/pvx_land/stage_clocked.log

@@ -26,6 +26,13 @@ At every other length the candidate list has one entry and the code path is byte
 default. Reproduce the sweep with `scripts/sdpa_wide_k_census.py`, which reads the ladder out of
 `tt_bio.tenstorrent` instead of restating the arithmetic.
 
+**It is inert at every multiple of 256.** The cap is 256 and the search short-circuits as soon as a
+candidate divides the padded length, so 256, 512, 768, 1024, 1280 and 1536 already divide and the
+ladder is never consulted. **512 is the one worth naming**, because it is the size most of our
+published fold numbers are quoted at: a 512-token fold reads exactly the same seconds and writes
+exactly the same bytes with this flag on or off. The win is at the lengths in the list above and
+nowhere else.
+
 Models that reach the fused triangle-attention SDPA at all: Boltz-2 and BoltzGen (padded to
 multiples of 64, so they can present 704, 832, 1088, 1216, 1472), Protenix-v2 and OpenDDE (no token
 pad, so every multiple of 32). OpenFold3 routes its four pairformer sites through fp32 softmax,
@@ -85,15 +92,28 @@ prep and 200 diffusion steps, none of which this lever touches, and on a busy ho
 further than the effect does. Measure the trunk stage instead. Protenix-v2, `examples/686.yaml`
 (686 tokens, padded 704), 10 recycles, 200 sampling steps:
 
-| | trunk stage |
-|---|--:|
-| default | 120.0 s |
-| `TT_BIO_SDPA_WIDE_K=1` | 106.3 s |
-| | **1.1285x** |
+qb1 card 3 (Blackhole p150a), one process per leg, arms interleaved off/on per seed, n=3 per arm
+plus one off repeat. Stage bounds come from the predict log's own `trunk 0/` and `diffusion 0/`
+stamps, so the resolution is one second and the 200 diffusion steps do not enter the number.
+
+| | per leg (s) | mean |
+|---|---|--:|
+| default | 119, 122, 119 | 120.0 s |
+| `TT_BIO_SDPA_WIDE_K=1` | 112, 104, 103 | 106.3 s |
+| A/A floor, default seed 0 twice | 119, 118 | 1.0 s |
+| | | **1.1285x** |
 
 The fold serves exactly one triangle-attention shape, `686x686`, at `(352, 256, stock)` by default
 and `(352, 704, fused)` with the lever on, 1208 calls per fold with zero fall-backs. The op screen
 predicted 1208 x 11.05 ms = 13.35 s; the trunk moved 13.7 s, so predicted and measured agree to 2.6%.
+
+**Read this arm as an indication, not as a measurement, and here is exactly why.** It records no
+AICLK. The Blackhole governor alone moves a fold 1.27-1.41x, so a number taken without a pinned,
+during-sampled clock cannot be separated from the governor's own state, and the on arm's 9 s spread
+against the off arm's 3 s has the shape of a governor ramping across the run rather than of a lever.
+The direction survives that doubt (every on leg is below every off leg, and the op screen closes the
+mechanism to 2.6 %), the size does not. A clocked, benchlocked repeat on a named board is owed
+before this ratio is quoted anywhere outside this file.
 
 ## Accuracy
 
@@ -121,8 +141,8 @@ The worst lever leg is 25x inside the smallest of the three seed-spread controls
 largest, and it moves pLDDT by 0.0001 against a seed-to-seed 0.0041. What it is NOT is free: a fold
 that is reproducible today stops being reproducible against its own earlier output when you set this
 flag. 0.15 Å on a 686-residue chain is far below any structural interpretation, and 0.0001 pLDDT is
-below the reported precision, so the change is not meaningful. It is still a change, and that is the
-reason the flag is opt-in rather than the default. Reproduce with `perf/sdpa_widek/widek_fold_ab.py` (runs the
+below the reported precision, so the change is not meaningful. It is still a change, and it is the
+reason the flag kept an off switch when it became the default. Reproduce with `perf/sdpa_widek/widek_fold_ab.py` (runs the
 legs, asserts out of each worker process which pair it actually served) then
 `perf/sdpa_widek/widek_fold_score.py`.
 
