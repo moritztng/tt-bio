@@ -30,12 +30,26 @@ echo "=== LINK CHECK FIRST. A rented box can install fine and still be unable to
 # step after this one depends on the link, so it is measured BEFORE anything is provisioned,
 # against a source that has nothing to do with the job. Under 5 MB/s here means stop: the
 # 1.68 GB dataset alone would cost more than the box is worth.
-_lk=$(curl -s --max-time 12 -o /dev/null -w "%{speed_download}" \
-      "https://speed.cloudflare.com/__down?bytes=500000000" 2>/dev/null)
-_lk=${_lk%%.*}
-echo "LINK: ${_lk:-0} B/s from Cloudflare"
-if [ "${_lk:-0}" -lt 5000000 ]; then
-  echo "FATAL: link is ${_lk:-0} B/s, under the 5 MB/s floor. Destroy this box and take another;"
+# The first version of this check used speed.cloudflare.com/__down, which returns **HTTP 403
+# and a 1-byte body** from a datacentre IP -- so it reported 17 B/s on a box whose real
+# throughput was 12-14 MB/s, and I condemned a host on it. A link probe must therefore fetch a
+# REAL file, follow redirects, and report the byte count, so a broken URL cannot masquerade as
+# a dead link. It probes the source this job actually depends on.
+_out=$(curl -sL --max-time 15 -o /dev/null \
+       -w "%{size_download} %{speed_download} %{http_code}" \
+       "https://openfold3-data.s3.amazonaws.com/pdb_training_set/dataset_caches/validation_cache_with_templates.json" 2>/dev/null)
+set -- $_out; _sz=${1:-0}; _lk=${2:-0}; _code=${3:-000}; _lk=${_lk%%.*}
+echo "LINK: ${_lk} B/s, ${_sz} bytes, HTTP ${_code} from the S3 bucket this job reads"
+if [ "${_code}" != "200" ] || [ "${_sz:-0}" -lt 1000000 ]; then
+  echo "FATAL: the link probe itself did not work (http ${_code}, ${_sz} bytes). Fix the probe"
+  echo "       before judging the box -- a broken probe reads exactly like a dead link."
+  exit 4
+fi
+# 2 MB/s, not 5: at 2 MB/s the 1.68 GB cache is 14 minutes, which is affordable. The floor is
+# set by what the job can pay for, not by what a good link looks like -- and a single stream to
+# S3 is slower than an aggregate anyway, so this is a conservative reading of the box.
+if [ "${_lk:-0}" -lt 2000000 ]; then
+  echo "FATAL: link is ${_lk:-0} B/s, under the 2 MB/s floor. Destroy this box and take another;"
   echo "       the 1.68 GB cache alone would take $(( 1680000000 / (${_lk:-1} + 1) / 60 )) minutes."
   exit 3
 fi
