@@ -157,6 +157,181 @@ if upper.is_file():
 # Each instrument can be internally correct and still disagree with its neighbour about a fact
 # both depend on. Nothing in this campaign caught instrument B configuring OF3's schedule at
 # max_lr 1e-3 while instrument C drove the optimizer at 1.8e-3, because each passed on its own.
+# --- D17 on a card, and the ceiling it puts on every SS3d number ---------------------------
+d = j("perf/of3t_gradients/reach_by_norm.json")
+if d:
+    r = d["reach"]
+    check("D17 reference tensors", d["n_tensors"], 4147)
+    check("D17 none absent", d["n_absent"], 0)
+    close("D17 tracer reach by norm", r["k22_tracer_bijection"]["norm_share"], 0.06543442172265604)
+    close("D17 device reach by norm", r["device_bijection_mat64"]["norm_share"], 0.9444419461556877)
+    check("D17 device tensors mapped", r["device_bijection_mat64"]["tensors"], 3497)
+    # The published global norm is the one number that ties this artifact to the manifest.
+    close("D17 global norm vs manifest", d["total_norm"], 3.908301894520238, tol=1e-12)
+    # The ceiling. These two are what every SS3d figure in EVIDENCE is measured inside.
+    close("D17 block-0 share of the squared norm",
+          r["instrument_a_block0_53"]["norm_share"], 0.0020038559007500654)
+    close("D17 whole-trunk share of the squared norm",
+          r["pairformer_stack_all"]["norm_share"], 0.05274678966027111)
+    if r["pairformer_stack_all"]["norm_share"] < 0.10:
+        ok.append(f"D17 ceiling stands: the whole 48-block trunk is "
+                  f"{r['pairformer_stack_all']['norm_share']:.2%} of the squared norm, block 0 "
+                  f"is {r['instrument_a_block0_53']['norm_share']:.2%}")
+    else:
+        bad.append("D17's ceiling has moved -- EVIDENCE's scope note says no trunk-scope "
+                   "instrument can speak for the gradient's magnitude, and that sentence is "
+                   "built on the trunk holding ~5 % of it")
+
+# --- D14's crop ladder: both units at every rung, and the 384 refusal's own arithmetic -----
+_rungs = {}
+for _n in (128, 256, 384):
+    _d = j(f"perf/of3t_l1/out/r2_{_n}.json")
+    if _d:
+        _rungs[_n] = _d
+if len(_rungs) == 3:
+    for _n, _want_fwd, _want_bwd, _ok in ((128, 1696363520, 3929519104, True),
+                                          (256, 2929000000, 14755173376, True),
+                                          (384, 4795000000, 32369505280, False)):
+        _b = _rungs[_n]["backward"]
+        check(f"D14 rung {_n} backward fits", _b["ok"], _ok)
+        close(f"D14 rung {_n} backward DRAM peak", _b["dram_peak_b"], _want_bwd, tol=1e-3)
+    # The claim that 384 is FRAGMENTATION and not capacity rests on one comparison: the
+    # requested block against the largest free one. If the request ever stops being the
+    # largest allocation, the diagnosis changes and so does the remedy.
+    _req = _rungs[384]["backward"].get("dram_largest_b")
+    if _req == 1207959552:
+        ok.append("D14 the 384 request is 1207959552 B -- the fragmentation diagnosis is about "
+                  "THIS allocation, 3.26 MB above the largest contiguous block")
+    else:
+        bad.append(f"D14's 384 request is now {_req} B, not 1207959552 -- the '3.26 MB short' "
+                   f"figure is about a block size that has changed")
+    # Both units, every rung (R16's lesson). A rung reported in one unit hides which limit bound it.
+    if all(_rungs[_n]["backward"].get("dram_live_allocs") for _n in (128, 256, 384)):
+        ok.append("D14 ladder reports allocations AND bytes at every rung: "
+                  + ", ".join(f"{_n}:{_rungs[_n]['backward']['dram_live_allocs']}"
+                              for _n in (128, 256, 384)))
+    else:
+        bad.append("D14 ladder is missing a live-allocation count at some rung -- one unit "
+                   "hides which limit bound it")
+
+d = j("perf/of3t_l1/out/gradient_control.json")
+if d:
+    # This artifact is the CONTROL (a perturbed run), so FAIL is its correct verdict. The
+    # campaign's claim is the unperturbed comparison; what is asserted here is that the
+    # control discriminates at all.
+    check("D14 control compared", d["compared"], 172)
+    check("D14 control set identical", (d["n_only_in_a"], d["n_only_in_b"]), (0, 0))
+    if d["worst_rel_l2"] > d["bar_per_tensor"]:
+        ok.append(f"D14 one-bf16-ulp control is rejected at {d['worst_rel_l2']:.3f} on "
+                  f"{d['worst_tensor'].split('.')[-1]}, {d['worst_rel_l2']/d['bar_per_tensor']:.1f}x the bar")
+    else:
+        bad.append("D14's one-ulp control no longer fails -- a gate nobody has watched fail is "
+                   "not a gate, and the bit-identity result leans on this one discriminating")
+
+# --- of3t-gradients: instrument A at block scope, and the reference that disqualified itself
+d = j("perf/of3t_gradients/instrument_a_bundle_block0.json")
+if d:
+    s = d["summary"]
+    close("A block0 median", s["median"], 0.0781291094815586)
+    check("A block0 median passes its bar", s["median_pass"], False)
+    check("A block0 per-tensor passes its bar", s["per_tensor_pass"], False)
+    check("A block0 compared", s["compared"], 53)
+    check("A block0 absent (fused qkv)", s["absent"], 4)
+    close("A block0 forward s, real tokens", d["forward_rel"]["s_masked"], 0.008061467639837464)
+    close("A block0 forward z, real tokens", d["forward_rel"]["z_masked"], 0.007978705045610828)
+    # A14(i): the worst figure is quoted WITHOUT the degenerate denominator, and the scoreboard
+    # says 0.952. Recompute the split here rather than trusting either number in isolation --
+    # if a second tensor ever falls under the floor, the headline changes and this says so.
+    pp = d.get("per_parameter", [])
+    FLOOR = 1e-12
+    tiny = [q for q in pp if q.get("ref_norm") is not None and q["ref_norm"] < FLOOR]
+    rest = [q["rel_l2"] for q in pp if q.get("ref_norm") is not None and q["ref_norm"] >= FLOOR]
+    if len(tiny) == 1 and abs(max(rest) - 0.9519554376602173) <= 1e-2 * 0.952:
+        ok.append(f"A14 denominator floor: 1 tensor under 1e-12 (ref_norm "
+                  f"{tiny[0]['ref_norm']:.3g}), worst of the rest {max(rest):.4g}")
+    else:
+        bad.append(f"A14 split moved: {len(tiny)} tensor(s) under the {FLOOR:g} floor, worst of "
+                   f"the rest {max(rest) if rest else float('nan'):.4g}. The scoreboard quotes "
+                   f"1 and 0.952 -- a relative computed on a reference norm below its own "
+                   f"population's scale is not a measurement")
+    # A14(ii): the protocol's own 1 % control did NOT fire here. If that ever flips, the
+    # amendment's justification is gone and the row should be re-read, not silently trusted.
+    nc = d.get("negative_control", {})
+    if nc.get("protocol_1pct", {}).get("fires") is False and nc.get("calibrated", {}).get("fires"):
+        ok.append("A14 control sizing: the protocol's 1 % does not fire at this baseline, the "
+                  "calibrated x1.10 does")
+    else:
+        warn.append("A14's premise has changed -- the 1 % control now fires, so the sizing "
+                    "amendment needs re-reading against this artifact")
+
+d = j("perf/of3t_gradients/dropout_floor_block0.json")
+if d:
+    on1 = d["dropout_on_pairs"]["1_vs_2"]
+    off = d["dropout_off_control"]
+    close("D18 dropout-on worst (seeds 1 vs 2)", on1["worst"], 1.166879500823583)
+    close("D18 dropout-on median (seeds 1 vs 2)", on1["median"], 0.5499371745996952)
+    check("D18 dropout-on over bar", on1["over_bar"], 47)
+    # The whole identification rests on this being EXACTLY zero, twice. Not "small".
+    check("D18 dropout-off worst is exactly 0", off["worst"], 0.0)
+    check("D18 dropout-off median is exactly 0", off["median"], 0.0)
+    check("D18 dropout-off over bar", off["over_bar"], 0)
+    if on1["median"] > 10 * d["bar"]:
+        ok.append(f"D18 the reference's own floor ({on1['median']:.3f}) is "
+                  f"{on1['median']/d['bar']:.0f}x the bar it would be judged at ({d['bar']})")
+    else:
+        warn.append("D18's floor no longer exceeds its bar by an order of magnitude -- if the "
+                    "bundle was republished, this check and EVIDENCE's row both need rewriting")
+
+# --- of3t-updaterule: D11, D12, and the bijection's true reach (D17) -----------------------
+d = j("perf/of3t_updaterule/lr_wiring.json")
+if d:
+    check("D11 closed-form points exact", d["arm_a_closed_form"]["exact_matches"], 1007)
+    check("D11 closed-form mismatches", d["arm_a_closed_form"]["mismatches"], 0)
+    check("D11 applied-rate steps exact", d["arm_b_wiring"]["exact_matches"], 2005)
+    check("D11 applied-rate mismatches", d["arm_b_wiring"]["mismatches"], 0)
+    for arm in ("shipped_warmup_1000", "scaled_warmup_20"):
+        a_ = d["arm_c_trajectory"][arm]
+        check(f"D11 d_1 zero both sides ({arm})", a_["d1_zero_both_sides"], True)
+        # The rung the whole defect turns on. `d1_ours` is a float and 0.0 is the claim.
+        check(f"D11 d_1 ours ({arm})", a_["d1_ours"], 0.0)
+    close("D11 worst d_k, shipped warmup",
+          d["arm_c_trajectory"]["shipped_warmup_1000"]["worst_rel_d_k2_20"], 2.0523076682188713e-06)
+    # A control that did not break the arms it should have proves nothing (SS3e).
+    check("D11 control puts d_1 back", d["negative_control"]["c_d1_ours"] > 0, True)
+    close("D11 control worst d_k", d["negative_control"]["c_worst_rel_d_k2_20"], 2.170127574298317)
+
+d = j("perf/of3t_updaterule/mse_entity.json")
+if d:
+    close("D12 value delta", d["arm_delta"]["rel_value"], 0.23344546565807414)
+    close("D12 gradient-seed delta", d["arm_delta"]["rel_seed"], 0.7636994469305252)
+    close("D12 vs their mse_loss, value", d["arm_reference"]["rel_value"], 6.057483991567378e-16,
+          tol=1e-2)
+    close("D12 vs their mse_loss, gradient", d["arm_reference"]["rel_grad"],
+          3.662141705890694e-15, tol=1e-2)
+    # The row's own sharpest finding: zeroed flags and absent flags are numerically identical,
+    # so `without` is the only detector. If that ever stops holding, the claim changes shape.
+    z = d["arm_control"]["flags_zeroed"]
+    check("D12 zeroed flags == dropped flags (value)", z["value_equals_dropped"], True)
+    check("D12 zeroed flags == dropped flags (seed)", z["seed_equals_dropped"], True)
+
+d = j("perf/of3t_updaterule/reference_profile.json")
+if d:
+    b_ = d["bijection_split"]
+    check("D17 reference tensors with a gradient", b_["their_tensors_with_a_gradient"], 4147)
+    check("D17 tensors mapped by the bijection", b_["mapped_by_the_bijection"], 3275)
+    close("D17 fraction of gradient NORM reachable", b_["fraction_of_gradient_norm_reachable"],
+          0.06543442172265605)
+    check("D17 reference presence set agrees", d["presence"]["set_agrees"], True)
+    check("D17 reference sha256 verified", d["sha256_matches"], True)
+    # Count and norm must both be quoted, always. 79 % and 6.5 % are the same split.
+    frac_count = b_["mapped_by_the_bijection"] / b_["their_tensors_with_a_gradient"]
+    if frac_count - b_["fraction_of_gradient_norm_reachable"] > 0.5:
+        ok.append(f"D17 count/norm gap intact: {frac_count:.0%} of tensors, "
+                  f"{b_['fraction_of_gradient_norm_reachable']:.2%} of the squared norm")
+    else:
+        warn.append("D17's count/norm gap has closed -- re-read the scoreboard row, it is "
+                    "written to explain a gap that no longer exists")
+
 # --- PROTOCOL A12: the SEAM between SS4 and SS5 ---------------------------------------------
 # SS4 proves the schedule as a FUNCTION (upstream's real scheduler against `af3_lr`, exact, over
 # 109,005 steps). SS5 proves the optimizer trajectory. Neither proves the MAPPING from update
