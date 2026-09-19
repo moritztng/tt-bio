@@ -34,7 +34,9 @@ What that licenses, stated so it cannot be over-read:
 
 Checks, in the order they fire:
   1. board-pair sibling has no fd                                  hard fail
-  2. no live release_gate process                                   hard fail (non-stationary)
+  2. no RUNNING release_gate process -- one blocked in benchlock's own queue holds no
+     device fd and burns no CPU, so argv alone is a false positive that this row spent
+     67 lock-holding minutes on                                   hard fail (non-stationary)
   3. every other busy device fd holder is on the OTHER pair          hard fail if on mine
   4. loadavg1 under --maxload at BOTH ends of a --settle window, and moving by no more than
      --drift between them                                           hard fail (stationarity)
@@ -50,7 +52,9 @@ Negative and positive control:
     python3 pair_channel_quiet.py --card 0 --maxload 999 --drift 999 --settle 0
                                                                 # must return 0
 A check that can only say "busy" is indistinguishable from one hard-wired to say "busy", and this
-one has to be trusted to RELEASE a measurement.
+one has to be trusted to RELEASE a measurement. The gate channel carries its own paired control
+in perf/c14_land/test_pair_channel_gate_liveness.py: a sleeping gate must be admitted and a
+CPU-burning one under the same argv must still be refused.
 """
 import argparse
 import os
@@ -106,6 +110,45 @@ def _ticks(pid: int):
         return None
 
 
+def _descendants(root: int) -> set[int]:
+    kids = {}
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            ppid = int((entry / "stat").read_text().split(") ", 1)[1].split()[1])
+        except (OSError, IndexError, ValueError):
+            continue
+        kids.setdefault(ppid, []).append(int(entry.name))
+    out, stack = {root}, [root]
+    while stack:
+        for child in kids.get(stack.pop(), []):
+            if child not in out:
+                out.add(child)
+                stack.append(child)
+    return out
+
+
+def _tree_ticks(root: int):
+    """utime+stime over the whole tree, plus the root's reaped-child time.
+
+    A gate that folds ~20 s children burns CPU in those children while they live and
+    banks it in the root's cutime/cstime when it reaps them, so this moves either way.
+    A gate blocked in benchlock's flock queue moves neither.
+    """
+    total, seen = 0, False
+    for pid in _descendants(root):
+        try:
+            f = Path(f"/proc/{pid}/stat").read_text().split(") ", 1)[1].split()
+        except (OSError, IndexError, ValueError):
+            continue
+        seen = True
+        total += int(f[11]) + int(f[12])
+        if pid == root:
+            total += int(f[13]) + int(f[14])
+    return total if seen else None
+
+
 def holders(card: int) -> list[int]:
     node = DEV / str(card)
     if not node.exists():
@@ -154,12 +197,32 @@ def check(card: int, maxload: float, drift: float, settle: float):
     else:
         lines.append(f"BOARD PAIR: sibling {sib} has no fd -- the power-budget channel is clear")
 
+    # A gate only perturbs a fold if it is RUNNING. One blocked in benchlock's own flock
+    # queue -- which is where my holding the lock puts it -- has no device fd and burns no
+    # CPU, so matching its argv alone is a false positive. Same instrument benchlock uses
+    # for foreign folds: sample the process tree twice and look for a device fd in it.
     gates = gate_pids()
     if gates:
-        ok = False
+        on_device = set()
+        for other in sorted(PAIRS):
+            on_device.update(holders(other))
+        g0 = {pid: _tree_ticks(pid) for pid in gates}
+        time.sleep(2.0)
         for pid in sorted(gates):
-            lines.append(f"HOST: release_gate pid {pid} live (owner {_owner(pid)}) -- folds in "
-                         "~20 s children on any chip, a NON-stationary neighbour. Hard fail.")
+            dev = sorted(_descendants(pid) & on_device)
+            a, b = g0.get(pid), _tree_ticks(pid)
+            burned = None if (a is None or b is None) else b - a
+            if dev or (burned is not None and burned > TICK_THRESHOLD):
+                ok = False
+                why = f"device fd on {dev}" if dev else f"tree burned {burned} ticks in 2 s"
+                lines.append(f"HOST: release_gate pid {pid} live (owner {_owner(pid)}, {why}) "
+                             "-- folds in ~20 s children on any chip, a NON-stationary "
+                             "neighbour. Hard fail.")
+            else:
+                lines.append(f"HOST: release_gate pid {pid} present but IDLE (owner "
+                             f"{_owner(pid)}): no device fd in its tree, {burned} ticks in "
+                             "2 s. Blocked in the benchlock queue, not folding -- not a "
+                             "blocker.")
 
     # every other busy device fd holder, classified by pair
     busy = {}
