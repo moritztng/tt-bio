@@ -45,6 +45,7 @@ import os
 import shutil
 import socket
 import statistics as st
+import signal
 import subprocess
 import sys
 import tempfile
@@ -373,9 +374,11 @@ def driver(args) -> int:
                 guard = ({"skipped": "--force-contended"} if args.force_contended
                          else wait_admissible(args.card, args.quiet_wait, tag,
                                               guard_args(args)))
-                r = subprocess.run(cmd, env=env)
+                rc, wedge = run_leg(cmd, env, args.leg_timeout)
                 row = {"size": size, "arm": arm, "block": b, "pos": pos,
-                       "returncode": r.returncode, "guard_before": guard}
+                       "returncode": rc, "guard_before": guard}
+                if wedge:
+                    row["wedged_after_s"] = args.leg_timeout
                 if jf.exists():
                     row["result"] = json.loads(jf.read_text())
                 out["blocks"].append(row)
@@ -436,6 +439,30 @@ def driver(args) -> int:
     return 0
 
 
+def run_leg(cmd, env, timeout_s):
+    """Run one leg, and do not let a wedged one take the session and the lock with it.
+
+    Leg 512_base_4_2 of session 3 host-spun at 100 % CPU on fold 7 of 12 on 2026-09-19, holding two
+    fds on /dev/tenstorrent/2 while the chip sat at 35 W, i.e. idle. The driver was inside a bare
+    subprocess.run and waited on it for 101 minutes, measuring nothing and holding benchlock against
+    two queued rows the whole time. A timeout turns that from a lost session into one lost leg.
+
+    The leg starts its own session and is killed by process GROUP, because a leg spawns a child of
+    its own and killing the direct child alone orphans a grandchild still holding the chip fd
+    (fleet-kill-outer-pid-leaves-orphan-engine).
+    """
+    p = subprocess.Popen(cmd, env=env, start_new_session=True)
+    try:
+        return p.wait(timeout=timeout_s), False
+    except subprocess.TimeoutExpired:
+        print(f"    LEG WEDGED after {timeout_s:.0f}s -- killing process group {p.pid}", flush=True)
+        try:
+            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            p.kill()
+        return p.wait(), True
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
@@ -459,6 +486,11 @@ def main() -> int:
     ap.add_argument("--maxload", type=float, default=8.0)
     ap.add_argument("--drift", type=float, default=1.5)
     ap.add_argument("--settle", type=float, default=60.0)
+    ap.add_argument("--leg-timeout", type=float, default=1800.0, dest="leg_timeout",
+                    help="kill a leg that has not finished in this many seconds and record it as "
+                         "wedged, instead of waiting on it forever. A 12-fold 512 aa leg folds in "
+                         "about 4.5 min, so 1800 s is a wide margin around a healthy leg and a "
+                         "tight one around a dead one.")
     # worker-only
     ap.add_argument("--arm", choices=["base", "on"])
     ap.add_argument("--flag", default="TT_BIO_APB_CONCAT_HEADS", choices=sorted(FLAGS))
