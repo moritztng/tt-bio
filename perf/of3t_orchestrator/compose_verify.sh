@@ -157,5 +157,12 @@ for f in perf/of3t_equivalence/instrument_b_lr.py \
     { echo "INSTRUMENT FAILED: $f"; exit 1; }
 done
 
+# (4) the scoreboard against the artifacts. EVIDENCE.md is transcribed prose and a
+# transcription drifts silently, so the numbers it quotes are re-read from the committed JSON
+# on every compose. Also pins the denominators (K29).
+echo "--- audit_evidence"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/audit_evidence.py 2>&1 | tail -4 ) || \
+  { echo "SCOREBOARD DRIFT -- state/of3t/EVIDENCE.md disagrees with the artifacts"; exit 1; }
+
 git worktree remove --force "$BASE"
 echo; echo "composition ready at $CO ; push with: git -C $CO push origin wk/of3t"

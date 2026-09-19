@@ -1,0 +1,122 @@
+"""Check every headline number in the campaign's scoreboard against its committed artifact.
+
+`state/of3t/EVIDENCE.md` is written by the orchestrator by TRANSCRIBING numbers out of row
+reports, and a transcription can drift from the artifact it came from -- silently, because both
+look like prose. This re-reads the artifacts on `wk/of3t` and asserts the figures the scoreboard
+quotes. A mismatch is a finding about the scoreboard, not about the row.
+
+It also pins the DENOMINATORS, which is this campaign's own standing rule (K29: report leaves
+against total, never leaves alone). The tape's headline "11003 / 11003" is only honest if the
+calls excluded from the denominator genuinely carry no input tensor, so that decomposition is
+asserted here rather than taken on trust.
+
+CPU only, no card, no network. Run from a `wk/of3t` checkout.
+"""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+ok, bad = [], []
+
+
+def j(rel):
+    p = ROOT / rel
+    if not p.is_file():
+        bad.append(f"MISSING artifact {rel}")
+        return None
+    return json.loads(p.read_text())
+
+
+def check(label, got, want, rel=None):
+    if got == want:
+        ok.append(f"{label}: {got}")
+    else:
+        bad.append(f"{label}: artifact says {got!r}, scoreboard says {want!r}"
+                   + (f" ({rel})" if rel else ""))
+
+
+def close(label, got, want, tol=5e-4):
+    if got is not None and abs(got - want) <= tol * max(abs(want), 1e-30):
+        ok.append(f"{label}: {got:.6g}")
+    else:
+        bad.append(f"{label}: artifact says {got!r}, scoreboard says {want!r}")
+
+
+# --- tape coverage, and the denominator the "100 %" rests on -------------------------------
+d = j("perf/of3t_tape/coverage_trunk_c1_b48_strict.json")
+if d:
+    t = d["totals"]
+    check("tape trunk taped calls", t["taped"], 11003)
+    # The claim is 11003 of 11003 CALLS THAT CARRY A TENSOR. That is only honest if every
+    # excluded call is a tensor SOURCE or a non-math accessor. Assert the composition of the
+    # excluded bucket, not just its size.
+    untaped = {k.split("|")[0]: sum(v.values()) for k, v in d["sites"].items()
+               if not k.endswith("|taped")}
+    allowed = {"from_torch", "zeros", "get_memory_view", "linear"}   # linear -> nested
+    stray = {k: n for k, n in untaped.items() if k not in allowed}
+    if stray:
+        bad.append(f"tape denominator: calls excluded that are NOT tensor sources: {stray}")
+    else:
+        ok.append(f"tape denominator honest: excluded = {untaped} "
+                  f"(sources/accessors/nested only)")
+    check("tape nested", t["nested"], 14)
+    check("tape none", t["none"], 221)
+
+# --- leaves against total, all five models -------------------------------------------------
+for model, leaves, total in [("of3", 180, 204), ("protenix", 180, 196), ("boltz2", 180, 204),
+                             ("boltzgen", 180, 204), ("af2_b4", 0, 184), ("af2_b1", 0, 46)]:
+    f = f"perf/of3t_leaves/leaves_{model.replace('_b4','')}_b4_n64.json" if model != "af2_b1" \
+        else "perf/of3t_leaves/leaves_af2_b1_n64.json"
+    d = j(f)
+    if d:
+        check(f"leaves {model} with_grad", len(d["with_grad"]) if isinstance(d["with_grad"], list)
+              else d["with_grad"], leaves, f)
+        check(f"leaves {model} total", d["total"], total, f)
+
+# --- bijection manifest --------------------------------------------------------------------
+d = j("perf/of3t_equivalence/bijection_manifest.json")
+if d:
+    check("manifest their tensors", d["their_tensor_count"], 4935)
+    check("manifest mapped in scope", d["coverage"]["their_tensors_mapped"], 3275)
+    check("manifest unmapped in scope", d["coverage"]["their_tensors_unmapped_in_scope"], 0)
+    check("manifest fused", d["fused_tensor_count"], 232)
+    check("manifest out of scope", d["out_of_scope"]["count"], 1660)
+
+# --- instruments B, C, clipping, trajectory -------------------------------------------------
+d = j("perf/of3t_equivalence/instrument_b_lr.json")
+if d:
+    cfgs = d.get("configs", {})
+    tot = sum(c.get("steps_compared", 0) for c in cfgs.values())
+    mis = sum(c.get("mismatches", 0) for c in cfgs.values())
+    check("schedule comparisons", tot, 109005)
+    check("schedule mismatches", mis, 0)
+
+d = j("perf/of3t_equivalence/instrument_c_optim.json")
+if d:
+    w = d["arms"]["constant_lr"]["worst"]
+    close("optimizer worst rel", w["rel"], 2.738160842740276e-07)
+    check("optimizer worst step", w["step"], 191)
+    check("optimizer worst tensor", w["tensor"], "bias")
+
+d = j("perf/of3t_orchestrator/instrument_b2_clip.json")
+if d:
+    close("clip disabled-param divergence (pre-fix)",
+          d["disabled_params"]["rel_clip"], 8.368e-01, tol=2e-3)
+    close("clip per-sample divergence (pre-fix)",
+          d["per_sample_vs_batch"]["relative_difference"], 1.948e-01, tol=2e-3)
+
+d = j("perf/of3t_equivalence/instrument_t_traj.json")
+if d:
+    check("trajectory N", d["N"], 20)
+    check("trajectory verdict", d["verdict"], "PASS")
+
+print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
+for line in ok:
+    print(f"  ok    {line}")
+for line in bad:
+    print(f"  DRIFT {line}")
+print(f"\n{len(ok)} confirmed, {len(bad)} drifted")
+sys.exit(1 if bad else 0)
