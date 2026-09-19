@@ -2943,3 +2943,21 @@ against the corrected bundle, with the prediction pre-registered.
 `of3t-rebase` launched 01:00 CEST on qb2 and is running. The verdict does not move on this pass:
 the bound and the loader evidence make D23 harder to doubt, and neither is a measurement of our
 port.
+
+**Pass 90, third result: the shipped-inference category re-triaged against D23, and one pair
+survives.** With the end-node reading withdrawn and the diffusion gap re-attributed, the only
+"affects inference users get today" items still UNFIXED are **D1 and D10**, and they were
+unowned. D1 is real and measured: all 48 pairformer blocks receive the token-level pair bias at
+**0.204** of its intended value in every OF3 fold we serve, the fix is written and the flag
+already split, and on nine seeds it moves best-of-five **0.679 -> 0.629 A** while degrading
+rank 0 **0.782 -> 1.245 A** against a **0.324 A** seed floor. The corrected trunk samples better
+and serves worse, because the confidence head picks a 1.59 A sample over a 0.56 A one on 6 of 9
+seeds while its pLDDT *rises*. **D1's own diagnosis needed checking against D23 and passes**: the
+core of `primitives/attention.py::_attention` is identical in 0.4.3 and 0.5.0 — `q` pre-divided
+by `sqrt(c_hidden)`, biases added unscaled to already-scaled scores, only a dtype cast moved — so
+the convention is revision-stable and the fix is not another D23 in the opposite direction. That
+check was worth running: D1 changes every OF3 fold users get. `of3t-confhead` is dispatched to
+root-cause the mis-ranking as ordering, calibration or selection rule, fix it across the five
+shared confidence heads or report honestly that it needs retraining, and re-measure four arms
+with the seed floor beside them. **D16 is CLOSED** (`of3t-entity`, pass 43) and the GAP prose
+above that called it unowned was stale; corrected here.

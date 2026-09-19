@@ -18,7 +18,7 @@ set -euo pipefail
 # A row is listed here from the moment it is dispatched, not from its first push, so a new row
 # cannot be silently left out of the composition. Rows with no branch yet are skipped with a line
 # saying so -- silence would be the bug.
-ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity diffusion reopen rebase"
+ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity diffusion reopen rebase confhead"
 SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a shared /tmp name
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
@@ -157,8 +157,13 @@ for r in $ROWS; do
   # turned on itself. When qb2 hard-hung on 2026-09-19 the two rows holding the campaign's
   # critical path were both there, and the compose said nothing about either.
   if [ ! -d "$wt" ]; then
-    rhost=$(grep -oE 'START of3t-[a-z0-9]+ host=[^ ]+' "$lg" 2>/dev/null | tail -1 | \
-            sed 's/.*host=//')
+    # `|| true` is load-bearing under `set -o pipefail`: for a row that is dispatched but has
+    # never launched on ANY host there is no log file, `grep` exits non-zero, the pipeline
+    # inherits it and the whole compose aborts with rc=2 on a completely normal state. Caught
+    # pass 90 the first time a row was listed in ROWS before its first launch -- which is
+    # exactly the case the ROWS comment says must be supported.
+    rhost=$( { grep -oE 'START of3t-[a-z0-9]+ host=[^ ]+' "$lg" 2>/dev/null || true; } | \
+            tail -1 | sed 's/.*host=//')
     # Only for a LIVE row. A concluded row's worktree holds nothing the campaign is waiting
     # on -- what origin has IS its final answer -- and noting nine of them buries the one
     # that matters, which is how a check gets ignored.

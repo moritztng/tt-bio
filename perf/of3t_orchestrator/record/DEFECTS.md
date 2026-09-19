@@ -109,6 +109,18 @@ Other models unaffected and the control proves it can fail: Boltz-2, BoltzGen, P
 AF2 each from its own checkpoint are **byte-identical**, while `--tri 0` changes all three
 Pairformer digests.
 
+**PASS 90: D1's convention survives the D23 audit, and it needed checking.** D23 showed the
+campaign's reference ran the preview2 checkpoint on 0.5.0 and that two conventions differ between
+the revisions, so a fix whose reference transcription came from the wrong one would have been the
+same mistake in the other direction — and D1 changes every OF3 fold users get. It is clean: the
+computational core of `primitives/attention.py::_attention` is identical in 0.4.3 and 0.5.0.
+`q` is pre-divided by `sqrt(c_hidden)` by the caller (`attention.py:314` in 0.4.3, `:321` in
+0.5.0), then `scores += b` adds the biases **unscaled to already-scaled scores**, then softmax.
+The only difference between the revisions is where a dtype cast sits, inert in float64. **So the
+bias must arrive pre-baked by `sqrt(head_dim)` under both revisions and D1's diagnosis is
+revision-stable.** Owner `of3t-confhead`, dispatched pass 90 — D1 and D10 ship together or not at
+all.
+
 ### D10. The confidence head mis-ranks diffusion samples, and it is what makes D1's fix serve worse. UNFIXED.
 
 On **6 of 9 seeds** the confidence head selects a **1.59 A** sample while a **0.56 A** sample
