@@ -41,7 +41,8 @@ def main() -> int:
         host = [x.split() for x in (d / "host.log").read_text().splitlines() if x.strip()]
         node = UMD_TO_NODE[int(dev)]
         row = {
-            "rung": rung, "tokens": int(rung), "umd_device": int(dev), "node": node,
+            "rung": rung, "tokens": int(rung) if rung.isdigit() else None,
+            "umd_device": int(dev), "node": node,
             "aiclk_median_mhz": statistics.median(int(x[node + 1]) for x in clk),
             "aiclk_min_mhz": min(int(x[node + 1]) for x in clk),
             "status": r["status"], "runtime_s": r.get("runtime_s"),

@@ -1,0 +1,41 @@
+{
+  "1024": {
+    "per_chain": [
+      {
+        "id": "A",
+        "aa": 1024,
+        "a3m_rows_after_cap": 8192
+      }
+    ],
+    "msa_shape": [
+      1,
+      8192,
+      1024
+    ],
+    "msa_rows_reaching_model": 8192,
+    "tokens": 1024,
+    "max_msa_seqs": 8192
+  },
+  "1536": {
+    "per_chain": [
+      {
+        "id": "A",
+        "aa": 1024,
+        "a3m_rows_after_cap": 8192
+      },
+      {
+        "id": "B",
+        "aa": 512,
+        "a3m_rows_after_cap": 8192
+      }
+    ],
+    "msa_shape": [
+      1,
+      8192,
+      1536
+    ],
+    "msa_rows_reaching_model": 8192,
+    "tokens": 1536,
+    "max_msa_seqs": 8192
+  }
+}
