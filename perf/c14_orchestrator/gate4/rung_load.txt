@@ -1,0 +1,39 @@
+gate4 size-ladder, qb2 card 0, arm started 2026-09-18T19:56:16Z.
+Host loadavg during each rung's own fold, from the 5 s sampler that began 20:32:28Z.
+Rungs before that stamp have no trace and say so; they are not zeros.
+
+rung                           fold  load min/mean/max during that fold
+boltz2-1024                   51.4s  (fold predates the trace)
+boltz2-256                     4.2s  (fold predates the trace)
+boltz2-512                    11.0s  (fold predates the trace)
+boltz2-640                    21.1s  (fold predates the trace)
+boltz2-768                    26.9s  (fold predates the trace)
+boltz2-896                    39.5s  (fold predates the trace)
+esmfold2-1024                147.6s  (fold predates the trace)
+esmfold2-256                  16.1s  (fold predates the trace)
+esmfold2-512                  38.7s  (fold predates the trace)
+esmfold2-640                  61.7s  (fold predates the trace)
+esmfold2-768                  91.4s  (fold predates the trace)
+esmfold2-896                 120.7s  (fold predates the trace)
+opendde-256                   21.0s  2.8 / 3.0 / 3.3
+opendde-512                   70.4s  2.0 / 2.8 / 3.8
+opendde-640                  115.4s  1.1 / 1.3 / 1.4
+opendde-768                  174.2s  1.6 / 3.5 / 7.3
+openfold3-1024               163.7s  2.6 / 3.1 / 4.3
+openfold3-256                  9.3s  5.5 / 5.7 / 5.8
+openfold3-512                 27.3s  4.1 / 5.0 / 6.0
+openfold3-640                 49.1s  4.6 / 5.0 / 5.7
+openfold3-768                 77.0s  4.5 / 5.1 / 6.2
+openfold3-896                119.5s  2.6 / 3.9 / 5.8
+protenix-v1-1024              47.5s  (fold predates the trace)
+protenix-v1-256                5.1s  (fold predates the trace)
+protenix-v1-512               10.7s  (fold predates the trace)
+protenix-v1-640               20.5s  (fold predates the trace)
+protenix-v1-768               23.7s  (fold predates the trace)
+protenix-v1-896               33.2s  (fold predates the trace)
+protenix-v2-1024             182.9s  1.3 / 1.7 / 2.2
+protenix-v2-256               14.5s  (fold predates the trace)
+protenix-v2-512               42.7s  4.8 / 5.7 / 6.4
+protenix-v2-640               67.1s  1.9 / 2.6 / 3.5
+protenix-v2-768              101.1s  2.4 / 2.9 / 4.2
+protenix-v2-896              142.3s  3.7 / 5.2 / 7.7
