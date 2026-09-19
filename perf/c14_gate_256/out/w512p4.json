@@ -1,0 +1,40 @@
+{
+  "tag": "w512p4",
+  "model": "boltz2",
+  "rung": 512,
+  "folds": 3,
+  "rc": 0,
+  "wall_s": 56.8,
+  "log": "/home/ttuser/.coworker/wt/c14-gate-256-warmup/perf/c14_gate_256/work/w512p4/predict.log",
+  "host": "tt-quietbox",
+  "tt_visible_devices": "3",
+  "loadavg": [
+    3.5244140625,
+    6.8935546875,
+    7.4111328125
+  ],
+  "t_start_utc": "2026-09-19T00:48:19Z",
+  "t_end_utc": "2026-09-19T00:49:15Z",
+  "rows": [
+    {
+      "stem": "w512p4f0",
+      "order": 0,
+      "runtime_s": 15.7
+    },
+    {
+      "stem": "w512p4f1",
+      "order": 1,
+      "runtime_s": 12.0
+    },
+    {
+      "stem": "w512p4f2",
+      "order": 2,
+      "runtime_s": 12.7
+    }
+  ],
+  "sequence_s": [
+    15.7,
+    12.0,
+    12.7
+  ]
+}

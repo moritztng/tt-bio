@@ -1,0 +1,65 @@
+benchlock: worker:c14-gate-256-warmup waiting; currently held by: worker:trix-bank-serial pid=649875 since=2026-09-18T23:31:21+00:00
+benchlock: 1 foreign fold process(es) outside the lock, waiting -- [00:22 trix-layout]
+benchlock: worker:c14-gate-256-warmup acquired after 69s, loadavg 1.97 2.72 1.96
+=== cell q256 rung=256 processes=3 folds=5 loadN=0  2026-09-18T23:38:21Z
+host_quiet at cell start:
+loadavg1 1.97 (ceiling 2.00)
+host quiet -- timing read admissible
+loadavg at cell start: 1.97 2.72 1.96 1/884 669508
+before          aiclk=800 power=31.0W temp=48.5C
+FORCE_AICLK(1350) -> status=0x00 ret=0
+q256p0: rc=0 wall=50.5s loadavg=7.22 sequence=[]
+q256p1: rc=0 wall=51.9s loadavg=7.42 sequence=[]
+q256p2: rc=0 wall=49.4s loadavg=11.66 sequence=[]
+CLOCK n=71780 min=800 p05=1350 median=1350 p95=1350 max=1350 mean=1349.9  >=1200: 100.0%
+loadavg at cell end: 11.66 5.98 3.27 1/888 675829
+=== cell q256 rc=1  2026-09-18T23:40:56Z
+---- cell done rc=1 ----
+=== cell q512 rung=512 processes=3 folds=5 loadN=0  2026-09-18T23:40:56Z
+host_quiet at cell start:
+loadavg1 10.80 over ceiling 2.00
+HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.
+loadavg at cell start: 10.80 5.90 3.26 2/889 675838
+before          aiclk=1350 power=55.0W temp=50.4C
+FORCE_AICLK(1350) -> status=0x00 ret=0
+q512p0: rc=0 wall=101.3s loadavg=6.09 sequence=[]
+q512p1: rc=0 wall=80.7s loadavg=3.44 sequence=[]
+q512p2: rc=0 wall=79.5s loadavg=2.73 sequence=[]
+CLOCK n=123080 min=1350 p05=1350 median=1350 p95=1350 max=1350 mean=1350.0  >=1200: 100.0%
+loadavg at cell end: 2.73 4.67 3.44 1/894 686834
+=== cell q512 rc=1  2026-09-18T23:45:21Z
+---- cell done rc=1 ----
+=== cell l256 rung=256 processes=3 folds=5 loadN=24  2026-09-18T23:45:21Z
+host_quiet at cell start:
+loadavg1 2.51 over ceiling 2.00
+HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.
+loadavg at cell start: 2.51 4.59 3.42 1/894 686841
+burners: 686843 686844 686845 686846 686847 686848 686849 686850 686851 686852 686853 686854 686855 686856 686857 686858 686859 686860 686861 686862 686863 686864 686865 686866
+loadavg after burner spin-up: 9.84 6.15 3.97 25/913 687159
+before          aiclk=1350 power=52.0W temp=50.7C
+FORCE_AICLK(1350) -> status=0x00 ret=0
+l256p0: rc=0 wall=95.7s loadavg=36.21 sequence=[]
+l256p1: rc=0 wall=98.2s loadavg=38.53 sequence=[]
+l256p2: rc=0 wall=112.0s loadavg=55.44 sequence=[]
+CLOCK n=138633 min=1350 p05=1350 median=1350 p95=1350 max=1350 mean=1350.0  >=1200: 100.0%
+loadavg at cell end: 55.44 33.94 16.39 5/1001 700024
+=== cell l256 rc=1  2026-09-18T23:50:56Z
+---- cell done rc=1 ----
+=== cell l512 rung=512 processes=3 folds=5 loadN=24  2026-09-18T23:50:56Z
+host_quiet at cell start:
+device fd holder pid 693912 BUSY (193 ticks/2s, owner trix-layout): /home/ttuser/tt-bio-dev/env/bin/python3 perf/trix_layout/fold_ab_320.py --out perf/trix_la
+loadavg1 51.08 over ceiling 2.00
+HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.
+loadavg at cell start: 51.08 33.40 16.30 3/969 700037
+burners: 700039 700040 700041 700042 700043 700044 700045 700046 700047 700048 700049 700050 700051 700052 700053 700054 700055 700056 700057 700058 700059 700060 700061 700062
+loadavg after burner spin-up: 43.37 33.00 16.63 31/1030 701694
+before          aiclk=1350 power=52.0W temp=50.9C
+FORCE_AICLK(1350) -> status=0x00 ret=0
+l512p0: rc=0 wall=148.9s loadavg=36.46 sequence=[]
+l512p1: rc=0 wall=144.1s loadavg=37.12 sequence=[]
+l512p2: rc=0 wall=143.1s loadavg=41.54 sequence=[]
+CLOCK n=197939 min=1350 p05=1350 median=1350 p95=1350 max=1350 mean=1350.0  >=1200: 100.0%
+loadavg at cell end: 41.54 38.52 25.54 3/898 725157
+=== cell l512 rc=1  2026-09-18T23:58:42Z
+---- cell done rc=1 ----
+benchlock: worker:c14-gate-256-warmup released, rc=0, loadavg 41.54 38.52 25.54

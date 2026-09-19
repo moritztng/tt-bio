@@ -1,0 +1,2882 @@
+{
+ "host": "tt-quietbox2",
+ "model": "protenix-v2",
+ "size": 512,
+ "card": 1,
+ "grid": [
+  11,
+  10
+ ],
+ "git_head": "67f1ecaa8e38868865f8abe16e45c6e1b490085c",
+ "env": {
+  "TT_VISIBLE_DEVICES": "1",
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:trix-scaffold-attribute"
+ },
+ "protocol": {
+  "recycling_steps": 10,
+  "sampling_steps": 200
+ },
+ "flags": {
+  "trimul_inproj_group": 12,
+  "mask_after_move": true,
+  "fused_gout": true,
+  "tail_f1": true,
+  "inproj_rowblock": false,
+  "mm_transpose": true
+ },
+ "folds": [
+  {
+   "tag": "cold",
+   "tape": true,
+   "cold": true,
+   "fold_s": 58.651,
+   "wall_s": 58.651,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 207,
+    "power_w_mean": 79.2
+   },
+   "plddt": 0.824303,
+   "n_tokens": 512,
+   "loadavg1": 1.69,
+   "module": {
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "s": 16.459
+    },
+    "shape:1x512x512x256|end": {
+     "calls": 524,
+     "s": 6.7234
+    },
+    "shape:1x512x512x256|start": {
+     "calls": 524,
+     "s": 7.7213
+    },
+    "shape:1x512x512x64|end": {
+     "calls": 80,
+     "s": 0.3577
+    },
+    "shape:1x512x512x64|start": {
+     "calls": 80,
+     "s": 1.6619
+    }
+   }
+  },
+  {
+   "tag": "A",
+   "tape": false,
+   "cold": false,
+   "fold_s": 48.637,
+   "wall_s": 48.637,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 161,
+    "power_w_mean": 83.3
+   },
+   "plddt": 0.824303,
+   "n_tokens": 512,
+   "loadavg1": 1.23,
+   "module": {
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "s": 12.6902
+    },
+    "shape:1x512x512x256|end": {
+     "calls": 524,
+     "s": 6.1235
+    },
+    "shape:1x512x512x256|start": {
+     "calls": 524,
+     "s": 6.0124
+    },
+    "shape:1x512x512x64|end": {
+     "calls": 80,
+     "s": 0.2815
+    },
+    "shape:1x512x512x64|start": {
+     "calls": 80,
+     "s": 0.2793
+    }
+   }
+  },
+  {
+   "tag": "B",
+   "tape": true,
+   "cold": false,
+   "fold_s": 50.033,
+   "wall_s": 50.033,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 187,
+    "power_w_mean": 82.3
+   },
+   "plddt": 0.824303,
+   "n_tokens": 512,
+   "loadavg1": 1.15,
+   "module": {
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "s": 14.0826
+    },
+    "shape:1x512x512x256|end": {
+     "calls": 524,
+     "s": 6.7073
+    },
+    "shape:1x512x512x256|start": {
+     "calls": 524,
+     "s": 6.655
+    },
+    "shape:1x512x512x64|end": {
+     "calls": 80,
+     "s": 0.3601
+    },
+    "shape:1x512x512x64|start": {
+     "calls": 80,
+     "s": 0.365
+    }
+   }
+  },
+  {
+   "tag": "C",
+   "tape": false,
+   "cold": false,
+   "fold_s": 48.604,
+   "wall_s": 48.604,
+   "clock": {
+    "aiclk_min": 1350,
+    "aiclk_max": 1350,
+    "aiclk_median": 1350,
+    "aiclk_mean": 1350.0,
+    "aiclk_n": 161,
+    "power_w_mean": 83.6
+   },
+   "plddt": 0.824303,
+   "n_tokens": 512,
+   "loadavg1": 1.66,
+   "module": {
+    "body:TriangleMultiplication": {
+     "calls": 1208,
+     "s": 12.686
+    },
+    "shape:1x512x512x256|end": {
+     "calls": 524,
+     "s": 6.1243
+    },
+    "shape:1x512x512x256|start": {
+     "calls": 524,
+     "s": 6.0087
+    },
+    "shape:1x512x512x64|end": {
+     "calls": 80,
+     "s": 0.281
+    },
+    "shape:1x512x512x64|start": {
+     "calls": 80,
+     "s": 0.2782
+    }
+   }
+  }
+ ],
+ "programs_cold": {
+  "layer_norm|(1x512x512x64|BFLOAT16|DRAM)|bias=64|BFLOAT16|DRAM,ckc=<ttnn._ttnn.operations.~c14db6,epsilon=1e-05,weight=64|BFLOAT16|DRAM": {
+   "op": "layer_norm",
+   "sig": "(1x512x512x64|BFLOAT16|DRAM)|bias=64|BFLOAT16|DRAM,ckc=<ttnn._ttnn.operations.~c14db6,epsilon=1e-05,weight=64|BFLOAT16|DRAM",
+   "n": 320,
+   "s": 0.08341818898406927,
+   "cold_n": 320,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent.__call__:6446": 160,
+    "tenstorrent.__call__:6883": 160
+   }
+  },
+  "from_torch|(tensor([[-2.6941e-05,~c67770)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.6941e-05,~c67770)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-2.6941e-05,~23460c)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.6941e-05,~23460c)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "allocate_tensor_on_device|(Shape([1, 512, 512, 256]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)": {
+   "op": "allocate_tensor_on_device",
+   "sig": "(Shape([1, 512, 512, 256]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)",
+   "n": 2256,
+   "s": 0.022609382034715964,
+   "cold_n": 2256,
+   "new_programs": 0,
+   "sites": {
+    "mm_dualnoc.in_proj:128 <- tenstorrent._in_proj_matmul:5788 <- tenstorrent.__call__:6595": 160,
+    "reblock_permute.reblock_permute_back:546 <- tenstorrent._channel_move_back:6048 <- tenstorrent.__call__:6713": 1048,
+    "trimul_tail.fused_tail:241 <- tenstorrent.__call__:6903": 1048
+   }
+  },
+  "allocate_tensor_on_device|(Shape([1, 512, 512, 64]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)": {
+   "op": "allocate_tensor_on_device",
+   "sig": "(Shape([1, 512, 512, 64]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)",
+   "n": 320,
+   "s": 0.0029687500100408215,
+   "cold_n": 320,
+   "new_programs": 0,
+   "sites": {
+    "mm_dualnoc.in_proj:128 <- tenstorrent._in_proj_matmul:5788 <- tenstorrent.__call__:6595": 160,
+    "reblock_permute.reblock_permute_back:546 <- tenstorrent._channel_move_back:6048 <- tenstorrent.__call__:6713": 160
+   }
+  },
+  "generic_op|in=[1x512x512x64|BFLOAT16|DRAM,64x320|BFLOAT16|DRAM,1x512x512x256|BFLOAT16|DRAM,...]|dm_in0_sender.cpp+dm_in0_sender.cpp+dm_in1_sender_out.cpp+dm_in1_sender_out.cpp+compute.cpp": {
+   "op": "generic_op",
+   "sig": "in=[1x512x512x64|BFLOAT16|DRAM,64x320|BFLOAT16|DRAM,1x512x512x256|BFLOAT16|DRAM,...]|dm_in0_sender.cpp+dm_in0_sender.cpp+dm_in1_sender_out.cpp+dm_in1_sender_out.cpp+compute.cpp",
+   "n": 160,
+   "s": 0.1444202389830025,
+   "cold_n": 160,
+   "new_programs": 1,
+   "sites": {
+    "mm_generic.generic_minimal_matmul:409 <- mm_dualnoc.in_proj:131 <- tenstorrent._in_proj_matmul:5788 <- tenstorrent.__call__:6595": 160
+   }
+  },
+  "allocate_tensor_on_device|(Shape([1, 64, 512, 512]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)": {
+   "op": "allocate_tensor_on_device",
+   "sig": "(Shape([1, 64, 512, 512]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)",
+   "n": 320,
+   "s": 0.0033135720441350713,
+   "cold_n": 320,
+   "new_programs": 0,
+   "sites": {
+    "reblock_permute.reblock_permute_gated:803 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6641": 160,
+    "reblock_permute.reblock_permute_gated:803 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6647": 160
+   }
+  },
+  "generic_op|in=[1x512x512x256|BFLOAT16|DRAM,1x64x512x512|BFLOAT16|DRAM]|reader_reblock_permute_gated.cpp+writer_reblock_permute_gated.cpp+compute_reblock_permute_gated.cpp": {
+   "op": "generic_op",
+   "sig": "in=[1x512x512x256|BFLOAT16|DRAM,1x64x512x512|BFLOAT16|DRAM]|reader_reblock_permute_gated.cpp+writer_reblock_permute_gated.cpp+compute_reblock_permute_gated.cpp",
+   "n": 320,
+   "s": 0.1681787340057781,
+   "cold_n": 320,
+   "new_programs": 1,
+   "sites": {
+    "reblock_permute.reblock_permute_gated:823 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6641": 160,
+    "reblock_permute.reblock_permute_gated:823 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6647": 160
+   }
+  },
+  "matmul|(1x64x512x512|BFLOAT16|DRAM,1x64x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=False,transpose_b=True": {
+   "op": "matmul",
+   "sig": "(1x64x512x512|BFLOAT16|DRAM,1x64x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=False,transpose_b=True",
+   "n": 80,
+   "s": 0.035384381022595335,
+   "cold_n": 80,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent.__call__:6694": 80
+   }
+  },
+  "generic_op|in=[1x64x512x512|BFLOAT16|DRAM,1x512x512x64|BFLOAT16|DRAM]|reader_reblock_permute_back.cpp+writer_reblock_permute_back.cpp+compute_reblock_permute.cpp": {
+   "op": "generic_op",
+   "sig": "in=[1x64x512x512|BFLOAT16|DRAM,1x512x512x64|BFLOAT16|DRAM]|reader_reblock_permute_back.cpp+writer_reblock_permute_back.cpp+compute_reblock_permute.cpp",
+   "n": 160,
+   "s": 0.055277072970056906,
+   "cold_n": 160,
+   "new_programs": 1,
+   "sites": {
+    "reblock_permute.reblock_permute_back:563 <- tenstorrent._channel_move_back:6048 <- tenstorrent.__call__:6713": 160
+   }
+  },
+  "linear|(1x512x512x64|BFLOAT16|DRAM,64x64|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=L1,pc=MatmulMultiCoreReuseMultiCast1D/MatmulMultiCoreReuseMultiCast1DProgramConfig(compute_~f2eb99": {
+   "op": "linear",
+   "sig": "(1x512x512x64|BFLOAT16|DRAM,64x64|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=L1,pc=MatmulMultiCoreReuseMultiCast1D/MatmulMultiCoreReuseMultiCast1DProgramConfig(compute_~f2eb99",
+   "n": 160,
+   "s": 0.027792345998022938,
+   "cold_n": 160,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent._pair_proj_linear:4508 <- tenstorrent._trimul_out_proj:5818 <- tenstorrent.__call__:6911": 160
+   }
+  },
+  "multiply_|(1x512x512x64|BFLOAT16|L1,1x512x512x64|BFLOAT16|DRAM)|input_tensor_b_activations=[UnaryOpType.SIGMOID]": {
+   "op": "multiply_",
+   "sig": "(1x512x512x64|BFLOAT16|L1,1x512x512x64|BFLOAT16|DRAM)|input_tensor_b_activations=[UnaryOpType.SIGMOID]",
+   "n": 160,
+   "s": 0.046393023989367066,
+   "cold_n": 160,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent.__call__:6924": 160
+   }
+  },
+  "from_torch|(tensor([[-2.9857e-05,~a70832)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.9857e-05,~a70832)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-2.9857e-05,~5b9950)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.9857e-05,~5b9950)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "matmul|(1x64x512x512|BFLOAT16|DRAM,1x64x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=True,transpose_b=False": {
+   "op": "matmul",
+   "sig": "(1x64x512x512|BFLOAT16|DRAM,1x64x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=True,transpose_b=False",
+   "n": 80,
+   "s": 0.03919193698311574,
+   "cold_n": 80,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent.__call__:6694": 80
+   }
+  },
+  "from_torch|(tensor([[ 2.9149e-01,~b2e9bc)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 2.9149e-01,~b2e9bc)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 2.9149e-01,~4fd67e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 2.9149e-01,~4fd67e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.0687, -0.~730fed)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.0687, -0.~730fed)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.0687, -0.~f96b1b)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.0687, -0.~f96b1b)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "layer_norm|(1x512x512x256|BFLOAT16|DRAM)|bias=256|BFLOAT16|DRAM,ckc=<ttnn._ttnn.operations.~c14db6,epsilon=1e-05,weight=256|BFLOAT16|DRAM": {
+   "op": "layer_norm",
+   "sig": "(1x512x512x256|BFLOAT16|DRAM)|bias=256|BFLOAT16|DRAM,ckc=<ttnn._ttnn.operations.~c14db6,epsilon=1e-05,weight=256|BFLOAT16|DRAM",
+   "n": 2080,
+   "s": 1.9265870729359449,
+   "cold_n": 2080,
+   "new_programs": 0,
+   "sites": {
+    "tenstorrent.__call__:6446": 1040,
+    "tenstorrent.__call__:6883": 1040
+   }
+  },
+  "from_torch|(tensor([[-4.9064e-37,~ed7410)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9064e-37,~ed7410)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "allocate_tensor_on_device|(Shape([1, 512, 512, 1024]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)": {
+   "op": "allocate_tensor_on_device",
+   "sig": "(Shape([1, 512, 512, 1024]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)",
+   "n": 1048,
+   "s": 0.010442531020089518,
+   "cold_n": 1048,
+   "new_programs": 0,
+   "sites": {
+    "mm_dualnoc.in_proj:128 <- tenstorrent._in_proj_matmul:5788 <- tenstorrent.__call__:6609": 1048
+   }
+  },
+  "generic_op|in=[1x512x512x256|BFLOAT16|DRAM,256x1024|BFLOAT16|DRAM,1x512x512x1024|BFLOAT16|DRAM]|dm_in0_sender.cpp+dm_in0_sender.cpp+dm_in1_sender_out.cpp+dm_in1_sender_out.cpp+compute.cpp": {
+   "op": "generic_op",
+   "sig": "in=[1x512x512x256|BFLOAT16|DRAM,256x1024|BFLOAT16|DRAM,1x512x512x1024|BFLOAT16|DRAM]|dm_in0_sender.cpp+dm_in0_sender.cpp+dm_in1_sender_out.cpp+dm_in1_sender_out.cpp+compute.cpp",
+   "n": 1048,
+   "s": 2.5506753439476597,
+   "cold_n": 1048,
+   "new_programs": 1,
+   "sites": {
+    "mm_generic.generic_minimal_matmul:409 <- mm_dualnoc.in_proj:131 <- tenstorrent._in_proj_matmul:5788 <- tenstorrent.__call__:6609": 1048
+   }
+  },
+  "allocate_tensor_on_device|(Shape([1, 256, 512, 512]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)": {
+   "op": "allocate_tensor_on_device",
+   "sig": "(Shape([1, 256, 512, 512]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)",
+   "n": 2096,
+   "s": 0.020947438075381797,
+   "cold_n": 2096,
+   "new_programs": 0,
+   "sites": {
+    "reblock_permute.reblock_permute_gated:803 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6641": 1048,
+    "reblock_permute.reblock_permute_gated:803 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6647": 1048
+   }
+  },
+  "generic_op|in=[1x512x512x1024|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM]|reader_reblock_permute_gated.cpp+writer_reblock_permute_gated.cpp+compute_reblock_permute_gated.cpp": {
+   "op": "generic_op",
+   "sig": "in=[1x512x512x1024|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM]|reader_reblock_permute_gated.cpp+writer_reblock_permute_gated.cpp+compute_reblock_permute_gated.cpp",
+   "n": 2096,
+   "s": 2.6819675790757174,
+   "cold_n": 2096,
+   "new_programs": 0,
+   "sites": {
+    "reblock_permute.reblock_permute_gated:823 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6641": 1048,
+    "reblock_permute.reblock_permute_gated:823 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6647": 1048
+   }
+  },
+  "matmul|(1x256x512x512|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=False,transpose_b=True": {
+   "op": "matmul",
+   "sig": "(1x256x512x512|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=False,transpose_b=True",
+   "n": 520,
+   "s": 0.8476208970023436,
+   "cold_n": 520,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent.__call__:6694": 520
+   }
+  },
+  "generic_op|in=[1x256x512x512|BFLOAT16|DRAM,1x512x512x256|BFLOAT16|DRAM]|reader_reblock_permute_back.cpp+writer_reblock_permute_back.cpp+compute_reblock_permute.cpp": {
+   "op": "generic_op",
+   "sig": "in=[1x256x512x512|BFLOAT16|DRAM,1x512x512x256|BFLOAT16|DRAM]|reader_reblock_permute_back.cpp+writer_reblock_permute_back.cpp+compute_reblock_permute.cpp",
+   "n": 1048,
+   "s": 1.011179825043655,
+   "cold_n": 1048,
+   "new_programs": 0,
+   "sites": {
+    "reblock_permute.reblock_permute_back:563 <- tenstorrent._channel_move_back:6048 <- tenstorrent.__call__:6713": 1048
+   }
+  },
+  "generic_op|in=[1x512x512x256|BFLOAT16|DRAM,256x256|BFLOAT16|DRAM,1x512x512x256|BFLOAT16|DRAM,...]|dm_in0_sender.cpp+dm_in0_sender.cpp+dm_in1_sender_out.cpp+dm_in1_sender_out.cpp+compute.cpp": {
+   "op": "generic_op",
+   "sig": "in=[1x512x512x256|BFLOAT16|DRAM,256x256|BFLOAT16|DRAM,1x512x512x256|BFLOAT16|DRAM,...]|dm_in0_sender.cpp+dm_in0_sender.cpp+dm_in1_sender_out.cpp+dm_in1_sender_out.cpp+compute.cpp",
+   "n": 1048,
+   "s": 2.3863342400036345,
+   "cold_n": 1048,
+   "new_programs": 1,
+   "sites": {
+    "trimul_tail.fused_tail:270 <- tenstorrent.__call__:6903": 1048
+   }
+  },
+  "from_torch|(tensor([[-2.0344e-36,~0182db)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.0344e-36,~0182db)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "matmul|(1x256x512x512|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=True,transpose_b=False": {
+   "op": "matmul",
+   "sig": "(1x256x512x512|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=True,transpose_b=False",
+   "n": 520,
+   "s": 0.9643325369943341,
+   "cold_n": 520,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent.__call__:6694": 520
+   }
+  },
+  "from_torch|(tensor([[ 4.9060e-37,~a4a4a6)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9060e-37,~a4a4a6)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-8.0525e-30,~fac352)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-8.0525e-30,~fac352)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 5.8131e-37,~ff13dc)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 5.8131e-37,~ff13dc)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 5.2663e-37,~5b7ce5)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 5.2663e-37,~5b7ce5)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 4.9064e-37,~7a98ec)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9064e-37,~7a98ec)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 5.4102e-02,~1a1bac)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 5.4102e-02,~1a1bac)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 5.1505e-37,~ca70c1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 5.1505e-37,~ca70c1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-6.7103e-02,~3e53b3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-6.7103e-02,~3e53b3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-2.1934e-31,~8a579f)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.1934e-31,~8a579f)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 2.2665e-03,~81a5ab)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 2.2665e-03,~81a5ab)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-1.2313e-01,~230d17)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.2313e-01,~230d17)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-4.4751e-31,~a1a6d3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.4751e-31,~a1a6d3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-1.6688e-01,~dd1c3a)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.6688e-01,~dd1c3a)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 1.2531e-04,~c3d97e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 1.2531e-04,~c3d97e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-4.8990e-37,~4c42b2)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.8990e-37,~4c42b2)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 3.4514e-09,~80aa6d)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 3.4514e-09,~80aa6d)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-9.8728e-02,~f0f435)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-9.8728e-02,~f0f435)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 4.9628e-04,~2862ac)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9628e-04,~2862ac)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 3.5062e-31,~1f58a3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 3.5062e-31,~1f58a3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-4.9046e-37,~76eb52)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9046e-37,~76eb52)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-4.9046e-37,~3f845f)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9046e-37,~3f845f)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-4.9060e-37,~4871f9)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9060e-37,~4871f9)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 9.4207e-32,~e6affb)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 9.4207e-32,~e6affb)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-1.1976e-07,~8ea793)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.1976e-07,~8ea793)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-4.9046e-37,~677ad1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9046e-37,~677ad1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-3.5413e-15,~99eb0b)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-3.5413e-15,~99eb0b)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-3.8238e-26,~7490d1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-3.8238e-26,~7490d1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-4.9060e-37,~0150a8)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9060e-37,~0150a8)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-4.9051e-37,~9540cf)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9051e-37,~9540cf)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-4.9060e-37,~1fd42c)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9060e-37,~1fd42c)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-4.9064e-37,~495946)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9064e-37,~495946)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 4.4546e-33,~3c1268)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.4546e-33,~3c1268)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-1.2893e-29,~22c6c3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.2893e-29,~22c6c3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-4.9055e-37,~b49915)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9055e-37,~b49915)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 6.6780e-03,~263da9)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 6.6780e-03,~263da9)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 4.9055e-37,~8184b4)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9055e-37,~8184b4)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 1.9749e-37,~3ad0f1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 1.9749e-37,~3ad0f1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-2.4676e-03,~2b2360)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.4676e-03,~2b2360)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-4.9051e-37,~eca450)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9051e-37,~eca450)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 4.9051e-37,~da677d)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9051e-37,~da677d)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 4.4073e-37,~3237f5)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.4073e-37,~3237f5)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 4.9055e-37,~96ba54)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9055e-37,~96ba54)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 4.9064e-37,~6b7db2)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9064e-37,~6b7db2)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-4.9073e-37,~95336e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9073e-37,~95336e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.0071, -0.~0c9a56)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0071, -0.~0c9a56)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 4.9059e-37,~4f5b05)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9059e-37,~4f5b05)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 4.2332e-15,~e57a62)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.2332e-15,~e57a62)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 5.6279e-04,~87f1bf)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 5.6279e-04,~87f1bf)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.1870, 0.0~e84e31)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.1870, 0.0~e84e31)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 4.8858e-37,~da16e4)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.8858e-37,~da16e4)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.0068, -0.~a86ebc)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.0068, -0.~a86ebc)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 8.2436e-32,~a4be29)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 8.2436e-32,~a4be29)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-3.1909e-37,~4824a8)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-3.1909e-37,~4824a8)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 5.5762e-02,~77918e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 5.5762e-02,~77918e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.2355, -0.~fea0e6)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.2355, -0.~fea0e6)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 2.4632e-02,~04c372)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 2.4632e-02,~04c372)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.0932, 0.2~234c83)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0932, 0.2~234c83)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 1.3958e-01,~2eb0ab)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 1.3958e-01,~2eb0ab)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.2869, -0.~dffa9f)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.2869, -0.~dffa9f)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.0774, -0.~74a526)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0774, -0.~74a526)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.0577, 0.3~681492)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.0577, 0.3~681492)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.1364, 0.2~f63bfa)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.1364, 0.2~f63bfa)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.2172, -0.~cdc879)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.2172, -0.~cdc879)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.8750, -0.~885011)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.8750, -0.~885011)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 1.8303e-01,~496853)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 1.8303e-01,~496853)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.1645, 0.1~de34dc)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.1645, 0.1~de34dc)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.0489, 0.4~076061)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0489, 0.4~076061)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.2039, -0.~417043)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.2039, -0.~417043)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.5240, -0.~b36010)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.5240, -0.~b36010)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.2150, -0.~67ca2c)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.2150, -0.~67ca2c)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-1.1695e-01,~c2c161)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.1695e-01,~c2c161)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.0462, 0.2~04befb)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0462, 0.2~04befb)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.2769, 0.1~79bd65)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.2769, 0.1~79bd65)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.1275, -0.~aa3ccf)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.1275, -0.~aa3ccf)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.0307, 0.4~90ebc0)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0307, 0.4~90ebc0)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-3.7160e-01,~dd865d)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-3.7160e-01,~dd865d)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-1.0673e-01,~fa2bc9)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.0673e-01,~fa2bc9)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.2702, -0.~2b8be0)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.2702, -0.~2b8be0)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.2616, -0.~50f60c)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.2616, -0.~50f60c)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-8.7381e-02,~bd400e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-8.7381e-02,~bd400e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.1836, 0.1~715f41)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.1836, 0.1~715f41)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.2980, 0.1~ef3d0b)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.2980, 0.1~ef3d0b)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.1022, 0.1~1ec7b3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.1022, 0.1~1ec7b3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.5557, 0.2~2b2679)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.5557, 0.2~2b2679)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.0349, 0.2~d57e2f)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0349, 0.2~d57e2f)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.1383, 0.1~d10429)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.1383, 0.1~d10429)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.4458, 0.5~b3a0e5)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.4458, 0.5~b3a0e5)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.3871, -0.~fe0334)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.3871, -0.~fe0334)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.0292, -0.~d04061)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.0292, -0.~d04061)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.2981, 0.3~8ef01d)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.2981, 0.3~8ef01d)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.4945, 0.0~3df41a)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.4945, 0.0~3df41a)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.0309, 0.0~af9900)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0309, 0.0~af9900)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.1634, -0.~1aa4b1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.1634, -0.~1aa4b1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.0254, -0.~13ce7a)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0254, -0.~13ce7a)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.1607, 0.2~26f261)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.1607, 0.2~26f261)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.0615, 0.1~e4db44)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.0615, 0.1~e4db44)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-7.1522e-02,~e62a02)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-7.1522e-02,~e62a02)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.5942, 0.1~958aac)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.5942, 0.1~958aac)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.1799, 0.7~a11669)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.1799, 0.7~a11669)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 0.3548, 0.4~3344e4)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.3548, 0.4~3344e4)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.2452, 0.0~9f373b)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.2452, 0.0~9f373b)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-0.2474, 0.0~9976ea)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.2474, 0.0~9976ea)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "layer_norm|(1x512x512x256|BFLOAT16|DRAM)|bias=256|BFLOAT16|DRAM,ckc=<ttnn._ttnn.operations.~363a16,epsilon=1e-05,weight=256|BFLOAT16|DRAM": {
+   "op": "layer_norm",
+   "sig": "(1x512x512x256|BFLOAT16|DRAM)|bias=256|BFLOAT16|DRAM,ckc=<ttnn._ttnn.operations.~363a16,epsilon=1e-05,weight=256|BFLOAT16|DRAM",
+   "n": 16,
+   "s": 0.014890480997564737,
+   "cold_n": 16,
+   "new_programs": 0,
+   "sites": {
+    "tenstorrent.__call__:6446": 8,
+    "tenstorrent.__call__:6883": 8
+   }
+  },
+  "from_torch|(tensor([[-4.9055e-37,~d83260)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9055e-37,~d83260)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "matmul|(1x256x512x512|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~363a16,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=False,transpose_b=True": {
+   "op": "matmul",
+   "sig": "(1x256x512x512|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~363a16,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=False,transpose_b=True",
+   "n": 4,
+   "s": 0.006496323003375437,
+   "cold_n": 4,
+   "new_programs": 0,
+   "sites": {
+    "tenstorrent.__call__:6694": 4
+   }
+  },
+  "from_torch|(tensor([[ 4.9055e-37,~2441d3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9055e-37,~2441d3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "matmul|(1x256x512x512|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~363a16,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=True,transpose_b=False": {
+   "op": "matmul",
+   "sig": "(1x256x512x512|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~363a16,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=True,transpose_b=False",
+   "n": 4,
+   "s": 0.007451710996974725,
+   "cold_n": 4,
+   "new_programs": 0,
+   "sites": {
+    "tenstorrent.__call__:6694": 4
+   }
+  },
+  "from_torch|(tensor([[-1.3831e-04,~ca69e8)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.3831e-04,~ca69e8)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-6.0443e-04,~853096)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-6.0443e-04,~853096)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[-1.7428e-03,~a7f665)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.7428e-03,~a7f665)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 4.9064e-37,~ea66a7)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9064e-37,~ea66a7)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 1.5114e-03,~123c30)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 1.5114e-03,~123c30)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  "from_torch|(tensor([[ 4.9046e-37,~988fb6)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE": {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9046e-37,~988fb6)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "s": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  }
+ },
+ "cold_cache_entries": 380,
+ "programs": [
+  {
+   "op": "generic_op",
+   "sig": "in=[1x512x512x1024|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM]|reader_reblock_permute_gated.cpp+writer_reblock_permute_gated.cpp+compute_reblock_permute_gated.cpp",
+   "n": 2096,
+   "ms": 2681.968,
+   "cold_n": 2096,
+   "new_programs": 0,
+   "sites": {
+    "reblock_permute.reblock_permute_gated:823 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6641": 1048,
+    "reblock_permute.reblock_permute_gated:823 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6647": 1048
+   }
+  },
+  {
+   "op": "generic_op",
+   "sig": "in=[1x512x512x256|BFLOAT16|DRAM,256x1024|BFLOAT16|DRAM,1x512x512x1024|BFLOAT16|DRAM]|dm_in0_sender.cpp+dm_in0_sender.cpp+dm_in1_sender_out.cpp+dm_in1_sender_out.cpp+compute.cpp",
+   "n": 1048,
+   "ms": 2550.675,
+   "cold_n": 1048,
+   "new_programs": 1,
+   "sites": {
+    "mm_generic.generic_minimal_matmul:409 <- mm_dualnoc.in_proj:131 <- tenstorrent._in_proj_matmul:5788 <- tenstorrent.__call__:6609": 1048
+   }
+  },
+  {
+   "op": "generic_op",
+   "sig": "in=[1x512x512x256|BFLOAT16|DRAM,256x256|BFLOAT16|DRAM,1x512x512x256|BFLOAT16|DRAM,...]|dm_in0_sender.cpp+dm_in0_sender.cpp+dm_in1_sender_out.cpp+dm_in1_sender_out.cpp+compute.cpp",
+   "n": 1048,
+   "ms": 2386.334,
+   "cold_n": 1048,
+   "new_programs": 1,
+   "sites": {
+    "trimul_tail.fused_tail:270 <- tenstorrent.__call__:6903": 1048
+   }
+  },
+  {
+   "op": "layer_norm",
+   "sig": "(1x512x512x256|BFLOAT16|DRAM)|bias=256|BFLOAT16|DRAM,ckc=<ttnn._ttnn.operations.~c14db6,epsilon=1e-05,weight=256|BFLOAT16|DRAM",
+   "n": 2080,
+   "ms": 1926.587,
+   "cold_n": 2080,
+   "new_programs": 0,
+   "sites": {
+    "tenstorrent.__call__:6446": 1040,
+    "tenstorrent.__call__:6883": 1040
+   }
+  },
+  {
+   "op": "generic_op",
+   "sig": "in=[1x256x512x512|BFLOAT16|DRAM,1x512x512x256|BFLOAT16|DRAM]|reader_reblock_permute_back.cpp+writer_reblock_permute_back.cpp+compute_reblock_permute.cpp",
+   "n": 1048,
+   "ms": 1011.18,
+   "cold_n": 1048,
+   "new_programs": 0,
+   "sites": {
+    "reblock_permute.reblock_permute_back:563 <- tenstorrent._channel_move_back:6048 <- tenstorrent.__call__:6713": 1048
+   }
+  },
+  {
+   "op": "matmul",
+   "sig": "(1x256x512x512|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=True,transpose_b=False",
+   "n": 520,
+   "ms": 964.333,
+   "cold_n": 520,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent.__call__:6694": 520
+   }
+  },
+  {
+   "op": "matmul",
+   "sig": "(1x256x512x512|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=False,transpose_b=True",
+   "n": 520,
+   "ms": 847.621,
+   "cold_n": 520,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent.__call__:6694": 520
+   }
+  },
+  {
+   "op": "generic_op",
+   "sig": "in=[1x512x512x256|BFLOAT16|DRAM,1x64x512x512|BFLOAT16|DRAM]|reader_reblock_permute_gated.cpp+writer_reblock_permute_gated.cpp+compute_reblock_permute_gated.cpp",
+   "n": 320,
+   "ms": 168.179,
+   "cold_n": 320,
+   "new_programs": 1,
+   "sites": {
+    "reblock_permute.reblock_permute_gated:823 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6641": 160,
+    "reblock_permute.reblock_permute_gated:823 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6647": 160
+   }
+  },
+  {
+   "op": "generic_op",
+   "sig": "in=[1x512x512x64|BFLOAT16|DRAM,64x320|BFLOAT16|DRAM,1x512x512x256|BFLOAT16|DRAM,...]|dm_in0_sender.cpp+dm_in0_sender.cpp+dm_in1_sender_out.cpp+dm_in1_sender_out.cpp+compute.cpp",
+   "n": 160,
+   "ms": 144.42,
+   "cold_n": 160,
+   "new_programs": 1,
+   "sites": {
+    "mm_generic.generic_minimal_matmul:409 <- mm_dualnoc.in_proj:131 <- tenstorrent._in_proj_matmul:5788 <- tenstorrent.__call__:6595": 160
+   }
+  },
+  {
+   "op": "layer_norm",
+   "sig": "(1x512x512x64|BFLOAT16|DRAM)|bias=64|BFLOAT16|DRAM,ckc=<ttnn._ttnn.operations.~c14db6,epsilon=1e-05,weight=64|BFLOAT16|DRAM",
+   "n": 320,
+   "ms": 83.418,
+   "cold_n": 320,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent.__call__:6446": 160,
+    "tenstorrent.__call__:6883": 160
+   }
+  },
+  {
+   "op": "generic_op",
+   "sig": "in=[1x64x512x512|BFLOAT16|DRAM,1x512x512x64|BFLOAT16|DRAM]|reader_reblock_permute_back.cpp+writer_reblock_permute_back.cpp+compute_reblock_permute.cpp",
+   "n": 160,
+   "ms": 55.277,
+   "cold_n": 160,
+   "new_programs": 1,
+   "sites": {
+    "reblock_permute.reblock_permute_back:563 <- tenstorrent._channel_move_back:6048 <- tenstorrent.__call__:6713": 160
+   }
+  },
+  {
+   "op": "multiply_",
+   "sig": "(1x512x512x64|BFLOAT16|L1,1x512x512x64|BFLOAT16|DRAM)|input_tensor_b_activations=[UnaryOpType.SIGMOID]",
+   "n": 160,
+   "ms": 46.393,
+   "cold_n": 160,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent.__call__:6924": 160
+   }
+  },
+  {
+   "op": "matmul",
+   "sig": "(1x64x512x512|BFLOAT16|DRAM,1x64x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=True,transpose_b=False",
+   "n": 80,
+   "ms": 39.192,
+   "cold_n": 80,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent.__call__:6694": 80
+   }
+  },
+  {
+   "op": "matmul",
+   "sig": "(1x64x512x512|BFLOAT16|DRAM,1x64x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=False,transpose_b=True",
+   "n": 80,
+   "ms": 35.384,
+   "cold_n": 80,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent.__call__:6694": 80
+   }
+  },
+  {
+   "op": "linear",
+   "sig": "(1x512x512x64|BFLOAT16|DRAM,64x64|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~c14db6,dtype=DataType.BFLOAT16,mc=L1,pc=MatmulMultiCoreReuseMultiCast1D/MatmulMultiCoreReuseMultiCast1DProgramConfig(compute_~f2eb99",
+   "n": 160,
+   "ms": 27.792,
+   "cold_n": 160,
+   "new_programs": 1,
+   "sites": {
+    "tenstorrent._pair_proj_linear:4508 <- tenstorrent._trimul_out_proj:5818 <- tenstorrent.__call__:6911": 160
+   }
+  },
+  {
+   "op": "allocate_tensor_on_device",
+   "sig": "(Shape([1, 512, 512, 256]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)",
+   "n": 2256,
+   "ms": 22.609,
+   "cold_n": 2256,
+   "new_programs": 0,
+   "sites": {
+    "reblock_permute.reblock_permute_back:546 <- tenstorrent._channel_move_back:6048 <- tenstorrent.__call__:6713": 1048,
+    "trimul_tail.fused_tail:241 <- tenstorrent.__call__:6903": 1048,
+    "mm_dualnoc.in_proj:128 <- tenstorrent._in_proj_matmul:5788 <- tenstorrent.__call__:6595": 160
+   }
+  },
+  {
+   "op": "allocate_tensor_on_device",
+   "sig": "(Shape([1, 256, 512, 512]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)",
+   "n": 2096,
+   "ms": 20.947,
+   "cold_n": 2096,
+   "new_programs": 0,
+   "sites": {
+    "reblock_permute.reblock_permute_gated:803 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6641": 1048,
+    "reblock_permute.reblock_permute_gated:803 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6647": 1048
+   }
+  },
+  {
+   "op": "layer_norm",
+   "sig": "(1x512x512x256|BFLOAT16|DRAM)|bias=256|BFLOAT16|DRAM,ckc=<ttnn._ttnn.operations.~363a16,epsilon=1e-05,weight=256|BFLOAT16|DRAM",
+   "n": 16,
+   "ms": 14.89,
+   "cold_n": 16,
+   "new_programs": 0,
+   "sites": {
+    "tenstorrent.__call__:6446": 8,
+    "tenstorrent.__call__:6883": 8
+   }
+  },
+  {
+   "op": "allocate_tensor_on_device",
+   "sig": "(Shape([1, 512, 512, 1024]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)",
+   "n": 1048,
+   "ms": 10.443,
+   "cold_n": 1048,
+   "new_programs": 0,
+   "sites": {
+    "mm_dualnoc.in_proj:128 <- tenstorrent._in_proj_matmul:5788 <- tenstorrent.__call__:6609": 1048
+   }
+  },
+  {
+   "op": "matmul",
+   "sig": "(1x256x512x512|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~363a16,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=True,transpose_b=False",
+   "n": 4,
+   "ms": 7.452,
+   "cold_n": 4,
+   "new_programs": 0,
+   "sites": {
+    "tenstorrent.__call__:6694": 4
+   }
+  },
+  {
+   "op": "matmul",
+   "sig": "(1x256x512x512|BFLOAT16|DRAM,1x256x512x512|BFLOAT16|DRAM)|ckc=<ttnn._ttnn.operations.~363a16,dtype=DataType.BFLOAT16,mc=DRAM,pc=MatmulMultiCoreReuseMultiCast/MatmulMultiCoreReuseMultiCastProgramConfig(compute_wi~0a45dd,transpose_a=False,transpose_b=True",
+   "n": 4,
+   "ms": 6.496,
+   "cold_n": 4,
+   "new_programs": 0,
+   "sites": {
+    "tenstorrent.__call__:6694": 4
+   }
+  },
+  {
+   "op": "allocate_tensor_on_device",
+   "sig": "(Shape([1, 64, 512, 512]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)",
+   "n": 320,
+   "ms": 3.314,
+   "cold_n": 320,
+   "new_programs": 0,
+   "sites": {
+    "reblock_permute.reblock_permute_gated:803 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6641": 160,
+    "reblock_permute.reblock_permute_gated:803 <- tenstorrent._transform_chunk_gated:6303 <- tenstorrent.__call__:6647": 160
+   }
+  },
+  {
+   "op": "allocate_tensor_on_device",
+   "sig": "(Shape([1, 512, 512, 64]),DataType.BFLOAT16,Layout.TILE,MeshDevice(1x1 grid, ~7211a3,MemoryConfig(memory_l~f7d643)",
+   "n": 320,
+   "ms": 2.969,
+   "cold_n": 320,
+   "new_programs": 0,
+   "sites": {
+    "mm_dualnoc.in_proj:128 <- tenstorrent._in_proj_matmul:5788 <- tenstorrent.__call__:6595": 160,
+    "reblock_permute.reblock_permute_back:546 <- tenstorrent._channel_move_back:6048 <- tenstorrent.__call__:6713": 160
+   }
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.6941e-05,~c67770)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.6941e-05,~23460c)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.9857e-05,~a70832)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.9857e-05,~5b9950)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 2.9149e-01,~b2e9bc)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 2.9149e-01,~4fd67e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.0687, -0.~730fed)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.0687, -0.~f96b1b)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9064e-37,~ed7410)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.0344e-36,~0182db)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9060e-37,~a4a4a6)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-8.0525e-30,~fac352)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 5.8131e-37,~ff13dc)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 5.2663e-37,~5b7ce5)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9064e-37,~7a98ec)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 5.4102e-02,~1a1bac)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 5.1505e-37,~ca70c1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-6.7103e-02,~3e53b3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.1934e-31,~8a579f)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 2.2665e-03,~81a5ab)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.2313e-01,~230d17)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.4751e-31,~a1a6d3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.6688e-01,~dd1c3a)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 1.2531e-04,~c3d97e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.8990e-37,~4c42b2)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 3.4514e-09,~80aa6d)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-9.8728e-02,~f0f435)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9628e-04,~2862ac)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 3.5062e-31,~1f58a3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9046e-37,~76eb52)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9046e-37,~3f845f)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9060e-37,~4871f9)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 9.4207e-32,~e6affb)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.1976e-07,~8ea793)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9046e-37,~677ad1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-3.5413e-15,~99eb0b)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-3.8238e-26,~7490d1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9060e-37,~0150a8)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9051e-37,~9540cf)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9060e-37,~1fd42c)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9064e-37,~495946)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.4546e-33,~3c1268)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.2893e-29,~22c6c3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9055e-37,~b49915)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 6.6780e-03,~263da9)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9055e-37,~8184b4)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 1.9749e-37,~3ad0f1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-2.4676e-03,~2b2360)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9051e-37,~eca450)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9051e-37,~da677d)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.4073e-37,~3237f5)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9055e-37,~96ba54)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9064e-37,~6b7db2)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9073e-37,~95336e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0071, -0.~0c9a56)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9059e-37,~4f5b05)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.2332e-15,~e57a62)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 5.6279e-04,~87f1bf)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.1870, 0.0~e84e31)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.8858e-37,~da16e4)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.0068, -0.~a86ebc)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 8.2436e-32,~a4be29)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-3.1909e-37,~4824a8)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 5.5762e-02,~77918e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.2355, -0.~fea0e6)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 2.4632e-02,~04c372)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0932, 0.2~234c83)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 1.3958e-01,~2eb0ab)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.2869, -0.~dffa9f)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0774, -0.~74a526)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.0577, 0.3~681492)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.1364, 0.2~f63bfa)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.2172, -0.~cdc879)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.8750, -0.~885011)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 1.8303e-01,~496853)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.1645, 0.1~de34dc)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0489, 0.4~076061)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.2039, -0.~417043)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.5240, -0.~b36010)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.2150, -0.~67ca2c)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.1695e-01,~c2c161)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0462, 0.2~04befb)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.2769, 0.1~79bd65)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.1275, -0.~aa3ccf)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0307, 0.4~90ebc0)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-3.7160e-01,~dd865d)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.0673e-01,~fa2bc9)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.2702, -0.~2b8be0)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.2616, -0.~50f60c)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-8.7381e-02,~bd400e)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.1836, 0.1~715f41)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.2980, 0.1~ef3d0b)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.1022, 0.1~1ec7b3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.5557, 0.2~2b2679)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0349, 0.2~d57e2f)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.1383, 0.1~d10429)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.4458, 0.5~b3a0e5)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.3871, -0.~fe0334)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.0292, -0.~d04061)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.2981, 0.3~8ef01d)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.4945, 0.0~3df41a)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0309, 0.0~af9900)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.1634, -0.~1aa4b1)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.0254, -0.~13ce7a)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.1607, 0.2~26f261)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.0615, 0.1~e4db44)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-7.1522e-02,~e62a02)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.5942, 0.1~958aac)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.1799, 0.7~a11669)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 0.3548, 0.4~3344e4)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.2452, 0.0~9f373b)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-0.2474, 0.0~9976ea)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-4.9055e-37,~d83260)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9055e-37,~2441d3)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.3831e-04,~ca69e8)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-6.0443e-04,~853096)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[-1.7428e-03,~a7f665)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9064e-37,~ea66a7)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 1.5114e-03,~123c30)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  },
+  {
+   "op": "from_torch",
+   "sig": "(tensor([[ 4.9046e-37,~988fb6)|device=MeshDevice(1x1 grid, ~7211a3,dtype=DataType.BFLOAT16,layout=Layout.TILE",
+   "n": 0,
+   "ms": 0.0,
+   "cold_n": 1,
+   "new_programs": 0,
+   "sites": {}
+  }
+ ],
+ "taped_sum_s": 13.0579
+}

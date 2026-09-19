@@ -2952,8 +2952,10 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     levers, runtimes, census_jsons, refused = {}, {}, {}, {}
     sigma, grid, drift, runtime_src = None, None, [], None
     sigma_rung = _size_ladder_sigma_rung(model)
+    sigma_rungs = _size_ladder_sigma_rungs(model)
+    sigmas = {}
     for rung in rungs:
-        reps = reps_sigma if rung == sigma_rung else reps_other
+        reps = reps_sigma if rung in sigma_rungs else reps_other
         runs = []
         guard = None
         for rep in range(reps + 1):
@@ -3003,13 +3005,15 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
         census_jsons[str(rung)] = runs[0]["census_json"]
         ts = [r["runtime_s"] for r in runs]
         runtimes[str(rung)] = round(statistics.median(ts), 2)
-        if rung == sigma_rung and len(ts) > 1:
-            sigma = statistics.stdev(ts) / statistics.mean(ts)
+        if rung in sigma_rungs and len(ts) > 1:
+            sigmas[str(rung)] = round(statistics.stdev(ts) / statistics.mean(ts), 4)
+            if rung == sigma_rung:
+                sigma = sigmas[str(rung)]
     if not runtimes and refused:
         return {"error": f"every rung requested ({','.join(map(str, rungs))}) is above this "
                          f"model's size guard: {next(iter(refused.values()))}",
                 "refused": refused}
-    return {"levers": levers, "runtime_s": runtimes, "sigma": sigma,
+    return {"levers": levers, "runtime_s": runtimes, "sigma": sigma, "sigmas": sigmas,
             "runtime_src": runtime_src,
             "census_jsons": census_jsons, "grid": grid, "drift": drift,
             "refused": refused}
@@ -3045,6 +3049,28 @@ def _size_ladder_exp_rungs(model: str) -> tuple:
     return SIZE_LADDER_EXP_RUNGS
 
 
+def _size_ladder_sigma_rungs(model: str) -> tuple:
+    """Every rung the runtime noise is measured at: the middle gated rung, and the LOWEST.
+
+    One sigma used to do two jobs. It sets the exponent TOLERANCE, which is why it is measured
+    at the middle rung (see _size_ladder_sigma_rung), and it sets how many folds each rung is
+    measured over, which needs the noisiest rung instead. Those are not the same rung, and the
+    smallest one is where the arm keeps false-redding: runtime_s carries a size-independent
+    host term, so the smallest rung is mostly made of it and is the rung that moves.
+
+    Measured on qb1 p150a, boltz2, 256 aa, benchlocked, AICLK pinned and sampled at 1350 MHz,
+    ten fresh processes: the 256 cell drew 7.6-10.6 s while 512 drew 15.0-15.7 s over six. Two
+    independent single draws of k(256->512) disagree by more than the +-0.50 band 0.9 % of the
+    time at one rep and 0.1 % at three. boltz2's p300c entry carries reps=1, off a sigma of
+    0.41 % measured at 512 on a quiet box, and its 256 rung has failed the gate at four
+    commits. A median cannot be triggered by noise the sigma rung never saw.
+    """
+    exp = _size_ladder_exp_rungs(model)
+    if not exp:
+        return ()
+    return tuple(dict.fromkeys((exp[len(exp) // 2], exp[0])))
+
+
 def _size_ladder_sigma_rung(model: str):
     """The rung the runtime noise floor is measured at: the MIDDLE gated rung, or None.
 
@@ -3057,9 +3083,14 @@ def _size_ladder_sigma_rung(model: str):
     return exp[len(exp) // 2] if exp else None
 
 
-def _size_ladder_exponent_block(model: str, runtimes: dict, sigma):
+def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas=None):
     """Baseline exponent entries per consecutive rung pair: k with a tolerance
-    derived from the measured noise floor. Returns (block, skip_reason)."""
+    derived from the measured noise floor. Returns (block, skip_reason).
+
+    The tolerance comes from the middle rung's sigma, which is the interval either side of it.
+    The REP COUNT comes from the worst sigma measured, which is normally the lowest rung: a
+    band is a property of the interval, a rep count is a property of the cell being drawn.
+    """
     gated = _size_ladder_exp_rungs(model)
     rungs = sorted(int(r) for r in runtimes if int(r) in gated)
     if len(rungs) < 2:
@@ -3067,8 +3098,9 @@ def _size_ladder_exponent_block(model: str, runtimes: dict, sigma):
     if sigma is None:
         return None, (f"no noise measurement (rung {_size_ladder_sigma_rung(model)} absent "
                       f"from the ladder)")
+    reps_sigma = max([sigma] + list((sigmas or {}).values()))
     reps, sigma_eff = 1, sigma
-    if sigma > 0.12:
+    if reps_sigma > 0.12:
         # median-of-3, the repo's standing answer to single-shot noise
         # (perf-gate-single-shot-legs-recurring-false-alarm, merged 7431d6e39)
         reps, sigma_eff = 3, sigma / math.sqrt(3)
@@ -3083,7 +3115,10 @@ def _size_ladder_exponent_block(model: str, runtimes: dict, sigma):
         return None, (f"measured sigma {sigma:.1%} needs a ±{worst:.2f} band, wider "
                       f"than the ~{SIZE_LADDER_EXP_MAX_TOL} cliff signal — an exponent "
                       f"gate would be a coin flip for this model")
-    return {"reps": reps, "sigma_runtime_512": round(sigma, 4), "exponents": exps}, None
+    block = {"reps": reps, "sigma_runtime_512": round(sigma, 4), "exponents": exps}
+    if sigmas:
+        block["sigma_runtime"] = dict(sigmas)
+    return block, None
 
 
 def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list:
@@ -3942,7 +3977,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             err = _size_ladder_record_refusal(meas)
             block = skip = None
             if err is None:
-                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"])
+                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"],
+                                                          meas.get("sigmas"))
                 # Re-measure at the rep count the CHECK will use. Only the sigma rung was repeated
                 # above, so a model noisy enough to need a median went into the baseline
                 # single-shot at the other three rungs while the check reads a median of three
@@ -3951,7 +3987,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 # changed but how many folds the number came from.
                 reps = (block or {}).get("reps", 1)
                 if reps > reps_other:
-                    again = [r for r in ladders[m] if r != _size_ladder_sigma_rung(m)]
+                    again = [r for r in ladders[m]
+                             if r not in _size_ladder_sigma_rungs(m)]
                     print(f"  [size-ladder] {m}: sigma needs a median of {reps}, re-measuring "
                           f"{','.join(map(str, again))} at {reps} reps", flush=True)
                     m2 = _size_ladder_measure_model(m, again, workdir, reps, reps)
@@ -3960,14 +3997,16 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                         for k in ("levers", "runtime_s", "census_jsons"):
                             meas[k].update(m2[k])
                         block, skip = _size_ladder_exponent_block(m, meas["runtime_s"],
-                                                                  meas["sigma"])
+                                                                  meas["sigma"],
+                                                                  meas.get("sigmas"))
             if err:
                 print(f"  [size-ladder] {m}: NOT RECORDED — {err}", flush=True)
                 legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
                 continue
             carried_rungs = _size_ladder_carry_rungs(meas, old_models.get(m), stamp)
             if carried_rungs:
-                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"])
+                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"],
+                                                          meas.get("sigmas"))
             todos += _size_ladder_fill_reasons(
                 meas["levers"], old_models.get(m, {}).get("levers"),
                 _size_ladder_other_card_levers(reasons_from, card, m))
