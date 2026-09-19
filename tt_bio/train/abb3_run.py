@@ -12,6 +12,10 @@ in rather than documented:
 * the checkpoint cadence is in MINUTES, not steps. What a reset costs is wall clock, so the
   quantity to bound is wall clock, and a step-count cadence silently changes what it caps
   whenever the step time moves -- which it did, from 14.472 s to 38.5 s, within one pass;
+* ``max_seconds`` is per PROCESS and the run's cap is not. See ``tt_bio.train.deadline``: the
+  5-day grant of ask 9115 is an epoch instant in the output directory, and each launch turns
+  what is left of it into this process's budget. A cap measured from process start would be a
+  cap on the gap between two watchdog resets, which is not a cap on anything;
 * the optimizer state is not optional to restore. See ``abb3_checkpoint``;
 * the checkpoint is **chip-count agnostic**. It holds the global batch's divisor, not the chip
   count, so a 2-chip run interrupted by a reset can resume on 1 chip when only one card is
@@ -262,7 +266,10 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             terms = {k: round(v - prev_terms.get(k, 0.0), 4)
                      for k, v in step.loss_terms.items()}
             prev_terms = dict(step.loss_terms)
-            row = {"step": gs, "wall": round(wall, 4), **parts,
+            # The epoch stamp is what makes the history readable as a HEARTBEAT and not only as
+            # a curve: `wall` is device time and says nothing about the gap a watchdog reset
+            # leaves behind, and that gap is the thing a watcher has to be able to see.
+            row = {"step": gs, "t": round(time.time(), 3), "wall": round(wall, 4), **parts,
                    "digest": step.optimizer.last.get("master_digest"),
                    "stages": timing.as_dict(), "loss_terms": terms}
             history.append(row)
@@ -273,7 +280,14 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             # Cadence in wall clock, and only rank 0 writes: one file that every rank loads is
             # what makes the post-resume hash equality a fact rather than a hope. Four ranks
             # each writing their own would also be four chances to restore a different one.
-            due = (time.monotonic() - last_ckpt >= cadence) or gs == cfg.steps or gs in tripwires
+            # A run that stops on the clock stops ON a checkpoint. Ask 9115 capped this leg at
+            # 5 days of wall clock and called it a decision point rather than a truncation, so
+            # the state at the cap is the deliverable -- losing up to a 30-minute cadence of it
+            # because the cap landed between two saves throws away the one thing an extension
+            # would resume from.
+            out_of_time = bool(cfg.max_seconds) and time.monotonic() - t_run > cfg.max_seconds
+            due = ((time.monotonic() - last_ckpt >= cadence) or gs == cfg.steps
+                   or gs in tripwires or out_of_time)
             if due and cfg.rank == 0:
                 path = save_run_state(
                     ckpt_dir / f"step-{gs:09d}.safetensors", step, global_step=gs,
@@ -286,7 +300,7 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
                 # Every rank waits for the write, so a reset between rank 0's save and another
                 # rank's next step cannot leave the ranks on different sides of a checkpoint.
                 comm.allgather(f"ckpt-{gs:09d}", b"ok")
-            if cfg.max_seconds and time.monotonic() - t_run > cfg.max_seconds:
+            if out_of_time:
                 print(f"[rank {cfg.rank}] max_seconds reached at step {gs}", flush=True)
                 break
     log.close()

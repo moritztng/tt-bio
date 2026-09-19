@@ -36,6 +36,11 @@ import sys
 import time
 from pathlib import Path
 
+HERE_REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(HERE_REPO))
+
+from tt_bio.train import deadline  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 RUN_ID_ENV = "ABB3_RUN_ID"
@@ -48,7 +53,10 @@ def launch(rank: int, chips: list, args) -> subprocess.Popen:
     # every visible chip, so this is not belt-and-braces -- without it one rank takes the box.
     env["TT_VISIBLE_DEVICES"] = str(chip)
     env["TT_BIO_LEASE_CARDS"] = ",".join(str(c) for c in chips)
-    env.setdefault("TT_BIO_LEASE_HOLDER", "worker:train-b3-train")
+    # The holder identity comes from the environment or the flag, never from a constant: the
+    # fleet dispatcher's running-task check reads this file, and a run launched by one row
+    # while the file says another row's name reads as a task nobody is running.
+    env.setdefault("TT_BIO_LEASE_HOLDER", args.lease_holder)
     env["PYTHONPATH"] = str(REPO)
     # So each rank's cotenancy sampler can tell a SIBLING rank from a foreign process. Via the
     # environment and not the command line, because `device_holders` truncates a cmdline at 90
@@ -66,7 +74,7 @@ def launch(rank: int, chips: list, args) -> subprocess.Popen:
            "--data", args.data, "--split", args.split,
            "--split-csv", args.split_csv, "--structures", args.structures]
     if args.max_seconds:
-        cmd += ["--max-seconds", str(args.max_seconds)]
+        cmd += ["--max-seconds", f"{args.max_seconds:.3f}"]
     if args.torch_threads:
         cmd += ["--torch-threads", str(args.torch_threads)]
         # Also in the environment, because torch reads OMP_NUM_THREADS at import and the
@@ -124,7 +132,13 @@ def main() -> int:
     ap.add_argument("--structures",
                     default="/home/ttuser/abb3_data/data/structures/structures")
     ap.add_argument("--max-restarts", type=int, default=100)
-    ap.add_argument("--max-seconds", type=float, default=0.0)
+    ap.add_argument("--max-seconds", type=float, default=0.0,
+                    help="per-process budget; --days is what caps the RUN")
+    ap.add_argument("--days", type=float, default=0.0,
+                    help="the grant, in wall-clock days, anchored on the first launch and "
+                         "immutable afterwards (tt_bio.train.deadline)")
+    ap.add_argument("--lease-holder", default=os.environ.get("TT_BIO_LEASE_HOLDER",
+                                                             "worker:train-i-run"))
     ap.add_argument("--settle", type=float, default=20.0,
                     help="seconds between a death and the restart, for the card to come back")
     ap.add_argument("--kill-at", type=int, default=0, help="demo: kill one rank at this step")
@@ -143,6 +157,8 @@ def main() -> int:
         print(f"@reboot cd {REPO} && PYTHONPATH={REPO} {sys.executable} "
               f"{HERE / 'supervise.py'} --out {out} --steps {args.steps} "
               f"--chips {args.chips} --data {args.data} "
+              f"--lease-holder {args.lease_holder} "
+              + (f"--days {args.days} " if args.days else "") +
               f">> {out / 'logs' / 'supervisor.log'} 2>&1")
         return 0
 
@@ -157,10 +173,27 @@ def main() -> int:
             return 3
     lock.write_text(f"{os.getpid()}\n")
 
+    grant = None
+    if args.days or deadline.read(out) is not None:
+        grant = deadline.resolve(out, args.days or None)
+        left = deadline.remaining(out)
+        print(f"[sup] grant {grant['days']} days, ends "
+              f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(grant['deadline']))}, "
+              f"{left / 3600.0:.2f} h left", flush=True)
+        if left <= 0:
+            print("[sup] the grant is spent; not launching. Extending it is Moritz's call and "
+                  "is taken by removing deadline.json on purpose, not by relaunching.")
+            return 0
+
     restarts = 0
     t0 = time.monotonic()
     try:
         while True:
+            if grant is not None:
+                args.max_seconds = deadline.remaining(out)
+                if args.max_seconds <= 0:
+                    print(f"[sup] grant reached after {restarts} restart(s); stopping")
+                    return 0
             print(f"[sup] launching {len(chips)} rank(s) on chips {chips} "
                   f"(restart {restarts})", flush=True)
             procs = [launch(r, chips, args) for r in range(len(chips))]
@@ -187,7 +220,7 @@ def main() -> int:
                 print(f"[sup] {restarts} restarts exceeds --max-restarts; stopping so a "
                       f"crash loop cannot burn the card for days")
                 return 4
-            if args.max_seconds and time.monotonic() - t0 > args.max_seconds:
+            if grant is None and args.max_seconds and time.monotonic() - t0 > args.max_seconds:
                 print(f"[sup] --max-seconds reached")
                 return 0
             # The rendezvous holds one dead world's files. Clearing it before the restart
