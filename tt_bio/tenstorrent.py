@@ -1880,7 +1880,7 @@ def _tri_att_sdpa_inner(q, k, v, bias, scale: float, ckc=None):
 # 0.0041. Protenix-v2 is bit-deterministic at a fixed seed on this path, so that deviation sits
 # above a zero floor rather than inside one -- which is why this was held opt-in until the accuracy
 # policy was read the right way round: the bar is accuracy, not bit-exactness, and 25x inside the
-# smallest seed control clears it.  restores the old pick exactly.
+# smallest seed control clears it. `TT_BIO_SDPA_WIDE_K=0` restores the old pick exactly.
 _SDPA_WIDE_K_DEFAULT = True
 
 

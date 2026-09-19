@@ -577,6 +577,39 @@ because the win is occupancy and occupancy depends on the grid. Narrower chunks 
 keys and values once more per chunk, 20.1 GB more traffic over the fold, which the idle cores more
 than pay for here but would not on every card.
 
+## `TT_BIO_SDPA_WIDE_K` — on
+
+Triangle attention picks its SDPA `k_chunk` by searching downward from a 256 cap. The fused kernel
+refuses any call whose `k_chunk` does not divide the padded sequence, so at a padded length whose
+32-aligned divisors all sit above that cap, the kernel declines every call and the fold falls back
+to the stock op on a mask padded out again. This flag offers the wider dividing chunks too, widest
+first, with today's pick last.
+
+**It only touches twenty padded lengths**, the ones whose shipped `k_chunk` fails to divide them:
+288, 352, 416, 544, 608, 704, 736, 832, 864, 928, 992, 1056, 1088, 1184, 1216, 1248, 1312, 1376,
+1472, 1504. Everywhere else the candidate list has one entry and the path is byte for byte the
+default. Protenix-v2 and OpenDDE pad to multiples of 32 and can present all twenty; Boltz-2 and
+BoltzGen pad to 64 and can present five, of which two gain. OpenFold3, Boltz-2's affinity trunk,
+ESMFold2 and RFD3 never reach this SDPA and are unaffected either way.
+
+**Accuracy: not bit-exact, and this is the one flag where that is visible.** The wider chunk changes
+the online-softmax reduction order. This path reproduces bit-exactly at a fixed seed, so unlike
+`--fast` the change does not hide inside a nondeterminism floor: on a 686-residue chain it moves the
+structure 0.060-0.146 A, against a 3.69-7.28 A spread between seeds of the same input, and pLDDT by
+0.0001 against a seed-to-seed 0.0041. `TT_BIO_SDPA_WIDE_K=0` restores the old pick exactly, byte for
+byte. Full envelope in [sdpa-wide-k-parity.md](sdpa-wide-k-parity.md).
+
+**Speed: 1.1285x on Protenix-v2's trunk stage**, 120.0 s to 106.3 s at 686 tokens padded to 704, all
+1208 triangle-attention calls served and none falling back, on one Blackhole processor of a p300c.
+The trunk is the arm because nothing else in the fold reads this path. At the op it is 1.27x-4.39x
+where it fires, and the ratio tracks the padded length rather than the model: 704 reads 3.41x at 4
+heads, 2.45x at 8 and 3.51x at 12. Eight measured legs are `torch.equal` between arms, so their
+0.955x-1.013x spread is the instrument's floor and every win above it is real.
+
+Padded 1248 perturbs numerics for 1.0090x, inside that floor. It is left in rather than allow-listed
+out: a hard-coded length list would be calibrated on one core grid, which is how an earlier layout
+lever became a 0.62x loss on the other part.
+
 ## `TT_BIO_TRANSITION_L1_ROWS` — on, Blackhole only
 
 Every transition block splits its input into row blocks so the SwiGLU's intermediates fit in L1.
