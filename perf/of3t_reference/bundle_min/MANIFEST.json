@@ -1,376 +1,381 @@
 {
-  "artifacts": [
-    {
-      "bytes": 100822382,
-      "file": "batch_step003.pt",
-      "on_qb2": true,
-      "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
-      "what": "the frozen batch, already collated by their openfold_batch_collator"
-    },
-    {
-      "bytes": 525598,
-      "file": "draws.pt",
-      "on_qb2": true,
-      "sha256": "5dcb87fec6f03adeb1a3849b2d5f3f407cb9ed89bdaa83e343b79ddf913432ff",
-      "what": "recycle count, diffusion noise levels, every torch.randn draw, every random.random draw, and the full RNG state including OpenFold3.synced_generator"
-    },
-    {
-      "also_in_git": true,
-      "bytes": 342321,
-      "file": "grad_presence.json",
-      "on_qb2": true,
-      "sha256": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f",
-      "what": "per parameter, whether it had a gradient at all. None must match None; never fill with zeros."
-    },
-    {
-      "also_in_git": true,
-      "bytes": 11325,
-      "file": "run_record.json",
-      "on_qb2": true,
-      "sha256": "recomputed-on-rename",
-      "what": "the run's own record from bundle_min.py, including every finite-difference check. Renamed from manifest.json so it cannot be mistaken for this publication on a case-sensitive filesystem; it carries the same hold notice."
-    },
-    {
-      "bytes": 2947812293,
-      "file": "grads_f64_recycles0.pt",
-      "on_qb2": true,
-      "sha256": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
-      "what": "THE VALIDATED GRADIENT. Trained weights, num_recycles 0, float64, None preserved."
-    },
-    {
-      "bytes": 525598,
-      "file": "draws_recycles0.pt",
-      "on_qb2": true,
-      "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5",
-      "what": "the draws for the validated gradient. num_recycles 0."
-    },
-    {
-      "bytes": 342321,
-      "file": "grad_presence_recycles0.json",
-      "on_qb2": true,
-      "sha256": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f",
-      "what": "presence pattern for the validated gradient."
-    },
-    {
-      "bytes": 2947812293,
-      "file": "grads_f64_recycles3.pt",
-      "on_qb2": true,
-      "sha256": "2a19e011640a080ca51f2939961a2f51845438d16db48b825da32b62c49ee657",
-      "what": "the shipped-config gradient at the drawn recycle count 3. Not FD-validatable."
-    },
-    {
-      "bytes": 525598,
-      "file": "draws_recycles3.pt",
-      "on_qb2": true,
-      "sha256": "5dcb87fec6f03adeb1a3849b2d5f3f407cb9ed89bdaa83e343b79ddf913432ff",
-      "what": "the draws for the shipped-config gradient. Match these exactly or the comparison is void."
-    },
-    {
-      "also_in_git": true,
-      "file": "hsweep.json",
-      "what": "the h-sweep that shows why a recycled trunk gradient cannot be FD-validated."
-    }
+ "artifacts": [
+  {
+   "bytes": 2947812293,
+   "file": "grads_f64_r0.pt",
+   "on_qb2": true,
+   "sha256": "89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113",
+   "what": "THE REFERENCE GRADIENT. Dropout in eval and at rate 0, num_recycles 0, trained weights, float64, per-parameter, None preserved. Validated against float64 central finite differences at 1.168e-03 worst over 16 stratified entries. Produced by run C; run D reproduced it bit-identically (evidence/det_selfdrawn/reproduction_A13.json)."
+  },
+  {
+   "bytes": 525598,
+   "file": "draws_recycles0.pt",
+   "on_qb2": true,
+   "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5",
+   "what": "the draws the reference gradient REPLAYED: recycle count, diffusion noise levels, all 45 torch.randn draws, both random.random values. Replay reported 0 mismatches. Match these or the comparison is void."
+  },
+  {
+   "also_in_git": true,
+   "bytes": 342321,
+   "file": "grad_presence_r0.json",
+   "git_name": "grad_presence.json",
+   "on_qb2": true,
+   "sha256": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f",
+   "what": "per parameter, whether it had a gradient at all. 0 absent of 4147, 4138 non-zero. None must match None; never fill with zeros."
+  },
+  {
+   "bytes": 100822382,
+   "file": "batch_step003.pt",
+   "on_qb2": true,
+   "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
+   "what": "the frozen batch, 5nw3, 56 tokens, already collated by their openfold_batch_collator. Fetch it; do not rebuild it."
+  },
+  {
+   "bytes": 4573705142,
+   "file": "w0_r0_rebuild.pt",
+   "on_qb2": true,
+   "sha256": "9803ee21c62a228f1e844eb6c988ad5cbb92c292d7d3ee168d1748ef0dabde4e",
+   "what": "the float64 weights the gradient was taken at, from of3-p2-155k.pt. Identical across runs C, D and E, so it is independent of which draws a run used. Needed for the trajectory, not for instrument A."
+  },
+  {
+   "also_in_git": true,
+   "file": "run_record_r0_replay.json",
+   "what": "run C's own record, including every finite-difference check."
+  },
+  {
+   "also_in_git": true,
+   "file": "evidence/det_selfdrawn/reproduction_A13.json",
+   "what": "A13's detector: runs C and D compared per tensor. 4147 of 4147 bit-identical, worst 0.0, median 0.0, 0 over the 0.05 bar."
+  },
+  {
+   "also_in_git": true,
+   "file": "evidence/nondet/reproduction_A13_nondeterministic.json",
+   "what": "the same comparison WITHOUT CUBLAS_WORKSPACE_CONFIG=:4096:8: 9 bit-identical, 55 over bar, worst 1.985, median 2.63e-14. This is what not pinning the deterministic kernels costs, and it lands on the near-zero-gradient tensors where a reader would misread it as model disagreement."
+  },
+  {
+   "also_in_git": true,
+   "file": "hsweep.json",
+   "what": "the h-sweep that shows why a recycled trunk gradient cannot be FD-validated."
+  }
+ ],
+ "batch": {
+  "composition": "one protein chain, one Fe ligand, one Na ligand",
+  "crop": "their WeightedPDBDataset, token_budget 384",
+  "n_tokens": 56,
+  "pdb_id": "5nw3",
+  "why_this_one": "smallest entry in the corpus on which all eleven loss terms are non-zero"
+ },
+ "bundle": "BUNDLE-MIN",
+ "canonical_location": {
+  "host": "qb2",
+  "note": "git carries the manifest, the hashes and the generator; never a .pt.",
+  "path": "/home/ttuser/of3t/bundle_min/",
+  "payload": [
+   "grads_f64_r0.pt",
+   "grad_presence_r0.json",
+   "draws_recycles0.pt",
+   "batch_step003.pt",
+   "w0_r0_rebuild.pt"
   ],
-  "batch": {
-    "composition": "one protein chain, one Fe ligand, one Na ligand",
-    "crop": "their WeightedPDBDataset, token_budget 384",
-    "n_tokens": 56,
-    "pdb_id": "5nw3",
-    "why_this_one": "smallest entry in the corpus on which all eleven loss terms are non-zero"
-  },
-  "bundle": "BUNDLE-MIN",
-  "canonical_location": {
-    "host": "qb2",
-    "note": "git carries the manifest, the hashes and the generator; never a .pt. w0 is the public checkpoint of3-p2-155k.pt and is not shipped as a file.",
-    "path": "/home/ttuser/of3t/bundle_min/",
-    "payload": [
-      "grads_f64_r0.pt",
-      "grad_presence_r0.json",
-      "draws_recycles0.pt",
-      "batch_step003.pt"
-    ],
-    "withdrawn_still_on_host": [
-      "grads_f64_recycles0.pt",
-      "grads_f64_recycles3.pt"
-    ]
-  },
-  "checkpoint": {
-    "file": "of3-p2-155k.pt",
-    "missing": [
-      "version_tensor",
-      "diffusion_module.diffusion_transformer.layer_norm_z.weight",
-      "sample_diffusion.diffusion_module.diffusion_transformer.layer_norm_z.weight"
-    ],
-    "missing_note": "The two layer_norm_z weights stay at their random initialisation. They are named here rather than buried: a consumer loading the same checkpoint into our stack must end up with the same two tensors unset, or the two sides do not start from the same w_0.",
-    "n_loaded": 4935,
-    "n_missing": 3,
-    "n_unexpected": 48,
-    "note": "w0 is not shipped separately; it is this checkpoint, publicly downloadable.",
-    "sha256_prefix": "af09eac4f29cef856633af07",
-    "source": "https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-p2-155k.pt"
-  },
-  "consumer_rules": [
-    "Use grads_f64_recycles0.pt for instrument A. It is the one validated against finite differences, and its 10 checked trunk entries are the evidence that the trunk gradient itself is right.",
-    "Pin num_recycles to 0 on our side too when comparing against it. The recycle count changes what the gradient MEANS, not just how much work it is.",
-    "Match the draws before comparing anything: draws_recycles0.pt for the validated artifact, draws_recycles3.pt for the shipped-config one.",
-    "The recycle draw comes from OpenFold3.synced_generator, a private np.random.default_rng held as a model attribute (model.py:77). torch.manual_seed does not reach it.",
-    "None is not zero. Compare the presence pattern as a set before any magnitude.",
-    "The gradient is BEFORE clipping. At world size 1 with accumulate_grad_batches 1 the optimizer-facing gradient is exactly grad * clip_coef.",
-    "Load of3-p2-155k.pt, not a random init. At a random init 2271 of 4890 weight tensors are exactly zero and the gradient reaches 6 of 4147 -- a comparison there would be zero against zero.",
-    "Fetch the bytes and check the sha256; do not regenerate. Rebuilding on a different machine from the same seed gives 0/20 byte-identical batches while the entry order and token counts match."
+  "superseded_still_on_host": [
+   "grads_f64_recycles0.pt",
+   "grads_f64_recycles3.pt",
+   "grads_f64_r0_selfdrawn_SUPERSEDED.pt"
+  ]
+ },
+ "checkpoint": {
+  "file": "of3-p2-155k.pt",
+  "missing": [
+   "version_tensor",
+   "diffusion_module.diffusion_transformer.layer_norm_z.weight",
+   "sample_diffusion.diffusion_module.diffusion_transformer.layer_norm_z.weight"
   ],
-  "determinism_floor": {
-    "grad_norm_bit_identical": true,
-    "loss_bit_identical": true,
-    "method": "two processes, same seed, same batch, same box, float64",
-    "note": "file sha256 differs between two runs that agree to 1.9e-16, so a file-hash comparison is the wrong instrument; the hashes here verify a transfer, not a computation",
-    "worst_per_tensor_rel_l2": 1.8768118414081684e-16
+  "missing_note": "The two layer_norm_z weights stay at their random initialisation. They are named here rather than buried: a consumer loading the same checkpoint into our stack must end up with the same two tensors unset, or the two sides do not start from the same w_0.",
+  "n_loaded": 4935,
+  "n_missing": 3,
+  "n_unexpected": 48,
+  "note": "w0 is not shipped separately; it is this checkpoint, publicly downloadable.",
+  "sha256_prefix": "af09eac4f29cef856633af07",
+  "source": "https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-p2-155k.pt"
+ },
+ "consumer_rules": [
+  "Use grads_f64_r0.pt, sha256 89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113, for instrument A. Check the digest before you read a byte: three gradients have been published here and the other two are in the `superseded` block with the reason each is dead.",
+  "Match draws_recycles0.pt before comparing anything. Run E is on the same host, r = 0, dropout off and named rebuild, and it differs from the reference only in having drawn its own randn values -- that alone moves the loss by 3.5e-02 and the global norm by 0.597.",
+  "Pin num_recycles to 0 on our side too. The recycle count changes what the gradient MEANS, not just how much work it is.",
+  "The recycle draw comes from OpenFold3.synced_generator, a private np.random.default_rng held as a model attribute (model.py:77). torch.manual_seed does not reach it.",
+  "None is not zero. Compare the presence pattern as a set before any magnitude. 0 of 4147 are absent here, 4138 are non-zero.",
+  "The gradient is BEFORE clipping. At world size 1 with accumulate_grad_batches 1 the optimizer-facing gradient is exactly grad * clip_coef, and clip_coef is 1.0 on this step.",
+  "Load of3-p2-155k.pt, not a random init. At a random init 2271 of 4890 weight tensors are exactly zero and the gradient reaches 6 of 4147 -- a comparison there is zero against zero.",
+  "Fetch the bytes and check the sha256; do not regenerate. Rebuilding on a different machine from the same seed gives 0/20 byte-identical batches while the entry order and token counts match.",
+  "Pin CUBLAS_WORKSPACE_CONFIG=:4096:8 and torch.use_deterministic_algorithms if you reproduce this. Without it two runs of the same graph disagree at worst 1.985 relative L2 on 55 tensors.",
+  "Do not compare this r = 0 gradient against the withdrawn r = 0.25 one and read the difference as a regression. They are two draws of DIFFERENT functions; the 2.256 / 1.971 / 1.563 worst relative L2 between them is the same order as the dropout floor itself."
+ ],
+ "determinism_floor": {
+  "grad_norm_bit_identical": true,
+  "loss_bit_identical": true,
+  "method": "two processes, same seed, same batch, same box, float64",
+  "note": "file sha256 differs between two runs that agree to 1.9e-16, so a file-hash comparison is the wrong instrument; the hashes here verify a transfer, not a computation",
+  "worst_per_tensor_rel_l2": 1.8768118414081684e-16
+ },
+ "environment": {
+  "cuda": "12.4",
+  "device": "NVIDIA A100-SXM4-80GB",
+  "dtype": "float64",
+  "numpy": "2.1.2",
+  "their_fp32_autocast_and_unconditional_float_casts_disabled": true,
+  "torch": "2.5.1+cu124"
+ },
+ "finite_difference_validation": {
+  "max_rel_err": 0.00010804224315183522,
+  "median_rel_err": 3.5808603381448577e-06,
+  "method": "float64 central differences on the same forward, h = 1e-5, RNG pinned per evaluation",
+  "n_samples": 16,
+  "sampling_rule": "entries with |analytic| >= 1e-6, because 99.9 % of individual entries are exactly zero on a padded 56-token batch",
+  "worst_param": "diffusion_module.atom_attn_dec.linear_q_out.weight"
+ },
+ "hold": {
+  "date": "2026-09-19",
+  "host_verified_sha256": "89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113",
+  "see": "the `superseded` block for every digest that is NOT this one.",
+  "state": "PUBLISHED. grads_f64_r0.pt is on qb2 at /home/ttuser/of3t/bundle_min/ and its sha256 was recomputed ON THE HOST after the transfer, not asserted from the producer (LEDGER R67)."
+ },
+ "hold_investigation": {
+  "conclusion": "float64 mode ruled out: the same script at --dtype float32, with no autocast or .float() patching active, gives 6 of 4147 as well. The cause is the direct call, not the precision mode.",
+  "fp32_direct_call_nonzero_gradient_tensors": 6,
+  "fp32_direct_call_total": 4147,
+  "their_runner_contrast": "4850 of 4890 state-dict tensors moved over the 20-step fp32 trajectory driven through OpenFold3AllAtom and pl.Trainer."
+ },
+ "how_to_regenerate": {
+  "command": "PYTHONPATH=<openfold-3 v0.5.0 checkout> python bundle_min.py --batch <batch> --batch-sha256 <sha> --out <dir> --dtype float64 --fd-samples 16",
+  "corpus": "perf/of3t_reference/build_corpus.sh then perf/of3t_reference/build_batch.py",
+  "script": "perf/of3t_reference/bundle_min.py",
+  "warning": "Regeneration reproduces the bundle only within one environment. Rebuilding the batches twice on the same box gives 20/20 byte-identical files; rebuilding on a different machine from the same seed, corpus and config gives 0/20, while producing the identical entry order and token counts. Fetch the bytes and check the sha256."
+ },
+ "pre_registered_targets": {
+  "gradient_global_norm": {
+   "difference": -0.02006908509726113,
+   "measured": 3.707776369277739,
+   "predicted": 3.727845454375,
+   "relative": 0.005383561454702487
   },
-  "environment": {
-    "cuda": "12.4",
-    "device": "NVIDIA A100-SXM4-80GB",
-    "dtype": "float64",
-    "numpy": "2.1.2",
-    "their_fp32_autocast_and_unconditional_float_casts_disabled": true,
-    "torch": "2.5.1+cu124"
+  "loss": {
+   "difference": 0.011060263664922187,
+   "measured": 1.6422035029890711,
+   "predicted": 1.631143239324149,
+   "relative": 0.006780682038387333
   },
-  "finite_difference_validation": {
-    "max_rel_err": 0.00010804224315183522,
-    "median_rel_err": 3.5808603381448577e-06,
-    "method": "float64 central differences on the same forward, h = 1e-5, RNG pinned per evaluation",
-    "n_samples": 16,
-    "sampling_rule": "entries with |analytic| >= 1e-6, because 99.9 % of individual entries are exactly zero on a padded 56-token batch",
-    "worst_param": "diffusion_module.atom_attn_dec.linear_q_out.weight"
+  "n_nonzero": {
+   "difference": 0,
+   "measured": 4138,
+   "predicted": 4138
   },
-  "hold": {
-    "date": "2026-09-19",
-    "host_verified_sha256": "89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113",
-    "state": "PUBLISHED. grads_f64_r0.pt is on qb2 at /home/ttuser/of3t/bundle_min/ and its sha256 was recomputed ON THE HOST after the transfer, not asserted from the producer (LEDGER R67).",
-    "withdrawn": {
-      "cited_in": [
-        "perf/of3t_updaterule/reference_profile.json",
-        "perf/of3t_gradients/*.json",
-        "state/of3t/EVIDENCE.md"
-      ],
-      "grads_f64_recycles0.pt": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
-      "grads_f64_recycles3.pt": "2a19e011640a080ca51f2939961a2f51845438d16db48b825da32b62c49ee657",
-      "why": "taped in train mode, so the rate-0.25 Pairformer Dropout was live and the published per-parameter gradient was one draw"
-    }
+  "source": "of3t-gradients, banked at commit 1d38c168c before this artifact existed, captured on qb2 CPU in float64 replaying the same draws at r = 0 with trained weights",
+  "verdict": "the count lands exactly; the two numbers do not, at 6.8e-03 and 5.4e-03 relative. That is materially larger than float64 rounding, so by pass 49's pre-decided rule an input is still uncontrolled. The draws were the dominant one and are now controlled -- before replay the same rebuild read loss 1.60736306238088 and norm 4.305010199537414, so replay closed 63 % of the loss gap and 97 % of the norm gap. What remains differs between an A100 float64 run and a qb2 CPU float64 run of the same graph on the same draws; the next suspects are the featurisation path the batch was carried in by hash to avoid, and how each side disables dropout. Open, and handed to of3t-gradients, who owns the other side."
+ },
+ "provenance": {
+  "instance_state": "destroyed after both gradients were on qb2 and both transfers hash-verified",
+  "produced_on": "rented vast.ai A100-SXM4-80GB, instance 51585493, label of3t-reference-a100-1",
+  "rental": "3.1 h, vast.ai credit 36.44 -> 32.92 across the whole row",
+  "reproduce": "perf/of3t_reference/setup_gpu_box.sh, then build_corpus.sh, build_batch.py, bundle_min.py"
+ },
+ "published": "2026-09-19",
+ "r0_replay_gradient": {
+  "bytes": {
+   "draws.pt": 525598,
+   "grad_presence.json": 342321,
+   "grads_f64.pt": 2947812293,
+   "w0.pt": 4573705142
   },
-  "hold_investigation": {
-    "conclusion": "float64 mode ruled out: the same script at --dtype float32, with no autocast or .float() patching active, gives 6 of 4147 as well. The cause is the direct call, not the precision mode.",
-    "fp32_direct_call_nonzero_gradient_tensors": 6,
-    "fp32_direct_call_total": 4147,
-    "their_runner_contrast": "4850 of 4890 state-dict tensors moved over the 20-step fp32 trajectory driven through OpenFold3AllAtom and pl.Trainer."
+  "clip_coef_their_grad_manager_would_apply": 1.0,
+  "deterministic_kernels": {
+   "cublas_workspace_config": ":4096:8",
+   "enabled": true,
+   "warn_only": true,
+   "why": "two nondeterministic runs disagreed by 1.98 worst relative L2 on 55 of 4,147 tensors, all layer-norm biases whose gradient sum cancels"
   },
-  "how_to_regenerate": {
-    "command": "PYTHONPATH=<openfold-3 v0.5.0 checkout> python bundle_min.py --batch <batch> --batch-sha256 <sha> --out <dir> --dtype float64 --fd-samples 16",
-    "corpus": "perf/of3t_reference/build_corpus.sh then perf/of3t_reference/build_batch.py",
-    "script": "perf/of3t_reference/bundle_min.py",
-    "warning": "Regeneration reproduces the bundle only within one environment. Rebuilding the batches twice on the same box gives 20/20 byte-identical files; rebuilding on a different machine from the same seed, corpus and config gives 0/20, while producing the identical entry order and token counts. Fetch the bytes and check the sha256."
+  "drawn_recycle_count": 0,
+  "file": "grads_f64_r0.pt",
+  "finite_difference": {
+   "bar": "PROTOCOL 3d per-tensor bar 5.0e-02; this validates 43x inside it",
+   "h": 0.0001,
+   "max_rel_err": 0.0011677594003422732,
+   "median_rel_err": 0.00022650160311456973,
+   "n_samples": 16,
+   "re_run": "YES -- re-run against the new tape. The previously published 2.1817e-03 describes the withdrawn train-mode artifact and does not carry over.",
+   "worst_param": "pairformer_stack.blocks.17.attn_pair_bias.layer_norm_a.bias"
   },
-  "pre_registered_targets": {
-    "gradient_global_norm": {
-      "difference": -0.02006908509726113,
-      "measured": 3.707776369277739,
-      "predicted": 3.727845454375,
-      "relative": 0.005383561454702487
-    },
-    "loss": {
-      "difference": 0.011060263664922187,
-      "measured": 1.6422035029890711,
-      "predicted": 1.631143239324149,
-      "relative": 0.006780682038387333
-    },
-    "n_nonzero": {
-      "difference": 0,
-      "measured": 4138,
-      "predicted": 4138
-    },
-    "source": "of3t-gradients, banked at commit 1d38c168c before this artifact existed, captured on qb2 CPU in float64 replaying the same draws at r = 0 with trained weights",
-    "verdict": "the count lands exactly; the two numbers do not, at 6.8e-03 and 5.4e-03 relative. That is materially larger than float64 rounding, so by pass 49's pre-decided rule an input is still uncontrolled. The draws were the dominant one and are now controlled -- before replay the same rebuild read loss 1.60736306238088 and norm 4.305010199537414, so replay closed 63 % of the loss gap and 97 % of the norm gap. What remains differs between an A100 float64 run and a qb2 CPU float64 run of the same graph on the same draws; the next suspects are the featurisation path the batch was carried in by hash to avoid, and how each side disables dropout. Open, and handed to of3t-gradients, who owns the other side."
+  "gradient_global_norm": 3.707776369277739,
+  "how_to_regenerate": "perf/of3t_reference/rebuild_r0_replay.sh on a CUDA box, with batch_step003.pt and draws_recycles0.pt carried in by hash",
+  "loss": 1.6422035029890711,
+  "loss_bit_identical_on_replay": true,
+  "n_absent_gradients": 0,
+  "n_nonzero_gradient_tensors": 4138,
+  "n_parameters": 4147,
+  "num_recycles": 0,
+  "replayed_draws": {
+   "file": "draws_recycles0.pt",
+   "mismatch": [],
+   "n_mismatch": 0,
+   "n_python_random_consumed": 2,
+   "n_python_random_recorded": 2,
+   "n_randn_consumed": 45,
+   "n_torch_randn_recorded": 45,
+   "recorded_num_recycles": 0,
+   "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5"
   },
-  "provenance": {
-    "instance_state": "destroyed after both gradients were on qb2 and both transfers hash-verified",
-    "produced_on": "rented vast.ai A100-SXM4-80GB, instance 51585493, label of3t-reference-a100-1",
-    "rental": "3.1 h, vast.ai credit 36.44 -> 32.92 across the whole row",
-    "reproduce": "perf/of3t_reference/setup_gpu_box.sh, then build_corpus.sh, build_batch.py, bundle_min.py"
+  "reproduction_A13": {
+   "file_sha256_also_equal": true,
+   "median_rel_l2": 0.0,
+   "method": "two fresh processes, runs C and D, compared per tensor by compare_grads.py",
+   "n_bit_identical": 4147,
+   "n_compared": 4147,
+   "n_over_bar": 0,
+   "worst_rel_l2": 0.0
   },
-  "published": "2026-09-19",
-  "r0_replay_gradient": {
-    "bytes": {
-      "draws.pt": 525598,
-      "grad_presence.json": 342321,
-      "grads_f64.pt": 2947812293,
-      "w0.pt": 4573705142
-    },
-    "clip_coef_their_grad_manager_would_apply": 1.0,
-    "deterministic_kernels": {
-      "cublas_workspace_config": ":4096:8",
-      "enabled": true,
-      "warn_only": true,
-      "why": "two nondeterministic runs disagreed by 1.98 worst relative L2 on 55 of 4,147 tensors, all layer-norm biases whose gradient sum cancels"
-    },
-    "drawn_recycle_count": 0,
-    "file": "grads_f64_r0.pt",
-    "finite_difference": {
-      "bar": "PROTOCOL 3d per-tensor bar 5.0e-02; this validates 43x inside it",
-      "h": 0.0001,
-      "max_rel_err": 0.0011677594003422732,
-      "median_rel_err": 0.00022650160311456973,
-      "n_samples": 16,
-      "re_run": "YES -- re-run against the new tape. The previously published 2.1817e-03 describes the withdrawn train-mode artifact and does not carry over.",
-      "worst_param": "pairformer_stack.blocks.17.attn_pair_bias.layer_norm_a.bias"
-    },
-    "gradient_global_norm": 3.707776369277739,
-    "how_to_regenerate": "perf/of3t_reference/rebuild_r0_replay.sh on a CUDA box, with batch_step003.pt and draws_recycles0.pt carried in by hash",
-    "loss": 1.6422035029890711,
-    "loss_bit_identical_on_replay": true,
-    "n_absent_gradients": 0,
-    "n_nonzero_gradient_tensors": 4138,
-    "n_parameters": 4147,
-    "num_recycles": 0,
-    "replayed_draws": {
-      "file": "draws_recycles0.pt",
-      "mismatch": [],
-      "n_mismatch": 0,
-      "n_python_random_consumed": 2,
-      "n_python_random_recorded": 2,
-      "n_randn_consumed": 45,
-      "n_torch_randn_recorded": 45,
-      "recorded_num_recycles": 0,
-      "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5"
-    },
-    "reproduction_A13": {
-      "file_sha256_also_equal": true,
-      "median_rel_l2": 0.0,
-      "method": "two fresh processes, runs C and D, compared per tensor by compare_grads.py",
-      "n_bit_identical": 4147,
-      "n_compared": 4147,
-      "n_over_bar": 0,
-      "worst_rel_l2": 0.0
-    },
-    "sha256": {
-      "draws.pt": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5",
-      "grad_presence.json": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f",
-      "grads_f64.pt": "89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113",
-      "w0.pt": "9803ee21c62a228f1e844eb6c988ad5cbb92c292d7d3ee168d1748ef0dabde4e"
-    },
-    "supersedes": "grads_f64_recycles0.pt",
-    "timings_s": {
-      "backward": 16.60780620574951,
-      "forward": 7.751407623291016
-    },
-    "what_changed": [
-      "Dropout in eval AND at rate 0, so the artifact is an r = 0 reference: the mask is drawn from the device's default generator and an RNG-state snapshot reproduces a state, not a value, so a train-mode tape publishes one draw.",
-      "Deterministic kernels pinned (torch.use_deterministic_algorithms, CUBLAS_WORKSPACE_CONFIG=:4096:8). Without the pin the eval-mode gradient still did not reproduce: 55 of 4147 tensors over the 5.0e-02 bar, worst 1.985, every one a layer_norm_z.bias whose gradient is a sum that cancels.",
-      "The draws are REPLAYED from draws_recycles0.pt rather than sampled. Putting Dropout in eval removes 61 consumers of the CUDA generator, which moves the diffusion noise (23.705, 5.853, 10.730, ... -> 2.612, 1.467, 5.936, ...). PROTOCOL 4a makes the draws inputs to the update rule, so the published run consumes the ones every consumer holds."
-    ]
+  "sha256": {
+   "draws.pt": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5",
+   "grad_presence.json": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f",
+   "grads_f64.pt": "89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113",
+   "w0.pt": "9803ee21c62a228f1e844eb6c988ad5cbb92c292d7d3ee168d1748ef0dabde4e"
   },
-  "reading_order": "MANIFEST.json is the publication. run_record.json is one invocation of bundle_min.py. If they ever disagree, MANIFEST.json wins.",
-  "root_cause": {
-    "campaign_consequence": "instrument A must not be performed on a step-1 gradient from a random init: 4141 of 4147 per-tensor comparisons would be zero against zero, and the gate would pass with our trunk deleted",
-    "nonzero_gradient_tensors_random_init": 6,
-    "nonzero_gradient_tensors_trained_weights": 4140,
-    "of_parameters": 4147,
-    "of_total": 4890,
-    "ruled_out": [
-      "float64 mode (fp32 direct call also gives 6)",
-      "the direct call (their OpenFold3AllAtom + pl.Trainer also gives 6)",
-      "the batch (4hhb at the full 384-token crop also gives 6)"
-    ],
-    "trajectory_evidence": "tensors moved per step: 0 at k=1 (lr=0), 7 at k=2, 1702 at k=3, 3567 at k=4, 4267 at k=5, 4850 of 4890 at k=20 - the zero gates open one layer at a time",
-    "zero_init_weight_tensors_at_random_init": 2271
+  "supersedes": "grads_f64_recycles0.pt",
+  "timings_s": {
+   "backward": 16.60780620574951,
+   "forward": 7.751407623291016
   },
-  "row": "of3t-reference",
-  "seed": 20260919,
-  "shipped_config_gradient": {
-    "caveat": "This is the gradient at the recycle count their config actually draws, so it is the one a shipped-config comparison needs -- but it CANNOT be validated by finite differences, for the reason above. Use it only with the draws in draws_recycles3.pt matched exactly.",
-    "file": "grads_f64_recycles3.pt",
-    "gradient_global_norm": 4.9721,
-    "loss": 1.6769288331974042,
-    "n_nonzero_gradient_tensors": 4140,
-    "num_recycles": 3
+  "what_changed": [
+   "Dropout in eval AND at rate 0, so the artifact is an r = 0 reference: the mask is drawn from the device's default generator and an RNG-state snapshot reproduces a state, not a value, so a train-mode tape publishes one draw.",
+   "Deterministic kernels pinned (torch.use_deterministic_algorithms, CUBLAS_WORKSPACE_CONFIG=:4096:8). Without the pin the eval-mode gradient still did not reproduce: 55 of 4147 tensors over the 5.0e-02 bar, worst 1.985, every one a layer_norm_z.bias whose gradient is a sum that cancels.",
+   "The draws are REPLAYED from draws_recycles0.pt rather than sampled. Putting Dropout in eval removes 61 consumers of the CUDA generator, which moves the diffusion noise (23.705, 5.853, 10.730, ... -> 2.612, 1.467, 5.936, ...). PROTOCOL 4a makes the draws inputs to the update rule, so the published run consumes the ones every consumer holds."
+  ]
+ },
+ "reading_order": "MANIFEST.json is the publication. run_record.json is one invocation of bundle_min.py. If they ever disagree, MANIFEST.json wins.",
+ "root_cause": {
+  "campaign_consequence": "instrument A must not be performed on a step-1 gradient from a random init: 4141 of 4147 per-tensor comparisons would be zero against zero, and the gate would pass with our trunk deleted",
+  "nonzero_gradient_tensors_random_init": 6,
+  "nonzero_gradient_tensors_trained_weights": 4140,
+  "of_parameters": 4147,
+  "of_total": 4890,
+  "ruled_out": [
+   "float64 mode (fp32 direct call also gives 6)",
+   "the direct call (their OpenFold3AllAtom + pl.Trainer also gives 6)",
+   "the batch (4hhb at the full 384-token crop also gives 6)"
+  ],
+  "trajectory_evidence": "tensors moved per step: 0 at k=1 (lr=0), 7 at k=2, 1702 at k=3, 3567 at k=4, 4267 at k=5, 4850 of 4890 at k=20 - the zero gates open one layer at a time",
+  "zero_init_weight_tensors_at_random_init": 2271
+ },
+ "row": "of3t-reference",
+ "seed": 20260919,
+ "shipped_config_gradient": {
+  "caveat": "This is the gradient at the recycle count their config actually draws, so it is the one a shipped-config comparison needs -- but it CANNOT be validated by finite differences, for the reason above. Use it only with the draws in draws_recycles3.pt matched exactly.",
+  "file": "grads_f64_recycles3.pt",
+  "gradient_global_norm": 4.9721,
+  "loss": 1.6769288331974042,
+  "n_nonzero_gradient_tensors": 4140,
+  "num_recycles": 3
+ },
+ "status": "PUBLISHED. The reference gradient is grads_f64_r0.pt, sha256 89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113: trained weights, dropout in eval and at rate 0, num_recycles 0, float64, 4138 of 4147 tensors non-zero and 0 absent, agreeing with float64 central finite differences to a median 2.27e-04 and a worst 1.17e-03 over 16 stratified entries. Reproduced bit-identically by a second process, 4147 of 4147, worst 0.0. Two earlier gradients are withdrawn (train-mode dropout) and a third, run E, is superseded (self-drawn rather than replayed draws); all three digests are listed under `superseded` so a consumer holding an old one can tell which it has.",
+ "step_1_result": {
+  "clip_coef_their_grad_manager_would_apply": 1.0,
+  "drawn_recycle_count": 3,
+  "gradient_global_norm": 4.642245878270448,
+  "loss": 6.242307891698905,
+  "loss_bit_identical_on_replay": true,
+  "n_absent_gradients": 0,
+  "n_nonzero_gradient_tensors": 6,
+  "n_parameters": 4147,
+  "n_torch_randn_draws": 45,
+  "nonzero_gradient_tensors": [
+   "diffusion_module.atom_attn_dec.linear_q_out.weight",
+   "aux_heads.distogram.linear.weight",
+   "aux_heads.experimentally_resolved.linear.weight",
+   "aux_heads.pde.linear.weight",
+   "aux_heads.plddt.linear.weight",
+   "aux_heads.pae.linear.weight"
+  ],
+  "python_random_values": [
+   0.6334896914538571,
+   0.8063837539475641
+  ]
+ },
+ "superseded": {
+  "grads_f64_r0_rebuild.pt": {
+   "kept_because": "it is the measured cost of NOT replaying the draws: 4.305 against 3.708 on the same weights, same batch, same recycle count.",
+   "renamed_on_qb2_to": "grads_f64_r0_selfdrawn_SUPERSEDED.pt",
+   "run": "E",
+   "sha256": "b30c09382d0c4e77e6fb08e7d832aeb55b47faea6043ccb5877a36d8880cc1f0",
+   "why": "SUPERSEDED, and this one is easy to consume by accident because its name says rebuild and it is r = 0 with dropout correctly off. It is the SELF-DRAWN run: its manifest reads replayed_draws null, so it drew its own 45 randn values instead of replaying draws_recycles0.pt. Its loss is 1.60736306238088 and its global norm 4.305010199537414, against the reference's 1.6422035029890711 and 3.707776369277739. It also carries no finite-difference validation, n_samples 0. It was shipped to qb2 in good faith by of3t-orchestrator's pass-62 transfer, which picked out_E off the box; the reference is run C, out_C."
   },
-  "status": "PUBLISHED. The validated gradient is grads_f64_recycles0.pt: trained weights, num_recycles pinned to 0, 4138 of 4147 tensors non-zero, agreeing with float64 central finite differences to a median 4.17e-04 and a worst 2.18e-03 over 12 entries, 10 of them inside the trunk. The earlier random-init gradient is withdrawn; it reached only 6 tensors because the model was untrained.",
-  "step_1_result": {
-    "clip_coef_their_grad_manager_would_apply": 1.0,
-    "drawn_recycle_count": 3,
-    "gradient_global_norm": 4.642245878270448,
-    "loss": 6.242307891698905,
-    "loss_bit_identical_on_replay": true,
-    "n_absent_gradients": 0,
-    "n_nonzero_gradient_tensors": 6,
-    "n_parameters": 4147,
-    "n_torch_randn_draws": 45,
-    "nonzero_gradient_tensors": [
-      "diffusion_module.atom_attn_dec.linear_q_out.weight",
-      "aux_heads.distogram.linear.weight",
-      "aux_heads.experimentally_resolved.linear.weight",
-      "aux_heads.pde.linear.weight",
-      "aux_heads.plddt.linear.weight",
-      "aux_heads.pae.linear.weight"
-    ],
-    "python_random_values": [
-      0.6334896914538571,
-      0.8063837539475641
-    ]
+  "grads_f64_recycles0.pt": {
+   "cited_in": [
+    "perf/of3t_updaterule/reference_profile.json",
+    "perf/of3t_gradients/*.json",
+    "state/of3t/EVIDENCE.md"
+   ],
+   "sha256": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
+   "why": "WITHDRAWN. Taped in train mode, so the rate-0.25 Pairformer Dropout was live and the gradient was one draw. of3t-gradients measured its draw-to-draw floor at worst 1.167-2.419, median 0.48-0.55, an order of magnitude above the 0.05 bar it was being used at."
   },
-  "transfer_verification": {
-    "checksums_on_qb2": "SHA256SUMS.recycles0 and SHA256SUMS.recycles3 in the same directory",
-    "grads_f64_recycles0.pt": "VERIFIED 1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
-    "grads_f64_recycles3.pt": "VERIFIED 2a19e011640a080ca51f2939961a2f51845438d16db48b825da32b62c49ee657",
-    "method": "qb2 pulls straight from the rented box over ssh; the sha256 is computed independently on both ends and compared. pc, at 97 % full, is not in the path."
+  "grads_f64_recycles3.pt": {
+   "sha256": "2a19e011640a080ca51f2939961a2f51845438d16db48b825da32b62c49ee657",
+   "why": "WITHDRAWN for the same reason, and never FD-validatable anyway at 3 recycles."
   },
-  "upstream": {
-    "commit": "c4771653c5d0a3ebb0b3af71b05efd64bc44ee86",
-    "note": "Reference stack targets 0.5.0 per LEDGER R1-AMENDED. tt-bio's production pin stays 0.4.3 (0bb17be5199846e806b6347b6e17c6249c88ff1b).",
-    "repo": "github.com/aqlaboratory/openfold-3",
-    "tag": "v0.5.0"
+  "read_this_first": "Three gradients have been published under this bundle and two are dead. Only grads_f64_r0.pt sha256 89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113 is the reference. Any other digest you were handed is one of these."
+ },
+ "transfer_verification": {
+  "checksums_on_qb2": "SHA256SUMS.r0_compare in the same directory holds the host-side digests of both r = 0 files, which is how run E was caught.",
+  "grads_f64_r0.pt": "VERIFIED 89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113",
+  "method": "qb2 pulls straight from the rented box over ssh; the sha256 is computed independently on both ends and compared, and the destination file is renamed off .partial only on a match. pc, at 97 % full, is never a staging point.",
+  "w0_r0_rebuild.pt": "VERIFIED 9803ee21c62a228f1e844eb6c988ad5cbb92c292d7d3ee168d1748ef0dabde4e"
+ },
+ "upstream": {
+  "commit": "c4771653c5d0a3ebb0b3af71b05efd64bc44ee86",
+  "note": "Reference stack targets 0.5.0 per LEDGER R1-AMENDED. tt-bio's production pin stays 0.4.3 (0bb17be5199846e806b6347b6e17c6249c88ff1b).",
+  "repo": "github.com/aqlaboratory/openfold-3",
+  "tag": "v0.5.0"
+ },
+ "v2_trained_weights": {
+  "checkpoint": "of3-p2-155k.pt",
+  "drawn_recycle_count": 3,
+  "fd_at_h_1e-5": {
+   "interpretation": "truncation, not a wrong gradient: O(h^2 L''') on a curved trained surface, with samples now deep in the trunk. h-sweep 1e-3..1e-7 running.",
+   "max_rel": 1.111,
+   "median_rel": 0.353,
+   "n": 12,
+   "resolution": "h-independent disagreement on TRUNK parameters only, while diffusion-module entries converge to 1.785e-08. Cause: their trunk runs 4 recycling passes over the same weights and tapes only the last (model.py:230), so finite differences measure the TOTAL derivative through all four cycles while the analytic gradient is the PARTIAL derivative through the final cycle. Finite differences cannot validate a recycled trunk gradient by construction; re-run the validation at num_recycles = 0."
   },
-  "v2_trained_weights": {
-    "checkpoint": "of3-p2-155k.pt",
-    "drawn_recycle_count": 3,
-    "fd_at_h_1e-5": {
-      "interpretation": "truncation, not a wrong gradient: O(h^2 L''') on a curved trained surface, with samples now deep in the trunk. h-sweep 1e-3..1e-7 running.",
-      "max_rel": 1.111,
-      "median_rel": 0.353,
-      "n": 12,
-      "resolution": "h-independent disagreement on TRUNK parameters only, while diffusion-module entries converge to 1.785e-08. Cause: their trunk runs 4 recycling passes over the same weights and tapes only the last (model.py:230), so finite differences measure the TOTAL derivative through all four cycles while the analytic gradient is the PARTIAL derivative through the final cycle. Finite differences cannot validate a recycled trunk gradient by construction; re-run the validation at num_recycles = 0."
-    },
-    "gradient_global_norm": 4.9721,
-    "loss": 1.6769288331974042,
-    "n_loaded": 4935,
-    "n_missing": 3,
-    "n_unexpected": 48
+  "gradient_global_norm": 4.9721,
+  "loss": 1.6769288331974042,
+  "n_loaded": 4935,
+  "n_missing": 3,
+  "n_unexpected": 48
+ },
+ "validated_gradient": {
+  "bar": "PROTOCOL 3d's per-tensor bar is 5.0e-02. The reference validates against finite differences at 2.18e-03 worst, 23x inside it, so the reference contributes nothing material to a measured disagreement.",
+  "clip_coef_their_grad_manager_would_apply": 1.0,
+  "file": "grads_f64_recycles0.pt",
+  "finite_difference": {
+   "h": 0.0001,
+   "max_rel_err": 0.0021816730658057296,
+   "max_rel_err_trunk": 0.0021816730658057296,
+   "median_rel_err": 0.00041654401866540746,
+   "n_samples": 12,
+   "n_trunk_entries": 10,
+   "worst_param": "pairformer_stack.blocks.46.pair_stack.tri_mul_in.layer_norm_out.weight"
   },
-  "validated_gradient": {
-    "bar": "PROTOCOL 3d's per-tensor bar is 5.0e-02. The reference validates against finite differences at 2.18e-03 worst, 23x inside it, so the reference contributes nothing material to a measured disagreement.",
-    "clip_coef_their_grad_manager_would_apply": 1.0,
-    "file": "grads_f64_recycles0.pt",
-    "finite_difference": {
-      "h": 0.0001,
-      "max_rel_err": 0.0021816730658057296,
-      "max_rel_err_trunk": 0.0021816730658057296,
-      "median_rel_err": 0.00041654401866540746,
-      "n_samples": 12,
-      "n_trunk_entries": 10,
-      "worst_param": "pairformer_stack.blocks.46.pair_stack.tri_mul_in.layer_norm_out.weight"
-    },
-    "gradient_global_norm": 3.908301894520238,
-    "loss": 1.6591175475821072,
-    "loss_bit_identical_on_replay": true,
-    "n_absent_gradients": 0,
-    "n_nonzero_gradient_tensors": 4138,
-    "n_parameters": 4147,
-    "n_zero_init_weight_tensors": 0,
-    "num_recycles": 0,
-    "timings_s": {
-      "backward": 14.782874584197998,
-      "forward": 6.3541765213012695
-    },
-    "weights": "of3-p2-155k.pt, sha256 af09eac4f29cef856633af07... (see checkpoint block)",
-    "why_zero": "Their trunk runs num_recycles + 1 passes over the same weights and tapes only the last (model.py:230). A finite difference perturbs the weight in every cycle and measures the TOTAL derivative; the analytic gradient is the PARTIAL derivative through the final cycle. At 0 recycles the two functions coincide, which is the only regime in which the trunk gradient can be validated at all. Evidence: hsweep.json."
+  "gradient_global_norm": 3.908301894520238,
+  "loss": 1.6591175475821072,
+  "loss_bit_identical_on_replay": true,
+  "n_absent_gradients": 0,
+  "n_nonzero_gradient_tensors": 4138,
+  "n_parameters": 4147,
+  "n_zero_init_weight_tensors": 0,
+  "num_recycles": 0,
+  "timings_s": {
+   "backward": 14.782874584197998,
+   "forward": 6.3541765213012695
   },
-  "what_it_is": "One frozen training batch, the weights it was taken at, the per-parameter float64 step-1 gradient with its presence pattern, and every random draw the step made. This is the artifact PROTOCOL instrument A is measured against."
+  "weights": "of3-p2-155k.pt, sha256 af09eac4f29cef856633af07... (see checkpoint block)",
+  "why_zero": "Their trunk runs num_recycles + 1 passes over the same weights and tapes only the last (model.py:230). A finite difference perturbs the weight in every cycle and measures the TOTAL derivative; the analytic gradient is the PARTIAL derivative through the final cycle. At 0 recycles the two functions coincide, which is the only regime in which the trunk gradient can be validated at all. Evidence: hsweep.json."
+ },
+ "what_it_is": "One frozen training batch, the weights it was taken at, the per-parameter float64 step-1 gradient with its presence pattern, and every random draw the step made. This is the artifact PROTOCOL instrument A is measured against."
 }
