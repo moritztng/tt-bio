@@ -1,0 +1,30 @@
+call law from {6: 408, 200: 5064}:  calls = 264 + 24*steps  -> 5064 at 200 steps
+
+TRACED per-layer saving (device time, host dispatch removed):
+     S  session   ship us  concat us  saved us   A/A %  saved/AA
+   320       s1    625.69     614.53     11.16   0.034      52.1x
+   512       s1    648.86     626.81     22.05   0.103      32.9x
+   768       s1    832.87     794.51     38.36   0.142      32.5x
+  1024       s1   1103.04    1066.85     36.19   0.183      17.9x
+   320       s2    623.93     612.96     10.97   0.168      10.5x
+   512       s2    648.97     625.15     23.82   0.150      24.5x
+   768       s2    832.04     794.84     37.21   0.058      77.0x
+  1024       s2   1109.64    1067.45     42.18   0.235      16.2x
+
+saving scales with S, as an S*dim epilogue must:
+  S=320    11.07 us/layer   (11.16, 10.97)
+  S=512    22.94 us/layer   (22.05, 23.82)
+  S=768    37.78 us/layer   (38.36, 37.21)
+  S=1024   39.19 us/layer   (36.19, 42.18)
+
+mechanism closure at S=512:
+  epilogue saved          26.54 us   (epi_ship - epi_cat)
+  padded-lane cost     -   4.37 us   (gate_pad + out_pad, proj_g/proj_o run wider)
+  net predicted           22.17 us
+  traced whole layer      22.05 - 23.82 us   <- closes
+
+FOLD BAND at 512 aa: 5064 calls x 22.05-23.82 us = 0.1117 - 0.1206 s
+  against a 14.410 s fold: 0.77 - 0.84 %
+  STILL A BAND: a traced block rate x a call count is a prediction. What makes it
+  negative is the fold being host-bound where the trace is device-bound; the 512 aa
+  fold is 13.22 s device of 14.410 s, so 92 % of it is where this saving lands.
