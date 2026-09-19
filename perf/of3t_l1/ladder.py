@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+import re
 import json
 import os
 import socket
@@ -37,7 +38,14 @@ sys.path.insert(0, str(REPO / "scripts" / "gpu_vs_tt"))
 
 from perf.clocksample import during                                    # noqa: E402
 from perf.of3t_memory.alloc_profile import Peak, _swap_watch           # noqa: E402
+from perf.of3t_l1.holders import l1_holders                            # noqa: E402
 from perf.of3t_perf import step as S                                   # noqa: E402
+
+
+def _clash_addr(msg):
+    """The address a circular-buffer clash names, so the holder census can point at it."""
+    m = re.search(r"L1 buffer allocated at (\d+)", msg or "")
+    return int(m.group(1)) if m else None
 
 
 def _tag_stacks(peak):
@@ -181,6 +189,11 @@ def main() -> int:
                 out["forward"]["error_head"] = str(e).split("backtrace")[0][:900]
                 out["forward"]["stage_at_failure"] = peak.stage
                 try:
+                    out["forward"]["l1_holders"] = l1_holders(
+                        ag, _clash_addr(out["forward"]["error_head"]))
+                except Exception:                                        # noqa: BLE001
+                    pass
+                try:
                     out["forward"]["at_failure"] = {
                         "census": peak.take_census(), "free": peak.free_now(),
                         "dram_b": peak.dram_now()}
@@ -217,6 +230,11 @@ def main() -> int:
                     out["backward"]["error"] = traceback.format_exc()[-6000:]
                     out["backward"]["error_head"] = str(e).split("backtrace")[0][:900]
                     out["backward"]["stage_at_failure"] = peak.stage
+                    try:
+                        out["backward"]["l1_holders"] = l1_holders(
+                            ag, _clash_addr(out["backward"]["error_head"]))
+                    except Exception:                                        # noqa: BLE001
+                        pass
                     try:
                         out["backward"]["at_failure"] = {
                             "census": peak.take_census(), "free": peak.free_now()}
