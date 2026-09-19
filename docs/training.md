@@ -389,16 +389,27 @@ optional in the API and not optional in the loss. AlphaFold 3 upweights DNA and 
 `is_rna` and `is_ligand`. A featuriser that does not emit them trains every nucleic-acid and
 ligand token at protein weight, and the term still fires, so no loss value looks wrong.
 
+You can supply the fact either way. OpenFold3's pipeline emits the three flags directly.
+Protenix-v2, Boltz-2 and BoltzGen call the same fact `mol_type`, a single integer column, and
+`af3_loss` derives the three flags from it, so those batches carry the weighting without a
+featuriser change.
+
 Two things to know when you write a dataset:
 
-* **Name them upstream's way.** OpenFold3's pipeline already does. Protenix-v2, Boltz-2 and
-  BoltzGen call the same fact `mol_type`, so their batches do not carry the weighting today.
-* **Check the breakdown.** `af3_loss` lists the absent ones under `breakdown["mse"]["without"]`.
-  That field is the only difference between a batch with no ligand and a batch whose featuriser
-  never mentioned one: the loss value and the gradient are identical in both cases.
+* **If you emit `mol_type`, say which convention it uses.** The stacks disagree. Set
+  `batch["mol_type_convention"]` to `"af3"` (protein 0, rna 1, dna 2, ligand 3, which is
+  OpenFold3's and Protenix-v2's) or `"boltz"` (protein 0, dna 1, rna 2, nonpolymer 3, which is
+  Boltz-2's and BoltzGen's). Both put ligand at 3 and they swap dna and rna. Leave it out and
+  the split is assumed, which is harmless while AlphaFold 3 weights dna and rna the same;
+  `entity_flags` refuses rather than guessing if that ever stops being true.
+* **Check the breakdown.** `af3_loss` lists absent labels under `breakdown["mse"]["without"]`
+  and records a derived set under `breakdown["mse"]["derived"]`. `without` is the only
+  difference between a batch with no ligand and a batch whose featuriser never mentioned one:
+  the loss value and the gradient are identical in both cases.
 
-On a 56-token batch with two ligand tokens, supplying the three flags moves the loss 0.233 and
-the gradient it seeds 0.764.
+On a 56-token OpenFold3 batch with two ligand tokens, supplying the three flags moves the loss
+0.233 and the gradient it seeds 0.764. Deriving them from a `mol_type` column instead gives
+the same loss and the same gradient, bit for bit.
 
 ## Gradient clipping: two things to pass, or you train a different rule
 
