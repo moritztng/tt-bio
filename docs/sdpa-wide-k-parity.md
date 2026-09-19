@@ -107,13 +107,30 @@ The fold serves exactly one triangle-attention shape, `686x686`, at `(352, 256, 
 and `(352, 704, fused)` with the lever on, 1208 calls per fold with zero fall-backs. The op screen
 predicted 1208 x 11.05 ms = 13.35 s; the trunk moved 13.7 s, so predicted and measured agree to 2.6%.
 
-**Read this arm as an indication, not as a measurement, and here is exactly why.** It records no
-AICLK. The Blackhole governor alone moves a fold 1.27-1.41x, so a number taken without a pinned,
-during-sampled clock cannot be separated from the governor's own state, and the on arm's 9 s spread
-against the off arm's 3 s has the shape of a governor ramping across the run rather than of a lever.
-The direction survives that doubt (every on leg is below every off leg, and the op screen closes the
-mechanism to 2.6 %), the size does not. A clocked, benchlocked repeat on a named board is owed
-before this ratio is quoted anywhere outside this file.
+That arm records no AICLK, and the Blackhole governor alone moves a fold 1.27-1.41x, so it was
+repeated with the clock pinned and sampled while each leg folded
+(`perf/pvx_land/widek_stage_clocked.py`, benchlocked, qb1 card 0, Blackhole p150a, order
+off/on/off/on at seed 0, `perf/pvx_land/widek_stage_clocked.json`):
+
+| | per leg (s) | mean |
+|---|---|--:|
+| default | 113, 106 | 109.5 s |
+| `TT_BIO_SDPA_WIDE_K=1` | 100, 94 | 97.0 s |
+| A/A spread, the two default legs | 113, 106 | 7.0 s |
+| | | **1.1289x, 12.5 s** |
+
+**The clock was held and checked, not asked for.** Every leg sampled `tt_aiclk` once a second and
+all four read median 1350, min 1350, max 1350 over 139-156 samples, with zero watchdog reasserts.
+Both on legs served 1208 calls at `(352, 704, fused)` with zero fall-backs and both off legs served
+zero at `(352, 256, stock)`, asserted out of the worker processes rather than read off the gate.
+
+The ratio reproduces the unclocked arm to four digits, 1.1289x against 1.1285x. **The A/A spread does
+not, and it is the honest caveat**: 7.0 s here against 1.0 s there. Both arms drift monotonically
+downward in run order (113 -> 106 off, 100 -> 94 on), so that spread is a warming trend across the
+session rather than random noise, and the interleave partly aliases it. Comparing each on leg only
+against its immediate neighbours removes the linear part and gives 9.5 s and 12.0 s, so the delta is
+9.5-12.5 s depending on how the drift is charged. Direction, firing and rough size are settled at a
+verified clock on a named board; a delta tighter than a couple of seconds needs more legs than n=2.
 
 ## Accuracy
 

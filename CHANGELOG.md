@@ -10,9 +10,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **Triangle attention picks a wider SDPA `k_chunk` by default.** At padded token lengths that the
   old 256-capped search could not divide, the fused triangle-attention kernel declined every call
   and the fold fell back to the stock op on a re-padded mask. The wider pick keeps the fused kernel
-  and is worth 2.2x to 4.4x on the op at padded 288, 352, 416, 704 and 864 (qb1, Blackhole p150a,
-  arms interleaved, median of three blocks of three). Protenix-v2, OpenDDE, Boltz-2 and BoltzGen
-  reach this path; OpenFold3, ESMFold2 and RFD3 do not.
+  and is worth 2.2x to 4.4x on the op at padded 288, 352, 416, 704 and 864, and 1.13x on
+  Protenix-v2's trunk stage at 686 tokens (qb1, Blackhole p150a, clock pinned and sampled at
+  1350 MHz, arms interleaved). Protenix-v2, OpenDDE, Boltz-2 and BoltzGen reach this path;
+  OpenFold3, ESMFold2 and RFD3 do not.
 
   **It changes the numbers you get at 20 padded lengths.** `k_chunk` sets the online-softmax
   reduction order, so a fold at one of those lengths is no longer byte-identical to what 0.9.0
