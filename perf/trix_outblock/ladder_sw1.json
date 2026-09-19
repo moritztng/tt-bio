@@ -1,0 +1,140 @@
+{
+ "host": "tt-quietbox2",
+ "clock_target": 1350,
+ "aiclk_during": {
+  "min": 1350,
+  "max": 1350,
+  "n": 24
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "reps": 21,
+ "loadavg1": 9.22,
+ "git_head": "67f1ecaa8e38868865f8abe16e45c6e1b490085c",
+ "shapes": [
+  {
+   "shape": "SW1",
+   "b": 16,
+   "M": 512,
+   "K": 256,
+   "N": 1024,
+   "dtype": "bf16",
+   "in": "L1",
+   "out": "L1",
+   "share_pct": 52.74,
+   "mt": 256,
+   "kt": 8,
+   "nt": 32,
+   "derived": {
+    "cls": "2d",
+    "per_core_M": 26,
+    "per_core_N": 3,
+    "in0_block_w": 4,
+    "out_block_h": 26,
+    "out_block_w": 3,
+    "out_subblock_h": 1,
+    "out_subblock_w": 3,
+    "mcast_in0": false,
+    "grid": [
+     11,
+     10
+    ],
+    "fp32_dest_acc": true
+   },
+   "n_lo": 1,
+   "n_hi": 3,
+   "aa_pct": 0.264,
+   "rows": [
+    {
+     "tag": "derived",
+     "ms": 0.043498,
+     "meta": {},
+     "lo_ms": 0.06705,
+     "hi_ms": 0.15404,
+     "hi_cv": 0.0062
+    },
+    {
+     "tag": "derived_aa",
+     "ms": 0.043383,
+     "meta": {},
+     "lo_ms": 0.06726,
+     "hi_ms": 0.15402,
+     "hi_cv": 0.0055
+    },
+    {
+     "tag": "mirror",
+     "ms": 0.043594,
+     "meta": {},
+     "lo_ms": 0.06644,
+     "hi_ms": 0.15362,
+     "hi_cv": 0.0044
+    },
+    {
+     "tag": "obh01",
+     "ms": 0.110747,
+     "meta": {
+      "obh": 1,
+      "blocks": 26
+     },
+     "lo_ms": 0.13361,
+     "hi_ms": 0.3551,
+     "hi_cv": 0.0048
+    },
+    {
+     "tag": "obh02",
+     "ms": 0.065491,
+     "meta": {
+      "obh": 2,
+      "blocks": 13
+     },
+     "lo_ms": 0.08844,
+     "hi_ms": 0.21942,
+     "hi_cv": 0.0041
+    },
+    {
+     "tag": "obh13",
+     "ms": 0.042967,
+     "meta": {
+      "obh": 13,
+      "blocks": 2
+     },
+     "lo_ms": 0.06625,
+     "hi_ms": 0.15218,
+     "hi_cv": 0.0052
+    },
+    {
+     "tag": "ibw01",
+     "ms": 0.052896,
+     "meta": {
+      "ibw": 1
+     },
+     "lo_ms": 0.07619,
+     "hi_ms": 0.18198,
+     "hi_cv": 0.0062
+    },
+    {
+     "tag": "ibw02",
+     "ms": 0.049177,
+     "meta": {
+      "ibw": 2
+     },
+     "lo_ms": 0.07222,
+     "hi_ms": 0.17058,
+     "hi_cv": 0.008
+    },
+    {
+     "tag": "ibw08",
+     "ms": 0.045618,
+     "meta": {
+      "ibw": 8
+     },
+     "lo_ms": 0.06885,
+     "hi_ms": 0.16009,
+     "hi_cv": 0.0031
+    }
+   ]
+  }
+ ]
+}
