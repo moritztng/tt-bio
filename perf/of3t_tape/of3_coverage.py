@@ -42,6 +42,32 @@ GOLD = os.path.expanduser("~/of3_ref_out.pkl")
 OUT = "perf/of3t_tape"
 
 
+def _device_weights(obj, prefix="", seen=None, out=None, depth=0):
+    """Every device tensor reachable from a shipped module, by attribute path.
+
+    Walked rather than listed, and walked DEEPER than `perf/ptx_integrate/step.py`'s four:
+    an OF3 trunk nests trunk -> pairformer -> blocks -> block -> submodule -> tensor, and a
+    depth that stops short reports a denominator that is too small in exactly the place the
+    answer matters.
+    """
+    import ttnn
+    out = {} if out is None else out
+    seen = set() if seen is None else seen
+    if depth > 12 or id(obj) in seen:
+        return out
+    seen.add(id(obj))
+    items = (obj.items() if isinstance(obj, dict) else
+             list(enumerate(obj)) if isinstance(obj, (list, tuple)) else
+             vars(obj).items() if hasattr(obj, "__dict__") else [])
+    for k, v in items:
+        name = f"{prefix}{k}"
+        if isinstance(v, ttnn.Tensor):
+            out[name] = v
+        elif isinstance(v, (list, tuple, dict)) or hasattr(v, "__dict__"):
+            _device_weights(v, name + ".", seen, out, depth + 1)
+    return out
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--part", default="trunk",
@@ -154,14 +180,26 @@ def main():
                    attn_mask_end=masks["attn_mask"]) if masks else {})
 
     T.Module.torch_to_tt = orig_load
-    build["weights_loaded"] = len(loaded)
-    print(f"[{time.perf_counter()-t0:.0f}s] {a.part} built, {len(loaded)} weights",
-          flush=True)
 
-    # Every weight becomes a trainable leaf, so a call whose operands are all weights is
-    # counted as routed only if the tape really follows it.
-    for _, t in loaded:
+    # THE DENOMINATOR, and it is the whole point of this block. Recording what
+    # `Module.torch_to_tt` returns finds the weights the loader produced; it does NOT find
+    # the ones a module derives in its own `__init__`. `TriangleMultiplication` builds its
+    # in-projection by `torch.cat`-ing g_in and p_in on HOST and pushing the result
+    # (`tenstorrent.py`, `_g_in_t`/`_p_in_t`), so the tensor the forward actually multiplies
+    # never passed through the loader and the tape sees a constant. A leaf count with no
+    # denominator is exactly how that stays invisible, so both are reported: every device
+    # tensor reachable from the module, and how many of them are leaves.
+    walked = _device_weights(mod)
+    by_loader = {id(t) for _, t in loaded}
+    derived = {k: v for k, v in walked.items() if id(v) not in by_loader}
+    for t in walked.values():
         ag.parameter(t)
+    build.update(weights_loaded=len(loaded), weights_reachable=len(walked),
+                 weights_derived_in_init=len(derived),
+                 derived_names=sorted(derived)[:40])
+    print(f"[{time.perf_counter()-t0:.0f}s] {a.part} built: {len(walked)} device weights "
+          f"reachable, {len(loaded)} from the loader, {len(derived)} derived in __init__ "
+          f"and invisible to it", flush=True)
 
     tapecount.install(survey=a.survey, l1=a.l1)
 
@@ -172,6 +210,7 @@ def main():
 
     args = [taped(inputs[k]) for k in order]
     err = None
+    ag._TOUCHED.clear()
     with ag.tape():
         try:
             out = mod(*args, **kw)
@@ -180,6 +219,18 @@ def main():
                 ag.backward([o for o in outs if isinstance(o, ag.Tensor)])
         except Exception as e:                       # a gap is a finding, not a crash
             err = e
+
+    # Reachability, which is a different question from routing and is the one K3 names.
+    touched = sum(1 for t in walked.values() if id(t) in ag._TOUCHED)
+    with_grad = sum(1 for t in walked.values()
+                    if getattr(ag._PARAMS.get(id(t)), "grad", None) is not None)
+    nograd = sorted(n for n, t in walked.items()
+                    if getattr(ag._PARAMS.get(id(t)), "grad", None) is None)
+    build.update(weights_touched=touched, weights_with_grad=with_grad,
+                 weights_without_grad=len(nograd), nograd_names=nograd)
+    print(f"  weights: {len(walked)} reachable, {len(walked)} registered as leaves, "
+          f"{touched} resolved during the forward, {with_grad} carrying a gradient",
+          flush=True)
 
     mode = "survey" if a.survey else "strict"
     suffix = ("_masked" if a.masked else "") + ("_bw" if a.backward else "") + a.tag

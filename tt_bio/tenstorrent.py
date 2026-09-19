@@ -8,7 +8,8 @@ from torch import nn
 from typing import Callable, Mapping
 from math import pi, prod
 from functools import lru_cache
-from types import MappingProxyType
+from types import (BuiltinFunctionType, FunctionType, MappingProxyType, MethodType,
+                   ModuleType)
 
 from . import ops
 from . import reblock_permute as _reblock
@@ -5857,6 +5858,14 @@ class Module:
             os.replace(tmp, path)  # atomic publish
         return ttnn.to_device(host, self.device)
 
+    def device_weights(self) -> dict:
+        """`{path: tensor}` for every device tensor this module reaches.
+
+        Call it after the forward that materialises the lazily fused weights, never straight
+        after `__init__` -- see the notes above `walk_device_weights`.
+        """
+        return device_weights(self)
+
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         """Shared linear projection on this module's kernel config and core grid."""
         return ops.linear(x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
@@ -5879,6 +5888,75 @@ class Module:
         return ttnn.squeeze(
             ttnn.experimental.nlp_concat_heads(ctx, memory_config=ttnn.DRAM_MEMORY_CONFIG), 1
         )
+
+
+# ------------------------------------------------------------------- weight discovery
+#
+# Hooking `Module.torch_to_tt` finds what the LOADER produced and nothing a module derived for
+# itself. `TriangleMultiplication` cuts its in-projection out of host torch and pushes the
+# pieces with `ttnn.from_torch` (`_gp_in_chunks`), so the tensor its forward multiplies never
+# passes through the loader, and a tape handed the loader's set sees a constant there. Measured
+# on OpenFold3's trunk: 2119 tensors from the loader against 2531 reachable from the built
+# model, and 0 of one triangle multiplication's 8 weights was an autograd leaf while the
+# backward completed without a word. So discovery walks the built model instead.
+#
+# It lives here rather than in the training package because `Module.__init__` is Protenix's,
+# Boltz-2's, BoltzGen's, AF2's and OpenFold3's alike, and nothing below knows which model it
+# is walking.
+#
+# WALK AFTER A FORWARD, NEVER BEFORE. `_gp_cache`, `_gp_bias_cache` and `_gp_gout_cache` are
+# filled on the first call at a given chunk width, so a walk of a freshly built model misses
+# exactly the fused in-projections that motivate the walk. One untaped forward materialises
+# them, and that is the same one inference a call-site census already spends.
+
+#: Values a walk must not descend into. A module object's `vars()` is its whole namespace, so
+#: one `self.np = numpy` attribute would walk the caller's dependency tree.
+_WALK_OPAQUE = (type, ModuleType, FunctionType, MethodType, BuiltinFunctionType,
+                str, bytes, torch.Tensor)
+
+
+def walk_device_weights(obj, prefix: str = "", _seen=None, _depth: int = 0):
+    """`(path, owner, key, tensor)` for every device tensor reachable from `obj`.
+
+    `owner` and `key` come back with the tensor because a parameter the optimizer moves has to
+    be written back where it was found: `AdamW.step` replaces the leaf's value with a fresh
+    device tensor, and a model still holding the old handle reads the checkpoint's weights for
+    the rest of the run, with real gradients and a loss curve that falls.
+
+    Depth 12, not the four `perf/ptx_integrate/step.py` walks: a trunk nests trunk ->
+    pairformer -> blocks -> block -> submodule -> cache -> tensor, and a depth that stops short
+    reports a denominator too small in the one place the answer matters.
+    """
+    _seen = set() if _seen is None else _seen
+    if _depth > 12 or id(obj) in _seen:
+        return
+    _seen.add(id(obj))
+    if isinstance(obj, dict):
+        items = list(obj.items())
+    elif isinstance(obj, (list, tuple)):
+        items = list(enumerate(obj))
+    elif hasattr(obj, "__dict__"):
+        items = list(vars(obj).items())
+    else:
+        return
+    for key, value in items:
+        path = f"{prefix}{key}"
+        if isinstance(value, ttnn.Tensor):
+            yield path, obj, key, value
+        elif isinstance(value, _WALK_OPAQUE):
+            continue
+        elif isinstance(value, (list, tuple, dict)) or hasattr(value, "__dict__"):
+            yield from walk_device_weights(value, path + ".", _seen, _depth + 1)
+
+
+def device_weights(model) -> dict:
+    """`{path: tensor}` for every device tensor reachable from `model`. The DENOMINATOR.
+
+    A leaf count with no denominator cannot show a shortfall: 2119 looks like a healthy number
+    and 2119 of 2531 is a gap you can act on. Every claim about what a tape reaches is reported
+    against this.
+    """
+    return {path: t for path, _, _, t in walk_device_weights(model)}
 
 
 def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None):
@@ -8762,16 +8840,41 @@ class PairformerLayer(Module):
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
         tri_att_accurate_softmax: bool | None = None,
+        tri_att_scale_pair_bias: bool | None = None,
         tri_att_sdpa_hifi: bool = False,
         tri_att_sdpa_ragged_pad: bool = False,
+        s_fp32_residual: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
+        # Keep the single track's residual in fp32 while its updates are computed in bf16.
+        # It costs one [B, L, c_s] fp32 tensor and it is the difference between carrying an
+        # update and losing it: a track whose residual is much larger than its per-block
+        # update quantises that update away, because bf16's resolution is relative to what
+        # the accumulator already holds. Measured on OF3's confidence Pairformer, which is
+        # the case this exists for -- it is handed the trunk's raw si_trunk at absmax 2.28e5
+        # with per-block updates of 1.2-6.3 % of it, where bf16's resolution at that
+        # magnitude is ~1024. Fed identical inputs, each of the four blocks then computes
+        # its own update with 3.1e-02 to 2.6e-01 relative error, and pLDDT, which reads the
+        # small channels of LN(s), comes out 2.42e-01 off. Off by default: a track whose
+        # residual and update are the same order of magnitude gains nothing.
+        self.s_fp32_residual = s_fp32_residual
         # Triangle attention is the biggest softmax site in the stack, and the accurate-softmax
         # chain only reaches it on the fp32_softmax route. `None` keeps whatever the layer's
         # `accurate_softmax` says, so no existing caller changes; a caller that measured the
         # chain at AttentionPairBias and not here pins this False.
         tri_acc = accurate_softmax if tri_att_accurate_softmax is None else tri_att_accurate_softmax
+        # `scale_pair_bias` names what the KERNEL does with the pair bias, and this layer has
+        # two kernels that do different things with it, so one value cannot serve both.
+        # `AttentionPairBias` folds the bias inside the score scale -- (q@k^T + z) * d**-0.5 --
+        # so a bias the reference adds UNSCALED has to arrive pre-baked by sqrt(d), which is
+        # what scale_pair_bias=True does. `TriangleAttention` adds it outside the scale, so the
+        # same reference convention wants False there. OpenFold3 is the model that needs both,
+        # and before the split its single False left the token pair bias at 1/sqrt(24) = 0.204
+        # of the reference value in every fold. `None` follows `scale_pair_bias`, so every
+        # other caller is byte-identical. LEDGER K34: a flag named after the reference rather
+        # than the kernel is right at whichever of its sites happens to match.
+        tri_scale = scale_pair_bias if tri_att_scale_pair_bias is None else tri_att_scale_pair_bias
         self.triangle_multiplication_start = TriangleMultiplication(
             False, self.scope("tri_mul_out"), compute_kernel_config, gated_move=gated_move
         )
@@ -8785,7 +8888,7 @@ class PairformerLayer(Module):
             self.scope("tri_att_start", "mha."),
             compute_kernel_config,
             affinity=affinity,
-            scale_pair_bias=scale_pair_bias,
+            scale_pair_bias=tri_scale,
             fp32_softmax=fp32_softmax,
             accurate_softmax=tri_acc,
             sdpa_hifi=tri_att_sdpa_hifi,
@@ -8798,7 +8901,7 @@ class PairformerLayer(Module):
             self.scope("tri_att_end", "mha."),
             compute_kernel_config,
             affinity=affinity,
-            scale_pair_bias=scale_pair_bias,
+            scale_pair_bias=tri_scale,
             fp32_softmax=fp32_softmax,
             transpose_bias=transpose_bias,
             transpose_l1_reserve=transpose_l1_reserve,
@@ -8857,7 +8960,7 @@ class PairformerLayer(Module):
         ttnn.deallocate(z_update)
         if self.transform_s:
             s_norm = ttnn.layer_norm(
-                s,
+                self._s_compute(s),
                 weight=self.pre_norm_s_weight,
                 bias=self.pre_norm_s_bias,
                 epsilon=1e-5,
@@ -8869,13 +8972,32 @@ class PairformerLayer(Module):
                 seq_mask=extra_attn_bias if extra_attn_bias is not None else attn_mask_start,
             )
             ttnn.deallocate(s_norm)
-            s = ttnn.add_(s, s_update)
-            ttnn.deallocate(s_update)
+            s = self._s_residual(s, s_update)
 
-            s_update = self.transition_s(s)
-            s = ttnn.add_(s, s_update)
-            ttnn.deallocate(s_update)
+            s_update = self.transition_s(self._s_compute(s))
+            s = self._s_residual(s, s_update)
         return s, z
+
+    def _s_compute(self, s: ttnn.Tensor) -> ttnn.Tensor:
+        """The single track as its CONSUMERS want it. Identity unless the residual is fp32.
+
+        Both consumers open with a LayerNorm, so handing them the bf16 copy costs only that
+        norm's own rounding -- measured at 2.4e-03 on LN(s), against the 9.4e-03 the
+        residual quantisation costs -- and keeps every tuned kernel below on its bf16 path.
+        """
+        if not self.s_fp32_residual or s.dtype == ttnn.bfloat16:
+            return s
+        return ttnn.typecast(s, ttnn.bfloat16)
+
+    def _s_residual(self, s: ttnn.Tensor, update: ttnn.Tensor) -> ttnn.Tensor:
+        if not self.s_fp32_residual:
+            s = ttnn.add_(s, update)
+            ttnn.deallocate(update)
+            return s
+        out = ttnn.add(s, update if update.dtype == ttnn.float32
+                       else ttnn.typecast(update, ttnn.float32))
+        ttnn.deallocate(update)
+        return out
 
 
 class Pairformer(Module):
@@ -8897,8 +9019,10 @@ class Pairformer(Module):
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
         tri_att_accurate_softmax: bool | None = None,
+        tri_att_scale_pair_bias: bool | None = None,
         tri_att_sdpa_hifi: bool = False,
         tri_att_sdpa_ragged_pad: bool = False,
+        s_fp32_residual: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -8918,8 +9042,10 @@ class Pairformer(Module):
                 transpose_l1_reserve=transpose_l1_reserve,
                 accurate_softmax=accurate_softmax,
                 tri_att_accurate_softmax=tri_att_accurate_softmax,
+                tri_att_scale_pair_bias=tri_att_scale_pair_bias,
                 tri_att_sdpa_hifi=tri_att_sdpa_hifi,
                 tri_att_sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
+                s_fp32_residual=s_fp32_residual,
             )
             for i in range(n_blocks)
         ]
