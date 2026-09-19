@@ -200,7 +200,7 @@ def _plan_call_source(cli_text: str) -> str:
     The print path and the call site are two separate ways to break the same promise, and only
     one of them is visible in the branch. A dry run can say "duration: UNMEASURED" forever while
     `plan()` is never given the one argument that would let it answer -- which is what `main`
-    does at cli.py:219 -- so the gate reads both.
+    does in `tt_bio/train/cli.py::finetune` -- so the gate reads both.
     """
     import ast
 
