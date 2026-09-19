@@ -924,6 +924,25 @@ if ORCH.is_file():
             else:
                 bad.append(f"PROVES states the wrong amendment count -- PROTOCOL has {n_am} "
                            f"({w})")
+        # ...and the SAME sentence lives in VERDICT, which this check did not read. VERDICT said
+        # "amended fifteen times on the record" while PROTOCOL held eighteen, and the audit was
+        # silent for three amendments. Third time a guard of mine has been scoped to the field I
+        # happened to be reading rather than to the claim -- so it is now scoped to the claim,
+        # wherever in the summary it is written.
+        _AMEND = _re.compile(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|"
+                             r"twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|"
+                             r"nineteen|twenty|twenty-one)\s+times on the record\b", _re.I)
+        if w:
+            _hits = [(fld, m.group(1).lower()) for fld, txt in
+                     (("PROVES/DOESNOT", both), ("VERDICT", verdict))
+                     for m in _AMEND.finditer(txt)]
+            _wrong = [f"{fld} says {got!r}" for fld, got in _hits if got != w]
+            if _wrong:
+                bad.append(f"the amendment count is stated wrongly -- PROTOCOL has {n_am} "
+                           f"({w}) but {'; '.join(_wrong)}")
+            elif _hits:
+                ok.append(f"every summary field states the amendment count correctly "
+                          f"({w}, {n_am}, {len(_hits)} place(s))")
 
 # A reviewer running this off the published copies gets FEWER checks than the orchestrator
 # does, and must be told which and why -- a check that cannot run has to say so (K60), and
