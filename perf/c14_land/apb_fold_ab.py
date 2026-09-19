@@ -238,7 +238,7 @@ def worker(args) -> int:
 
 
 # --------------------------------------------------------------------------- preflight
-def preflight(card):
+def preflight(card, guard=None):
     """Refuse the session unless BOTH couplings are clear: the board-pair sibling and the host.
 
     The harness enforces this itself rather than trusting its caller. On 2026-09-18
@@ -250,6 +250,13 @@ def preflight(card):
     the lock nor the load ceiling is the guard. Exit 75 is benchlock's own "retry later, do not
     measure anyway".
     """
+    if guard is not None:
+        r = subprocess.run([sys.executable,
+                            str(Path(__file__).resolve().parent / "pair_channel_quiet.py"),
+                            "--card", str(card)] + list(guard),
+                           capture_output=True, text=True)
+        return r.returncode == 0, ["pair_channel: %s" % l for l in
+                                   (r.stdout + r.stderr).strip().splitlines()]
     g = Path(__file__).resolve().parents[1] / "c12_orchestrator" / "pair_guard"
     lines, ok = [], True
     for chk, extra in (("pair_idle.py", ["--card", str(card)]), ("host_quiet.py", [])):
@@ -262,7 +269,7 @@ def preflight(card):
     return ok, lines
 
 
-def wait_admissible(card, cap_s: float, tag: str) -> dict:
+def wait_admissible(card, cap_s: float, tag: str, guard=None) -> dict:
     """`preflight`, again, before EVERY arm process -- and block until it passes.
 
     Running it once at launch protects the first second of a 25-minute session and nothing after
@@ -279,7 +286,7 @@ def wait_admissible(card, cap_s: float, tag: str) -> dict:
     next arm's first fold.
     """
     t0 = time.time()
-    ok, lines = preflight(card)
+    ok, lines = preflight(card, guard)
     while not ok:
         waited = time.time() - t0
         if waited > cap_s:
@@ -288,9 +295,25 @@ def wait_admissible(card, cap_s: float, tag: str) -> dict:
         print("  %s: waiting %.0fs of %.0fs -- %s" % (tag, waited, cap_s, " | ".join(lines)),
               flush=True)
         time.sleep(30)
-        ok, lines = preflight(card)
+        ok, lines = preflight(card, guard)
     return {"admissible": True, "checks": lines, "waited_s": round(time.time() - t0, 1),
             "loadavg1": round(os.getloadavg()[0], 2)}
+
+
+def guard_args(args):
+    """None -> pair_idle + host_quiet (the default, unchanged). A list -> pair_channel_quiet.
+
+    `host_quiet` fails on ANY busy device fd holder on the host and on loadavg over 2.00, so a
+    multi-day training campaign on the other board pair makes it unsatisfiable rather than
+    protective. `--guard pair_channel` keeps the board-pair rule hard and reports the host channel
+    instead of merging it, which admits a STATIONARY neighbour on the other pair. It also narrows
+    the claim: see pair_channel_quiet.py's header. Absolute seconds from such a session are not a
+    fold time of record; only the paired ratio is, and the A/A floor decides whether even that is.
+    """
+    if args.guard != "pair_channel":
+        return None
+    return ["--maxload", str(args.maxload), "--drift", str(args.drift),
+            "--settle", str(args.settle)]
 
 
 # --------------------------------------------------------------------------- driver
@@ -305,7 +328,7 @@ def driver(args) -> int:
         "blocks": [],
     }
     outp = Path(args.out)
-    ok, pf = preflight(args.card)
+    ok, pf = preflight(args.card, guard_args(args))
     out["preflight"] = {"admissible": ok, "checks": pf}
     for l in pf:
         print(l, flush=True)
@@ -342,7 +365,8 @@ def driver(args) -> int:
                     cmd += ["--cifdir", str(args.cifdir)]
                 tag = f"{size} aa block {b} {arm}"
                 guard = ({"skipped": "--force-contended"} if args.force_contended
-                         else wait_admissible(args.card, args.quiet_wait, tag))
+                         else wait_admissible(args.card, args.quiet_wait, tag,
+                                              guard_args(args)))
                 r = subprocess.run(cmd, env=env)
                 row = {"size": size, "arm": arm, "block": b, "returncode": r.returncode,
                        "guard_before": guard}
@@ -420,6 +444,12 @@ def main() -> int:
     # Deliberately awkward to reach: a contended session produces a void, and pass 1 already spent
     # three of them. It exists only so a screen can be taken knowingly, stamped CONTAMINATED.
     ap.add_argument("--force-contended", action="store_true")
+    ap.add_argument("--guard", choices=["host_quiet", "pair_channel"], default="host_quiet",
+                    help="host_quiet (default, unchanged) or pair_channel, which keeps the "
+                         "board-pair rule hard and admits a stationary neighbour on the other pair")
+    ap.add_argument("--maxload", type=float, default=8.0)
+    ap.add_argument("--drift", type=float, default=1.5)
+    ap.add_argument("--settle", type=float, default=60.0)
     # worker-only
     ap.add_argument("--arm", choices=["base", "on"])
     ap.add_argument("--flag", default="TT_BIO_APB_CONCAT_HEADS", choices=sorted(FLAGS))
