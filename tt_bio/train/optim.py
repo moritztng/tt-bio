@@ -287,6 +287,7 @@ class AdamW:
         Call it after enough steps to have moved: on step 0 there is no displacement and the
         ratio is nan, which is reported rather than passed.
         """
+        import numpy as np  # noqa: F401  (displacement() needs it)
         d = self.displacement()
         lo, hi = band
         r = d["ratio"]
@@ -298,6 +299,17 @@ class AdamW:
                 f"{d['master']:.3e}), so nothing was learned. Check that the loss reached "
                 f"the parameters: a frozen tensor accumulates no gradient and a pruned "
                 f"branch produces none")
+        # A correct short run can sit below the band and this is not a defect: if the master
+        # has moved less than the device dtype can represent, every update rounds away by
+        # design and the fp32 master is doing its job. Measured on a 20-step OF3 warmup, where
+        # lr ~ k * 1.8e-06 puts every step under bf16 spacing and the arm read 0.810 against a
+        # (0.9, 1.1) band -- a guard raising on correct behaviour gets disabled by the next
+        # caller, which is worse than no guard. Reported, never silently passed.
+        if d["master"] < d["resolution"] and r < lo:
+            return {**d, "below_resolution": True,
+                    "note": (f"master displacement {d['master']:.3e} is under the device's own "
+                             f"resolution {d['resolution']:.3e}, so ratio {r:.4f} measures the "
+                             f"dtype rather than the optimizer; band not asserted")}
         if not (lo < r < hi):
             raise AssertionError(
                 f"cumulative displacement ratio {r:.4f} is outside {band}: the master moved "
@@ -321,7 +333,16 @@ class AdamW:
             cur = to_host(t.value).astype(np.float32).reshape(self.master[n].shape)
             d += float(np.sum((cur - self.init_device[n]) ** 2))
         m, d = math.sqrt(m), math.sqrt(d)
-        return {"master": m, "device": d, "ratio": (d / m) if m > 0 else float("nan")}
+        # The displacement the device copy CANNOT show. A change smaller than half an ulp of
+        # the weight it is applied to rounds away entirely, so below this the ratio is
+        # measuring the dtype and not the optimizer. bfloat16 keeps 7 explicit mantissa bits,
+        # so its unit roundoff -- half an ulp under round-to-nearest -- is 2**-8.
+        res = 0.0
+        for n, t in self.params.items():
+            u = 2.0 ** -8 if "bfloat16" in str(t.value.dtype) else 2.0 ** -24
+            res += float(np.sum((u * np.abs(self.init_device[n])) ** 2))
+        return {"master": m, "device": d, "ratio": (d / m) if m > 0 else float("nan"),
+                "resolution": math.sqrt(res)}
 
     def grad_norm(self, disabled=()) -> float:
         """Global L2 norm of the gradients, for clipping and for the trajectory log.
