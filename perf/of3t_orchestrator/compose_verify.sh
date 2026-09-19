@@ -196,26 +196,49 @@ echo "main:        $(tail -1 "$SLUG_TMP/col_base.txt")"
 echo "composition: $(tail -1 "$SLUG_TMP/col_comp.txt")"
 diff -q "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt" >/dev/null \
   && echo "error sets: IDENTICAL -- no new import breakage" \
-  || { echo "NEW IMPORT BREAKAGE:"; diff "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt"
+  || { echo "NEW COLLECTION ERRORS (classified below):"
+       # `|| true`: diff exits 1 when the files differ, which is the ONLY case this branch
+       # runs in, and `set -e` then kills the script before the classifier can say a word.
+       # Second time this campaign has been bitten by a command whose failure IS the expected
+       # case (K65: `grep -v` filtering everything out under pipefail).
+       diff "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt" || true
        # Say WHAT KIND of new error it is. 84 of the ~107 baseline errors on a CPU host are a
        # top-level `import ttnn`, and three tests already avoid that with
        # `pytest.importorskip("ttnn")` and skip instead. A new file of that class is a
        # one-line convention miss, not broken code -- and a reader who has to run pytest by
        # hand to learn which it is will start ignoring this gate.
-       for _f in $(diff "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt" \
+       _ttnn_only=0; _real=0
+       for _f in $( { diff "$SLUG_TMP/err_base.txt" "$SLUG_TMP/err_comp.txt" || true; } \
                    | grep '^> ERROR' | awk '{print $3}'); do
-         if ( cd "$CO" && "$PY" -m pytest "$_f" --collect-only -q 2>&1 \
-              | grep -q "No module named 'ttnn'" ); then
+         # Capture THEN grep. `pytest | grep -q` under `set -o pipefail` is non-zero whenever
+         # pytest is -- which is always here, since the file is in the error set -- so the
+         # pipeline reported "not the ttnn class" for a file that plainly was one. Third time
+         # this script has been bitten by pipefail on a command whose failure is expected.
+         _out=$( { cd "$CO" && "$PY" -m pytest "$_f" --collect-only -q 2>&1; } || true )
+         if printf '%s' "$_out" | grep -q "No module named 'ttnn'"; then
            echo "  $_f: top-level \`import ttnn\` on a host without it -- the class 84 of the"
            echo "    baseline errors already are. The convention that avoids it is"
            echo "    \`pytest.importorskip(\"ttnn\")\` (see tests/test_sdpa_cb_model.py,"
            echo "    tests/test_training_full_weights.py, tests/test_sdpa_fused_pairs.py),"
            echo "    which SKIPS instead. One line, and the error set stays identical."
+           _ttnn_only=$((_ttnn_only + 1))
          else
            echo "  $_f: NOT the ttnn class -- read it, this one may be real."
+           _real=$((_real + 1))
          fi
        done
-       exit 1; }
+       # FAIL only on a new error that is NOT the ttnn class. A device test with a top-level
+       # `import ttnn` is indistinguishable on pc from the 84 baseline errors of that shape,
+       # and on a host WITH ttnn it collects fine -- so counting it as breakage measures "a
+       # row added a device test", not "the composition broke imports". Keeping it fatal would
+       # block every live row's normal work on a style preference, which is how a correctness
+       # gate gets routed around. It still WARNS by name with the one-line convention fix.
+       if [ "${_real:-0}" -gt 0 ]; then
+         echo "  -> $_real new error(s) of an unknown class: that is breakage. Stopping."
+         exit 1
+       fi
+       echo "  -> all $_ttnn_only new error(s) are the ttnn class; not breakage, but owed a"
+       echo "     \`pytest.importorskip\` so the error set goes back to identical."; }
 echo "NOTE: no test EXECUTED -- without ttnn everything errors on extras or skips. Behaviour unverified."
 
 # (2b) a reference to a file that does not exist. Composing found exactly this in NOTICE last
