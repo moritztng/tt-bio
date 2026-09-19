@@ -54,7 +54,21 @@ def summarise(rep):
                   "worst_tensor": w["their_tensor"],
                   "over_bar": sum(1 for x in v if x > BAR)}
     allv = sorted(x["rel_l2"] for x in kept)
+    # A15 inside the block. "8 of 51 over the bar" and "the over-bar tensors hold 0.3 % of this
+    # block's gradient" are different claims, and only the second one says whether the miss
+    # matters. It is the same rule the campaign applies at model scope, applied one level down,
+    # and it is the honest answer to a relative-L2 bar on a tensor whose reference gradient is
+    # four to eight orders below its neighbours': a bf16 forward cannot make that ratio small,
+    # and no porting fix will.
+    blk_sq = sum(r["ref_norm"] ** 2 for r in kept) or 1.0
+    over = [r for r in kept if r["rel_l2"] > BAR]
+    for g, rs in groups.items():
+        out[g]["norm_share_of_block"] = sum(r["ref_norm"] ** 2 for r in rs) / blk_sq
+        out[g]["over_bar_norm_share_of_block"] = sum(
+            r["ref_norm"] ** 2 for r in rs if r["rel_l2"] > BAR) / blk_sq
     return {"groups": dict(sorted(out.items(), key=lambda x: -x[1]["median"])),
+            "over_bar_norm_share_of_block": sum(r["ref_norm"] ** 2 for r in over) / blk_sq,
+            "block_squared_norm_of_compared_set": blk_sq,
             "n_compared": len(kept), "n_excluded_zero_ref": len(excluded),
             "excluded": [{"tensor": r["their_tensor"], "ref_norm": r["ref_norm"]}
                          for r in excluded],
@@ -100,9 +114,13 @@ def main() -> int:
         print(f"\n=== {label}  ({s['tag']})  median {s['median']:.4f}  "
               f"over bar {s['over_bar']}/{s['n_compared']}  "
               f"fwd z {s['forward_z_masked']:.3e}")
+        print(f"   over-bar tensors hold {100*s['over_bar_norm_share_of_block']:.3f} % of this "
+              f"block's compared gradient norm^2")
         for g, d in s["groups"].items():
             print(f"   {g:18s} n={d['n']:3d}  median {d['median']:.4f}  worst {d['worst']:.4f}"
-                  f"  {d['over_bar']}/{d['n']} over")
+                  f"  {d['over_bar']}/{d['n']} over  "
+                  f"block-norm {100*d['norm_share_of_block']:5.2f} %  "
+                  f"over-bar-norm {100*d['over_bar_norm_share_of_block']:5.2f} %")
         if s["excluded"]:
             print(f"   excluded (A14): " + ", ".join(
                 f"{x['tensor'].split('.',3)[-1]} ref_norm {x['ref_norm']:.2e}"

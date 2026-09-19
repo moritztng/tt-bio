@@ -74,6 +74,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--block", type=int, default=0, help="which pairformer block")
     ap.add_argument("--tag", default="")
+    ap.add_argument("--scale-pair-bias", default="shipped", choices=("shipped", "on", "off"),
+                    help="the ATTENTION pair bias scale. `shipped` is True, with the triangle "
+                         "route's own tri_att_scale_pair_bias pinned False, which is what "
+                         "openfold3_trunk.py:137 builds since the flag was split.")
     ap.add_argument("--transpose-bias", default="shipped", choices=("shipped", "on", "off"),
                     help="tri_att_end's bias orientation. `shipped` is `not is_openbind(sd)`. "
                          "The discriminator: the ending node is the one that transposes the "
@@ -240,7 +244,18 @@ def main() -> int:
     transpose_bias = (not is_openbind(sd)) if a.transpose_bias == "shipped" \
         else (a.transpose_bias == "on")
     acc = accurate_softmax_site("openfold3.trunk")
-    rep["shipped_config"] = {"scale_pair_bias": False,
+    # `of3t-pairbias` SPLIT this flag after this instrument was written: the shipped trunk now
+    # passes `scale_pair_bias=True, tri_att_scale_pair_bias=False`, where a single
+    # `scale_pair_bias=False` used to cover both. An instrument still passing the old single
+    # value runs the attention pair bias at the wrong scale -- and `attn_pair_bias` is the group
+    # this instrument reports as failing, so the attribution was unsafe until this was pinned.
+    # Same class as transpose_bias and accurate_softmax, found the same way: by reading the
+    # shipped construction rather than trusting a default.
+    SHIPPED_SPB, SHIPPED_TRI_SPB = True, False
+    spb = SHIPPED_SPB if a.scale_pair_bias == "shipped" else (a.scale_pair_bias == "on")
+    rep["shipped_config"] = {"scale_pair_bias": spb,
+                             "tri_att_scale_pair_bias": SHIPPED_TRI_SPB,
+                             "scale_pair_bias_arm": a.scale_pair_bias,
                              "fp32_softmax": (a.fp32_softmax == "on"),
                              "transpose_bias": bool(transpose_bias),
                              "accurate_softmax": acc,
@@ -248,7 +263,8 @@ def main() -> int:
                              "source": "openfold3_trunk.py:137"}
     mod = T.Pairformer(1, head_dim, no_heads_pair, c_s // no_heads_pair_bias,
                        no_heads_pair_bias, True, flat, ckc,
-                       scale_pair_bias=False, fp32_softmax=(a.fp32_softmax == "on"),
+                       scale_pair_bias=spb, tri_att_scale_pair_bias=SHIPPED_TRI_SPB,
+                       fp32_softmax=(a.fp32_softmax == "on"),
                        transpose_bias=transpose_bias, accurate_softmax=acc)
     T.Module.torch_to_tt = orig
 
