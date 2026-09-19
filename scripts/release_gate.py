@@ -764,9 +764,6 @@ SIZE_LADDER_BASELINE = REPO_ROOT / "docs" / "size_ladder_baseline.json"
 SIZE_LADDER_STEPS = 6
 SIZE_LADDER_FRAC_TOL = 0.05
 SIZE_LADDER_SIGMA_REPS = 5
-# Folds thrown away INSIDE each measuring process before its kept fold. The warm-up has to
-# share a process with the fold it warms; see _run_census_fold.
-SIZE_LADDER_WARMUP_FOLDS = 1
 SIZE_LADDER_EXP_TOL_FLOOR = 0.50
 # The diluted N^2 -> N^3.6 cliff reads as an apparent exponent jump of ~1.4 once
 # the size-independent term in runtime_s biases both exponents downward. A 3-sigma
@@ -2512,7 +2509,7 @@ def _size_limit_refusal(text: str) -> str | None:
 
 
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
-                     need_runtime: bool = True, warmups: int = 0) -> dict:
+                     need_runtime: bool = True) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
     {"levers": {flag: {resolved, served, declined, frac, how}}, "runtime_s": ...,
     "wall": ...} or {"error": ...}.
@@ -2523,18 +2520,6 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     (single-sequence, 6 steps, 1 sample, seed 0) — enough to resolve every guard
     without paying for a production fold. runtime_s comes from the fold's own
     results.json, which excludes model load and process startup.
-
-    ``warmups`` folds the fixture that many extra times FIRST, in this same worker, and keeps
-    only the last fold's runtime. A warm-up in its own process warms nothing: this function is
-    one process per call, so the cost it pays dies with it and the next call starts cold again.
-    Measured on qb1 p150a, boltz2, 256 aa, clock pinned at 1350 MHz, ten fresh processes folding
-    four times each: the first fold of a process ran 7.7-9.9 s and later folds in the SAME
-    process 4.3-8.2 s, the first fold slowest in all ten. The gate spends one process per fold,
-    so every cell it has ever recorded is a first fold.
-
-    Only the plain `predict` models take a warm-up. nesso1 folds in the launcher and the design
-    models write their own manifests, so both would need a different multi-target shape; they
-    keep one fold per process and their rungs stay as noisy as they were.
     """
     from tt_bio.main import predict_results_dir_name
     fixture = _size_ladder_fixture(model, rung)
@@ -2546,17 +2531,6 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     log = workdir / f"{label}.log"
     shutil.rmtree(out_dir, ignore_errors=True)
     workdir.mkdir(parents=True, exist_ok=True)
-    target = fixture
-    if warmups and model != "nesso1" and model not in SIZE_LADDER_DESIGN:
-        # Hand `predict` a DIRECTORY and it folds every entry in one worker, in name order,
-        # into one results.json. The copies are numbered so that order is the fold order and
-        # the kept fold is the last row.
-        stage = workdir / f"in_{label}"
-        shutil.rmtree(stage, ignore_errors=True)
-        stage.mkdir(parents=True)
-        for i in range(warmups + 1):
-            shutil.copy(fixture, stage / f"{fixture.stem}_{i:02d}{fixture.suffix}")
-        target = stage
     census = ([sys.executable, str(REPO_ROOT / "scripts" / "lever_census.py"),
                "--tt-bio", sys.executable, "--label", label, "--out", str(census_json)]
               + _census_pythonpath_args() + ["--"])
@@ -2584,7 +2558,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
           + list(SIZE_LADDER_DESIGN[model]["steps"])
     else:
         cmd = census + [
-            "-m", "tt_bio.main", "predict", str(target),
+            "-m", "tt_bio.main", "predict", str(fixture),
             "--model", model,
             "--single_sequence",
             "--sampling_steps", str(SIZE_LADDER_STEPS),
@@ -2639,8 +2613,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
             # compares like with like.
             runtime_s, where = wall, "the run's own wall (no designs.json)"
     else:
-        stem = target.name if target.is_dir() else target.stem
-        results = out_dir / predict_results_dir_name(model, stem) / "results.json"
+        results = out_dir / predict_results_dir_name(model, fixture.stem) / "results.json"
         where = results.name
         runtime_s = None
         if results.exists():
@@ -2648,13 +2621,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
                 rows = json.loads(results.read_text())
                 ts = [row["runtime_s"] for row in rows
                       if row.get("status") == "ok" and row.get("runtime_s") is not None]
-                # Without warm-ups there is one row and max() == the row. With them the
-                # warm-ups are the slow ones, so max() would keep exactly what this is
-                # discarding; the kept fold is the last.
-                runtime_s = (ts[-1] if warmups else max(ts)) if ts else None
-                if warmups and len(ts) != warmups + 1:
-                    return {"error": f"expected {warmups + 1} folds in {results.name}, "
-                                     f"got {len(ts)}"}
+                runtime_s = max(ts) if ts else None
             except Exception:
                 runtime_s = None
     if runtime_s is None and need_runtime:
@@ -2966,7 +2933,7 @@ def _size_ladder_model_rungs(model: str, want=None) -> tuple:
 
 def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                                reps_sigma: int, reps_other: int) -> dict:
-    """Census-fold every rung, discarding a warm-up fold AT EACH RUNG, then report.
+    """Census-fold every rung, discarding the first fold AT EACH RUNG, then report.
 
     Returns {"levers": {rung: ...}, "runtime_s": {rung: median}, "sigma": relative
     runtime noise at the sigma rung | None, "census_jsons": {rung: path}} or
@@ -2981,26 +2948,19 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     sigma = 3.9 % and +-0.40, tighter than boltz-2. The old one-warm-up-per-model
     policy was calibrated on boltz-2, where a single fold is enough -- the same
     one-size-fits-all mistake this whole arm exists to catch, in the arm itself.
-
-    The discard is also IN the measuring process, which it was not until 2026-09-19. It used
-    to be its own `_run_census_fold` call, i.e. its own process, so it warmed a process that
-    then exited and every kept fold was still the first fold of a fresh one. That is what made
-    boltz2's 256 rung bimodal on p300c and false-red the gate at four commits: the recorded
-    4.1 s cell and the 6.8 s draw that failed against it are the same measurement taken from
-    the two ends of one process's warm-up. It costs nothing to fix. At reps=1 the arm folds
-    twice either way and now pays one process instead of two, which on qb1 p150a at 256 aa is
-    ~17 s of process start and device open saved per rung.
     """
     levers, runtimes, census_jsons, refused = {}, {}, {}, {}
     sigma, grid, drift, runtime_src = None, None, [], None
     sigma_rung = _size_ladder_sigma_rung(model)
+    sigma_rungs = _size_ladder_sigma_rungs(model)
+    sigmas = {}
     for rung in rungs:
-        reps = reps_sigma if rung == sigma_rung else reps_other
+        reps = reps_sigma if rung in sigma_rungs else reps_other
         runs = []
         guard = None
-        for rep in range(reps):
-            r = _run_census_fold(model, rung, workdir, f"rep{rep}",
-                                 warmups=SIZE_LADDER_WARMUP_FOLDS)
+        for rep in range(reps + 1):
+            r = _run_census_fold(model, rung, workdir,
+                                 "warmup" if rep == 0 else f"rep{rep - 1}")
             if r.get("refused"):
                 guard = r["refused"]
                 break
@@ -3010,8 +2970,12 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                 # in every cell, which reads as "this model cannot fold at all" instead of "this
                 # model folds up to 640 and died at 768". That cost a bisect on 2026-08-23 to
                 # recover information the leg already had.
-                return {"error": f"rung {rung} rep {rep}: {r['error']}",
+                return {"error": f"rung {rung} "
+                                 f"{'warm-up' if rep == 0 else f'rep {rep - 1}'}: "
+                                 f"{r['error']}",
                         "runtime_s": runtimes, "partial": True}
+            if rep == 0:
+                continue          # cold: kernels for this shape compile on this fold
             grid = grid or r.get("grid")
             runtime_src = runtime_src or r.get("runtime_src")
             runs.append(r)
@@ -3041,13 +3005,15 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
         census_jsons[str(rung)] = runs[0]["census_json"]
         ts = [r["runtime_s"] for r in runs]
         runtimes[str(rung)] = round(statistics.median(ts), 2)
-        if rung == sigma_rung and len(ts) > 1:
-            sigma = statistics.stdev(ts) / statistics.mean(ts)
+        if rung in sigma_rungs and len(ts) > 1:
+            sigmas[str(rung)] = round(statistics.stdev(ts) / statistics.mean(ts), 4)
+            if rung == sigma_rung:
+                sigma = sigmas[str(rung)]
     if not runtimes and refused:
         return {"error": f"every rung requested ({','.join(map(str, rungs))}) is above this "
                          f"model's size guard: {next(iter(refused.values()))}",
                 "refused": refused}
-    return {"levers": levers, "runtime_s": runtimes, "sigma": sigma,
+    return {"levers": levers, "runtime_s": runtimes, "sigma": sigma, "sigmas": sigmas,
             "runtime_src": runtime_src,
             "census_jsons": census_jsons, "grid": grid, "drift": drift,
             "refused": refused}
@@ -3083,6 +3049,28 @@ def _size_ladder_exp_rungs(model: str) -> tuple:
     return SIZE_LADDER_EXP_RUNGS
 
 
+def _size_ladder_sigma_rungs(model: str) -> tuple:
+    """Every rung the runtime noise is measured at: the middle gated rung, and the LOWEST.
+
+    One sigma used to do two jobs. It sets the exponent TOLERANCE, which is why it is measured
+    at the middle rung (see _size_ladder_sigma_rung), and it sets how many folds each rung is
+    measured over, which needs the noisiest rung instead. Those are not the same rung, and the
+    smallest one is where the arm keeps false-redding: runtime_s carries a size-independent
+    host term, so the smallest rung is mostly made of it and is the rung that moves.
+
+    Measured on qb1 p150a, boltz2, 256 aa, benchlocked, AICLK pinned and sampled at 1350 MHz,
+    ten fresh processes: the 256 cell drew 7.6-10.6 s while 512 drew 15.0-15.7 s over six. Two
+    independent single draws of k(256->512) disagree by more than the +-0.50 band 0.9 % of the
+    time at one rep and 0.1 % at three. boltz2's p300c entry carries reps=1, off a sigma of
+    0.41 % measured at 512 on a quiet box, and its 256 rung has failed the gate at four
+    commits. A median cannot be triggered by noise the sigma rung never saw.
+    """
+    exp = _size_ladder_exp_rungs(model)
+    if not exp:
+        return ()
+    return tuple(dict.fromkeys((exp[len(exp) // 2], exp[0])))
+
+
 def _size_ladder_sigma_rung(model: str):
     """The rung the runtime noise floor is measured at: the MIDDLE gated rung, or None.
 
@@ -3095,9 +3083,14 @@ def _size_ladder_sigma_rung(model: str):
     return exp[len(exp) // 2] if exp else None
 
 
-def _size_ladder_exponent_block(model: str, runtimes: dict, sigma):
+def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas=None):
     """Baseline exponent entries per consecutive rung pair: k with a tolerance
-    derived from the measured noise floor. Returns (block, skip_reason)."""
+    derived from the measured noise floor. Returns (block, skip_reason).
+
+    The tolerance comes from the middle rung's sigma, which is the interval either side of it.
+    The REP COUNT comes from the worst sigma measured, which is normally the lowest rung: a
+    band is a property of the interval, a rep count is a property of the cell being drawn.
+    """
     gated = _size_ladder_exp_rungs(model)
     rungs = sorted(int(r) for r in runtimes if int(r) in gated)
     if len(rungs) < 2:
@@ -3105,8 +3098,9 @@ def _size_ladder_exponent_block(model: str, runtimes: dict, sigma):
     if sigma is None:
         return None, (f"no noise measurement (rung {_size_ladder_sigma_rung(model)} absent "
                       f"from the ladder)")
+    reps_sigma = max([sigma] + list((sigmas or {}).values()))
     reps, sigma_eff = 1, sigma
-    if sigma > 0.12:
+    if reps_sigma > 0.12:
         # median-of-3, the repo's standing answer to single-shot noise
         # (perf-gate-single-shot-legs-recurring-false-alarm, merged 7431d6e39)
         reps, sigma_eff = 3, sigma / math.sqrt(3)
@@ -3121,7 +3115,10 @@ def _size_ladder_exponent_block(model: str, runtimes: dict, sigma):
         return None, (f"measured sigma {sigma:.1%} needs a ±{worst:.2f} band, wider "
                       f"than the ~{SIZE_LADDER_EXP_MAX_TOL} cliff signal — an exponent "
                       f"gate would be a coin flip for this model")
-    return {"reps": reps, "sigma_runtime_512": round(sigma, 4), "exponents": exps}, None
+    block = {"reps": reps, "sigma_runtime_512": round(sigma, 4), "exponents": exps}
+    if sigmas:
+        block["sigma_runtime"] = dict(sigmas)
+    return block, None
 
 
 def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list:
@@ -3980,7 +3977,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             err = _size_ladder_record_refusal(meas)
             block = skip = None
             if err is None:
-                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"])
+                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"],
+                                                          meas.get("sigmas"))
                 # Re-measure at the rep count the CHECK will use. Only the sigma rung was repeated
                 # above, so a model noisy enough to need a median went into the baseline
                 # single-shot at the other three rungs while the check reads a median of three
@@ -3989,7 +3987,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 # changed but how many folds the number came from.
                 reps = (block or {}).get("reps", 1)
                 if reps > reps_other:
-                    again = [r for r in ladders[m] if r != _size_ladder_sigma_rung(m)]
+                    again = [r for r in ladders[m]
+                             if r not in _size_ladder_sigma_rungs(m)]
                     print(f"  [size-ladder] {m}: sigma needs a median of {reps}, re-measuring "
                           f"{','.join(map(str, again))} at {reps} reps", flush=True)
                     m2 = _size_ladder_measure_model(m, again, workdir, reps, reps)
@@ -3998,14 +3997,16 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                         for k in ("levers", "runtime_s", "census_jsons"):
                             meas[k].update(m2[k])
                         block, skip = _size_ladder_exponent_block(m, meas["runtime_s"],
-                                                                  meas["sigma"])
+                                                                  meas["sigma"],
+                                                                  meas.get("sigmas"))
             if err:
                 print(f"  [size-ladder] {m}: NOT RECORDED — {err}", flush=True)
                 legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
                 continue
             carried_rungs = _size_ladder_carry_rungs(meas, old_models.get(m), stamp)
             if carried_rungs:
-                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"])
+                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"],
+                                                          meas.get("sigmas"))
             todos += _size_ladder_fill_reasons(
                 meas["levers"], old_models.get(m, {}).get("levers"),
                 _size_ladder_other_card_levers(reasons_from, card, m))
