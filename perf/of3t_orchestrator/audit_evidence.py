@@ -21,6 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ok, bad, warn = [], [], []
+_reach_top = {}
 
 
 def j(rel):
@@ -218,6 +219,7 @@ if d:
 d = j("perf/of3t_gradients/reach_by_norm.json")
 if d:
     r = d["reach"]
+    _reach_top = d.get("by_top_level", {})
     check("D17 reference tensors", d["n_tensors"], 4147)
     check("D17 none absent", d["n_absent"], 0)
     close("D17 tracer reach by norm", r["k22_tracer_bijection"]["norm_share"], 0.040545222363297974, tol=1e-6)
@@ -699,6 +701,35 @@ if _man:
     if not _declared:
         warn.append("the MANIFEST declares no sha256 for any grads_f64* artifact -- "
                     "the one-reference check cannot run, which is how D18 stayed invisible")
+
+# --- DEFECTS' LIVE claims must follow the artifacts too --------------------------------------
+# EVIDENCE is audited, the summary fields are audited, and DEFECTS.md -- the document that says
+# which defects are open and how big they are -- was not. When the reference was republished
+# every share moved, and D20 (the campaign's CEILING) still read 88.54 / 3.57 / 91.9 % from the
+# withdrawn tape for six passes.
+#
+# The rule that makes this checkable without freezing history: a defect's HISTORICAL narrative
+# may quote the numbers of its day, but the figures in its HEADING and its current-state
+# paragraph must match the artifacts. So: check the heading line and the D20 body.
+_DEFP = Path("/home/moritz/.coworker/state/of3t/DEFECTS.md")
+if _DEFP.is_file() and _reach_top:
+    _dt = _DEFP.read_text()
+    _diff_share = _reach_top.get("diffusion_module", {}).get("share")
+    _aux_share = _reach_top.get("aux_heads", {}).get("share")
+    if _diff_share and _aux_share:
+        _want_sum = f"{(_diff_share + _aux_share) * 100:.1f} %"
+        _m = re.search(r"^### D20\. .*?(\d+(?:\.\d+)?) % of the gradient", _dt, re.M)
+        if _m and abs(float(_m.group(1)) - (_diff_share + _aux_share) * 100) <= 0.15:
+            ok.append(f"DEFECTS D20's headline share matches the artifacts ({_want_sum})")
+        elif _m:
+            bad.append(f"DEFECTS D20 headlines {_m.group(1)} % where the artifacts give "
+                       f"{_want_sum} -- the ceiling is quoted against a reference that has "
+                       f"been replaced")
+        for _name, _sh in (("diffusion_module", _diff_share), ("aux_heads", _aux_share)):
+            _s = f"{_sh * 100:.2f} %"
+            if _s not in _dt:
+                bad.append(f"DEFECTS never quotes {_name}'s current share {_s} -- D20's body "
+                           f"is the campaign's ceiling and it must follow the artifact")
 
 # --- every UNFIXED defect must be named in the orchestrator's GAP ----------------------------
 # GAP has drifted twice: it described the campaign as it stood seven passes earlier, and then
