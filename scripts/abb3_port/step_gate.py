@@ -22,12 +22,20 @@ the whole run, and nothing else in this row would notice: the loss falls, the ga
 structures look plausible, and one block or one projection simply never learns. It is the cheapest
 possible check and the most expensive omission.
 
+The default is the largest micro-batch that FITS. `--micro 8` was the default and the run line
+both, and it OOMs in the first backward on a 34.23 GB card (8 banks x 4 278 190 016 B); every
+recorded run overrode it, so no recorded number ever exercised it. 4 x 16 holds the same global
+batch of 64, and its measured peak is printed on every run against the card's capacity, so the
+margin is a number rather than a hope. `tests/test_recorded_claims.py` keeps this run line and the
+defaults equal.
+
 Run: TT_VISIBLE_DEVICES=<card> TT_BIO_LEASE_CARDS=<card> PYTHONPATH=$PWD python3 \
-        scripts/abb3_port/step_gate.py [--steps 10] [--micro 8] [--accumulate 8] [--tokens 256]
+        scripts/abb3_port/step_gate.py [--steps 10] [--micro 4] [--accumulate 16] [--tokens 256]
 """
 from __future__ import annotations
 
 import argparse
+import contextlib
 import statistics
 import sys
 from pathlib import Path
@@ -36,6 +44,7 @@ import torch
 import ttnn
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from fape_memory_census import SAMPLED, Probe, sample_every_op  # noqa: E402  (same directory)
 from step_time import ClockSampler, report_host  # noqa: E402  the same instruments as the device-only step
 
 from tt_bio.abodybuilder3 import to_device_fp32  # noqa: E402
@@ -104,8 +113,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--steps", type=int, default=10)
     ap.add_argument("--warmup", type=int, default=1)
-    ap.add_argument("--micro", type=int, default=8)
-    ap.add_argument("--accumulate", type=int, default=8)
+    ap.add_argument("--micro", type=int, default=4)
+    ap.add_argument("--accumulate", type=int, default=16)
     ap.add_argument("--tokens", type=int, default=256)
     ap.add_argument("--blocks", type=int, default=8)
     ap.add_argument("--host-fape", action="store_true",
@@ -133,8 +142,10 @@ def main() -> int:
                  for i in range(args.accumulate)]
 
         padded = _padded_channel_views(step)
-        for _ in range(args.warmup):
-            step.step(micro)
+        probe = Probe(dev)
+        with _sampling_every_op(probe):
+            for _ in range(args.warmup):
+                step.step(micro)
         _assert_padding_is_still_zero(step, padded)
         _assert_every_parameter_trains(step)
         ttnn.synchronize_device(dev)
@@ -168,6 +179,10 @@ def main() -> int:
             for name, secs in sorted(step.loss_terms.items(), key=lambda kv: -kv[1]):
                 print(f"  {name:<16} {secs:>8.2f} s  {secs / total_terms * 100:>5.1f} %")
         print(f"CLOCK: {sampler.summary()}")
+        print(f"DRAM: peak {probe.peak / MB:.0f} MB of the card's {probe.capacity / MB:.0f} "
+              f"MB at micro {args.micro} x {args.accumulate} and {args.tokens} tokens, "
+              f"{(probe.capacity - probe.peak) / MB:.0f} MB spare. Sampled after every "
+              f"abodybuilder3_ops call of the warmup step; the timed steps run uninstrumented")
         print(f"INCLUDES: device forward and backward, host geometry tail, the stage-1 losses "
               f"(FAPE, supervised chi, final-block) and one RAdam step")
         print(f"TARGETS: synthetic -- their structures/*.pt are not staged on this host; a loss's "
@@ -178,6 +193,29 @@ def main() -> int:
     finally:
         sampler.stop()
         ttnn.close_device(dev)
+
+
+MB = 1024.0 * 1024.0
+
+
+@contextlib.contextmanager
+def _sampling_every_op(probe):
+    """Mark the DRAM allocator after every device op, and put the shipped ops back afterwards.
+
+    The peak is what decides whether a default fits, and it lands inside the backward rather than
+    at a step boundary, so a boundary reading answers the wrong question: `fape_memory_census.py`
+    measured that difference at 8.38 MB against 4516.88 MB. Its `sample_every_op` is reused rather
+    than copied; what is added here is the restore, because this script TIMES the steps that
+    follow and a wrapper left installed charges every one of them a `get_memory_view` per op.
+    """
+    from tt_bio import abodybuilder3_ops as O
+    saved = {name: getattr(O, name) for name in SAMPLED}
+    sample_every_op(probe)
+    try:
+        yield probe
+    finally:
+        for name, fn in saved.items():
+            setattr(O, name, fn)
 
 
 def _padded_channel_views(step) -> list:
