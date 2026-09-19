@@ -45,7 +45,8 @@ CKPT = os.path.expanduser("~/of3-weights/of3-p2-155k.pt")
 BUNDLE = "/home/ttuser/of3t/bundle_min"
 REF_BRANCH = "origin/wk/of3t-reference"
 MANIFEST_GIT = "perf/of3t_reference/bundle_min/MANIFEST.json"
-CAP = "/tmp/of3t/of3t-gradients/cap"
+#: durable; /tmp/of3t/<slug>/ is swept and this capture costs 26 minutes of CPU.
+CAP = "/home/ttuser/of3t_gradients/cap"
 PER_TENSOR_BAR, MEDIAN_BAR = 5.0e-02, 2.0e-02
 
 
@@ -73,6 +74,24 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--block", type=int, default=0, help="which pairformer block")
     ap.add_argument("--tag", default="")
+    ap.add_argument("--transpose-bias", default="shipped", choices=("shipped", "on", "off"),
+                    help="tri_att_end's bias orientation. `shipped` is `not is_openbind(sd)`. "
+                         "The discriminator: the ending node is the one that transposes the "
+                         "pair, and it is where the weight-gradient disagreement concentrates "
+                         "while the forward agrees. If flipping this moves the FORWARD and "
+                         "leaves the gradient ordering, the orientation is not the cause.")
+    ap.add_argument("--crop", type=int, default=0, metavar="N",
+                    help="crop the captured boundary to the first N token positions. The batch is "
+                         "384 tokens of which 56 are real, and a layer-norm WEIGHT gradient sums "
+                         "over every position including the 328 padded ones. Their block zeroes "
+                         "those through single_mask/pair_mask; if ours does not, the forward can "
+                         "agree on the real tokens while the weight gradient does not. Cropping "
+                         "to 64 leaves 8 padded positions instead of 328, so a disagreement that "
+                         "collapses under it is padded-position contamination and one that does "
+                         "not is arithmetic.")
+    ap.add_argument("--capture-report",
+                    default="perf/of3t_gradients/capture_trunk_boundary_nodropout.json",
+                    help="the capture this boundary came from, read for its own self-check")
     ap.add_argument("--reference", default="bundle", choices=("bundle", "block-eval"),
                     help="`bundle` is grads_f64_recycles0.pt as published, taped in train mode "
                          "at dropout r = 0.25 with a mask nobody recorded. `block-eval` "
@@ -102,7 +121,7 @@ def main() -> int:
            "block": i, "checkpoint": CKPT,
            "bars": {"per_tensor": PER_TENSOR_BAR, "median": MEDIAN_BAR},
            "reference_is_the_frozen_bundle": True,
-           "fp32_softmax": a.fp32_softmax == "on"}
+           "fp32_softmax": a.fp32_softmax == "on", "crop": a.crop}
 
     man = manifest_from_git()
     decl = {x["file"]: x for x in man["artifacts"] if "sha256" in x}
@@ -122,7 +141,7 @@ def main() -> int:
 
     cap = torch.load(os.path.join(CAP, f"block{i}_boundary.pt"),
                      map_location="cpu", weights_only=False)
-    caprep = json.load(open(os.path.join(OUT, "capture_trunk_boundary.json")))
+    caprep = json.load(open(a.capture_report))
     rep["capture"] = {"forward_loss_rel_vs_bundle": caprep["forward"]["rel"],
                       "global_norm_rel": caprep["global_norm_rel"],
                       "block_grad_vs_bundle": caprep["capture_vs_bundle"][str(i)],
@@ -144,6 +163,15 @@ def main() -> int:
     if cot_s is None or cot_z is None:
         raise SystemExit("captured cotangent missing -- the boundary is unusable")
     cot_s, cot_z = cot_s.to(torch.float64), cot_z.to(torch.float64)
+    if a.crop:
+        c = a.crop
+        s_in, z_in = s_in[:, :c].contiguous(), z_in[:, :c, :c].contiguous()
+        s_ref_out, z_ref_out = s_ref_out[:, :c].contiguous(), z_ref_out[:, :c, :c].contiguous()
+        cot_s, cot_z = cot_s[:, :c].contiguous(), cot_z[:, :c, :c].contiguous()
+        if single_mask is not None:
+            single_mask = single_mask[:, :c].contiguous()
+        if pair_mask is not None:
+            pair_mask = pair_mask[:, :c, :c].contiguous()
     N = int(z_in.shape[1])
     rep["probe"] = {"tokens": N, "s_norm": float(s_in.norm()), "z_norm": float(z_in.norm()),
                     "cot_s_norm": float(cot_s.norm()), "cot_z_norm": float(cot_z.norm()),
@@ -202,9 +230,26 @@ def main() -> int:
     src = f"layers.{i}."
     flat = {"layers.0." + k[len(src):]: v for k, v in flat_all.items() if k.startswith(src)}
     head_dim = flat["layers.0.tri_att_start.mha.linear_q.weight"].shape[0] // no_heads_pair
+    # The SHIPPED configuration, not a plausible neighbour of it. An earlier run of this
+    # instrument pinned `scale_pair_bias` and `fp32_softmax` and left `transpose_bias` and
+    # `accurate_softmax` at their library defaults, which is a different kernel selection from
+    # the one `openfold3_trunk.py:137` builds -- and the tri_att_END ordering it reported is
+    # exactly where `transpose_bias` acts, so the reading could not be attributed.
+    from tt_bio.openfold3_weights import is_openbind
+    from tt_bio.tenstorrent import accurate_softmax_site
+    transpose_bias = (not is_openbind(sd)) if a.transpose_bias == "shipped" \
+        else (a.transpose_bias == "on")
+    acc = accurate_softmax_site("openfold3.trunk")
+    rep["shipped_config"] = {"scale_pair_bias": False,
+                             "fp32_softmax": (a.fp32_softmax == "on"),
+                             "transpose_bias": bool(transpose_bias),
+                             "accurate_softmax": acc,
+                             "arm": a.transpose_bias,
+                             "source": "openfold3_trunk.py:137"}
     mod = T.Pairformer(1, head_dim, no_heads_pair, c_s // no_heads_pair_bias,
                        no_heads_pair_bias, True, flat, ckc,
-                       scale_pair_bias=False, fp32_softmax=(a.fp32_softmax == "on"))
+                       scale_pair_bias=False, fp32_softmax=(a.fp32_softmax == "on"),
+                       transpose_bias=transpose_bias, accurate_softmax=acc)
     T.Module.torch_to_tt = orig
 
     ft = lambda x: ttnn.from_torch(x.to(torch.float32), layout=ttnn.TILE_LAYOUT,

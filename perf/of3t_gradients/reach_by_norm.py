@@ -128,6 +128,29 @@ def main() -> int:
     reach("pairformer_stack_all", [k for k in sq if k.startswith("pairformer_stack.")],
           "the whole 48-block trunk, the ceiling on any block-scope instrument")
 
+    # Per pairformer block, because instrument A runs at block scope and A15 wants the share
+    # of the set actually compared -- which is not the stack's 5.27 % divided by 48. The four
+    # tensors inside our fused qkv are excluded from the compared column, as they are in the
+    # instrument, so the two numbers describe the same set.
+    fused4 = {"attn_pair_bias.mha.linear_q.weight", "attn_pair_bias.mha.linear_q.bias",
+              "attn_pair_bias.mha.linear_k.weight", "attn_pair_bias.mha.linear_v.weight"}
+    per_block = {}
+    for k, v in sq.items():
+        if not k.startswith("pairformer_stack.blocks."):
+            continue
+        i = k.split(".")[2]
+        d = per_block.setdefault(i, {"tensors": 0, "squared_norm": 0.0,
+                                     "compared_tensors": 0, "compared_squared_norm": 0.0})
+        d["tensors"] += 1
+        d["squared_norm"] += v
+        if k.split(".", 3)[3] not in fused4:
+            d["compared_tensors"] += 1
+            d["compared_squared_norm"] += v
+    for d in per_block.values():
+        d["norm_share"] = d["squared_norm"] / total
+        d["compared_norm_share"] = d["compared_squared_norm"] / total
+    rep["per_pairformer_block"] = {k: per_block[k] for k in sorted(per_block, key=int)}
+
     unreached = sorted(((sq[k], k) for k in cannot & set(sq)), reverse=True)
     rep["unreached_by_device_bijection"] = {
         "tensors": len(unreached),

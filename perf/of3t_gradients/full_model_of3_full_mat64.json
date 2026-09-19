@@ -4688,5 +4688,10 @@
    "template_embedder.template_pair_stack.layer_norm.weight"
   ],
   "rule": "SS3b: compared as a set, before any magnitude. Nothing was zero-filled."
+ },
+ "superseded_by": {
+  "file": "perf/of3t_gradients/full_model_of3_full_mat64_conf.json",
+  "why": "this run materialised the trunk pairformer only, so the confidence head's weights -- which are created on its first CALL, not at construction -- were absent from the walk. Its presence answer is 3497 of 4147 carried, 94.44 % of the reference gradient's squared norm. The successor calls OF3ConfidenceHead.forward_device once and reads 3545 of 4147, 98.01 %. The 48-tensor gap is exactly that call. Kept as a historical record of what a trunk-only materialisation reaches; cite the successor for any current figure.",
+  "superseded_on": "2026-09-19"
  }
 }
