@@ -1,0 +1,53 @@
+{
+ "label": "diffusion_module strict",
+ "sites": {
+  "deallocate|taped": {
+   "openfold3_diffusion_module.py:101": 1
+  },
+  "embedding|missing": {
+   "openfold3_diffusion_module.py:105": 1
+  },
+  "layer_norm|taped": {
+   "openfold3_diffusion_module.py:93": 1
+  },
+  "linear|taped": {
+   "openfold3_diffusion_module.py:95": 1
+  },
+  "reshape|taped": {
+   "openfold3_diffusion_module.py:103": 1
+  },
+  "to_layout|taped": {
+   "openfold3_diffusion_module.py:103": 1
+  },
+  "typecast|taped": {
+   "openfold3_diffusion_module.py:100": 1
+  }
+ },
+ "totals": {
+  "missing": 1,
+  "taped": 6
+ },
+ "verbs": {
+  "deallocate": {
+   "taped": 1
+  },
+  "embedding": {
+   "missing": 1
+  },
+  "layer_norm": {
+   "taped": 1
+  },
+  "linear": {
+   "taped": 1
+  },
+  "reshape": {
+   "taped": 1
+  },
+  "to_layout": {
+   "taped": 1
+  },
+  "typecast": {
+   "taped": 1
+  }
+ }
+}
