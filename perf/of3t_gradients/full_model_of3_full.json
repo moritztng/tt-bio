@@ -1,0 +1,520 @@
+{
+ "instrument": "PROTOCOL SS3a whole-checkpoint bijection + SS3b presence",
+ "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "host": "qb2",
+ "card": 0,
+ "board": "p300c",
+ "bundle": {
+  "manifest": "perf/of3t_reference/bundle_min/manifest.json",
+  "bundle_dir": "/home/ttuser/of3t/bundle_min",
+  "files": {
+   "batch_step003.pt": {
+    "present": true,
+    "bytes": 100822382,
+    "declared_sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
+    "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
+    "match": true
+   },
+   "draws.pt": {
+    "present": true,
+    "bytes": 525598,
+    "declared_sha256": "5dcb87fec6f03adeb1a3849b2d5f3f407cb9ed89bdaa83e343b79ddf913432ff",
+    "sha256": "5dcb87fec6f03adeb1a3849b2d5f3f407cb9ed89bdaa83e343b79ddf913432ff",
+    "match": true
+   },
+   "grad_presence.json": {
+    "present": true,
+    "bytes": 342321,
+    "declared_sha256": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f",
+    "sha256": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f",
+    "match": true
+   },
+   "grads_f64.pt": {
+    "present": false,
+    "declared_bytes": 2947812293,
+    "declared_sha256": "7e21c067e8d790370df842619e7fda1ea47ae67b21409c3a540e641f3f41eaa7"
+   },
+   "w0.pt": {
+    "present": false,
+    "declared_bytes": 4573705142,
+    "declared_sha256": "26d7106ab75fc5e5621719263249d30c78729a963862b4a4757b27abf43f2328"
+   }
+  },
+  "verified": [
+   "batch_step003.pt",
+   "draws.pt",
+   "grad_presence.json"
+  ],
+  "absent": [
+   "grads_f64.pt",
+   "w0.pt"
+  ],
+  "mismatched": []
+ },
+ "bundle_gradient_block": {
+  "clip_coef_their_grad_manager_would_apply": 1.0,
+  "global_norm": 4.642245878270448,
+  "n_absent": 0,
+  "n_params": 4147,
+  "n_with_gradient": 4147,
+  "note": "grads_f64.pt holds the per-sample gradient BEFORE clipping. At world size 1 with accumulate_grad_batches 1 the optimizer-facing gradient is exactly grad * clip_coef_their_grad_manager_would_apply."
+ },
+ "their_tensor_count": 4935,
+ "sample_diffusion_is_a_copy": {
+  "diffusion_module": 763,
+  "sample_diffusion_nested": 763,
+  "shared_suffixes": 763,
+  "bitwise_identical": 763,
+  "corrects": "LEDGER K22, which recorded the two prefixes as carrying distinct parameters"
+ },
+ "their_top_level": {
+  "aux_heads": 244,
+  "diffusion_module": 763,
+  "input_embedder": 98,
+  "layer_norm_s": 2,
+  "layer_norm_z": 2,
+  "linear_s": 1,
+  "linear_z": 1,
+  "msa_module": 227,
+  "msa_module_embedder": 2,
+  "pairformer_stack": 2736,
+  "sample_diffusion": 763,
+  "template_embedder": 96
+ },
+ "ours": {
+  "from_loader_hook": 2578,
+  "reachable_by_walk": 3620,
+  "note": "construction only. Weights a module materialises lazily on its first call at a given chunk width are absent from BOTH numbers, which is of3t-leaves' 188->204 ordering finding and is why this is reported as a construction-time denominator rather than a training one."
+ },
+ "bijection": {
+  "their_placed": 3177,
+  "their_total": 4935,
+  "their_unplaced": 1758,
+  "unplaced_by_top_level": {
+   "aux_heads": 76,
+   "diffusion_module": 190,
+   "input_embedder": 93,
+   "msa_module": 32,
+   "pairformer_stack": 576,
+   "sample_diffusion": 763,
+   "template_embedder": 28
+  },
+  "unplaced_sample": [
+   "aux_heads.distogram.linear.weight",
+   "aux_heads.experimentally_resolved.layer_norm.bias",
+   "aux_heads.experimentally_resolved.layer_norm.weight",
+   "aux_heads.experimentally_resolved.linear.weight",
+   "aux_heads.pae.layer_norm.bias",
+   "aux_heads.pae.layer_norm.weight",
+   "aux_heads.pae.linear.weight",
+   "aux_heads.pairformer_embedding.linear_distance.weight",
+   "aux_heads.pairformer_embedding.linear_i.weight",
+   "aux_heads.pairformer_embedding.linear_j.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_k.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.bias",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_v.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_end.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_a_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_a_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_b_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_b_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_a_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_a_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_b_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_b_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_k.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_q.bias",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_q.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_v.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_end.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_start.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.linear_a_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.linear_a_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.linear_b_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.linear_b_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.linear_a_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.linear_a_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.linear_b_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.linear_b_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_k.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_q.bias",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_q.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_v.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_end.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_start.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_a_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_a_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_b_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_b_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.linear_a_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.linear_a_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.linear_b_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.linear_b_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_k.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_q.bias",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_q.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_v.weight"
+  ],
+  "device_unmatched": 176,
+  "device_unmatched_sample": [
+   {
+    "device_path": "confidence_head.pf.blocks.0.attention_pair_bias.qkv_bias",
+    "shape": [
+     1536
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.0.attention_pair_bias.qkv_weight",
+    "shape": [
+     384,
+     1536
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.0.attention_pair_bias.z_weight",
+    "shape": [
+     128,
+     16
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.0.triangle_attention_end.bias_weight",
+    "shape": [
+     128,
+     4
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.0.triangle_attention_end.qkvgb_weight",
+    "shape": [
+     128,
+     544
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.0.triangle_attention_start.bias_weight",
+    "shape": [
+     128,
+     4
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.0.triangle_attention_start.qkvgb_weight",
+    "shape": [
+     128,
+     544
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.1.attention_pair_bias.qkv_bias",
+    "shape": [
+     1536
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.1.attention_pair_bias.qkv_weight",
+    "shape": [
+     384,
+     1536
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.1.attention_pair_bias.z_weight",
+    "shape": [
+     128,
+     16
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.1.triangle_attention_end.bias_weight",
+    "shape": [
+     128,
+     4
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.1.triangle_attention_end.qkvgb_weight",
+    "shape": [
+     128,
+     544
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.1.triangle_attention_start.bias_weight",
+    "shape": [
+     128,
+     4
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.1.triangle_attention_start.qkvgb_weight",
+    "shape": [
+     128,
+     544
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.2.attention_pair_bias.qkv_bias",
+    "shape": [
+     1536
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.2.attention_pair_bias.qkv_weight",
+    "shape": [
+     384,
+     1536
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.2.attention_pair_bias.z_weight",
+    "shape": [
+     128,
+     16
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.2.triangle_attention_end.bias_weight",
+    "shape": [
+     128,
+     4
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.2.triangle_attention_end.qkvgb_weight",
+    "shape": [
+     128,
+     544
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.2.triangle_attention_start.bias_weight",
+    "shape": [
+     128,
+     4
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.2.triangle_attention_start.qkvgb_weight",
+    "shape": [
+     128,
+     544
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.3.attention_pair_bias.qkv_bias",
+    "shape": [
+     1536
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.3.attention_pair_bias.qkv_weight",
+    "shape": [
+     384,
+     1536
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.3.attention_pair_bias.z_weight",
+    "shape": [
+     128,
+     16
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.3.triangle_attention_end.bias_weight",
+    "shape": [
+     128,
+     4
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.3.triangle_attention_end.qkvgb_weight",
+    "shape": [
+     128,
+     544
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.3.triangle_attention_start.bias_weight",
+    "shape": [
+     128,
+     4
+    ]
+   },
+   {
+    "device_path": "confidence_head.pf.blocks.3.triangle_attention_start.qkvgb_weight",
+    "shape": [
+     128,
+     544
+    ]
+   },
+   {
+    "device_path": "sampler.dm.dit.blocks.0.qkv_b",
+    "shape": [
+     3072
+    ]
+   },
+   {
+    "device_path": "sampler.dm.dit.blocks.0.qkv_w",
+    "shape": [
+     768,
+     3072
+    ]
+   },
+   {
+    "device_path": "sampler.dm.dit.blocks.1.qkv_b",
+    "shape": [
+     3072
+    ]
+   },
+   {
+    "device_path": "sampler.dm.dit.blocks.1.qkv_w",
+    "shape": [
+     768,
+     3072
+    ]
+   },
+   {
+    "device_path": "sampler.dm.dit.blocks.10.qkv_b",
+    "shape": [
+     3072
+    ]
+   },
+   {
+    "device_path": "sampler.dm.dit.blocks.10.qkv_w",
+    "shape": [
+     768,
+     3072
+    ]
+   },
+   {
+    "device_path": "sampler.dm.dit.blocks.11.qkv_b",
+    "shape": [
+     3072
+    ]
+   },
+   {
+    "device_path": "sampler.dm.dit.blocks.11.qkv_w",
+    "shape": [
+     768,
+     3072
+    ]
+   },
+   {
+    "device_path": "sampler.dm.dit.blocks.12.qkv_b",
+    "shape": [
+     3072
+    ]
+   },
+   {
+    "device_path": "sampler.dm.dit.blocks.12.qkv_w",
+    "shape": [
+     768,
+     3072
+    ]
+   },
+   {
+    "device_path": "sampler.dm.dit.blocks.13.qkv_b",
+    "shape": [
+     3072
+    ]
+   },
+   {
+    "device_path": "sampler.dm.dit.blocks.13.qkv_w",
+    "shape": [
+     768,
+     3072
+    ]
+   }
+  ],
+  "kinds": {
+   "concat_axis1": 328,
+   "unmatched": 176,
+   "whole": 3116
+  },
+  "fused_device_tensors": 328,
+  "their_in_a_fusion": 993,
+  "k22_in_scope": 3275,
+  "k22_out_of_scope": 1660,
+  "k22_out_of_scope_now_placed": 598
+ },
+ "presence": {
+  "reference": "of3t-reference BUNDLE-MIN grad_presence.json",
+  "reference_hash_verified": true,
+  "their_total": 4147,
+  "their_with_gradient": 4147,
+  "their_without_gradient": [],
+  "ours_carried_by_a_device_tensor": 3153,
+  "their_with_gradient_we_cannot_carry": [
+   "aux_heads.distogram.linear.weight",
+   "aux_heads.experimentally_resolved.layer_norm.bias",
+   "aux_heads.experimentally_resolved.layer_norm.weight",
+   "aux_heads.experimentally_resolved.linear.weight",
+   "aux_heads.pae.layer_norm.bias",
+   "aux_heads.pae.layer_norm.weight",
+   "aux_heads.pae.linear.weight",
+   "aux_heads.pairformer_embedding.linear_distance.weight",
+   "aux_heads.pairformer_embedding.linear_i.weight",
+   "aux_heads.pairformer_embedding.linear_j.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_k.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.bias",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.mha.linear_v.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_end.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_att_start.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_a_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_a_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_b_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_b_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_a_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_a_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_b_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_b_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_k.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_q.bias",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_q.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.mha.linear_v.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_end.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_att_start.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.linear_a_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.linear_a_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.linear_b_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_in.linear_b_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.linear_a_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.linear_a_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.linear_b_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.tri_mul_out.linear_b_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_k.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_q.bias",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_q.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.mha.linear_v.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_end.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_att_start.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_a_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_a_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_b_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_in.linear_b_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.linear_a_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.linear_a_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.linear_b_g.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.pair_stack.tri_mul_out.linear_b_p.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.linear_z.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_k.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_q.bias",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_q.weight",
+   "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.mha.linear_v.weight"
+  ],
+  "n_their_with_gradient_we_cannot_carry": 994,
+  "rule": "SS3b: compared as a set, before any magnitude. Nothing was zero-filled."
+ }
+}
