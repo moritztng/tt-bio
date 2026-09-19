@@ -20,6 +20,27 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+_FELL_BACK: set = set()
+
+
+def _campaign_doc(name: str) -> Path:
+    """The authoritative document if this host has it, else the copy published in the branch.
+
+    The campaign's record lives in a gitignored state dir on pc, so every check that reads it
+    -- GAP against DEFECTS, the summary fields, D20's shares -- could only ever run for one
+    person on one machine. The compose now publishes copies into the branch, so those checks
+    fall back to the copy and a reviewer's `compose_verify.sh` runs the same 146 checks rather
+    than silently fewer. Authoritative first, always: on pc the state file wins.
+    """
+    src = (Path("/home/moritz/.coworker/state/of3t-orchestrator.md")
+           if name == "ORCHESTRATOR" else
+           Path(f"/home/moritz/.coworker/state/of3t/{name}.md"))
+    if src.is_file():
+        return src
+    _FELL_BACK.add(name)
+    return ROOT / "perf/of3t_orchestrator/record" / f"{name}.md"
 ok, bad, warn = [], [], []
 _reach_top = {}
 
@@ -366,7 +387,7 @@ if d:
         bad.append(f"the r=0 / r=0.25 spread has collapsed ({_w}) -- EVIDENCE reads that "
                    f"spread as evidence of two different functions, and that reading depends "
                    f"on it being the same order as the dropout floor")
-    _ev = Path("/home/moritz/.coworker/state/of3t/EVIDENCE.md")
+    _ev = _campaign_doc("EVIDENCE")
     if _ev.is_file():
         _txt = _ev.read_text()
         _missing = [s for s in ("1.631143239324149", "3.727845454375", "4,138 of 4,147")
@@ -711,7 +732,7 @@ if _man:
 # The rule that makes this checkable without freezing history: a defect's HISTORICAL narrative
 # may quote the numbers of its day, but the figures in its HEADING and its current-state
 # paragraph must match the artifacts. So: check the heading line and the D20 body.
-_DEFP = Path("/home/moritz/.coworker/state/of3t/DEFECTS.md")
+_DEFP = _campaign_doc("DEFECTS")
 if _DEFP.is_file() and _reach_top:
     _dt = _DEFP.read_text()
     _diff_share = _reach_top.get("diffusion_module", {}).get("share")
@@ -736,8 +757,8 @@ if _DEFP.is_file() and _reach_top:
 # omitted the hardest blocker entirely. The gate only checks that the field EXISTS. A summary
 # written by transcription drifts exactly like a scoreboard does, so it gets the same treatment
 # as the scoreboard: checked against its source.
-DEF = Path("/home/moritz/.coworker/state/of3t/DEFECTS.md")
-ORCH = Path("/home/moritz/.coworker/state/of3t-orchestrator.md")
+DEF = _campaign_doc("DEFECTS")
+ORCH = _campaign_doc("ORCHESTRATOR")
 if DEF.is_file() and ORCH.is_file():
     import re as _re
     unfixed = [m.group(1) for m in
@@ -854,7 +875,7 @@ if ORCH.is_file():
                   "sources have them")
 
     # And the amendment count, which is a claim about the protocol's own history.
-    _pp = Path("/home/moritz/.coworker/state/of3t/PROTOCOL.md")
+    _pp = _campaign_doc("PROTOCOL")
     if _pp.is_file():
         n_am = len(_re.findall(r"^\*\*A\d+ \u2014", _pp.read_text(), _re.M))
         words = {9: "nine", 10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen",
@@ -868,6 +889,21 @@ if ORCH.is_file():
             else:
                 bad.append(f"PROVES states the wrong amendment count -- PROTOCOL has {n_am} "
                            f"({w})")
+
+# A reviewer running this off the published copies gets FEWER checks than the orchestrator
+# does, and must be told which and why -- a check that cannot run has to say so (K60), and
+# "141 confirmed" reads exactly like "146 confirmed" to someone who has never seen 146.
+_host_only = len(list(Path("/home/moritz/.coworker/state/concluded").glob("of3t-*"))) \
+    if Path("/home/moritz/.coworker/state/concluded").is_dir() else None
+if _FELL_BACK:
+    warn.append(f"read {len(_FELL_BACK)} campaign document(s) from the PUBLISHED COPY in this "
+                f"branch rather than the authoritative source on pc "
+                f"({', '.join(sorted(_FELL_BACK))}) -- the copies are regenerated every "
+                f"compose, so they are current as of the commit you are reading")
+if _host_only is None:
+    warn.append("the concluded-row count could not be checked: it reads "
+                "~/.coworker/state/concluded, which exists only on the orchestrator's host. "
+                "That check did NOT run -- it is not a pass")
 
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
 for line in ok:
