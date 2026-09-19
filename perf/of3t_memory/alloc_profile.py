@@ -708,6 +708,15 @@ def main() -> int:
                 rec["refused_b"] = int(m.group(1)) if m else None
                 rec["oom_kind"] = SL.classify_device_oom(text)
                 rec["error"] = str(exc)[:600]
+                # The FRAMES, not a slice of the formatted string. A ttnn allocator failure
+                # carries a multi-kilobyte C++ backtrace inside its message, so
+                # `format_exc()[-4000:]` is all C++ and the Python frames that name the op are
+                # cut -- which is exactly the half worth keeping. Learned the hard way: the
+                # 768 size refusal had to be re-run to find out which op asked for the buffer.
+                rec["frames"] = [
+                    "%s:%d %s | %s" % (Path(f.filename).name, f.lineno, f.name, (f.line or "")[:110])
+                    for f in traceback.extract_tb(exc.__traceback__)
+                    if "tt_bio" in f.filename or "of3t_memory" in f.filename]
                 rec["traceback"] = traceback.format_exc()[-4000:]
                 rec["at_failure"] = peak.free_now()
                 try:
