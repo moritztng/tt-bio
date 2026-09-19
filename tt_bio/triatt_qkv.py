@@ -175,6 +175,10 @@ def gate_proj(x, w_g, w_o, ckc, n_heads, head_dim, dtype, mm_config):
     `gate_and_project` calls `out_proj`. `w_o` is only inspected, to ask whether the `out`
     projection it will feed would have taken the L1-output leg.
     """
+    from . import ops
+    if ops.taping():
+        return None   # generic_op has no backward; the composed path runs instead
+
     if not (_ENABLED and _TAIL_ENABLED):
         return None
     shape = [int(d) for d in x.shape]
@@ -268,6 +272,10 @@ def qkvg_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config):
     destinations are four equal N chunks of one matmul. Byte-identical to
     `qkv_heads(x, w[:, :3c]) + gate_proj(x, w[:, 3c:])`.
     """
+    from . import ops
+    if ops.taping():
+        return None   # generic_op has no backward; the composed path runs instead
+
     if not (_ENABLED and _TAIL_ENABLED and _QKVG_ENABLED):
         return None
     shape = [int(d) for d in x.shape]
@@ -378,6 +386,10 @@ def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channe
     its output axis, so the five destinations are five N chunks of one matmul -- four of four
     tiles and one of one. Byte-identical to the three calls it replaces.
     """
+    from . import ops
+    if ops.taping():
+        return None   # generic_op has no backward; the composed path runs instead
+
     if not (_ENABLED and _TAIL_ENABLED and _QKVG_ENABLED and _QKVGB_ENABLED):
         return None
     shape = [int(d) for d in x.shape]
