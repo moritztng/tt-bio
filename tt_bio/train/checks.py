@@ -43,6 +43,7 @@ owns the op and this module owns the evidence discipline.
 from __future__ import annotations
 
 import math
+import zlib
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Optional, Sequence
 
@@ -81,6 +82,19 @@ BARS = {
 }
 
 BF16_FLOOR = math.sqrt(2.0) * 2.0 ** -9
+
+
+def case_rng(seed: int, name: str) -> "np.random.Generator":
+    """The input stream for one named case, reproducible across processes.
+
+    Seeding a case from ``hash(name)`` is the obvious thing and it is wrong: Python salts str
+    hashing per process unless PYTHONHASHSEED is set, so ``--seed 7`` gives one set of inputs
+    today and a different set tomorrow. Inside a single process it looks correct -- the case
+    list stops mattering, which is what the seeding was for -- so the defect hides until
+    someone tries to re-run a failing case on the inputs that failed, or to reproduce a
+    recorded number, and cannot. CRC32 is stable by specification.
+    """
+    return np.random.default_rng([seed, zlib.crc32(name.encode()) % (2 ** 31)])
 
 
 def metrics(got: np.ndarray, ref: np.ndarray) -> dict:
