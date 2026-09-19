@@ -50,11 +50,34 @@ for r in $PRESENT; do
 done
 echo "ancestry:$(echo $PRESENT | wc -w) of $(echo $ROWS | wc -w) rows in $(git rev-parse --short HEAD), $(git rev-list --count origin/main..HEAD) ahead of main"
 
-# (1b) the ownership claim: no two row branches may touch the same file
-dup=$(for r in $PRESENT; do git diff --name-only "origin/main...origin/wk/of3t-$r"; done \
-      | sort | uniq -d)
-[ -z "$dup" ] && echo "ownership: disjoint, 0 files touched by more than one row" \
-              || { echo "OWNERSHIP COLLISION:"; echo "$dup"; exit 1; }
+# (1b) the ownership claim: no two rows may EDIT the same file.
+#
+# The obvious form of this check is wrong and was wrong here for a pass. Diffing
+# `origin/main...origin/wk/of3t-$r` reports every file the row INHERITED as well as every file it
+# edited, and rows are told to build on `wk/of3t` rather than on main -- so the moment one did,
+# the check reported a 100-file "collision" in which the newest row claimed every other row's
+# artifacts. It was measuring inheritance.
+#
+# A row's own files are the files touched by commits reachable from ITS branch and from no other
+# row's branch. That is what `git log A --not B C D` gives.
+others_of(){ local me="$1" r; for r in $PRESENT; do [ "$r" = "$me" ] || \
+  printf 'origin/wk/of3t-%s ' "$r"; done; }
+: > "$SLUG_TMP/own.txt"
+for r in $PRESENT; do
+  # shellcheck disable=SC2046
+  for c in $(git rev-list "origin/wk/of3t-$r" --not origin/main $(others_of "$r")); do
+    git diff-tree --no-commit-id --name-only -r "$c"
+  done | sort -u | sed "s|^|$r |" >> "$SLUG_TMP/own.txt"
+done
+dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
+if [ -z "$dup" ]; then
+  echo "ownership: disjoint, 0 files edited by more than one row"
+else
+  echo "OWNERSHIP COLLISION -- these files are edited by more than one row:"
+  while read -r f; do printf '  %s  <-' "$f"; grep " $f\$" "$SLUG_TMP/own.txt" \
+    | awk '{printf " %s",$1}'; echo; done <<< "$dup"
+  exit 1
+fi
 
 # (2) collection against the control
 # pytest exits nonzero whenever anything failed to collect, and on a host without the ttnn/torch
