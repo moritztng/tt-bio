@@ -275,6 +275,57 @@ if d:
         bad.append("D14's one-ulp control no longer fails -- a gate nobody has watched fail is "
                    "not a gate, and the bit-identity result leans on this one discriminating")
 
+# --- the block-0 decomposition, recomputed rather than transcribed ------------------------
+# EVIDENCE quotes five group medians and a projection. All of it is derived from one artifact
+# by arithmetic, so none of it should be typed twice -- recompute and compare.
+d = j("perf/of3t_gradients/instrument_a_bundle_block0.json")
+if d:
+    import statistics as _st
+    _pp = [q for q in d.get("per_parameter", [])
+           if q.get("ref_norm") is not None and q["ref_norm"] >= 1e-12]
+    def _grp(q):
+        n = q["their_tensor"]
+        for k in ("tri_att_end", "tri_att_start", "attn_pair_bias", "single_transition"):
+            if k in n:
+                return k
+        return "pair_stack_rest"
+    _g = {}
+    for q in _pp:
+        _g.setdefault(_grp(q), []).append(q["rel_l2"])
+    _want = {"tri_att_end": (8, 0.3838), "attn_pair_bias": (6, 0.1470),
+             "tri_att_start": (8, 0.0865), "pair_stack_rest": (25, 0.0680),
+             "single_transition": (5, 0.0212)}
+    _off = []
+    for k, (n_w, med_w) in _want.items():
+        v = _g.get(k, [])
+        if len(v) != n_w or abs(_st.median(v) - med_w) > 5e-3 * max(med_w, 1e-9) + 5e-5:
+            _off.append(f"{k}: n={len(v)} median={_st.median(v) if v else float('nan'):.4g} "
+                        f"(scoreboard {n_w}, {med_w})")
+    # The load-bearing half of the claim: single_transition is the ONLY group with nothing
+    # over the per-tensor bar. If another group joins it, "graded by pair/attention
+    # involvement" stops being the reading.
+    _clean = [k for k, v in _g.items() if v and max(v) <= 0.05]
+    if _off:
+        bad.append("block-0 decomposition has moved: " + "; ".join(_off))
+    elif _clean != ["single_transition"]:
+        bad.append(f"the groups fully inside the bar are now {_clean}, not just "
+                   f"single_transition -- EVIDENCE's mechanism reading rests on it being alone")
+    else:
+        ok.append("block-0 decomposition holds: single_transition alone is inside the bar, "
+                  "the other four groups are 17/25 to 8/8 over it")
+    # And D9's projection, which is an upper bound and must stay one.
+    _fe, _fs = 5.239e-02 / 1.449e-01, 4.283e-02 / 1.389e-01
+    _proj = [q["rel_l2"] * (_fe if "tri_att_end" in q["their_tensor"] else
+                            _fs if "tri_att_start" in q["their_tensor"] else 1.0)
+             for q in _pp]
+    if abs(_st.median(_proj) - 0.07024) <= 1e-3 and _st.median(_proj) > 0.02:
+        ok.append(f"D9's projection is still an upper bound that fails: median "
+                  f"{_st.median(_proj):.5f} against the 0.02 bar, "
+                  f"{sum(1 for x in _proj if x > 0.05)} of {len(_proj)} over 0.05")
+    else:
+        bad.append(f"D9's projection now reads {_st.median(_proj):.5f} -- the claim that "
+                   f"fp32_softmax cannot rescue block 0 is computed from this number")
+
 # --- of3t-gradients: instrument A at block scope, and the reference that disqualified itself
 d = j("perf/of3t_gradients/instrument_a_bundle_block0.json")
 if d:
