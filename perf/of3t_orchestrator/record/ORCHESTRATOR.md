@@ -385,7 +385,25 @@ validation is sound (median 0.353 at h = 1e-5 is truncation; an h-sweep is choos
 either side**: the GPU baseline's method is pre-registered and nothing is measured, so the
 second half of Moritz's bar is untouched.
 
-VERDICT: PARTIAL, and the largest blocker is gone. **A taped OpenFold3 trunk cycle now
+VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Sixteen concluded rows, nine defects
+UNFIXED**, one of them raised this pass.
+
+**PASS 89 AMENDMENT, AND IT IS THE LARGEST CORRECTION THIS DOCUMENT CARRIES.** The reference
+bundle is upstream openfold3 **0.5.0** loading **`of3-p2-155k.pt`**, a combination upstream's own
+`entry_points/parameters.py` declares out of window (`">=0.4,<0.4.4dev0"`) and lists as legacy and
+unsupported. Two code changes separate that revision from 0.4.3, one on each track this campaign
+measures, and **D19 and the diffusion transformer's forward gap were both taken against it**
+(D23). **No number below that was measured against the 0.5.0 bundle is a statement about our
+port** until `of3t-rebase` reports. Everything in PROVES that does not depend on that bundle —
+the state-free half of the update rule, which is the bulk of it — is untouched, because those
+instruments compare against upstream's own `AlphaFoldLRScheduler`, `grad_manager` and
+`torch.optim.Adam` rather than against a taped bundle. The reading that our shipped OpenFold3
+trunk computes the wrong ending-node function is **withdrawn**: it is true of 0.5.0, which cannot
+run these weights, and tt-bio binds each checkpoint to its own release convention on both tracks.
+
+The rest of this field stands as written at pass 88, read under that amendment.
+
+The largest blocker on the memory axis is gone. **A taped OpenFold3 trunk cycle now
 trains — forward and backward — at crop 384, the smallest crop upstream's recipe uses, on one
 Blackhole p300c, with a bit-identical gradient and byte-identical inference** (`of3t-l1`, GO).
 Before that row, 384 exhausted all 34.22 GB of the card and produced no gradient at all.
@@ -2849,7 +2867,7 @@ worse, `d_attention_pair_bias` should fall from 5.522e-02 toward 6.027e-03, and 
 `d_attention_pair_bias` still over bar means the DiT carries a second defect and D23 closes only
 part of it.
 
-VERDICT: PARTIAL — the campaign is working, not concluded. Pass 89 did not advance the proof; it
+**Why this pass does not change the verdict.** Pass 89 did not advance the proof; it
 invalidated the reference two of the campaign's three open forward defects were measured against,
 and reopened them. No number in this document that was taken against the 0.5.0 bundle should be
 read as a statement about our port until `of3t-rebase` reports. The charter is not met and the

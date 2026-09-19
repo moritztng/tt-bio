@@ -18,7 +18,7 @@ set -euo pipefail
 # A row is listed here from the moment it is dispatched, not from its first push, so a new row
 # cannot be silently left out of the composition. Rows with no branch yet are skipped with a line
 # saying so -- silence would be the bug.
-ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity diffusion"
+ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity diffusion reopen rebase"
 SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a shared /tmp name
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
