@@ -49,10 +49,9 @@ def const(value) -> Tensor:
 
 
 def _grad_enabled() -> bool:
-    """`ag.no_grad`'s flag. `autograd.py` exposes it only through the context manager that sets it;
-    `ag.is_grad_enabled()` is in `train-a1-defork`'s brief and this reads the private name until it
-    lands, rather than adding it to a file this row does not own."""
-    return ag._GRAD_ENABLED
+    """`ag.no_grad`'s flag. `ag.is_grad_enabled()` landed with the Protenix-v2 tape, so this reads
+    the public name rather than the private one it had to use before."""
+    return ag.is_grad_enabled()
 
 
 def _on_tape(*ts) -> bool:
@@ -126,6 +125,15 @@ def _tape(out_value, parents: Sequence[Optional[Tensor]], make_fn) -> Tensor:
     live = [p for p in parents if isinstance(p, Tensor)]
     out = Tensor(out_value, requires_grad=True)
     out.node = _Node(make_fn(), live)
+    # `Tensor.pinned` is the one flag `ag.Tensor.free` reads, and a node built here is a live
+    # closure over these values exactly as one built by `ag._tape` is. The copy predates the
+    # flag, so leaving it clear would let a `free` release a value this backward still reads --
+    # and the throw lands in an unrelated op several layers later. Nothing on the ABodyBuilder3
+    # path calls `free` today; the flag costs a bool and closes the gap rather than relying on
+    # that staying true.
+    out.pinned = True
+    for p in live:
+        p.pinned = True
     return out
 
 
