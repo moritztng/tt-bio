@@ -7,16 +7,22 @@ Moritz.
 This file records what was checked, so the composition is reviewable as a claim and not only as a
 diff.
 
-## Composed 2026-09-19 from `origin/main` at `bd643929a`
+## Composed 2026-09-19 from `origin/main` at `bd643929a`. Head `c84287335`, 23 commits ahead.
 
-| row | branch head | commits | files outside its own `perf/` namespace |
-|---|---|---|---|
-| `of3t-reference` | `ef4c3dc2c` | 1 | none |
-| `of3t-tape` | `e033202fc` | 2 | `tt_bio/taped_ttnn.py`, `tt_bio/tenstorrent.py` |
-| `of3t-equivalence` | `5247913cd` | 2 | `tt_bio/train/optim.py` |
-| `of3t-data` | `fbdbd52da` | 1 | `NOTICE`, `scripts/of3_port/`, `tt_bio/_vendor/openfold3/` |
-| `of3t-perf` | `a8575be35` | 3 | none |
-| `of3t-memory` | `6dfea8d96` | 1 | none |
+| row | branch head | files outside its own `perf/` namespace |
+|---|---|---|
+| `of3t-reference` | `ef4c3dc2c` | none |
+| `of3t-tape` | `5a2efa001` | `tt_bio/taped_ttnn.py`, `tt_bio/tenstorrent.py`, `triatt_qkv.py`, `triatt_sdpa.py`, `softmax_generic.py`, `swiglu_fused.py`, `openfold3_confidence.py`, `openfold3_host_prep.py`, `tests/` |
+| `of3t-equivalence` | `aa23b558d` | `tt_bio/train/optim.py` |
+| `of3t-data` | `fbdbd52da` | `NOTICE`, `scripts/of3_port/`, `tt_bio/_vendor/openfold3/` |
+| `of3t-perf` | `a8575be35` | none |
+| `of3t-memory` | `0966364a6` | none |
+
+**Row branches move under a composition.** Between merging the first six heads and pushing, three
+rows had each pushed a further commit, so two of them read as *absent* from the branch about to
+be published. Six clean merges does not mean six rows present. Assert
+`git merge-base --is-ancestor origin/wk/of3t-<row> HEAD` for every row **after** the merges and
+before every push; this file's table is the heads that assertion passed against.
 
 ## What was verified
 
@@ -32,10 +38,10 @@ reviewable rather than a negotiation.
 collection on the composed tree against a detached checkout of `origin/main`, same interpreter:
 
 - `origin/main`: 2303 tests collected, 106 errors
-- `wk/of3t`: 2304 tests collected, 106 errors
+- `wk/of3t`: **2307 tests collected, 106 errors**
 - the two error sets are **identical**, line for line
 
-So the composition introduces **no new import-level breakage** and adds one test. The 106 errors
+So the composition introduces **no new import-level breakage** and adds four tests. The 106 errors
 are this host's missing `ttnn` and `torch` extras and are present on `main` too. **No test
 actually executed** on either tree here: everything either errored on the missing extras or
 skipped. Running the suite for real needs a card host, which this row does not hold, so the
