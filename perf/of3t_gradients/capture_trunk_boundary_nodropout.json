@@ -112,6 +112,13 @@
   "n_parameters": 4147,
   "num_recycles": 0
  },
+ "reference_standing": {
+  "note": "Its capture_vs_bundle block compares this r = 0 CPU replay against the WITHDRAWN train-mode tape (1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74) and therefore reads worst 2.256, median 1.096. replay_vs_r0.json re-runs the identical comparison against the republished r = 0 tape (89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113) and reads median 6.2244e-02 on the same 171 tensors.",
+  "reference_republished_sha256": "89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113",
+  "reference_withdrawn_sha256": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
+  "stamped_by": "perf/of3t_gradients/restate_references.py",
+  "standing": "HISTORICAL"
+ },
  "replay": {
   "mismatches": [],
   "n_mismatch": 0,
@@ -267,6 +274,7 @@
    ]
   }
  },
+ "superseded_by": "Its capture_vs_bundle block compares this r = 0 CPU replay against the WITHDRAWN train-mode tape (1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74) and therefore reads worst 2.256, median 1.096. replay_vs_r0.json re-runs the identical comparison against the republished r = 0 tape (89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113) and reads median 6.2244e-02 on the same 171 tensors.",
  "their_build_disabled": {
   "disabled": true,
   "n_nn_dropout_modules": 61,
