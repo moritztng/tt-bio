@@ -164,8 +164,8 @@ if d:
     check("D17 reference tensors", d["n_tensors"], 4147)
     check("D17 none absent", d["n_absent"], 0)
     close("D17 tracer reach by norm", r["k22_tracer_bijection"]["norm_share"], 0.06543442172265604)
-    close("D17 device reach by norm", r["device_bijection_mat64"]["norm_share"], 0.9444419461556877)
-    check("D17 device tensors mapped", r["device_bijection_mat64"]["tensors"], 3497)
+    close("D17 device reach by norm", r["device_bijection_mat64"]["norm_share"], 0.9800944410036996)
+    check("D17 device tensors mapped", r["device_bijection_mat64"]["tensors"], 3545)
     # The published global norm is the one number that ties this artifact to the manifest.
     close("D17 global norm vs manifest", d["total_norm"], 3.908301894520238, tol=1e-12)
     # The ceiling. These two are what every SS3d figure in EVIDENCE is measured inside.
