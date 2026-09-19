@@ -1,0 +1,67 @@
+2026-09-19 03:04:11.936 | DEBUG    | ttnn:<module>:79 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+nodes [2] forced to 1350 MHz
+MM1D-PATH descriptor_mcast_in1
+MM1D-FLAG writer_on_in0=0
+MM1D-PATH descriptor_mcast_in1
+MM1D-FLAG writer_on_in0=0
+  ship_kt4         c = 0.06591 ms  L = 0.04523  resid 0.00296
+  ship_kt32        c = 0.23128 ms  L = 0.04760  resid 0.00598
+MM1D-PATH descriptor_mcast_in1
+MM1D-FLAG writer_on_in0=1
+MM1D-PATH descriptor_mcast_in1
+MM1D-FLAG writer_on_in0=1
+  split_kt4        c = 0.04306 ms  L = 0.04895  resid 0.00081
+  split_kt32       c = 0.20819 ms  L = 0.05337  resid 0.01355
+MM1D-PATH descriptor_mcast_in1
+MM1D-FLAG writer_on_in0=0
+MM1D-PATH descriptor_mcast_in1
+MM1D-FLAG writer_on_in0=0
+  ship_kt4         c = 0.06565 ms  L = 0.04583  resid 0.00510
+  ship_kt32        c = 0.44078 ms  L = -0.61363  resid 1.00878
+MM1D-PATH descriptor_mcast_in1
+MM1D-FLAG writer_on_in0=1
+MM1D-PATH descriptor_mcast_in1
+MM1D-FLAG writer_on_in0=1
+  split_kt4        c = 0.04280 ms  L = 0.05076  resid 0.00489
+  split_kt32       c = 0.20881 ms  L = 0.04908  resid 0.00096
+MM1D-PATH descriptor_mcast_in1
+MM1D-FLAG writer_on_in0=0
+MM1D-PATH descriptor_mcast_in1
+MM1D-FLAG writer_on_in0=0
+  ship_aa_kt4      c = 0.06529 ms  L = 0.04644  resid 0.00206
+  ship_aa_kt32     c = 0.23054 ms  L = 0.05039  resid 0.00303
+AICLK during: {'n': 1330, 'min': 1350, 'max': 1350, 'mean': 1350.0}
+kt=4   ship 0.06578 ms  split 0.04293 ms  ratio 1.5323x
+kt=32  ship 0.33603 ms  split 0.20850 ms  ratio 1.6116x
+A/A floor kt=4: ship 0.06578 vs ship_aa 0.06529 = 0.755 %
+[tt-quietbox:1328348] *** Process received signal ***
+[tt-quietbox:1328348] Signal: Segmentation fault (11)
+[tt-quietbox:1328348] Signal code:  (128)
+[tt-quietbox:1328348] Failing at address: (nil)
+[tt-quietbox:1328348] [ 0] /lib/x86_64-linux-gnu/libc.so.6(+0x42520)[0x7611dc442520]
+[tt-quietbox:1328348] [ 1] /home/ttuser/tt-metal/build/tt_metal/libtt_metal.so(_ZNK2tt8tt_metal11distributed14MeshDeviceImpl14get_device_idsEv+0x88)[0x7611d88ed808]
+[tt-quietbox:1328348] [ 2] /home/ttuser/tt-metal/build/tt_metal/libtt_metal.so(_ZNK2tt8tt_metal11distributed10MeshDevice14get_device_idsEv+0x12)[0x7611d88f59c2]
+[tt-quietbox:1328348] [ 3] /home/ttuser/tt-metal/build/tt_metal/libtt_metal.so(_ZN2tt8tt_metal12experimental17PinnedMemoryCache18release_for_deviceERNS0_11distributed10MeshDeviceE+0x5d)[0x7611d888b76d]
+[tt-quietbox:1328348] [ 4] /home/ttuser/tt-metal/build/tt_metal/libtt_metal.so(_ZN2tt8tt_metal11distributed10MeshDeviceD1Ev+0x30)[0x7611d88f4f30]
+[tt-quietbox:1328348] [ 5] /home/ttuser/tt-metal/build/tt_metal/libtt_metal.so(_ZN2tt8tt_metal11distributed10MeshDeviceD0Ev+0xe)[0x7611d88f4fae]
+[tt-quietbox:1328348] [ 6] /home/ttuser/tt-metal/ttnn/ttnn/_ttnn.so(+0x2aec15)[0x7611dacaec15]
+[tt-quietbox:1328348] [ 7] /home/ttuser/tt-metal/ttnn/ttnn/_ttnn.so(+0x66c213)[0x7611db06c213]
+[tt-quietbox:1328348] [ 8] /home/ttuser/tt-metal/ttnn/ttnn/_ttnn.so(+0x29bfb3)[0x7611dac9bfb3]
+[tt-quietbox:1328348] [ 9] python3(+0x15b44f)[0x5e8e1c61644f]
+[tt-quietbox:1328348] [10] python3(_PyEval_EvalFrameDefault+0x4048)[0x5e8e1c634648]
+[tt-quietbox:1328348] [11] python3(_PyFunction_Vectorcall+0x7c)[0x5e8e1c646aec]
+[tt-quietbox:1328348] [12] python3(+0x282958)[0x5e8e1c73d958]
+[tt-quietbox:1328348] [13] python3(Py_FinalizeEx+0x5f)[0x5e8e1c73cd0f]
+[tt-quietbox:1328348] [14] python3(Py_Exit+0xc)[0x5e8e1c74f3bc]
+[tt-quietbox:1328348] [15] python3(+0x283f6f)[0x5e8e1c73ef6f]
+[tt-quietbox:1328348] [16] python3(PyErr_PrintEx+0x1d)[0x5e8e1c73ed8d]
+[tt-quietbox:1328348] [17] python3(_PyRun_SimpleFileObject+0x1d6)[0x5e8e1c73bd96]
+[tt-quietbox:1328348] [18] python3(_PyRun_AnyFileObject+0x47)[0x5e8e1c73ba47]
+[tt-quietbox:1328348] [19] python3(Py_RunMain+0x2be)[0x5e8e1c72feae]
+[tt-quietbox:1328348] [20] python3(Py_BytesMain+0x2d)[0x5e8e1c709f4d]
+[tt-quietbox:1328348] [21] /lib/x86_64-linux-gnu/libc.so.6(+0x29d90)[0x7611dc429d90]
+[tt-quietbox:1328348] [22] /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80)[0x7611dc429e40]
+[tt-quietbox:1328348] [23] python3(_start+0x25)[0x5e8e1c709e45]
+[tt-quietbox:1328348] *** End of error message ***
+timeout: the monitored command dumped core

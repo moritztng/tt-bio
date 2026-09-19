@@ -1,0 +1,3 @@
+prof_*/.logs/
+prof_*/reports/*/profile_log_device.csv
+prof_*/reports/*/*.tracy

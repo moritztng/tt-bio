@@ -1,0 +1,43 @@
+2026-09-19 03:03:58.533 | DEBUG    | ttnn:<module>:79 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+arch Arch.BLACKHOLE grid ttnn.CoreGrid(x=11, y=10)
+MM1D-PATH descriptor_mcast_in1
+MM1D-FLAG writer_on_in0=0
+MM1D-PATH descriptor_mcast_in1
+MM1D-FLAG writer_on_in0=1
+shipped self-consistent over 3 calls: True
+call 0  torch.equal True   max abs diff 0.000e+00
+call 1  torch.equal True   max abs diff 0.000e+00
+call 2  torch.equal True   max abs diff 0.000e+00
+ship   vs fp32 torch: PCC 0.999987
+split  vs fp32 torch: PCC 0.999987
+[tt-quietbox:1327811] *** Process received signal ***
+[tt-quietbox:1327811] Signal: Segmentation fault (11)
+[tt-quietbox:1327811] Signal code: Address not mapped (1)
+[tt-quietbox:1327811] Failing at address: 0x616fb0d2ea18
+[tt-quietbox:1327811] [ 0] /lib/x86_64-linux-gnu/libc.so.6(+0x42520)[0x753e98242520]
+[tt-quietbox:1327811] [ 1] /home/ttuser/tt-metal/build/tt_metal/libtt_metal.so(_ZNK2tt8tt_metal11distributed14MeshDeviceImpl14get_device_idsEv+0x88)[0x753e946ed808]
+[tt-quietbox:1327811] [ 2] /home/ttuser/tt-metal/build/tt_metal/libtt_metal.so(_ZNK2tt8tt_metal11distributed10MeshDevice14get_device_idsEv+0x12)[0x753e946f59c2]
+[tt-quietbox:1327811] [ 3] /home/ttuser/tt-metal/build/tt_metal/libtt_metal.so(_ZN2tt8tt_metal12experimental17PinnedMemoryCache18release_for_deviceERNS0_11distributed10MeshDeviceE+0x5d)[0x753e9468b76d]
+[tt-quietbox:1327811] [ 4] /home/ttuser/tt-metal/build/tt_metal/libtt_metal.so(_ZN2tt8tt_metal11distributed10MeshDeviceD1Ev+0x30)[0x753e946f4f30]
+[tt-quietbox:1327811] [ 5] /home/ttuser/tt-metal/build/tt_metal/libtt_metal.so(_ZN2tt8tt_metal11distributed10MeshDeviceD0Ev+0xe)[0x753e946f4fae]
+[tt-quietbox:1327811] [ 6] /home/ttuser/tt-metal/ttnn/ttnn/_ttnn.so(+0x2aec15)[0x753e96aaec15]
+[tt-quietbox:1327811] [ 7] /home/ttuser/tt-metal/ttnn/ttnn/_ttnn.so(+0x66c213)[0x753e96e6c213]
+[tt-quietbox:1327811] [ 8] /home/ttuser/tt-metal/ttnn/ttnn/_ttnn.so(+0x29bfb3)[0x753e96a9bfb3]
+[tt-quietbox:1327811] [ 9] python3(+0x15b44f)[0x61698a2ce44f]
+[tt-quietbox:1327811] [10] python3(_PyEval_EvalFrameDefault+0x4048)[0x61698a2ec648]
+[tt-quietbox:1327811] [11] python3(_PyFunction_Vectorcall+0x7c)[0x61698a2feaec]
+[tt-quietbox:1327811] [12] python3(+0x282958)[0x61698a3f5958]
+[tt-quietbox:1327811] [13] python3(Py_FinalizeEx+0x5f)[0x61698a3f4d0f]
+[tt-quietbox:1327811] [14] python3(Py_Exit+0xc)[0x61698a4073bc]
+[tt-quietbox:1327811] [15] python3(+0x283f6f)[0x61698a3f6f6f]
+[tt-quietbox:1327811] [16] python3(PyErr_PrintEx+0x1d)[0x61698a3f6d8d]
+[tt-quietbox:1327811] [17] python3(_PyRun_SimpleFileObject+0x1d6)[0x61698a3f3d96]
+[tt-quietbox:1327811] [18] python3(_PyRun_AnyFileObject+0x47)[0x61698a3f3a47]
+[tt-quietbox:1327811] [19] python3(Py_RunMain+0x2be)[0x61698a3e7eae]
+[tt-quietbox:1327811] [20] python3(Py_BytesMain+0x2d)[0x61698a3c1f4d]
+[tt-quietbox:1327811] [21] /lib/x86_64-linux-gnu/libc.so.6(+0x29d90)[0x753e98229d90]
+[tt-quietbox:1327811] [22] /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80)[0x753e98229e40]
+[tt-quietbox:1327811] [23] python3(_start+0x25)[0x61698a3c1e45]
+[tt-quietbox:1327811] *** End of error message ***
+timeout: the monitored command dumped core
