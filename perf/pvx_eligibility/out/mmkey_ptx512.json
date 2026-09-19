@@ -1,0 +1,12 @@
+{
+ "model": "protenix-v2",
+ "size": 512,
+ "fold_s": 51.373,
+ "keys": {
+  "kt=2 nt=9 x=512x512x64 mt=8192 -> key_absent": 160,
+  "kt=2 nt=8 x=512x512x64 mt=8192 -> key_absent": 160,
+  "kt=2 nt=6 x=512x512x64 mt=8192 -> key_absent": 320,
+  "kt=2 nt=2 x=512x512x64 mt=8192 -> served": 160,
+  "kt=8 nt=33 x=512x512x256 mt=8192 -> served": 1048
+ }
+}

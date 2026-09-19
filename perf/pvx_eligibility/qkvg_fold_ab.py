@@ -27,15 +27,24 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts" / "gpu_vs_tt"))
 sys.path.insert(0, str(ROOT / "perf"))
 
-KEYS = {(8, 32): (4, 8, 1, 4, 1), (8, 33): (4, 8, 1, 4, 1)}
+# The arm, as a `--keys` name -> the entries it adds. `c256` is the fused qkv+gate pair at
+# protenix-v2's trunk width; `c64` is the same fusion plus the plain qkv at its template width,
+# which shares no key with openfold3's 12-tile qkv.
+KEYSETS = {
+    "c256": {(8, 32): (4, 8, 1, 4, 1), (8, 33): (4, 8, 1, 4, 1)},
+    "c64": {(2, 6): (4, 2, 1, 4, 1), (2, 8): (4, 2, 1, 4, 1), (2, 9): (4, 2, 1, 4, 1)},
+}
+KEYS = KEYSETS["c256"]
 
 
 def main() -> int:
+    global KEYS
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="protenix-v2")
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--arms", default="off,on,off,on,off,on")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--keys", default="c256", choices=sorted(KEYSETS))
     ap.add_argument("--fixdir", type=Path, default=ROOT / "perf" / "size512" / "fixtures")
     a = ap.parse_args()
 
@@ -57,6 +66,7 @@ def main() -> int:
     B.RECYCLING_STEPS = _resolve_recycling_steps(None, a.model)
     B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
 
+    KEYS = KEYSETS[a.keys]
     for k in KEYS:
         assert k in T._MM_BLOCK, f"{k} missing -- this tree does not carry the arm under test"
 
@@ -72,7 +82,7 @@ def main() -> int:
     a3m = a.fixdir / f"cdk2x2_{a.size}.a3m"
     res = {"model": a.model, "size": a.size, "host": socket.gethostname(),
            "chip": os.environ.get("TT_VISIBLE_DEVICES"), "board": "p150a",
-           "arms_order": a.arms, "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+           "arms_order": a.arms, "keyset": a.keys, "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
            "loadavg": os.getloadavg(), "runs": []}
     try:
         import importlib.metadata as _md
@@ -94,6 +104,7 @@ def main() -> int:
 
     for i, arm in enumerate(a.arms.split(",")):
         table = set_arm(arm)
+        HM.STATS[0] = HM.STATS[1] = 0
         HM.QKVG_STATS[0] = HM.QKVG_STATS[1] = 0
         HM.QKVGB_STATS[0] = HM.QKVGB_STATS[1] = 0
         HM.QKVG_REJECTS.clear()
@@ -110,8 +121,13 @@ def main() -> int:
                "qkvg_rejects": {f"{k[0]}:{k[1]}": v for k, v in HM.QKVG_REJECTS.items()},
                "aiclk": clk.summary(), "clock_line": clk.line(0),
                "cif_sha256": digest, "loadavg": os.getloadavg()}
-        served = HM.QKVG_STATS[0]
-        rec["vacuous"] = (arm == "on" and served == 0) or (arm == "off" and served != 0)
+        # Vacuity is decided by the arms DIFFERING, not by an absolute: with the c256 entries
+        # already in the tree a `c64` off-leg still serves 1048 calls, and an absolute test would
+        # call that vacuous. What must hold is that flipping the keyset moves the served count.
+        rec["qkv_stats"] = list(HM.STATS)
+        prev = [r for r in res["runs"] if r["arm"] != arm]
+        rec["vacuous"] = bool(prev) and prev[-1]["qkvg_stats"][0] == HM.QKVG_STATS[0] \
+            and prev[-1]["qkv_stats"][0] == HM.STATS[0]
         res["runs"].append(rec)
         a.out.write_text(json.dumps(res, indent=1))
         print(f"  {arm}: {fold_s:.2f}s  qkvg served/declined {HM.QKVG_STATS}  "
