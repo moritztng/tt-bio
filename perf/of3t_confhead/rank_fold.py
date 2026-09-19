@@ -2,205 +2,122 @@
 
 `of3t-pairbias` stored only the winner's aggregate confidence, which is why D10 -- "the
 confidence head mis-ranks its own diffusion samples" -- could be seen and not diagnosed. This
-harness keeps, for every diffusion sample of every run:
+driver runs the production CLI unchanged and lets `_hook/sitecustomize.py` record, for every
+diffusion sample of every run:
 
-  rmsd_ca      Ca-RMSD against the experimental structure (Kabsch, gemmi), the ground truth
-               the head is being judged against;
-  plddt        mean predicted lDDT over atoms, and over the representative (Ca) atoms alone;
+  rmsd_ca      Ca-RMSD against the experimental structure, the truth the head is judged on;
+  plddt        mean predicted lDDT over atoms, and over the Ca atoms alone;
   ptm / iptm   the two pTM reductions the ranking score reads. `iptm` is 0.0 by construction
-               on a single-chain target (tt_bio.protenix.ConfidenceHead._ptm_iptm, and
-               upstream's compute_ptm the same way), which is the point of recording it;
+               on a single chain, which is the point of recording it;
   disorder     the AF3 RASA term, and `has_clash`, the other two ranking inputs;
   rank_score   0.8*iptm + 0.2*ptm + 0.5*disorder - 100*has_clash, what actually selects;
-  pae / pde    mean expected error in Angstrom over token pairs, plus gPDE (AF3 SI 5.7 Eq 16),
-               the contact-weighted PDE upstream reports and we currently do not;
+  pae / pde    mean expected error in Angstrom, plus gPDE (AF3 SI 5.7 Eq 16);
   resolved     mean P(experimentally resolved), the fourth head output.
 
-Two arms, one lever, exactly D1: the trunk Pairformer's `scale_pair_bias`. `--arm ship`
-forces it back to False at the trunk site ONLY (the confidence head's own Pairformer is left
-at the branch value, so the lever is the trunk's token pair bias and nothing else); `--arm
-fix` is the branch as it stands. The patch is applied to `openfold3_trunk.Pairformer`, the
-name that module resolved at import, so it cannot reach the confidence head by accident, and
-the resolved flag is asserted and printed before the fold.
+The fold runs in a multiprocessing SPAWN child, so the capture and the arm lever live in a
+`sitecustomize` on the child's PYTHONPATH rather than in this process. The same PYTHONPATH
+puts THIS CHECKOUT ahead of the environment's editable `tt_bio`, so the harness scores the
+code it ships with and not whatever is installed (memory
+`parity-gate-scores-installed-package-not-checkout`).
 
-    python3 perf/of3t_confhead/rank_fold.py --arm fix --seed 1 --card 2 \
-        --msa-dir ~/of3t_confhead_msa --out-root /tmp/of3t/of3t-confhead/fold
+Two arms, one lever, exactly D1: the trunk Pairformer's `scale_pair_bias`. The resolved flag
+is read back out of the recorded stream and asserted before the report is written.
+
+    python3 perf/of3t_confhead/rank_fold.py --arm fix --seed 1 --card 0 \
+        --msa-dir ~/of3t_confhead_msa --out-root ~/of3t_confhead_out/fold
 """
 import argparse
 import json
-import math
 import os
 import subprocess
 import sys
 import threading
 import time
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+
 ap = argparse.ArgumentParser()
 ap.add_argument("--arm", choices=("ship", "fix"), required=True)
 ap.add_argument("--seed", type=int, required=True)
 ap.add_argument("--samples", type=int, default=5)
 ap.add_argument("--sampling-steps", type=int, default=200)
-ap.add_argument("--target", default="examples/ubq.yaml")
-ap.add_argument("--gt", default="examples/ground_truth_structures/ubiquitin.pdb")
+ap.add_argument("--target", default=os.path.join(ROOT, "examples/ubq.yaml"))
+ap.add_argument("--gt", default=os.path.join(
+    ROOT, "examples/ground_truth_structures/ubiquitin.pdb"))
 ap.add_argument("--msa-dir", default=os.path.expanduser("~/of3t_confhead_msa"))
-ap.add_argument("--out-root", default="/tmp/of3t/of3t-confhead/fold")
-ap.add_argument("--card", type=int, default=None, help="tt-smi index to sample AICLK from")
+ap.add_argument("--out-root", default=os.path.expanduser("~/of3t_confhead_out/fold"))
+ap.add_argument("--card", type=int, default=0)
+ap.add_argument("--python", default=sys.executable)
 ap.add_argument("--tt-smi", default=os.path.expanduser("~/.local/bin/tt-smi"))
-args = ap.parse_args()
+a = ap.parse_args()
 
-import gemmi                                                          # noqa: E402
-import torch                                                          # noqa: E402
+out_dir = os.path.join(a.out_root, f"{a.arm}_s{a.seed}")
+os.makedirs(out_dir, exist_ok=True)
+rec = os.path.join(out_dir, "capture.jsonl")
+if os.path.exists(rec):
+    os.remove(rec)
 
-# ---------------------------------------------------------------- the D1 arm lever
-import tt_bio.openfold3_trunk as of3_trunk                            # noqa: E402
+env = dict(os.environ)
+env["PYTHONPATH"] = os.pathsep.join(
+    [ROOT, os.path.join(HERE, "_hook")] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
+env.update(OF3T_ARM=a.arm, OF3T_RECORD=rec, OF3T_GT=a.gt,
+           TT_VISIBLE_DEVICES=str(a.card), TT_BIO_LEASE_CARDS=str(a.card),
+           TT_BIO_LEASE_HOLDER="worker:of3t-confhead")
 
-_built = []
-_Pairformer = of3_trunk.Pairformer
-
-
-def _trunk_pairformer(*a, **kw):
-    """Trunk-site Pairformer with the arm's `scale_pair_bias`. Records what it resolved."""
-    if args.arm == "ship":
-        kw["scale_pair_bias"] = False
-        kw["tri_att_scale_pair_bias"] = False
-    _built.append((kw.get("scale_pair_bias"), kw.get("tri_att_scale_pair_bias")))
-    return _Pairformer(*a, **kw)
-
-
-of3_trunk.Pairformer = _trunk_pairformer
-
-# ---------------------------------------------------------------- per-sample capture
-import tt_bio.openfold3_confidence as of3_conf                        # noqa: E402
-import tt_bio.openfold3_fold as of3_fold                              # noqa: E402
-
-_raw = []
-_orig_head_forward = of3_conf.OF3ConfidenceHead.forward
-_orig_confidence = of3_fold.OpenFold3._confidence
-RECORDS = []
-
-
-def _head_forward(self, *a, **kw):
-    out = _orig_head_forward(self, *a, **kw)
-    _raw.append(out)
-    return out
-
-
-def _expected(logits, bin_min, bin_max, no_bins):
-    """AF3 probs_to_expected_error: E[error] under the binned head distribution."""
-    width = (bin_max - bin_min) / no_bins
-    centers = bin_min + width * (torch.arange(no_bins, dtype=torch.float32) + 0.5)
-    return (torch.softmax(logits.float(), -1) * centers).sum(-1)
-
-
-def _gpde(pde, distogram_logits):
-    """AF3 SI 5.7 Eq 16: PDE averaged with the predicted contact probability as weight."""
-    probs = torch.softmax(distogram_logits.float(), -1)
-    ends = torch.linspace(2, 22, probs.shape[-1] + 1)[1:]
-    contact = probs[..., ends <= 8.0].sum(-1)
-    return float((contact * pde).sum() / (contact.sum() + 1e-8))
-
-
-def _ca(path):
-    st = gemmi.read_structure(path)
-    st.remove_alternative_conformations()
-    return [r.find_atom("CA", "*").pos for c in st[0] for r in c
-            if r.find_atom("CA", "*") is not None]
-
-
-GT = _ca(args.gt)
-
-
-def _rmsd_to_gt(coords):
-    pred = [gemmi.Position(*[float(v) for v in xyz]) for xyz in coords]
-    n = min(len(pred), len(GT))
-    return gemmi.superpose_positions(pred[:n], GT[:n]).rmsd, n
-
-
-def _confidence(self, sample, si_input, si_trunk, zij_trunk, aux):
-    out = _orig_confidence(self, sample, si_input, si_trunk, zij_trunk, aux)
-    raw = _raw[-1]
-    ca_idx = aux["representative_atom_indices"].long()
-    rmsd, n_ca = _rmsd_to_gt(sample[ca_idx].detach().cpu().numpy())
-    pae = _expected(raw["pae_logits"], 0, 32, raw["pae_logits"].shape[-1])
-    pde = _expected(raw["pde_logits"], 0, 32, raw["pde_logits"].shape[-1])
-    resolved = torch.softmax(raw["experimentally_resolved_logits"].float(), -1)[..., 1]
-    plddt_atom = out["plddt_atom"].detach().float()
-    RECORDS.append({
-        "sample": len(RECORDS), "rmsd_ca": rmsd, "n_ca": n_ca,
-        "plddt": float(plddt_atom.mean()), "plddt_ca": float(plddt_atom[ca_idx].mean()),
-        "plddt_min": float(plddt_atom.min()),
-        "ptm": out["ptm"], "iptm": out["iptm"], "disorder": out["disorder"],
-        "has_clash": out["has_clash"], "rank_score": out["ranking_score"],
-        "pae_mean": float(pae.mean()), "pae_offdiag_mean": float(
-            (pae.sum() - pae.diagonal().sum()) / max(1, pae.numel() - pae.shape[0])),
-        "pde_mean": float(pde.mean()),
-        "gpde": _gpde(pde, raw["distogram_logits"]),
-        "resolved_mean": float(resolved.mean()),
-    })
-    return out
-
-
-of3_conf.OF3ConfidenceHead.forward = _head_forward
-of3_fold.OpenFold3._confidence = _confidence
-
-# ---------------------------------------------------------------- AICLK, sampled DURING
-clk = []
-stop = threading.Event()
+# AICLK, sampled DURING the fold. A fold time without one is not a measurement on Blackhole,
+# and a chip held below ~1200 MHz by a co-tenant makes the timing an artifact to be declared
+# rather than reported.
+clk, stop = [], threading.Event()
 
 
 def _sample_clock():
     while not stop.wait(10.0):
         try:
-            raw = subprocess.run([args.tt_smi, "-s"], capture_output=True, text=True,
-                                 timeout=30).stdout
-            t = json.loads(raw)["device_info"][args.card]["telemetry"]
-            clk.append(int(t["aiclk"]))
+            t = json.loads(subprocess.run([a.tt_smi, "-s"], capture_output=True, text=True,
+                                          timeout=30).stdout)
+            clk.append(int(t["device_info"][a.card]["telemetry"]["aiclk"]))
         except Exception:
             pass
 
 
-if args.card is not None and os.path.exists(args.tt_smi):
+if os.path.exists(a.tt_smi):
     threading.Thread(target=_sample_clock, daemon=True).start()
 
-# ---------------------------------------------------------------- the fold
-out_dir = os.path.join(args.out_root, f"{args.arm}_s{args.seed}")
-os.makedirs(out_dir, exist_ok=True)
-argv = ["predict", args.target, "--model", "openfold3", "--out_dir", out_dir,
-        "--seed", str(args.seed), "--diffusion_samples", str(args.samples),
-        "--sampling_steps", str(args.sampling_steps),
-        "--use_msa_server", "--msa_dir", args.msa_dir]
-
-from tt_bio.main import cli                                           # noqa: E402
-
+cmd = [a.python, "-m", "tt_bio.main", "predict", a.target, "--model", "openfold3",
+       "--out_dir", out_dir, "--seed", str(a.seed),
+       "--diffusion_samples", str(a.samples), "--sampling_steps", str(a.sampling_steps),
+       "--use_msa_server", "--msa_dir", a.msa_dir]
 t0 = time.time()
-try:
-    cli.main(argv, standalone_mode=False)
-finally:
-    stop.set()
-    wall = time.time() - t0
+p = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True)
+wall = time.time() - t0
+stop.set()
 
-assert _built, "trunk Pairformer was never constructed -- the arm patch did not take"
-resolved_flags = set(_built)
-assert len(resolved_flags) == 1, f"trunk built with mixed flags: {resolved_flags}"
-scale, tri = next(iter(resolved_flags))
-expect = False if args.arm == "ship" else True
-assert scale is expect, f"arm {args.arm} wanted scale_pair_bias={expect}, got {scale}"
+lines = [json.loads(x) for x in open(rec)] if os.path.exists(rec) else []
+samples = [x for x in lines if x["kind"] == "sample"]
+trunk = [x for x in lines if x["kind"] == "trunk_pairformer"]
 
-report = {
-    "arm": args.arm, "seed": args.seed, "samples": args.samples,
-    "trunk_scale_pair_bias": scale, "trunk_tri_att_scale_pair_bias": tri,
-    "n_trunk_pairformers": len(_built), "wall_s": round(wall, 2),
-    "aiclk_during": {"n": len(clk), "min": min(clk) if clk else None,
-                     "max": max(clk) if clk else None,
-                     "median": sorted(clk)[len(clk) // 2] if clk else None},
-    "ground_truth": args.gt, "n_ca_gt": len(GT),
-    "per_sample": RECORDS,
-}
+if p.returncode != 0 or len(samples) != a.samples:
+    sys.stderr.write(p.stdout[-4000:] + "\n" + p.stderr[-4000:] + "\n")
+    raise SystemExit(f"fold failed: rc={p.returncode} samples={len(samples)}/{a.samples}")
+
+flags = {(t["scale_pair_bias"], t["tri_att_scale_pair_bias"]) for t in trunk}
+assert len(flags) == 1, f"trunk built with mixed flags: {flags}"
+scale, tri = next(iter(flags))
+assert scale is (a.arm == "fix"), f"arm {a.arm} resolved scale_pair_bias={scale}"
+
+report = {"arm": a.arm, "seed": a.seed, "samples": a.samples,
+          "trunk_scale_pair_bias": scale, "trunk_tri_att_scale_pair_bias": tri,
+          "n_trunk_pairformers": len(trunk), "wall_s": round(wall, 2),
+          "aiclk_during": {"n": len(clk), "min": min(clk) if clk else None,
+                           "max": max(clk) if clk else None,
+                           "median": sorted(clk)[len(clk) // 2] if clk else None},
+          "ground_truth": a.gt, "per_sample": samples}
 path = os.path.join(out_dir, "samples.json")
 json.dump(report, open(path, "w"), indent=1)
-print(f"\n[{args.arm} s{args.seed}] trunk scale_pair_bias={scale} tri={tri}  "
-      f"wall {wall:.1f}s  aiclk {report['aiclk_during']}")
-for r in RECORDS:
+print(f"[{a.arm} s{a.seed}] trunk scale_pair_bias={scale} tri={tri}  wall {wall:.1f}s  "
+      f"aiclk {report['aiclk_during']}")
+for r in samples:
     print(f"  sample {r['sample']}: rmsd {r['rmsd_ca']:6.3f} A  plddt {r['plddt']:.4f}  "
           f"ptm {r['ptm']:.4f}  iptm {r['iptm']:.4f}  disorder {r['disorder']:.4f}  "
           f"score {r['rank_score']:.4f}  pae {r['pae_mean']:5.2f}  gpde {r['gpde']:5.2f}")
