@@ -1,0 +1,310 @@
+{
+ "tag": "b2_new_s1",
+ "model": "boltz2",
+ "size": 512,
+ "host": "tt-quietbox2",
+ "card_env": "3",
+ "ttnn": "0.68.0",
+ "tree": "/home/ttuser/pvx_qb2/new",
+ "clock_target": 1350,
+ "timers": [],
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "diffusion_samples": 1,
+ "seed": 0,
+ "started_utc": "2026-09-19T17:03:25Z",
+ "loadavg_start": [
+  "1.64",
+  "3.85",
+  "5.82"
+ ],
+ "foreign_at_start": [],
+ "runs": [
+  {
+   "i": 0,
+   "cold": true,
+   "fold_s": 14.821,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "3fcdf07f23ea72ab"
+   },
+   "foreign_tt": [],
+   "loadavg1": 1.94,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 823.4,
+     "aiclk_min": 800,
+     "aiclk_max": 1350,
+     "power_w_mean": 28.7
+    },
+    "1": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 28.2
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.4
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 81.8
+    }
+   },
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 47,
+   "power_w_mean": 81.8
+  },
+  {
+   "i": 1,
+   "cold": false,
+   "fold_s": 14.536,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "3fcdf07f23ea72ab"
+   },
+   "foreign_tt": [
+    {
+     "pid": 256211,
+     "nodes": [
+      0
+     ],
+     "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -u perf/of3t_l1/gradient_ab.py --repo /home/ttuser/.coworker/wt/of3t-l1-basectl "
+    }
+   ],
+   "loadavg1": 1.95,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 1037.5,
+     "aiclk_min": 800,
+     "aiclk_max": 1350,
+     "power_w_mean": 33.2
+    },
+    "1": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 28.5
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.4
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 79.2
+    }
+   },
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 44,
+   "power_w_mean": 79.2
+  },
+  {
+   "i": 2,
+   "cold": false,
+   "fold_s": 14.348,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "3fcdf07f23ea72ab"
+   },
+   "foreign_tt": [
+    {
+     "pid": 256514,
+     "nodes": [
+      0
+     ],
+     "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -u perf/of3t_l1/identity.py --repo /home/ttuser/.coworker/wt/of3t-l1-mainctl --o"
+    }
+   ],
+   "loadavg1": 2.04,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 1209.0,
+     "aiclk_min": 800,
+     "aiclk_max": 1350,
+     "power_w_mean": 37.6
+    },
+    "1": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 28.6
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.2
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 84.8
+    }
+   },
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 43,
+   "power_w_mean": 84.8
+  },
+  {
+   "i": 3,
+   "cold": false,
+   "fold_s": 14.336,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "3fcdf07f23ea72ab"
+   },
+   "foreign_tt": [
+    {
+     "pid": 256710,
+     "nodes": [
+      0
+     ],
+     "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -u perf/of3t_l1/ladder.py --tokens 128 --backward --out perf/of3t_l1/out/r3_128."
+    }
+   ],
+   "loadavg1": 2.59,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 38.1
+    },
+    "1": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 28.7
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.4
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 82.6
+    }
+   },
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 45,
+   "power_w_mean": 82.6
+  },
+  {
+   "i": 4,
+   "cold": false,
+   "fold_s": 14.371,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "3fcdf07f23ea72ab"
+   },
+   "foreign_tt": [
+    {
+     "pid": 256710,
+     "nodes": [
+      0
+     ],
+     "cmd": "/home/ttuser/tt-bio-dev/env/bin/python3 -u perf/of3t_l1/ladder.py --tokens 128 --backward --out perf/of3t_l1/out/r3_128."
+    }
+   ],
+   "loadavg1": 2.46,
+   "per_node": {
+    "0": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 38.2
+    },
+    "1": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 29.2
+    },
+    "2": {
+     "aiclk_mean": 800.0,
+     "aiclk_min": 800,
+     "aiclk_max": 800,
+     "power_w_mean": 25.5
+    },
+    "3": {
+     "aiclk_mean": 1350.0,
+     "aiclk_min": 1350,
+     "aiclk_max": 1350,
+     "power_w_mean": 90.6
+    }
+   },
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 43,
+   "power_w_mean": 90.6
+  }
+ ],
+ "fixture_sha256": {
+  "cdk2x2_512.yaml": "24d8b2d8c06e4409995abae024766e316da3175dde7596073b68c7963d2df398",
+  "cdk2x2_512.a3m": "ef2301402e7716e9df368987210456194b108c8ae7e144b7bf09a3dd6f40bf5e"
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "device_nodes": [
+  3
+ ],
+ "clock_after_force": {
+  "3": 1350
+ },
+ "clock_reasserts": 0,
+ "summary": {
+  "n": 4,
+  "fold_s_sorted": [
+   14.336,
+   14.348,
+   14.371,
+   14.536
+  ],
+  "median_fold_s": 14.36,
+  "min_fold_s": 14.336,
+  "max_fold_s": 14.536,
+  "aa_floor_s": 0.2,
+  "aa_floor_pct": 1.39,
+  "aiclk_mean_over_timed": 1350.0,
+  "aiclk_min_over_timed": 1350,
+  "digests": [
+   "3fcdf07f23ea72ab"
+  ],
+  "plddts": [
+   0.844645
+  ],
+  "cotenanted_folds": 4,
+  "clean_session": false
+ }
+}
