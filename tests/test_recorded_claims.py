@@ -24,8 +24,8 @@ a dependency starts watching it on the same commit.
 
 What this file asks is "has the code that feeds this number changed?", and the answer is yes most
 of the time. Measured on origin/main: 370 commits in 30 days touch model_gate's 28-file closure,
-332 of them change executable source, and the median gap between two of them is 14 minutes over
-the last week. 244 land in tt_bio/tenstorrent.py, the 13,059-line shared op layer. That is the
+332 of them change executable source, and over the last week the median gap between two of them
+is 15 minutes. 244 land in tt_bio/tenstorrent.py, the 13,059-line shared op layer. That is the
 artifact's shelf life, not a defect here, and it is why the affordable place to re-record is the
 release commit rather than every work branch.
 
@@ -178,9 +178,9 @@ def test_recorded_artifact_is_not_stale(artifact, sha, script):
         + f"\nchanged by:\n  " + "\n  ".join(commits)
         + f"\nThe numbers are unconfirmed, not known wrong. Re-run {script} and update both the "
         f"numbers and the RECORDED-AT line; until then the file is a historical measurement "
-        f"rather than evidence about this branch. Expect this on a work branch: the shared op "
-        f"layer in this closure takes ~22 commits a day, so a recording goes unconfirmed within "
-        f"a median of 14 minutes and the affordable place to re-record is the release commit")
+        f"rather than evidence about this branch. Expect this on a work branch: this "
+        f"closure takes ~19 code-changing commits a day, so a recording goes unconfirmed within "
+        f"a median of 15 minutes and the affordable place to re-record is the release commit")
 
 
 def test_the_staleness_check_can_fail():

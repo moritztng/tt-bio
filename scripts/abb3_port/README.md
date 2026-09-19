@@ -57,8 +57,9 @@ way: it takes the producing script and follows its module-level imports. Re-run 
 update both the numbers and the line. Deleting the artifact is not the fix, and the test says so
 by name.
 
-Expect a red on a work branch. The shared op layer this closure reaches takes about 22 commits a
-day, so a recording goes unconfirmed within a median of 14 minutes of being made. That is the
+Expect a red on a work branch. The code this closure reaches takes about 19 commits a day that
+change executable source, so a recording goes unconfirmed within a median of 15 minutes of being
+made. That is the
 shelf life of a device number here, not a fault in the check, and the affordable place to
 re-record is the commit you release from.
 
