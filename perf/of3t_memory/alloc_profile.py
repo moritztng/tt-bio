@@ -466,12 +466,30 @@ def main() -> int:
                     tape_cm.__exit__(None, None, None)
                     tape_cm = None
                     if args.backward:
+                        # Seed BOTH outputs in ONE traversal. Two `Tensor.backward` calls
+                        # would replay every shared ancestor twice and land the fan-in sums
+                        # partial (autograd.backward's own docstring), which is a different
+                        # tape and therefore a different memory profile.
+                        roots = [t for t in (so, zo) if isinstance(t, ag.Tensor)]
+                        fwd_hw, fwd_census = peak.dram_hw, peak.census
+                        peak.dram_hw = 0        # so the next high-water is the BACKWARD's own
+                        peak.census = None
                         _swap_watch(peak, True, saved)
-                        loss = zo.sum_all() if hasattr(zo, "sum_all") else None
-                        (loss if loss is not None else zo).backward()
-                        ttnn.synchronize_device(dev)
-                        _swap_watch(peak, False, saved)
-                        rec["after_backward_dram_b"] = peak.bytes_now()[0]
+                        try:
+                            ag.backward(roots)
+                            ttnn.synchronize_device(dev)
+                        finally:
+                            _swap_watch(peak, False, saved)
+                        rec["bwd_peak_dram_b"] = peak.dram_hw
+                        rec["bwd_peak_census"] = peak.census
+                        rec["bwd_peak_at_verb"] = peak.at_verb
+                        rec["after_backward_dram_b"] = peak.dram_now()
+                        rec["grads_present"] = sum(
+                            1 for t in (st, zt) if getattr(t, "grad", None) is not None)
+                        # Report the run's peak as the larger of the two phases, and keep the
+                        # forward's own figure beside it: which phase binds is the question.
+                        if fwd_hw > peak.dram_hw:
+                            peak.dram_hw, peak.census = fwd_hw, fwd_census
                 rec["verdict"] = "PASS"
             except Exception as exc:
                 text = f"{exc}\n{traceback.format_exc()}"
