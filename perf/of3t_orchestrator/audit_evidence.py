@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-ok, bad = [], []
+ok, bad, warn = [], [], []
 
 
 def j(rel):
@@ -113,6 +113,32 @@ if d:
     check("trajectory N", d["N"], 20)
     check("trajectory verdict", d["verdict"], "PASS")
 
+# --- the reference bundle: is it usable, and do its two manifests agree? ---------------------
+# A bundle can be published, hashed and finite-difference validated and still be unusable: the
+# BUNDLE-MIN gradient passed all three while 4,141 of 4,147 tensors were exactly zero, because
+# the FD check sampled only entries where |analytic| >= 1e-6 and so could never look at them.
+# Two manifests differing only in case made it worse -- the lowercase one still reports
+# n_with_gradient 4147 and no hold. Assert the authoritative one and refuse to let a composition
+# quietly carry a bundle whose own manifest says do not use it.
+bdir = ROOT / "perf/of3t_reference/bundle_min"
+upper, lower = bdir / "MANIFEST.json", bdir / "manifest.json"
+if upper.is_file():
+    m = json.loads(upper.read_text())
+    st = str(m.get("status", ""))
+    if "HOLD" in st.upper():
+        # A held DATA artifact does not make the COMPOSITION wrong -- no claim is being made
+        # against it -- so this warns loudly rather than failing, the same way an unpushed
+        # worktree does. It becomes a failure the moment a row quotes a number from it.
+        warn.append(f"reference bundle is ON HOLD, do not compare against it: {st[:110]}")
+    else:
+        ok.append("reference bundle manifest carries no hold")
+    if lower.is_file():
+        lo = json.loads(lower.read_text())
+        if "status" not in lo:
+            warn.append("two manifests differ only in case and the lowercase one carries no "
+                        "status field -- a consumer reading manifest.json gets a stale 'valid' "
+                        "bundle. Delete it or make it a pointer")
+
 # --- CROSS-INSTRUMENT CONSISTENCY -----------------------------------------------------------
 # Each instrument can be internally correct and still disagree with its neighbour about a fact
 # both depend on. Nothing in this campaign caught instrument B configuring OF3's schedule at
@@ -137,7 +163,9 @@ if b and c:
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
 for line in ok:
     print(f"  ok    {line}")
+for line in warn:
+    print(f"  WARN  {line}")
 for line in bad:
     print(f"  DRIFT {line}")
-print(f"\n{len(ok)} confirmed, {len(bad)} drifted")
+print(f"\n{len(ok)} confirmed, {len(warn)} warning(s), {len(bad)} drifted")
 sys.exit(1 if bad else 0)

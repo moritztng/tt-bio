@@ -161,7 +161,7 @@ done
 # transcription drifts silently, so the numbers it quotes are re-read from the committed JSON
 # on every compose. Also pins the denominators (K29).
 echo "--- audit_evidence"
-( cd "$CO" && "$PY" perf/of3t_orchestrator/audit_evidence.py 2>&1 | tail -4 ) || \
+( cd "$CO" && "$PY" perf/of3t_orchestrator/audit_evidence.py 2>&1 | tail -6 ) || \
   { echo "SCOREBOARD DRIFT -- state/of3t/EVIDENCE.md disagrees with the artifacts"; exit 1; }
 
 git worktree remove --force "$BASE"
