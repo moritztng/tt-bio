@@ -300,6 +300,62 @@ def _rank_hist(params):
     return h
 
 
+def clear_device_caches(root, out=None):
+    """Deallocate every memoised device tensor hanging off a shipped module.
+
+    Walks the same tree as `walk_weights` and empties the dicts whose attribute name ends in
+    `_cache`. Returns (tensors_freed, dicts_cleared). Deliberately narrow: it frees CACHES, never
+    a weight and never an activation, so a module that is asked for the same chunk again simply
+    rebuilds it.
+    """
+    import ttnn
+    freed = [0, 0]
+    seen = set()
+
+    def walk(obj, depth=0):
+        if depth > WALK_DEPTH or id(obj) in seen:
+            return
+        seen.add(id(obj))
+        items = (list(obj.items()) if isinstance(obj, dict) else
+                 list(enumerate(obj)) if isinstance(obj, (list, tuple)) else
+                 list(vars(obj).items()) if hasattr(obj, "__dict__") else [])
+        for k, v in items:
+            if isinstance(k, str) and k.endswith("_cache") and isinstance(v, dict):
+                for t in _tensors_in(v):
+                    try:
+                        if t.is_allocated():
+                            ttnn.deallocate(t)
+                            freed[0] += 1
+                    except Exception:
+                        pass
+                v.clear()
+                freed[1] += 1
+                continue
+            if isinstance(v, (list, tuple, dict)) or hasattr(v, "__dict__"):
+                walk(v, depth + 1)
+
+    walk(root)
+    if out is not None:
+        out["cache_clear"] = {"tensors_freed": freed[0], "dicts_cleared": freed[1]}
+    return tuple(freed)
+
+
+def _tensors_in(obj, acc=None, depth=0):
+    import ttnn
+    acc = [] if acc is None else acc
+    if depth > 6:
+        return acc
+    if isinstance(obj, ttnn.Tensor):
+        acc.append(obj)
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            _tensors_in(v, acc, depth + 1)
+    elif isinstance(obj, (list, tuple)):
+        for v in obj:
+            _tensors_in(v, acc, depth + 1)
+    return acc
+
+
 def cycle_once(trunk, held, cycles, taped):
     """One trunk forward at a pinned cycle count, taped or not.
 
@@ -446,6 +502,12 @@ def main():
                          "step; pin it so the timing is not reading the draw")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--no-rollout", action="store_true")
+    ap.add_argument("--clear-caches", action="store_true",
+                    help="free the device-resident module caches the capture fold warmed, "
+                         "before the timed arms. Reports how many tensors it freed and the DRAM "
+                         "before and after, because warm and cleared bound the answer from "
+                         "opposite sides: warm over-counts the memory a step needs, cleared "
+                         "over-counts the time it takes")
     ap.add_argument("--shim", action="store_true",
                     help="install perf/of3t_perf/fused_unary_shim.py, which supplies exact "
                          "process-local rules for PARAMETERISED fused unaries so a taped cycle "
@@ -503,6 +565,19 @@ def main():
             out["env"]["arch"] = str(dev.arch())
             out["dram"] = {"after_prep": _dram(dev)}
             params = declare_weights(trunk, out)
+            if a.clear_caches:
+                before = _dram(dev)
+                n_t, n_d = clear_device_caches(trunk, out)
+                out["cache_clear"]["dram_before"] = before
+                out["cache_clear"]["dram_after"] = _dram(dev)
+                out["cache_clear"]["dram_freed"] = before - out["cache_clear"]["dram_after"]
+                out["cache_clear"]["caveat"] = (
+                    "steady-state training keeps these caches across steps, so a cleared arm "
+                    "charges the first timed cycle a construction cost training would not pay; "
+                    "a warm arm charges the device memory an inference fold left behind")
+                print(f"[caches] freed {n_t} tensors from {n_d} dicts, "
+                      f"DRAM {before / 1e6:.0f} MB -> {out['cache_clear']['dram_after'] / 1e6:.0f} MB",
+                      flush=True)
             dump()
 
             stages = []

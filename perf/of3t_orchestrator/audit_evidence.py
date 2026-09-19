@@ -125,6 +125,20 @@ upper, lower = bdir / "MANIFEST.json", bdir / "manifest.json"
 if upper.is_file():
     m = json.loads(upper.read_text())
     st = str(m.get("status", ""))
+    # PUBLISHED is a claim about the artifacts, not about the manifest. A status line saying
+    # PUBLISHED while the gradient it names is still "in transfer" sends a consumer to a path
+    # that has a .part file on it -- the R43 shape again, one pass after R43 was fixed. Check
+    # the declared per-file presence, not just the headline.
+    arts = m.get("artifacts", [])
+    if isinstance(arts, list) and "PUBLISH" in st.upper():
+        absent = [a.get("file") for a in arts
+                  if isinstance(a, dict) and a.get("on_qb2") not in (True, None)]
+        if absent:
+            warn.append(f"bundle manifest says PUBLISHED but declares these artifacts not on "
+                        f"the host: {', '.join(str(x) for x in absent[:4])}"
+                        + (" ..." if len(absent) > 4 else ""))
+        else:
+            ok.append("bundle says PUBLISHED and declares every artifact present")
     if "HOLD" in st.upper():
         # A held DATA artifact does not make the COMPOSITION wrong -- no claim is being made
         # against it -- so this warns loudly rather than failing, the same way an unpushed
@@ -159,6 +173,28 @@ if b and c:
                    f"them (runner.py:863, max_lr=optimizer_config.learning_rate), so one is "
                    f"wrong -- 1e-3 is the scheduler's Python signature default, not what OF3 "
                    f"ships")
+
+# --- every UNFIXED defect must be named in the orchestrator's GAP ----------------------------
+# GAP has drifted twice: it described the campaign as it stood seven passes earlier, and then
+# omitted the hardest blocker entirely. The gate only checks that the field EXISTS. A summary
+# written by transcription drifts exactly like a scoreboard does, so it gets the same treatment
+# as the scoreboard: checked against its source.
+DEF = Path("/home/moritz/.coworker/state/of3t/DEFECTS.md")
+ORCH = Path("/home/moritz/.coworker/state/of3t-orchestrator.md")
+if DEF.is_file() and ORCH.is_file():
+    import re as _re
+    unfixed = [m.group(1) for m in
+               _re.finditer(r"^### (D\d+)\..*$", DEF.read_text(), _re.M)
+               if "UNFIXED" in m.group(0)]
+    o = ORCH.read_text()
+    g = _re.search(r"^GAP:(.*?)(?=^VERDICT:)", o, _re.M | _re.S)
+    gap = g.group(1) if g else ""
+    missing = [d for d in unfixed if not _re.search(rf"\b{d}\b", gap)]
+    if missing:
+        bad.append(f"GAP does not name these UNFIXED defects: {', '.join(missing)} "
+                   f"-- the summary has drifted from DEFECTS.md")
+    else:
+        ok.append(f"GAP names all {len(unfixed)} UNFIXED defects")
 
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
 for line in ok:

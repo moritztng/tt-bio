@@ -93,18 +93,36 @@
       "what": "the run's own record from bundle_min.py, including every finite-difference check. Renamed from manifest.json so it cannot be mistaken for this publication on a case-sensitive filesystem; it carries the same hold notice."
     },
     {
-      "file": "grads_f64.pt",
+      "file": "grads_f64_recycles0.pt",
       "bytes": 2947812293,
-      "sha256": "pending-transfer",
-      "on_qb2": false,
-      "what": "per-parameter gradient, float64, None preserved. Produced and verified on the rented A100; the copy to qb2 was interrupted and is re-running."
+      "on_qb2": "in transfer",
+      "what": "THE VALIDATED GRADIENT. Trained weights, num_recycles 0, float64, None preserved."
     },
     {
-      "file": "w0.pt",
-      "bytes": 4573705142,
-      "sha256": "pending-transfer",
-      "on_qb2": false,
-      "what": "the float64 weights the gradient was taken at. Values are exactly float32-representable: the model is initialised in float32 and cast up, so a float32 copy is lossless."
+      "file": "draws_recycles0.pt",
+      "on_qb2": "in transfer",
+      "what": "the draws for the validated gradient. num_recycles 0."
+    },
+    {
+      "file": "grad_presence_recycles0.json",
+      "on_qb2": "in transfer",
+      "what": "presence pattern for the validated gradient."
+    },
+    {
+      "file": "grads_f64_recycles3.pt",
+      "bytes": 2947812293,
+      "on_qb2": "in transfer",
+      "what": "the shipped-config gradient at the drawn recycle count 3. Not FD-validatable."
+    },
+    {
+      "file": "draws_recycles3.pt",
+      "on_qb2": "in transfer",
+      "what": "the draws for the shipped-config gradient. Match these exactly or the comparison is void."
+    },
+    {
+      "file": "hsweep.json",
+      "also_in_git": true,
+      "what": "the h-sweep that shows why a recycled trunk gradient cannot be FD-validated."
     }
   ],
   "how_to_regenerate": {
@@ -114,12 +132,16 @@
     "warning": "Regeneration reproduces the bundle only within one environment. Rebuilding the batches twice on the same box gives 20/20 byte-identical files; rebuilding on a different machine from the same seed, corpus and config gives 0/20, while producing the identical entry order and token counts. Fetch the bytes and check the sha256."
   },
   "consumer_rules": [
-    "Match the draws before comparing anything. The recycle count is drawn per step from U{0..3} and the diffusion head noises 48 structures; two stacks that drew differently are comparing different work.",
+    "Use grads_f64_recycles0.pt for instrument A. It is the one validated against finite differences, and its 10 checked trunk entries are the evidence that the trunk gradient itself is right.",
+    "Pin num_recycles to 0 on our side too when comparing against it. The recycle count changes what the gradient MEANS, not just how much work it is.",
+    "Match the draws before comparing anything: draws_recycles0.pt for the validated artifact, draws_recycles3.pt for the shipped-config one.",
     "The recycle draw comes from OpenFold3.synced_generator, a private np.random.default_rng held as a model attribute (model.py:77). torch.manual_seed does not reach it.",
     "None is not zero. Compare the presence pattern as a set before any magnitude.",
-    "The gradient is BEFORE clipping. At world size 1 with accumulate_grad_batches 1 the optimizer-facing gradient is exactly grad * clip_coef."
+    "The gradient is BEFORE clipping. At world size 1 with accumulate_grad_batches 1 the optimizer-facing gradient is exactly grad * clip_coef.",
+    "Load of3-p2-155k.pt, not a random init. At a random init 2271 of 4890 weight tensors are exactly zero and the gradient reaches 6 of 4147 -- a comparison there would be zero against zero.",
+    "Fetch the bytes and check the sha256; do not regenerate. Rebuilding on a different machine from the same seed gives 0/20 byte-identical batches while the entry order and token counts match."
   ],
-  "status": "GRADIENT ARTIFACT ON HOLD, cause found and fix demonstrated. At a random init OF3 zero-initialises 2271 of 4890 weight tensors, so a step-1 gradient reaches only the 6 zero-initialised output projections. Re-issued with of3-p2-155k.pt loaded it reaches 4140 of 4147. The trained-weights gradient is measured but its finite-difference validation is not yet passing at h=1e-5 (median rel 0.353), so it is not published for instrument A yet.",
+  "status": "PUBLISHED. The validated gradient is grads_f64_recycles0.pt: trained weights, num_recycles pinned to 0, 4138 of 4147 tensors non-zero, agreeing with float64 central finite differences to a median 4.17e-04 and a worst 2.18e-03 over 12 entries, 10 of them inside the trunk. The earlier random-init gradient is withdrawn; it reached only 6 tensors because the model was untrained.",
   "determinism_floor": {
     "method": "two processes, same seed, same batch, same box, float64",
     "loss_bit_identical": true,
@@ -160,7 +182,59 @@
       "n": 12,
       "median_rel": 0.353,
       "max_rel": 1.111,
-      "interpretation": "truncation, not a wrong gradient: O(h^2 L''') on a curved trained surface, with samples now deep in the trunk. h-sweep 1e-3..1e-7 running."
+      "interpretation": "truncation, not a wrong gradient: O(h^2 L''') on a curved trained surface, with samples now deep in the trunk. h-sweep 1e-3..1e-7 running.",
+      "resolution": "h-independent disagreement on TRUNK parameters only, while diffusion-module entries converge to 1.785e-08. Cause: their trunk runs 4 recycling passes over the same weights and tapes only the last (model.py:230), so finite differences measure the TOTAL derivative through all four cycles while the analytic gradient is the PARTIAL derivative through the final cycle. Finite differences cannot validate a recycled trunk gradient by construction; re-run the validation at num_recycles = 0."
     }
+  },
+  "validated_gradient": {
+    "file": "grads_f64_recycles0.pt",
+    "weights": "of3-p2-155k.pt, sha256 af09eac4f29cef856633af07... (see checkpoint block)",
+    "num_recycles": 0,
+    "why_zero": "Their trunk runs num_recycles + 1 passes over the same weights and tapes only the last (model.py:230). A finite difference perturbs the weight in every cycle and measures the TOTAL derivative; the analytic gradient is the PARTIAL derivative through the final cycle. At 0 recycles the two functions coincide, which is the only regime in which the trunk gradient can be validated at all. Evidence: hsweep.json.",
+    "loss": 1.6591175475821072,
+    "loss_bit_identical_on_replay": true,
+    "gradient_global_norm": 3.908301894520238,
+    "clip_coef_their_grad_manager_would_apply": 1.0,
+    "n_nonzero_gradient_tensors": 4138,
+    "n_parameters": 4147,
+    "n_absent_gradients": 0,
+    "n_zero_init_weight_tensors": 0,
+    "finite_difference": {
+      "h": 0.0001,
+      "n_samples": 12,
+      "max_rel_err": 0.0021816730658057296,
+      "median_rel_err": 0.00041654401866540746,
+      "n_trunk_entries": 10,
+      "max_rel_err_trunk": 0.0021816730658057296,
+      "worst_param": "pairformer_stack.blocks.46.pair_stack.tri_mul_in.layer_norm_out.weight"
+    },
+    "timings_s": {
+      "forward": 6.3541765213012695,
+      "backward": 14.782874584197998
+    },
+    "bar": "PROTOCOL 3d's per-tensor bar is 5.0e-02. The reference validates against finite differences at 2.18e-03 worst, 23x inside it, so the reference contributes nothing material to a measured disagreement."
+  },
+  "shipped_config_gradient": {
+    "file": "grads_f64_recycles3.pt",
+    "num_recycles": 3,
+    "loss": 1.6769288331974042,
+    "gradient_global_norm": 4.9721,
+    "n_nonzero_gradient_tensors": 4140,
+    "caveat": "This is the gradient at the recycle count their config actually draws, so it is the one a shipped-config comparison needs -- but it CANNOT be validated by finite differences, for the reason above. Use it only with the draws in draws_recycles3.pt matched exactly."
+  },
+  "checkpoint": {
+    "file": "of3-p2-155k.pt",
+    "sha256_prefix": "af09eac4f29cef856633af07",
+    "source": "https://openfold3-data.s3.amazonaws.com/openfold3-parameters/of3-p2-155k.pt",
+    "n_loaded": 4935,
+    "n_missing": 3,
+    "n_unexpected": 48,
+    "missing": [
+      "version_tensor",
+      "diffusion_module.diffusion_transformer.layer_norm_z.weight",
+      "sample_diffusion.diffusion_module.diffusion_transformer.layer_norm_z.weight"
+    ],
+    "missing_note": "The two layer_norm_z weights stay at their random initialisation. They are named here rather than buried: a consumer loading the same checkpoint into our stack must end up with the same two tensors unset, or the two sides do not start from the same w_0.",
+    "note": "w0 is not shipped separately; it is this checkpoint, publicly downloadable."
   }
 }
