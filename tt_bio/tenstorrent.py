@@ -7098,8 +7098,27 @@ _MM_BLOCK = {
     # ... and with the one-tile pair-bias projection on the end of it, so the normed pair tensor
     # is read once instead of three times (`triatt_qkv.qkvgb_heads`). Same K_block again.
     (4, 17): (4, 4, 1, 4, 1),   # boltz2 / openfold3 qkv+gate+bias at c_z=128
+    # The same two fused keys at c_z=256, which is protenix-v2's and esmfold2's tri-attention
+    # width. Their separate (8, 24) qkv and (8, 8) gate entries have shipped since c9bfcaef, but
+    # the fused pair was only ever added at kt=4, so `_qkv_mm_config` returned None for the
+    # concatenated weight and `qkvg_heads` declined 1208 of 1208 protenix-v2 calls per 512 aa fold
+    # while boltz2 served 560 of 560 (perf/pvx_eligibility/out/). Same K_block = kt = 8 = the whole
+    # contraction as the two entries it fuses, so every output element is accumulated in the order
+    # the two separate matmuls accumulate it today. protenix-v2 is the only consumer measured:
+    # esmfold2 is c_z=256 too but never reaches `_qkv_mm_config` on a 512 aa fold at all
+    # (`perf/pvx_eligibility/out/mmkey_esm512.json`, zero calls), so it is not claimed here.
+    (8, 32): (4, 8, 1, 4, 1),   # protenix-v2 qkv+gate      at c_z=256
+    (8, 33): (4, 8, 1, 4, 1),   # protenix-v2 qkv+gate+bias at c_z=256
     (2, 12): (4, 2, 1, 4, 1),   # openfold3 qkv            at c_z=64
     (2, 2): (4, 2, 1, 4, 1),    # openfold3 gate           at c_z=64
+    # protenix-v2's template pair stack is 2 heads of 32 at c_z=64, so its qkv is 6 tiles where
+    # openfold3's is 12 and only the gate key above was shared. `perf/pvx_eligibility/mm_key_probe.py`
+    # reads the key each declining call wants: 320 calls per 512 aa fold at (2, 6), 160 at (2, 8)
+    # and 160 at (2, 9), all `key_absent`, against 160 served at (2, 2). Same K_block = kt = 2 as
+    # the two entries above.
+    (2, 6): (4, 2, 1, 4, 1),    # protenix-v2 template qkv              at c_z=64
+    (2, 8): (4, 2, 1, 4, 1),    # protenix-v2 template qkv+gate         at c_z=64
+    (2, 9): (4, 2, 1, 4, 1),    # protenix-v2 template qkv+gate+bias    at c_z=64
     # opendde tri-att at c_z=384. These two are NOT bit-exact -- K_block = 12 folds the contraction
     # differently from the unconfigured op, one bf16 ULP at max_abs 0.5. MEASURED at the fold, 512 aa
     # (perf/odde4x/ab_opendde_512_mm12.json): 96.578 -> 92.803 s, 1.0407x on a 0.063 s A/A floor,

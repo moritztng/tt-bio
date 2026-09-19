@@ -147,3 +147,6 @@ perf/gate_journal/
 # pvx-land: gate transcripts and run scratch
 perf/pvx_land/gate.log
 perf/pvx_land/*.json
+
+# pvx-eligibility: the MSA cache its census seeds
+.msa_pvxel_*/
