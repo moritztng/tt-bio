@@ -1,0 +1,204 @@
+{
+  "rungs": [
+    {
+      "rung": "bar",
+      "target": "perf/ceilrfd3/targets/laczc_1008.cif",
+      "contig": "A1-924,100",
+      "contig_residue_count": 1024,
+      "designed_residues": 100,
+      "feature_tokens": 1024,
+      "feature_keys": [
+        "active_acceptor",
+        "active_donor",
+        "asym_id",
+        "atom_to_token_map",
+        "entity_id",
+        "has_zero_occupancy",
+        "is_atom_level_hotspot",
+        "is_backbone",
+        "is_ca",
+        "is_central",
+        "is_dna",
+        "is_ligand",
+        "is_motif_atom_unindexed",
+        "is_motif_atom_with_fixed_coord",
+        "is_motif_atom_with_fixed_seq",
+        "is_motif_token_unindexed",
+        "is_motif_token_with_fully_fixed_coord",
+        "is_non_loopy",
+        "is_polar",
+        "is_protein",
+        "is_rna",
+        "is_sidechain",
+        "is_virtual",
+        "motif_pos",
+        "ref_atom_name_chars",
+        "ref_atomwise_rasa",
+        "ref_charge",
+        "ref_element",
+        "ref_is_motif_atom_unindexed",
+        "ref_is_motif_atom_with_fixed_coord",
+        "ref_mask",
+        "ref_motif_token_type",
+        "ref_plddt",
+        "ref_pos",
+        "ref_pos_is_ground_truth",
+        "ref_space_uid",
+        "residue_index",
+        "restype",
+        "sym_id",
+        "terminus_type",
+        "token_bonds",
+        "token_index",
+        "unindexing_pair_mask"
+      ],
+      "feature_shapes": {
+        "active_acceptor": [
+          8800
+        ],
+        "active_donor": [
+          8800
+        ],
+        "asym_id": [
+          1024
+        ],
+        "atom_to_token_map": [
+          8800
+        ],
+        "entity_id": [
+          1024
+        ],
+        "has_zero_occupancy": [
+          8800
+        ],
+        "is_atom_level_hotspot": [
+          8800,
+          1
+        ],
+        "is_backbone": [
+          8800
+        ],
+        "is_ca": [
+          8800
+        ],
+        "is_central": [
+          8800
+        ],
+        "is_dna": [
+          1024
+        ],
+        "is_ligand": [
+          1024
+        ],
+        "is_motif_atom_unindexed": [
+          8800
+        ],
+        "is_motif_atom_with_fixed_coord": [
+          8800
+        ],
+        "is_motif_atom_with_fixed_seq": [
+          8800
+        ],
+        "is_motif_token_unindexed": [
+          1024
+        ],
+        "is_motif_token_with_fully_fixed_coord": [
+          1024
+        ],
+        "is_non_loopy": [
+          1024,
+          1
+        ],
+        "is_polar": [
+          1024
+        ],
+        "is_protein": [
+          1024
+        ],
+        "is_rna": [
+          1024
+        ],
+        "is_sidechain": [
+          8800
+        ],
+        "is_virtual": [
+          8800
+        ],
+        "motif_pos": [
+          8800,
+          3
+        ],
+        "ref_atom_name_chars": [
+          8800,
+          4,
+          64
+        ],
+        "ref_atomwise_rasa": [
+          8800,
+          3
+        ],
+        "ref_charge": [
+          8800
+        ],
+        "ref_element": [
+          8800,
+          128
+        ],
+        "ref_is_motif_atom_unindexed": [
+          8800
+        ],
+        "ref_is_motif_atom_with_fixed_coord": [
+          8800
+        ],
+        "ref_mask": [
+          8800
+        ],
+        "ref_motif_token_type": [
+          1024,
+          3
+        ],
+        "ref_plddt": [
+          1024
+        ],
+        "ref_pos": [
+          8800,
+          3
+        ],
+        "ref_pos_is_ground_truth": [
+          8800
+        ],
+        "ref_space_uid": [
+          8800
+        ],
+        "residue_index": [
+          1024
+        ],
+        "restype": [
+          1024,
+          32
+        ],
+        "sym_id": [
+          1024
+        ],
+        "terminus_type": [
+          1024,
+          2
+        ],
+        "token_bonds": [
+          1024,
+          1024
+        ],
+        "token_index": [
+          1024
+        ],
+        "unindexing_pair_mask": [
+          1024,
+          1024
+        ]
+      },
+      "msa_like_keys": []
+    }
+  ],
+  "msa_mentions_in_tt_bio_rfd3": {},
+  "msa_mentions_total": 0
+}

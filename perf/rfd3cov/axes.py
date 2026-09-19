@@ -6,6 +6,10 @@ proves nothing for a model that HAS an MSA track, so the claim "there is no trac
 measurement too.
 
     python3 perf/rfd3cov/axes.py > perf/rfd3cov/axes.json
+    python3 perf/rfd3cov/axes.py 'bar:perf/ceilrfd3/targets/laczc_1008.cif:A1-924,100'
+
+With no arguments it reads the Blackhole walk's rungs; each `name:target:contig` argument
+replaces them, so a second board's rungs do not need a second copy of this file.
 
 No device. `featurize` is host-side, so this is the same tensor dict the sampler is handed.
 """
@@ -56,11 +60,12 @@ def rung(name: str, target: str, contig: str) -> dict:
     }
 
 
-def main() -> int:
+def main(argv: list[str]) -> int:
+    rungs = [tuple(a.split(":", 2)) for a in argv] or RUNGS
     src = sorted((ROOT / "tt_bio" / "rfd3").glob("*.py"))
     hits = {p.name: len(re.findall(r"\bmsa\b", p.read_text(), re.I)) for p in src}
     out = {
-        "rungs": [rung(*r) for r in RUNGS],
+        "rungs": [rung(*r) for r in rungs],
         # The source-side half of the depth claim. The feature dict above is the half that
         # matters (a track can exist and go unused); this says there is nothing to use.
         "msa_mentions_in_tt_bio_rfd3": {k: v for k, v in hits.items() if v},
@@ -71,4 +76,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
