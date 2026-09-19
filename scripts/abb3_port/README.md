@@ -20,7 +20,7 @@ All of them take `PYTHONPATH=$PWD`. The device ones need `TT_VISIBLE_DEVICES=<ca
 | `output_gate.py` | does the PDB writer round-trip? | 52 structures, worst region 0.0000 A | Zenodo `output/` |
 | `fold_gate.py` | does the port reproduce their predictions? | reference exact on 17, device 0.020 A mean CDR-H3 | Zenodo `output/` + card |
 | `moment_audit.py` | did a run ever train its parameters? | `base-loss` step 1,248: 80 live, 356 dead of 436, 2,704 of 7,992,080 scalars (0.034 %) under a live `exp_avg`, and all 356 dead ones sit over a zero master weight | a checkpoint |
-| `../../tests/test_gradient_reaches_every_parameter.py` | do real steps reach every parameter? | red on today's tree: 380 of 436 take an identically zero gradient over 3 steps from the run's own starting weights; both control arms green | card |
+| `../../tests/test_gradient_reaches_every_parameter.py` | do real steps reach every parameter, and can the weights they start from train at all? | the two card-free arms green on the repaired initialiser and red on the allocation the first leg ran, 106 of 316 tensors named and no bias among them; the three device arms last read on the pre-repair tree, 380 of 436 taking an identically zero gradient over 3 steps, both device controls green | card for 3 of the 5 |
 | `step_time.py` | what does the device half of a step cost? | 14.472 s median over 100 steps | card |
 | `step_gate.py` | what does a COMPLETE step cost? | `perf/abb3_port/step_gate_default_qb1c1.txt` at the shipped default, and `step_gate_complete_qb1c3.txt` for the attribution | card |
 
