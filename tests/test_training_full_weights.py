@@ -170,9 +170,10 @@ def test_tier0_and_tier1_agree_on_the_modes():
 def test_plan_prices_the_two_modes_apart():
     """`--train weights` is not a free rename: it changes what the planner can answer.
 
-    A LoRA adapter on a frozen trunk has a measured replica behind it. A trained trunk has
-    only a feasibility memo, so the honest answer is UNMEASURED and the dry run says which it
-    got rather than printing a projection shaped like a measurement.
+    A LoRA adapter on a frozen trunk has a measured replica behind it. A trained trunk has a
+    measured retention bound and no measured peak, because the backward that would set the peak
+    is not built yet. So the answer stays UNMEASURED and carries the gigabytes it does have,
+    rather than the 27.58 GB feasibility projection it used to answer with.
     """
     from tt_bio.train.dryrun import UNMEASURED, plan
 
@@ -180,7 +181,8 @@ def test_plan_prices_the_two_modes_apart():
     weights = plan(tokens=256, chips=1, global_batch=8, frozen_trunk=False)
     assert adapters.verdict != UNMEASURED and adapters.measured
     assert weights.verdict == UNMEASURED and not weights.measured
-    assert "projection" in weights.why
+    assert "4.074 GB" in weights.why and "retention" in weights.why
+    assert "27.58" not in weights.why, "the retired projection is answering again"
 
 
 def test_the_substitution_composes_over_the_tape_rather_than_replacing_it():
@@ -201,20 +203,83 @@ def test_the_substitution_composes_over_the_tape_rather_than_replacing_it():
     assert seen == ["layer_norm"]
 
 
-def test_a_measured_oom_is_reported_even_when_the_trunk_is_trained():
-    """"We measured this failing" and "we have no measurement" are different answers.
+def test_the_recipe_crop_is_not_refused_and_a_real_measured_oom_still_would_be():
+    """384 aa is Protenix's own crop, and `plan()` used to turn a user away at it.
 
-    The forward OOM at 384 aa is a fact about the FORWARD, which both modes run. Deciding the
-    trained-trunk case first would answer UNMEASURED there and hide a measurement behind the
-    absence of one -- on the exact crop Protenix's own recipe uses.
+    That refusal was measured on a differentiable twin of the pair track, a module since
+    deleted. The shipped 48-block forward peaks at 0.877 GB of 34.23 GB there, measured on two
+    chips in two campaigns, so the entry is gone. The two halves are tested apart: the crop no
+    longer refuses, and the mechanism that refuses a genuinely measured OOM is untouched --
+    "we measured this failing" is still a different answer from "we have no measurement", and
+    it is still decided before the trained-trunk branch because the forward is what both modes
+    run.
     """
-    from tt_bio.train.dryrun import FORWARD_OOM, UNMEASURED, plan
+    from tt_bio.train import dryrun
+    from tt_bio.train.dryrun import FORWARD_FITS, FORWARD_OOM, UNMEASURED, plan
 
-    assert 384 in FORWARD_OOM
-    for frozen in (True, False):
-        p = plan(tokens=384, chips=1, global_batch=8, frozen_trunk=frozen)
-        assert p.verdict == "refused" and not p.fits, (frozen, p.verdict)
-        assert "OOMs at 384 aa" in p.why
+    for tokens in (384, 512):
+        assert tokens not in FORWARD_OOM and tokens in FORWARD_FITS
+        for frozen in (True, False):
+            p = plan(tokens=tokens, chips=1, global_batch=8, frozen_trunk=frozen)
+            assert p.verdict == UNMEASURED, (tokens, frozen, p.verdict)
+            assert p.fits is not False and "OOM" not in p.why
+
+    # The mechanism, with an entry present for the length of these assertions.
+    entry = (1.00, 123_456_789, "state/concluded/ptx-crop -- a hypothetical, for this test")
+    FORWARD_OOM[900] = entry
+    try:
+        for frozen in (True, False):
+            p = plan(tokens=900, chips=1, global_batch=8, frozen_trunk=frozen)
+            assert p.verdict == "refused" and not p.fits, (frozen, p.verdict)
+            assert "OOMs at 900 aa" in p.why and "123,456,789 B refused" in p.why
+            assert p.sources == [entry[2]], "a refusal that does not say where it came from"
+    finally:
+        del FORWARD_OOM[900]
+    assert dryrun.FORWARD_OOM == {}
+
     # and a crop the forward does fit at still reports the honest UNMEASURED for the tape
     assert plan(tokens=256, chips=1, global_batch=8,
                 frozen_trunk=False).verdict == UNMEASURED
+
+
+def _provenance_gaps(table):
+    """Every entry in a measurement table that does not say where its number came from."""
+    from tt_bio.train.dryrun import provenance_gap
+
+    gaps = []
+    for key, entry in table.items():
+        if not isinstance(entry, tuple) or not isinstance(entry[-1], str):
+            gaps.append(f"{key}: no `where` at all")
+            continue
+        gap = provenance_gap(entry[-1])
+        if gap:
+            gaps.append(f"{key}: {gap}")
+    return gaps
+
+
+def test_every_measured_entry_names_where_its_number_came_from():
+    """A number that outlives the module it was measured on is this planner's failure mode.
+
+    `FORWARD_OOM`'s 384 and 512 were two bare tuples under a shared comment. The comment was
+    honest and the entries carried nothing of their own, so when the twin they were measured on
+    was deleted there was nothing to check them against, and `tt-bio finetune` turned users away
+    at the recipe's own crop for two more campaigns. This asks every entry in every table for a
+    source a reader can open.
+    """
+    from tt_bio.train.dryrun import FORWARD_FITS, FORWARD_OOM, TRAINED_TRUNK_BOUND
+
+    for name, table in (("FORWARD_FITS", FORWARD_FITS), ("FORWARD_OOM", FORWARD_OOM),
+                        ("TRAINED_TRUNK_BOUND", TRAINED_TRUNK_BOUND)):
+        assert _provenance_gaps(table) == [], name
+
+    # The negative control, and not optional: FORWARD_OOM is empty today, so the assertion
+    # above passes over it vacuously and would keep passing if the old entries came back. These
+    # are those two entries verbatim, plus the two ways a citation gets faked -- prose that
+    # reads like provenance, and a bare figure.
+    assert _provenance_gaps({384: (4.14, 75_497_472), 512: (7.15, 536_870_912)}) == [
+        "384: no `where` at all", "512: no `where` at all"]
+    assert _provenance_gaps({384: (4.14, 75_497_472, "re-measure on the shipped forward")})
+    assert _provenance_gaps({384: (4.14, 75_497_472, "")})
+    assert _provenance_gaps({256: (34.23, 4_278_190_016, "4278190016 B per bank, 8 banks")})
+    assert _provenance_gaps({384: (0.877, 0, "state/concluded/ptx-crop")}) == []
+    assert _provenance_gaps({384: (0.877, 0, "wk/ptx-crop 9c567b590")}) == []

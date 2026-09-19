@@ -177,24 +177,40 @@ Measured, and each carries its source:
   **10.63 GB, 31.1 %**. It is not, because masters and both Adam moments are host-side.
 - **1.87x on two chips, 93.5 % efficiency**: 8.08 tokens/s on one chip, 15.11 on two, 1350 MHz
   sampled during on both.
+- The **shipped 48-block pairformer forward**, untaped, at the checkpoint's own widths:
+  **0.699 GB at 256 aa, 0.877 GB at 384, 1.055 GB at 512, 1.284 GB at 640, 1.614 GB at 768**,
+  2.0 % to 4.7 % of the card. Measured by `ptx-crop` on qb1 card 1 and re-measured by
+  `train-x-cropunblock` on qb1 card 2 at 256 / 384 / 512, the two runs 16 to 32 KB apart, 1350
+  MHz median sampled during on both.
+- What a **trained trunk retains** under per-block checkpointing: **4.074 GB at 256 aa, 7.762 GB
+  at 384 (22.7 %), 13.047 GB at 512**. Four terms, two read off the allocator on the card (the
+  48 block-boundary pairs, and one block's 38 DRAM intermediates in recompute) and two from the
+  checkpoint's censused parameter counts. The 384 aa pair reproduced byte for byte across the
+  two campaigns: 3,638,034,432 B and 2,283,307,008 B.
 
 Refused rather than estimated:
 
-- **384 aa**: 4.14 GB allocated, 75,497,472 B refused. **512 aa**: 7.15 GB, 536,870,912 B
-  refused. Both measured, both in the forward under per-block checkpointing where the forward
-  is untaped, so what fails is one block's working set. Distribution does not help: 8 chips
-  each run out at 384 aa exactly as one does. A crop re-measure on the shipped forward is
-  scheduled, and until it lands `plan()` refuses instead of extrapolating a slope through two
-  failures.
+- Nothing, today. **384 aa** and **512 aa** used to be refused here on 4.14 GB allocated /
+  75,497,472 B refused and 7.15 GB / 536,870,912 B. Those were measured against a differentiable
+  TWIN of the pair track rather than the shipped module, and the twin has since been deleted.
+  The refused allocation is byte for byte one `[1,384,384,256]` bf16 pair tensor; the shipped
+  forward allocates it and 37 more of the same block's intermediates inside 2.283 GB and peaks
+  at 0.877 GB over all 48 blocks. The wall was the twin, not the card. `FORWARD_OOM` is kept
+  empty rather than deleted, because the mechanism is right and it was the entries that were
+  wrong, and any entry put back now carries its own citation.
 
 `UNMEASURED`, with the reason:
 
-- **Above 256 aa**, and not one of the two measured failure sizes. Activation volume is neither
-  linear nor quadratic in tokens across the triangle operations' chunking thresholds, so
-  interpolating between 256 and 384 would be a guess with a plausible shape.
-- **Anything above a LoRA adapter on a frozen trunk.** The only source for a trained trunk's
-  memory is `perf/hall_grad/DECISION.md`, a feasibility memo whose 27.58 GB and roughly 40
-  engineer-days are projections of work that is not built, and which says so itself.
+- **Above 256 aa.** The forward is measured to fit at every crop up to 768 and says so in the
+  reason; what is missing is the replica's activation term. Activation volume is neither linear
+  nor quadratic in tokens across the triangle operations' chunking thresholds, so scaling the
+  256 aa replica up would be a guess with a plausible shape.
+- **Anything above a LoRA adapter on a frozen trunk**, and for one term rather than the whole
+  arithmetic. Retention is measured, the peak is not: no taped pairformer exists, so the
+  backward's own working set inside the block being recomputed has never been allocated. The
+  27.58 GB in `perf/hall_grad/DECISION.md` is retired rather than corrected. It was a
+  feasibility projection at 800 aa for work that is not built, and it is not the same claim as
+  7.762 GB measured at 384.
 - **A step time on more than two chips.** 1.87x at two chips is the only multi-chip point we
   have, and carrying 93.5 % forward as a per-chip efficiency assumes the host reduce's per-rank
   volume and shard imbalance stay flat in rank count, which is exactly what is unmeasured. Two

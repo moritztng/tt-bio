@@ -938,8 +938,10 @@ end, which ships a training featuriser and reads real structures. **What does no
 models have no training featuriser, so `tt-bio finetune --model protenix-v2` stops with a named
 error at the point it would read your data. Featurisation is per model on purpose, and a model
 registers its own with `tt_bio.train.catalogue.register`. `--train weights` also comes back
-`UNMEASURED` from the dry run: we have measured a frozen trunk's memory and not a trained one's,
-and it will not print a projection shaped like a measurement.
+`UNMEASURED` from the dry run, for one term rather than the whole arithmetic: a trained trunk
+retains a measured 7.762 GB of 34.23 GB at a 384-token crop, and what has never been allocated
+is the backward's own working set, because the taped trunk is not built yet. The dry run prints
+the gigabytes it has and withholds the verdict.
 
 ABodyBuilder3 wants its data staged first: `data.tar.gz` from Zenodo `10.5281/zenodo.11354577`,
 extracted so that `structures/structures/*.pt` sits under the path you pass. Fine-tuning also
@@ -951,8 +953,9 @@ Four things the API enforces rather than documents, because each is a bug we hit
 
 - `plan()` answers from measured numbers or returns `UNMEASURED`. It refuses a crop size whose
   forward is measured to run out of memory instead of estimating one, and it will not report a
-  4-chip step time from a 2-chip measurement. Protenix's own 384-token crop is one of the
-  refusals.
+  4-chip step time from a 2-chip measurement. No crop is refused today. The 384 and 512 token
+  crops were, on an out-of-memory measured against a pair-track copy that no longer exists; the
+  shipped forward peaks at 0.877 GB of the card's 34.23 GB at 384 tokens.
 - The optimizer refuses a bfloat16 master copy of the weights. An update accumulated at
   bfloat16 stops moving the weight while the gradient still looks healthy.
 - `opt.step()` raises if you spread training over several chips and never gave it a way to

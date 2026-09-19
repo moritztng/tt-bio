@@ -162,15 +162,47 @@ def test_tier0_dry_run_opens_no_device():
 
 
 def test_tier0_refuses_a_measured_oom_rather_than_estimating():
+    """A crop measured to fail is refused at Tier 0, with the refused allocation in the output.
+
+    Driven through an injected entry rather than a shipped one, because nothing is refused
+    today: `FORWARD_OOM` used to carry 384 and 512 on a measurement taken against a pair-track
+    twin that no longer exists, and both crops pass on the shipped forward. The mechanism is
+    what this pins, and it outlives whichever sizes happen to be in the table.
+    """
+    from click.testing import CliRunner
+
+    from tt_bio.train import dryrun
+    from tt_bio.train.cli import finetune
+
+    dryrun.FORWARD_OOM[900] = (1.00, 75_497_472, "state/concluded/ptx-crop, for this test")
+    try:
+        res = CliRunner().invoke(finetune, [
+            str(REPO_ROOT), "--model", "protenix-v2", "--out", "/tmp/x",
+            "--global-batch", "8", "--steps", "10", "--tokens", "900", "--dry-run"])
+    finally:
+        del dryrun.FORWARD_OOM[900]
+    assert res.exit_code != 0
+    assert "75,497,472" in res.output, res.output
+
+
+def test_tier0_does_not_refuse_the_recipes_own_crop():
+    """The other half, and the user-facing one: 384 is Protenix's own crop and used to exit 1.
+
+    The shipped 48-block forward peaks at 0.877 GB of 34.23 GB there, measured on qb1 card 1 by
+    `ptx-crop` and re-measured on card 2 by `train-x-cropunblock`. A README that advertises a
+    refusal the code no longer makes and a planner that makes one the card does not are the same
+    defect from two sides, so both are pinned.
+    """
     from click.testing import CliRunner
 
     from tt_bio.train.cli import finetune
 
-    res = CliRunner().invoke(finetune, [
-        str(REPO_ROOT), "--model", "protenix-v2", "--out", "/tmp/x",
-        "--global-batch", "8", "--steps", "10", "--tokens", "384", "--dry-run"])
-    assert res.exit_code != 0
-    assert "75,497,472" in res.output, res.output
+    for tokens in ("384", "512"):
+        res = CliRunner().invoke(finetune, [
+            str(REPO_ROOT), "--model", "protenix-v2", "--out", "/tmp/x",
+            "--global-batch", "8", "--steps", "10", "--tokens", tokens, "--dry-run"])
+        assert res.exit_code == 0, res.output
+        assert "refus" not in res.output.lower(), res.output
 
 
 def test_tier0_recipe_names_match_the_recipes_module():
@@ -472,9 +504,11 @@ def test_invariant_plan_returns_unmeasured_rather_than_guessing():
     assert fits.verdict == "fits" and abs(fits.replica_gb - 5.06) < 1e-9
     assert abs(fits.occupancy - 0.1478) < 5e-4
 
-    # a measured OOM is a refusal, not an extrapolation
-    assert plan(tokens=384, chips=1).verdict == "refused"
-    assert plan(tokens=512, chips=1).verdict == "refused"
+    # 384 and 512 were refused here on a twin's OOM. The shipped forward fits at both, so the
+    # answer is UNMEASURED and it names the measured forward peak rather than a refusal.
+    for tokens, peak in ((384, "0.877 GB"), (512, "1.055 GB")):
+        p384 = plan(tokens=tokens, chips=1)
+        assert p384.verdict == UNMEASURED and peak in p384.why
 
     # above the measured crop, and above a LoRA adapter, it says so
     assert plan(tokens=768, chips=1).verdict == UNMEASURED
