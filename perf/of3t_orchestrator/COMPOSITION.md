@@ -85,21 +85,36 @@ per-parameter gradient check cannot be replaced by a longer run.
 
 ## What a reviewer of this branch must not conclude from it
 
-**This branch does not yet train OpenFold3, and the gap is easy to misread.** As of 2026-09-19
-the tape routes **11003 / 11003** calls on the OF3 trunk and the taped backward completes without
-error, but `of3t-equivalence` measured on qb1 card 3 that **0 of TriangleMultiplication's 8
-weights is an autograd leaf** — the backward returns, the input gets a gradient, and no parameter
-does. The same construction sits at every triangle multiplication in the trunk, the MSA stack and
-the template stack.
+**This branch does not train OpenFold3 yet, and it is easy to read the numbers as though it
+does.** As of 2026-09-19 the tape routes **11003 / 11003** calls on the OF3 trunk and the taped
+backward completes without error — but call routing and parameter reachability are different
+things, and **2314 of 2531** reachable weights carry a gradient, 91.4 %. The 217 that do not are
+named: 208 are pre-fused projections that are unused by construction while a tape is open, and
+**9 `PairWeightedAveraging` weights are unexplained and open**. Before `of3t-tape`'s
+`3aef07969`, **0 of TriangleMultiplication's 8 weights was an autograd leaf** — the backward
+returned, the input got a gradient, and no parameter did.
 
-The two headline numbers mean different things and neither substitutes for the other:
-**11003/11003 is call routing; 0 of 8 is parameter reachability.** Quote both or neither. The fix
-is assigned to `of3t-tape`; the root cause is in `Module.__init__`'s `torch_to_tt` (weights
-arrive as raw handles, so the tape sees constants) and in `lora.weights_for` (it discovers only
-sites routing through `tt_bio.ops.linear`, which `tenstorrent.py` calls at 4 sites in 12k lines).
+**Report leaves against total, never leaves alone.** 2119 looked healthy; 2119 of 2531 was
+actionable. A count with no denominator is how that survived a 100 %-call-routing result.
 
-**Report leaves against total, never leaves alone.** A count with no denominator is how this
-stayed invisible underneath a 100 %-coverage result.
+What is verified, and at what scope — the full table is `~/.coworker/state/of3t/EVIDENCE.md`:
+
+- **Whole domain, exact**: the LR schedule, 109,005 comparisons over four configs, 0 mismatches,
+  plus a 100,002-step guard confirming the Protenix path stayed bit-identical.
+- **200 steps, no model**: the optimizer under injected gradients, worst relative 2.738e-07
+  against a 1e-06 bar.
+- **Module scope only**: gradients against finite-difference-validated float64 references
+  (8.71e-03 to 2.00e-02), and a 20-step trajectory whose divergence *decays*, exponent -0.465.
+- **Not run at all**: the whole-model per-parameter comparison, the whole-model trajectory,
+  coverage, their own training test, and any s/step figure at any clock.
+
+Two otherwise-finished instruments have an untouched half, and one of them is a missing feature
+rather than a missing measurement: **there is no EMA anywhere in `tt_bio/train/`**, while
+upstream updates one every optimizer step, and our clipping is global-norm where their shipped
+default is per-sample.
+
+**The honest status: the state-free half of OpenFold3's update rule is verified, and the
+model-dependent half is verified only on single modules.**
 
 ## Defect found by composing, and it is not a merge artifact
 
