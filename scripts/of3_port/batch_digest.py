@@ -91,28 +91,53 @@ def sample_digest(sample: dict) -> tuple[str, list[tuple[str, str, str]]]:
     return h.hexdigest(), rows
 
 
-def build_dataset(pkg: str, data_dir: Path, n_templates: int, token_budget: int | None = None):
-    """Instantiate their ValidationPDBDataset over the pinned subset."""
-    validation = importlib.import_module(f"{pkg}.core.data.framework.single_datasets.validation")
+# The loss-weight overrides each stage applies to its `weighted-pdb` dataset, read off
+# their yamls by stage_loss_coverage.py. initial_training leaves the defaults alone;
+# the finetunes raise `bond` and drop `smooth_lddt`; finetune_3 is confidence-only.
+STAGE_LOSS_OVERRIDES = {
+    "initial_training": {},
+    "finetune_1": {"bond": 4.0, "smooth_lddt": 0.0},
+    "finetune_2": {"bond": 4.0, "smooth_lddt": 0.0},
+    "finetune_3": {"mse": 0.0, "distogram": 0.0, "smooth_lddt": 0.0, "pae": 1e-4},
+}
+STAGE_CROP = {"initial_training": 384, "finetune_1": 640, "finetune_2": 768, "finetune_3": 768}
+
+
+def build_dataset(pkg: str, data_dir: Path, n_templates: int,
+                  token_budget: int | None = None, split: str = "val",
+                  stage: str | None = None):
+    """Instantiate their dataset over the corpus `build_of3_subset.py` fetched.
+
+    `val` gives ValidationPDBDataset over the 4 pinned path-diverse structures;
+    `train` gives WeightedPDBDataset over the 8-structure sample, which is the class
+    the (stage, dataset) pairs in `stage_loss_coverage.py` actually name and the only
+    one cropping is reachable from.
+    """
+    mod = "pdb" if split == "train" else "validation"
+    single = importlib.import_module(f"{pkg}.core.data.framework.single_datasets.{mod}")
     dataset_configs = importlib.import_module(f"{pkg}.projects.of3_all_atom.config.dataset_configs")
 
     root = data_dir / "pdb_training_set"
     std = root / "preprocessed_pdb_data" / "standard"
-    cache = data_dir / "validation_cache_with_templates_subset_4.json"
+    if split == "train":
+        cache = data_dir / "training_cache_with_templates_subset_8.json"
+        tmpl_sub, cls_name, ds_name = "train_template_cache", "WeightedPDBDataset", "weighted-pdb"
+    else:
+        cache = data_dir / "validation_cache_with_templates_subset_4.json"
+        tmpl_sub, cls_name, ds_name = "val_template_cache", "ValidationPDBDataset", "val-weighted-pdb"
     if not cache.is_file():
-        raise SystemExit(f"missing {cache} -- run build_of3_subset.py first")
+        raise SystemExit(f"missing {cache} -- run build_of3_subset.py --split {split} first")
 
-    # Mirrors upstream pdb_subset_helpers._dataset_paths_entry + the "validation"
-    # entry of build_runner_yaml_config, which is what their own training test uses.
-    # Exactly one alignment path may be set and exactly one template path, so the
-    # "none" strings upstream writes into its yaml are passed as None here.
+    # Mirrors upstream pdb_subset_helpers._dataset_paths_entry + build_runner_yaml_config.
+    # Exactly one alignment path may be set and exactly one template path, so the "none"
+    # strings upstream writes into its yaml are passed as None here.
     paths = {
         "dataset_cache_file": str(cache),
         "alignment_array_directory": str(root / "alignment_arrays"),
         "target_structures_directory": str(std / "structure_files"),
         "target_structure_file_format": "npz",
         "reference_molecule_directory": str(std / "reference_mols"),
-        "template_cache_directory": str(root / "templates" / "val_template_cache"),
+        "template_cache_directory": str(root / "templates" / tmpl_sub),
         "template_structure_array_directory": str(root / "templates" / "template_structure_arrays"),
         "template_file_format": "npz",
     }
@@ -120,46 +145,52 @@ def build_dataset(pkg: str, data_dir: Path, n_templates: int, token_budget: int 
     # names (`ValidationPDBConfig`, ...) are all bound to None at module level and the
     # registry is the only way to reach them. Upstream defect; worked around, not fixed
     # here, so the vendored file stays byte-identical to theirs.
-    config_cls = dataset_configs.DATASET_CONFIG_REGISTRY.get("ValidationPDBDataset")
-    cfg = config_cls(
-        name="val-weighted-pdb",
+    config_cls = dataset_configs.DATASET_CONFIG_REGISTRY.get(cls_name)
+
+    if token_budget is None:
+        crop = {"token_crop": {"enabled": False}}
+    else:
+        # The stage configs crop to 384 (initial_training), 640 (finetune_1) and
+        # 768 (finetune_2, finetune_3). Cropping is the stochastic step the seed has
+        # to control, so it is worth digesting on its own.
+        crop = {
+            "token_crop": {
+                "enabled": True,
+                "token_budget": token_budget,
+                "crop_weights": {"contiguous": 0.2, "spatial": 0.4, "spatial_interface": 0.4},
+            },
+            "chain_crop": {"enabled": True},
+        }
+    kwargs = dict(
+        name=ds_name,
         debug_mode=True,
-        sample_in_order=True,
         dataset_paths=dataset_configs.TrainingDatasetPaths(**paths),
-        msa={"subsample_main": False},
-        template={"n_templates": n_templates, "take_top_k": True},
-        crop=(
-            {"token_crop": {"enabled": False}}
-            if token_budget is None
-            # The training stages crop to 384 / 640 / 768. Cropping is the stochastic
-            # step the seed has to control, so it is worth digesting on its own.
-            else {
-                "token_crop": {
-                    "enabled": True,
-                    "token_budget": token_budget,
-                    "crop_weights": {
-                        "contiguous": 0.2,
-                        "spatial": 0.4,
-                        "spatial_interface": 0.4,
-                    },
-                },
-                "chain_crop": {"enabled": True},
-            }
-        ),
+        template={"n_templates": n_templates, "take_top_k": split != "train"},
+        crop=crop,
     )
-    return validation.ValidationPDBDataset(cfg)
+    if split == "train":
+        # WeightedPDBDataset walks a datapoint cache of chains and interfaces; ordering
+        # it makes the digest a property of the corpus rather than of a draw.
+        kwargs["sample_in_order"] = True
+        if stage:
+            kwargs["loss"] = {"loss_weights": STAGE_LOSS_OVERRIDES[stage]}
+    else:
+        kwargs["sample_in_order"] = True
+        kwargs["msa"] = {"subsample_main": False}
+    cfg = config_cls(**kwargs)
+    return getattr(single, cls_name)(cfg)
 
 
 def install_retry_guard(ds) -> dict:
     """Make their silent sample-substitution visible.
 
-    `ValidationPDBDataset.__getitem__` catches every exception, logs a warning and
-    returns `self.__getitem__(random.randint(0, len(self)-1))`. A sample that fails
-    to featurize is therefore replaced by a RANDOM other one, and the caller is never
+    Both dataset classes catch every exception in `__getitem__`, log a warning and
+    return `self.__getitem__(random.randint(0, len(self)-1))`. A sample that fails to
+    featurize is therefore replaced by a RANDOM other one, and the caller is never
     told. For a digest that is the worst possible failure: the run still completes and
     still reproduces (the retry draws from the seeded global RNG), so a corrupt batch
-    looks exactly like a clean one. This counts the re-entries so the run can refuse
-    to report a digest that is not the batch it claims to be.
+    looks exactly like a clean one. This counts the re-entries so the run can refuse to
+    report a digest that is not the batch it claims to be.
     """
     cls = type(ds)
     state = {"depth": 0, "retries": 0}
@@ -183,6 +214,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--data-dir", type=Path, required=True)
     ap.add_argument("--package", default=DEFAULT_PKG)
+    ap.add_argument("--split", choices=("val", "train"), default="val")
+    ap.add_argument("--stage", choices=tuple(STAGE_LOSS_OVERRIDES), default=None,
+                    help="Apply that stage's weighted-pdb loss overrides and crop.")
     ap.add_argument("--n", type=int, default=4, help="Samples to draw (default: all 4).")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--n-templates", type=int, default=4)
@@ -193,12 +227,17 @@ def main() -> int:
     args = ap.parse_args()
 
     seed_everything(args.seed)
-    ds = build_dataset(args.package, args.data_dir, args.n_templates, args.token_budget)
-    print(f"package {args.package}   dataset {type(ds).__name__}   len {len(ds)}   seed {args.seed}")
+    if args.stage and args.token_budget is None:
+        args.token_budget = STAGE_CROP[args.stage]
+    ds = build_dataset(args.package, args.data_dir, args.n_templates, args.token_budget,
+                       args.split, args.stage)
+    print(f"package {args.package}   dataset {type(ds).__name__}   len {len(ds)}   "
+          f"seed {args.seed}" + (f"   stage {args.stage} crop {args.token_budget}" if args.stage else ""))
 
     guard = install_retry_guard(ds)
     overall = hashlib.sha256()
-    out = {"package": args.package, "seed": args.seed, "samples": []}
+    out = {"package": args.package, "split": args.split, "seed": args.seed,
+           "token_budget": args.token_budget, "samples": []}
     for i in range(min(args.n, len(ds))):
         seed_everything(args.seed + i)
         sample = ds[i]
