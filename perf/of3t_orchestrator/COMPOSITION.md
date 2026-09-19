@@ -159,6 +159,30 @@ Also worth a reviewer's eye rather than a fix: the vendored tree is now **mixed-
 rather than hiding it, which is the right call, but a mixed vendor is a provenance hazard and
 `scripts/of3_port/audit_vendor_provenance.py` is what has to keep it honest.
 
+## How this branch sits against the other unmerged work
+
+Checked by trial merge rather than by intersecting file lists, because the file-list method got
+it wrong (see below). Against the TRAIN campaign's branches:
+
+- `wk/of3t` touches **205** files, the TRAIN branches **126** between them, and the intersection
+  is exactly one: **`docs/training.md`**. No TRAIN branch touches `tt_bio/train/optim.py`.
+- A trial merge of `wk/train-i-run` nevertheless conflicts on **three** files —
+  `README.md`, `docs/training.md`, `tt_bio/train/cli.py`. **Two of those have nothing to do with
+  this branch**: `wk/of3t` touches `README.md` and `cli.py` zero times. `wk/train-i-run` bases at
+  `350773d09`, an older main, and main itself has since committed 4 times to `README.md` and
+  once to `cli.py`.
+
+**So merging this branch does not make the TRAIN branches harder to merge.** They are stale
+against main and will need reconciling with it whichever order the gate takes. The only genuine
+overlap with this campaign is one documentation file.
+
+A method note worth carrying: `git diff --name-only origin/main...X` per branch, then intersect,
+predicted one conflict where a trial merge produced three. Three-dot diff is computed against
+each branch's **own** merge base, so for a branch based on an older main it silently omits
+everything main changed since. **Check the merge bases before intersecting file lists, and
+prefer a trial merge in a throwaway worktree when the answer matters** — it costs seconds and
+cannot be wrong about what git will do.
+
 ## Recomposing
 
 The row branches move. Recompose from `origin/main` rather than merging into a stale `wk/of3t`,
