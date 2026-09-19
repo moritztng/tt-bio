@@ -37,5 +37,5 @@ DEADLINE=$(cat "$DEADLINE_F")
 
 # -n: if a waiter is already live, this tick is a no-op. Never two waiters on one card.
 exec flock -n /tmp/c14_land_waiter.lock \
-  env DEADLINE="$DEADLINE" CARD="${CARD:-1}" \
+  env DEADLINE="$DEADLINE" CARD="${CARD:-1}" QUEUE="${QUEUE:-TT_BIO_APB_CONCAT_HEADS:apb2}" \
   bash "$WT/perf/c14_land/take_when_admissible.sh" >>"$LOG" 2>&1

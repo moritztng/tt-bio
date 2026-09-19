@@ -60,7 +60,7 @@ MAXLOAD=${MAXLOAD:-8.0}
 DEADLINE=${DEADLINE:-$(( $(date +%s) + 28800 ))}
 cd "$WT" || exit 1
 G=perf/c14_land/pair_channel_quiet.py
-QUEUE="TT_BIO_APB_CONCAT_HEADS:apb2"
+QUEUE=${QUEUE:-"TT_BIO_APB_CONCAT_HEADS:apb2"}
 FOLDS=${FOLDS:-12}
 BLOCKS=${BLOCKS:-12}
 
