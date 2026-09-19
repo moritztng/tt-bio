@@ -268,6 +268,37 @@ echo "--- audit_evidence"
 ( cd "$CO" && "$PY" perf/of3t_orchestrator/audit_evidence.py 2>&1 | tail -6 ) || \
   { echo "SCOREBOARD DRIFT -- state/of3t/EVIDENCE.md disagrees with the artifacts"; exit 1; }
 
+# (5c) WILL IT MERGE? The composition is built by merging rows into a branch based on
+# `origin/main`, which makes it *likely* to merge back cleanly and proves nothing. Main moves
+# under us -- a `.gitignore` conflict already stopped one compose -- and the gate's question is
+# not "did the rows compose" but "will this land". A trial merge in a throwaway worktree costs
+# seconds and cannot be wrong about what git will do; every other way of answering can.
+# `rm -rf` leaves git's worktree metadata behind, so a second run's `add` fails on a path that
+# looks absent -- and the first version of this check swallowed that failure and printed
+# NOTHING, which is the silently-skipped shape this compose exists to catch. Prune first, and
+# say so if the add still fails.
+rm -rf "$SLUG_TMP/mergetest"; git worktree prune
+if ! git worktree add -q --detach "$SLUG_TMP/mergetest" origin/main 2>/dev/null; then
+  echo "  NOTE merge gate did NOT run: could not create the trial worktree. Unproven, not clean."
+else
+  if git -C "$SLUG_TMP/mergetest" merge --no-commit --no-ff "$(git -C "$CO" rev-parse HEAD)" \
+       >/dev/null 2>&1; then
+    if git merge-base --is-ancestor origin/main "$(git -C "$CO" rev-parse HEAD)"; then
+      echo "merge gate: clean, and the composition is a DESCENDANT of origin/main (fast-forwardable)"
+    else
+      echo "merge gate: clean (a real merge, not a fast-forward)"
+    fi
+  else
+    echo "MERGE GATE: wk/of3t does NOT merge cleanly into origin/main. Conflicted:"
+    git -C "$SLUG_TMP/mergetest" diff --name-only --diff-filter=U | sed 's/^/  /'
+    git -C "$SLUG_TMP/mergetest" merge --abort 2>/dev/null || true
+    git worktree remove --force "$SLUG_TMP/mergetest" 2>/dev/null || true
+    exit 1
+  fi
+  git -C "$SLUG_TMP/mergetest" merge --abort 2>/dev/null || true
+  git worktree remove --force "$SLUG_TMP/mergetest" 2>/dev/null || true
+fi
+
 # (6) REGENERATE COMPOSITION.md's data. Everything above is computed; the table in that file
 # was TYPED, once, at pass 6 -- and by pass 57 it still said "the six row branches" and listed
 # `of3t-confidence` as "dispatched, no branch yet", on the file a reviewer of `wk/of3t` opens
