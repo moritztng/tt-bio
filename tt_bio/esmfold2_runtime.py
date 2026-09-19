@@ -41,7 +41,8 @@ import torch.nn.functional as F
 from tt_bio import esmfold2 as E
 from tt_bio.token_axis import pad_amount
 from tt_bio.esmc import ESMCLanguageModel
-from tt_bio.tenstorrent import dram_peak, is_wormhole
+from tt_bio.tenstorrent import (RESIDENT_LM_MSA_AREA_MAX, dram_peak,
+                                is_wormhole)
 
 
 # The ESMFold2 host-side reference (featurization + mmCIF assembly) and the
@@ -655,6 +656,23 @@ def build_spi(chains):
     return StructurePredictionInput(sequences=[_entry(c) for c in chains])
 
 
+def _msa_encoder_area(chains) -> int:
+    """``tokens * MSA depth`` for this fold, 0 when no chain carries an alignment.
+
+    This is the area that sizes the MSA encoder's [B, L, M, 128] state, which is what
+    decides whether the language model can stay resident beside it. Residues stand in for
+    tokens: a ligand adds one token per heavy atom and the axis pads to a multiple of 32,
+    so this is a floor, and a floor is the safe direction -- underestimating keeps the LM
+    resident, which is exactly today's behaviour. Depth is the deepest chain alignment;
+    ``construct_paired_msa`` merges the chains under the same ``--max_msa_seqs`` cap, so no
+    chain's depth exceeds it and neither does the merged one.
+    """
+    depth = max((c[2].depth for c in chains if len(c) > 2 and c[2] is not None), default=0)
+    if not depth:
+        return 0
+    return sum(len(c[1]) for c in chains if (len(c) <= 3 or c[3] != "ligand")) * depth
+
+
 def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
                  num_diffusion_samples=1, seed=0, return_all=False):
     """Fold one (possibly multi-chain) complex on an already-patched model.
@@ -682,18 +700,26 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     from tt_bio._vendor.esm.models.esmfold2 import ESMFold2InputBuilder
 
     spi = build_spi(chains)
-    # A 12 GiB Wormhole chip cannot hold the resident block-fp8 ESMC-6B (6.29 GiB)
-    # plus the MSA encoder's [1, L, M, d] activation, which is 1.0 GiB at 128 aa for
-    # the default M=8192 and grows with L: every MSA fold died in the encoder with
-    # ~70 MiB of contiguous DRAM left. Release the language model after its single
-    # forward (it runs once per fold, outside the recycling loop) and pay one reload.
-    # Bit-exact: same weights, same dtype, same order, only the device buffers move.
-    # Blackhole (32 GB), the single-sequence path and ESMFold2-Fast (no MSA encoder)
-    # all keep the LM resident and run byte-identically to before.
+    # The language model and the MSA encoder's [1, L, M, d] state do not both fit once
+    # that state gets large enough, and the encoder dies with a few hundred MiB of
+    # CONTIGUOUS DRAM left while plenty is free -- fragmentation, not a full chip. The
+    # LM runs once per fold, outside the recycling loop, so releasing it after that
+    # single forward costs one reload and nothing per cycle. Bit-exact: same weights,
+    # same dtype, same order, only the device buffers move.
+    #
+    # A 12 GiB Wormhole chip cannot hold the block-fp8 ESMC-6B (6.29 GiB) alongside the
+    # encoder at ANY size -- every MSA fold there died with ~70 MiB contiguous left --
+    # so Wormhole releases unconditionally. Blackhole is a size question rather than a
+    # board one: 1024 tokens x depth 8192 (a 2.0 GiB state) folds with the 12.3 GiB LM
+    # resident, 1536 x 8192 (3.0 GiB) is refused at 384 MiB per bank against a 189 MiB
+    # largest free block. That boundary is RESIDENT_LM_MSA_AREA_MAX, so every size that
+    # folds today keeps the LM resident and runs byte-identically to before. The
+    # single-sequence path and ESMFold2-Fast (no MSA encoder) never release.
     esmc = getattr(model, "_esmc", None)
+    msa_area = _msa_encoder_area(chains)
     release_lm = (esmc is not None and getattr(esmc, "_persistent", False)
-                  and any(len(c) > 2 and c[2] is not None for c in chains)
-                  and is_wormhole())
+                  and msa_area > 0
+                  and (is_wormhole() or msa_area > RESIDENT_LM_MSA_AREA_MAX))
     if release_lm:
         esmc._persistent = False
     try:

@@ -1,0 +1,15 @@
+
+1 failed:
+  ✗ e2_1536: out of device DRAM: 3.00 GiB was requested, needing 384.0 MiB per DRAM bank. 723.9 MiB is free but the largest single free block is 189.4 MiB, so the room exists and cannot be handed over in one piece: this is fragmentation, not a full chip.
+      TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+      info:
+      Out of Memory: Not enough space to allocate 3221225472 B DRAM buffer across 8 banks, where each bank needs to store 402653184 B, but bank size is 4278190016 B (allocated: 3519170560 B, free: 759019456 B, largest free block: 198596544 B)
+      backtrace:
+       --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x7393fbcd2697]
+       --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)
+       --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)
+       --- tt::tt_metal::Buffer::allocate_impl()
+       --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt: ... aea4]
+       --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0xbb) [0x5f37f8cc683b]
+       --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x28e9) [0x5f37f8ca4ee9]
+       --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x198c01) [0x5f37f8cc5c01]

@@ -5031,6 +5031,17 @@ def msa_row_tile(L: int, M: int) -> int:
 WORMHOLE_MSA_AREA = 640 * 8192
 
 
+#: The largest MSA-encoder state a chip is MEASURED to allocate with the ESMC-6B language
+#: model still resident, as the area L*M. The state is [B, L, M, 128] bf16, so 256*L*M bytes:
+#: 2.0 GiB at 1024 tokens x the shipped depth 8192, which folds on a p150a, and 3.0 GiB at
+#: 1536 x 8192, which is refused -- 384 MiB per bank against a 189 MiB largest free block,
+#: with 724 MiB per bank free, so the room exists and cannot be handed over in one piece.
+#: Above this, `fold_complex` releases the language model after its single forward, which is
+#: the trade Wormhole already makes unconditionally (`msa_depth_cap` holds L*M to 640*8192
+#: there and a 12 GiB chip still cannot hold both).
+RESIDENT_LM_MSA_AREA_MAX = 1024 * 8192
+
+
 def msa_depth_cap(num_residues: int, max_sequences: int) -> int:
     """MSA depth to actually use for an ESMFold2 fold of this many residues.
 
