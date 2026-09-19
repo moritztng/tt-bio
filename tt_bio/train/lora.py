@@ -35,7 +35,7 @@ from .. import ops
 from .tensors import to_device
 
 __all__ = ["LoraConfig", "LoraSite", "lora_factors", "lora_factors_for", "lora_linear",
-           "census", "select", "attach"]
+           "census", "select", "attach", "weights_for", "trainable", "Parameters"]
 
 
 @dataclass
@@ -297,15 +297,31 @@ def lora_factors_for(forward, cfg: LoraConfig, device, *args, dtype=ttnn.bfloat1
 
 
 @contextmanager
-def attach(factors: Dict[str, Tuple[ag.Tensor, ag.Tensor]], cfg: LoraConfig):
-    """Install the adapters for the duration of the block, composing over the current hook.
+def attach(installed, cfg: Optional[LoraConfig] = None):
+    """Install what this run trains, for the duration of the block, over the current hook.
 
-    The delegation is the load-bearing part. At a site with no adapter this hands the call to
-    whatever hook was already installed -- ``tt_bio.autograd``'s tape, normally -- so the
-    trunk downstream of the first adapter stays taped and the gradient reaches the adapters in
-    the early layers. Declining instead would run those sites untaped and train only whatever
-    sits after the last adapter, with no error and a loss curve that still falls.
+    Takes what :func:`trainable` returned, and which of the two it is comes from ``cfg``:
+    ``None`` means ``installed`` is the model's own weights and each site gets a taped view of
+    its own; a :class:`LoraConfig` means ``installed`` is ``{site: (A, B)}`` and each site gets
+    a factor pair added beside a weight that does not move.
+
+    The delegation is the load-bearing part in both modes. At a site this run does not train,
+    the call goes to whatever hook was already installed -- ``tt_bio.autograd``'s tape,
+    normally -- so the trunk downstream of the first trained site stays taped and the gradient
+    reaches the sites in the early layers. Declining instead would run those sites untaped and
+    train only whatever sits after the last one, with no error and a loss curve that still
+    falls.
     """
+    if cfg is None:
+        prev = ops.grad_hook()
+        ops.set_grad_hook(_Substitute(installed, prev, frozen=True))
+        try:
+            yield installed
+        finally:
+            ops.set_grad_hook(prev)
+        return
+
+    factors = installed
     scaling = cfg.scaling
 
     class _Adapter:
@@ -348,3 +364,191 @@ def attach(factors: Dict[str, Tuple[ag.Tensor, ag.Tensor]], cfg: LoraConfig):
         yield factors
     finally:
         ops.set_grad_hook(prev)
+
+
+# ------------------------------------------------- the model's own weights, same sites
+#
+# Full-weight training and LoRA differ in exactly ONE thing: what the optimizer owns. So they
+# share the census, the loop, the optimizer, the checkpointer and the data-parallel axis, and
+# the difference reaches a user as one argument (`lora=None`) rather than as a second recipe.
+# `trainable()` below is the single call the recipe makes, and it is why the Tier-1 body is
+# byte-identical for a LoRA fine-tune and a full pre-training run.
+
+
+class Parameters(dict):
+    """``{name: Tensor}``, plus which weight each name was discovered on.
+
+    A plain dict everywhere it is consumed -- the optimizer, the checkpointer and the
+    provenance all take it as one -- with the discovery's ``(site, id(weight)) -> name`` map
+    carried alongside. That map is what lets :func:`attach` tell a weight it has seen from one
+    it has not, and a forward that re-uploads its weights is exactly a forward whose weights
+    are never the ones discovery saw. Rebuilding the map from the names would not work: the
+    names are a deterministic function of call order, so a re-uploading forward mints the
+    SAME names for different tensors and looks identical.
+
+    A hand-built plain dict is still accepted by ``attach``; it simply has no map to check
+    against, so the re-upload check is skipped rather than failing on an honest Tier-2 user.
+    """
+
+    __slots__ = ("origin",)
+
+    def __init__(self, *args, origin=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.origin = {} if origin is None else origin
+
+
+class _Substitute:
+    """A grad hook that replaces each selected site's weight with a taped parameter.
+
+    LoRA adds a factor pair beside the weight and leaves the weight alone. This hands the
+    forward a taped view OF the weight, so ``autograd._taped_linear`` accumulates into it and
+    ``AdamW.step`` writes the updated value back into ``t.value``, which is what the next
+    forward then reads.
+
+    The weight the model passes is IGNORED after the first sighting of it. It has to be: the
+    optimizer replaces ``t.value`` with a new device tensor every step, while the model's own
+    cache still holds the tensor it uploaded once. Reading the passed weight would train a
+    parameter nobody reads and leave the forward on the checkpoint's weights for the whole
+    run, with a falling loss curve and no error anywhere.
+
+    Names are minted per ``(site, distinct weight)`` and not per site, which is the difference
+    from the LoRA hook and is not a detail. ``_site_name`` is ``file:line:qualname``, so a
+    48-block trunk whose blocks run the same line collapses to ONE site name carrying 48
+    DIFFERENT weights. One adapter every block reads is a modelling choice; training block 0's
+    weight and applying it to all 48 is not a choice, it is wrong.
+    """
+
+    def __init__(self, params: Dict[str, ag.Tensor], base=None, *,
+                 targets: Tuple[str, ...] = (), frozen: bool = False):
+        self.params = params
+        self.base = base
+        self.targets = tuple(targets)
+        # True once the parameter set is the optimizer's. A weight discovery never saw is then
+        # a forward re-uploading its weights, which would train tensors it never reads again --
+        # gradients real, optimizer stepping, model not moving.
+        self.frozen = frozen
+        self._key: Dict[Tuple[str, int], str] = dict(getattr(params, "origin", None) or {})
+        self._checked = bool(self._key)
+
+    def _name(self, site: str, w) -> str:
+        """This weight's parameter name. ``site`` bare, then ``site#1``, ``site#2``, ...
+
+        Numbered by first appearance within a forward, which is deterministic for a given
+        program: every data-parallel rank walks the same blocks in the same order off the same
+        checkpoint, so rank 3's ``site#17`` is rank 0's ``site#17``.
+        """
+        k = (site, id(w))
+        name = self._key.get(k)
+        if name is None:
+            if self._checked:
+                # The map came from discovery and this tensor is not in it. The forward did
+                # not keep the weights it was discovered on.
+                raise ValueError(
+                    f"site {site} was reached with a weight discovery never saw, so this "
+                    f"forward does not hold its device weights between calls. Full-weight "
+                    f"training needs weights uploaded once and reused: against a re-uploading "
+                    f"forward the optimizer owns tensors the forward never reads again, and "
+                    f"the run looks healthy while the model stands still. Cache the weights, "
+                    f"or train adapters, which are held by the run rather than by the model")
+            n = sum(1 for (s, _) in self._key if s == site)
+            name = site if n == 0 else f"{site}#{n}"
+            self._key[k] = name
+        return name
+
+    def _param(self, name: str, w) -> ag.Tensor:
+        t = self.params.get(name)
+        if t is None:
+            if self.frozen:
+                raise ValueError(f"{name!r} is not one of the parameters this run trains; "
+                                 f"the forward changed between discovery and the loop")
+            t = self.params[name] = ag.Tensor(w, requires_grad=True)
+        elif tuple(t.value.shape) != tuple(w.shape):
+            raise ValueError(f"{name!r} was discovered at {tuple(t.value.shape)} and reached "
+                             f"again at {tuple(w.shape)}; one name cannot be two weights")
+        return t
+
+    def _delegate(self, name, shipped, args, kwargs):
+        """Hand the call to whatever hook was installed under us.
+
+        Delegation rather than a call to ``shipped``, for the reason ``attach`` delegates: the
+        hook below is the tape, and it is what knows the backward. Declining instead would run
+        the substituted site untaped -- a parameter the optimizer owns that no gradient ever
+        reaches.
+        """
+        return None if self.base is None else self.base(name, shipped, args, kwargs)
+
+    def __call__(self, name, shipped, args, kwargs):
+        if name != "linear":
+            return self._delegate(name, shipped, args, kwargs)
+        site = _site_name()
+        if self.targets and not any(re.search(p, site) for p in self.targets):
+            return self._delegate(name, shipped, args, kwargs)
+        _, w, _ = _linear_operands(args, kwargs)
+        if isinstance(w, ag.Tensor):        # already a parameter; nothing to substitute
+            return self._delegate(name, shipped, args, kwargs)
+        t = self._param(self._name(site, w), w)
+        # The weight slot, however the caller spelled it. Every shipped site passes it
+        # positionally, but binding by position alone would silently skip a keyword caller and
+        # train a parameter the forward never reads.
+        if len(args) >= 2:
+            args = tuple(t if i == 1 else a for i, a in enumerate(args))
+        elif "w" in kwargs:
+            kwargs = {**kwargs, "w": t}
+        else:
+            raise TypeError(f"site {site} called ops.linear with no weight argument to "
+                            f"substitute; args={len(args)}, kwargs={sorted(kwargs)}")
+        return self._delegate(name, shipped, args, kwargs)
+
+
+def weights_for(forward, cfg: Optional[LoraConfig], *args, **kwargs) -> Dict[str, ag.Tensor]:
+    """The model's OWN weights at the adaptable sites, as taped parameters.
+
+    One forward under a collecting hook -- the same one forward ``lora_factors_for`` spends on
+    its census, and for the same reason: the parameter set comes from the model rather than
+    from a list somebody maintains by hand. ``cfg.targets`` selects and an empty ``targets``
+    takes every site; ``cfg=None`` is every site with no LoRA config to read.
+
+    No seed argument, and that asymmetry with ``lora_factors_for`` is the point. A LoRA factor
+    is INITIALISED here, so an unseeded init means two ranks train different models. A weight
+    is not initialised here at all -- it comes off the checkpoint every rank loaded -- so
+    there is no randomness to pin and a seed parameter would imply one.
+    """
+    params = Parameters()
+    prev = ops.grad_hook()
+    hook = _Substitute(params, prev, targets=tuple(cfg.targets) if cfg else ())
+    ops.set_grad_hook(hook)
+    try:
+        with ag.no_grad():
+            forward(*args, **kwargs)
+    finally:
+        ops.set_grad_hook(prev)
+    params.origin = hook._key
+    if not params:
+        raise ValueError(
+            "the census found no adaptable linear site. Either the forward does not route "
+            "through tt_bio.ops.linear -- in which case it is not trainable without routing "
+            "it, which is attach work and not a config change -- or it was not actually "
+            "called")
+    return params
+
+
+def trainable(forward, cfg: Optional[LoraConfig], device, *args, rng=None, **kwargs):
+    """What this run trains, from one discovery forward. ``(installed, params)``.
+
+    The whole of the LoRA / full-weight choice, in one call, so the Tier-1 body does not
+    branch on it and the two runs are demonstrably the same program:
+
+    * ``cfg`` a :class:`LoraConfig` -- ``installed`` is ``{site: (A, B)}`` and ``params`` is
+      those factors under ``site.A`` / ``site.B`` names. The trunk is frozen.
+    * ``cfg`` ``None`` -- ``installed`` and ``params`` are both the model's own weights at
+      those same sites. Nothing is frozen, and this is what a pre-training run passes.
+
+    Hand ``installed`` to :func:`attach` and ``params`` to the optimizer, in that order.
+    """
+    if cfg is None:
+        params = weights_for(forward, None, *args, **kwargs)
+        return params, params
+    factors = lora_factors_for(forward, cfg, device, *args, rng=rng, **kwargs)
+    return factors, {f"{site}.{which}": t
+                     for site, pair in factors.items()
+                     for which, t in zip(("A", "B"), pair)}
