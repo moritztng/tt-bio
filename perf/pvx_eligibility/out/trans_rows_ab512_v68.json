@@ -1,0 +1,22 @@
+{
+ "model": "protenix-v2",
+ "size": 512,
+ "host": "tt-quietbox",
+ "chip": "2",
+ "board": "p150a",
+ "shipped_max_c": 128,
+ "on_max_c": 256,
+ "arms_order": "off,on,off,on,off,on",
+ "started_utc": "2026-09-19T16:06:53Z",
+ "loadavg": [
+  1.3720703125,
+  1.96875,
+  2.92333984375
+ ],
+ "runs": [],
+ "ttnn": "0.68.0",
+ "grid": [
+  11,
+  10
+ ]
+}

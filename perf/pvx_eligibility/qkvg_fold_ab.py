@@ -33,6 +33,10 @@ sys.path.insert(0, str(ROOT / "perf"))
 KEYSETS = {
     "c256": {(8, 32): (4, 8, 1, 4, 1), (8, 33): (4, 8, 1, 4, 1)},
     "c64": {(2, 6): (4, 2, 1, 4, 1), (2, 8): (4, 2, 1, 4, 1), (2, 9): (4, 2, 1, 4, 1)},
+    # Every key this branch adds. `off` is then exactly `origin/main` and `on` is exactly what
+    # merging delivers, which is the arm the merge decision actually needs.
+    "all": {(8, 32): (4, 8, 1, 4, 1), (8, 33): (4, 8, 1, 4, 1),
+            (2, 6): (4, 2, 1, 4, 1), (2, 8): (4, 2, 1, 4, 1), (2, 9): (4, 2, 1, 4, 1)},
 }
 KEYS = KEYSETS["c256"]
 
