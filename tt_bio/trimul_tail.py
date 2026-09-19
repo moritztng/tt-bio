@@ -229,6 +229,10 @@ def fused_tail(xa, xb, wa, wb, ckc, grid, out_memory_config=None):
     entry, which is why the memory config is part of the key. Falls back to DRAM if the
     allocator refuses, which is the only test that knows what the block is already holding.
     """
+    from . import ops
+    if ops.taping():
+        return None   # no backward for `generic_op`; the three composed ops run instead
+
     why = eligible(xa, xb, wa, wb)
     if why is not None:
         return _reject(why, "x".join(str(int(d)) for d in xa.padded_shape)

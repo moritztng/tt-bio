@@ -9,14 +9,19 @@ while "how much configuration" is only knowable after you hit the wall.
     0     tt-bio finetune ...                                a config file    no callables in the signature
     1     train.finetune(...) -> Run                         the objective    no `for` over steps in your code
     2     plan, batches, objectives, AdamW, Checkpointer,     the `for`        no ttnn call in your code
-          Mesh, LoraConfig, lora_factors_for, attach
+          Mesh, LoraConfig, trainable, attach
     3     tt_bio.autograd + train.gradcheck                  the op and       ttnn appears here
                                                              its backward
 
 Each cut line has a one-line test in ``tests/test_train_interface.py``, and each is a test the
 boundary can FAIL rather than a description of it.
 
-Crossing down a tier is not a rewrite. ``train.recipes.source("lora")`` returns the text of
+Going from a LoRA fine-tune to a full pre-training run is not a drop down a tier either. It is
+``train="weights"``, one argument at every tier, and it runs the SAME body: the loop, the
+objective, the optimizer, the checkpointer and the data-parallel axis do not change, only what
+the optimizer owns does.
+
+Crossing down a tier is not a rewrite. ``train.recipes.source("default")`` returns the text of
 the Tier-1 body, written in Tier-2 names only, and a test execs that text in a namespace
 containing nothing but ``TIER2`` and checks its bytecode against the shipped recipe's. If a
 recipe ever needs a private hook, that test fails and the hook becomes public or the recipe
@@ -41,8 +46,9 @@ from typing import TYPE_CHECKING
 # escape-hatch test reads this tuple, so adding a name here is a deliberate widening of the
 # contract and removing one breaks a test rather than a user's script silently.
 TIER2 = (
-    "plan", "batches", "Mesh", "AdamW", "Checkpointer", "LoraConfig", "lora_factors_for",
-    "lora_factors", "lora_linear", "attach", "census", "select", "af3_lr", "to_host",
+    "plan", "batches", "Mesh", "AdamW", "Checkpointer", "LoraConfig", "trainable",
+    "lora_factors_for", "weights_for", "lora_factors", "lora_linear", "attach", "census",
+    "select", "af3_lr", "to_host",
     "to_device", "objectives", "losses", "provenance", "save_adapter", "load_adapter",
     "install", "uninstall", "backward", "no_grad", "Tensor", "UnreducedGradients",
     "UNMEASURED", "launcher",
@@ -58,7 +64,7 @@ _WHERE = {
     "AdamW": "optim", "af3_lr": "optim", "DISPLACEMENT_BAND": "optim",
     "LoraConfig": "lora", "LoraSite": "lora", "lora_factors": "lora",
     "lora_factors_for": "lora", "lora_linear": "lora", "census": "lora", "select": "lora",
-    "attach": "lora",
+    "attach": "lora", "trainable": "lora", "weights_for": "lora",
     "Checkpointer": "checkpoint", "save_adapter": "checkpoint",
     "load_adapter": "checkpoint",
     "to_host": "tensors", "to_device": "tensors",
@@ -83,7 +89,8 @@ if TYPE_CHECKING:  # for editors only; never executed, so it cannot import ttnn 
     from .sharding import Batch, batches
     from .checkpoint import Checkpointer, load_adapter, save_adapter
     from .checks import gradcheck
-    from .lora import LoraConfig, attach, lora_factors, lora_factors_for, lora_linear
+    from .lora import (LoraConfig, attach, lora_factors, lora_factors_for, lora_linear,
+                       trainable, weights_for)
     from .loop import Run, finetune
     from .mesh import Axis, Mesh, UnreducedGradients
     from .optim import AdamW, af3_lr

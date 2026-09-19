@@ -36,19 +36,28 @@ from . import launcher, objectives, provenance
 from ..autograd import backward, install, uninstall
 from .sharding import batches
 from .checkpoint import Checkpointer
-from .lora import LoraConfig, attach, lora_factors_for
+from .lora import LoraConfig, attach, trainable
 from .mesh import Mesh
 from .optim import AdamW, af3_lr
 from .dryrun import plan
 from .tensors import to_device, to_host
 
-__all__ = ["source", "names", "recipe", "lora_finetune"]
+__all__ = ["source", "names", "recipe", "train_loop"]
 
 
-def lora_finetune(forward, dataset, *, out_dir, global_batch, steps, objective="af3",
-                  mesh=None, lora=None, seed=0, lr=3e-4, warmup_steps=1000,
-                  checkpoint_every=100, tokens=None, weights=None):
-    """LoRA fine-tuning on a frozen trunk. The Tier-1 default, and a Tier-2 program.
+def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3",
+               train="adapters", mesh=None, lora=None, seed=0, lr=3e-4, warmup_steps=1000,
+               checkpoint_every=100, tokens=None, weights=None):
+    """Fine-tune or pre-train a shipped forward. The Tier-1 default, and a Tier-2 program.
+
+    ``train`` is what the optimizer owns, and it is a NAME for the same reason ``objective``
+    is: it decides the memory arithmetic, so Tier 0 has to be able to check it before a
+    device opens. ``"adapters"`` trains a LoRA factor pair beside each site on a frozen
+    trunk. ``"weights"`` trains the model's own weights at those same sites, which is what a
+    pre-training run does. Nothing else in this function changes between them -- the loop,
+    the objective, the optimizer, the checkpointer and the data-parallel axis are the same
+    code, which is why going from a fine-tune to a pre-training run is one argument and not a
+    rewrite.
 
     ``forward(batch) -> {name: device tensor}`` is the SHIPPED forward, handed in rather than
     constructed here: the training path calls the same forward inference calls, and the way to
@@ -70,31 +79,31 @@ def lora_finetune(forward, dataset, *, out_dir, global_batch, steps, objective="
     if dp.width > 1 and launcher.driving():
         return launcher.drive(dp, out_dir=out_dir, steps=steps)
     dp_rank, dp = launcher.rank(), launcher.reducer(dp)
-    cfg = lora or LoraConfig()
+    # `None` here means "train the weights themselves", and it is the only line that reads
+    # `train`. Everything downstream branches on `cfg is None` or not at all.
+    cfg = (lora or LoraConfig()) if train == "adapters" else None
     row = objectives.objective(objective)
 
     fit = plan(tokens=tokens or dataset.tokens, chips=dp.width,
-               global_batch=global_batch, frozen_trunk=True)
+               global_batch=global_batch, frozen_trunk=cfg is not None)
     if fit.verdict == "refused":
         raise RuntimeError(f"refusing to start: {fit}")
 
     install()
     try:
-        # One census pass on a real batch discovers the adaptable sites. It costs an
-        # inference, and it is how the adapter set comes from the forward instead of from a
-        # list somebody maintains by hand.
+        # One census pass on a real batch discovers the trainable sites. It costs an
+        # inference, and it is how the parameter set comes from the forward instead of from a
+        # list somebody maintains by hand. The same pass serves both modes.
         plan_order = batches(len(dataset), global_batch=global_batch, steps=steps, seed=seed,
                              data_parallel=dp)
         first = next(plan_order)
         # The seed reaches the ADAPTER INIT, not just the batch order. A is random and B is
         # zero, so without it every rank of a data-parallel run starts from different weights
         # and trains a different model -- which the launcher's master-hash check catches at
-        # the end of the run rather than at the start of it.
-        factors = lora_factors_for(forward, cfg, dataset.device,
-                                   dataset.batch(first.per_chip[dp_rank]), rng=seed)
-        params = {f"{site}.{which}": t
-                  for site, pair in factors.items()
-                  for which, t in zip(("A", "B"), pair)}
+        # the end of the run rather than at the start of it. Training the weights themselves
+        # initialises nothing, so there the seed reaches the batch order only.
+        installed, params = trainable(forward, cfg, dataset.device,
+                                      dataset.batch(first.per_chip[dp_rank]), rng=seed)
         opt = AdamW(params, lr=lr, data_parallel=dp,
                     schedule=lambda s: af3_lr(s, lr, warmup_steps=warmup_steps))
         # Rank 0 owns out_dir and the others get a subdirectory of it. The masters are
@@ -105,9 +114,10 @@ def lora_finetune(forward, dataset, *, out_dir, global_batch, steps, objective="
 
         with provenance.during(seed=seed, config={
                 "objective": objective, "global_batch": global_batch, "steps": steps,
-                "lr": lr, "rank": cfg.rank, "alpha": cfg.alpha, "chips": dp.width,
-                "dp_rank": dp_rank, "rollout": row.rollout, "sites": sorted(factors)}) as prov:
-            with attach(factors, cfg):
+                "lr": lr, "train": train, "chips": dp.width,
+                "rank": cfg.rank if cfg else None, "alpha": cfg.alpha if cfg else None,
+                "dp_rank": dp_rank, "rollout": row.rollout, "sites": sorted(params)}) as prov:
+            with attach(installed, cfg):
                 for batch in [first, *plan_order]:
                     opt.zero_grad()
                     # This rank's shard of the global batch, never the whole of it. On one
@@ -150,7 +160,9 @@ def lora_finetune(forward, dataset, *, out_dir, global_batch, steps, objective="
             "displacement": prov.config["displacement"]}
 
 
-_RECIPES: Dict[str, Callable] = {"lora": lora_finetune}
+# One body, both modes. `train=` selects what the optimizer owns; there is no second
+# recipe to drift from this one, and no pair of implementations to keep agreeing.
+_RECIPES: Dict[str, Callable] = {"default": train_loop}
 
 
 def recipe(name: str) -> Callable:

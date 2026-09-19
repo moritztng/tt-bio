@@ -1,0 +1,100 @@
+# objective_check: the COMPOSED af3 objective vs a float64 reference of the same composition
+# N=48 tokens, 3 diffusion samples, seed 7, float64 both sides, bar 1e-12 relative
+
+## weights, rebuilt from /home/ttuser/ref/Protenix/configs/configs_base.py:401-407 through loss.py:1463-1475
+   alpha_bond=0, alpha_confidence=0.0001, alpha_diffusion=4, alpha_distogram=0.03, alpha_except_pae=1, alpha_pae=0, smooth_lddt=1
+stage      term               ours   upstream product
+pretrain   bond                  0                  0
+pretrain   distogram          0.03               0.03
+pretrain   mse                   4                  4
+pretrain   pae                   0                  0
+pretrain   pde              0.0001             0.0001
+pretrain   plddt            0.0001             0.0001
+pretrain   resolved         0.0001             0.0001
+pretrain   smooth_lddt           4                  4
+finetune   bond                  4                  4
+finetune   distogram          0.03               0.03
+finetune   mse                   4                  4
+finetune   pae              0.0001             0.0001
+finetune   pde              0.0001             0.0001
+finetune   plddt            0.0001             0.0001
+finetune   resolved         0.0001             0.0001
+finetune   smooth_lddt           0                  0
+
+## pretrain: composite value, reference with float64 Kabsch
+   ours 1.83825850057539   upstream 1.83825850057539   rel 4.832e-16
+   active terms 6 of 8; skipped ['bond', 'pae']
+   term                  value    weight   contribution   upstream value        rel
+   bond                     --         0              0        0.0272321  (skipped: weight is zero in this stage)
+   distogram         5.2674594      0.03     0.15802378        5.2674594   0.00e+00
+   mse             0.012023626         4    0.048094506      0.012023626   5.77e-16
+   pae                      --         0              0          5.26849  (skipped: weight is zero in this stage)
+   pde               5.2532904    0.0001  0.00052532904        5.2532904   1.69e-16
+   plddt             5.0972075    0.0001  0.00050972075        5.0972075   1.74e-16
+   resolved          1.1620948    0.0001  0.00011620948        1.1620948   0.00e+00
+   smooth_lddt      0.40774724         4       1.630989       0.40774724   2.72e-16
+
+## pretrain: composite gradient, one backward over shared leaves
+   output                       shape      rel err  seeded by
+   distogram_logits       (48, 48, 64)    1.592e-16  distogram
+   pae_logits         (3, 48, 48, 64)    0.000e+00  nothing at this stage  (ours: no seed)
+   pde_logits         (3, 48, 48, 64)    1.100e-16  pde
+   plddt_logits           (3, 44, 50)    1.015e-16  plddt
+   pred_dist              (3, 48, 48)    1.372e-16  smooth_lddt
+   pred_xyz                (3, 48, 3)    3.112e-15  mse
+   resolved_logits         (3, 48, 2)    1.274e-16  resolved
+
+## pretrain: composite value, reference with upstream float32 Kabsch
+   ours 1.83825850057539   upstream 1.83825850025473   rel 1.744e-10
+
+## finetune: composite value, reference with float64 Kabsch
+   ours 0.316724846531647   upstream 0.316724846531647   rel 0.000e+00
+   active terms 7 of 8; skipped ['smooth_lddt']
+   term                  value    weight   contribution   upstream value        rel
+   bond            0.027232113         4     0.10892845      0.027232113   0.00e+00
+   distogram         5.2674594      0.03     0.15802378        5.2674594   0.00e+00
+   mse             0.012023626         4    0.048094506      0.012023626   5.77e-16
+   pae               5.2684861    0.0001  0.00052684861        5.2684861   0.00e+00
+   pde               5.2532904    0.0001  0.00052532904        5.2532904   1.69e-16
+   plddt             5.0972075    0.0001  0.00050972075        5.0972075   1.74e-16
+   resolved          1.1620948    0.0001  0.00011620948        1.1620948   0.00e+00
+   smooth_lddt              --         0              0         0.407747  (skipped: weight is zero in this stage)
+
+## finetune: composite gradient, one backward over shared leaves
+   output                       shape      rel err  seeded by
+   distogram_logits       (48, 48, 64)    1.592e-16  distogram
+   pae_logits         (3, 48, 48, 64)    1.128e-16  pae
+   pde_logits         (3, 48, 48, 64)    1.100e-16  pde
+   plddt_logits           (3, 44, 50)    1.015e-16  plddt
+   pred_dist              (3, 48, 48)    8.975e-17  bond
+   pred_xyz                (3, 48, 3)    3.112e-15  mse
+   resolved_logits         (3, 48, 2)    1.274e-16  resolved
+
+## finetune: composite value, reference with upstream float32 Kabsch
+   ours 0.316724846531647   upstream 0.316724846210987   rel 1.012e-09
+
+## directional finite difference, finetune stage (all 8 terms active)
+   direction = the composed gradient itself, normalised; predicted dL/deps = ||g||
+   ours, all 7 outputs:
+      eps 1e-03   predicted 0.012960802182   measured 0.0129314233376   rel 2.267e-03
+      eps 1e-04   predicted 0.012960802182   measured 0.0129608021823   rel 2.738e-11
+      eps 1e-05   predicted 0.012960802182   measured 0.0129608021787   rel 2.510e-10
+      eps 1e-06   predicted 0.012960802182   measured 0.0129608021815   rel 3.687e-11
+      eps 1e-07   predicted 0.012960802182   measured 0.0129608024313   rel 1.924e-08
+      best-of-sweep 2.738e-11, bar 1e-06
+   upstream, logits+pred_dist:
+      eps 1e-03   predicted 0.0115261584256   measured 0.0115261584256   rel 1.414e-12
+      eps 1e-04   predicted 0.0115261584256   measured 0.0115261584255   rel 1.105e-11
+      eps 1e-05   predicted 0.0115261584256   measured 0.0115261584277   rel 1.816e-10
+      eps 1e-06   predicted 0.0115261584256   measured 0.0115261584166   rel 7.816e-10
+      eps 1e-07   predicted 0.0115261584256   measured 0.0115261580835   rel 2.968e-08
+      best-of-sweep 1.414e-12, bar 1e-06
+
+## conditionals
+   pae weight -> 0: total 0.316197997919 vs sum of the rest 0.316197997919, rel 0.00e+00; pae seed present: False (must be False)
+   pae_logits absent: total 0.316197997919, rel 0.00e+00, breakdown says "missing ['pae_logits']", value None (must be None, not 0.0)
+   the other 6 seeds under (b): worst rel change 0.00e+00
+   resolution gate (res outside [0.1, 4.0]): the override weights={plddt: 0.0, pde: 0.0, pae: 0.0, resolved: 0.0} reproduces upstream's `loss = 0.0 * loss`; total 0.315046738657, rel 1.76e-16, confidence seeds present: []
+   NOT AUTOMATIC: batch['resolution'] = 2.0 is carried by the example and `af3_loss` never reads it. See the state doc's CONDITIONALS.
+
+OBJECTIVE PASSES: the eight-term composition, its weights, its fan-in, its skipping and its gradient all agree with a float64 reference of the same composition, and the gradient predicts the loss change.

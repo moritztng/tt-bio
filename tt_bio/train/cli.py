@@ -32,9 +32,13 @@ ADAPTABLE = ("protenix-v2", "openfold3")
 # The Tier-1 bodies, by name. Duplicated from `recipes._RECIPES` on purpose and pinned by a
 # test: validating `--recipe` must not import the bodies, because importing them imports the
 # tape and `--dry-run` promises not to. The test fails if the two ever disagree.
-RECIPE_NAMES = ("lora",)
+RECIPE_NAMES = ("default",)
 
-__all__ = ["finetune", "ADAPTABLE", "RECIPE_NAMES"]
+# What the optimizer may own. Duplicated from `loop.TRAIN_MODES` for the reason RECIPE_NAMES is
+# duplicated, and pinned by the same test: validating `--train` must not import the tape.
+TRAIN_MODES = ("adapters", "weights")
+
+__all__ = ["finetune", "ADAPTABLE", "RECIPE_NAMES", "TRAIN_MODES"]
 
 
 def _echo_objectives(ctx, param, value):
@@ -128,7 +132,13 @@ def _echo_recipe(ctx, param, value):
 @click.option("--steps", type=int, default=None, help="Optimizer steps to run.")
 @click.option("--objective", default="af3", show_default=True,
               help="A named objective row. `--list-objectives` prints them.")
-@click.option("--recipe", default="lora", show_default=True,
+@click.option("--train", "train_mode", type=click.Choice(TRAIN_MODES), default="adapters",
+              show_default=True,
+              help="What the optimizer owns. `adapters` trains a LoRA pair beside each site "
+                   "on a frozen trunk; `weights` trains the model's own weights at those same "
+                   "sites, which is the pre-training run. Everything else is unchanged, and "
+                   "`--dry-run` prices the two apart.")
+@click.option("--recipe", default="default", show_default=True,
               help="A named Tier-1 body. `tt-bio finetune --show-recipe` prints its source, "
                    "which is a Tier-2 program you can edit and run yourself.")
 @click.option("--tokens", default=None, type=int,
@@ -148,19 +158,24 @@ def _echo_recipe(ctx, param, value):
 @click.option("--seed", default=0, show_default=True, type=int)
 @click.option("--dry-run", is_flag=True,
               help="Answer 'will this fit and how long' and exit, WITHOUT opening a device.")
-@click.option("--show-recipe", is_flag=False, flag_value="lora", default=None,
+@click.option("--show-recipe", is_flag=False, flag_value="default", default=None,
               metavar="[NAME]", is_eager=True, expose_value=False,
               callback=_echo_recipe,
               help="Print a Tier-1 body as Tier-2 source and exit. The escape hatch.")
 @click.option("--list-objectives", is_flag=True, is_eager=True, expose_value=False,
               callback=_echo_objectives, help="Print the objective rows and exit.")
-def finetune(data, model, out_dir, global_batch, steps, objective, recipe, tokens, chip_ids,
-             rank, alpha, targets, lr, warmup_steps, checkpoint_every, seed, dry_run):
-    """Fine-tune a shipped model with LoRA adapters.
+def finetune(data, model, out_dir, global_batch, steps, objective, train_mode, recipe, tokens,
+             chip_ids, rank, alpha, targets, lr, warmup_steps, checkpoint_every, seed,
+             dry_run):
+    """Fine-tune or pre-train a shipped model.
 
     \b
         tt-bio finetune data/ --model protenix-v2 --out runs/a \\
-            --global-batch 8 --steps 2000 --dry-run
+            --global-batch 8 --steps 2000
+        tt-bio finetune data/ --model protenix-v2 --out runs/b \\
+            --global-batch 8 --steps 2000 --chips 0,2
+        tt-bio finetune data/ --model protenix-v2 --out runs/c \\
+            --global-batch 8 --steps 200000 --train weights
 
     \b
     Progressive disclosure, if this is not enough:
@@ -202,7 +217,7 @@ def finetune(data, model, out_dir, global_batch, steps, objective, recipe, token
         raise click.BadParameter("must be at least 1", param_hint="--rank")
 
     fit = plan(tokens=tokens or 256, chips=chips, global_batch=global_batch,
-               frozen_trunk=True)
+               frozen_trunk=train_mode == "adapters")
     click.echo(str(fit))
     if fit.verdict == "refused":
         raise click.ClickException(
@@ -229,7 +244,8 @@ def finetune(data, model, out_dir, global_batch, steps, objective, recipe, token
 
     run = run_finetune(
         forward, dataset, out_dir=out_dir, global_batch=global_batch, steps=steps,
-        objective=objective, recipe=recipe, seed=seed, lr=lr, warmup_steps=warmup_steps,
+        objective=objective, train=train_mode, recipe=recipe, seed=seed, lr=lr,
+        warmup_steps=warmup_steps,
         checkpoint_every=checkpoint_every, tokens=tokens,
         lora=LoraConfig(rank=rank, alpha=alpha, targets=tuple(targets)),
         mesh=_mesh(chip_ids))

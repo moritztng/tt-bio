@@ -103,7 +103,9 @@ def plan(*, tokens: int, chips: int = 1, global_batch: Optional[int] = None,
 
     ``frozen_trunk=False`` means full fine-tuning, which is the line this module will not
     cross: the memory arithmetic for a trained trunk exists only as a projection, so it comes
-    back UNMEASURED however small the crop is.
+    back UNMEASURED at any crop the forward itself fits at. A crop whose FORWARD is measured
+    to OOM is refused before that, because the forward is what both modes run and "we measured
+    this failing" is a different answer from "we have no measurement".
 
     ``seconds_per_step_1chip`` is the caller's own measurement of a single-chip step. Given
     one, the multi-chip step time is that number divided by the MEASURED two-chip speedup;
@@ -114,16 +116,6 @@ def plan(*, tokens: int, chips: int = 1, global_batch: Optional[int] = None,
         raise ValueError(f"chips must be at least 1, got {chips}")
     if global_batch is not None and global_batch < 1:
         raise ValueError(f"global_batch must be at least 1, got {global_batch}")
-
-    if not frozen_trunk:
-        return Plan(
-            verdict=UNMEASURED, tokens=tokens, chips=chips, global_batch=global_batch,
-            why="full fine-tuning: the only source for a trained trunk's tape is "
-                "perf/hall_grad/DECISION.md, a feasibility memo whose 27.58 GB (15.76 GB of "
-                "tape + 11.82 GB live, per-block checkpointing, at 800 aa) and 40 engineer-day "
-                "estimate are projections of unbuilt work. Measured planning stops at a LoRA "
-                "adapter on a frozen trunk.",
-            sources=["perf/hall_grad/DECISION.md:38,107 -- projection, not measurement"])
 
     if tokens in FORWARD_OOM:
         allocated, refused = FORWARD_OOM[tokens]
@@ -138,6 +130,16 @@ def plan(*, tokens: int, chips: int = 1, global_batch: Optional[int] = None,
                 f"lands this is a refusal, not an estimate.",
             sources=["train-r5-distributed-tt REPLICA-FITS -- measured",
                      "state/train/PLAN.md P2 -- r5's attribution corrected, the OOM stands"])
+
+    if not frozen_trunk:
+        return Plan(
+            verdict=UNMEASURED, tokens=tokens, chips=chips, global_batch=global_batch,
+            why="full fine-tuning: the only source for a trained trunk's tape is "
+                "perf/hall_grad/DECISION.md, a feasibility memo whose 27.58 GB (15.76 GB of "
+                "tape + 11.82 GB live, per-block checkpointing, at 800 aa) and 40 engineer-day "
+                "estimate are projections of unbuilt work. Measured planning stops at a LoRA "
+                "adapter on a frozen trunk.",
+            sources=["perf/hall_grad/DECISION.md:38,107 -- projection, not measurement"])
 
     if tokens > MEASURED_CROP:
         return Plan(

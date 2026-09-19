@@ -1,0 +1,26 @@
+arch Arch.BLACKHOLE
+1. matmul [256,32]x[32,256], |ref|max 29.424, fp32 would be 3.5e-06 absolute
+   HiFi4 fp32_dest_acc=1 f32   max abs 3.686e-02  rel 1.25e-03
+   HiFi4 fp32_dest_acc=1 bf16  max abs 1.114e-01  rel 3.79e-03
+   HiFi4 fp32_dest_acc=0 f32   max abs 5.533e-02  rel 1.88e-03
+   HiFi4 fp32_dest_acc=0 bf16  max abs 2.165e-01  rel 7.36e-03
+   HiFi2 fp32_dest_acc=1 f32   max abs 2.076e-01  rel 7.05e-03
+   HiFi2 fp32_dest_acc=1 bf16  max abs 1.764e-01  rel 6.00e-03
+   HiFi2 fp32_dest_acc=0 f32   max abs 2.064e-01  rel 7.01e-03
+   HiFi2 fp32_dest_acc=0 bf16  max abs 2.394e-01  rel 8.14e-03
+   LoFi  fp32_dest_acc=1 f32   max abs 8.392e-01  rel 2.85e-02
+   LoFi  fp32_dest_acc=1 bf16  max abs 8.984e-01  rel 3.05e-02
+   LoFi  fp32_dest_acc=0 f32   max abs 8.361e-01  rel 2.84e-02
+   LoFi  fp32_dest_acc=0 bf16  max abs 8.984e-01  rel 3.05e-02
+2. K ladder at HiFi4 on fp32 inputs. Flat in K means input rounding, not accumulation
+   K=1    median relative 1.04e-03   (bf16 eps 3.9e-3, tf32 eps 1.0e-3, fp32 eps 1.2e-7)
+   K=2    median relative 1.06e-03   (bf16 eps 3.9e-3, tf32 eps 1.0e-3, fp32 eps 1.2e-7)
+   K=8    median relative 1.13e-03   (bf16 eps 3.9e-3, tf32 eps 1.0e-3, fp32 eps 1.2e-7)
+   K=32   median relative 1.15e-03   (bf16 eps 3.9e-3, tf32 eps 1.0e-3, fp32 eps 1.2e-7)
+   K=128  median relative 1.41e-03   (bf16 eps 3.9e-3, tf32 eps 1.0e-3, fp32 eps 1.2e-7)
+   K=512  median relative 1.48e-03   (bf16 eps 3.9e-3, tf32 eps 1.0e-3, fp32 eps 1.2e-7)
+3. the point term, both forms, against float64 at realistic magnitudes
+   identity        : max abs 2.238e+01, 1.483e+01 on the 236 pairs under 100 A^2 -> logit error 7.00e-01 near
+   identity, centred: max abs 2.179e+01, 1.754e+01 on the 236 pairs under 100 A^2 -> logit error 8.27e-01 near
+   explicit           : max abs 3.803e-03, 2.657e-05 on the same pairs -> logit error 1.25e-06 near
+   d2 range 23.41..26647 A^2, head weight at init 0.0943

@@ -4061,6 +4061,19 @@ def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
     The byte-level form of `_l1_memory_config_if_it_fits`, for a caller deciding where to put a
     result it has not allocated yet and therefore has no tensor for.
     """
+    # An L1-resident ACTIVATION and a tape cannot coexist, and this is the one place that
+    # decides. The tape keeps what the forward frees, so an L1 buffer the shipped code would
+    # have released is still live when the next program lays out its statically allocated
+    # circular buffers; past 256 tokens they no longer fit and the fold dies with "Statically
+    # allocated circular buffers ... clash with L1 buffers". Fixing the transition's four
+    # placements alone just moved the clash (L1 buffer at 139264, then 196608, same 332288
+    # ceiling), because every L1 site in the chain contributes. So the answer is the one
+    # `ptx-fastpath` left open as the honest possibility: the L1 residency lever is
+    # INFERENCE-ONLY. Declining here sends every such result to DRAM, which is also what the
+    # tape would otherwise pay for twice -- keep it in L1 AND evict it to DRAM for the backward.
+    from . import ops
+    if ops.taping():
+        return False
     try:
         per_core = int(ttnn.get_max_worker_l1_unreserved_size())
     except Exception:
@@ -8365,6 +8378,19 @@ class Transition(Module):
         the assembly reads the same bytes from the same places and writes the same bytes to
         different banks.
         """
+        # The transition's intermediates are L1-resident, which is the tuning this module
+        # IS: the row and width chunking exists so `x_norm` and `x_1` fit in L1 and fc1/fc3
+        # read them there. A tape cannot have that. It keeps what the forward frees, so the
+        # L1 buffer is still live when the next program lays out its statically allocated
+        # circular buffers, and past 256 tokens they no longer fit: at 384 aa the shipped
+        # 48-block trunk dies in the first taped transition with "Statically allocated
+        # circular buffers in program 391 clash with L1 buffers ... allocated at 139264 and
+        # static circular buffer region ends at 332288". This is the same mechanism
+        # `ptx-fastpath` measured as the 0.83-0.85x inversion on the 256-token transition,
+        # where it was slow rather than fatal, and it settles the question that row left
+        # open: the L1 lever is INFERENCE-ONLY. Under a tape the intermediates go to DRAM,
+        # which is also cheaper than keeping them in L1 and paying eviction traffic on top.
+        _tape_mc = ttnn.DRAM_MEMORY_CONFIG if ops.taping() else ttnn.L1_MEMORY_CONFIG
         def swiglu(x):
             dtype = self.dtype if self.dtype is not None else _dtype()
             x_norm = ttnn.layer_norm(
@@ -8373,24 +8399,24 @@ class Transition(Module):
                 bias=self.norm_bias,
                 epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config,
-                memory_config=ttnn.L1_MEMORY_CONFIG,
+                memory_config=_tape_mc,
             )
             x_1 = ttnn.linear(
                 x_norm,
                 self.fc1_weight,
                 activation=None if _UNFUSED_SILU else "silu",
                 compute_kernel_config=self.compute_kernel_config,
-                memory_config=ttnn.L1_MEMORY_CONFIG,
+                memory_config=_tape_mc,
                 dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
             )
             if _UNFUSED_SILU:
-                x_1 = ttnn.silu(x_1, memory_config=ttnn.L1_MEMORY_CONFIG, output_tensor=x_1)
+                x_1 = ttnn.silu(x_1, memory_config=_tape_mc, output_tensor=x_1)
             x_2 = ttnn.linear(
                 x_norm,
                 self.fc2_weight,
                 compute_kernel_config=self.compute_kernel_config,
-                memory_config=ttnn.L1_MEMORY_CONFIG,
+                memory_config=_tape_mc,
                 dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
             )
@@ -8848,7 +8874,14 @@ class Pairformer(Module):
         # separates the two. No-op unless TT_BIO_DRAM_PEAK is set.
         dram_peak(f"pairformer enter [z={'x'.join(str(d) for d in z.shape)}]")
         for i, block in enumerate(self.blocks):
-            s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)
+            # Through the seam, so a tape can checkpoint the block and inference cannot tell.
+            # A 48-block trunk is the case per-block checkpointing exists for: the tape keeps
+            # every block's intermediates AND a gradient per op, which at 384 aa is the whole
+            # card, while recomputing one block at a time is 7.762 GB (`ptx-crop`).
+            s, z = ops.checkpoint_segment(
+                lambda s_, z_, b=block: b(s_, z_, mask, attn_mask_start, attn_mask_end,
+                                          extra_attn_bias),
+                s, z)
             dram_peak(f"pairformer block {i} done")
         return s, z
 
@@ -10097,7 +10130,7 @@ class PairWeightedAveraging(Module):
                 if acc is None:
                     acc = o
                 else:
-                    ttnn.add_(acc, o)
+                    acc = ttnn.add_(acc, o)
                     ttnn.deallocate(o)
             return acc
 
@@ -10238,7 +10271,7 @@ class OuterProductMean(Module):
             if out is None:
                 out = part
             else:
-                ttnn.add_(out, part)
+                out = ttnn.add_(out, part)
                 ttnn.deallocate(part)
         ttnn.deallocate(a)
         ttnn.deallocate(b)
@@ -10470,7 +10503,7 @@ class OuterProductMean(Module):
                 else:
                     # In place: z is (rows*C, D*J) -- ~400 MB at rows=256, J=768 -- so an
                     # out-of-place add would hold three of them at the peak.
-                    ttnn.add_(z, zp)
+                    z = ttnn.add_(z, zp)
                     ttnn.deallocate(zp)
             return z
 

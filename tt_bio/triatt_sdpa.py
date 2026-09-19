@@ -336,6 +336,10 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     given a gate this returns a GATED output or `None`, never an ungated one, so a caller that
     reads `None` still owes the multiply.
     """
+    from . import ops
+    if ops.taping():
+        return None   # generic_op has no backward; the stock fused SDPA verb is taped
+
     if not _ENABLED or bias is None:
         return None
     if gate is not None and not _GATE_EPILOGUE:

@@ -70,6 +70,10 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config):
     Returns `(q, k, v)`, each `[batch, n_heads, seq, head_dim]`, byte-identical to what the two
     stock ops produce.
     """
+    from . import ops
+    if ops.taping():
+        return None   # no backward for `generic_op`; the three composed ops run instead
+
     if not _ENABLED:
         return None
     shape = [int(d) for d in x.shape]

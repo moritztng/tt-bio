@@ -369,6 +369,13 @@ def eligible(x, memory_config) -> bool:
     The channel count is deliberately not part of the window: the kernel handles any ``C`` that is a
     multiple of 32, because the trunk's own chunk width depends on the compute grid.
     """
+    from . import ops
+    if ops.taping():
+        # These moves are `generic_op` kernels with no backward, and eligibility is
+        # exactly where the codebase already says no: every caller falls back to the
+        # unfused transpose/permute, which the tape follows. Inference is untouched.
+        return False
+
     if not _ENABLED:
         return False
     shape = [int(d) for d in x.shape]
@@ -586,6 +593,13 @@ def eligible_back(x, memory_config) -> bool:
     place the two-transpose pair is expensive, and it is where `_triangle_mul_memory_config` puts the
     chunk from 352 aa up.
     """
+    from . import ops
+    if ops.taping():
+        # These moves are `generic_op` kernels with no backward, and eligibility is
+        # exactly where the codebase already says no: every caller falls back to the
+        # unfused transpose/permute, which the tape follows. Inference is untouched.
+        return False
+
     if not _ENABLED_BACK:
         return False
     shape = [int(d) for d in x.shape]
@@ -859,6 +873,13 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     split. On top of it the wide input must actually be the four-way fused projection, and the
     slice width must be a whole number of tiles, because the reader addresses slices in tile units.
     """
+    from . import ops
+    if ops.taping():
+        # These moves are `generic_op` kernels with no backward, and eligibility is
+        # exactly where the codebase already says no: every caller falls back to the
+        # unfused transpose/permute, which the tape follows. Inference is untouched.
+        return False
+
     if not _ENABLED_GATED:
         return False
     shape = [int(d) for d in xw.shape]
