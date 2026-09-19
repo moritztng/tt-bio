@@ -19,8 +19,8 @@ LEDGER=$LOGDIR/ledger.txt
 mkdir -p "$LOGDIR"
 
 export PYTHONPATH=$WT
-export TT_VISIBLE_DEVICES=0
-export TT_BIO_LEASE_CARDS=0
+export TT_VISIBLE_DEVICES=${CARD:-0}
+export TT_BIO_LEASE_CARDS=${CARD:-0}
 export TT_BIO_LEASE_HOLDER=worker:c14-stack-land
 export ESM_ROOT=/home/ttuser/esm
 export OPENDDE_DOCKQ_PYTHON=/home/ttuser/dockqenv/bin/python3

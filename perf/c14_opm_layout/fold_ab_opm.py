@@ -260,16 +260,43 @@ def main() -> int:
                         for nm in ARMS}
     OUT["plddt"] = {nm: sorted({r["plddt"] for r in warm if r["arm"] == nm}) for nm in ARMS}
 
-    # Structure, in Angstrom, against the standing 512 aa bar (0.60 A kill, 1.84 A seed floor).
+    # Structure, in Angstrom, against the 0.60 A kill bar.
+    #
+    # PER PSEUDO-DOMAIN, not whole-structure. cdk2x2_512 is CDK2 followed by its own residues
+    # 1-214 with no interface between the copies, so the hinge between them saturates any
+    # whole-molecule RMSD for a reassociation that moved no atom inside either domain.
+    # `perf/k10_anchor/FINDINGS.md` measures the upstream fp32 reference's own whole-structure
+    # column swinging 1.9 - 11.9 A against itself at a different seed, and this harness read
+    # 11.6870 A on 2026-09-19 and called a lever failed that scores 0.30 A per domain. The
+    # whole-structure column is kept below, labelled as the hinge, for contrast only.
+    #
+    # The floor is measured here, not quoted: the 1.84 A constant this campaign scaled against
+    # came from one seed pair on one stack and is retracted campaign-wide
+    # (`perf/c12_orchestrator/landing/LANDING.md`). A/A is the arithmetic floor; the seed floor
+    # belongs to whatever run varies the seed (`perf/c14_opm_layout/seed_spread.py`).
+    sys.path.insert(0, str(REPO / "perf" / "b2z2_fusebias"))
+    import score as _S
     pick = {nm: [r["cif_path"] for r in warm if r["arm"] == nm][0] for nm in ARMS}
     atoms = {nm: read_atoms(Path(p)) for nm, p in pick.items()}
     assert atoms["A"][0] == atoms["B"][0] == atoms["A2"][0], \
         "atom identity differs between arms -- not comparable atom-for-atom"
+    S512 = {nm: _S.load(Path(p), 298) for nm, p in pick.items()}
+
+    def _read(arm, ref):
+        d = _S.pair(S512[arm], S512[ref], 298)
+        return {"worst_domain_all_atom_A": round(max(d["domain1_all_atom_A"],
+                                                     d["domain2_all_atom_A"]), 6),
+                "hinge_free_all_atom_A": d["hinge_free_all_atom_A"],
+                "lddt_ca": d["lddt_ca"],
+                "hinge_deg_not_a_bar": d["hinge_deg"],
+                "whole_all_atom_A_is_the_hinge": d["whole_all_atom_A"]}
+
     OUT["rmsd_A"] = {
         "n_atoms": len(atoms["A"][1]),
-        "A_vs_A2_floor": round(kabsch_rmsd(atoms["A"][1], atoms["A2"][1]), 6),
-        "A_vs_B": round(kabsch_rmsd(atoms["A"][1], atoms["B"][1]), 6),
-        "kill_bar": 0.60, "seed_floor": 1.84,
+        "metric": "per-pseudo-domain all-atom Kabsch, split at label_seq_id 298",
+        "A_vs_A2_arithmetic_floor": _read("A2", "A"),
+        "A_vs_B": _read("B", "A"),
+        "kill_bar": 0.60,
     }
     dump()
     print(json.dumps({k: OUT[k] for k in (

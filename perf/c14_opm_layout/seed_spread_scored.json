@@ -1,0 +1,412 @@
+{
+ "fixture": "cdk2x2_512",
+ "split_seq_id": 298,
+ "gt": "1hcl.cif",
+ "seeds": [
+  0,
+  1,
+  2,
+  3
+ ],
+ "n_atoms": 4116,
+ "arms": {
+  "A": "TT_BIO_OPM_LEGACY_LAYOUT=1, current main",
+  "B": "TT_BIO_OPM_LEGACY_LAYOUT=0, the fast path this branch ships"
+ },
+ "lever_B_vs_A_per_seed": {
+  "s0": {
+   "domain1_all_atom_A": 1.59156,
+   "domain2_all_atom_A": 1.16345,
+   "hinge_free_all_atom_A": 1.42845,
+   "whole_all_atom_A": 11.68697,
+   "hinge_deg": 85.6288,
+   "lddt_ca": 0.93294,
+   "lddt_ca_domain1": 0.96557,
+   "lddt_ca_domain2": 0.96461,
+   "worst_domain_all_atom_A": 1.59156
+  },
+  "s1": {
+   "domain1_all_atom_A": 0.30342,
+   "domain2_all_atom_A": 0.28785,
+   "hinge_free_all_atom_A": 0.29702,
+   "whole_all_atom_A": 0.92727,
+   "hinge_deg": 6.9375,
+   "lddt_ca": 0.99483,
+   "lddt_ca_domain1": 0.9994,
+   "lddt_ca_domain2": 0.99849,
+   "worst_domain_all_atom_A": 0.30342
+  },
+  "s2": {
+   "domain1_all_atom_A": 0.29543,
+   "domain2_all_atom_A": 0.3057,
+   "hinge_free_all_atom_A": 0.29976,
+   "whole_all_atom_A": 0.35425,
+   "hinge_deg": 1.19698,
+   "lddt_ca": 0.99503,
+   "lddt_ca_domain1": 0.99626,
+   "lddt_ca_domain2": 0.99502,
+   "worst_domain_all_atom_A": 0.3057
+  },
+  "s3": {
+   "domain1_all_atom_A": 0.26569,
+   "domain2_all_atom_A": 0.2939,
+   "hinge_free_all_atom_A": 0.27782,
+   "whole_all_atom_A": 0.31433,
+   "hinge_deg": 1.20723,
+   "lddt_ca": 0.99892,
+   "lddt_ca_domain1": 0.99923,
+   "lddt_ca_domain2": 0.9989,
+   "worst_domain_all_atom_A": 0.2939
+  }
+ },
+ "seed_floor_same_arm": {
+  "A_s0_vs_s1": {
+   "domain1_all_atom_A": 1.10692,
+   "domain2_all_atom_A": 1.15961,
+   "hinge_free_all_atom_A": 1.12922,
+   "whole_all_atom_A": 5.9487,
+   "hinge_deg": 48.30523,
+   "lddt_ca": 0.93923,
+   "lddt_ca_domain1": 0.96513,
+   "lddt_ca_domain2": 0.95283,
+   "worst_domain_all_atom_A": 1.15961
+  },
+  "A_s0_vs_s2": {
+   "domain1_all_atom_A": 1.08884,
+   "domain2_all_atom_A": 1.08885,
+   "hinge_free_all_atom_A": 1.08884,
+   "whole_all_atom_A": 11.43667,
+   "hinge_deg": 98.22474,
+   "lddt_ca": 0.93088,
+   "lddt_ca_domain1": 0.96295,
+   "lddt_ca_domain2": 0.94963,
+   "worst_domain_all_atom_A": 1.08885
+  },
+  "A_s0_vs_s3": {
+   "domain1_all_atom_A": 1.21082,
+   "domain2_all_atom_A": 1.15879,
+   "hinge_free_all_atom_A": 1.18937,
+   "whole_all_atom_A": 9.13553,
+   "hinge_deg": 68.58288,
+   "lddt_ca": 0.92931,
+   "lddt_ca_domain1": 0.95883,
+   "lddt_ca_domain2": 0.9525,
+   "worst_domain_all_atom_A": 1.21082
+  },
+  "A_s1_vs_s2": {
+   "domain1_all_atom_A": 1.29246,
+   "domain2_all_atom_A": 1.28367,
+   "hinge_free_all_atom_A": 1.2888,
+   "whole_all_atom_A": 7.79672,
+   "hinge_deg": 59.68148,
+   "lddt_ca": 0.91283,
+   "lddt_ca_domain1": 0.95248,
+   "lddt_ca_domain2": 0.93738,
+   "worst_domain_all_atom_A": 1.29246
+  },
+  "A_s1_vs_s3": {
+   "domain1_all_atom_A": 1.12857,
+   "domain2_all_atom_A": 1.01047,
+   "hinge_free_all_atom_A": 1.08082,
+   "whole_all_atom_A": 11.07554,
+   "hinge_deg": 88.80583,
+   "lddt_ca": 0.92942,
+   "lddt_ca_domain1": 0.96696,
+   "lddt_ca_domain2": 0.96938,
+   "worst_domain_all_atom_A": 1.12857
+  },
+  "A_s2_vs_s3": {
+   "domain1_all_atom_A": 1.39481,
+   "domain2_all_atom_A": 1.42169,
+   "hinge_free_all_atom_A": 1.4061,
+   "whole_all_atom_A": 17.48045,
+   "hinge_deg": 148.12848,
+   "lddt_ca": 0.90622,
+   "lddt_ca_domain1": 0.95317,
+   "lddt_ca_domain2": 0.93458,
+   "worst_domain_all_atom_A": 1.42169
+  },
+  "B_s0_vs_s1": {
+   "domain1_all_atom_A": 1.83436,
+   "domain2_all_atom_A": 1.57524,
+   "hinge_free_all_atom_A": 1.73087,
+   "whole_all_atom_A": 15.85736,
+   "hinge_deg": 134.05595,
+   "lddt_ca": 0.88428,
+   "lddt_ca_domain1": 0.95056,
+   "lddt_ca_domain2": 0.93203,
+   "worst_domain_all_atom_A": 1.83436
+  },
+  "B_s0_vs_s2": {
+   "domain1_all_atom_A": 1.72428,
+   "domain2_all_atom_A": 1.47717,
+   "hinge_free_all_atom_A": 1.62565,
+   "whole_all_atom_A": 16.9644,
+   "hinge_deg": 154.14657,
+   "lddt_ca": 0.89045,
+   "lddt_ca_domain1": 0.95521,
+   "lddt_ca_domain2": 0.94021,
+   "worst_domain_all_atom_A": 1.72428
+  },
+  "B_s0_vs_s3": {
+   "domain1_all_atom_A": 1.79895,
+   "domain2_all_atom_A": 1.43827,
+   "hinge_free_all_atom_A": 1.65789,
+   "whole_all_atom_A": 14.56381,
+   "hinge_deg": 123.46739,
+   "lddt_ca": 0.88067,
+   "lddt_ca_domain1": 0.94381,
+   "lddt_ca_domain2": 0.93241,
+   "worst_domain_all_atom_A": 1.79895
+  },
+  "B_s1_vs_s2": {
+   "domain1_all_atom_A": 1.20765,
+   "domain2_all_atom_A": 1.12857,
+   "hinge_free_all_atom_A": 1.17527,
+   "whole_all_atom_A": 7.44571,
+   "hinge_deg": 55.63478,
+   "lddt_ca": 0.92392,
+   "lddt_ca_domain1": 0.96145,
+   "lddt_ca_domain2": 0.95526,
+   "worst_domain_all_atom_A": 1.20765
+  },
+  "B_s1_vs_s3": {
+   "domain1_all_atom_A": 1.12611,
+   "domain2_all_atom_A": 1.0042,
+   "hinge_free_all_atom_A": 1.07688,
+   "whole_all_atom_A": 11.4128,
+   "hinge_deg": 92.16804,
+   "lddt_ca": 0.92752,
+   "lddt_ca_domain1": 0.96624,
+   "lddt_ca_domain2": 0.96954,
+   "worst_domain_all_atom_A": 1.12611
+  },
+  "B_s2_vs_s3": {
+   "domain1_all_atom_A": 1.26301,
+   "domain2_all_atom_A": 1.31107,
+   "hinge_free_all_atom_A": 1.2833,
+   "whole_all_atom_A": 17.46223,
+   "hinge_deg": 147.80361,
+   "lddt_ca": 0.91292,
+   "lddt_ca_domain1": 0.95864,
+   "lddt_ca_domain2": 0.94362,
+   "worst_domain_all_atom_A": 1.31107
+  }
+ },
+ "vs_1hcl": {
+  "A_s0": {
+   "copy1(res 1-298)": {
+    "n_ca": 294,
+    "ca_rmsd_A": 1.11409,
+    "lddt_ca": 0.93753
+   },
+   "copy2(res 299-512)": {
+    "n_ca": 210,
+    "ca_rmsd_A": 1.18454,
+    "lddt_ca": 0.91653
+   }
+  },
+  "A_s1": {
+   "copy1(res 1-298)": {
+    "n_ca": 294,
+    "ca_rmsd_A": 1.15896,
+    "lddt_ca": 0.93764
+   },
+   "copy2(res 299-512)": {
+    "n_ca": 210,
+    "ca_rmsd_A": 1.10548,
+    "lddt_ca": 0.92161
+   }
+  },
+  "A_s2": {
+   "copy1(res 1-298)": {
+    "n_ca": 294,
+    "ca_rmsd_A": 1.08338,
+    "lddt_ca": 0.93516
+   },
+   "copy2(res 299-512)": {
+    "n_ca": 210,
+    "ca_rmsd_A": 1.29355,
+    "lddt_ca": 0.90536
+   }
+  },
+  "A_s3": {
+   "copy1(res 1-298)": {
+    "n_ca": 294,
+    "ca_rmsd_A": 1.04711,
+    "lddt_ca": 0.94601
+   },
+   "copy2(res 299-512)": {
+    "n_ca": 210,
+    "ca_rmsd_A": 1.10042,
+    "lddt_ca": 0.92114
+   }
+  },
+  "B_s0": {
+   "copy1(res 1-298)": {
+    "n_ca": 294,
+    "ca_rmsd_A": 1.57432,
+    "lddt_ca": 0.92393
+   },
+   "copy2(res 299-512)": {
+    "n_ca": 210,
+    "ca_rmsd_A": 1.34026,
+    "lddt_ca": 0.90394
+   }
+  },
+  "B_s1": {
+   "copy1(res 1-298)": {
+    "n_ca": 294,
+    "ca_rmsd_A": 1.1737,
+    "lddt_ca": 0.93475
+   },
+   "copy2(res 299-512)": {
+    "n_ca": 210,
+    "ca_rmsd_A": 1.09958,
+    "lddt_ca": 0.92151
+   }
+  },
+  "B_s2": {
+   "copy1(res 1-298)": {
+    "n_ca": 294,
+    "ca_rmsd_A": 1.00744,
+    "lddt_ca": 0.93881
+   },
+   "copy2(res 299-512)": {
+    "n_ca": 210,
+    "ca_rmsd_A": 1.22187,
+    "lddt_ca": 0.91065
+   }
+  },
+  "B_s3": {
+   "copy1(res 1-298)": {
+    "n_ca": 294,
+    "ca_rmsd_A": 1.00763,
+    "lddt_ca": 0.94879
+   },
+   "copy2(res 299-512)": {
+    "n_ca": 210,
+    "ca_rmsd_A": 1.063,
+    "lddt_ca": 0.92544
+   }
+  }
+ },
+ "summary": {
+  "lever_worst_domain_all_atom_A": {
+   "n": 4,
+   "min": 0.2939,
+   "max": 1.59156,
+   "mean": 0.62365,
+   "median": 0.30456
+  },
+  "lever_hinge_free_all_atom_A": {
+   "n": 4,
+   "min": 0.27782,
+   "max": 1.42845,
+   "mean": 0.57576,
+   "median": 0.29839
+  },
+  "lever_whole_all_atom_A": {
+   "n": 4,
+   "min": 0.31433,
+   "max": 11.68697,
+   "mean": 3.32071,
+   "median": 0.64076
+  },
+  "lever_lddt_ca": {
+   "n": 4,
+   "min": 0.93294,
+   "max": 0.99892,
+   "mean": 0.98043,
+   "median": 0.99493
+  },
+  "A_seedfloor_worst_domain_all_atom_A": {
+   "n": 6,
+   "min": 1.08885,
+   "max": 1.42169,
+   "mean": 1.217,
+   "median": 1.18521
+  },
+  "A_seedfloor_whole_all_atom_A": {
+   "n": 6,
+   "min": 5.9487,
+   "max": 17.48045,
+   "mean": 10.47893,
+   "median": 10.10553
+  },
+  "A_seedfloor_lddt_ca": {
+   "n": 6,
+   "min": 0.90622,
+   "max": 0.93923,
+   "mean": 0.92465,
+   "median": 0.92936
+  },
+  "B_seedfloor_worst_domain_all_atom_A": {
+   "n": 6,
+   "min": 1.12611,
+   "max": 1.83436,
+   "mean": 1.5004,
+   "median": 1.51768
+  },
+  "A_vs_1hcl_copy1(res 1-298)_lddt_ca": {
+   "n": 4,
+   "min": 0.93516,
+   "max": 0.94601,
+   "mean": 0.93908,
+   "median": 0.93759
+  },
+  "A_vs_1hcl_copy1(res 1-298)_ca_rmsd_A": {
+   "n": 4,
+   "min": 1.04711,
+   "max": 1.15896,
+   "mean": 1.10088,
+   "median": 1.09874
+  },
+  "B_vs_1hcl_copy1(res 1-298)_lddt_ca": {
+   "n": 4,
+   "min": 0.92393,
+   "max": 0.94879,
+   "mean": 0.93657,
+   "median": 0.93678
+  },
+  "B_vs_1hcl_copy1(res 1-298)_ca_rmsd_A": {
+   "n": 4,
+   "min": 1.00744,
+   "max": 1.57432,
+   "mean": 1.19077,
+   "median": 1.09066
+  },
+  "A_vs_1hcl_copy2(res 299-512)_lddt_ca": {
+   "n": 4,
+   "min": 0.90536,
+   "max": 0.92161,
+   "mean": 0.91616,
+   "median": 0.91883
+  },
+  "A_vs_1hcl_copy2(res 299-512)_ca_rmsd_A": {
+   "n": 4,
+   "min": 1.10042,
+   "max": 1.29355,
+   "mean": 1.171,
+   "median": 1.14501
+  },
+  "B_vs_1hcl_copy2(res 299-512)_lddt_ca": {
+   "n": 4,
+   "min": 0.90394,
+   "max": 0.92544,
+   "mean": 0.91539,
+   "median": 0.91608
+  },
+  "B_vs_1hcl_copy2(res 299-512)_ca_rmsd_A": {
+   "n": 4,
+   "min": 1.063,
+   "max": 1.34026,
+   "mean": 1.18118,
+   "median": 1.16073
+  }
+ },
+ "bar": {
+  "kill_bar_A": 0.6,
+  "note": "the 0.60 A bar is a per-pseudo-domain reading on this fixture; the whole-structure column is the free hinge and is reported for contrast only"
+ }
+}
