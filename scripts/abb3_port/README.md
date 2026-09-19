@@ -69,8 +69,11 @@ sent a reader to was the one no recorded run had ever used.
 
 ## What a reproduction still needs from outside this directory
 
-* `data.tar.gz` staged (3.0 GB, qb2 only). Their `structures/*.pt` carry every loss target, so no
-  featuriser is owed beyond `single_and_pair_features`.
+* `data.tar.gz` staged (3.0 GB, on qb2 and qb1). Their `structures/*.pt` carry every loss target,
+  so no featuriser is owed beyond the two input one-hots, and those are built on the card by
+  `tt_bio/train/abb3_features_device.py` from the `(micro, n_tok)` index maps rather than
+  uploaded: the pair map is 138 MB a micro-batch and the index it expands is 8 KB.
+  `single_and_pair_features` stays the host reference that path is checked against.
 * The three violation terms, which upstream gates on `finetune` and stage 1 therefore never calls.
 * A decision on their supervised-chi pi-periodicity defect, which `loss_gate.py` prints the size of
   on every run. Ours reproduces it by default because the target is their number.
