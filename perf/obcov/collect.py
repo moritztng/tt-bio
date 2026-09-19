@@ -12,9 +12,15 @@ dedups its main MSA on its own checkpoint spec -- which is why neither is inferr
 
 The structure is scored with the shared instrument (`perf/wh-correctness/check_structure.py`),
 because a completed fold with a torn backbone is worse than a refusal: it looks like success.
-`refusals_in_log` is grepped rather than assumed absent, and `progress` reports whether RSS and
-the log were still moving at the end, because openbind's L1 refusals inside the diffusion
-transformer are caught and retried, so a stall presents as a budget timeout and not as a throw.
+`refusals_in_log` is grepped rather than assumed absent, and `progress` reports whether RSS was
+still moving at the end, because openbind's L1 refusals inside the diffusion transformer are
+caught and retried, so a stall presents as a budget timeout and not as a throw.
+
+That RSS comes from `grouprss.log` (written by `grouprss.sh`), not from the fourth column of
+`rung.sh`'s `host.log`. The column in host.log is the RSS of the pid rung.sh launched, and that
+pid is a click front end that sits at 481 MB for the whole fold while a spawned worker does all
+the work at 10-29 GB. A stall detector reading it would have been blind by construction, which is
+why the group sum is a second sampler rather than a nicer statistic over the first.
 """
 from __future__ import annotations
 
@@ -46,10 +52,12 @@ def clock(d: Path, dev: int) -> dict:
 
 def progress(d: Path) -> dict:
     """Was anything still moving at the end? Distinguishes a stall from a slow fold."""
-    rows = [line.split() for line in (d / "host.log").read_text().splitlines() if line.strip()]
-    rss = [int(r[3]) for r in rows if len(r) > 3 and r[3].isdigit()]
-    tail = rss[-30:]
-    return {"host_load_median": round(statistics.median(float(r[2]) for r in rows), 1) if rows else None,
+    host = [line.split() for line in (d / "host.log").read_text().splitlines() if line.strip()]
+    grp = d / "grouprss.log"
+    rss = [int(r.split()[1]) for r in grp.read_text().splitlines()
+           if len(r.split()) > 1 and r.split()[1].isdigit()] if grp.exists() else []
+    tail = rss[-20:]      # grouprss.sh samples every 15 s, so 20 samples is the last 5 minutes
+    return {"host_load_median": round(statistics.median(float(r[2]) for r in host), 1) if host else None,
             "rss_peak_gib": round(max(rss) / 1048576, 2) if rss else None,
             "rss_flat_last_5min": bool(tail) and len(set(tail)) == 1}
 

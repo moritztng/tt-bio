@@ -51,12 +51,16 @@ LIGAND_ATOMS = 35
 #: on this board, so a 1536 result is only attributable once the same card folds the proven rung
 #: with this harness. 1571_holo is deliberately ABOVE the bar -- 1536 residues plus 35 ligand
 #: atoms -- because openbind's recorded Wormhole wall is on tokens and a holo probe is the only
-#: thing that tests the axis it actually died on.
+#: thing that tests the axis it actually died on. 2048 is above the bar as well, and it is what
+#: turns "1536 is the bar" into "1536 is the bar and the wall is elsewhere": a bar cleared with
+#: no failing size above it cannot say which of the two it is. It repeats the 512 chain rather
+#: than introducing a new one so every rung stays a multiple of 32 and folds a staged alignment.
 RUNGS = {
     "1024": ([1024], False),
     "1536": ([1024, 512], False),
     "real_686": ([686], False),
     "1571_holo": ([1024, 512], True),
+    "2048": ([1024, 512, 512], False),
 }
 
 
