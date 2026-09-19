@@ -20,9 +20,18 @@ the release gate's RFD3 ladder targets and the module two tests import. That
 nearly happened on 2026-09-11. Joined citations are collected as well now, from
 ``tests/`` and ``scripts/`` too, and only as far as the directory -- the segment
 after it is usually an f-string.
+
+That second half reads the AST, not a regex. A regex matching ``"perf", "<dir>"``
+for ``os.path.join`` also matches a tuple of sibling directory names, and
+``("scripts", "perf", "tt_bio", "examples")`` is four trees to walk, not a path
+to ``perf/tt_bio``. The first ordinary tuple the comma reader met was the one in
+``tests/test_argparse_help_renders.py``, and the gate went red against a correct
+line.
 """
 
+import ast
 import re
+import warnings
 from pathlib import Path
 
 import pytest
@@ -34,8 +43,11 @@ REPO = Path(__file__).resolve().parents[1]
 # Directory names are lowercase, so this skips prose like "the perf/UX gate".
 CITATION = re.compile(r"perf/[a-z0-9][A-Za-z0-9_.\-]*(?:/[A-Za-z0-9_.\-]+)*")
 
-# ``Path(...) / "perf" / "<dir>"`` and ``os.path.join(..., "perf", "<dir>")``.
-JOINED = re.compile(r"""['"]perf['"]\s*(?:/|,)\s*['"]([A-Za-z0-9_.\-]+)['"]""")
+# ``Path(...) / "perf" / "<dir>"``, for a file that is not Python and so has no
+# AST to read. The comma form -- ``os.path.join(..., "perf", "<dir>")`` -- is not
+# here on purpose: a comma between two string literals is also what a tuple of
+# sibling directory names looks like, and only the AST can tell them apart.
+DIVIDED = re.compile(r"""['"]perf['"]\s*/\s*['"]([A-Za-z0-9_.\-]+)['"]""")
 
 # Nothing here holds prose, and two of them are large enough to matter.
 BINARY = {".cif", ".pdb", ".npz", ".a3m", ".sto", ".pt", ".parquet",
@@ -88,14 +100,80 @@ def _citations():
             yield name, match.group(0).rstrip(".,;:")
 
 
+def _string(node):
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    return None
+
+
+def _div_segments(node):
+    """``a / "perf" / "x"`` -> ``[a, "perf", "x"]``. The chain nests leftwards."""
+    parts = []
+    while isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        parts.append(node.right)
+        node = node.left
+    parts.append(node)
+    return parts[::-1]
+
+
+def _is_join(func):
+    """``os.path.join``, ``posixpath.join``, a bare imported ``join``.
+
+    ``",".join(parts)`` lands here too and yields nothing: its one argument is
+    an iterable, never two adjacent literals.
+    """
+    if isinstance(func, ast.Attribute):
+        return func.attr == "join"
+    return isinstance(func, ast.Name) and func.id == "join"
+
+
+def _joined_dirs(source):
+    """Directories under ``perf`` that Python *source* builds from segments.
+
+    ``ROOT / "perf" / "whceil"`` and ``os.path.join(REPO, "perf", "whceil")``
+    both open ``perf/whceil``. ``("scripts", "perf", "tt_bio")`` does not open
+    ``perf/tt_bio``: it is three sibling names, and whatever indexes it is a
+    loop variable no static reader can resolve. A regex sees the same two
+    quoted words with a comma between them in both, which is why this reads
+    the AST. ``None`` if *source* is not parseable Python.
+    """
+    try:
+        with warnings.catch_warnings():
+            # Reading a file is not importing it. An invalid escape sequence in
+            # some other module's string is that module's problem, and it would
+            # arrive here labelled `<unknown>:2`.
+            warnings.simplefilter("ignore")
+            tree = ast.parse(source)
+    except SyntaxError:
+        return None
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+            segments = _div_segments(node)
+        elif isinstance(node, ast.Call) and _is_join(node.func):
+            segments = node.args
+        else:
+            continue
+        for left, right in zip(segments, segments[1:]):
+            name = _string(right)
+            if _string(left) == "perf" and name:
+                found.append(name)
+    # A chain nests, so `ast.walk` reaches `a / "perf" / "x"` once whole and
+    # once as the left side of the next `/`.
+    return list(dict.fromkeys(found))
+
+
 def _joined_reads():
-    """`"perf" / "<dir>"`, from everything that could open one."""
+    """`"perf" / "<dir>"` and its `join` form, from everything that opens one."""
     for name in _tracked("tt_bio", "docs", "site", "tests", "scripts"):
         body = _text(name)
         if body is None:
             continue
-        for match in JOINED.finditer(body):
-            yield name, "perf/" + match.group(1)
+        dirs = _joined_dirs(body) if name.endswith(".py") else None
+        if dirs is None:
+            dirs = [m.group(1) for m in DIVIDED.finditer(body)]
+        for cited in dirs:
+            yield name, "perf/" + cited
 
 
 def _resolves(cited):
@@ -127,8 +205,51 @@ def test_the_census_sees_a_joined_citation_a_one_string_regex_cannot():
     """Negative control for the half added 2026-09-11.
 
     It has to fail on what the old scan passed, or the fix is decorative. The
-    literal below is exactly the shape `scripts/release_gate.py` uses.
+    two literals below are exactly the shapes `scripts/release_gate.py` and
+    `tests/test_token_axis_bucketing_hw.py` use.
     """
     line = 'path = REPO_ROOT / "perf" / "ceilrfd3" / "targets"'
     assert not CITATION.search(line), "the one-string regex should not see this"
-    assert [m.group(1) for m in JOINED.finditer(line)] == ["ceilrfd3"]
+    assert _joined_dirs(line) == ["ceilrfd3"]
+
+    call = 'p = os.path.join(REPO, "perf", "wh-correctness", "results")'
+    assert not CITATION.search(call), "the one-string regex should not see this"
+    assert _joined_dirs(call) == ["wh-correctness"]
+
+
+def test_a_dangling_joined_citation_still_fails():
+    """The gate's whole reason to exist, on a directory that is really absent.
+
+    A reader narrow enough to stop mis-firing can also be narrow enough to see
+    nothing, which would delete the gate rather than fix it. This is the case
+    the tidy loses money on: literal segments, directory not in the repo.
+    """
+    source = 'REF = ROOT / "perf" / "no_such_tree" / "targets"'
+    assert _joined_dirs(source) == ["no_such_tree"]
+    assert not _resolves("perf/no_such_tree")
+    with pytest.raises(AssertionError, match="no_such_tree"):
+        test_perf_tree_a_gate_opens_by_path_join_exists(
+            "fixture.py", "perf/no_such_tree")
+
+
+def test_a_tuple_of_sibling_directories_is_not_a_joined_citation():
+    """`("scripts", "perf", "tt_bio", "examples")` cites no `perf/tt_bio`.
+
+    The comma reader read the two adjacent elements as one path and failed the
+    gate against correct code. Four sibling trees, one rglob each, and the name
+    that indexes them is a loop variable.
+    """
+    line = ('SOURCES = [p for d in ("scripts", "perf", "tt_bio", "examples")\n'
+            '           for p in (ROOT / d).rglob("*.py")]')
+    assert _joined_dirs(line) == []
+
+
+def test_a_file_that_is_not_python_still_gets_the_divided_form():
+    """A shell script or a fenced snippet has no AST; the `/` form is safe there.
+
+    Only the `/` form: a comma outside a parsed file is the ambiguity above
+    with nothing left to resolve it.
+    """
+    assert [m.group(1) for m in DIVIDED.finditer(
+        'sys.path.insert(0, str(here / "perf" / "bgsdpa"))')] == ["bgsdpa"]
+    assert _joined_dirs("this is not python ===") is None
