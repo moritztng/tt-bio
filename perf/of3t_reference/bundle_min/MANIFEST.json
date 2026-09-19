@@ -119,7 +119,7 @@
     "None is not zero. Compare the presence pattern as a set before any magnitude.",
     "The gradient is BEFORE clipping. At world size 1 with accumulate_grad_batches 1 the optimizer-facing gradient is exactly grad * clip_coef."
   ],
-  "status": "GRADIENT ARTIFACT ON HOLD -- only 6 of 4147 parameter tensors carry a non-zero gradient. Batch, seed, w0, draws and presence map are sound; do not compare against grads_f64.pt until re-issued.",
+  "status": "GRADIENT ARTIFACT ON HOLD, cause found and fix demonstrated. At a random init OF3 zero-initialises 2271 of 4890 weight tensors, so a step-1 gradient reaches only the 6 zero-initialised output projections. Re-issued with of3-p2-155k.pt loaded it reaches 4140 of 4147. The trained-weights gradient is measured but its finite-difference validation is not yet passing at h=1e-5 (median rel 0.353), so it is not published for instrument A yet.",
   "determinism_floor": {
     "method": "two processes, same seed, same batch, same box, float64",
     "loss_bit_identical": true,
@@ -133,5 +133,34 @@
     "conclusion": "float64 mode ruled out: the same script at --dtype float32, with no autocast or .float() patching active, gives 6 of 4147 as well. The cause is the direct call, not the precision mode.",
     "their_runner_contrast": "4850 of 4890 state-dict tensors moved over the 20-step fp32 trajectory driven through OpenFold3AllAtom and pl.Trainer."
   },
-  "reading_order": "MANIFEST.json is the publication. run_record.json is one invocation of bundle_min.py. If they ever disagree, MANIFEST.json wins."
+  "reading_order": "MANIFEST.json is the publication. run_record.json is one invocation of bundle_min.py. If they ever disagree, MANIFEST.json wins.",
+  "root_cause": {
+    "zero_init_weight_tensors_at_random_init": 2271,
+    "of_total": 4890,
+    "nonzero_gradient_tensors_random_init": 6,
+    "nonzero_gradient_tensors_trained_weights": 4140,
+    "of_parameters": 4147,
+    "ruled_out": [
+      "float64 mode (fp32 direct call also gives 6)",
+      "the direct call (their OpenFold3AllAtom + pl.Trainer also gives 6)",
+      "the batch (4hhb at the full 384-token crop also gives 6)"
+    ],
+    "trajectory_evidence": "tensors moved per step: 0 at k=1 (lr=0), 7 at k=2, 1702 at k=3, 3567 at k=4, 4267 at k=5, 4850 of 4890 at k=20 - the zero gates open one layer at a time",
+    "campaign_consequence": "instrument A must not be performed on a step-1 gradient from a random init: 4141 of 4147 per-tensor comparisons would be zero against zero, and the gate would pass with our trunk deleted"
+  },
+  "v2_trained_weights": {
+    "checkpoint": "of3-p2-155k.pt",
+    "n_loaded": 4935,
+    "n_missing": 3,
+    "n_unexpected": 48,
+    "loss": 1.6769288331974042,
+    "gradient_global_norm": 4.9721,
+    "drawn_recycle_count": 3,
+    "fd_at_h_1e-5": {
+      "n": 12,
+      "median_rel": 0.353,
+      "max_rel": 1.111,
+      "interpretation": "truncation, not a wrong gradient: O(h^2 L''') on a curved trained surface, with samples now deep in the trunk. h-sweep 1e-3..1e-7 running."
+    }
+  }
 }
