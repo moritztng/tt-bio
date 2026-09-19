@@ -52,6 +52,9 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=193_512)
     ap.add_argument("--global-batch", type=int, default=64)
     ap.add_argument("--micro", type=int, default=8)
+    ap.add_argument("--prefetch", type=int, default=0,
+                    help="steps of micro-batch building to run ahead of the card, on a "
+                         "worker thread. 0 is the serial build")
     ap.add_argument("--tokens", type=int, default=256)
     ap.add_argument("--blocks", type=int, default=8)
     ap.add_argument("--seed", type=int, default=0)
@@ -94,7 +97,7 @@ def main() -> int:
                     micro_batch=args.micro, tokens=args.tokens, seed=args.seed,
                     checkpoint_minutes=args.checkpoint_minutes, rank=args.rank,
                     world=args.world, chips=chips, rendezvous=Path(args.rendezvous),
-                    max_seconds=args.max_seconds)
+                    max_seconds=args.max_seconds, prefetch=args.prefetch)
     mcfg = ABB3Config(use_plddt=False, no_blocks=args.blocks)
     dev = get_device()
     try:

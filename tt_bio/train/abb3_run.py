@@ -67,6 +67,7 @@ from . import abb3_dataset, provenance
 from .abb3_checkpoint import latest_checkpoint, load_run_state, save_run_state
 from .cotenancy import CotenantSampler
 from .hostreduce import HostReduce, master_hash
+from .prefetch import host_stream
 from .mesh import Mesh
 from .sharding import batches
 
@@ -106,6 +107,10 @@ class RunConfig:
     val_every: int = 0
     log_every: int = 1
     max_seconds: float = 0.0
+    #: How many steps of micro-batch building to run ahead of the card, on one worker thread.
+    #: 0 is the serial build. See ``tt_bio.train.prefetch``; 1 covers a whole step of device
+    #: work, which is the whole opportunity.
+    prefetch: int = 0
 
     def __post_init__(self):
         self.out_dir = Path(self.out_dir)
@@ -250,19 +255,38 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
     # the loss stage, and which TERM it is decides whether a lever touches the serial part or
     # the parallel part -- the distinction the whole optimisation queue is ranked on.
     prev_terms: dict = {}
+    # `wall` times `step.step()` and nothing else, and the micro-batch build sits in FRONT of
+    # it, so the cadence a watcher sees has always been larger than any row in the history --
+    # 2.232 s a step larger on the first 5-day leg, 17.7 % of its wall clock, with no field
+    # carrying it. These two close the loop: `data` is the build and the upload, `outer` is
+    # every remaining microsecond, so t[n+1] - t[n] == data + wall + outer for n >= 1 exactly
+    # and an unaccounted gap can no longer hide between two rows.
+    t_outer = None
+    stream = host_stream(plan, lambda b: [b.per_chip[cfg.rank][i:i + cfg.micro_batch]
+                                          for i in range(0, len(b.per_chip[cfg.rank]),
+                                                         cfg.micro_batch)],
+                         dataset, cfg.prefetch)
     with provenance.during(seed=cfg.seed, config=cfg.as_dict()) as prov:
-        for batch in plan:
+        while True:
+            # `t_data` is stamped BEFORE the stream is pulled, so with a prefetch depth the wait
+            # for the worker thread is charged to `data` and a win cannot be booked by moving
+            # the cost to an unmeasured line.
+            t_data = time.perf_counter()
+            outer = 0.0 if t_outer is None else t_data - t_outer
+            try:
+                batch, hosts = next(stream)
+            except StopIteration:
+                break
             gs = batch.step + 1
-            mine = batch.per_chip[cfg.rank]
-            micros = [dataset.batch(mine[i:i + cfg.micro_batch])
-                      for i in range(0, len(mine), cfg.micro_batch)]
+            micros = [dataset.upload(h) for h in hosts]
             t0 = time.perf_counter()
             parts, timing = step.step(micros)
             wall = time.perf_counter() - t0
             terms = {k: round(v - prev_terms.get(k, 0.0), 4)
                      for k, v in step.loss_terms.items()}
             prev_terms = dict(step.loss_terms)
-            row = {"step": gs, "wall": round(wall, 4), **parts,
+            row = {"step": gs, "t": round(time.time(), 3), "wall": round(wall, 4),
+                   "data": round(t0 - t_data, 4), "outer": round(outer, 4), **parts,
                    "digest": step.optimizer.last.get("master_digest"),
                    "stages": timing.as_dict(), "loss_terms": terms}
             history.append(row)
@@ -289,6 +313,7 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             if cfg.max_seconds and time.monotonic() - t_run > cfg.max_seconds:
                 print(f"[rank {cfg.rank}] max_seconds reached at step {gs}", flush=True)
                 break
+            t_outer = time.perf_counter()
     log.close()
     co = tenants.stop()
     prov.config["cotenancy"] = co

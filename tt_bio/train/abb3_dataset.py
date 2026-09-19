@@ -160,6 +160,15 @@ class SyntheticFvs:
         seed = int(torch.tensor([int(i) for i in indices]).sum().item()) * 1_000_003 + len(indices)
         return self._make(self.cfg, len(indices), self.tokens, seed % (2 ** 31), self.device)
 
+    #: ``synthetic_micro_batch`` builds straight onto the card, so there is no host half to
+    #: hand a thread. These two keep the ``host``/``upload`` contract exact and leave the
+    #: prefetch stream a no-op here rather than letting a worker thread call ttnn.
+    def host(self, indices):
+        return list(indices)
+
+    def upload(self, indices) -> dict:
+        return self.batch(indices)
+
 
 def dataset(kind: str, *, cfg, micro: int, tokens: int, device, n: int = 8192,
             ids=None, root=None):
@@ -260,7 +269,37 @@ class SabdabFvs:
         several, so the two senses of "batch" are the loop's to reconcile and not this method's
         to rename around.
         """
+        return self.upload(self.host(indices))
+
+    def upload(self, hb: dict) -> dict:
+        """Put a host micro-batch on the card. The ONLY part of the build that touches ttnn.
+
+        Split out from :meth:`host` so the expensive half can run on a thread. ``bias_d`` is
+        derived here rather than carried, because it is the same 1 MB mask scaled by a constant
+        and materialising it on the host would double that transfer for nothing.
+        """
         from ..abodybuilder3 import to_device_fp32
+        square = hb["square"]
+        return {
+            "device": self.device,
+            "single_d": to_device_fp32(hb["single"]),
+            "pair_d": to_device_fp32(hb["pair"]),
+            "square_d": to_device_fp32(square),
+            "bias_d": to_device_fp32(self.cfg.inf * (square - 1.0)),
+            "aatype": hb["aatype"],
+            "targets": hb["targets"],
+            "ids": hb["ids"],
+            "tokens": hb["tokens"],
+        }
+
+    def host(self, indices) -> dict:
+        """The same build with the four uploads left off, so it opens no device and holds no GIL
+        that matters: ``torch.load`` and the pad/one-hot stacking both release it.
+
+        This half is 8x ``torch.load`` plus a 132-channel relative-position one-hot at
+        ``(micro, n_tok, n_tok)``, which is 138 MB at micro 4 and 256 tokens. It is the reason
+        the seam is here and not somewhere cheaper to cut.
+        """
         from ..abodybuilder3_reference import single_and_pair_features
 
         raw = [self.load(i) for i in indices]
@@ -319,11 +358,9 @@ class SabdabFvs:
 
         square = (seq_mask.unsqueeze(-1) * seq_mask.unsqueeze(-2)).unsqueeze(1)
         return {
-            "device": self.device,
-            "single_d": to_device_fp32(single),
-            "pair_d": to_device_fp32(pair),
-            "square_d": to_device_fp32(square),
-            "bias_d": to_device_fp32(self.cfg.inf * (square - 1.0)),
+            "single": single,
+            "pair": pair,
+            "square": square,
             "aatype": aatype,
             "targets": targets,
             "ids": [self.ids[int(i)] for i in indices],
