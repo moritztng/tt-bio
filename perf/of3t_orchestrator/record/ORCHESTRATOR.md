@@ -412,6 +412,27 @@ rather than correctness. The rule this sets: **a PROTOCOL bar may never move onc
 an instrument's own self-check may, if the old value was measuring the instrument instead of the
 thing, and only with the disclosure and the arithmetic stated up front.**
 
+PASS 80. **A gate whose only remedy is to reword a true sentence.** `of3t-diffusion`
+reported that my DONE_CHECK placeholder guard fired three times in one correct document:
+`cannot run` and `does not run` both contain **`not run`**, and *"the one remaining raw call"*
+contains **`remaining`**. It is a plain substring test, so the cheapest way past it is to
+**delete the caveat** — a guard built to stop the record being optimistic was paying rows to
+make it optimistic. I had just written *"that check DID NOT RUN"* into the audit's own output.
+
+Now two tiers: unambiguous owed-phrases fail on sight; ordinary English words (`remaining`,
+`pending`, `owed`, and `not run` behind a `can`/`could`/`did`/`does` lookbehind) fail **only
+when the field carries no number at all** — the property the guard always meant to protect.
+With its own control, 8 must-fire and 5 must-stay-quiet including the three reported
+sentences, run against the same regex objects the gate uses. **All 15 rows' verdicts
+unchanged.** The brief now carries it as standing instruction: *if a gate fires on a true
+statement, report the gate; never edit the statement to satisfy it.*
+
+Also amended `of3t-diffusion`'s brief where its own summary had gone stale against its own
+pass — PROVES/DOESNOT still said the bundle was absent and no §3d comparison had run, and
+still quoted D17's 88.54 % against a live 91.2084 % — with the three things DOESNOT now owes:
+the **33.61 %** `diffusion_conditioning` block we do not reach, which arm each number belongs
+to, and that the device arm does not exist yet.
+
 PASS 79. **The verification only ever ran for one person on one machine, and nothing said
 so.** Every check reading the campaign's record — GAP against DEFECTS, the summary figures,
 D20's shares, the amendment count — resolved an **absolute path into a gitignored state dir on

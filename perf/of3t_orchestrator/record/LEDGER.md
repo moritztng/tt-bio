@@ -4626,3 +4626,33 @@ read **141 confirmed** and said nothing; now it reads 146 with the two warnings.
 *"141 confirmed" looks exactly like "146 confirmed" to someone who has never seen 146.* A
 check that cannot run has to say so (K60) — and a verification that only its author can run is
 not a verification of the deliverable, it is a property of his laptop.
+
+### R115 -- A gate whose only remedy is to reword a true sentence
+
+**Reported by `of3t-diffusion`, against my own instrument.** The DONE_CHECK placeholder
+guard — added after `of3t-gradients` found that an honest "not yet measured" passed every
+field regex — is a plain substring test. It fired **three times in one correct document**:
+`cannot run` and `does not run` both contain **`not run`**, and *"the one remaining raw
+call"* contains **`remaining`**.
+
+**Why that is worse than no guard at all.** It does not catch an owed measurement; it catches
+a row writing carefully. And the cheapest way past it is to **delete the caveat** — so a
+guard built to stop the record being optimistic was, in practice, paying rows to make it
+optimistic. I had just written *"that check DID NOT RUN — it is not a pass"* into the audit's
+own output (R114), which is exactly the sentence this guard punishes.
+
+**Fixed as two tiers.** Phrases that never occur in a correct measurement sentence
+(`not yet measured`, `TBD`, `to be measured`, `has not been run`, `still to be run`) fail on
+sight. Words that are also ordinary English (`remaining`, `pending`, `owed`, `next pass`, and
+`not run` behind a `can`/`could`/`did`/`does` lookbehind) fail **only when the field carries
+no number at all** — which is the property the guard was always protecting: *a measurement
+field must carry a measurement.* A field with a number **and** a caveat is what honest
+reporting looks like, and it now passes.
+
+**With its own control**, because a guard needs a control that breaks it: `--selftest`, 8
+must-fire and 5 must-stay-quiet cases, the three reported sentences among them, running
+against the **same regex objects the gate uses** rather than a re-parse of the source. All
+**15 rows' verdicts are unchanged** — a strict false-positive fix, not a weakening.
+
+*A gate that fires on a true statement teaches the writer to stop making true statements.*
+Standing instruction now in the briefs: report the gate, never edit the statement.
