@@ -1,0 +1,368 @@
+{
+  "chips": [
+    1,
+    2,
+    3,
+    0
+  ],
+  "rungs": [
+    1,
+    2,
+    4
+  ],
+  "rounds": 2,
+  "steps": 4,
+  "micro": 4,
+  "global_batch": 64,
+  "tokens": 256,
+  "blocks": 8,
+  "seed": 0,
+  "data": "sabdab",
+  "arms": {
+    "1": {
+      "world": 1,
+      "n": 2,
+      "cadence_s": 28.1889,
+      "wall_s": 22.4959,
+      "speedup": 1.0,
+      "efficiency": 1.0,
+      "cadence_per_round": [
+        28.247,
+        28.13
+      ],
+      "wall_per_round": [
+        22.683,
+        22.309
+      ],
+      "data_s": 5.6929,
+      "outer_s": 0.0,
+      "host_torch_s": 9.2649,
+      "forward_s": 5.1152,
+      "device_backward_s": 7.5039,
+      "optimizer_s": 0.1237,
+      "reduce_s": 0.0,
+      "reduce_wait_s": 0.0,
+      "reduce_mb": 0.0,
+      "aiclk": {
+        "samples": 170,
+        "median": 1350.0,
+        "min": 1350.0,
+        "max": 1350.0
+      },
+      "nodes_per_round": [
+        [
+          2
+        ],
+        [
+          2
+        ]
+      ],
+      "digests_agree": true,
+      "clean": false,
+      "attribution_per_rank": [
+        {
+          "0": {
+            "wall": 22.6832,
+            "data": 5.5641,
+            "outer": 0.0,
+            "reduce_s": 0.0,
+            "reduce_wait_s": 0.0,
+            "reduce_mb": 0.0,
+            "forward": 5.0976,
+            "device_backward": 7.5396,
+            "losses": 4.7935,
+            "host_backward": 4.6931,
+            "optimizer": 0.124,
+            "cadence": 28.2473
+          }
+        },
+        {
+          "0": {
+            "wall": 22.3086,
+            "data": 5.8218,
+            "outer": 0.0,
+            "reduce_s": 0.0,
+            "reduce_wait_s": 0.0,
+            "reduce_mb": 0.0,
+            "forward": 5.1329,
+            "device_backward": 7.4683,
+            "losses": 4.4947,
+            "host_backward": 4.5485,
+            "optimizer": 0.1234,
+            "cadence": 28.1304
+          }
+        }
+      ]
+    },
+    "2": {
+      "world": 2,
+      "n": 2,
+      "cadence_s": 14.2087,
+      "wall_s": 11.0941,
+      "speedup": 1.9839,
+      "efficiency": 0.992,
+      "cadence_per_round": [
+        14.121,
+        14.296
+      ],
+      "wall_per_round": [
+        11.009,
+        11.179
+      ],
+      "data_s": 3.1242,
+      "outer_s": 0.0,
+      "host_torch_s": 4.3068,
+      "forward_s": 2.5758,
+      "device_backward_s": 3.7305,
+      "optimizer_s": 0.4442,
+      "reduce_s": 0.3093,
+      "reduce_wait_s": 0.2473,
+      "reduce_mb": 63.9369,
+      "aiclk": {
+        "samples": 88,
+        "median": 1350.0,
+        "min": 1350.0,
+        "max": 1350.0
+      },
+      "nodes_per_round": [
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "digests_agree": true,
+      "clean": true,
+      "attribution_per_rank": [
+        {
+          "0": {
+            "wall": 11.0094,
+            "data": 3.1089,
+            "outer": 0.0,
+            "reduce_s": 0.0776,
+            "reduce_wait_s": 0.0303,
+            "reduce_mb": 63.9369,
+            "forward": 2.5761,
+            "device_backward": 3.7143,
+            "losses": 2.1009,
+            "host_backward": 2.121,
+            "optimizer": 0.1947,
+            "cadence": 14.1183
+          },
+          "1": {
+            "wall": 11.0062,
+            "data": 3.1153,
+            "outer": 0.0,
+            "reduce_s": 0.2215,
+            "reduce_wait_s": 0.1615,
+            "reduce_mb": 63.9369,
+            "forward": 2.5734,
+            "device_backward": 3.7161,
+            "losses": 2.1177,
+            "host_backward": 2.0536,
+            "optimizer": 0.3686,
+            "cadence": 14.1215
+          }
+        },
+        {
+          "0": {
+            "wall": 11.1788,
+            "data": 3.1163,
+            "outer": 0.0,
+            "reduce_s": 0.397,
+            "reduce_wait_s": 0.3331,
+            "reduce_mb": 63.9369,
+            "forward": 2.5706,
+            "device_backward": 3.7217,
+            "losses": 2.0426,
+            "host_backward": 2.0668,
+            "optimizer": 0.5197,
+            "cadence": 14.2951
+          },
+          "1": {
+            "wall": 11.1628,
+            "data": 3.1332,
+            "outer": 0.0,
+            "reduce_s": 0.0721,
+            "reduce_wait_s": 0.0202,
+            "reduce_mb": 63.9369,
+            "forward": 2.5754,
+            "device_backward": 3.7448,
+            "losses": 2.2141,
+            "host_backward": 2.1608,
+            "optimizer": 0.214,
+            "cadence": 14.296
+          }
+        }
+      ]
+    },
+    "4": {
+      "world": 4,
+      "n": 2,
+      "cadence_s": 7.6475,
+      "wall_s": 5.7409,
+      "speedup": 3.686,
+      "efficiency": 0.9215,
+      "cadence_per_round": [
+        7.68,
+        7.615
+      ],
+      "wall_per_round": [
+        5.769,
+        5.712
+      ],
+      "data_s": 1.9053,
+      "outer_s": 0.0,
+      "host_torch_s": 2.2123,
+      "forward_s": 1.3147,
+      "device_backward_s": 1.8866,
+      "optimizer_s": 0.4124,
+      "reduce_s": 0.2926,
+      "reduce_wait_s": 0.2122,
+      "reduce_mb": 127.8739,
+      "aiclk": {
+        "samples": 49,
+        "median": 1350.0,
+        "min": 1350.0,
+        "max": 1350.0
+      },
+      "nodes_per_round": [
+        [
+          2,
+          3,
+          0,
+          1
+        ],
+        [
+          2,
+          3,
+          0,
+          1
+        ]
+      ],
+      "digests_agree": true,
+      "clean": true,
+      "attribution_per_rank": [
+        {
+          "0": {
+            "wall": 5.7694,
+            "data": 1.8669,
+            "outer": 0.0,
+            "reduce_s": 0.2981,
+            "reduce_wait_s": 0.2223,
+            "reduce_mb": 127.8739,
+            "forward": 1.3072,
+            "device_backward": 1.8719,
+            "losses": 1.064,
+            "host_backward": 1.0004,
+            "optimizer": 0.4185,
+            "cadence": 7.6363
+          },
+          "1": {
+            "wall": 5.7395,
+            "data": 1.8932,
+            "outer": 0.0,
+            "reduce_s": 0.1001,
+            "reduce_wait_s": 0.0303,
+            "reduce_mb": 127.8739,
+            "forward": 1.3029,
+            "device_backward": 1.8788,
+            "losses": 1.1749,
+            "host_backward": 1.0884,
+            "optimizer": 0.2333,
+            "cadence": 7.6327
+          },
+          "2": {
+            "wall": 5.7373,
+            "data": 1.908,
+            "outer": 0.0,
+            "reduce_s": 0.2868,
+            "reduce_wait_s": 0.202,
+            "reduce_mb": 127.8739,
+            "forward": 1.3141,
+            "device_backward": 1.8789,
+            "losses": 1.0772,
+            "host_backward": 1.0219,
+            "optimizer": 0.4086,
+            "cadence": 7.6453
+          },
+          "3": {
+            "wall": 5.7872,
+            "data": 1.8928,
+            "outer": 0.0,
+            "reduce_s": 0.2266,
+            "reduce_wait_s": 0.1413,
+            "reduce_mb": 127.8739,
+            "forward": 1.3069,
+            "device_backward": 1.8615,
+            "losses": 1.1191,
+            "host_backward": 1.0603,
+            "optimizer": 0.3485,
+            "cadence": 7.68
+          }
+        },
+        {
+          "0": {
+            "wall": 5.7124,
+            "data": 1.9026,
+            "outer": 0.0,
+            "reduce_s": 0.2137,
+            "reduce_wait_s": 0.1313,
+            "reduce_mb": 127.8739,
+            "forward": 1.302,
+            "device_backward": 1.8585,
+            "losses": 1.0607,
+            "host_backward": 1.0049,
+            "optimizer": 0.3481,
+            "cadence": 7.615
+          },
+          "1": {
+            "wall": 5.6917,
+            "data": 1.9012,
+            "outer": 0.0,
+            "reduce_s": 0.1759,
+            "reduce_wait_s": 0.0909,
+            "reduce_mb": 127.8739,
+            "forward": 1.3137,
+            "device_backward": 1.8603,
+            "losses": 1.0546,
+            "host_backward": 1.0344,
+            "optimizer": 0.3094,
+            "cadence": 7.5929
+          },
+          "2": {
+            "wall": 5.7265,
+            "data": 1.8834,
+            "outer": 0.0,
+            "reduce_s": 0.2871,
+            "reduce_wait_s": 0.202,
+            "reduce_mb": 127.8739,
+            "forward": 1.3021,
+            "device_backward": 1.8756,
+            "losses": 1.0689,
+            "host_backward": 0.9967,
+            "optimizer": 0.4064,
+            "cadence": 7.6099
+          },
+          "3": {
+            "wall": 5.7288,
+            "data": 1.8839,
+            "outer": 0.0,
+            "reduce_s": 0.1004,
+            "reduce_wait_s": 0.0304,
+            "reduce_mb": 127.8739,
+            "forward": 1.3153,
+            "device_backward": 1.8942,
+            "losses": 1.1267,
+            "host_backward": 1.0345,
+            "optimizer": 0.2503,
+            "cadence": 7.6127
+          }
+        }
+      ]
+    }
+  }
+}

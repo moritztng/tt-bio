@@ -45,6 +45,20 @@ MEASURED = {
                           "chips 1 and 3, 1350 MHz sampled during on both"),
     "dp2_efficiency": (0.935, "train-r5: the 6.5 % that does not scale is load imbalance, not "
                               "bandwidth"),
+    # The four-chip point is ABodyBuilder3's, not Protenix's: it is the model we can run a
+    # four-rank step on today. The same ladder's two-chip rung is 1.984x, so the two models'
+    # two-chip points agree within 6 % and the ladder is not silently a different scaling law.
+    "dp4_speedup": (3.686, "train-w-fourchip LADDER: ABodyBuilder3 on four qb1 p150a chips, "
+                           "global batch 64, micro 4, 256 tokens, arms interleaved from cold "
+                           "starts, 7.647 s a step against the 28.189 s one-chip cadence of "
+                           "the same session; 1350 MHz median and minimum sampled during every "
+                           "arm. A second take at three rounds gave 3.742x"),
+    "dp4_efficiency": (0.922, "train-w-fourchip ATTRIBUTION: the 7.8 % that does not scale is "
+                              "host torch, not the exchange -- the reduce moves 127.87 MB in "
+                              "0.293 s, 3.8 % of the step. Conditional on the host's cores "
+                              "being divided across the ranks, which tt_bio/train/launcher.py "
+                              "now does by default: with torch's own default width every rank "
+                              "claims all 16 cores and the same step takes 931 s"),
 }
 
 # The crop sizes whose forward is measured to OOM, with the allocation that was refused.
@@ -188,19 +202,27 @@ def plan(*, tokens: int, chips: int = 1, global_batch: Optional[int] = None,
 
 
 def _dp_speedup(chips: int):
-    """The measured DP speedup, or ``(None, why)`` above where it was measured.
+    """The measured DP speedup, or ``(None, why)`` at a width nobody has measured.
 
-    Two chips is 1.87x at 93.5 % efficiency and that is the only multi-chip point we have. The
-    tempting move is to carry 93.5 % forward as a per-chip efficiency and report 3.74x at 4
-    chips; it is refused here for the reason the campaign already wrote down twice -- two
-    points cannot measure a scaling exponent, and r5 named shard balance and the host reduce's
-    O(N) per-rank volume as the terms that grow with rank count. They do not show up at N=2.
+    One, two and four chips are measured. Three is not, and neither is anything above four:
+    the fourth chip is the last one a QuietBox has, so a wider world crosses a host boundary
+    and pays a link that the same-box points say nothing about.
+
+    The four-chip point is worth reading with its condition attached. Carrying two chips'
+    efficiency forward would have predicted 3.74x, which is within 2 % of the measurement --
+    and it would still have been the wrong number to trust, because the same four-chip step
+    takes 931 s when every rank takes torch's default thread width and 7.647 s when the host's
+    cores are divided across the ranks. What scales is a measured configuration, not a chip
+    count.
     """
     if chips == 1:
         return 1.0, "single chip: no collective, speedup 1.0 by definition"
     if chips == 2:
         return MEASURED["dp2_speedup"][0], f"DP speedup: {MEASURED['dp2_speedup'][1]}"
-    return None, (f"{chips}-chip step time is {UNMEASURED}: 1.87x on two chips is the only "
-                  f"multi-chip point measured, and extrapolating 93.5 % efficiency per chip "
-                  f"assumes the host reduce's O(N) per-rank volume and shard imbalance stay "
-                  f"flat in rank count, which is exactly what is unmeasured")
+    if chips == 4:
+        return MEASURED["dp4_speedup"][0], f"DP speedup: {MEASURED['dp4_speedup'][1]}"
+    return None, (f"{chips}-chip step time is {UNMEASURED}: one, two and four chips are "
+                  f"measured on this hardware and {chips} is not. Interpolating between them "
+                  f"assumes the host reduce's per-rank volume and the host torch that owns "
+                  f"the 7.8 % gap at four chips both move smoothly in rank count, and above "
+                  f"four the world leaves the box and pays a link these points never crossed")

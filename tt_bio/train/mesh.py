@@ -20,6 +20,12 @@ no reducer was given.
 script trains a different recipe on a different box. It is the axis a published recipe pins,
 which makes it the last thing that should move on its own.
 
+Four chips a box is measured, not a claim: ABodyBuilder3 steps in 7.647 s on four qb1 chips
+against 28.189 s on one, 3.686x at 92.2 %, with one master weight hash across the four ranks.
+The 7.8 % that does not scale is host torch and not the exchange, which moves 127.87 MB in
+0.293 s. It is conditional on ``launcher.host_threads`` dividing the host's cores across the
+ranks: at torch's own width four ranks take 64 threads on 16 cores and the step is 931 s.
+
 Up to 4 chips a box, and more than one box. ``Mesh({"dp": [0, 1]}, hosts=["ttuser@tt-quietbox2"])``
 names the other hosts, and :meth:`Mesh.rendezvous` turns that into the spec
 ``tt_bio/train/hostreduce.py`` already takes -- ``/dev/shm/abb3-dp+ttuser@tt-quietbox2``. The peer
