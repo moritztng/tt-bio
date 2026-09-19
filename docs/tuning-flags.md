@@ -723,7 +723,7 @@ is 227.5 GB/s against Blackhole's 424.7, so the deleted bytes are worth roughly 
 block A/B has not been run on Wormhole with the kernel built, so the flag ships off on every card.
 `perf/roof_gate_epilogue/FINDINGS.md` has the full record.
 
-## `TT_BIO_TRIATT_B8` — off
+## `TT_BIO_TRIATT_B8` — on
 
 Triangle attention's interior in `bfloat8_b`. The fused qkv+gate(+bias) matmul writes its five
 destinations in the block format, the fused SDPA's destination follows `q.dtype`, and the gate
@@ -738,33 +738,40 @@ normed pair tensor, because `ttnn.layer_norm` returns its input's format and nar
 need a cast that costs more than it saves. The out projection keeps the model dtype, so the region
 rounds once on the way out and the residual never sees block float.
 
-**Speed: 1.01211x, +0.1750 s at 512 residues.** One Blackhole processor of a p300c, `cdk2x2_512`,
+**Speed: 1.01422x, +0.2020 s at 512 residues**, measured with the rest of the
+shipping default underneath it. One Blackhole processor of a p300c, `cdk2x2_512`,
 11x10 grid, production protocol (3 recycles, 200 sampling steps), AICLK held at 1350 MHz and sampled
-during every fold at min = max = 1350 over 1840 samples, arms interleaved block by block, on a host
-and board pair checked quiet before every arm: 14.630 s off against 14.455 s on. Every on-arm fold
-is faster than every off-arm fold, by a gap of 0.080 s, against an A/A floor of 1.00432 that the
-effect clears 2.80x. A second quiet session agrees to 0.15 % at 1.01358x. All 560 triangle-attention
-calls per fold still serve on the fused SDPA and the fused qkv path with zero declines, so this is
-the same kernels on narrower operands and not a fallback (`perf/c14_bfp8/regiont_quiet_ab2.json`).
+during every fold at min = max = 1350 over 1827 samples, arms interleaved block by block on an idle
+board pair: **14.410 s off against 14.208 s on**, over four blocks of three folds an arm. Every
+block favours the flag, and the effect clears the run's own off-against-off floor by 2.2x. All 560 triangle-attention calls per fold still serve on the fused SDPA and the fused qkv path with
+zero declines, so this is the same kernels on narrower operands and not a fallback.
 
-An earlier reading of this flag was **1.04588x, +0.6640 s**, and it is refuted rather than
-superseded. It is the same lever measured against a contended base arm: the on arm reproduces, the
-off arm does not, and 15.135 s was a base fold taken while the board pair was busy. A p300c's two
-chips share a power budget, and benchlock excludes other benchlock callers rather than other device
-users, so a sibling that nobody leased can inflate the arm you are dividing by. Book +0.1750 s.
+That figure is the one to quote, because it was taken against the default everything else ships at.
+Two earlier sessions measured the same lever at 1.01211x and 1.01358x against a tree that predated
+`TT_BIO_DIT_COND_HOIST`; composing the two did not shrink either of them
+(`perf/c14_bfp8/compose_result.md`).
 
-**Accuracy: 0.42886 Å worst at 512 residues against the 0.60 Å bar**, per pseudo-domain and
-hinge-free, four seeds, paired same seed, card-independent, with a negative control
-(`bfp8-accuracy-envelope`). Whole-molecule single-seed all-atom Kabsch between the two arms of the
+An earlier reading of this flag was **1.04588x, +0.6640 s**. It is refuted, not superseded: the
+same lever divided by a 15.135 s off-arm fold taken while the board pair was busy. The two chips of
+a p300c share a power budget, so a busy sibling inflates the arm you divide by. Book +0.2020 s.
+
+**Accuracy: 0.37848 Å worst at 512 residues against the 0.60 Å bar**, per pseudo-domain and
+hinge-free, four seeds, paired same seed, card-independent, re-scored on the tree that ships it.
+Against the experimental structure the cost is 0.0005-0.0026 CA-lDDT, inside the 0.011-0.016 the
+sampler moves between seeds on its own. Whole-molecule single-seed all-atom Kabsch between the two arms of the
 speed run reads 0.523934 Å with the same-arm floor at 0.000000 Å exactly; re-folding with a different
 seed moves the structure 1.02436-1.42336 Å, so the flag's effect is roughly half the variation the
 sampler already produces. plDDT moves by 0.000017. Bit-exactness is lost by construction, which is
 why it is a flag.
 
-**Why it is off.** The default has not been flipped and the number above is a single size with a
-single flag; 298 residues and any combination with `TT_BIO_TRIATT_BIAS_B8` are unmeasured, and block
-float composes worse on accuracy than on speed. Turn it on per run if you want the second and can
-accept a structure that is not bit-identical to the default.
+**Why it is on, and what you give up.** The structure is not bit-identical to what the flag off
+produces, and that is the whole trade: you get 0.2 s a fold for a structure that differs by about a
+quarter of the seed floor. If you need a run reproducible against an older release byte for byte,
+set `TT_BIO_TRIATT_B8=0`.
+
+Two things are still unmeasured and neither is a reason to turn it off: 298 residues, and any
+combination with `TT_BIO_TRIATT_BIAS_B8`, which stays off. Block float composes worse on accuracy
+than on speed, so do not assume a second bfp8 region is free because this one was.
 
 ## `TT_BIO_TRIMUL_MASK_L1` — on
 

@@ -1561,7 +1561,7 @@ _TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
 # There is no `typecast` anywhere in the region: every producer in it is a matmul whose
 # destination format is a program argument, and the accumulator CB is a separate `interm_fmt`
 # (fp32 under `fp32_dest_acc_en`), so the narrowing is one rounding at the pack stage.
-_TRIATT_B8 = env_flag("TT_BIO_TRIATT_B8", False)
+_TRIATT_B8 = env_flag("TT_BIO_TRIATT_B8", True)
 
 
 def _triatt_dtype():
