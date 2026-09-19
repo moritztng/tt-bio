@@ -109,7 +109,13 @@ What is verified, and at what scope — the full table is `~/.coworker/state/of3
   against a 0.05 bar) while the assembled block reads **4.3e-01 to 1.4e+00**. Passing parts do
   not compose into a passing block, and every earlier result on this branch is module-scope.
 - **Not run at all**: the whole-model per-parameter comparison against the frozen bundle, the
-  whole-model trajectory, coverage, their own training test, and any s/step figure at any clock.
+  whole-model trajectory, coverage, and their own training test.
+- **Perf: no s/step exists on either side.** The method is pre-registered — their
+  `initial_training.yml` at both `bf16-mixed` and a `32-true` arm, 100 steps with 15 discarded,
+  median with p05/p95, SM clock sampled *during* at 5 s, the drawn recycle count reported with
+  every figure, host cores and `gpu_frac` recorded — but nothing has been measured. If you find
+  a "1.87x slower than an A100" in the reference state doc, that is fleet-history anecdote about
+  a host-bottlenecked H100, not this campaign's baseline.
 
 One number a reviewer should carry away about method: turning `fp32_softmax` off moves the
 triangle-attention weight gradient **3.2x** (1.449e-01 to 5.239e-02) while moving the forward
