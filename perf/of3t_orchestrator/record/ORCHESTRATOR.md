@@ -2961,3 +2961,34 @@ root-cause the mis-ranking as ordering, calibration or selection rule, fix it ac
 shared confidence heads or report honestly that it needs retraining, and re-measure four arms
 with the seed floor beside them. **D16 is CLOSED** (`of3t-entity`, pass 43) and the GAP prose
 above that called it unowned was stale; corrected here.
+
+**Pass 90, fourth result: D10's premise is inverted, and it came out of a file that was already
+on disk.** D10 records that the corrected trunk "changed the confidence head's calibration".
+`perf/of3t_pairbias/fold_rmsd.json` carries, per seed and arm, the five per-sample RMSDs in the
+model's **own ranked order**, which measures the ordering directly
+(`perf/of3t_orchestrator/revision/d10_ordering.py`). Five samples, so a random selector picks the
+best 1 time in 5 and sits at mean rank 2.0:
+
+| arm | picks best | mean rank of best | mean regret | within-seed spread | mean best |
+|---|---|---|---|---|---|
+| shipped | **1/9** | **2.56**, worse than random | 0.102 A | 0.284 A | 0.679 A |
+| D1 fix | **3/9** | **1.22**, better than random | 0.616 A | **0.971 A** | 0.629 A |
+
+**The head ranks better with the fix.** What changes is variance: the within-seed spread triples
+and the samples go bimodal, seeds 4/5/6 each giving a ~0.56 A structure and a ~1.60 A one with
+best values 0.566 / 0.566 / 0.560 against rank-0 values 1.597 / 1.603 / 1.592 — near-identical
+across seeds, so two discrete basins rather than a continuum. The shipped arm's ranking is
+*worse than random* and nobody noticed, because a 0.284 A spread against a 0.324 A seed floor
+makes the samples interchangeable and picking randomly costs 0.102 A.
+
+**So D1 did not break the selector; it made the selector matter**, and it produced a mode
+(0.560 A) better than anything the shipped arm reaches (best over nine seeds 0.646 A). Restoring
+the old calibration is the wrong goal and would discard that mode. The remedy is separating two
+well-separated basins, which is a smaller problem than general calibration. D10's own sentence
+"a worse sample distribution masked a bad selector" was right and the calibration clause beside
+it was not; the record carried both.
+
+Also corrected on dispatch: the fleet placed `of3t-confhead` on pc card 0, which is **99 % full
+with 4.2 GB free** and is a p150a on custom 130-core firmware while D1's table was measured on a
+p300c. Repinned to `host=tt-quietbox2 card=any`, brief amended, live session told to do the
+CPU-only half and not start folding.

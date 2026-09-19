@@ -123,6 +123,41 @@ all.
 
 ### D10. The confidence head mis-ranks diffusion samples, and it is what makes D1's fix serve worse. UNFIXED.
 
+**PASS 90 REFRAME, from data already in `perf/of3t_pairbias/fold_rmsd.json`: the head's ORDERING
+IMPROVES under D1's fix. What changes is the sample distribution.** That file carries, per seed
+and arm, the five per-sample RMSDs in the model's own ranked order, which measures the ordering
+directly (`perf/of3t_orchestrator/revision/d10_ordering.py`, `d10_ordering.json`). Five samples
+per seed, so a uniformly random selector picks the best 1 time in 5 and sits at mean rank 2.0:
+
+| arm | picks best | mean rank of best | mean regret | within-seed spread | mean best | mean rank 0 | mean pLDDT |
+|---|---|---|---|---|---|---|---|
+| shipped | **1/9** | **2.56** (worse than random) | 0.102 A | 0.284 A | 0.679 A | 0.782 A | 0.7163 |
+| D1 fix | **3/9** | **1.22** (better than random) | 0.616 A | **0.971 A** | 0.629 A | 1.245 A | 0.8011 |
+
+**So "the corrected trunk changed its calibration" is the wrong half of the story.** The head
+ranks *better* with the fix — mean rank of best 2.56 to 1.22, picks-best 1/9 to 3/9 — and the
+shipped arm is **worse than random**. What the fix changes is **variance**: the within-seed
+spread more than triples, 0.284 A to 0.971 A, and the samples go bimodal. Seeds 4, 5 and 6 each
+produce a ~0.56 A structure and a ~1.60 A structure, with best values 0.566 / 0.566 / 0.560 and
+rank-0 values 1.597 / 1.603 / 1.592 — near-identical across seeds, so these are two discrete
+basins rather than a continuum (compare `b2z2-seed-basin-flips-under-any-bf16-perturbation`).
+
+**The defect is therefore not a regression to undo.** The head has always been a weak ranker; it
+was invisible because shipped samples are interchangeable, a 0.284 A spread against a 0.324 A
+seed floor, so picking randomly cost 0.102 A. D1's fix produces a genuinely better mode — 0.560
+to 0.566 A, better than anything the shipped arm reaches, whose best over nine seeds is 0.646 A
+— and a worse one, and the weak ranker now costs 0.616 A. **D1 made the model better and made
+the selector matter.** D10's own sentence "a worse sample distribution masked a bad selector" was
+right; the clause about calibration next to it was not, and the record said both.
+
+This narrows the remedy. Restoring the old calibration is not the goal and would throw away the
+better mode. What is needed is a selector that separates two well-separated basins — which is an
+easier problem than general calibration, and the head's ordering signal is already better in the
+arm that needs it. **What the artifact cannot answer, and needs a card:** per-sample confidence
+values were not stored, only per-run aggregates, so ordering-vs-calibration-vs-selection-rule
+cannot be fully separated without re-folding. That is `of3t-confhead` deliverable 1.
+
+
 On **6 of 9 seeds** the confidence head selects a **1.59 A** sample while a **0.56 A** sample
 sits in the same batch of five. pLDDT rises over the same runs (**0.7162 -> 0.8014**), so the
 head is more confident and no better at ranking — the corrected trunk changed its calibration.
