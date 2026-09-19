@@ -157,6 +157,53 @@ if upper.is_file():
 # Each instrument can be internally correct and still disagree with its neighbour about a fact
 # both depend on. Nothing in this campaign caught instrument B configuring OF3's schedule at
 # max_lr 1e-3 while instrument C drove the optimizer at 1.8e-3, because each passed on its own.
+# --- PROTOCOL A12: the SEAM between SS4 and SS5 ---------------------------------------------
+# SS4 proves the schedule as a FUNCTION (upstream's real scheduler against `af3_lr`, exact, over
+# 109,005 steps). SS5 proves the optimizer trajectory. Neither proves the MAPPING from update
+# number to schedule argument, and D11 lived in that gap for thirty passes while both instruments
+# read PASS -- because SS5 gated on OUR mapping and printed upstream's as "info".
+#
+# So the mapping is established here by RUNNING upstream's objects, not by reading source: drive
+# a real `torch.optim.Adam` through a real `AlphaFoldLRScheduler` and record which lr each update
+# actually multiplies by. Then require instrument C to be gated on that arm. Unavailable imports
+# are REPORTED, never skipped silently -- a seam check that quietly does not run is the defect it
+# exists to catch.
+c = j("perf/of3t_equivalence/instrument_c_optim.json")
+if c:
+    arms = c.get("arms", {})
+    if "of3_schedule_upstream" in arms and arms["of3_schedule_upstream"].get("pass"):
+        ok.append("SS5 gates on upstream's index mapping (A12), and it passes")
+    elif "of3_schedule_aligned" in arms:
+        bad.append("SS5 gates on `of3_schedule_aligned`, which is OUR pre-D11 mapping (update k "
+                   "at lr(k)). That arm agreeing proves the optimizer, not the alignment -- see "
+                   "DEFECTS D15, PROTOCOL A12")
+    else:
+        bad.append(f"SS5 has no gated upstream-alignment arm; arms present: {sorted(arms)}")
+    if "of3_schedule_offset_by_one" not in arms:
+        warn.append("SS5 no longer reports the offset arm -- the size of a one-step schedule "
+                    "error is how a reader calibrates the gated number")
+
+try:
+    import torch
+    from openfold3.core.utils.lr_schedulers import AlphaFoldLRScheduler
+    _p = torch.nn.Parameter(torch.zeros(1))
+    _o = torch.optim.Adam([_p], lr=1.8e-3)
+    _s = AlphaFoldLRScheduler(_o, max_lr=1.8e-3, warmup_no_steps=1000)
+    seen = []
+    for _ in range(5):
+        seen.append(_o.param_groups[0]["lr"])
+        _p.grad = torch.ones(1); _o.step(); _s.step()
+    want = [0.0, 1.8e-06, 3.6e-06, 5.4e-06, 7.2e-06]
+    if all(abs(g - w) <= 1e-12 for g, w in zip(seen, want)):
+        ok.append("upstream mapping measured live: update k runs at lr(k-1), update 1 at exactly 0")
+    else:
+        bad.append(f"upstream's own scheduler now yields {seen} at updates 1..5, not {want}. "
+                   f"A12's index mapping is derived from THIS measurement, so every SS5 verdict "
+                   f"is suspect until it is re-derived")
+except Exception as e:                                   # noqa: BLE001
+    warn.append(f"A12 live mapping probe did not run ({type(e).__name__}: {e}) -- the SS4/SS5 "
+                f"seam is unchecked on this run, which is exactly how D11 survived")
+
 # Upstream settles it: `runner.py:863` builds the scheduler with
 # `max_lr=optimizer_config.learning_rate`, so the two are THE SAME NUMBER by construction and
 # any instrument pair that disagrees has one of them wrong.
