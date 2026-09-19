@@ -47,16 +47,30 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--mat", default=MAT64,
                     help="the device-bijection artifact whose placed set defines our reach")
+    ap.add_argument("--gradient-block", default="r0_replay_gradient",
+                    choices=("r0_replay_gradient", "validated_gradient"),
+                    help="which manifest block names the reference. `validated_gradient` is the "
+                         "WITHDRAWN train-mode tape, kept selectable so an old figure can be "
+                         "reproduced; `r0_replay_gradient` is the published r = 0 one. The norm "
+                         "SHARES differ between them even though the presence pattern does not, "
+                         "because the shares are computed from the gradient's values.")
     a = ap.parse_args()
     mat_path = a.mat
 
     man = json.loads(subprocess.run(["git", "show", f"{REF_BRANCH}:{MANIFEST_GIT}"],
                                     capture_output=True, check=True).stdout)
-    gfile = man["validated_gradient"]["file"]
-    decl = {x["file"]: x for x in man["artifacts"] if "sha256" in x}
+    blk = man[a.gradient_block]
+    if a.gradient_block == "r0_replay_gradient":
+        # The `artifacts` list still declares only the withdrawn trio, and this block keys its
+        # digests by LOGICAL name (`grads_f64.pt`) while the file on disk is `grads_f64_r0.pt`.
+        # Both facts are of3t-reference's to fix; following them here is cheaper than blocking.
+        gfile, declared = blk["file"], blk["sha256"]["grads_f64.pt"]
+    else:
+        gfile = blk["file"]
+        declared = {x["file"]: x for x in man["artifacts"] if "sha256" in x}[gfile]["sha256"]
     got = sha256_file(os.path.join(BUNDLE, gfile))
-    if got != decl[gfile]["sha256"]:
-        raise SystemExit(f"{gfile}: sha256 {got} != manifest {decl[gfile]['sha256']}")
+    if got != declared:
+        raise SystemExit(f"{gfile}: sha256 {got} != manifest {declared}")
 
     g = torch.load(os.path.join(BUNDLE, gfile), map_location="cpu", weights_only=False)
     sq = {k: float(torch.linalg.vector_norm(v.to(torch.float64)) ** 2)
@@ -67,9 +81,9 @@ def main() -> int:
     rep = {"instrument": "D17: bijection reach in gradient norm, not tensor count",
            "reference": {"file": gfile, "sha256": got, "verified": True,
                          "manifest": f"{REF_BRANCH}:{MANIFEST_GIT}",
-                         "num_recycles": man["validated_gradient"]["num_recycles"],
+                         "num_recycles": blk["num_recycles"],
                          "published_global_norm":
-                             man["validated_gradient"]["gradient_global_norm"]},
+                             blk["gradient_global_norm"]},
            "device_bijection_artifact": mat_path,
            "n_tensors": len(sq), "n_absent": len(absent),
            "total_squared_norm": total, "total_norm": total ** 0.5}

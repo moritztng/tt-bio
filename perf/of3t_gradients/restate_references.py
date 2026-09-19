@@ -23,13 +23,16 @@ REPUBLISHED = "89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113"
 STAMPS = {
     "reach_by_norm.json": (
         "CURRENT",
-        "Measured against the withdrawn train-mode tape grads_f64_recycles0.pt "
-        f"({WITHDRAWN}). The figure does NOT move under the republished r = 0 tape "
-        f"grads_f64_r0.pt ({REPUBLISHED}): reach is a property of the PRESENCE pattern, and "
-        "grad_presence_r0.json is byte-identical to grad_presence_recycles0.json "
-        "(sha256 3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f on both). "
-        "The squared-norm shares are recomputed per tensor from the gradient itself and are "
-        "restated in replay_vs_r0.json."),
+        f"RE-RUN against the republished r = 0 tape grads_f64_r0.pt ({REPUBLISHED}), not "
+        f"carried over from the withdrawn train-mode one ({WITHDRAWN}). An earlier stamp said "
+        "the figure could not move because grad_presence_r0.json is byte-identical to "
+        "grad_presence_recycles0.json (sha256 "
+        "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f on both). That is "
+        "true of the reached SET, which stays at 3545 of 4147, and false of every norm share, "
+        "which is computed from the gradient's VALUES: reach 98.01 % -> 98.6949 %, K22 tracer "
+        "6.54 % -> 4.0545 %, pairformer_stack 5.27 % -> 3.1560 %, instrument A block 0 "
+        "0.20 % -> 0.0861 %. Recomputed global norm 3.707776369277738 against the manifest's "
+        "3.707776369277739."),
     "instrument_a_bundle_block0.json": (
         "HISTORICAL",
         "Taken against the withdrawn train-mode tape. Its reference side is one dropout draw "

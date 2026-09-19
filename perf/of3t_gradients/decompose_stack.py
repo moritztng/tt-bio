@@ -105,10 +105,16 @@ def main():
             "first_block": {"index": int(xs[0]), "median": float(ys[0])},
             "last_block": {"index": int(xs[-1]), "median": float(ys[-1])},
             "ratio_last_over_first": float(ys[-1] / ys[0]) if ys[0] else None,
-            "reading": ("grows with depth -- consistent with a per-block error that composes"
-                        if sl > 0 and ys[-1] > 1.5 * ys[0] else
-                        "flat in depth -- consistent with a per-block error that does not "
-                        "accumulate through the stack"),
+            "reading": (
+                "GROWS with forward depth -- a per-block error that composes forward"
+                if ys[-1] > 1.5 * ys[0] else
+                "FALLS with forward depth, i.e. GROWS with BACKWARD depth -- block 47's "
+                "gradient is set mostly by the captured cotangent, which is theirs exactly, "
+                "while block 0's has to come back through all 47 of our blocks. This is the "
+                "signature of a backward driven at a point the forward has already moved."
+                if ys[0] > 1.5 * ys[-1] else
+                "flat in depth -- neither the forward nor the backward direction accumulates "
+                "over the stack"),
         }
 
     path = a.out or os.path.join(OUT, f"decompose_{a.tag}.json")
