@@ -157,6 +157,53 @@ if upper.is_file():
 # Each instrument can be internally correct and still disagree with its neighbour about a fact
 # both depend on. Nothing in this campaign caught instrument B configuring OF3's schedule at
 # max_lr 1e-3 while instrument C drove the optimizer at 1.8e-3, because each passed on its own.
+# --- of3t-entity: D16, the two conventions, and a control that predicted its own number ----
+d = j("perf/of3t_entity/mapping.json")
+if d:
+    c = d["conventions"]
+    check("D16 af3 convention", (c["af3"]["protein"], c["af3"]["rna"], c["af3"]["dna"],
+                                 c["af3"]["ligand"]), (0, 1, 2, 3))
+    check("D16 boltz convention", (c["boltz"]["protein"], c["boltz"]["rna"], c["boltz"]["dna"],
+                                   c["boltz"]["ligand"]), (0, 2, 1, 3))
+    check("D16 dna/rna are swapped between them",
+          d["dna_and_rna_are_swapped_between_the_two_conventions"], True)
+    # The table is only evidence if every stack was EXECUTED and matched what it declares.
+    check("D16 every stack matches its own declared source",
+          d["every_stack_matches_its_own_declared_source"], True)
+
+d = j("perf/of3t_entity/entity_delta.json")
+if d:
+    s = d["delta_moltype_stacks"]
+    close("D16 boltz-2 value delta", s["boltz-2"]["delta"]["rel_value"], 0.869740276433419)
+    close("D16 boltz-2 seed delta", s["boltz-2"]["delta"]["rel_seed"], 0.9008886419943194)
+    close("D16 boltzgen value delta", s["boltzgen"]["delta"]["rel_value"], 0.8651116903880804)
+    close("D16 boltzgen seed delta", s["boltzgen"]["delta"]["rel_seed"], 0.8981038214816643)
+    # The two conventions disagree in the DATA and not only in the tables, and the loss is
+    # identical anyway. Both halves are load-bearing: the first says the swap is real, the
+    # second says an unnamed convention is safe TODAY, for a reason that can expire.
+    dd = s["_convention_disagreement_in_the_data"]
+    check("D16 columns differ elementwise", dd["columns_elementwise_equal"], False)
+    check("D16 tokens that differ", dd["n_tokens_that_differ"], 16)
+    check("D16 they differ only on nucleic acid", dd["they_differ_only_on_nucleic_acid_tokens"], True)
+    check("D16 loss identical anyway (w_dna == w_rna)", dd["loss_is_identical_anyway"], True)
+    check("D16 AF2 weighting is vacuous, measured", d["af2"]["weighting_is_vacuous"], True)
+    check("D16 AF2 all-protein column is bit-identical to bare",
+          d["af2"]["all_protein_mol_type"]["bit_identical_to_bare"], True)
+    # The control's whole value is that the prediction existed BEFORE the measurement.
+    ctl = d["control"]
+    check("D16 control ligand tokens non-zero", ctl["n_ligand_tokens"], 31)
+    close("D16 control measured value ratio", ctl["perturbation"]["measured_value_ratio"],
+          0.6288281900980327, tol=1e-12)
+    ad = ctl["absent_flag_detector"]
+    check("D16 zeroed flags bit-identical to absent", ad["zeroed_is_bit_identical_to_absent"], True)
+
+d = j("perf/of3t_entity/census.json")
+if d:
+    for arm in ("mol_type_af3", "mol_type_boltz", "mol_type_unnamed"):
+        check(f"D16 derived matches native ({arm})", d["derived_matches_native"][arm], True)
+    close("D16 mse value under the af3 arm", d["mse_across_arms"]["mol_type_af3"]["value"],
+          1.407684903716911)
+
 # --- D17 on a card, and the ceiling it puts on every SS3d number ---------------------------
 d = j("perf/of3t_gradients/reach_by_norm.json")
 if d:
