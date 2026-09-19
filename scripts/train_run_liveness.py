@@ -131,7 +131,12 @@ def verdict(st: dict, world: int, stall: float, pair: list) -> tuple:
         bad.append("no history file")
     else:
         newest = max((h["last"].get("t", 0) for h in st["hist"]), default=0)
-        age = st["now"] - newest if newest else None
+        # max(0, ...): the probe's clock comes from `date +%s`, which truncates to whole
+        # seconds, while a history row's `t` carries fractions -- so a row written in the same
+        # second the clock is read can be up to ~1 s "in the future" and print a negative age.
+        # Seen 2026-09-19 as "-0.4s ago" on a healthy run. Clamping is honest here because the
+        # quantity is staleness, which has no negative values; the stall bar is unaffected.
+        age = max(0.0, st["now"] - newest) if newest else None
         st["age"] = age
         st["step"] = max((h["last"].get("step", 0) for h in st["hist"]), default=None)
         if age is None:
