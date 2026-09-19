@@ -64,8 +64,13 @@ def _ours(grads: dict, clip_norm=CLIP):
     opt.params = {k: _P(v) for k, v in grads.items()}
     opt.clip_norm = clip_norm
     gnorm = opt.grad_norm()                                   # the real method
-    clip = (min(1.0, clip_norm / gnorm)                       # optim.py:171-172, verbatim
-            if (clip_norm > 0 and gnorm > 0) else 1.0)
+    # ...and the real coefficient. This line used to TRANSCRIBE `optim.py:171-172`, which made
+    # our side of the comparison a copy of the code under test: a change to `clip_coef` would
+    # have left this instrument agreeing with a rule nothing ships. `clip_coef` was factored
+    # out exactly so the per-sample and per-batch paths cannot drift, and calling it is the
+    # only way this arm can notice if it does. If a branch has no `clip_coef`, this raises,
+    # which is the right answer for a branch whose clipping this instrument cannot reach.
+    clip = opt.clip_coef(gnorm)
     return gnorm, clip
 
 

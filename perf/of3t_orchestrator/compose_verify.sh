@@ -18,7 +18,7 @@ set -euo pipefail
 # A row is listed here from the moment it is dispatched, not from its first push, so a new row
 # cannot be silently left out of the composition. Rows with no branch yet are skipped with a line
 # saying so -- silence would be the bug.
-ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1"
+ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule"
 SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a shared /tmp name
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
@@ -30,7 +30,17 @@ cd "$REPO"
 # the same moment ("cannot lock ref refs/remotes/origin/wk/pvx-...") and takes the whole compose
 # down for a reason that has nothing to do with this campaign. Fetch only what we read, and
 # retry once, so a neighbour's push cannot abort the composition.
-_refs="main"; for _r in $ROWS; do _refs="$_refs wk/of3t-$_r"; done
+# A row can be dispatched (and so listed in ROWS) before it has pushed a branch. The merge loop
+# below tolerates that, but `git fetch` does NOT: naming one absent ref fails the whole fetch,
+# and the retry message then blames a neighbour race for a row that simply has not started.
+# Ask origin what exists first, and fetch only that.
+_avail="$(git ls-remote --heads origin 2>/dev/null | sed 's#.*refs/heads/##')"
+[ -n "$_avail" ] || { sleep 5; _avail="$(git ls-remote --heads origin 2>/dev/null | sed 's#.*refs/heads/##')"; }
+[ -n "$_avail" ] || { echo "cannot list origin refs -- network or remote is down"; exit 1; }
+_refs="main"
+for _r in $ROWS; do
+  printf '%s\n' "$_avail" | grep -qx "wk/of3t-$_r" && _refs="$_refs wk/of3t-$_r"
+done
 _refs="$_refs wk/of3t-orchestrator"
 # shellcheck disable=SC2086
 git fetch -q origin $_refs 2>/dev/null || { sleep 5; git fetch -q origin $_refs 2>/dev/null || {
@@ -86,7 +96,14 @@ done
 #   tt_bio/tenstorrent.py: of3t-leaves owns the weight-discovery seam on `Module` (~5857-5890);
 #   of3t-confidence owns the confidence path's `PairformerLayer`/`Pairformer` plumbing
 #   (~8764-8953). ~2900 lines apart, different classes, verified 2026-09-19 pass 6.
-ALLOWED_COEDIT="tt_bio/tenstorrent.py"
+#   tt_bio/train/optim.py: of3t-updaterule owns `AdamW.step` (~192-206, where the schedule is
+#   read relative to the counter, D11); of3t-gradients owns `displacement` and
+#   `check_displacement` (~289-336, the D13 resolution floor). Different methods, ~85 lines
+#   apart, hunk ranges compared 2026-09-19 pass 37. NOTE the semantic coupling, which
+#   disjointness does NOT cover: D13's relaxation was justified by a 0.810 displacement ratio
+#   measured under the pre-D11 schedule read, and after D11 the same arm moves strictly less.
+#   of3t-updaterule's brief is amended to re-state that number under the merged code.
+ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py"
 
 dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
 for a in $ALLOWED_COEDIT; do
@@ -159,7 +176,8 @@ done
 # (3) recompute the CPU-only instruments
 for f in perf/of3t_equivalence/instrument_b_lr.py \
          perf/of3t_equivalence/instrument_c_optim.py \
-         perf/of3t_orchestrator/instrument_b2_clip.py; do
+         perf/of3t_orchestrator/instrument_b2_clip.py \
+         perf/of3t_orchestrator/instrument_c2_clip_in_step.py; do
   [ -f "$CO/$f" ] || continue
   echo "--- $(basename "$f" .py)"
   ( cd "$CO" && PYTHONPATH=. timeout 1800 "$PY" "$f" 2>&1 | tail -8 ) || \
