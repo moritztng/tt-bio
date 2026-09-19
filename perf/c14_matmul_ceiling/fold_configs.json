@@ -1,0 +1,1466 @@
+[
+ {
+  "shape": [
+   47,
+   512,
+   128,
+   512
+  ],
+  "k_tiles": 4,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 5600.0,
+  "fold_s": 0.88765,
+  "us_per_call": 158.508,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4,
+   "out_block_h": 7,
+   "out_block_w": 16,
+   "per_core_M": 7,
+   "per_core_N": 16,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 108,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_L1_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_L1_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ },
+ {
+  "shape": [
+   128,
+   512,
+   512,
+   512
+  ],
+  "k_tiles": 16,
+  "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+  "in0_block_w": 8,
+  "calls": 560.0,
+  "fold_s": 0.47778,
+  "us_per_call": 853.18,
+  "cfg": {
+   "in0_block_w": 8,
+   "out_subblock_h": 1,
+   "out_subblock_w": 1,
+   "out_block_h": 2,
+   "out_block_w": 2,
+   "per_core_M": 2,
+   "per_core_N": 2,
+   "fuse_batch": 0,
+   "transpose_mcast": 0
+  },
+  "cores": 64,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ },
+ {
+  "shape": [
+   1,
+   512,
+   768,
+   768
+  ],
+  "k_tiles": 24,
+  "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+  "in0_block_w": 1,
+  "calls": 19200.0,
+  "fold_s": 0.46114,
+  "us_per_call": 24.018,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 1,
+   "out_subblock_w": 3,
+   "out_block_h": 2,
+   "out_block_w": 3,
+   "per_core_M": 2,
+   "per_core_N": 3,
+   "fuse_batch": 0,
+   "transpose_mcast": 0
+  },
+  "cores": 64,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   1,
+   512,
+   768,
+   1536
+  ],
+  "k_tiles": 24,
+  "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+  "in0_block_w": 4,
+  "calls": 15200.0,
+  "fold_s": 0.34394,
+  "us_per_call": 22.628,
+  "cfg": {
+   "in0_block_w": 4,
+   "out_subblock_h": 1,
+   "out_subblock_w": 1,
+   "out_block_h": 2,
+   "out_block_w": 5,
+   "per_core_M": 2,
+   "per_core_N": 5,
+   "fuse_batch": 1,
+   "transpose_mcast": 0
+  },
+  "cores": 80,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   1,
+   512,
+   768,
+   768
+  ],
+  "k_tiles": 24,
+  "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+  "in0_block_w": 4,
+  "calls": 19400.0,
+  "fold_s": 0.33647,
+  "us_per_call": 17.344,
+  "cfg": {
+   "in0_block_w": 4,
+   "out_subblock_h": 1,
+   "out_subblock_w": 3,
+   "out_block_h": 2,
+   "out_block_w": 3,
+   "per_core_M": 2,
+   "per_core_N": 3,
+   "fuse_batch": 1,
+   "transpose_mcast": 0
+  },
+  "cores": 64,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": true,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   1,
+   512,
+   768,
+   3072
+  ],
+  "k_tiles": 24,
+  "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+  "in0_block_w": 4,
+  "calls": 4800.0,
+  "fold_s": 0.19248,
+  "us_per_call": 40.101,
+  "cfg": {
+   "in0_block_w": 4,
+   "out_subblock_h": 1,
+   "out_subblock_w": 3,
+   "out_block_h": 2,
+   "out_block_w": 9,
+   "per_core_M": 2,
+   "per_core_N": 9,
+   "fuse_batch": 1,
+   "transpose_mcast": 0
+  },
+  "cores": 88,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": true,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   47,
+   512,
+   512,
+   128
+  ],
+  "k_tiles": 16,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 2800.0,
+  "fold_s": 0.18798,
+  "us_per_call": 67.136,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4,
+   "out_block_h": 7,
+   "out_block_w": 4,
+   "per_core_M": 7,
+   "per_core_N": 4,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 108,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_L1_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ },
+ {
+  "shape": [
+   512,
+   512,
+   128,
+   128
+  ],
+  "k_tiles": 4,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 4,
+  "calls": 560.0,
+  "fold_s": 0.17408,
+  "us_per_call": 310.851,
+  "cfg": {
+   "in0_block_w": 4,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4,
+   "out_block_h": 5,
+   "out_block_w": 4,
+   "per_core_M": 75,
+   "per_core_N": 4,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 1,
+   "untilize_out": 0
+  },
+  "cores": 110,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_L1_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ },
+ {
+  "shape": [
+   512,
+   512,
+   1024,
+   128
+  ],
+  "k_tiles": 32,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 16.0,
+  "fold_s": 0.16553,
+  "us_per_call": 10345.797,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 3,
+   "out_subblock_w": 1,
+   "out_block_h": 75,
+   "out_block_w": 2,
+   "per_core_M": 75,
+   "per_core_N": 4,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 110,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": true,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ },
+ {
+  "shape": [
+   1,
+   512,
+   1536,
+   768
+  ],
+  "k_tiles": 48,
+  "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+  "in0_block_w": 4,
+  "calls": 5200.0,
+  "fold_s": 0.12107,
+  "us_per_call": 23.282,
+  "cfg": {
+   "in0_block_w": 4,
+   "out_subblock_h": 1,
+   "out_subblock_w": 3,
+   "out_block_h": 2,
+   "out_block_w": 3,
+   "per_core_M": 2,
+   "per_core_N": 3,
+   "fuse_batch": 1,
+   "transpose_mcast": 0
+  },
+  "cores": 64,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   140,
+   128,
+   128,
+   256
+  ],
+  "k_tiles": 4,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 1200.0,
+  "fold_s": 0.09839,
+  "us_per_call": 81.991,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 2,
+   "out_subblock_w": 2,
+   "out_block_h": 6,
+   "out_block_w": 8,
+   "per_core_M": 6,
+   "per_core_N": 8,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 94,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   140,
+   32,
+   128,
+   256
+  ],
+  "k_tiles": 4,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 3600.0,
+  "fold_s": 0.08999,
+  "us_per_call": 24.999,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 2,
+   "out_subblock_w": 2,
+   "out_block_h": 2,
+   "out_block_w": 8,
+   "per_core_M": 2,
+   "per_core_N": 8,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 70,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   42,
+   512,
+   128,
+   512
+  ],
+  "k_tiles": 4,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 560.0,
+  "fold_s": 0.08844,
+  "us_per_call": 157.928,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4,
+   "out_block_h": 7,
+   "out_block_w": 16,
+   "per_core_M": 7,
+   "per_core_N": 16,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 96,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_L1_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_L1_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ },
+ {
+  "shape": [
+   140,
+   32,
+   128,
+   128
+  ],
+  "k_tiles": 4,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 4800.0,
+  "fold_s": 0.07853,
+  "us_per_call": 16.36,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 2,
+   "out_subblock_w": 2,
+   "out_block_h": 2,
+   "out_block_w": 4,
+   "per_core_M": 2,
+   "per_core_N": 4,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 70,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": true,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   140,
+   32,
+   256,
+   128
+  ],
+  "k_tiles": 8,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 1200.0,
+  "fold_s": 0.03868,
+  "us_per_call": 32.233,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 2,
+   "out_subblock_w": 2,
+   "out_block_h": 2,
+   "out_block_w": 4,
+   "per_core_M": 2,
+   "per_core_N": 4,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 70,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   1,
+   16384,
+   64,
+   16384
+  ],
+  "k_tiles": 2,
+  "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+  "in0_block_w": 1,
+  "calls": 16.0,
+  "fold_s": 0.03715,
+  "us_per_call": 2321.783,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 4,
+   "out_subblock_w": 1,
+   "out_block_h": 4,
+   "out_block_w": 47,
+   "per_core_M": 52,
+   "per_core_N": 47,
+   "fuse_batch": 0,
+   "transpose_mcast": 0
+  },
+  "cores": 110,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ },
+ {
+  "shape": [
+   512,
+   512,
+   128,
+   16
+  ],
+  "k_tiles": 4,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 264.0,
+  "fold_s": 0.03309,
+  "us_per_call": 125.333,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 1,
+   "out_subblock_w": 1,
+   "out_block_h": 5,
+   "out_block_w": 1,
+   "per_core_M": 75,
+   "per_core_N": 1,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 1,
+   "untilize_out": 0
+  },
+  "cores": 110,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_L1_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_L1_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "PairformerLayer"
+ },
+ {
+  "shape": [
+   1,
+   768,
+   4480,
+   512
+  ],
+  "k_tiles": 140,
+  "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+  "in0_block_w": 1,
+  "calls": 200.0,
+  "fold_s": 0.02406,
+  "us_per_call": 120.281,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 3,
+   "out_subblock_w": 1,
+   "out_block_h": 3,
+   "out_block_w": 2,
+   "per_core_M": 3,
+   "per_core_N": 2,
+   "fuse_batch": 0,
+   "transpose_mcast": 0
+  },
+  "cores": 64,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   42,
+   512,
+   512,
+   128
+  ],
+  "k_tiles": 16,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 280.0,
+  "fold_s": 0.01805,
+  "us_per_call": 64.463,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4,
+   "out_block_h": 7,
+   "out_block_w": 4,
+   "per_core_M": 7,
+   "per_core_N": 4,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 96,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_L1_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ },
+ {
+  "shape": [
+   1,
+   512,
+   384,
+   1536
+  ],
+  "k_tiles": 12,
+  "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+  "in0_block_w": 4,
+  "calls": 792.0,
+  "fold_s": 0.01602,
+  "us_per_call": 20.225,
+  "cfg": {
+   "in0_block_w": 4,
+   "out_subblock_h": 1,
+   "out_subblock_w": 1,
+   "out_block_h": 2,
+   "out_block_w": 5,
+   "per_core_M": 2,
+   "per_core_N": 5,
+   "fuse_batch": 1,
+   "transpose_mcast": 0
+  },
+  "cores": 80,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_L1_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_L1_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "PairformerLayer"
+ },
+ {
+  "shape": [
+   16,
+   512,
+   32,
+   512
+  ],
+  "k_tiles": 1,
+  "factory": "MatmulMultiCoreReuseProgramConfig",
+  "in0_block_w": 1,
+  "calls": 264.0,
+  "fold_s": 0.01141,
+  "us_per_call": 43.206,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4,
+   "per_core_M": 8,
+   "per_core_N": 16
+  },
+  "cores": 32,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "PairformerLayer"
+ },
+ {
+  "shape": [
+   16,
+   512,
+   512,
+   32
+  ],
+  "k_tiles": 16,
+  "factory": "MatmulMultiCoreReuseProgramConfig",
+  "in0_block_w": 2,
+  "calls": 264.0,
+  "fold_s": 0.00962,
+  "us_per_call": 36.456,
+  "cfg": {
+   "in0_block_w": 2,
+   "out_subblock_h": 4,
+   "out_subblock_w": 1,
+   "per_core_M": 8,
+   "per_core_N": 1
+  },
+  "cores": 32,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "PairformerLayer"
+ },
+ {
+  "shape": [
+   64,
+   512,
+   64,
+   32
+  ],
+  "k_tiles": 2,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 288.0,
+  "fold_s": 0.00714,
+  "us_per_call": 24.775,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 2,
+   "out_subblock_w": 1,
+   "out_block_h": 10,
+   "out_block_w": 1,
+   "per_core_M": 10,
+   "per_core_N": 1,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 103,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ },
+ {
+  "shape": [
+   1,
+   4480,
+   128,
+   768
+  ],
+  "k_tiles": 4,
+  "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+  "in0_block_w": 4,
+  "calls": 200.0,
+  "fold_s": 0.00713,
+  "us_per_call": 35.651,
+  "cfg": {
+   "in0_block_w": 4,
+   "out_subblock_h": 1,
+   "out_subblock_w": 3,
+   "out_block_h": 14,
+   "out_block_w": 3,
+   "per_core_M": 14,
+   "per_core_N": 3,
+   "fuse_batch": 1,
+   "transpose_mcast": 0
+  },
+  "cores": 80,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   64,
+   32,
+   512,
+   512
+  ],
+  "k_tiles": 16,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 128.0,
+  "fold_s": 0.00584,
+  "us_per_call": 45.594,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 1,
+   "out_subblock_w": 4,
+   "out_block_h": 1,
+   "out_block_w": 16,
+   "per_core_M": 1,
+   "per_core_N": 16,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 64,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_L1_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ },
+ {
+  "shape": [
+   1,
+   128,
+   512,
+   4480
+  ],
+  "k_tiles": 16,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 2,
+  "calls": 200.0,
+  "fold_s": 0.00549,
+  "us_per_call": 27.462,
+  "cfg": {
+   "in0_block_w": 2,
+   "out_subblock_h": 2,
+   "out_subblock_w": 2,
+   "out_block_h": 4,
+   "out_block_w": 2,
+   "per_core_M": 4,
+   "per_core_N": 2,
+   "fuse_batch": 0,
+   "mcast_in0": 1,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 70,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   1,
+   512,
+   1536,
+   384
+  ],
+  "k_tiles": 48,
+  "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+  "in0_block_w": 4,
+  "calls": 264.0,
+  "fold_s": 0.0046,
+  "us_per_call": 17.411,
+  "cfg": {
+   "in0_block_w": 4,
+   "out_subblock_h": 2,
+   "out_subblock_w": 2,
+   "out_block_h": 2,
+   "out_block_w": 2,
+   "per_core_M": 2,
+   "per_core_N": 2,
+   "fuse_batch": 1,
+   "transpose_mcast": 0
+  },
+  "cores": 48,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_L1_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "PairformerLayer"
+ },
+ {
+  "shape": [
+   1,
+   512,
+   384,
+   384
+  ],
+  "k_tiles": 12,
+  "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+  "in0_block_w": 4,
+  "calls": 528.0,
+  "fold_s": 0.00417,
+  "us_per_call": 7.896,
+  "cfg": {
+   "in0_block_w": 4,
+   "out_subblock_h": 2,
+   "out_subblock_w": 2,
+   "out_block_h": 2,
+   "out_block_w": 2,
+   "per_core_M": 2,
+   "per_core_N": 2,
+   "fuse_batch": 1,
+   "transpose_mcast": 0
+  },
+  "cores": 48,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "PairformerLayer"
+ },
+ {
+  "shape": [
+   64,
+   512,
+   32,
+   64
+  ],
+  "k_tiles": 1,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 128.0,
+  "fold_s": 0.00411,
+  "us_per_call": 32.091,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 2,
+   "out_subblock_w": 2,
+   "out_block_h": 10,
+   "out_block_w": 2,
+   "per_core_M": 10,
+   "per_core_N": 2,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 103,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ },
+ {
+  "shape": [
+   64,
+   512,
+   64,
+   256
+  ],
+  "k_tiles": 2,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 32.0,
+  "fold_s": 0.00338,
+  "us_per_call": 105.546,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 2,
+   "out_subblock_w": 2,
+   "out_block_h": 10,
+   "out_block_w": 8,
+   "per_core_M": 10,
+   "per_core_N": 8,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 103,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_L1_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_L1_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ },
+ {
+  "shape": [
+   1,
+   4480,
+   3,
+   128
+  ],
+  "k_tiles": 1,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 200.0,
+  "fold_s": 0.00305,
+  "us_per_call": 15.259,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 2,
+   "out_subblock_w": 2,
+   "out_block_h": 2,
+   "out_block_w": 4,
+   "per_core_M": 2,
+   "per_core_N": 4,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 70,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   1,
+   512,
+   768,
+   128
+  ],
+  "k_tiles": 24,
+  "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+  "in0_block_w": 4,
+  "calls": 200.0,
+  "fold_s": 0.00216,
+  "us_per_call": 10.812,
+  "cfg": {
+   "in0_block_w": 4,
+   "out_subblock_h": 2,
+   "out_subblock_w": 1,
+   "out_block_h": 2,
+   "out_block_w": 1,
+   "per_core_M": 2,
+   "per_core_N": 1,
+   "fuse_batch": 1,
+   "transpose_mcast": 0
+  },
+  "cores": 32,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   512,
+   512,
+   128,
+   8
+  ],
+  "k_tiles": 4,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 16.0,
+  "fold_s": 0.002,
+  "us_per_call": 125.02,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 1,
+   "out_subblock_w": 1,
+   "out_block_h": 5,
+   "out_block_w": 1,
+   "per_core_M": 75,
+   "per_core_N": 1,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 1,
+   "untilize_out": 0
+  },
+  "cores": 110,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_L1_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_L1_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ },
+ {
+  "shape": [
+   1,
+   4480,
+   128,
+   3
+  ],
+  "k_tiles": 4,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 200.0,
+  "fold_s": 0.00187,
+  "us_per_call": 9.366,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 2,
+   "out_subblock_w": 1,
+   "out_block_h": 2,
+   "out_block_w": 1,
+   "per_core_M": 2,
+   "per_core_N": 1,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 70,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   1,
+   1,
+   256,
+   768
+  ],
+  "k_tiles": 8,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 200.0,
+  "fold_s": 0.00158,
+  "us_per_call": 7.88,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 1,
+   "out_subblock_w": 1,
+   "out_block_h": 1,
+   "out_block_w": 1,
+   "per_core_M": 1,
+   "per_core_N": 1,
+   "fuse_batch": 1,
+   "mcast_in0": 1,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 24,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   1,
+   1,
+   1,
+   256
+  ],
+  "k_tiles": 1,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 200.0,
+  "fold_s": 0.001,
+  "us_per_call": 5.007,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 1,
+   "out_subblock_w": 1,
+   "out_block_h": 1,
+   "out_block_w": 1,
+   "per_core_M": 1,
+   "per_core_N": 1,
+   "fuse_batch": 1,
+   "mcast_in0": 1,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 8,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": true,
+  "fidelity": "HiFi4",
+  "unit": "DiffusionModule"
+ },
+ {
+  "shape": [
+   64,
+   512,
+   256,
+   64
+  ],
+  "k_tiles": 8,
+  "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+  "in0_block_w": 1,
+  "calls": 16.0,
+  "fold_s": 0.00081,
+  "us_per_call": 50.409,
+  "cfg": {
+   "in0_block_w": 1,
+   "out_subblock_h": 2,
+   "out_subblock_w": 2,
+   "out_block_h": 10,
+   "out_block_w": 2,
+   "per_core_M": 10,
+   "per_core_N": 2,
+   "fuse_batch": 1,
+   "mcast_in0": 0,
+   "gather_in0": 0,
+   "num_global_cb_receivers": 0,
+   "untilize_out": 0
+  },
+  "cores": 103,
+  "grid": [
+   11,
+   10
+  ],
+  "mem": [
+   "DEV_1_L1_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED",
+   "DEV_1_DRAM_INTERLEAVED"
+  ],
+  "bias": false,
+  "fidelity": "HiFi4",
+  "unit": "MSALayer"
+ }
+]

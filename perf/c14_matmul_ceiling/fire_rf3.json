@@ -1,0 +1,13 @@
+{
+ "model": "rf3",
+ "data": "examples/prot.yaml",
+ "bw_flag": true,
+ "pid": 897319,
+ "wall_s": 30.12,
+ "rc": 0,
+ "counter_taken": 0,
+ "counter_declined": 0,
+ "wrapped_calls": 0,
+ "wrapped_served": 0,
+ "groups": []
+}

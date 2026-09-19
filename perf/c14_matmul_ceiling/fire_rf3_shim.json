@@ -1,0 +1,108 @@
+{
+ "question": "does TT_BIO_MM_SHORT_M_BW fire on RF3, and on which shapes",
+ "model": "rf3",
+ "data": "examples/prot.yaml (PDB 7ROA, 117 aa)",
+ "flag": true,
+ "how": "sitecustomize wraps _short_m_proj_config in EVERY process of the fold; tt_bio.main predict folds in a worker process, so a driver-installed wrap sees nothing (perf/c14_matmul_ceiling/fire_rf3.json is that null result), and MM_SHORT_M_STATS alone cannot separate never-called from rejected-before-the-count",
+ "processes": [
+  {
+   "pid": 905003,
+   "argv": "/home/ttuser/.coworker/wt/c14-matmul-ceiling/tt_bio/main.py predict examples/prot.yaml --model rf3 -",
+   "counter": [
+    0,
+    0
+   ],
+   "flag": true,
+   "groups": []
+  },
+  {
+   "pid": 905048,
+   "argv": "-c",
+   "counter": null,
+   "flag": null,
+   "groups": []
+  },
+  {
+   "pid": 905049,
+   "argv": "/home/ttuser/.coworker/wt/c14-matmul-ceiling/tt_bio/main.py predict examples/prot.yaml --model rf3 -",
+   "counter": [
+    4419,
+    0
+   ],
+   "flag": true,
+   "groups": [
+    {
+     "x": [
+      1,
+      29,
+      32,
+      128
+     ],
+     "w": [
+      128,
+      256
+     ],
+     "x_dtype": "DataType.BFLOAT16",
+     "w_dtype": "DataType.BFLOAT16",
+     "calls": 594,
+     "served": 594
+    },
+    {
+     "x": [
+      1,
+      29,
+      32,
+      256
+     ],
+     "w": [
+      256,
+      128
+     ],
+     "x_dtype": "DataType.BFLOAT16",
+     "w_dtype": "DataType.BFLOAT16",
+     "calls": 297,
+     "served": 297
+    },
+    {
+     "x": [
+      1,
+      117,
+      768
+     ],
+     "w": [
+      768,
+      1536
+     ],
+     "x_dtype": "DataType.BFLOAT16",
+     "w_dtype": "DataType.BFLOAT16",
+     "calls": 2352,
+     "served": 2352
+    },
+    {
+     "x": [
+      1,
+      117,
+      1536
+     ],
+     "w": [
+      1536,
+      768
+     ],
+     "x_dtype": "DataType.BFLOAT16",
+     "w_dtype": "DataType.BFLOAT16",
+     "calls": 1176,
+     "served": 1176
+    }
+   ]
+  },
+  {
+   "pid": 905192,
+   "argv": "/home/ttuser/.coworker/wt/c14-matmul-ceiling/tt_bio/main.py predict examples/prot.yaml --model rf3 -",
+   "counter": null,
+   "flag": null,
+   "groups": []
+  }
+ ],
+ "calls_total": 4419,
+ "served_total": 4419
+}

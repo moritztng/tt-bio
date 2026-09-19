@@ -1,0 +1,745 @@
+{
+ "env": {
+  "node": 3,
+  "clock": 1350,
+  "grid": [
+   11,
+   10
+  ],
+  "tag": "b3",
+  "reps": 11,
+  "t_open": 1789736123.1562405,
+  "ttnn": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/__init__.py",
+  "clk_end": 1350,
+  "t_close": 1789736132.1948555
+ },
+ "controls": {
+  "cube8192": {
+   "flops_route1": 1099511627776.0,
+   "flops_route2": 1099511627776.0,
+   "tflops": 122.126,
+   "band": [
+    112,
+    128
+   ],
+   "pass": true
+  },
+  "dram_add": {
+   "bytes": 402653184,
+   "gbs": 429.64,
+   "band": [
+    400,
+    460
+   ],
+   "pass": true
+  }
+ },
+ "groups": [
+  {
+   "shape": [
+    47,
+    512,
+    128,
+    512
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "cfg": {
+    "in0_block_w": 1,
+    "out_subblock_h": 1,
+    "out_subblock_w": 4,
+    "out_block_h": 7,
+    "out_block_w": 16,
+    "per_core_M": 7,
+    "per_core_N": 16,
+    "fuse_batch": 1,
+    "mcast_in0": 0,
+    "gather_in0": 0,
+    "num_global_cb_receivers": 0,
+    "untilize_out": 0
+   },
+   "mem": [
+    "DEV_1_L1_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_L1_INTERLEAVED"
+   ],
+   "bias": false,
+   "cores": 108,
+   "chain": 2,
+   "cap": 34,
+   "bws": [
+    1,
+    2,
+    4
+   ],
+   "fold_us_per_call": 158.508,
+   "fold_s": 0.88765,
+   "calls": 5600.0,
+   "rows": {
+    "1": {
+     "us_per_call": 68.691,
+     "min_us": 67.859,
+     "spread_pct": 3.544,
+     "ratio_to_bw1": 1.0,
+     "values": {
+      "equal": true,
+      "max_abs": 0.0
+     }
+    },
+    "2": {
+     "us_per_call": 63.907,
+     "min_us": 62.504,
+     "spread_pct": 3.731,
+     "ratio_to_bw1": 0.9304,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.004
+     }
+    },
+    "4": {
+     "us_per_call": 61.191,
+     "min_us": 59.808,
+     "spread_pct": 9.783,
+     "ratio_to_bw1": 0.8908,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.004
+     }
+    }
+   },
+   "best_bw": 4,
+   "bench_reproduces_fold": 0.4334,
+   "fold_s_at_best": 0.34267,
+   "priceable": false,
+   "delta_s": 0.0,
+   "band_s_if_priceable": 0.09693
+  },
+  {
+   "shape": [
+    1,
+    512,
+    768,
+    768
+   ],
+   "k_tiles": 24,
+   "factory": "MatmulMultiCoreReuseMultiCastProgramConfig",
+   "cfg": {
+    "in0_block_w": 1,
+    "out_subblock_h": 1,
+    "out_subblock_w": 3,
+    "out_block_h": 2,
+    "out_block_w": 3,
+    "per_core_M": 2,
+    "per_core_N": 3,
+    "fuse_batch": 0,
+    "transpose_mcast": 0
+   },
+   "mem": [
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED"
+   ],
+   "bias": false,
+   "cores": 64,
+   "chain": 8,
+   "cap": 122,
+   "bws": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    8,
+    12,
+    24
+   ],
+   "fold_us_per_call": 24.018,
+   "fold_s": 0.46114,
+   "calls": 19200.0,
+   "rows": {
+    "1": {
+     "us_per_call": 26.166,
+     "min_us": 25.934,
+     "spread_pct": 2.134,
+     "ratio_to_bw1": 1.0,
+     "values": {
+      "equal": true,
+      "max_abs": 0.0
+     }
+    },
+    "2": {
+     "us_per_call": 19.897,
+     "min_us": 19.743,
+     "spread_pct": 6.125,
+     "ratio_to_bw1": 0.7604,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.00390625
+     }
+    },
+    "3": {
+     "us_per_call": 18.286,
+     "min_us": 18.052,
+     "spread_pct": 2.876,
+     "ratio_to_bw1": 0.6988,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.00390625
+     }
+    },
+    "4": {
+     "us_per_call": 17.351,
+     "min_us": 17.18,
+     "spread_pct": 5.846,
+     "ratio_to_bw1": 0.6631,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.00390625
+     }
+    },
+    "6": {
+     "us_per_call": 16.687,
+     "min_us": 16.581,
+     "spread_pct": 3.19,
+     "ratio_to_bw1": 0.6377,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.00390625
+     }
+    },
+    "8": {
+     "us_per_call": 16.311,
+     "min_us": 16.166,
+     "spread_pct": 3.694,
+     "ratio_to_bw1": 0.6234,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.00390625
+     }
+    },
+    "12": {
+     "us_per_call": 16.43,
+     "min_us": 16.287,
+     "spread_pct": 3.545,
+     "ratio_to_bw1": 0.6279,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.00390625
+     }
+    },
+    "24": {
+     "us_per_call": 18.744,
+     "min_us": 18.638,
+     "spread_pct": 6.1,
+     "ratio_to_bw1": 0.7163,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.00390625
+     }
+    }
+   },
+   "best_bw": 8,
+   "bench_reproduces_fold": 1.0894,
+   "fold_s_at_best": 0.31317,
+   "priceable": true,
+   "delta_s": 0.17367,
+   "band_s_if_priceable": 0.17367
+  },
+  {
+   "shape": [
+    47,
+    512,
+    512,
+    128
+   ],
+   "k_tiles": 16,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "cfg": {
+    "in0_block_w": 1,
+    "out_subblock_h": 1,
+    "out_subblock_w": 4,
+    "out_block_h": 7,
+    "out_block_w": 4,
+    "per_core_M": 7,
+    "per_core_N": 4,
+    "fuse_batch": 1,
+    "mcast_in0": 0,
+    "gather_in0": 0,
+    "num_global_cb_receivers": 0,
+    "untilize_out": 0
+   },
+   "mem": [
+    "DEV_1_L1_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED"
+   ],
+   "bias": false,
+   "cores": 108,
+   "chain": 8,
+   "cap": 34,
+   "bws": [
+    1,
+    2,
+    4,
+    8,
+    16
+   ],
+   "fold_us_per_call": 67.136,
+   "fold_s": 0.18798,
+   "calls": 2800.0,
+   "rows": {
+    "1": {
+     "us_per_call": 69.606,
+     "min_us": 69.292,
+     "spread_pct": 1.778,
+     "ratio_to_bw1": 1.0,
+     "values": {
+      "equal": true,
+      "max_abs": 0.0
+     }
+    },
+    "2": {
+     "us_per_call": 78.668,
+     "min_us": 77.109,
+     "spread_pct": 5.397,
+     "ratio_to_bw1": 1.1302,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.004166666666666667
+     }
+    },
+    "4": {
+     "us_per_call": 92.884,
+     "min_us": 89.173,
+     "spread_pct": 8.519,
+     "ratio_to_bw1": 1.3344,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.004166666666666667
+     }
+    },
+    "8": {
+     "us_per_call": 99.496,
+     "min_us": 97.916,
+     "spread_pct": 8.695,
+     "ratio_to_bw1": 1.4294,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.004166666666666667
+     }
+    },
+    "16": {
+     "us_per_call": 117.633,
+     "min_us": 114.232,
+     "spread_pct": 6.351,
+     "ratio_to_bw1": 1.69,
+     "values": {
+      "equal": false,
+      "max_abs": 0.5,
+      "rel": 0.004166666666666667
+     }
+    }
+   },
+   "best_bw": 1,
+   "bench_reproduces_fold": 1.0368,
+   "fold_s_at_best": 0.1949,
+   "priceable": true,
+   "delta_s": 0.0,
+   "band_s_if_priceable": 0.0
+  },
+  {
+   "shape": [
+    512,
+    512,
+    1024,
+    128
+   ],
+   "k_tiles": 32,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "cfg": {
+    "in0_block_w": 1,
+    "out_subblock_h": 3,
+    "out_subblock_w": 1,
+    "out_block_h": 75,
+    "out_block_w": 2,
+    "per_core_M": 75,
+    "per_core_N": 4,
+    "fuse_batch": 1,
+    "mcast_in0": 0,
+    "gather_in0": 0,
+    "num_global_cb_receivers": 0,
+    "untilize_out": 0
+   },
+   "mem": [
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED"
+   ],
+   "bias": true,
+   "cores": 110,
+   "chain": 3,
+   "cap": 3,
+   "bws": [
+    1
+   ],
+   "fold_us_per_call": 10345.797,
+   "fold_s": 0.16553,
+   "calls": 16.0,
+   "rows": {
+    "1": {
+     "us_per_call": 10064.15,
+     "min_us": 9842.014,
+     "spread_pct": 6.931,
+     "ratio_to_bw1": 1.0,
+     "values": {
+      "equal": true,
+      "max_abs": 0.0
+     }
+    }
+   },
+   "best_bw": 1,
+   "bench_reproduces_fold": 0.9728,
+   "fold_s_at_best": 0.16103,
+   "priceable": true,
+   "delta_s": 0.0,
+   "band_s_if_priceable": 0.0
+  },
+  {
+   "shape": [
+    140,
+    128,
+    128,
+    256
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "cfg": {
+    "in0_block_w": 1,
+    "out_subblock_h": 2,
+    "out_subblock_w": 2,
+    "out_block_h": 6,
+    "out_block_w": 8,
+    "per_core_M": 6,
+    "per_core_N": 8,
+    "fuse_batch": 1,
+    "mcast_in0": 0,
+    "gather_in0": 0,
+    "num_global_cb_receivers": 0,
+    "untilize_out": 0
+   },
+   "mem": [
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED"
+   ],
+   "bias": false,
+   "cores": 94,
+   "chain": 8,
+   "cap": 40,
+   "bws": [
+    1,
+    2,
+    4
+   ],
+   "fold_us_per_call": 81.991,
+   "fold_s": 0.09839,
+   "calls": 1200.0,
+   "rows": {
+    "1": {
+     "us_per_call": 85.534,
+     "min_us": 84.575,
+     "spread_pct": 507.659,
+     "ratio_to_bw1": 1.0,
+     "values": {
+      "equal": true,
+      "max_abs": 0.0
+     }
+    },
+    "2": {
+     "us_per_call": 75.819,
+     "min_us": 74.746,
+     "spread_pct": 66.321,
+     "ratio_to_bw1": 0.8864,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.003676470588235294
+     }
+    },
+    "4": {
+     "us_per_call": 76.285,
+     "min_us": 75.403,
+     "spread_pct": 63.217,
+     "ratio_to_bw1": 0.8919,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.003676470588235294
+     }
+    }
+   },
+   "best_bw": 2,
+   "bench_reproduces_fold": 1.0432,
+   "fold_s_at_best": 0.09098,
+   "priceable": true,
+   "delta_s": 0.01118,
+   "band_s_if_priceable": 0.01118
+  },
+  {
+   "shape": [
+    140,
+    32,
+    128,
+    256
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "cfg": {
+    "in0_block_w": 1,
+    "out_subblock_h": 2,
+    "out_subblock_w": 2,
+    "out_block_h": 2,
+    "out_block_w": 8,
+    "per_core_M": 2,
+    "per_core_N": 8,
+    "fuse_batch": 1,
+    "mcast_in0": 0,
+    "gather_in0": 0,
+    "num_global_cb_receivers": 0,
+    "untilize_out": 0
+   },
+   "mem": [
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED"
+   ],
+   "bias": false,
+   "cores": 70,
+   "chain": 8,
+   "cap": 122,
+   "bws": [
+    1,
+    2,
+    4
+   ],
+   "fold_us_per_call": 24.999,
+   "fold_s": 0.08999,
+   "calls": 3600.0,
+   "rows": {
+    "1": {
+     "us_per_call": 27.318,
+     "min_us": 27.188,
+     "spread_pct": 0.972,
+     "ratio_to_bw1": 1.0,
+     "values": {
+      "equal": true,
+      "max_abs": 0.0
+     }
+    },
+    "2": {
+     "us_per_call": 25.165,
+     "min_us": 24.986,
+     "spread_pct": 1.667,
+     "ratio_to_bw1": 0.9212,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.004219409282700422
+     }
+    },
+    "4": {
+     "us_per_call": 24.528,
+     "min_us": 24.408,
+     "spread_pct": 1.266,
+     "ratio_to_bw1": 0.8979,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.004219409282700422
+     }
+    }
+   },
+   "best_bw": 4,
+   "bench_reproduces_fold": 1.0928,
+   "fold_s_at_best": 0.0883,
+   "priceable": true,
+   "delta_s": 0.00919,
+   "band_s_if_priceable": 0.00919
+  },
+  {
+   "shape": [
+    42,
+    512,
+    128,
+    512
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "cfg": {
+    "in0_block_w": 1,
+    "out_subblock_h": 1,
+    "out_subblock_w": 4,
+    "out_block_h": 7,
+    "out_block_w": 16,
+    "per_core_M": 7,
+    "per_core_N": 16,
+    "fuse_batch": 1,
+    "mcast_in0": 0,
+    "gather_in0": 0,
+    "num_global_cb_receivers": 0,
+    "untilize_out": 0
+   },
+   "mem": [
+    "DEV_1_L1_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_L1_INTERLEAVED"
+   ],
+   "bias": false,
+   "cores": 96,
+   "chain": 2,
+   "cap": 34,
+   "bws": [
+    1,
+    2,
+    4
+   ],
+   "fold_us_per_call": 157.928,
+   "fold_s": 0.08844,
+   "calls": 560.0,
+   "rows": {
+    "1": {
+     "us_per_call": 67.038,
+     "min_us": 65.906,
+     "spread_pct": 2.458,
+     "ratio_to_bw1": 1.0,
+     "values": {
+      "equal": true,
+      "max_abs": 0.0
+     }
+    },
+    "2": {
+     "us_per_call": 61.588,
+     "min_us": 60.34,
+     "spread_pct": 4.091,
+     "ratio_to_bw1": 0.9187,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.004016064257028112
+     }
+    },
+    "4": {
+     "us_per_call": 57.444,
+     "min_us": 55.836,
+     "spread_pct": 8.807,
+     "ratio_to_bw1": 0.8569,
+     "values": {
+      "equal": false,
+      "max_abs": 0.25,
+      "rel": 0.004016064257028112
+     }
+    }
+   },
+   "best_bw": 4,
+   "bench_reproduces_fold": 0.4245,
+   "fold_s_at_best": 0.03217,
+   "priceable": false,
+   "delta_s": 0.0,
+   "band_s_if_priceable": 0.01266
+  },
+  {
+   "shape": [
+    140,
+    32,
+    128,
+    128
+   ],
+   "k_tiles": 4,
+   "factory": "MatmulMultiCoreReuseMultiCast1DProgramConfig",
+   "cfg": {
+    "in0_block_w": 1,
+    "out_subblock_h": 2,
+    "out_subblock_w": 2,
+    "out_block_h": 2,
+    "out_block_w": 4,
+    "per_core_M": 2,
+    "per_core_N": 4,
+    "fuse_batch": 1,
+    "mcast_in0": 0,
+    "gather_in0": 0,
+    "num_global_cb_receivers": 0,
+    "untilize_out": 0
+   },
+   "mem": [
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED",
+    "DEV_1_DRAM_INTERLEAVED"
+   ],
+   "bias": true,
+   "cores": 70,
+   "chain": 8,
+   "cap": 122,
+   "bws": [
+    1,
+    2,
+    4
+   ],
+   "fold_us_per_call": 16.36,
+   "fold_s": 0.07853,
+   "calls": 4800.0,
+   "rows": {
+    "1": {
+     "us_per_call": 19.383,
+     "min_us": 19.114,
+     "spread_pct": 8.742,
+     "ratio_to_bw1": 1.0,
+     "values": {
+      "equal": true,
+      "max_abs": 0.0
+     }
+    },
+    "2": {
+     "us_per_call": 15.696,
+     "min_us": 15.588,
+     "spread_pct": 4.763,
+     "ratio_to_bw1": 0.8098,
+     "values": {
+      "equal": false,
+      "max_abs": 0.125,
+      "rel": 0.002369668246445498
+     }
+    },
+    "4": {
+     "us_per_call": 16.218,
+     "min_us": 15.875,
+     "spread_pct": 4.301,
+     "ratio_to_bw1": 0.8367,
+     "values": {
+      "equal": false,
+      "max_abs": 0.125,
+      "rel": 0.002369668246445498
+     }
+    }
+   },
+   "best_bw": 2,
+   "bench_reproduces_fold": 1.1848,
+   "fold_s_at_best": 0.07534,
+   "priceable": true,
+   "delta_s": 0.01494,
+   "band_s_if_priceable": 0.01494
+  }
+ ],
+ "op_level_total_delta_s": 0.20898
+}

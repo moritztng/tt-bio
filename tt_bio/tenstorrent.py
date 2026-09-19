@@ -4353,6 +4353,174 @@ def _pair_proj_program_config(
     )
 
 
+#: Tiles of in1 one inner block may cover, `in0_block_w * out_block_w`. ONE fitted parameter,
+#: scanned over every group the lever changes rather than picked off the best single shape:
+#: `perf/c14_matmul_ceiling/scan_c.py` sweeps it 6..120 against the five measured groups and 30 is
+#: both the argmax (+0.2102 s) and the largest value that regresses no group by more than 1.0071x.
+#: 24 nets +0.1927 s, 60 nets +0.2047 s with a 1.0288x group, and anything from 72 up collapses to
+#: +0.1104 s by widening the narrow-output shapes past their optimum. Re-check with
+#: `perf/c14_matmul_ceiling/bwladder.py --fold-bw 1,4`.
+_MM_IN1_BLOCK_TILES = 30
+
+#: Whether a SHORT-M 2-D projection gets a fitted `in0_block_w` instead of the 1 ttnn derives.
+#: Release-gated and default OFF: a wider inner block accumulates the contraction in a different
+#: order, so it is not bit-exact (measured, perf/c14_matmul_ceiling/bwladder_b3.json).
+#:
+#: NOT Boltz-2-only. `_short_m_proj_config`'s only call site is
+#: `ConditionedTransitionBlock._proj`, in this file, and `rf3/token_dit.py` imports its way into
+#: it through the shared `DiffusionTransformer`. Counted rather than grepped, on a 117 aa RF3 fold
+#: (`perf/c14_matmul_ceiling/fire_rf3_shim.json`): **4,419 of 4,419 calls served, 0 declined**, on
+#: (1,29,32,128)x(128,256) 594, (1,29,32,256)x(256,128) 297, (1,117,768)x(768,1536) 2,352 and
+#: (1,117,1536)x(1536,768) 1,176. Boltz-2 at 512 aa serves 19,200 and declines 4,800 per fold.
+#: RF3 therefore gets the rule on four shapes that were never in its fitted set, and any change
+#: to `_MM_IN1_BLOCK_TILES` moves RF3 too.
+#:
+#: Accuracy, both models, CA-lDDT against the EXPERIMENTAL structure, which is the only screen
+#: with power on this class (`state/b2z2-union-land.md:66`: a structural-RMSD-against-seed-scatter
+#: reading cleared `TT_BIO_UNFUSED_SILU` on Protenix-v2 while native CA-lDDT separated the arms
+#: completely). Four seeds, interleaved, arm order reversed on odd seeds, A/A bit-exact and
+#: 0.000000 in every domain:
+#:   rf3 7ROA        base 0.940131  bw 0.940581  paired +0.000450 CI +/-0.001138  seed spread 0.0054
+#:   boltz2 copy1    base 0.937552  bw 0.939291  paired +0.001739 CI +/-0.003130  seed spread 0.0274
+#:   boltz2 copy2    base 0.915806  bw 0.917025  paired +0.001219 CI +/-0.005315  seed spread 0.0238
+#: Unresolved and not rank-separated anywhere, sign positive everywhere, against a silu-class
+#: regression of -0.0509/-0.0721 CA-lDDT that is 16-65x these CIs. Artifacts
+#: `perf/c14_matmul_ceiling/acc_rf3.json` and `acc_b2_512.json`.
+#:
+#: PERF on those four RF3 shapes, which is a different question from accuracy and the one that
+#: caught this rule regressing `1,512,768,3072` by 1.114x on Boltz-2. Screened op-level on the two
+#: routings the call site actually takes, 11 reps interleaved with the order reversed on odd reps,
+#: A/A twin per shape 0.9961-1.0008, cube 121.961 TFLOP/s and starved add 430.51 GB/s both in band
+#: (`perf/c14_matmul_ceiling/rf3_bwladder_r1.json`):
+#:   (1,117,768)x(768,1536)   bw=6  0.5026x      (1,29,32,128)x(128,256)  bw=4  1.0109x
+#:   (1,117,1536)x(1536,768)  bw=8  0.8857x      (1,29,32,256)x(256,128)  bw=8  0.7524x
+#: Three wins and one 1.1 % regression, +42.0 ms against -0.08 ms per 117 aa fold. So the rule is
+#: better on RF3's unfitted shapes than on the Boltz-2 shape it was fitted on (0.6234x). Note the
+#: scope of the fitted constant: 30 was chosen as the largest value regressing no BOLTZ-2 group by
+#: more than 1.0071x, and RF3 has a group at 1.0109x, so that bound is not global. The constant
+#: cannot fix it -- `k_tiles = 4` with `per_core_N = 1` admits every divisor of K at any constant
+#: above 4 -- but moving the guard below from `k_tiles < 4` to `k_tiles < 8` would, and is a no-op
+#: on Boltz-2, where every served group is `k_tiles` 24 or 48.
+#:
+#: FOLD VALUE, and it is 4.5x below what the op ladder predicted. Registered at +0.2102 s from five
+#: groups each priced at its own measured ratio against its own in-fold device seconds; measured at
+#: **+0.047 s, 1.0032x** (`perf/c14_matmul_ceiling/fold_ab_f3.json`: base n=18 median 14.6110 s
+#: spread 1.48 %, bw n=9 median 14.5570 s, paired +0.0470 s CI [+0.0191, +0.0749], clock 1350-1350
+#: on all 27 folds). A second ungated session agrees at +0.0405 s. Neither books: both A/A
+#: half-widths (0.0605 and 0.0802 s) exceed the effect, because a 0.05 s effect sits at this box's
+#: paired noise floor. The gap is not a config mismatch -- the helper reproduces the fold's resolved
+#: config exactly apart from `in0_block_w` on four of the five served groups -- it is that device
+#: kernel seconds deleted from this class are not wall-clock seconds.
+_MM_SHORT_M_BW = env_flag("TT_BIO_MM_SHORT_M_BW", False)
+
+
+def set_mm_short_m_bw(on: bool) -> bool:
+    """A/B switch for the paired fold harness. Returns the previous value."""
+    global _MM_SHORT_M_BW
+    prev = _MM_SHORT_M_BW
+    _MM_SHORT_M_BW = bool(on)
+    return prev
+
+
+def _short_m_proj_program_config(m_tiles: int, k_tiles: int, n_tiles: int, elem_bytes: int):
+    """2-D reuse-multicast config for a SHORT-M projection, or None if the shape is outside it.
+
+    `_pair_proj_program_config` above fixes exactly this defect, and for the same reason, but it
+    splits M 1-D across the grid and so needs `m_tiles >= num_cores`. The diffusion transformer's
+    token projections are `m_tiles = 16` on a 110-core grid, so they fall through to ttnn's own
+    derivation, which picks `in0_block_w = 1`: a core then builds each output tile in `k_tiles`
+    inner blocks and pays the in1 multicast barrier, the DEST clear and the `packer_l1_acc` fold
+    once per block instead of once per output tile.
+
+    The fold carries its own control for this. `(1,512,768) x (768,768)` runs at BOTH blockings
+    inside one capture -- same grid, same per-core blocking, same 64 cores, same DRAM operands --
+    and reads 23,300 ns at `in0_block_w = 1` against 15,069 ns at 4.
+
+    `in0_block_w` holds the in1 BLOCK at a constant size: the largest divisor of `k_tiles` with
+    `in0_block_w * out_block_w <= _MM_IN1_BLOCK_TILES`, and whose circular buffers fit. The
+    constant is fitted on the ladder in `perf/c14_matmul_ceiling/bwladder_b{3,4}.json`, five
+    (shape, config) groups measured on the fold's own configs in two sessions, and it is what the
+    measured optima have in common -- they are NOT a fixed block width and they are NOT a fixed
+    fraction of K:
+
+        k_tiles  out_block_w  measured best in0_block_w   product
+             24            3                          8        24
+             24            5                       4-12     20-60
+             24            9                          4        36
+             48            3                       8-16     24-48
+
+    The first rule this code shipped, `k_tiles // 2`, ignored `out_block_w` and so widened the
+    narrow-output shapes correctly while over-widening the wide-output ones: measured against each
+    group's OWN current blocking it nets +0.1801 s but regresses `1,512,768,3072` by 1.114x. The
+    product rule at the fitted constant nets +0.2102 s with no group worse than 1.0071x. That is
+    the one-size-tuning defect class, and it was caught only by re-measuring the shapes the lever
+    CHANGES rather than the ones it was designed for -- three of the five are shapes the fold was
+    never starved on.
+
+    Everything else -- grid, per-core blocking, drain block, subblocks -- is what ttnn derives for
+    this shape, so the only field that moves is the one being fitted.
+    """
+    gx, gy = COMPUTE_GRID_MAIN
+    if m_tiles >= gx * gy or k_tiles < 4:
+        return None                 # tall M is the sibling's, and a 3-tile K has no plateau
+    per_core_M = -(-m_tiles // gy)
+    per_core_N = -(-n_tiles // gx)
+    if -(-m_tiles // per_core_M) > gy or -(-n_tiles // per_core_N) > gx:
+        return None
+    sw = max((w for w in range(min(4, per_core_N), 0, -1) if per_core_N % w == 0), default=1)
+    sh = max((h for h in range(min(max(4 // sw, 1), per_core_M), 0, -1) if per_core_M % h == 0),
+             default=1)
+    bw = 0
+    for d in range(1, k_tiles + 1):
+        if (k_tiles % d == 0 and d * per_core_N <= _MM_IN1_BLOCK_TILES
+                and _matmul_cb_bytes(d, per_core_M, per_core_N,
+                                     elem_bytes) <= _matmul_cb_budget()):
+            bw = d
+    if bw <= 1:
+        return None                 # nothing wider fits, so today's behaviour is unchanged
+    return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=COMPUTE_GRID_MAIN,
+        in0_block_w=bw,
+        out_subblock_h=sh,
+        out_subblock_w=sw,
+        out_block_h=per_core_M,
+        out_block_w=per_core_N,
+        per_core_M=per_core_M,
+        per_core_N=per_core_N,
+        transpose_mcast=False,
+        fused_activation=None,
+        fuse_batch=True,
+    )
+
+
+#: [taken, declined]. A flag that sets an attribute nothing reads scores as a null for a reason
+#: that has nothing to do with the lever, so the A/B records the firing count rather than trusting
+#: the flag. Read and reset by the fold harness.
+MM_SHORT_M_STATS = [0, 0]
+
+
+def _short_m_proj_config(x: ttnn.Tensor, w: ttnn.Tensor):
+    """`_short_m_proj_program_config` for a concrete operand pair, or None if it does not apply."""
+    if not _MM_SHORT_M_BW or x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
+        return None
+    try:
+        xs, ws = list(x.shape), list(w.shape)
+        if len(ws) != 2 or len(xs) < 2:
+            return None
+        batch = 1
+        for d in xs[:-2]:
+            batch *= int(d)
+        m_tiles = batch * -(-int(xs[-2]) // 32)
+        k_tiles = -(-int(xs[-1]) // 32)
+        if k_tiles != -(-int(ws[-2]) // 32):
+            return None
+        pc = _short_m_proj_program_config(m_tiles, k_tiles, -(-int(ws[-1]) // 32), 2)
+        MM_SHORT_M_STATS[0 if pc is not None else 1] += 1
+        return pc
+    except Exception:                                                         # noqa: BLE001
+        return None
+
+
 def _pair_proj_config(x: ttnn.Tensor, w: ttnn.Tensor, bw_cap: int | None = -1,
                       out_l1: bool = False, block_w: int | None = None,
                       rung: int = 0) -> object | None:
@@ -9648,6 +9816,18 @@ class ConditionedTransitionBlock(Module):
         self.output_projection_weight = self.torch_to_tt("output_projection.0.weight")
         self.output_projection_bias = self.torch_to_tt("output_projection.0.bias")
 
+    def _proj(self, x: ttnn.Tensor, weight: ttnn.Tensor) -> ttnn.Tensor:
+        """One of the block's four square token projections.
+
+        All four are `(1, N_tok, dim) x (dim, dim)` on the same grid, so they share one place to
+        decide the blocking. `core_grid=CORE_GRID_MAIN` is what they passed before and is still
+        what they pass whenever `_short_m_proj_config` declines, so a shape outside the fitted
+        class keeps today's program byte for byte.
+        """
+        pc = _short_m_proj_config(x, weight)
+        routing = {"program_config": pc} if pc is not None else {"core_grid": CORE_GRID_MAIN}
+        return ttnn.linear(x, weight, compute_kernel_config=self.compute_kernel_config, **routing)
+
     def __call__(
         self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False, cond=None
     ) -> ttnn.Tensor:
@@ -9656,26 +9836,11 @@ class ConditionedTransitionBlock(Module):
         activation epilogue, where it is free, instead of at the multiply below."""
         s_terms, s_out = cond if cond is not None else (None, None)
         a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms)
-        a_swish = ttnn.linear(
-            a,
-            self.swish_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
-        gates = ttnn.linear(
-            a,
-            self.gates_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        a_swish = self._proj(a, self.swish_weight)
+        gates = self._proj(a, self.gates_weight)
         a_swish = ttnn.multiply_(gates, a_swish, input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
         if self.a_to_b_gate:
-            a_b = ttnn.linear(
-                a,
-                self.a_to_b_weight,
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-            )
+            a_b = self._proj(a, self.a_to_b_weight)
             ttnn.deallocate(a)
             b = ttnn.multiply_(a_swish, a_b)
             ttnn.deallocate(a_b)
@@ -9690,12 +9855,7 @@ class ConditionedTransitionBlock(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             )
-        b_a = ttnn.linear(
-            b,
-            self.b_to_a_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        b_a = self._proj(b, self.b_to_a_weight)
         ttnn.deallocate(b)
         a = (ttnn.multiply(s_out, b_a) if s_out is not None else
              ttnn.multiply_(s, b_a, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID]))
