@@ -353,6 +353,16 @@ ceiling in EVIDENCE: 2,496 of 2,736 tensors, both arms above the zero model's 1.
 
 ### D19. Our forward and the reference's disagree at 6.735e-03, and that costs a 6.4e-02 median on the gradient. UNFIXED — it is a FLOOR, measured, not a footnote.
 
+**PASS 91: D19 is the trunk half of D23 and its corrected arms are in flight.** The diffusion half
+of the same cause is now measured and closed at block 0 — 2.07e-02 to 3.448e-03 per block, 1.592e-01
+to 2.168e-02 over 24 — so the mechanism is demonstrated, not merely argued. D19's own corrected
+arms need the 0.4.3 block boundary, which is captured from the float64 gradient rebuild `of3t-rebase`
+has running. The prediction is pre-registered and unchanged: the **shipped** arm falls from
+2.792e-01 toward the bf16 composition floor while the **`tb-off`** arm, at 4.965e-02 against 0.5.0,
+gets worse. **Both arms moving the same way refutes D23's trunk half**, and the row is instructed to
+say so rather than reconcile it.
+
+
 Found by `of3t-gradients` (pass 59), and it is a **floor under instrument A at any scope
 against this reference**.
 
@@ -988,6 +998,18 @@ move it to the other column and the ratios soften but the direction does not cha
 
 ### D21. The device arm of instrument A runs, and its first reading is an instrument defect, not a result. UNFIXED — the forward discriminator has not been run.
 
+**PASS 91: the ceiling argument that closed this campaign is GONE for the diffusion half.** Pass
+88 closed at a ceiling on A18's first clause — a disagreeing forward invalidates the gradient
+comparison taken at it, our DiT forward disagreed at 2.07e-02 per block, therefore completing the
+bijection and re-running instrument A was *void before it was taken*. Against a 0.4.3 reference
+that forward reads **3.448e-03 per block and 2.168e-02 over all 24**, every rung inside the bar
+(D23, `of3t-rebase` pass 1). **So the comparison is no longer void and the measurement is
+available.** What still gates it is mechanical rather than conceptual: A18's discriminator was
+scored against `S["xl_out"]` in a 3.2 GB `sub_boundary.pt` captured through a 0.5.0 forward, so it
+must be re-captured at 0.4.3 before the discriminator can be re-read. The 0.7672 / worst 87.82 /
+283-of-283 reading stays withheld until it is.
+
+
 Found by `of3t-diffusion`, pass 79, on the first end-to-end device arm at the captured r=0
 boundary: all 48 noised structures accumulated on one p300c, seeded with the reference's own
 cotangent.
@@ -1207,5 +1229,65 @@ key-set check catches the diffusion half and is structurally blind to the trunk 
 with missing 0 and unexpected 0. Pair it with an explicit assertion that the installed revision
 sits inside the checkpoint's declared `version_compatibility` window, which catches both kinds.
 `of3t-rebase`'s brief is amended accordingly and the live session was told directly.
+
+**PASS 91 — D23's DIFFUSION HALF IS CONFIRMED AND CLOSED AT BLOCK 0, against the prediction
+written before the rebuild existed.** `of3t-rebase` built the reference at 0.4.3 and re-ran the
+one-block bisection on the same captured `dit_in`, block 0, n=384, device arm float32 HiFi4 on
+one p300c, reference float64:
+
+| boundary | against 0.5.0 | against 0.4.3 |
+|---|---|---|
+| `adaln_a_out` | 6.027017e-03 | **6.027017e-03**, unchanged to every printed digit |
+| `adaln_t_out` | 6.850e-02 | **9.180e-03** |
+| `a1_running` | 2.180e-02 | **4.245e-03** |
+| **`d_attention_pair_bias`** | **5.522e-02** over bar | **1.076e-02** |
+| `d_conditioned_transition` | 5.327e-02 over bar | **7.502e-03** |
+| `block_out` | 2.072e-02 | **3.448e-03** |
+
+**Every boundary is now inside the 5.0e-02 per-tensor bar**, so on the falsifier the brief set —
+*if `d_attention_pair_bias` stays over bar the DiT carries a second defect* — **there is no second
+defect at block 0**. D23 predicted `d_attention_pair_bias` would fall from 5.522e-02 toward
+`adaln_a_out`'s 6.027e-03 and `block_out` from 2.072e-02; they read 1.076e-02 and 3.448e-03.
+
+**`adaln_a_out` is the control that makes the rest readable.** It is the one boundary in the block
+that `layer_norm_z` is not on, and it reproduces across the two references to every digit. A
+reference swap that moved everything equally would have moved nothing in particular; this one
+moves the pair-bias path and leaves the path beside it alone, which is exactly what D23 says the
+change is.
+
+**Depth ladder**, same instrument truncated to d blocks on both sides:
+
+| blocks | 1 | 2 | 4 | 8 | 16 | 24 |
+|---|---|---|---|---|---|---|
+| vs 0.5.0 | 2.072e-02 | 2.284e-02 | 2.232e-02 | 3.423e-02 | 1.417e-01 | 1.592e-01 |
+| vs 0.4.3 | **3.448e-03** | **5.272e-03** | **5.380e-03** | **7.793e-03** | **1.535e-02** | **2.168e-02** |
+
+The full 24-block DiT reads **2.168e-02 against 1.592e-01, a 7.34x improvement**, and every rung
+is inside the bar. The 0.32x composition law is **restated rather than retired** — 0.262x against
+0.320x of block count, log-log slope 0.579 against 0.642, both consistent with independent
+per-block perturbations accumulating as roughly the square root of depth. *The shape was never the
+defect; the level was.*
+
+**REFBUILD passed its own gate, and the gate was shown to fail.** 0.4.3 loads the checkpoint at
+missing=1 (`version_tensor`) / unexpected=0 and upstream's own loader accepts it; the 0.5.0
+control reads missing=3 / unexpected=48 and upstream's loader raises. The check is now baked into
+`perf/of3t_reference/bundle_min.py`, which refuses to build on a non-empty unexpected set, and it
+exits 1 on the 0.5.0 tree on demand. The row also kept the version-window assertion as the second
+gate, correctly noting it is the one to keep if only one can be afforded.
+
+**Still open on that row:** the trunk arms (waiting on the float64 gradient rebuild in flight),
+the diffusion-scope gradient (A18's discriminator must be re-read at 0.4.3, which needs a 3.2 GB
+boundary re-capture) and the inference digests. Its verdict is PARTIAL and it says so.
+
+**NEW, AND IT REACHES EVERY BIJECTION FIGURE IN THIS CAMPAIGN: the denominator 4,147 is the 0.5.0
+model's parameter count.** Measured independently by `of3t-orchestrator` and `of3t-rebase` and
+agreeing: `OpenFold3(model_config).parameters()` is **4,170 at 0.4.3** and **4,147 at 0.5.0**, the
+difference being 24 per-block DiT `layer_norm_z` weights minus the 1 hoisted shared norm. So every
+figure the campaign quotes as `x of 4,147` — D17's **3,545 of 4,147 tensors / 98.69 % of the
+squared gradient norm**, the reference's **4,147 of 4,147** A13 bit-identity — is computed against
+a model that is **missing 23 parameters our device model carries**, and the norm shares are shares
+of the wrong model's norm. The A13 self-consistency result is not thereby wrong, but it is about
+the wrong model. Re-deriving the bijection and its norm shares against 4,170 is owed by
+`of3t-rebase` alongside the trunk arms.
 
 Owner: `of3t-rebase`, dispatched pass 89.

@@ -388,6 +388,18 @@ second half of Moritz's bar is untouched.
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Sixteen concluded rows, nine defects
 UNFIXED**, one of them raised this pass.
 
+**PASS 91: THE CEILING THIS CAMPAIGN CLOSED ON IS GONE FOR THE DIFFUSION HALF, AND IT WAS THE
+REFERENCE.** Pass 88 closed on A18's first clause — a disagreeing forward invalidates the gradient
+comparison taken at it, our diffusion transformer disagreed at 2.07e-02 per block, therefore
+completing the bijection and re-running instrument A was *void before it was taken*, so there was
+"a port to fix, not a number to collect". `of3t-rebase` rebuilt the reference at 0.4.3 and re-ran
+the same bisection on the same captured inputs: **every boundary inside the bar**,
+`d_attention_pair_bias` **5.522e-02 to 1.076e-02**, `block_out` **2.072e-02 to 3.448e-03**, and
+the 24-block depth ladder **1.592e-01 to 2.168e-02, 7.34x**. The control is decisive —
+`adaln_a_out`, the one boundary `layer_norm_z` is not on, reproduces **to every printed digit**
+across the two references. There was no port to fix on that path. **The measurement is now
+available and it is the next thing this campaign owes.**
+
 **PASS 89 AMENDMENT, AND IT IS THE LARGEST CORRECTION THIS DOCUMENT CARRIES.** The reference
 bundle is upstream openfold3 **0.5.0** loading **`of3-p2-155k.pt`**, a combination upstream's own
 `entry_points/parameters.py` declares out of window (`">=0.4,<0.4.4dev0"`) and lists as legacy and
@@ -2992,3 +3004,43 @@ Also corrected on dispatch: the fleet placed `of3t-confhead` on pc card 0, which
 with 4.2 GB free** and is a p150a on custom 130-core firmware while D1's table was measured on a
 p300c. Repinned to `host=tt-quietbox2 card=any`, brief amended, live session told to do the
 CPU-only half and not start folding.
+
+PASS 91. **`of3t-rebase` confirmed D23's diffusion half against the prediction written before the
+rebuild existed, and the ceiling the campaign closed on is gone on that path.**
+
+The row built the reference at upstream 0.4.3 and re-ran the one-block bisection on the same
+captured `dit_in`, block 0, n=384, device arm float32 HiFi4 on one p300c, reference float64:
+`adaln_a_out` **6.027017e-03 both sides, unchanged to every printed digit**; `adaln_t_out`
+6.850e-02 to **9.180e-03**; `a1_running` 2.180e-02 to **4.245e-03**; `d_attention_pair_bias`
+**5.522e-02 to 1.076e-02**; `d_conditioned_transition` 5.327e-02 to **7.502e-03**; `block_out`
+2.072e-02 to **3.448e-03**. Every boundary is inside the 5.0e-02 bar, so on the falsifier its
+brief set — *if `d_attention_pair_bias` stays over bar the DiT carries a second defect* — **there
+is none at block 0**. The depth ladder reads **2.168e-02 over 24 blocks against 1.592e-01, 7.34x**,
+every rung inside the bar, and the 0.32x composition law is restated rather than retired at
+0.262x. *The shape was never the defect; the level was.*
+
+`adaln_a_out` is why this is a finding rather than a coincidence. It is the one boundary in the
+block that `layer_norm_z` does not sit on, and it reproduces across the two references to every
+digit. A reference swap that moved everything equally would have moved nothing in particular.
+
+**REFBUILD passed and the gate was shown to fail.** 0.4.3 loads at missing=1 / unexpected=0 with
+upstream's own loader accepting; the 0.5.0 control reads missing=3 / unexpected=48 and upstream's
+loader raises. The check is baked into `bundle_min.py`, which now refuses to build on a non-empty
+unexpected set and exits 1 on the 0.5.0 tree on demand. The row kept the version-window assertion
+as the second gate and correctly identified it as the one to keep if only one can be afforded —
+which is the sufficiency correction I sent it, adopted and improved.
+
+**And a correction that reaches every bijection figure in this campaign.** Measured independently
+here and by the row, agreeing: `OpenFold3(model_config).parameters()` is **4,170 at 0.4.3** and
+**4,147 at 0.5.0**, the difference being 24 per-block DiT `layer_norm_z` weights minus the 1
+hoisted shared norm. **4,147 is the number this campaign has used as the reference's tensor count
+throughout** — D17's *3,545 of 4,147 tensors, 98.69 % of the squared gradient norm*, and the
+reference's *4,147 of 4,147* A13 bit-identity. Those are computed against a model missing 23
+parameters our device model carries, and the norm shares are shares of the wrong model's norm. The
+A13 self-consistency result is not thereby wrong; it is about the wrong model. Re-deriving the
+bijection against 4,170 is owed.
+
+Still open on that row and correctly reported as PARTIAL: the trunk arms wait on a float64
+gradient rebuild in flight, the diffusion-scope gradient waits on re-capturing a 3.2 GB boundary
+at 0.4.3 so A18's discriminator can be re-read, and the inference digests are unrun. `of3t-confhead`
+is live on pc doing the CPU half, not folding, as instructed.
