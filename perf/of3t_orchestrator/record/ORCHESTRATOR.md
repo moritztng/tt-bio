@@ -283,6 +283,26 @@ GAP: the open defects are enumerated in `state/of3t/DEFECTS.md` and every UNFIXE
 named here by number, which the compose audit now checks mechanically so this field cannot
 drift again unnoticed.
 
+**D23 IS THE PASS-89 FINDING AND IT REOPENS TWO OTHERS.** The reference bundle is upstream
+openfold3 **0.5.0** loading **`of3-p2-155k.pt`**, which upstream's own
+`entry_points/parameters.py` declares `version_compatibility=">=0.4,<0.4.4dev0"` and lists in
+`LEGACY_CHECKPOINTS` as *"not supported for download and use in the current version"* — while
+0.4.3 gives the same checkpoint `">=0.4"` and makes it `DEFAULT_CHECKPOINT_NAME`. Two code
+changes separate the revisions, one per track: `transpose_bias=True` on `tri_att_end` (0
+occurrences in 0.4.0/0.4.3/0.4.4/0.4.5, **1** in 0.5.0), and the removal of `layer_norm_z` from
+the diffusion attention — 0.5.0's new `DiffusionAttentionPairBias` has none, while the p2
+checkpoint carries **24** per-block copies. Loading p2's block-0 attention weights into each of
+upstream's own constructions: 0.4.3 `missing=[] unexpected=[]`, 0.5.0
+`unexpected=['layer_norm_z.weight']` — dropped silently. Separation in float64 on the same
+weights **3.995e-01** (N=64) and **3.868e-01** (N=384), flat in N; **sufficiency control
+0.000000e+00**, pre-normalising `z` with the checkpoint's own weight making 0.5.0 reproduce
+0.4.3 bit-identically. So `layer_norm_z` is the entire difference, not one of several.
+**D19 and the DiT forward gap are therefore measurements against a reference that cannot run
+these weights**, and both are UNFIXED pending the rebuild. **D22 is corrected**: it compared the
+two `forward` methods, which are line-for-line identical, and the change is in `_prep_bias`.
+Owner `of3t-rebase`, dispatched this pass. Artifacts `perf/of3t_orchestrator/revision/`.
+
+
 **D14 is CLOSED** (`of3t-l1`, pass 51). Backward DRAM high-water **2.522 / 7.384 / 17.983 GB**
 at 128 / 256 / **384**, with 640's forward passing and its backward failing at 34.215 GB — the
 ladder stops between 384 and 640. 384's backward fell **32.370 → 17.983 GB**, and **1,639 of
@@ -398,13 +418,23 @@ set identical to main.
   shape of a mis-wired operand, not of an fp32-vs-float64 gap, which reads ~1e-2. A ceiling is
   publishable; the output of an instrument with a named defect is not.
 
-- **The diffusion transformer computes a DIFFERENT FUNCTION from upstream's, and it is not
+- **CORRECTED PASS 89 (D23): the diffusion transformer computes a different function from the
+  REFERENCE'S, and the reference is the one that cannot run this checkpoint.** 0.5.0's
+  `DiffusionAttentionPairBias` has no `layer_norm_z`; `of3-p2-155k.pt` carries 24 per-block
+  copies and 0.5.0 drops them (`unexpected=['layer_norm_z.weight']`). The two constructions
+  separate by **3.995e-01** in float64 on the same weights, and pre-normalising `z` with the
+  checkpoint's own weight makes them **bit-identical at 0.000000e+00**. The row's evidence
+  below stands as measured and its attribution does not; `of3t-reopen`'s own bisection
+  corroborates the correction, indicting `d_attention_pair_bias` at 5.522e-02 with the AdaLN
+  path clean at 6.027e-03, and `layer_norm_z` is on the pair-bias path alone. What the row
+  measured, verbatim: the diffusion transformer computes a different function, and it is not
   precision.** `of3t-diffusion` measured **2.07e-02** relative L2 after a *single* block on real
   tokens, compounding to **1.59e-01** over 24, with the decisive control being **our own bf16
   against our own fp32 at 2.05e-02 vs 2.07e-02** — a gap a 16-bit mantissa cannot widen is not a
   rounding gap. Operands against their captured `dit_in` are exact at **0.000e+00**, their side
   agrees fp32-to-float64 to seven digits, and the size ladder is flat from n=32 to 384. That
-  forward gap, not our tape, is what caps the device gradient at 0.7672.
+  forward gap, not our tape, is what caps the device gradient at 0.7672. **Its cause is the
+  reference's revision, not our module** — see D23 and `of3t-rebase`.
 
 - **Where it passes is the sharpest thing the campaign knows.** The single track reads
   **6.102e-03 to 6.390e-02** in the same run that puts the pair track at 4.3e-01 to 1.4e+00,
@@ -2764,3 +2794,64 @@ clean merges meant six rows present.
 
 *(The pass-12 GAP and VERDICT that stood here have been removed rather than left to contradict the current ones at the top of this document — the same duplicate-record hazard this campaign flagged as R43 in the reference bundle, committed in my own state doc within a pass of flagging it.)*
 
+
+PASS 89. **The reference is one revision family away from its own checkpoint, and that is the
+cause of D19 and of the diffusion transformer's forward gap. Both were attributed to our
+hand-written modules. Neither is ours.** CPU only, no card, in one pass, from the release trees.
+
+`of3-p2-155k.pt` is declared by upstream 0.5.0's own `entry_points/parameters.py` as
+`version_compatibility=">=0.4,<0.4.4dev0"` and listed in `LEGACY_CHECKPOINTS`, commented *"not
+supported for download and use in the current version"*. In 0.4.3 the same entry reads `">=0.4"`
+and is `DEFAULT_CHECKPOINT_NAME`. The bundle is 0.5.0. v0.4.0 is the Preview2 release, v0.5.0 the
+OpenBind release, and tt-bio ships OpenFold3 on the Preview2 parameters.
+
+Two changes, one per track. `transpose_bias=True` on `tri_att_end` occurs 0/0/0/0/**1** times in
+`base_blocks.py` across 0.4.0/0.4.3/0.4.4/0.4.5/0.5.0. And 0.5.0's new
+`DiffusionAttentionPairBias` has **no `layer_norm_z`**, where 0.4.3's single `AttentionPairBias`
+constructs it and applies it to the pair bias on both tracks — while the checkpoint carries 24
+per-block `layer_norm_z.weight` tensors of shape (128,) out of 4,935. Measured in float64 on the
+same p2 block-0 weights, both of upstream's own constructions: 0.4.3 loads them `missing=[]
+unexpected=[]`, 0.5.0 loads them `unexpected=['layer_norm_z.weight']`. Separation **3.995e-01** at
+N=64 and **3.868e-01** at N=384 — flat in N, which is this campaign's own DiT size ladder.
+Sufficiency control **0.000000e+00**.
+
+**What it clears, and this is the half that matters most.** `of3t-reopen` reported that our
+shipped OpenFold3 trunk computes the ending-node function `PairFormerBlock` does not call. True
+of 0.5.0, and 0.5.0 does not support these weights. tt-bio sets `tri_att_end_bias_follows_pair =
+not is_openbind(state_dict)` and selects the per-block `layer_norm_z` on `shared_ln is None`,
+giving each checkpoint the convention of the release that produced it — upstream's own binding,
+reproduced on both tracks. **No flag is flipped.** Acting on the reopen reading would have put a
+real regression into shipped OpenFold3 inference on the authority of a reference that cannot run
+these weights. The continuation directive put "two inference defects users get today" ahead of
+finishing the proof; on the evidence this pass, one of them is not a defect in our code, and
+establishing that was worth more than fixing it would have been.
+
+**Three lessons, and the first is the expensive one.** *A reference is an artifact with a version,
+and the version is part of the measurement.* This campaign fixed tolerances before any number
+existed, validated its reference by central finite differences, and caught five defects in its own
+instruments — and still spent forty passes comparing against a reference running a checkpoint its
+own code declares unsupported. The check that catches it is four lines: load the checkpoint and
+look at `unexpected_keys`. `strict=False` made it silent. Same class as
+`zero-filled-missing-gradient-hides-an-untrained-model`, arriving through the reference instead of
+through our side. It is now a DONE_CHECK gate on `of3t-rebase`, not advice.
+*A file-level "functionally inert" verdict must read the methods `forward` calls* — D22 compared
+the two `forward` methods, found them line-for-line identical, and the change is in `_prep_bias`.
+*Refuting a shared mechanism is not refuting a shared cause* — pass 85/88's composition laws
+(0.74x against 0.32x of block count) correctly showed D19 and the DiT gap are not one mechanism.
+They are two code changes. Both are downstream of one cause, and the composition argument had no
+reach over that question.
+
+`of3t-rebase` is dispatched to rebuild the bundle at 0.4.3 and re-run the instruments, with the
+key-set report as a build gate and with D23's three predictions pre-registered so the explanation
+is falsifiable: the shipped trunk arm should fall from 2.792e-01 while the `tb-off` arm gets
+worse, `d_attention_pair_bias` should fall from 5.522e-02 toward 6.027e-03, and D19's near-linear
+0.74x composition should disappear. Both arms moving the same way refutes the trunk half; a
+`d_attention_pair_bias` still over bar means the DiT carries a second defect and D23 closes only
+part of it.
+
+VERDICT: PARTIAL — the campaign is working, not concluded. Pass 89 did not advance the proof; it
+invalidated the reference two of the campaign's three open forward defects were measured against,
+and reopened them. No number in this document that was taken against the 0.5.0 bundle should be
+read as a statement about our port until `of3t-rebase` reports. The charter is not met and the
+reproduction is not established unreachable, so neither GO nor NO-GO is available and the honest
+verdict is the one the gate refuses: still working.

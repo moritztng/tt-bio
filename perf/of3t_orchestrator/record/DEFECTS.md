@@ -34,6 +34,14 @@ has been wrong twice recently by promoting a plausible shape to a finding.
 | **D8** | assembled block's pair-track **gradients** 4.3e-01 to 1.4e+00 while every sub-module passes alone (0.0092–0.0172); graded by attention/pair involvement — `tri_att_end` 0.3838, `attn_pair_bias` 0.1470, `tri_att_start` 0.0865, and `single_transition`, the one sub-module with no attention and no pair coupling, is the **only passer** at 0.0212 | pairformer block, gradient |
 | **D9** | `fp32_softmax` alone moves the triangle-attention weight gradient **3.2x** while the forward moves **12 %** | triangle attention, gradient-only |
 
+**PASS 89 — D23 SUPERSEDES THE CAUSE OF D19 IN THIS MAP.** The reference bundle is upstream
+0.5.0 loading the preview2 checkpoint, a combination upstream's own registry marks unsupported.
+Two code changes separate the revisions: `transpose_bias` on the trunk's ending node, and a
+`layer_norm_z` that 0.5.0's new `DiffusionAttentionPairBias` no longer has. D19 is the first of
+those measured against a reference that cannot run these weights. **D8/D9 are NOT explained by
+it** — they are gradient-scope and the trunk change is a forward one, so this map's co-location
+claim stands for them. See D23.
+
 **What follows, and it is load-bearing for the verdict.** D9 proves a class of error here that a
 forward comparison **structurally cannot see**. Therefore **closing D19 would not make instrument
 A pass**: a forward fix cannot reach a gradient-only defect, and D8's grading by attention
@@ -1008,3 +1016,80 @@ same way.* This supersedes the "both are per-block forward errors compounding wi
 resemblance that this record noted at pass 83 — resemblance of shape is not resemblance of law,
 and the law is measurable.
 
+
+---
+
+### D23. The reference bundle runs the preview2 checkpoint on upstream 0.5.0, which upstream declares unsupported. CONFIRMED on CPU. It is the cause of D19 and of the DiT forward gap, and it clears our shipped inference. UNFIXED (the reference must be rebuilt at 0.4.3).
+
+Found by `of3t-orchestrator` pass 89 from the release trees on pc. No card. Scripts and results:
+`perf/of3t_orchestrator/revision/` (`dit_apb_identity.py`, `dit_apb_control.py`, `FINDING.md`).
+
+**Upstream's own registry settles the compatibility question.** `entry_points/parameters.py` in
+the 0.5.0 sdist gives `of3-p2-155k.pt` `version_compatibility=">=0.4,<0.4.4dev0"` and lists it in
+`LEGACY_CHECKPOINTS`, commented *"not supported for download and use in the current version"*.
+The same file in 0.4.3 gives it `">=0.4"` unbounded and makes it `DEFAULT_CHECKPOINT_NAME`.
+v0.4.0 is the "OpenFold3 Preview2" release; v0.5.0 is the "OpenBind Model Release". The campaign's
+bundle is 0.5.0 (D22, `c4771653`) loading `of3-p2-155k.pt`.
+
+**Two code changes separate the revisions, one per track, and both are on the paths the campaign
+measures.**
+
+*Trunk.* `transpose_bias=True` on `PairFormerBlock.tri_att_end` occurs in `base_blocks.py` zero
+times in 0.4.0, 0.4.3, 0.4.4 and 0.4.5, and once in 0.5.0.
+
+*Diffusion transformer.* 0.5.0 splits `AttentionPairBias` into a plain class and a new
+`DiffusionAttentionPairBias`, and the new class has **no `layer_norm_z`** — not constructed, not
+applied. 0.4.3's single class constructs it (line 107) and applies it to the pair bias (line 156)
+on both tracks. The p2 checkpoint carries the weights it needs: 24 tensors
+`diffusion_module.diffusion_transformer.blocks.{0..23}.attention_pair_bias.layer_norm_z.weight`,
+shape `(128,)`.
+
+**Measured.** Loading p2's block-0 attention weights into each of upstream's own constructions:
+0.4.3 reports `missing=[] unexpected=[]`; 0.5.0 reports `missing=[] unexpected=['layer_norm_z.weight']`
+— it has nowhere to put the norm and drops it silently. Relative L2 between the two constructions
+in float64 on the same weights: **3.995e-01 at N=64, 3.868e-01 at N=384**, flat in N, which is the
+campaign's own DiT size ladder. **Sufficiency control: pre-normalising `z` with the checkpoint's
+own `layer_norm_z` makes 0.5.0 reproduce 0.4.3 at 0.000000e+00, bit-identical.** `layer_norm_z` is
+the entire difference, not one contribution among several.
+
+**This corrects D22.** D22 concluded every DiT-path layer file is functionally inert between the
+revisions. It compared the two `forward` methods, which are line-for-line identical; the change is
+in `_prep_bias`, which `forward` calls. The wider primitive set D22 did not cover
+(`normalization.py`, `activations.py`, `linear.py`) **is** inert under a float64 reference — those
+diffs are bf16 autocast branches, an opt-in Triton kernel flag and an init-time bias guard.
+
+**This clears our shipped inference, and that is the load-bearing consequence.** `of3t-reopen`
+reported that our shipped OpenFold3 trunk computes the ending-node function 0.5.0's
+`PairFormerBlock` does not call. True of 0.5.0, which does not support these weights. tt-bio sets
+`tri_att_end_bias_follows_pair = not is_openbind(state_dict)` (`openfold3_trunk.py:133`) and
+selects the per-block `layer_norm_z` on `shared_ln is None` (`openfold3_diffusion_transformer.py:265`)
+— giving each checkpoint the convention of the release that produced it, which is upstream's own
+binding reproduced. **No flag is to be flipped.** Flipping the end node would have put a real
+regression into shipped OpenFold3 inference on the authority of a reference that cannot run these
+weights.
+
+**`of3t-reopen`'s own bisection corroborates the DiT half.** Inside one DiT block it measured
+`d_attention_pair_bias` over bar at **5.522e-02** with the shared AdaLN conditioning clean at
+**6.027e-03**. `layer_norm_z` is on the pair-bias path and not on the AdaLN path, so the one op
+that differs between the revisions is the one op the bisection indicted.
+
+**The composition-law refutation stands.** D19 composes near-linearly at 0.74x of block count and
+the DiT sub-linearly at 0.32x, so they are not one mechanism — they are two different code changes
+on two tracks. They have one *cause*.
+
+**Remedy, and the predictions that falsify it.** Rebuild the bundle at **0.4.3**: the revision the
+port targets and the last inside upstream's declared window. 0.4.4's model tree is byte-identical
+to 0.4.3's; 0.4.5 changes 13 model files, so 0.4.5 and later are not substitutes. pc's installed
+tree at `/home/moritz/.coworker/scratch/of3-upstream/repo` (0.4.6.dev12+g72fc3a953) still carries
+the unified `AttentionPairBias` with `layer_norm_z` and no `transpose_bias`, so it behaves as
+0.4.3 on both changes. Written before the rebuild exists:
+
+1. The 48-block forward on the **shipped** arm falls from **2.792e-01** toward the bf16
+   composition floor and the `tb-off` arm, better against 0.5.0 at **4.965e-02**, gets worse. Both
+   arms moving the same way refutes this.
+2. `d_attention_pair_bias` falls from **5.522e-02** toward **6.027e-03**, and `block_out` from
+   **2.072e-02**. If it stays over bar the DiT has a second defect and this closes only part.
+3. D19's near-linear 0.74x composition disappears, one differing sub-module per block being what
+   produces a per-block constant that composes linearly.
+
+Owner: `of3t-rebase`, dispatched pass 89.
