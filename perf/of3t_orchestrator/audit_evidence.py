@@ -157,6 +157,56 @@ if upper.is_file():
 # Each instrument can be internally correct and still disagree with its neighbour about a fact
 # both depend on. Nothing in this campaign caught instrument B configuring OF3's schedule at
 # max_lr 1e-3 while instrument C drove the optimizer at 1.8e-3, because each passed on its own.
+# --- of3t-updaterule: D11, D12, and the bijection's true reach (D17) -----------------------
+d = j("perf/of3t_updaterule/lr_wiring.json")
+if d:
+    check("D11 closed-form points exact", d["arm_a_closed_form"]["exact_matches"], 1007)
+    check("D11 closed-form mismatches", d["arm_a_closed_form"]["mismatches"], 0)
+    check("D11 applied-rate steps exact", d["arm_b_wiring"]["exact_matches"], 2005)
+    check("D11 applied-rate mismatches", d["arm_b_wiring"]["mismatches"], 0)
+    for arm in ("shipped_warmup_1000", "scaled_warmup_20"):
+        a_ = d["arm_c_trajectory"][arm]
+        check(f"D11 d_1 zero both sides ({arm})", a_["d1_zero_both_sides"], True)
+        # The rung the whole defect turns on. `d1_ours` is a float and 0.0 is the claim.
+        check(f"D11 d_1 ours ({arm})", a_["d1_ours"], 0.0)
+    close("D11 worst d_k, shipped warmup",
+          d["arm_c_trajectory"]["shipped_warmup_1000"]["worst_rel_d_k2_20"], 2.0523076682188713e-06)
+    # A control that did not break the arms it should have proves nothing (SS3e).
+    check("D11 control puts d_1 back", d["negative_control"]["c_d1_ours"] > 0, True)
+    close("D11 control worst d_k", d["negative_control"]["c_worst_rel_d_k2_20"], 2.170127574298317)
+
+d = j("perf/of3t_updaterule/mse_entity.json")
+if d:
+    close("D12 value delta", d["arm_delta"]["rel_value"], 0.23344546565807414)
+    close("D12 gradient-seed delta", d["arm_delta"]["rel_seed"], 0.7636994469305252)
+    close("D12 vs their mse_loss, value", d["arm_reference"]["rel_value"], 6.057483991567378e-16,
+          tol=1e-2)
+    close("D12 vs their mse_loss, gradient", d["arm_reference"]["rel_grad"],
+          3.662141705890694e-15, tol=1e-2)
+    # The row's own sharpest finding: zeroed flags and absent flags are numerically identical,
+    # so `without` is the only detector. If that ever stops holding, the claim changes shape.
+    z = d["arm_control"]["flags_zeroed"]
+    check("D12 zeroed flags == dropped flags (value)", z["value_equals_dropped"], True)
+    check("D12 zeroed flags == dropped flags (seed)", z["seed_equals_dropped"], True)
+
+d = j("perf/of3t_updaterule/reference_profile.json")
+if d:
+    b_ = d["bijection_split"]
+    check("D17 reference tensors with a gradient", b_["their_tensors_with_a_gradient"], 4147)
+    check("D17 tensors mapped by the bijection", b_["mapped_by_the_bijection"], 3275)
+    close("D17 fraction of gradient NORM reachable", b_["fraction_of_gradient_norm_reachable"],
+          0.06543442172265605)
+    check("D17 reference presence set agrees", d["presence"]["set_agrees"], True)
+    check("D17 reference sha256 verified", d["sha256_matches"], True)
+    # Count and norm must both be quoted, always. 79 % and 6.5 % are the same split.
+    frac_count = b_["mapped_by_the_bijection"] / b_["their_tensors_with_a_gradient"]
+    if frac_count - b_["fraction_of_gradient_norm_reachable"] > 0.5:
+        ok.append(f"D17 count/norm gap intact: {frac_count:.0%} of tensors, "
+                  f"{b_['fraction_of_gradient_norm_reachable']:.2%} of the squared norm")
+    else:
+        warn.append("D17's count/norm gap has closed -- re-read the scoreboard row, it is "
+                    "written to explain a gap that no longer exists")
+
 # --- PROTOCOL A12: the SEAM between SS4 and SS5 ---------------------------------------------
 # SS4 proves the schedule as a FUNCTION (upstream's real scheduler against `af3_lr`, exact, over
 # 109,005 steps). SS5 proves the optimizer trajectory. Neither proves the MAPPING from update
