@@ -1,0 +1,20 @@
+{
+ "started_utc": "2026-09-19T03:58:47Z",
+ "host": "tt-quietbox2",
+ "card": "0",
+ "note": "One process per arm: TT_BIO_APB_CONCAT_HEADS is consumed at model construction and re-lanes proj_g/proj_o, so it cannot be flipped in process. Arms interleaved block by block; the A/A floor is the spread across the base blocks, compared the same way base is compared to apb.",
+ "blocks": [],
+ "preflight": {
+  "admissible": false,
+  "checks": [
+   "pair_channel: BOARD PAIR: sibling 1 has no fd -- the power-budget channel is clear",
+   "pair_channel: HOST: release_gate pid 1322161 live (owner c14-stack-land) -- folds in ~20 s children on any chip, a NON-stationary neighbour. Hard fail.",
+   "pair_channel: HOST: release_gate pid 1322162 live (owner c14-stack-land) -- folds in ~20 s children on any chip, a NON-stationary neighbour. Hard fail.",
+   "pair_channel: HOST: pid 1401555 BUSY on dev[2] (2.50 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+   "pair_channel: HOST: pid 1401556 BUSY on dev[3] (2.77 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+   "pair_channel: HOST: loadavg1 10.36 -> 7.75 over ceiling 8.00",
+   "pair_channel: NOT ADMISSIBLE -- do not measure. Wait it out or DEFER."
+  ]
+ },
+ "aborted": "preflight refused: not an admissible timing read"
+}

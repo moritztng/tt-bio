@@ -1,0 +1,63 @@
+{
+ "started_utc": "2026-09-18T18:14:18Z",
+ "host": "tt-quietbox2",
+ "card": "3",
+ "note": "One process per arm: TT_BIO_APB_CONCAT_HEADS is consumed at model construction and re-lanes proj_g/proj_o, so it cannot be flipped in process. Arms interleaved block by block; the A/A floor is the spread across the base blocks, compared the same way base is compared to apb.",
+ "blocks": [
+  {
+   "size": "298",
+   "arm": "base",
+   "block": 0,
+   "returncode": 1
+  },
+  {
+   "size": "298",
+   "arm": "on",
+   "block": 0,
+   "returncode": 1
+  },
+  {
+   "size": "298",
+   "arm": "base",
+   "block": 1,
+   "returncode": 1
+  },
+  {
+   "size": "298",
+   "arm": "on",
+   "block": 1,
+   "returncode": 1
+  },
+  {
+   "size": "298",
+   "arm": "base",
+   "block": 2,
+   "returncode": 1
+  },
+  {
+   "size": "298",
+   "arm": "on",
+   "block": 2,
+   "returncode": 1
+  }
+ ],
+ "preflight": {
+  "admissible": true,
+  "checks": [
+   "pair_idle: my card 3: [1208042]",
+   "pair_idle:     1208042       00:06 python3 perf/c10_bare_baseline/force_aiclk.py 3 1350 2400",
+   "pair_idle: sibling 2: no fd",
+   "pair_idle: ",
+   "pair_idle: sibling 2 idle -- timing read admissible. Record BOTH chips' occupancy beside every number.",
+   "host_quiet: device fd holder pid 1208042 idle, not contention (owner c14-land-tail)",
+   "host_quiet: loadavg1 0.71 (ceiling 2.00)",
+   "host_quiet: host quiet -- timing read admissible"
+  ]
+ },
+ "summary": {
+  "298": {
+   "error": "an arm produced no fold"
+  }
+ },
+ "finished_utc": "2026-09-18T18:14:21Z"
+}
