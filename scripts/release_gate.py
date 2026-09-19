@@ -1255,6 +1255,53 @@ def _preflight_esmc_root(esmc_models: list) -> None:
                  f"leg ({', '.join(esmc_models)}) could only produce a FAIL that measures nothing.")
 
 
+def _preflight_scored_package() -> None:
+    """Say which tt_bio this run actually imported, before any arm folds.
+
+    The gate resolves tt_bio through the installed dist on purpose (see the import block at
+    the top of this file). On a host whose venv holds an EDITABLE install of a shared
+    checkout, that means a gate launched from a git worktree scores the shared checkout and
+    not the branch it was launched in -- the resolution is by design, its invisibility was
+    not. On qb2, /home/ttuser/tt-bio-dev/env is editable against /home/ttuser/tt-bio-dev, so
+    `cd <worktree> && $PY scripts/release_gate.py` imports <shared>/tt_bio: sys.path[0] is
+    the SCRIPT's directory (scripts/), never the cwd, so the worktree is not on the path at
+    all. Set PYTHONPATH=<worktree> to score the branch.
+
+    This cost a real verdict. c13-land-first's 14-arm green gate (2026-09-18) was launched
+    that way and scored /home/ttuser/tt-bio-dev at 480ae2dfe -- a tree containing no
+    _B2_DIT_COND_HOIST line at all -- while its own launcher printed the flag block it
+    grepped out of the worktree beside it. A banner that reads a file on disk is not evidence
+    about the file the gate imported, and the two differed silently.
+
+    Printed at startup rather than in a summary, deliberately. A gate that dies mid-ladder
+    never reaches its epilogue, and the run that most needs this line is the one that dies.
+    """
+    try:
+        import tt_bio
+        package = Path(tt_bio.__file__).resolve().parent
+    except Exception as e:                       # pragma: no cover - import is proven by now
+        print(f"[release-gate] WARNING: cannot resolve the tt_bio it is scoring: "
+              f"{type(e).__name__}: {e}", flush=True)
+        return
+
+    where = package.parent
+    try:
+        commit = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"],
+                                         cwd=where, text=True, timeout=5,
+                                         stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        commit = "unknown"
+    print(f"[release-gate] scoring tt_bio from {package} (commit {commit})", flush=True)
+
+    if package != (REPO_ROOT / "tt_bio").resolve():
+        print(f"[release-gate] WARNING: that is NOT the checkout this gate was launched from.\n"
+              f"[release-gate]   launched from : {REPO_ROOT} (commit {_repo_commit()})\n"
+              f"[release-gate]   scoring       : {where} (commit {commit})\n"
+              f"[release-gate] Every verdict below describes the scoring tree. To score the\n"
+              f"[release-gate] checkout instead, re-run with PYTHONPATH={REPO_ROOT}.",
+              flush=True)
+
+
 def _preflight_msa_cache(models: list) -> None:
     """Fail before any device work if the offline MSA dir cannot serve a target it will fold.
 
@@ -4706,6 +4753,7 @@ def main() -> int:
     want_size_ladder = "size-ladder" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
     _ARM_MEMBERS = {a: _arm_members(a, models) for a in ("fold-models", "esmc")}
+    _preflight_scored_package()
     _preflight_eval_scorers(models)
     _preflight_esmc_root(esmc_models)
     _preflight_msa_cache(models)
