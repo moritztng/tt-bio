@@ -48,11 +48,12 @@ MIT-licensed and credited in the top-level LICENSE.
                   (tt_bio/_vendor/openfold3/LICENSE)
    Modifications: core/utils/relpos.py is taken from 0.4.5, which added the
                   cyclic-offset helpers; everything else is 0.4.3. Imports are
-                  rewritten to the tt_bio._vendor namespace. Eleven modules carry
-                  tt-bio changes, all flag-gated and defaulting to upstream
-                  behaviour (see docs/openfold3-vendor.md). memory_profiler, lmdb,
-                  boto3 and kalign are imported lazily so inference does not
-                  require the training-only dependencies.
+                  rewritten to the tt_bio._vendor namespace. 15 modules differ
+                  from upstream: seven are import plumbing, eight carry
+                  behavioural changes that are flag-gated and default to
+                  upstream behaviour (see docs/openfold3-vendor.md).
+                  memory_profiler, lmdb, boto3 and kalign are imported lazily
+                  so inference does not require the training-only deps.
                   scripts/of3_port/vendor_of3_training.py regenerates the training
                   half and verifies it with --check.
 
