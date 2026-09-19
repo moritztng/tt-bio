@@ -27,9 +27,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Optional
 
+import numpy as np
+
 from . import losses
 
-__all__ = ["Objective", "objective", "register", "names", "af3_loss"]
+__all__ = ["Objective", "objective", "register", "names", "af3_loss",
+           "MOL_TYPE_CONVENTIONS", "entity_flags"]
 
 
 @dataclass(frozen=True)
@@ -79,6 +82,113 @@ def names() -> list:
     return sorted(_ROWS)
 
 
+#: What an integer ``mol_type`` column MEANS, per stack. Three of our five models emit the
+#: entity fact under this one name instead of upstream's three flags, and **the two live
+#: conventions disagree**: both put protein at 0 and ligand at 3, and they SWAP dna and rna.
+#: Each entry carries its own source, because a provenance comment written above a table
+#: outlives the module the table was read from and then nothing says the entry is stale.
+#: ``tests/test_entity_flags.py`` re-derives every entry from the live source, so an upstream
+#: reordering fails a test here rather than silently retraining nucleic acids at the wrong
+#: weight.
+MOL_TYPE_CONVENTIONS = {
+    # OpenFold3's own `MoleculeType` (`core/data/resources/residues.py:24-28`, vendored) and
+    # Protenix-v2's `MOL_TYPE_IDS` (`tt_bio/protenix_data.py:40`), which agree. Measured by
+    # running `protenix_data.build_complex_features` on a protein/rna/dna/CCD_ATP complex:
+    # 5 protein tokens -> 0, 4 rna -> 1, 4 dna -> 2, 31 ligand atom-tokens -> 3.
+    "af3": {"protein": 0, "rna": 1, "dna": 2, "ligand": 3},
+    # Boltz-2 and BoltzGen, both from `tt_bio.data.const.chain_type_ids`
+    # (`tt_bio/data/const.py:8-14`), which their featurisers copy straight through
+    # (`tt_bio/data/featurizer.py:651`, `tt_bio/boltzgen/data/featurizer.py:700`). Measured on
+    # the same four-entity complex: Boltz-2 10/8/8/31 -> 0/1/2/3, BoltzGen 18/8/8/31 -> the
+    # same. NONPOLYMER is upstream's name for the class upstream's loss calls ligand.
+    "boltz": {"protein": 0, "dna": 1, "rna": 2, "ligand": 3},
+}
+#: The batch key a featuriser sets to name its own convention. Optional, and absent on every
+#: featuriser we ship today, which is the case ``entity_flags`` has to be safe in.
+CONVENTION_KEY = "mol_type_convention"
+#: Where the two conventions AGREE, so a flag derived from these values is unambiguous no
+#: matter which stack built the batch. ligand is the one that matters: it is the only class
+#: upstream weights differently from the other two (10.0 against 5.0).
+_AGREED = ("protein", "ligand")
+
+
+def entity_flags(mol_type, convention=None) -> dict:
+    """Upstream's ``is_dna`` / ``is_rna`` / ``is_ligand`` from one integer ``mol_type`` column.
+
+    One derivation for every model, because three featuriser edits would be three places to
+    drift and the fourth model would arrive uncovered.
+
+    **The dna/rna split is genuinely ambiguous without a named convention**, and this does not
+    pretend otherwise. An integer column alone cannot say whether 1 means dna (Boltz) or rna
+    (Protenix, OpenFold3), so with ``convention=None`` the pair is assigned under ``af3`` and
+    reported ``resolved: False``. That is safe only while upstream weights dna and rna the
+    same, which is a fact about `losses.mse` rather than a hope: the guard below reads its
+    signature and refuses rather than guessing if the two weights ever differ.
+
+    ``is_ligand`` is never ambiguous -- both conventions put ligand at 3 -- and ligand is the
+    class carrying the weight that differs (10.0 against 5.0).
+    """
+    mt = np.asarray(mol_type)
+    if mt.dtype.kind not in "iub":
+        raise TypeError(
+            f"mol_type must be an integer class column, got dtype {mt.dtype}. A float or a "
+            f"one-hot here would silently compare unequal to every class id and derive three "
+            f"all-zero flags, which is bit-identical to deriving nothing")
+    name = convention if convention is not None else "af3"
+    try:
+        table = MOL_TYPE_CONVENTIONS[name]
+    except KeyError:
+        raise KeyError(f"no mol_type convention {name!r}; conventions are "
+                       f"{sorted(MOL_TYPE_CONVENTIONS)}") from None
+    resolved = convention is not None
+    if not resolved:
+        _refuse_if_nucleic_weights_differ()
+    unknown = sorted(set(np.unique(mt).tolist()) - set(table.values()))
+    if unknown:
+        raise ValueError(
+            f"mol_type carries {unknown}, which convention {name!r} does not define "
+            f"({table}). An undefined class would fall through as protein and train at "
+            f"weight 1.0 with nothing saying so")
+    flags = {f"is_{k}": (mt == table[k]).astype(np.float64)
+             for k in ("dna", "rna", "ligand")}
+    return {"flags": flags, "convention": name, "resolved": resolved,
+            "unambiguous": list(_AGREED),
+            "counts": {k: int(v.sum()) for k, v in flags.items()}}
+
+
+def _refuse_if_nucleic_weights_differ() -> None:
+    """The invariance an unresolved dna/rna split rests on, checked instead of assumed.
+
+    Upstream weights dna and rna identically (5.0 and 5.0), so swapping the two leaves
+    ``losses.mse`` and its gradient seed bit-identical and an unnamed convention cannot move a
+    number. The moment a caller separates them that stops being true, and a silently wrong
+    nucleic-acid weighting is exactly the class of defect D12 was.
+    """
+    import inspect
+    d = inspect.signature(losses.mse).parameters
+    w_dna, w_rna = d["w_dna"].default, d["w_rna"].default
+    if w_dna != w_rna:
+        raise ValueError(
+            f"losses.mse now weights dna {w_dna} and rna {w_rna} differently, so which of "
+            f"mol_type 1 and 2 is which has become load-bearing. Set batch["
+            f"{CONVENTION_KEY!r}] to one of {sorted(MOL_TYPE_CONVENTIONS)} -- 'af3' for "
+            f"OpenFold3 and Protenix-v2, 'boltz' for Boltz-2 and BoltzGen")
+
+
+def _with_entity_flags(batch) -> tuple:
+    """Add the three flags to a batch that carries ``mol_type`` instead, or leave it alone.
+
+    Returns ``(batch, note)``. The batch is copied rather than mutated: a loss that edits the
+    caller's batch makes the second call on the same batch a different computation from the
+    first.
+    """
+    if "mol_type" not in batch or any(k in batch for k in _OPTIONAL["mse"]):
+        return batch, None
+    got = entity_flags(batch["mol_type"], batch.get(CONVENTION_KEY))
+    return {**batch, **got["flags"]}, {k: got[k] for k in
+                                       ("convention", "resolved", "counts")}
+
+
 def af3_loss(batch, outputs, weights) -> tuple:
     """The AF3 objective: the eight terms Protenix trains, at Protenix's own weights.
 
@@ -90,6 +200,12 @@ def af3_loss(batch, outputs, weights) -> tuple:
     """
     total = 0.0
     breakdown, seeds = {}, {}
+    # The one place a `mol_type` column becomes upstream's three flags, on the path every
+    # model's batch already takes (`recipes.py` calls the row with the dataset's own dict).
+    # D16: OpenFold3's vendored featuriser emits the three flags, and Protenix-v2, Boltz-2
+    # and BoltzGen emit the same fact as one integer column, so before this every
+    # nucleic-acid and ligand token those three trained on was weighted as protein.
+    batch, derived = _with_entity_flags(batch)
 
     def take(term, w, value_grad, seed_key):
         nonlocal total
@@ -121,6 +237,11 @@ def af3_loss(batch, outputs, weights) -> tuple:
         absent = [k for k in _OPTIONAL.get(term, ()) if k not in batch]
         if absent:
             breakdown[term]["without"] = absent
+        elif derived is not None and term == "mse":
+            # Derived, not native. `without` cannot say this -- the keys ARE in the batch by
+            # now -- and the difference matters: an unresolved dna/rna split is a claim this
+            # report has to carry rather than bury.
+            breakdown[term]["derived"] = derived
     return total, breakdown, seeds
 
 
