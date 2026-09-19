@@ -128,6 +128,8 @@ def capture(tokens, out):
     if "trunk" not in held:
         raise SystemExit("the fold never reached OF3Trunk.__call__; nothing to time")
     out["capture"] = {"trunk_forward_s": round(held.get("capture_trunk_s", 0.0), 3),
+                      "trunk_forward_note": "the shipped call, progress_fn INCLUDED "
+                                            "and cold; the timed arms below drop it",
                       "trunk_cycles": held.get("capture_trunk_cycles"),
                       "reached_sampler": "sampler" in held}
     return held, meta
@@ -228,7 +230,12 @@ def cycle_once(trunk, held, cycles, taped):
     breakdown reads; the numerical coupling is `of3t-equivalence`'s business, not this file's.
     """
     from tt_bio import autograd as ag
-    self_, args, kwargs = held["trunk"]
+    _self, args, kwargs = held["trunk"]
+    # `progress_fn` comes along with the captured call and it is not free: the emit rate is a
+    # measured perf cost on this tree, not cosmetics, and the shipped trunk fires it once per
+    # cycle. Dropped from every timed arm so the stage is the trunk's cost and not the
+    # progress bar's -- the same reason the rollout ladder drops it.
+    kwargs = {k: v for k, v in kwargs.items() if k != "progress_fn"}
     trunk.num_cycles = cycles
     ctx = ag.tape() if taped else ag.no_grad()
     with ctx:
