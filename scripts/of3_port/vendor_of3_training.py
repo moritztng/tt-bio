@@ -73,6 +73,8 @@ ADD = (
     "core/utils/geometry/kabsch_alignment.py",
     "core/utils/logging_utils.py",
     "core/utils/permutation_alignment.py",
+    # The pydantic models a runner yaml's dataset_configs section validates into.
+    "projects/of3_all_atom/config/dataset_configs.py",
 )
 
 # Vendored as stubs by the inference-only vendoring; restored in full here.
@@ -138,6 +140,19 @@ ADAPTATIONS: tuple[tuple[str, str, str], ...] = (
         "        # Assumed to be an lmdb dir\n"
         "        import lmdb  # training-only dependency; see vendor_of3_training.py\n\n"
         "        with (\n",
+    ),
+    # -- vendoring depth ----------------------------------------------------
+    # This one is not an optional-dependency deferral. `framework/__init__.py`
+    # imports its single_datasets submodules by rebuilding the module name out of
+    # FILESYSTEM PATH COMPONENTS (`path.parts[-6:-1]`), which hardcodes upstream's
+    # package depth and yields a bare "openfold3.core.data.framework..." under
+    # tt_bio/_vendor/. A textual import rewrite cannot see it because there is no
+    # import statement to rewrite. Deriving the prefix from __package__ imports
+    # exactly the same modules and is correct at either depth.
+    (
+        "core/data/framework/__init__.py",
+        '        __import__(".".join(list(path.parts[-6:-1]) + [path.parts[-1].split(".")[0]]))\n',
+        '        __import__(f"{__package__}.{directory.name}.{path.stem}")\n',
     ),
     # -- kalign -------------------------------------------------------------
     # Only reached when the template pipeline has to realign an hmmsearch hit.
