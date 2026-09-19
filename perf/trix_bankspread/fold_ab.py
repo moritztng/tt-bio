@@ -97,6 +97,8 @@ def main() -> int:
     ap.add_argument("--size", default="512")
     ap.add_argument("--reps", type=int, default=4, help="folds per arm")
     ap.add_argument("--card", default="2")
+    ap.add_argument("--recycles", type=int, default=None,
+                    help="override recycling steps; the campaign protocol is 10")
     ap.add_argument("--base-stream", default="1", help="CT_STREAM for the control (shipped walk)")
     ap.add_argument("--on-stream", default="4", help="CT_STREAM for the lever")
     a = ap.parse_args()
@@ -122,6 +124,9 @@ def main() -> int:
     H._seed_msa(FIX / f"cdk2x2_{a.size}.yaml",
                 (FIX / f"cdk2x2_{a.size}.a3m").read_text(), msa_dir)
     cfg = H.build_cfg(msa_dir, struct_dir)
+    if a.recycles is not None:
+        cfg["recycling_steps"] = a.recycles
+        cfg["conf_kwargs"]["predict_args"]["recycling_steps"] = a.recycles
     _ensure_local_artifacts(cfg)
 
     t0 = time.perf_counter()
@@ -150,7 +155,9 @@ def main() -> int:
             p.unlink() if p.is_file() else shutil.rmtree(p)
         rbp._CT_STREAM_PIN, rbp._CT_BUFS_PIN = stream, "2"
         rbp._CACHE.clear()
+        rbp._CACHE_GATED.clear()
         rbp.STATS[0] = rbp.STATS[1] = 0
+        rbp.STATS_GATED[0] = rbp.STATS_GATED[1] = 0
         state.pfn = None
         cs = ClockSampler(a.card)
         cs.start()
@@ -166,12 +173,13 @@ def main() -> int:
         row = {
             "arm": arm, "tag": tag, "ct_stream": stream, "fold_s": round(wall, 3),
             "clock": clk, "reblock_served_declined": list(rbp.STATS),
+            "reblock_gated_served_declined": list(rbp.STATS_GATED),
             "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
             "cif_sha256": hashlib.sha256(cifs[0].read_bytes()).hexdigest() if cifs else None,
             "loadavg1": round(os.getloadavg()[0], 2),
         }
         del Ct
-        print(f"  {arm:4s} S={stream} {tag:7s} {wall:7.3f}s  rbp={rbp.STATS[0]}  "
+        print(f"  {arm:4s} S={stream} {tag:7s} {wall:7.3f}s  gated={rbp.STATS_GATED[0]}  "
               f"clk {clk.get('aiclk_min')}-{clk.get('aiclk_max')} (n={clk.get('aiclk_n')})  "
               f"load {row['loadavg1']}", flush=True)
         return row
@@ -205,6 +213,9 @@ def main() -> int:
         "reblock_calls_per_fold": {arm: sorted({f["reblock_served_declined"][0]
                                                 for f in out["folds"] if f["arm"] == arm})
                                    for arm in ("base", "on")},
+        "reblock_gated_calls_per_fold": {arm: sorted({f["reblock_gated_served_declined"][0]
+                                                      for f in out["folds"] if f["arm"] == arm})
+                                         for arm in ("base", "on")},
         "plddt": {arm: sorted({f["plddt"] for f in out["folds"] if f["arm"] == arm})
                   for arm in ("base", "on")},
         "cif_digests": digests,

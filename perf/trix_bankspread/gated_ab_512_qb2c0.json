@@ -1,0 +1,119 @@
+{
+ "in_shape": [
+  1,
+  512,
+  512,
+  1024
+ ],
+ "out_shape": [
+  1,
+  256,
+  512,
+  512
+ ],
+ "p_slice": 512,
+ "g_slice": 0,
+ "arms_in_order": {
+  "s1b2_r0": 1.2546,
+  "s2b2_r0": 1.3042,
+  "s4b1_r0": 2.0852,
+  "s4b2_r0": 1.5571,
+  "s8b1_r0": 2.5064,
+  "s8b2_r0": 1.8925,
+  "s1b2_r1": 1.253,
+  "s2b2_r1": 1.3047,
+  "s4b1_r1": 2.1096,
+  "s4b2_r1": 1.5583,
+  "s8b1_r1": 2.5071,
+  "s8b2_r1": 1.8847,
+  "s1b2_r2": 1.255,
+  "s2b2_r2": 1.3051,
+  "s4b1_r2": 2.0866,
+  "s4b2_r2": 1.557,
+  "s8b1_r2": 2.4996,
+  "s8b2_r2": 1.8895,
+  "s1b2_last": 1.2533
+ },
+ "summary": {
+  "s1b2": {
+   "ct_stream": 1,
+   "bufs": 2,
+   "out_cb_kb": 128.0,
+   "ms": 1.2546,
+   "ratio": 1.0,
+   "saved_ms_per_call": 0.0,
+   "bit_exact_vs_ttnn_chunk_sigmoid_mul_permute": true
+  },
+  "s2b2": {
+   "ct_stream": 2,
+   "bufs": 2,
+   "out_cb_kb": 256.0,
+   "ms": 1.3047,
+   "ratio": 0.9616,
+   "saved_ms_per_call": -0.0501,
+   "bit_exact_vs_ttnn_chunk_sigmoid_mul_permute": true
+  },
+  "s4b1": {
+   "ct_stream": 4,
+   "bufs": 1,
+   "out_cb_kb": 256.0,
+   "ms": 2.0866,
+   "ratio": 0.6013,
+   "saved_ms_per_call": -0.832,
+   "bit_exact_vs_ttnn_chunk_sigmoid_mul_permute": true
+  },
+  "s4b2": {
+   "ct_stream": 4,
+   "bufs": 2,
+   "out_cb_kb": 512.0,
+   "ms": 1.5571,
+   "ratio": 0.8057,
+   "saved_ms_per_call": -0.3025,
+   "bit_exact_vs_ttnn_chunk_sigmoid_mul_permute": true
+  },
+  "s8b1": {
+   "ct_stream": 8,
+   "bufs": 1,
+   "out_cb_kb": 512.0,
+   "ms": 2.5064,
+   "ratio": 0.5006,
+   "saved_ms_per_call": -1.2518,
+   "bit_exact_vs_ttnn_chunk_sigmoid_mul_permute": true
+  },
+  "s8b2": {
+   "ct_stream": 8,
+   "bufs": 2,
+   "out_cb_kb": 1024.0,
+   "ms": 1.8895,
+   "ratio": 0.664,
+   "saved_ms_per_call": -0.6349,
+   "bit_exact_vs_ttnn_chunk_sigmoid_mul_permute": true
+  }
+ },
+ "aa_floor_pct": 0.1036,
+ "derived_default": {
+  "ct_stream": 4,
+  "out_cb_tiles": 256,
+  "bit_exact": true
+ },
+ "aiclk_during_sysfs_20hz": {
+  "n": 120,
+  "min": 1350,
+  "max": 1350,
+  "median": 1350
+ },
+ "aiclk_during_measuring_thread": {
+  "n": 209,
+  "min": 1350,
+  "max": 1350,
+  "median": 1350
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "out_bytes": 134217728,
+ "batch": 8,
+ "iters": 11,
+ "rounds": 3
+}

@@ -22,6 +22,7 @@ dtype/layout, the buffer types and the core grid; the addresses now live in ``co
 
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 
@@ -47,9 +48,23 @@ DRAM_BANKS = 8
 # them. 520 KB is what CT_STREAM = 4 double-buffered needs, and 8 streams at 1032 KB bought a
 # further 0.17 % for twice the L1.
 CB_L1_BUDGET = int(os.environ.get("TT_BIO_REBLOCK_CB_L1_BUDGET", str(640 * 1024)))
-# Streaming more than 4 channel tiles is measured at 0.17 % against twice the L1 (1.1098x vs
-# 1.1079x at 512 aa, A/A floor 0.0071 %), so the ladder stops here.
-MAX_CT_STREAM = 4
+# 1, which is the original walk, and the reason is the whole finding of this pass.
+#
+# On `reblock_permute` the reorder is a real 1.1079x at 512 aa. On `reblock_permute_gated` it is a
+# LOSS at every depth: 0.9616x at 2 streams, 0.8057x at 4, 0.6640x at 8, A/A floor 0.1036 %, AICLK
+# forced and verified at 1350 min = max. The gated op is the one the trimul calls, 3024 times in a
+# 512 aa fold against 0 calls to the ungated one, and the fold agrees: -0.857 s, 0.97244x.
+#
+# The mechanism is the work key. The ungated op loops the channel tile INSIDE a group, so its 32
+# row reads are one bank and widening the group spreads them. The gated op already carries the
+# channel tile as its fastest GROUP key, so consecutive groups on a core already step it by one,
+# and it already issues the value and the gate page of a row before its barrier. There is nothing
+# left for the reorder to spread, and it still pays the writer's strided gather, which is why the
+# loss grows monotonically with the stream depth and no rung shows a partial win.
+#
+# Kept as a knob rather than deleted: the ladder is the evidence, it is bit-exact at every rung on
+# both ops, and a part with a different bank count would move the answer.
+MAX_CT_STREAM = max(1, min(8, int(os.environ.get("TT_BIO_REBLOCK_MAX_CT_STREAM", "1"))))
 # Measurement handle: pin CT_STREAM (1 is the original il-inner walk) and the OUT_CB buffer count.
 # Unset means the derived rule below, which is what the op runs in production.
 _CT_STREAM_PIN = os.environ.get("TT_BIO_REBLOCK_CT_STREAM")
@@ -75,8 +90,34 @@ def _ct_stream(Ct, tile_bytes):
         S = max(1, min(int(_CT_STREAM_PIN), Ct))
         bufs = int(_CT_BUFS_PIN) if _CT_BUFS_PIN is not None else 2
         return S, GROUP_TILES * S * bufs
-    for S in (MAX_CT_STREAM, 2):
-        if Ct % S == 0 and GROUP_TILES * S * 2 * tile_bytes <= CB_L1_BUDGET:
+    for S in sorted({MAX_CT_STREAM, 4, 2}, reverse=True):
+        if 1 < S <= MAX_CT_STREAM and Ct % S == 0 \
+                and GROUP_TILES * S * 2 * tile_bytes <= CB_L1_BUDGET:
+            return S, GROUP_TILES * S * 2
+    return 1, GROUP_TILES * 2
+
+
+def _ct_stream_gated(Ct, tile_bytes):
+    """``_ct_stream`` for the gated move, which is the one the trimul actually calls.
+
+    Same defect and same fix: the row stride is ``Nt*Ctw`` and lands on one DRAM bank. The
+    difference is where the channel tile lives. The gated work unit is ``(it, jt, ct)`` with ``ct``
+    in the GROUP key, so there is no inner channel loop to move; the group widens to ``S``
+    consecutive channel tiles instead, which divides the group count by ``S`` and multiplies the
+    writer's window by it. The reader already issues two pages per row for the value and the gate
+    slices, so a group of ``S`` issues ``2*S`` before its barrier.
+
+    ``OUT_CB`` is sized here as it is for the ungated op, and the four working CBs have to hold a
+    multiple of both ``S`` (the reader's push) and ``GATE_GRANULARITY`` (the compute kernel's
+    wait), or the ring wraps mid-push.
+    """
+    if _CT_STREAM_PIN is not None:
+        S = max(1, min(int(_CT_STREAM_PIN), Ct))
+        bufs = int(_CT_BUFS_PIN) if _CT_BUFS_PIN is not None else 2
+        return S, GROUP_TILES * S * bufs
+    for S in sorted({MAX_CT_STREAM, 4, 2}, reverse=True):
+        if 1 < S <= MAX_CT_STREAM and Ct % S == 0 \
+                and GROUP_TILES * S * 2 * tile_bytes <= CB_L1_BUDGET:
             return S, GROUP_TILES * S * 2
     return 1, GROUP_TILES * 2
 
@@ -726,7 +767,11 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     # index is what makes the split even on a row block: a 64-row block at 512 aa is 2*16*8 = 256
     # groups over 110 cores where (row-tile, col-tile) alone would be 32, i.e. 8 waves against the
     # whole-tensor move's 3. `_build_back` does the same and records the same arithmetic.
-    num_groups = Nrt * Nt * Ct
+    # `S` consecutive channel tiles per group, so the group count divides by it. `reader_ct[0]`
+    # carries the same value into the kernels, and it is in the descriptor cache key through them.
+    S = reader_ct[0]
+    assert Ct % S == 0, (Ct, S)
+    num_groups = Nrt * Nt * (Ct // S)
 
     plan = _split_plan(device, num_groups)
     assert plan is not None, f"no expressible work split for {num_groups} groups"
@@ -747,9 +792,15 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     # one tile at a time, and a deeper ring would only hold more of a stream the writer is already
     # the slow end of. That last clause is exactly what GATE_GRANULARITY tests -- if the writer is
     # the slow end then removing compute barriers buys nothing and the A/B reads 1.00x.
-    cbs = [cb(P_CB, 2 * GATE_GRANULARITY), cb(G_CB, 2 * GATE_GRANULARITY),
-           cb(SIG_CB, 2 * GATE_GRANULARITY), cb(MUL_CB, 2 * GATE_GRANULARITY),
-           cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
+    # The reader pushes S at a time and the compute kernel waits GATE_GRANULARITY at a time, so
+    # the four working CBs need a depth that is a multiple of both or `cb_reserve_back(S)` can be
+    # asked for a wrap-straddling window.
+    work_depth = 2 * (S * GATE_GRANULARITY // math.gcd(S, GATE_GRANULARITY))
+    _, out_cb_depth = _ct_stream_gated(Ct, tile_bytes)
+    assert out_cb_depth % (GROUP_TILES * S) == 0, (out_cb_depth, S)
+    cbs = [cb(P_CB, work_depth), cb(G_CB, work_depth),
+           cb(SIG_CB, work_depth), cb(MUL_CB, work_depth),
+           cb(OUT_CB, out_cb_depth), cb(STAGE_CB, 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
@@ -761,7 +812,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
                 for cy in range(cr.start.y, cr.end.y + 1):
                     g0, gs, ghi, glo = _walk(WALK, first, block, per_core, num_cores)
                     reader_rt[cx][cy] = [g0, per_core, Nt, N, Ct, Ctw, gs, ghi, glo]
-                    compute_rt[cx][cy] = [per_core * GROUP_TILES]
+                    compute_rt[cx][cy] = [per_core * GROUP_TILES * S]
                     writer_rt[cx][cy] = [g0, per_core, Nt, N, Ct, gs, ghi, glo]
                     first += 1
                     block += per_core
@@ -807,8 +858,10 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
 
 
 def _prepare_gated(x, out, device, fidelity, fp32_acc):
-    reader_ct = list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
-    writer_ct = [_elem(), OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB]
+    tile_bytes = TILE_H * TILE_W * _elem()
+    ct_stream, _ = _ct_stream_gated(int(out.shape[1]) // TILE_W, tile_bytes)
+    reader_ct = [ct_stream, tile_bytes] + list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
+    writer_ct = [_elem(), OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB, ct_stream]
     writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     key = _cache_key_gated(x, out, device, reader_ct, writer_ct)
     entry = _CACHE_GATED.get(key)
