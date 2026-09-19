@@ -21,7 +21,7 @@ retains -- the number `ptx-crop` needs, since fp32 doubles it per retained tenso
 """
 from __future__ import annotations
 
-import argparse, json, statistics, sys, threading, time
+import argparse, json, os, statistics, sys, threading, time
 from pathlib import Path
 
 import numpy as np
@@ -34,10 +34,26 @@ import dit
 SYS = Path("/sys/class/tenstorrent")
 
 
+def held_nodes():
+    """The `/dev/tenstorrent/N` this process actually opened, read off its own fds.
+
+    Not optional bookkeeping. `TT_VISIBLE_DEVICES` is a UMD index and the sysfs nodes are
+    not the same numbering: on qb1, `TT_VISIBLE_DEVICES=2` opens `/dev/tenstorrent/3`. The
+    first two passes of this measurement sampled `tenstorrent!2`, read 800 MHz flat through
+    20 s of sustained load, and were one step from being written up as a governor artifact --
+    while the card actually computing, node 3, held 1350 MHz in every repeat. A clock keyed
+    to the launch flag can watch a different chip than the one doing the work.
+    """
+    import glob
+    return sorted({int(os.readlink(f).rsplit("/", 1)[1])
+                  for f in glob.glob("/proc/self/fd/*")
+                  if os.path.islink(f) and os.readlink(f).startswith("/dev/tenstorrent/")})
+
+
 class ClockWatch(threading.Thread):
     """Samples every card's AICLK while a timed region runs. Opens no device."""
 
-    def __init__(self, period=0.05):
+    def __init__(self, period=0.01):
         super().__init__(daemon=True)
         self.period, self.stop_flag, self.samples = period, threading.Event(), []
 
@@ -78,32 +94,36 @@ def stack(ag, t, nt, blocks, *, cfg, bwcfg):
 
 
 def dram(ttnn, dev):
-    try:
-        return int(dev.allocated_bytes_per_bank(ttnn.BufferType.DRAM)) * dev.num_dram_channels()
-    except Exception:
-        try:
-            return int(ttnn.get_memory_view(dev, ttnn.BufferType.DRAM).total_allocated_bytes)
-        except Exception:
-            return None
+    """Bytes of device DRAM in use, `tenstorrent.py:dram_peak`'s own arithmetic.
+
+    NEVER call this inside a timed region. `ttnn.get_memory_view` behaves like a pipeline
+    drain: a 117 aa fold measured 12.0 s with it off and 28.8 s with it on, so a timed run
+    carrying this probe measures the probe. The memory pass runs untimed for that reason.
+    """
+    mv = ttnn.get_memory_view(dev, ttnn.BufferType.DRAM)
+    return int(mv.total_bytes_per_bank - mv.total_bytes_free_per_bank) * int(mv.num_banks)
 
 
-def one(ag, ttnn, tt, t, nt, blocks, cfg, bwcfg, seed_t, backward):
+def one(ag, ttnn, tt, t, nt, blocks, cfg, bwcfg, seed_t, backward, probe=False):
+    """One arm's work. `probe` reads DRAM at the tape's high-water mark and again after the
+    backward, and is only ever set on the untimed memory pass."""
     dev_h = tt.get_device()
+    peak = None
     if backward:
         out = stack(ag, t, nt, blocks, cfg=cfg, bwcfg=bwcfg)
-        # Read at the tape's high-water mark (everything the forward retained, nothing freed
-        # yet) and again after the backward has run, and keep the larger. Reading only the
-        # first would quote what the tape RETAINS and call it the peak; reading only the
-        # second would miss it, because a backward frees as it goes.
-        peak = dram(ttnn, dev_h)
+        if probe:
+            # Everything the forward retained, nothing freed yet -- the number `ptx-crop`
+            # wants. Read again after, because a backward frees as it goes and the true
+            # peak can be on either side.
+            peak = dram(ttnn, dev_h)
         out.backward(seed=seed_t)
-        after = dram(ttnn, dev_h)
-        if None not in (peak, after):
-            peak = max(peak, after)
+        if probe:
+            peak = max(peak, dram(ttnn, dev_h))
     else:
         with ag.no_grad():
             out = stack(ag, t, nt, blocks, cfg=cfg, bwcfg=bwcfg)
-        peak = dram(ttnn, dev_h)
+        if probe:
+            peak = dram(ttnn, dev_h)
     ttnn.synchronize_device(dev_h)
     return peak
 
@@ -115,6 +135,12 @@ def main():
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--dtype", default="float32", choices=["float32", "bfloat16"])
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--burn", type=float, default=15.0,
+                    help="seconds of sustained load before timing, so the AICLK governor is "
+                         "ramped; 0 reproduces the first pass, which read 800 MHz")
+    ap.add_argument("--memory", action="store_true",
+                    help="untimed DRAM pass. Never combined with the timed one: "
+                         "ttnn.get_memory_view drains the pipeline.")
     ap.add_argument("--out", type=Path)
     args = ap.parse_args()
 
@@ -142,14 +168,33 @@ def main():
     base_dram = dram(ttnn, dev_h)
     seed_t = up(rng.standard_normal((args.nt, dit.C)))
 
+    # Uploaded ONCE. Re-uploading per repeat put ~0.4 s of host staging between consecutive
+    # device bursts, which is long enough for the AICLK governor to decay -- the first run of
+    # this measured 44 ms bursts against a card reading 800 MHz throughout. Only the tape
+    # wrappers are rebuilt per repeat; the device buffers are the same ones, which is also
+    # what makes the timing the block's and not `from_torch`'s.
+    resident = {k: up(v) for k, v in raw.items()}
+
     def fresh(requires_grad):
-        return {k: ag.Tensor(up(v), requires_grad=(requires_grad and k in dit.WEIGHTS))
-                for k, v in raw.items()}
+        return {k: ag.Tensor(v, requires_grad=(requires_grad and k in dit.WEIGHTS))
+                for k, v in resident.items()}
 
     # warm-up: both arms compile before either is timed, so neither pays the other's
     # first-call cost.
     for bw in (False, True):
         one(ag, ttnn, tt, fresh(bw), args.nt, args.blocks, cfg, precise, seed_t, bw)
+
+    # Governor burn-in. On Blackhole the clock sets the time, and the governor ramps on
+    # sustained load, so a measurement made of short bursts reads a decayed clock and prices
+    # the block against a card that a real training loop would never present. Run the heavier
+    # arm back to back until the card has been busy for `--burn` seconds, then time.
+    if args.burn > 0:
+        t_end = time.perf_counter() + args.burn
+        while time.perf_counter() < t_end:
+            one(ag, ttnn, tt, fresh(True), args.nt, args.blocks, cfg, precise, seed_t, True)
+        print(f"burn-in {args.burn}s done, clocks now "
+              f"{ {k: int((Path('/sys/class/tenstorrent') / f'tenstorrent!{k}' / 'tt_aiclk').read_text()) for k in ('0','1','2','3') if (Path('/sys/class/tenstorrent') / f'tenstorrent!{k}').exists()} }",
+              flush=True)
 
     rows = {"fwd": [], "fwd_bwd": []}
     peaks = {"fwd": [], "fwd_bwd": []}
@@ -166,8 +211,23 @@ def main():
             rows[arm].append(dt); peaks[arm].append(peak); clocks[arm].append(w.report())
             print(f"rep {r} {arm:8s} {dt*1000:8.1f} ms  {args.nt/dt:8.1f} tok/s  "
                   f"peak {(peak or 0)/1e9:.3f} GB  clk {w.report()}", flush=True)
-            for k, v in t.items():
-                ttnn.deallocate(v.value)
+
+    if args.memory:
+        mem = {}
+        for arm, bw in (("fwd", False), ("fwd_bwd", True)):
+            mem[arm] = one(ag, ttnn, tt, fresh(bw), args.nt, args.blocks, cfg, precise,
+                           seed_t, bw, probe=True)
+            print(f"{arm:8s} DRAM {mem[arm]/2**30:.3f} GiB", flush=True)
+        rep = {"nt": args.nt, "blocks": args.blocks, "dtype": args.dtype,
+               "device_nodes_held": held_nodes(),
+               "dram_base_bytes": base_dram, "dram_bytes": mem,
+               "retained_bytes": mem["fwd_bwd"] - mem["fwd"],
+               "retained_bytes_per_block": (mem["fwd_bwd"] - mem["fwd"]) // args.blocks}
+        print(json.dumps(rep, indent=1))
+        if args.out:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(json.dumps(rep, indent=1))
+        return 0
 
     def summarise(arm):
         s = sorted(rows[arm])
@@ -181,8 +241,14 @@ def main():
                 "aiclk_during": clocks[arm]}
 
     f, b = summarise("fwd"), summarise("fwd_bwd")
+    nodes = held_nodes()
     rep = {"nt": args.nt, "blocks": args.blocks, "dtype": args.dtype, "reps": args.reps,
            "seed": args.seed, "interleaved": True,
+           "device_nodes_held": nodes,
+           "aiclk_of_computing_node": {
+               str(n): {"min": min(c[str(n)]["min"] for c in clocks["fwd_bwd"] if str(n) in c),
+                        "max": max(c[str(n)]["max"] for c in clocks["fwd_bwd"] if str(n) in c)}
+               for n in nodes if any(str(n) in c for c in clocks["fwd_bwd"])},
            "dram_base_bytes": base_dram,
            "arms": {"fwd": f, "fwd_bwd": b},
            "aa_floor_pct": f["spread_pct"],
