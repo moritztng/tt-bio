@@ -97,6 +97,7 @@ class Peak:
         self.dram_hw = 0
         self.l1_hw = 0
         self.census = None
+        self.free = None
         self.at_verb = None
         self.calls = 0
 
@@ -160,6 +161,7 @@ class Peak:
             _, l = self.bytes_now()
             self.l1_hw = max(self.l1_hw, l)
             self.census = self.take_census()
+            self.free = self.free_now()
             self.at_verb = verb
 
 
@@ -222,6 +224,51 @@ def _keeper(kept, shipped_dealloc, ttnn):
     return keep
 
 
+def _shape_census(kept):
+    """The retained set grouped by (shape, dtype), commonest first.
+
+    Which shapes there are MANY of is the whole question. "The count comes from the reactive
+    narrowing" is an inference until the retained set says how many tensors of the chunk shape
+    it is holding, so the keeper's own list is grouped here rather than only counted.
+    """
+    from collections import Counter
+    c = Counter()
+    nbytes = {}
+    for t in kept:
+        try:
+            key = ("x".join(str(int(d)) for d in t.shape), str(t.dtype).split(".")[-1])
+        except Exception:
+            key = ("unreadable", "")
+        c[key] += 1
+        if key not in nbytes:
+            try:
+                nbytes[key] = int(t.volume()) * int(t.element_size())
+            except Exception:
+                nbytes[key] = 0
+    return [{"shape": k[0], "dtype": k[1], "n": n, "each_b": nbytes[k], "total_b": n * nbytes[k]}
+            for k, n in c.most_common(25)]
+
+
+def _path_stats(TS):
+    """The shipped kernels' own path censuses: whole-tensor calls, chunked calls, refusals.
+
+    `whole` vs `blocked` vs `dram_narrowed` is the repo's existing answer to "did this op run
+    single-shot or in row blocks", so whether the retained set's allocation count comes from the
+    reactive narrowing is read off these counters rather than argued from the shape of a curve.
+    """
+    out = {}
+    for name in ("FP32_SOFTMAX_STATS", "OPM_ROW_STATS", "PWA_DEPTH_STATS"):
+        d = getattr(TS, name, None)
+        if isinstance(d, dict):
+            out[name] = dict(d)
+    return out
+
+
+def _stats_delta(before, after):
+    return {k: {kk: after[k][kk] - before[k].get(kk, 0) for kk in after[k]}
+            for k in after if k in before}
+
+
 # --- the run ------------------------------------------------------------------------------
 
 def main() -> int:
@@ -240,6 +287,7 @@ def main() -> int:
     import ttnn
     from ttnn._ttnn import reports
     import tt_bio as _TB
+    import tt_bio.tenstorrent as TS
     from tt_bio.tenstorrent import get_device, Pairformer, accurate_softmax_site
     from tt_bio import openfold3_weights as OW
     from tt_bio import size_limits as SL
@@ -330,6 +378,8 @@ def main() -> int:
             t0 = time.perf_counter()
             st = zt = so = zo = None
             tape_cm = None
+            stats0 = _path_stats(TS)
+            n_dealloc = [0]
             try:
                 st_t = torch.randn(1, n, c_s) * 0.5 if arm != "boundary" else None
                 zt_t = torch.randn(1, n, n, c_z) * 0.5 if arm != "boundary" else None
@@ -338,6 +388,14 @@ def main() -> int:
                     shipped_dealloc = ttnn.deallocate
                     if arm == "keep":
                         ttnn.deallocate = _keeper(kept, shipped_dealloc, ttnn)
+                    else:
+                        # Count the frees WITHOUT suppressing any. If this equals the keep arm's
+                        # kept count at the same crop, the keeper did not change the op sequence
+                        # and the retained count is the forward's own, not the instrument's.
+                        def _counting(t, *a, _d=shipped_dealloc, **k):
+                            n_dealloc[0] += 1
+                            return _d(t, *a, **k)
+                        ttnn.deallocate = _counting
                     st = ttnn.from_torch(st_t, dtype=ttnn.bfloat16,
                                          layout=ttnn.TILE_LAYOUT, device=dev)
                     zt = ttnn.from_torch(zt_t, dtype=ttnn.bfloat16,
@@ -351,6 +409,8 @@ def main() -> int:
                         _swap_watch(peak, False, saved)
                         ttnn.deallocate = shipped_dealloc
                     rec["kept_tensors"] = len(kept)
+                    if arm == "keep":
+                        rec["kept_shapes"] = _shape_census(kept)
                     rec["end_dram_b"] = peak.dram_now()
                     rec["end_census"] = peak.take_census()
                     for t_ in kept:
@@ -439,7 +499,10 @@ def main() -> int:
             rec["peak_census"] = peak.census
             rec["peak_at_verb"] = peak.at_verb
             rec["verb_calls"] = peak.calls
-            rec["free_at_peak"] = peak.free_now()
+            rec["dealloc_calls"] = n_dealloc[0]
+            rec["path_stats"] = _stats_delta(stats0, _path_stats(TS))
+            rec["free_at_peak"] = peak.free      # sampled AT the high-water, not after it
+            rec["free_at_end"] = peak.free_now()
             for t_ in (st, zt, so, zo):
                 try:
                     ttnn.deallocate(t_.value if hasattr(t_, "value") else t_)
