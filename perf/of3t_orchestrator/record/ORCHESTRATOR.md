@@ -172,6 +172,12 @@ Recomputed from the artifacts on every compose (146 checks, 0 drifted):
   models through one derivation, with the two conventions measured from their own featurisers.
 - **The comparison can now reach the gradient.** The device bijection covers **98.69 % of the
   reference's squared gradient norm** (3,545 of 4,147 tensors), against the tracer's 4.05 % on the same reference.
+  **Pass 91 caveat, and it is on the denominator rather than the work:** 4,147 is
+  `OpenFold3(model_config).parameters()` at **0.5.0**; at 0.4.3, the revision this checkpoint
+  belongs to, it is **4,170** — 24 per-block DiT `layer_norm_z` weights our device model carries,
+  less the 1 hoisted shared norm. So this share is a share of the wrong model's norm and the
+  bijection never had those 23 parameters to map. Re-derivation against 4,170 is owed by
+  `of3t-rebase`.
 - **The model fits the card at crop 384, the smallest crop upstream's recipe uses** (D14
   closed). 128, 256 and 384 all complete a taped forward *and* backward on one p300c —
   backward 2.522 / 7.384 / **17.983 GB** — with **172 of 172 gradients bit-identical** across
@@ -182,6 +188,8 @@ Recomputed from the artifacts on every compose (146 checks, 0 drifted):
   both, against v0.5.0 at the asserted commit with only `output_dir` redirected.
 - **The reference reproduces bit-identically.** Two independent float64 tapings of the same
   step at `num_recycles = 0`, determinism pinned: **4,147 of 4,147**, worst 0.0, median 0.0 —
+  a self-consistency result that stands as measured, but taken on the **0.5.0** model (pass 91:
+  0.4.3 has 4,170 parameters), so it is bit-identity of the wrong model against itself —
   A13's detector, which D18 demanded. Unpinned, 55 of 4,147 sit over the bar from cuBLAS
   reduction order alone, which is the measurement of what the pinning is worth.
 - **The method, durably.** Tolerances fixed before any number existed, **eighteen amendments** on
@@ -366,7 +374,9 @@ calling it done.
 moves — 2005 of 2005 applied rates exact, `d_1` exactly 0 on both sides — and the entity
 weighting reaches `losses.mse`, agreeing with upstream's own loss to **3.662e-15** in float64.
 **D17 was closed within two passes of being raised**: the device bijection maps 3,545 of 4,147
-tensors holding **98.69 % of the squared gradient norm**, against the tracer's 6.54 % — because
+tensors holding **98.69 % of the squared gradient norm**, against the tracer's 6.54 % — **with the
+pass-91 caveat that 4,147 is the 0.5.0 model's parameter count and 0.4.3's is 4,170**, so both the
+denominator and the norm share are the wrong model's — because
 `diffusion_module` holds 91.21 % of the mass and needed a card to construct, and because the
 last 3.57 % was **one lazily-materialised tensor** that one call to the confidence head
 supplies. **1.99 % remains unreached.** It leaves behind the **scope ceiling that now governs every §3d number in this
