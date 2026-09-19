@@ -47,7 +47,8 @@ def main() -> int:
     if gate["gate1_keys"]["unexpected"]["n"]:
         raise SystemExit("the 0.4.3 gate did not pass; there is nothing here to publish")
 
-    rec = json.loads((a.run_a / "run_record.json").read_text())
+    # bundle_min writes its own record as manifest.json, with a per-file sha256 already in it.
+    rec = json.loads((a.run_a / "manifest.json").read_text())
 
     payload = {
         "grads_f64_043.pt": a.run_a / "grads_f64.pt",
@@ -66,8 +67,14 @@ def main() -> int:
                 os.link(src, dst)
             except OSError:
                 shutil.copy2(src, dst)
-        artifacts.append({"file": name, "bytes": dst.stat().st_size,
-                          "sha256": sha256_file(dst),
+        # bundle_min already hashed what it wrote; rehashing 7.5 GB buys nothing and the
+        # digest is checked against its producer's, so a bad link or a short copy still fails.
+        producer = rec.get("files", {}).get(src.name, {}).get("sha256")
+        got = producer if (producer and dst.stat().st_size == rec["files"][src.name]["bytes"]
+                           and dst.samefile(src)) else sha256_file(dst)
+        if producer and got != producer:
+            raise SystemExit(f"{name}: sha256 {got} != the producer's {producer}")
+        artifacts.append({"file": name, "bytes": dst.stat().st_size, "sha256": got,
                           "carried_in": src.parent == a.src_bundle})
 
     a13 = json.loads(a.a13.read_text()) if a.a13 and a.a13.is_file() else None
@@ -110,6 +117,24 @@ def main() -> int:
                           "featurisation is deterministic within one environment and not "
                           "across one, so rebuilding it would move the batch as well as the "
                           "revision and the comparison would have two moving parts."},
+        # The schema `instrument_a_bundle.py` and `capture_trunk_boundary.py` read. Same key
+        # names as the 0.5.0 manifest so neither consumer needs a second code path.
+        "validated_gradient": {
+            "file": "grads_f64_043.pt",
+            "num_recycles": rec["draws"]["num_recycles"],
+            "loss": rec["loss"],
+            "loss_bit_identical_on_replay": rec["loss_bit_identical_on_replay"],
+            "gradient_global_norm": rec["gradient"]["global_norm"],
+            "clip_coef_their_grad_manager_would_apply":
+                rec["gradient"]["clip_coef_their_grad_manager_would_apply"],
+            "n_nonzero_gradient_tensors": rec["gradient"]["n_nonzero"],
+            "n_absent_gradients": rec["gradient"]["n_absent"],
+            "n_parameters": rec["gradient"]["n_params"],
+            "finite_difference": rec["finite_difference_validation"],
+            "replayed_draws": rec["replayed_draws"],
+            "timings_s": rec["timings_s"],
+            "weights": f"{gate['checkpoint']['file']}, sha256 {gate['checkpoint']['sha256']}",
+        },
         "run_record": rec,
         "determinism_A13": a13,
         "canonical_location": {"host": "qb2", "path": str(a.dst)},
