@@ -40,6 +40,10 @@ def main() -> int:
     p.add_argument("--structs", default="0",
                    help="'0' for one structure, 'all' for the 48 the bundle gradient sums")
     p.add_argument("--tag", default="")
+    p.add_argument("--mask-ones", action="store_true", dest="mask_ones",
+                   help="run the DiT with every token real, against their DiT re-run "
+                        "the same way, to separate an 85 %%-padding defect from a "
+                        "384-token one")
     p.add_argument("--bisect", action="store_true",
                    help="compare every stage against their captured intermediates, "
                         "which localises a forward gap instead of reporting it")
@@ -169,7 +173,12 @@ def main() -> int:
         key_block_idxs=key_block_idxs, invalid_mask=invalid_mask, mask_trunked=mask_trunked,
         atom_to_token_mean=a2t_mean, token_mask=token_mask, n_atom=n_atom, n_token=n_token,
         nb=nb, NP=NP, n_tok_pad=n_tok_pad)
-    print(f"[{time.perf_counter()-t0:.0f}s] device aux built", flush=True)
+    if a.mask_ones:
+        ones = torch.ones(n_tok_pad)
+        aux["tok_pad_tt"] = ft(ones.reshape(1, n_tok_pad))
+        aux["tok_col_pad_tt"] = ft(ones.reshape(1, n_tok_pad, 1))
+    print(f"[{time.perf_counter()-t0:.0f}s] device aux built"
+          f"{' (token mask forced to ones)' if a.mask_ones else ''}", flush=True)
 
     ttnn.from_torch = recording_from_torch
     try:
@@ -224,7 +233,7 @@ def main() -> int:
             out["ai_into_dit"] = f"ERR {e}"
         try:
             ours = _np(ai_dit)
-            theirs = _pick(S["dit_out"], k)
+            theirs = _pick(DIT_REF, k)
             out["ai_out_of_dit"] = _rel(ours, theirs)
             # Split by the token mask. This crop is 56 real tokens of 384, so a DiT that
             # leaks across pad rows shows up here and is invisible on a fixture at 79 %
@@ -263,6 +272,11 @@ def main() -> int:
             out["rl_update_decoder"] = f"ERR {e}"
         return out
 
+    DIT_REF = S["dit_out"]
+    if a.mask_ones:
+        DIT_REF = torch.load(f"{CAP}/dit_out_maskones.pt", map_location="cpu",
+                             weights_only=False)["dit_out_maskones"]
+        token_mask = torch.ones_like(token_mask)
     err = None
     done = []
     probe = []
