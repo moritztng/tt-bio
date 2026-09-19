@@ -201,6 +201,7 @@ def main() -> int:
 
     err = None
     done = []
+    probe = []
     for k in which:
         tk = float(t_all[0, k])
         xl_k = xl_all[0, k].float()
@@ -228,8 +229,21 @@ def main() -> int:
                           n_atom, NP, nb, n_token, n_tok_pad, tk, sigma_data)
                 ag.backward([out], [seed])
             done.append(k)
+            # Accumulation probe. The 48 structures are summed by running 48 tapes and letting
+            # the leaves accumulate, which is exact only if `backward` adds into an existing
+            # `.grad` across tape contexts rather than replacing it. A norm that grows structure
+            # over structure is the evidence; one that stays flat means the run is measuring the
+            # LAST structure alone and the total is wrong.
+            pr = None
+            for dt in walked.values():
+                lf = ag._PARAMS.get(id(dt))
+                if getattr(lf, "grad", None) is not None:
+                    gv = lf.grad.value if hasattr(lf.grad, "value") else lf.grad
+                    pr = float(ttnn.to_torch(gv).double().norm())
+                    break
+            probe.append(pr)
             print(f"[{time.perf_counter()-t0:.0f}s]   structure {k}: "
-                  f"{time.perf_counter()-tk0:.1f}s", flush=True)
+                  f"{time.perf_counter()-tk0:.1f}s, probe grad norm {pr}", flush=True)
         except Exception as e:
             err = e
             print(f"STRUCTURE {k} RAISED {type(e).__name__}: {e}", flush=True)
@@ -277,7 +291,7 @@ def main() -> int:
     zero = sorted(1.0 for _ in cmp_rows)
     zmed = zero[len(zero) // 2] if zero else None
 
-    rep = {"structures_done": done, "structures_asked": which, "n_struct_total": N_STRUCT,
+    rep = {"structures_done": done, "accumulation_probe": probe, "structures_asked": which, "n_struct_total": N_STRUCT,
            "tokens": n_token, "atoms": n_atom, "nb": nb, "NP": NP,
            "device_weights_reachable": len(walked), "device_weights_named": n_named,
            "weights_with_grad": len(rows), "weights_without_grad": len(missing),
