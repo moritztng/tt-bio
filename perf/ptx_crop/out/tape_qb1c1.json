@@ -1,0 +1,209 @@
+{
+ "doc": "What a TRAINED trunk tape costs at the recipe crop, measured instead of projected.\n\n`state/ptx/LEDGER.md` K12: every memory number this campaign has is a LoRA adapter on a\nfrozen trunk, and `dryrun.plan(frozen_trunk=False)` returns UNMEASURED at every crop because\nits only source is `perf/hall_grad/DECISION.md`, a feasibility memo whose 27.58 GB is a\nprojection of unbuilt work at 800 aa. This row was assigned that number. Three arms, all on\nthe SHIPPED `tenstorrent.Pairformer` at the checkpoint own depth and widths:\n\n  retain   `ttnn.deallocate` is replaced by a keeper that holds the tensor instead of\n           freeing it, so every intermediate the block produces stays resident and\n           referenced. That is a hard UPPER bound on what any reverse-mode tape can retain\n           inside one block, because a tape retains a subset of what the forward produces.\n           Measured against the same block with the shipped deallocates, so the difference\n           is the retained set and nothing else.\n\n  boundary under per-block checkpointing -- proven equivalent to seven digits by\n           `hallgrad-build`, so the mechanism is not speculative -- the trunk tape is the\n           block-boundary (s, z) pairs and nothing inside a block survives the block. This\n           arm allocates all `blocks` boundary pairs at the crop and reads the allocator, so\n           the figure is the card answer and not an arithmetic one.\n\n  leak     the self-closure class (`hallgrad-tape-self-closure-leak`): a node closure that\n           reads its own output makes the cycle out -> node -> fn -> out, which CPython\n           refcounting cannot collect, and the symptom is an OOM with a tape that fits\n           several times over. `autograd._tape` documents the fix; this arm checks it on the\n           card by building and dropping the same tape repeatedly and asserting DRAM comes\n           back. A leak inflates the tape figure, so it is checked BEFORE the tape figure is\n           believed.\n\n    tape_profile.py --sizes 256,384 --out out/tape_qb1c1.json\n",
+ "env": {
+  "host": "tt-quietbox",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "1",
+  "commit": "9c567b59023d6623d916467cada29abbb3b6b1e4",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/ptx-crop/tt_bio/__init__.py",
+  "started_utc": "2026-09-19T00:37:53Z",
+  "loadavg": [
+   3.1572265625,
+   4.13427734375,
+   5.73779296875
+  ],
+  "dram_total_b": 34225520128,
+  "ckpt": "/home/ttuser/protenix_ckpt/protenix-v2.pt",
+  "ckpt_pairformer_blocks": 48,
+  "c_z": 256,
+  "pairformer_params": 227960832,
+  "model_params": 464442431
+ },
+ "retain": [
+  {
+   "tokens": 256,
+   "blocks": 1,
+   "shipped": {
+    "verdict": "PASS",
+    "base_b": 11419648,
+    "inputs_b": 45170688,
+    "after_b": 47726592,
+    "kept_tensors": 0,
+    "kept_b": 0,
+    "largest_contiguous_free_b": 4268048320,
+    "wall_s": 1.04,
+    "dram_after_free_b": 13975552
+   },
+   "held": {
+    "verdict": "PASS",
+    "base_b": 13975552,
+    "inputs_b": 47726592,
+    "after_b": 660815872,
+    "kept_tensors": 38,
+    "kept_b": 613089280,
+    "largest_contiguous_free_b": 4195434432,
+    "wall_s": 0.18,
+    "dram_after_free_b": 13975552
+   },
+   "retained_b": 613089280,
+   "retained_per_block_b": 613089280
+  },
+  {
+   "tokens": 384,
+   "blocks": 1,
+   "shipped": {
+    "verdict": "PASS",
+    "base_b": 13975552,
+    "inputs_b": 89767936,
+    "after_b": 92332032,
+    "kept_tensors": 0,
+    "kept_b": 0,
+    "largest_contiguous_free_b": 4258449344,
+    "wall_s": 0.93,
+    "dram_after_free_b": 16539648
+   },
+   "held": {
+    "verdict": "PASS",
+    "base_b": 16539648,
+    "inputs_b": 92332032,
+    "after_b": 2375639040,
+    "kept_tensors": 38,
+    "kept_b": 2283307008,
+    "largest_contiguous_free_b": 3975333824,
+    "wall_s": 0.35,
+    "dram_after_free_b": 16539648
+   },
+   "retained_b": 2283307008,
+   "retained_per_block_b": 2283307008
+  },
+  {
+   "tokens": 512,
+   "blocks": 1,
+   "shipped": {
+    "verdict": "PASS",
+    "base_b": 16539648,
+    "inputs_b": 151150592,
+    "after_b": 152936448,
+    "kept_tensors": 0,
+    "kept_b": 0,
+    "largest_contiguous_free_b": 4250922944,
+    "wall_s": 1.14,
+    "dram_after_free_b": 18325504
+   },
+   "held": {
+    "verdict": "PASS",
+    "base_b": 18325504,
+    "inputs_b": 152936448,
+    "after_b": 4898136064,
+    "kept_tensors": 44,
+    "kept_b": 4736811008,
+    "largest_contiguous_free_b": 3653234624,
+    "wall_s": 0.59,
+    "dram_after_free_b": 18325504
+   },
+   "retained_b": 4745199616,
+   "retained_per_block_b": 4745199616
+  }
+ ],
+ "boundary": [
+  {
+   "tokens": 256,
+   "blocks": 48,
+   "base_b": 18325504,
+   "verdict": "PASS",
+   "after_b": 1638375424,
+   "boundary_tape_b": 1620049920,
+   "largest_contiguous_free_b": 4066373568,
+   "z_bytes_each": 33554432,
+   "s_bytes_each": 196608,
+   "dram_after_free_b": 18325504
+  },
+  {
+   "tokens": 384,
+   "blocks": 48,
+   "base_b": 18325504,
+   "verdict": "PASS",
+   "after_b": 3656359936,
+   "boundary_tape_b": 3638034432,
+   "largest_contiguous_free_b": 3814715328,
+   "z_bytes_each": 75497472,
+   "s_bytes_each": 294912,
+   "dram_after_free_b": 18325504
+  },
+  {
+   "tokens": 512,
+   "blocks": 48,
+   "base_b": 18325504,
+   "verdict": "PASS",
+   "after_b": 6479650816,
+   "boundary_tape_b": 6461325312,
+   "largest_contiguous_free_b": 3462393792,
+   "z_bytes_each": 134217728,
+   "s_bytes_each": 393216,
+   "dram_after_free_b": 18325504
+  }
+ ],
+ "leak": [
+  {
+   "iter": 0,
+   "before_b": 18456576,
+   "fwd_peak_b": 320512000,
+   "after_backward_b": 622845952,
+   "after_drop_b": 18735104
+  },
+  {
+   "iter": 1,
+   "before_b": 18735104,
+   "fwd_peak_b": 320724992,
+   "after_backward_b": 622845952,
+   "after_drop_b": 18735104
+  },
+  {
+   "iter": 2,
+   "before_b": 18735104,
+   "fwd_peak_b": 320724992,
+   "after_backward_b": 622845952,
+   "after_drop_b": 18735104
+  },
+  {
+   "iter": 3,
+   "before_b": 18735104,
+   "fwd_peak_b": 320724992,
+   "after_backward_b": 622845952,
+   "after_drop_b": 18735104
+  },
+  {
+   "iter": 4,
+   "before_b": 18735104,
+   "fwd_peak_b": 320724992,
+   "after_backward_b": 622845952,
+   "after_drop_b": 18735104
+  },
+  {
+   "iter": 5,
+   "before_b": 18735104,
+   "fwd_peak_b": 320724992,
+   "after_backward_b": 622845952,
+   "after_drop_b": 18735104
+  }
+ ],
+ "dram_after_weights_b": 11419648,
+ "leak_verdict": {
+  "growth_b": 0,
+  "iters": 6,
+  "reads": "no leak: DRAM returns to the same figure after every graph is dropped"
+ },
+ "aiclk": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 10
+  }
+ },
+ "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 10 samples, polled DURING the work"
+}
