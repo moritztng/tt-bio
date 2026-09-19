@@ -25,6 +25,29 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   @ssiddhantsharma; the diagonal (each chain's own pTM) and the device confidence path
   (`TT_PROTENIX_CONF_DEVICE=1`) were added on top of it.
 
+### Changed
+
+- **The token diffusion transformer's conditioning is hoisted out of the layer loop by default.**
+  `TT_BIO_DIT_COND_HOIST` was off and is now on. Every layer reads the same conditioning vector
+  through six projections of its own, so folding each layer's norm scale into its own weight block
+  replaces 144 matmuls and 48 layer norms per sampling step with one parameter-free norm and two
+  concatenated matmuls. Same dot products, same FLOPs, grouped differently. A 512-residue Boltz-2
+  fold is **0.2052 s faster** (14.588 s to 14.392 s at 1350 MHz, five interleaved reps, 95 % CI
+  [+0.1561, +0.2543] against a +0.0324 s A/A floor). Not bit-exact: one bf16 rounding order moves,
+  which takes a 298-residue structure 0.25705 A all-atom against that fixture's own 0.7998 A
+  seed spread. RF3's token DiT builds the same block and inherits the default; it reads 1.237 A
+  against its 1.238 A reference at 298 residues and 1.970 A against 2.009 A at 997. Set
+  `TT_BIO_DIT_COND_HOIST=0` for the per-step form.
+
+- **Two layout passes are deleted from a triangle multiplication on small targets.**
+  `TT_BIO_TRIMUL_BACK_ONE_PASS_L1` and `TT_BIO_TRIMUL_GATED_MOVE_L1`, both on. Where the chunk loop
+  runs in L1, the output channel move wrote to L1 and a separate clone then moved the chunk to DRAM,
+  and the gated move was refused by its call site rather than by its own measured window. Both
+  kernels now take the destination directly. Structure byte-identical, `torch.equal` against the
+  sequence each replaces, and a 320-residue fold is **1.0211x faster** (0.222 s, p150a at 1350 MHz,
+  against a 0.635 % A/A floor). Targets above 352 tokens do not take this path, so a 512-residue
+  fold is unchanged.
+
 ## [0.9.0] - 2026-09-18
 
 ### Added

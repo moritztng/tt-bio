@@ -808,6 +808,47 @@ there is nothing to recover; the reorder is free on both. The same is true where
 runs a narrow slice, at 298 residues among others: the pair is two tiles apart in either order, and
 those sizes read flat.
 
+## `TT_BIO_TRIMUL_BACK_ONE_PASS_L1` — on
+
+A triangle multiplication walks its hidden channels in chunks. On a target small enough for those
+chunks to live in L1, the last thing done to a chunk is a channel move, and its next stop is DRAM,
+because the concat at the end of the loop has to hold all of them. The shipped code wrote the move's
+result to L1 and then issued a separate `clone` to get it to DRAM: two full passes over a tensor
+that only has to be read once.
+
+The hand-written move kernel can take that destination itself. `ttnn.permute` cannot, and the flag
+above it in the source records why: that op's forced 64-byte stores cost more in DRAM than the clone
+saves. The kernel writes whole pages from 100 cores and has no such store pattern.
+
+**Accuracy: identical.** The kernel is a pure index reordering, `torch.equal` against `ttnn.permute`,
+and an L1 source changes the tensor accessor rather than the arithmetic.
+
+**Where it serves:** chunks a multiple of 32 and at least 288 wide, which is roughly a 257-320 token
+target. Narrower loses and is refused on measurement, not on principle: at 256 the chunks are 4.19 MB
+and the kernel's own dispatch outweighs the deleted pass (0.9918x and 0.9903x against an A/A floor of
+1.0002-1.0015x), while 288 reads 1.0086x/1.0092x and 320 reads 1.0135x/1.0172x. Above 352 tokens the
+chunks live in DRAM, this path is not taken, and nothing changes.
+
+## `TT_BIO_TRIMUL_GATED_MOVE_L1` — on
+
+The same question asked of the gated move, and the same answer. `reblock_permute.eligible_gated` has
+always carried an L1 clause, 288 to 352, which is the forward kernel's own measured L1 window, but
+the call site asked for a DRAM destination on top of it. The clause was unreachable, so every
+L1-path triangle multiplication kept the four-way split: a chunk, two sigmoid multiplies and two
+plain channel moves, where the fused kernel does all five in two passes. The call site now lets the
+kernel's own gate decide.
+
+**Accuracy: identical.** Same kernel, `torch.equal` against the sequence it replaces at 24 shapes,
+and an L1 destination changes the tensor accessor rather than the arithmetic.
+
+**Speed, for the two flags together, because they serve the same path:** a 320-residue Boltz-2 fold
+is **1.0211x faster**, 0.222 s, on a p150a at a during-sampled 1350 MHz, interleaved reps against a
+0.635 % A/A floor, with the structure byte-identical (CIF sha256 and pLDDT to six places in all nine
+folds of the earlier, noisier session that first read the pair). Both kernels were counted firing
+inside a live fold, 4480 forward and 2240 output moves against 0 in the baseline arm, which is what
+separates a lever that serves from one whose call site silently declines it. A 512-residue fold never
+enters this path and is unchanged.
+
 ## `TT_BIO_UNFUSED_SILU` — off
 
 `Transition` is the engine's shared SwiGLU block. Its first matmul can apply silu as a fused
