@@ -91,16 +91,17 @@ def names() -> list:
 #: reordering fails a test here rather than silently retraining nucleic acids at the wrong
 #: weight.
 MOL_TYPE_CONVENTIONS = {
-    # OpenFold3's own `MoleculeType` (`core/data/resources/residues.py:24-28`, vendored) and
-    # Protenix-v2's `MOL_TYPE_IDS` (`tt_bio/protenix_data.py:40`), which agree. Measured by
-    # running `protenix_data.build_complex_features` on a protein/rna/dna/CCD_ATP complex:
-    # 5 protein tokens -> 0, 4 rna -> 1, 4 dna -> 2, 31 ligand atom-tokens -> 3.
+    # OpenFold3's own `MoleculeType` (vendored, `core/data/resources/residues.py`) and
+    # Protenix-v2's `tt_bio/protenix_data.py::MOL_TYPE_IDS`, which agree. Measured by running
+    # `tt_bio/protenix_data.py::build_complex_features` on a protein/DNA/RNA/CCD_ATP complex:
+    # 10 protein tokens -> 0, 8 dna -> 2, 8 rna -> 1, 31 ligand atom-tokens -> 3.
     "af3": {"protein": 0, "rna": 1, "dna": 2, "ligand": 3},
-    # Boltz-2 and BoltzGen, both from `tt_bio.data.const.chain_type_ids`
-    # (`tt_bio/data/const.py:8-14`), which their featurisers copy straight through
-    # (`tt_bio/data/featurizer.py:651`, `tt_bio/boltzgen/data/featurizer.py:700`). Measured on
-    # the same four-entity complex: Boltz-2 10/8/8/31 -> 0/1/2/3, BoltzGen 18/8/8/31 -> the
-    # same. NONPOLYMER is upstream's name for the class upstream's loss calls ligand.
+    # Boltz-2 and BoltzGen, both from `tt_bio/data/const.py::chain_type_ids`, which their
+    # featurisers copy straight through (`tt_bio/data/featurizer.py::process_token_features`,
+    # `tt_bio/boltzgen/data/featurizer.py::process_token_features`). BoltzGen ships no const
+    # module of its own. Measured on the same four-entity complex: Boltz-2 10/8/8/31 ->
+    # 0/1/2/3, BoltzGen 18/8/8/31 -> the same. NONPOLYMER is upstream's name for the class
+    # upstream's loss calls ligand.
     "boltz": {"protein": 0, "dna": 1, "rna": 2, "ligand": 3},
 }
 #: The batch key a featuriser sets to name its own convention. Optional, and absent on every
