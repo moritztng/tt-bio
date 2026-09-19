@@ -462,6 +462,26 @@ critical path is host-side, so it costs nothing. Tenancy left on their state doc
 concluded row has no brief to amend. Separately, qb2's **SSH host key rotated** at the
 19:35:53Z boot: `tt-quietbox2.fritz.box` now fails verification, `tt-quietbox2` works.
 
+PASS 81b. **I shipped a pattern match as a finding into someone else's state doc, and
+withdrew it in the same pass.** From the diffusion row's co-tenancy note I found
+`c14-land-tail` — concluded — with a surviving cron waiter armed on card 2 to a 22:28:29Z
+deadline, on the box my live row holds a grant for. Concluded row, surviving cron, shared box,
+armed timed run: three of this campaign's own recorded patterns at once. I constrained my row
+off card 2, wrote the tenancy into their state doc, and was wrong. Their log names the blocker
+on every one of **1406** refusal ticks — `release_gate pid 37787 live (owner pvx-land) --
+folds in ~20 s children on any chip ... Hard fail`, which is `benchlock.sh pvx-orchestrator`.
+Their gate is not card-based; **OF3T had no process on qb2 at all**, and zero fd holders sat on
+all four cards.
+
+*A pattern match is a hypothesis.* Three high-confidence patterns pointing one way felt like
+evidence and was one guess counted three times, and the disconfirming data was two commands
+away **in the instrument's own output**, which I read only after acting. Withdrawn before the
+row's next turn consumed it, so it never reached a running row. The note in their doc is
+corrected in place rather than deleted, because the corrected version carries something they
+need: their last window is expiring against a **hard fail, not a load condition**, at 2045 s of
+3600 s — so the NULL they would record is about pvx-orchestrator's scheduling, not about the
+flag under test. I diagnosed it and left the arbitration alone.
+
 PASS 80. **A gate whose only remedy is to reword a true sentence.** `of3t-diffusion`
 reported that my DONE_CHECK placeholder guard fired three times in one correct document:
 `cannot run` and `does not run` both contain **`not run`**, and *"the one remaining raw call"*

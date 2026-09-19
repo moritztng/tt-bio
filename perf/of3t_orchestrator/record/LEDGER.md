@@ -4719,3 +4719,39 @@ the tenancy on the record in their state doc, since a concluded row has no brief
 Also: qb2's **SSH host key rotated** at the 19:35:53Z boot, so `tt-quietbox2.fritz.box` now
 fails verification while `tt-quietbox2` works. The reboot is permitted (never power off; reboot
 is allowed) but an unplanned one that rotates a host key will fail a long run closed.
+
+### R118 -- I shipped a pattern match as a finding into someone else's state doc
+
+**Withdrawing R117 in the same pass that wrote it.** From `of3t-diffusion`'s co-tenancy note I
+found `c14-land-tail` — concluded — with a surviving cron waiter armed on card 2 to a
+22:28:29Z deadline, on the box my live row holds a grant for. Concluded row, surviving cron,
+shared box, armed timed run: three of this campaign's own recorded patterns at once. I
+constrained my row off card 2, wrote the tenancy into their state doc, and was wrong.
+
+**Their log names the blocker on every one of 1406 refusal ticks:**
+
+```
+release_gate pid 37787 live (owner pvx-land)
+  -- folds in ~20 s children on any chip, a NON-stationary neighbour. Hard fail.
+```
+
+That pid is `benchlock.sh pvx-orchestrator`. Their gate is **not card-based**, and on the ticks
+where the release gate is the only complaint their own loadavg line reads *under ceiling 8.00
+and stationary*. **`of3t-diffusion` had no process on qb2 at all** while I was writing the
+constraint — `ps` showed zero OF3T processes and zero fd holders on all four cards.
+
+**The error has a shape worth keeping.** A pattern match is a hypothesis. I had three
+high-confidence patterns pointing the same way and that felt like evidence; it was one guess
+counted three times. And the disconfirming data was **two commands away, in the instrument's
+own output**, which I only read after acting. *Read what the unhappy instrument says before
+modelling why it is unhappy.*
+
+**Cost and repair.** The constraint was withdrawn in the same pass, before the row's next turn
+consumed it, so it never reached a running row — the append-only brief made the withdrawal a
+two-minute edit rather than a retraction. The note in their state doc is corrected in place
+rather than deleted, because they are concluded and the corrected version carries something
+they need: on the present trajectory their last window **expires against a hard fail, not a
+load condition**, at 2045 s of a 3600 s budget, so the NULL they record would be a NULL about
+pvx-orchestrator's scheduling and not about the flag they are testing. Their pass-18 stopping
+rule was not written about that kind of NULL. I did not touch pvx's release gate: diagnosing
+another campaign's contention is in scope, arbitrating it is not.
