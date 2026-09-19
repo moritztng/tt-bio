@@ -168,6 +168,7 @@ class Sampler(threading.Thread):
         self.stop = threading.Event()
         self.a = defaultdict(list)
         self.w = defaultdict(list)
+        self.ld = []
 
     def run(self):
         nodes = all_nodes()
@@ -187,18 +188,32 @@ class Sampler(threading.Thread):
                         self.w[n].append(int(pw[n].read_text()))
                     except (OSError, ValueError):
                         pass
+            # Host load belongs in the DURING sample for the same reason the clock does. On
+            # 2026-09-19 a 630 %-CPU host job started 7 s before this cell took benchlock on a
+            # freshly rebooted box; the fold came back 28.336 s on a p300c against 27.082 s for
+            # the same tree on a slower p150a, at 58-62 W where a healthy fold draws 79-91 W --
+            # and the session still reported clean_session: true, because the contaminant held no
+            # /dev/tenstorrent fd. A device-holder census cannot see a host-side co-tenant.
+            try:
+                self.ld.append(float(open("/proc/loadavg").read().split()[0]))
+            except (OSError, ValueError):
+                pass
 
     def take(self):
         a = {n: v[:] for n, v in self.a.items()}
         w = {n: v[:] for n, v in self.w.items()}
+        ld = self.ld[:]
         self.a.clear()
         self.w.clear()
+        self.ld.clear()
         mine = [x for n, v in a.items() if n in self.mine for x in v]
         out = {"per_node": {str(n): {"aiclk_mean": round(sum(v) / len(v), 1),
                                      "aiclk_min": min(v), "aiclk_max": max(v),
                                      "power_w_mean": (round(sum(w[n]) / len(w[n]) / 1e6, 1)
                                                       if w.get(n) else None)}
                             for n, v in sorted(a.items()) if v}}
+        if ld:
+            out.update({"load_mean": round(sum(ld) / len(ld), 2), "load_max": round(max(ld), 2)})
         if not mine:
             return out
         mw = [x for n, v in w.items() if n in self.mine for x in v]
@@ -206,6 +221,45 @@ class Sampler(threading.Thread):
                     "aiclk_max": max(mine), "aiclk_n": len(mine),
                     "power_w_mean": round(sum(mw) / len(mw) / 1e6, 1) if mw else None})
         return out
+
+
+HOST_QUIET_MAX = 3.0   # this fold alone runs the box at ~1-1.5; 3.0 means somebody else is on it
+PARTNER_BUSY_W = 40.0  # an idle p300c partner draws 25.2-25.5 W, a folding one 79-91 W
+
+
+def contention(runs, mine):
+    """Three different co-tenancies, reported as three fields instead of one boolean.
+
+    A single clean_session flag conflated them and was wrong in both directions on the same box
+    within three hours on 2026-09-19. It read FALSE for a p300c session whose only co-tenants sat
+    on the other board pair, where they cost nothing measurable (that session's A/A floor was
+    1.39 %, tighter than the 1.69 % of a session with zero foreign holders). Then it read TRUE for
+    a session ruined by a 630 %-CPU host job that held no device fd at all.
+
+    partner_busy  the OTHER chip on my board pair was drawing power. Shares my power budget, so
+                  it is the one that moves the clock. Pairs are (0,1) and (2,3), i.e. n ^ 1.
+    box_busy      a foreign /dev/tenstorrent holder somewhere else in the box. Host CPU only.
+    host_quiet    nobody else was burning host CPU, sampled DURING the fold rather than once.
+    """
+    partners = {n ^ 1 for n in mine} - set(mine)
+    pb = bq = False
+    loads = []
+    for r in runs:
+        for n, v in (r.get("per_node") or {}).items():
+            if int(n) not in partners:
+                continue
+            w, c = v.get("power_w_mean"), v.get("aiclk_mean")
+            if (w is not None and w >= PARTNER_BUSY_W) or (w is None and c and c >= 1000):
+                pb = True
+        if r.get("foreign_tt"):
+            bq = True
+        if r.get("load_max") is not None:
+            loads.append(r["load_max"])
+    lmax = max(loads) if loads else None
+    hq = lmax is not None and lmax <= HOST_QUIET_MAX
+    return {"partner_busy": pb, "box_busy": bq, "host_quiet": hq,
+            "load_max_during": lmax,
+            "clean_session": (not pb) and (not bq) and hq}
 
 
 def foreign_holders():
@@ -457,7 +511,7 @@ def main():
             "digests": sorted({d for r in warm for d in r["cif_sha256"].values()}),
             "plddts": sorted({r["plddt"] for r in warm if r["plddt"] is not None}),
             "cotenanted_folds": sum(1 for r in warm if r["foreign_tt"]),
-            "clean_session": all(not r["foreign_tt"] for r in res["runs"]),
+            **contention(res["runs"], res["device_nodes"]),
         }
         print(json.dumps(res["summary"], indent=1), flush=True)
     dump()
