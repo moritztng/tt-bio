@@ -4554,3 +4554,30 @@ discipline applied to a derived reference.
 
 Cheap, too: their diffusion module alone runs **37 s against the 307 s full forward**. The
 trunk was the entire expense, so the reference side of this comparison can be iterated.
+
+### R112 -- The campaign's artifacts were replicated and its reasoning was not
+
+**How found.** Pass 77, asking what a reviewer handed `wk/of3t` actually receives. The answer
+was: **190 MB of artifacts and none of the argument.** `PROTOCOL.md`, `DEFECTS.md`,
+`EVIDENCE.md` and `LEDGER.md` live in `~/.coworker/state/of3t/`, which is **gitignored, on one
+machine, with no backup** — 440 KB holding every bar fixed before a number existed, every
+defect, and every claim this campaign withdrew, one disk away from gone, while the artifacts
+they explain are replicated on origin and on two hosts.
+
+**K61 said /tmp is scoped but not durable. `state/` is durable but not REPLICATED** — the same
+lesson one level up, and I did not see it until I asked what the deliverable contains rather
+than whether the deliverable is correct.
+
+**Published into the branch, as copies.** The compose now regenerates
+`perf/of3t_orchestrator/record/` on every run, and each file carries a header naming
+`~/.coworker/state/of3t/` as authoritative and saying an edit to the copy will be overwritten.
+Copies rather than a move, because **two live copies of one document is the defect this
+campaign spent four passes fixing** — the fix has to not re-create it.
+
+`COMPOSITION.md`'s merge-gate section now points at the record, so the branch says in one place
+what it is: the bars, the defects, the scoreboard whose every figure is re-read from an
+artifact on each compose, and the correction channel.
+
+*A deliverable is what someone else receives, not what you can see from where you stand.* I had
+audited the reasoning's accuracy for seventy-six passes without once checking whether it would
+arrive.
