@@ -125,6 +125,9 @@ class Tensor:
         return getattr(object.__getattribute__(self, "value"), name)
 
     def __getitem__(self, index):
+        # Resolved lazily: the slicing lives with the taped verb surface, and importing it
+        # here would make `import tt_bio` pull the whole surface in for an inference run.
+        from .taped_ttnn import _getitem
         return _getitem(self, index)
 
     def free(self) -> None:
@@ -591,7 +594,7 @@ def reshape(x: Tensor, shape: Sequence[int]) -> Tensor:
 
 def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] = None,
                        *, scale: Optional[float] = None, chunk: Optional[int] = None,
-                       q_chunk: Optional[int] = None, config=None) -> Tensor:
+                       q_chunk: Optional[int] = None, config=None, value=None) -> Tensor:
     """Triangle attention with a chunked-recompute backward that never holds the scores.
 
     ``q``/``k``/``v`` are ``[B, H, N, d]`` head-major and ``bias`` is ``[1, H, N, N]``,
@@ -613,6 +616,13 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
     extent, which materialises the scores and is only appropriate at small N. Gradients are
     invariant to both, which ``perf/hallgrad/gradcheck.py --cases triatt_chunked`` checks by
     differencing two chunkings rather than trusting one.
+
+    ``value`` hands in a forward that has already been computed, and it is what lets the
+    shipped fused SDPA share this backward instead of getting a second copy of it. The
+    backward below reads q, k, v and bias and recomputes the scores; it never reads the
+    forward output, so supplying the output changes nothing about the gradient and saves
+    computing the attention twice. ``tt_bio.taped_ttnn`` passes the fused kernel's result
+    here, which is how the production forward and this backward end up in one node.
     """
     cfg = config or precise_config()
     qs = [int(d) for d in q.value.shape]
@@ -643,7 +653,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
         return ttnn.softmax(s, dim=-1, compute_kernel_config=cfg)
 
     out_blocks = []
-    for b0 in range(0, B, cB):
+    for b0 in range(0, B, cB) if value is None else ():
         b1 = min(b0 + cB, B)
         row_blocks = []
         for i0 in range(0, n_q, cQ):
@@ -653,7 +663,10 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
             ttnn.deallocate(p)
         out_blocks.append(row_blocks[0] if len(row_blocks) == 1
                           else ttnn.concat(row_blocks, dim=2))
-    out_v = out_blocks[0] if len(out_blocks) == 1 else ttnn.concat(out_blocks, dim=0)
+    if value is not None:
+        out_v = value
+    else:
+        out_v = out_blocks[0] if len(out_blocks) == 1 else ttnn.concat(out_blocks, dim=0)
     parents = [p for p in (q, k, v, bias) if p is not None]
 
     def make():
@@ -1137,537 +1150,10 @@ def installed() -> bool:
     return ops.grad_hook() is _hook
 
 
-# ---------------------------------------------------------------------------------------
-# The shipped forward, taped where it computes.
-#
-# `tt_bio.ops` routes two verbs, and the Pairformer chain calls 380 ttnn verbs across 56
-# names (`perf/ptx_fastpath/census.py` counts them and re-counts them on demand). Routing
-# every one by hand would mean editing the most heavily tuned file in the repo in 380
-# places, and then keeping every future perf lever in step with the tape by hand. It also
-# puts the gradient in the call site rather than in the op, and a call site is what goes
-# stale: a lever landed next week in the trimul would take the gradient with it silently.
-#
-# So the seam moves one level out. `tape()` rebinds the name `ttnn` inside tt-bio's own
-# modules to the object below, which is ttnn with the differentiable verbs taped and every
-# other attribute ttnn's own. One rebinding per module, restored on exit, live only while a
-# tape is open. It is not a monkeypatch of ttnn's namespace: nothing outside tt-bio sees a
-# different ttnn, and `tt_bio.autograd` itself is excluded, so the backward closures below
-# call the real verbs and cannot re-enter the tape.
-#
-# The mechanism is `dispatch.OpSurface`'s, one level up. A taped verb computes its value BY
-# CALLING the shipped verb on unwrapped operands, so there is still exactly one forward and
-# the grad-off column is bit-identical rather than nearly equal. The tuned path is reached
-# the same way it always was, because the tuning reads shapes and memory configs off the
-# tensor and a taped tensor answers those.
-#
-# A verb with no entry that is handed a taped tensor raises. That is deliberate: an op the
-# tape cannot follow is loud, not a silently dropped gradient.
-# ---------------------------------------------------------------------------------------
-
-_VERBS: dict = {}
-
-
-def _verb(*names):
-    """Register one taped verb under each ttnn name, dotted for a nested namespace."""
-    def register(fn):
-        for n in names:
-            _VERBS[n] = fn
-        return fn
-    return register
-
-
-def _identity_grad(shipped, args, kwargs, cast=False):
-    """A verb that moves or retypes bytes without changing what they mean.
-
-    typecast, to_layout, to_memory_config, clone and reallocate are all this: the value is
-    whatever the shipped verb produced and the gradient passes straight through. They are
-    the ops a tuned forward is mostly made of, and none of them is a no-op on device.
-    """
-    x = _wrap(args[0])
-    ra, rk = _raw(args, kwargs)
-    out_v = shipped(*ra, **rk)
-    src_dtype = x.value.dtype
-
-    def make():
-        def bw(g):
-            x.add_grad(ttnn.typecast(g, src_dtype) if cast and g.dtype != src_dtype else g)
-        return bw
-
-    return _tape(out_v, [x], make)
-
-
-_VERBS["linear"] = _taped_linear
-_VERBS["layer_norm"] = _taped_layer_norm
-
-
-@_verb("matmul", "experimental.minimal_matmul")
-def _v_matmul(shipped, args, kwargs):
-    """Both shipped matmuls. `transpose_a`/`transpose_b` reassociate rather than transpose
-    the result -- see `matmul` above for why writing the post-transpose is the classic way
-    to get a wrong gradient that a shape check cannot catch."""
-    a, b = _wrap(args[0]), _wrap(args[1])
-    kw = dict(kwargs)
-    ta = bool(kw.get("transpose_a", False))
-    tb = bool(kw.get("transpose_b", False))
-    cfg = kw.get("compute_kernel_config") or precise_config()
-    ra, rk = _raw(args, kwargs)
-    out_v = shipped(*ra, **rk)
-
-    def make():
-        def bw(g):
-            if a.requires_grad:
-                a.add_grad(ttnn.matmul(g, b.value, transpose_b=not tb,
-                                       compute_kernel_config=cfg) if not ta else
-                           ttnn.matmul(b.value, g, transpose_a=tb, transpose_b=True,
-                                       compute_kernel_config=cfg))
-            if b.requires_grad:
-                b.add_grad(ttnn.matmul(a.value, g, transpose_a=not ta,
-                                       compute_kernel_config=cfg) if not tb else
-                           ttnn.matmul(g, a.value, transpose_a=True, transpose_b=ta,
-                                       compute_kernel_config=cfg))
-        return bw
-
-    return _tape(out_v, [a, b], make)
-
-
-@_verb("softmax", "softmax_in_place")
-def _v_softmax(shipped, args, kwargs):
-    """`softmax_in_place` is taped out of place. The backward reads y, which the in-place
-    kernel has written over its own input, so the input is gone either way; what the tape
-    cannot afford is the CALLER's copy being gone, and that is what in-place destroys."""
-    x = _wrap(args[0])
-    dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
-    ra, rk = _raw(args, kwargs)
-    y = ttnn.softmax(*ra, **rk) if shipped is ttnn.softmax_in_place else shipped(*ra, **rk)
-
-    def make():
-        def bw(g):
-            inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
-            x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
-        return bw
-
-    return _tape(y, [x], make)
-
-
-def _unary(fn):
-    """Register a unary eltwise verb whose backward is `fn(x_value, out_value) -> dy/dx`.
-
-    An `output_tensor=` argument is dropped, which is the in-place case: the shipped verb
-    writes its result over its input and the tape needs the input to still be there.
-    """
-    def impl(shipped, args, kwargs):
-        x = _wrap(args[0])
-        kw = {k: v for k, v in kwargs.items() if k != "output_tensor"}
-        out_v = shipped(x.value, *[_unwrap(a) for a in args[1:]], **kw)
-        xv = x.value
-
-        def make():
-            def bw(g):
-                x.add_grad(ttnn.multiply(g, fn(xv, out_v)))
-            return bw
-
-        return _tape(out_v, [x], make)
-    return impl
-
-
-_VERBS["silu"] = _unary(
-    # sigma * (1 + x * (1 - sigma)). The output is not invertible, so the input is read.
-    lambda xv, y: (lambda s: ttnn.multiply(
-        s, ttnn.add(ttnn.multiply(xv, ttnn.rsub(s, 1.0)), 1.0)))(ttnn.sigmoid(xv)))
-_VERBS["sigmoid"] = _unary(lambda xv, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)))
-_VERBS["relu"] = _unary(lambda xv, y: ttnn.gtz(xv))
-_VERBS["exp"] = _unary(lambda xv, y: y)
-
-
-def _binary(grad_a, grad_b, scalar, out_of_place=None):
-    """Register a binary eltwise verb. The second operand may be a python scalar, which the
-    shipped chain does often enough (`ttnn.multiply(s, 1 / sqrt(d))`) that treating it as a
-    tensor would be wrong rather than merely slow.
-
-    An in-place verb (`add_`, `multiply_`) is taped OUT of place. That is the memory cost
-    the tape pays for a residual: the pre-update tensor stays live because the producer's
-    backward reads it. It is one tensor per residual, not per layer.
-    """
-    def impl(shipped, args, kwargs):
-        a = _wrap(args[0])
-        raw_b = args[1]
-        kw = {k: v for k, v in kwargs.items() if k != "output_tensor"}
-        # THE in-place trap, and it is silent: `ttnn.multiply_(a, b)` writes the product
-        # over a's buffer, and a is exactly what that product's backward reads for db.
-        # Taping the call while still invoking the in-place kernel gives a forward that is
-        # right and a gradient that is anti-correlated with the truth. Measured before this
-        # line existed: d(fc2) cosine -0.028 on the shipped Transition.
-        if out_of_place is not None:
-            shipped = out_of_place
-        if not isinstance(raw_b, (Tensor, ttnn.Tensor)):
-            f = float(raw_b)
-            out_v = shipped(a.value, raw_b, **kw)
-
-            def make_s():
-                def bw(g):
-                    a.add_grad(scalar(g, f))
-                return bw
-
-            return _tape(out_v, [a], make_s)
-        b = _wrap(raw_b)
-        out_v = shipped(a.value, b.value, **kw)
-        av, bv = a.value, b.value
-
-        def make():
-            def bw(g):
-                if a.requires_grad:
-                    a.add_grad(grad_a(g, av, bv))
-                if b.requires_grad:
-                    b.add_grad(grad_b(g, av, bv))
-            return bw
-
-        return _tape(out_v, [a, b], make)
-    return impl
-
-
-_ADD = (lambda g, av, bv: g, lambda g, av, bv: g, lambda g, f: g)
-_MUL = (lambda g, av, bv: ttnn.multiply(g, bv), lambda g, av, bv: ttnn.multiply(g, av),
-        lambda g, f: ttnn.multiply(g, f))
-_VERBS["add"] = _binary(*_ADD)
-_VERBS["add_"] = _binary(*_ADD, out_of_place=ttnn.add)
-_VERBS["subtract"] = _binary(
-    lambda g, av, bv: g, lambda g, av, bv: ttnn.multiply(g, -1.0), lambda g, f: g)
-_VERBS["multiply"] = _binary(*_MUL)
-_VERBS["multiply_"] = _binary(*_MUL, out_of_place=ttnn.multiply)
-_VERBS["divide"] = _binary(
-    lambda g, av, bv: ttnn.divide(g, bv),
-    lambda g, av, bv: ttnn.multiply(ttnn.divide(g, ttnn.multiply(bv, bv)),
-                                    ttnn.multiply(av, -1.0)),
-    lambda g, f: ttnn.multiply(g, 1.0 / f))
-
-
-# --- shape ------------------------------------------------------------------------------
-# Every one of these is its own inverse applied to the gradient. They carry no arithmetic,
-# so nothing here can lose precision; what they can lose is an axis, which is why each
-# reads the source shape at forward time rather than inferring it in the backward.
-
-@_verb("reshape", "unsqueeze", "squeeze")
-def _v_reshape(shipped, args, kwargs):
-    """reshape, unsqueeze and squeeze differ only in how they name the target shape, and
-    the backward of all three is the source shape, read here rather than inferred there."""
-    x = _wrap(args[0])
-    src = [int(d) for d in x.value.shape]
-    ra, rk = _raw(args, kwargs)
-    out_v = shipped(*ra, **rk)
-
-    def make():
-        def bw(g):
-            x.add_grad(ttnn.reshape(g, src))
-        return bw
-
-    return _tape(out_v, [x], make)
-
-
-@_verb("permute")
-def _v_permute(shipped, args, kwargs):
-    x = _wrap(args[0])
-    dims = [int(d) for d in (kwargs.get("dims") if len(args) < 2 else args[1])]
-    inv = [0] * len(dims)
-    for i, d in enumerate(dims):
-        inv[d] = i
-    ra, rk = _raw(args, kwargs)
-    out_v = shipped(*ra, **rk)
-
-    def make():
-        def bw(g):
-            x.add_grad(ttnn.permute(g, inv))
-        return bw
-
-    return _tape(out_v, [x], make)
-
-
-@_verb("transpose")
-def _v_transpose(shipped, args, kwargs):
-    """A transpose is its own inverse on the two axes it names, so the backward is the
-    same call. It is NOT free on device -- it moves every byte -- but it is exact."""
-    x = _wrap(args[0])
-    d0 = kwargs.get("dim0", args[1] if len(args) > 1 else 0)
-    d1 = kwargs.get("dim1", args[2] if len(args) > 2 else 1)
-    ra, rk = _raw(args, kwargs)
-    out_v = shipped(*ra, **rk)
-
-    def make():
-        def bw(g):
-            x.add_grad(ttnn.transpose(g, d0, d1))
-        return bw
-
-    return _tape(out_v, [x], make)
-
-
-@_verb("concat")
-def _v_concat(shipped, args, kwargs):
-    xs = [_wrap(t) for t in args[0]]
-    dim = kwargs.get("dim", args[1] if len(args) > 1 else 0)
-    ax = _axis(int(dim), len(xs[0].value.shape))
-    sizes = [int(t.value.shape[ax]) for t in xs]
-    kw = {k: v for k, v in kwargs.items() if k != "dim"}
-    out_v = shipped([t.value for t in xs], dim=ax, **kw)
-
-    def make():
-        def bw(g):
-            off = 0
-            gs = [int(d) for d in g.shape]
-            for t, n in zip(xs, sizes):
-                if t.requires_grad:
-                    starts, ends = [0] * len(gs), list(gs)
-                    starts[ax], ends[ax] = off, off + n
-                    t.add_grad(ttnn.slice(g, starts, ends))
-                off += n
-        return bw
-
-    return _tape(out_v, xs, make)
-
-
-def _sliced(x: "Tensor", out_v, starts, ends):
-    """Tape one slice of ``x`` whose value is already computed.
-
-    Shared by `slice`, `chunk` and `__getitem__`, which are the same op three ways: the
-    backward pads the gradient back out with zeros on every axis that was cut. `chunk`
-    reads its cut points off the shipped call rather than recomputing them, so the tape
-    cannot disagree with the kernel about where the blocks begin.
-    """
-    shape = [int(d) for d in x.value.shape]
-
-    def make():
-        def bw(g):
-            for ax in range(len(shape)):
-                before, after = starts[ax], shape[ax] - ends[ax]
-                if not before and not after:
-                    continue
-
-                def pad(n):
-                    z = [int(d) for d in g.shape]
-                    z[ax] = n
-                    return ttnn.zeros(z, dtype=g.dtype, layout=ttnn.TILE_LAYOUT,
-                                      device=g.device())
-
-                parts = ([pad(before)] if before else []) + [g] + \
-                        ([pad(after)] if after else [])
-                g = ttnn.concat(parts, dim=ax)
-            x.add_grad(g)
-        return bw
-
-    return _tape(out_v, [x], make)
-
-
-@_verb("slice")
-def _v_slice(shipped, args, kwargs):
-    x = _wrap(args[0])
-    starts = [int(v) for v in (kwargs.get("slice_start") or args[1])]
-    ends = [int(v) for v in (kwargs.get("slice_end") or args[2])]
-    ra, rk = _raw(args, kwargs)
-    return _sliced(x, shipped(*ra, **rk), starts, ends)
-
-
-@_verb("chunk")
-def _v_chunk(shipped, args, kwargs):
-    """n blocks along ``dim``. Each is a slice and each gets its own node, so a consumer
-    that reads only some of the blocks -- which the row-chunked transition does, one
-    block at a time -- contributes only those, and the fan-in sum does the rest."""
-    x = _wrap(args[0])
-    n = int(kwargs.get("chunks", args[1]))
-    dim = int(kwargs.get("dim", args[2] if len(args) > 2 else 0))
-    shape = [int(d) for d in x.value.shape]
-    ax = _axis(dim, len(shape))
-    outs, off, taped = shipped(x.value, n, dim=ax), 0, []
-    for o in outs:
-        m = int(o.shape[ax])
-        starts, ends = [0] * len(shape), list(shape)
-        starts[ax], ends[ax] = off, off + m
-        taped.append(_sliced(x, o, starts, ends))
-        off += m
-    return taped
-
-
-def _getitem(x: Tensor, index):
-    """``x[...]`` on a taped tensor, in terms of `slice`. The shipped chain slices row
-    blocks out of the pair tensor with exactly this syntax, and a taped tensor that did
-    not answer to it would make the chunked paths -- which is all of the tuned ones --
-    unreachable from a gradient."""
-    shape = [int(d) for d in x.value.shape]
-    idx = index if isinstance(index, tuple) else (index,)
-    starts, ends = [0] * len(shape), list(shape)
-    for ax, sl in enumerate(idx):
-        if isinstance(sl, slice):
-            s, e, step = sl.indices(shape[ax])
-            if step != 1:
-                raise NotImplementedError(f"strided slice on axis {ax} has no tape entry")
-            starts[ax], ends[ax] = s, e
-        elif isinstance(sl, int):
-            s = sl + shape[ax] if sl < 0 else sl
-            starts[ax], ends[ax] = s, s + 1
-        else:
-            raise NotImplementedError(f"index {sl!r} has no tape entry")
-    return _sliced(x, ttnn.slice(x.value, starts, ends), starts, ends)
-
-
-# --- attention head packing ------------------------------------------------------------
-# Both layouts below are DERIVED FROM THE DEVICE with an index-valued tensor
-# (`perf/ptx_fastpath/heads.py`), not read off a docstring. A head-split backward written
-# from a guess about the packing is exactly how a wrong gradient ships: it is a pure
-# rearrangement, so nothing about its magnitude looks wrong, and every downstream head
-# would train on another head's signal.
-
-@_verb("experimental.nlp_concat_heads")
-def _v_concat_heads(shipped, args, kwargs):
-    """``[B, H, L, dh] -> [B, 1, L, H*dh]``, measured equal to
-    ``permute(0, 2, 1, 3).reshape(B, 1, L, H*dh)``. The backward is that inverted."""
-    x = _wrap(args[0])
-    B, H, L, dh = (int(d) for d in x.value.shape)
-    ra, rk = _raw(args, kwargs)
-    out_v = shipped(*ra, **rk)
-
-    def make():
-        def bw(g):
-            x.add_grad(ttnn.permute(ttnn.reshape(g, [B, L, H, dh]), [0, 2, 1, 3]))
-        return bw
-
-    return _tape(out_v, [x], make)
-
-
-@_verb("experimental.nlp_create_qkv_heads")
-def _v_create_qkv_heads(shipped, args, kwargs):
-    """``[B, 1, L, 3*H*dh] -> three [B, H, L, dh]``, measured equal to
-    ``reshape(B, 1, L, 3, H, dh)[:, 0, :, s].permute(0, 2, 1, 3)`` for s in 0, 1, 2.
-
-    Each output gets its own node, so a consumer that differentiates only q -- which the
-    tape cannot know in advance -- contributes only q. Each scatters into the full packed
-    width with zeros in the other two slots and `add_grad` sums them, which costs two
-    packed-width temporaries more than a single shared closure would. It is the price of
-    not having to know the fan-out at forward time, and the packed tensor is the smallest
-    thing in the block.
-    """
-    x = _wrap(args[0])
-    B, _, L, wide = (int(d) for d in x.value.shape)
-    H = int(kwargs.get("num_heads", 1))
-    dh = wide // (3 * H)
-    outs = shipped(x.value, *[_unwrap(a) for a in args[1:]],
-                   **{k: _unwrap(v) for k, v in kwargs.items()})
-
-    def slot(s):
-        def make():
-            def bw(g):
-                # [B, H, L, dh] -> [B, L, 1, H*dh], then into slot s of the packed axis.
-                rows = ttnn.reshape(ttnn.permute(g, [0, 2, 1, 3]), [B, L, 1, H * dh])
-                zero = ttnn.zeros([B, L, 1, H * dh], dtype=rows.dtype,
-                                  layout=ttnn.TILE_LAYOUT, device=rows.device())
-                parts = [rows if i == s else zero for i in range(3)]
-                x.add_grad(ttnn.reshape(ttnn.concat(parts, dim=2), [B, 1, L, 3 * H * dh]))
-            return bw
-        return make
-
-    return tuple(_tape(o, [x], slot(s)) for s, o in enumerate(outs))
-
-
-# --- placement and lifetime --------------------------------------------------------------
-
-_VERBS["clone"] = _VERBS["reallocate"] = _VERBS["to_layout"] = \
-    _VERBS["to_memory_config"] = lambda s, a, k: _identity_grad(s, a, k)
-_VERBS["typecast"] = lambda s, a, k: _identity_grad(s, a, k, cast=True)
-
-
-@_verb("deallocate")
-def _v_deallocate(shipped, args, kwargs):
-    """Inference frees an activation as soon as its consumer has read it. A backward reads
-    it again, so the tape decides: `Tensor.free` releases what no closure can reach and
-    refuses the rest. A raw handle never reaches here -- the wrapper below passes it
-    straight to ttnn -- so nothing an inference run frees today stays live."""
-    t = args[0]
-    if isinstance(t, Tensor):
-        t.free()
-    else:
-        shipped(*args, **kwargs)
-    return _FREED
-
-
-class _Freed:
-    """`deallocate` returns None, and None is how a hook declines. This is neither."""
-    __slots__ = ()
-    def __repr__(self):                                                    # pragma: no cover
-        return "<freed>"
-
-
-_FREED = _Freed()
-
-
-# --- the ttnn tt-bio sees while a tape is open --------------------------------------------
-
-class _Ttnn:
-    """ttnn, with the differentiable verbs taped. Every other attribute is ttnn's own.
-
-    Lookups are cached into the instance dict on first use, so a hot call site pays one
-    ordinary attribute load. A verb that never meets a taped tensor -- every config class,
-    every device query -- costs one `_on_tape` scan of its arguments.
-    """
-
-    def __init__(self, real, prefix: str = ""):
-        object.__setattr__(self, "_real", real)
-        object.__setattr__(self, "_prefix", prefix)
-
-    def __getattr__(self, name):
-        real = object.__getattribute__(self, "_real")
-        attr = getattr(real, name)
-        qual = object.__getattribute__(self, "_prefix") + name
-        if isinstance(attr, type(ttnn)):
-            out = _Ttnn(attr, qual + ".")
-        elif callable(attr) and not isinstance(attr, type):
-            out = _taped_verb(qual, attr)
-        else:
-            return attr
-        object.__setattr__(self, name, out)
-        return out
-
-
-def _taped_verb(qual, shipped):
-    impl = _VERBS.get(qual)
-
-    def call(*args, **kwargs):
-        if not _on_tape(args, kwargs):
-            return shipped(*args, **kwargs)
-        if impl is None:
-            raise NotImplementedError(
-                f"ttnn.{qual} has no tape entry, and it was handed a taped tensor. Add one "
-                f"to tt_bio.autograd._VERBS -- unwrapping here would drop the gradient of "
-                f"everything upstream of this call, silently.")
-        out = impl(shipped, args, kwargs)
-        return None if out is _FREED else out
-
-    return call
-
-
-_SHIM = _Ttnn(ttnn)
-_SHIMMED: list = []
-
-
-def _swap(to_shim: bool) -> None:
-    """Rebind the name `ttnn` in every tt-bio module that holds one.
-
-    Every module, rather than a named list, because the chain reaches nine of them today
-    and a tenth added next week would otherwise be the one place the tape stops. `this`
-    module is excluded: the backward closures above must call the real verbs or they would
-    tape their own gradients.
-    """
-    global _SHIMMED
-    if to_shim:
-        _SHIMMED = []
-        for name, mod in list(sys.modules.items()):
-            if not name.startswith("tt_bio") or mod is None or name == __name__:
-                continue
-            if getattr(mod, "ttnn", None) is ttnn:
-                mod.ttnn = _SHIM
-                _SHIMMED.append(mod)
-    else:
-        for mod in _SHIMMED:
-            mod.ttnn = ttnn
-        _SHIMMED = []
-
-
-@contextlib.contextmanager
+# The taped ttnn surface lives in `taped_ttnn.py`, not here: `state/ptx/DESIGN.md` §6 puts
+# this file under `ptx-unify` and the surface under `ptx-fastpath`, and they are genuinely
+# different things -- this module is the tape, that one is how the shipped modules reach it.
+# Re-exported because `tt_bio.autograd.tape()` is the one entry point a caller should need.
 def tape():
     """Make the shipped forward differentiable for the duration of the block.
 
@@ -1675,23 +1161,8 @@ def tape():
             out = model(x)          # the production module, the production kernels
         out.backward()
 
-    One line, and every knob the shipped path has is still reachable, because this changes
-    no call site: the modules run the code they always ran and the tensors they are handed
-    answer to everything a ttnn tensor answers to.
-
-    Reentrant, and restores on the way out even if the forward raises. Modules imported
-    INSIDE the block are not shimmed -- tt-bio imports its device modules at import time,
-    so this only matters to a caller doing something unusual, and it fails loudly (a raw
-    ttnn verb handed a taped tensor) rather than quietly.
+    See `tt_bio.taped_ttnn.tape` for what it does and what it deliberately does not.
     """
-    if _SHIMMED:
-        yield                       # already open; the outermost block owns the swap
-        return
-    prev = install()
-    _swap(True)
-    try:
-        yield
-    finally:
-        _swap(False)
-        from . import ops
-        ops.set_grad_hook(prev)
+    from .taped_ttnn import tape as _tape_cm
+    return _tape_cm()
+

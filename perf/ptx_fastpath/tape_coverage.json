@@ -1,10 +1,5 @@
 {
- "missing": {
-  "max": 1,
-  "pad": 9,
-  "sum": 1,
-  "transformer.scaled_dot_product_attention": 7
- },
+ "missing": {},
  "passthru": {
   "CoreCoord": 2,
   "CoreGrid": 2,
@@ -44,8 +39,10 @@
   "layer_norm": 16,
   "linear": 18,
   "matmul": 4,
+  "max": 1,
   "multiply": 7,
   "multiply_": 11,
+  "pad": 9,
   "permute": 17,
   "reallocate": 1,
   "reshape": 22,
@@ -55,8 +52,10 @@
   "softmax_in_place": 1,
   "squeeze": 3,
   "subtract": 1,
+  "sum": 1,
   "to_layout": 6,
   "to_memory_config": 7,
+  "transformer.scaled_dot_product_attention": 7,
   "transpose": 7,
   "typecast": 12,
   "unsqueeze": 7

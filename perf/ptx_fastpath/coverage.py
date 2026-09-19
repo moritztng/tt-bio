@@ -61,10 +61,10 @@ while q:
         tot += s.t
         q += [c for c in s.c if c in classes or c in funcs] + list(s.a)
 
-from tt_bio import autograd as ag
+from tt_bio import taped_ttnn as tp
 taped, missing, passthru = {}, {}, {}
 for verb, n in tot.items():
-    if verb in ag._VERBS: taped[verb] = n
+    if verb in tp.VERBS: taped[verb] = n
     elif verb in NO_TENSOR: passthru[verb] = n
     else: missing[verb] = n
 
