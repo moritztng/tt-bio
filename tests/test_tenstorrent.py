@@ -11,8 +11,19 @@ from tt_bio.boltz2 import get_indexing_matrix, single_to_keys
 
 pytestmark = pytest.mark.device
 
-torch.set_grad_enabled(False)
 torch.manual_seed(893)
+
+
+# Autograd stays off for these tests, but scoped to them rather than to the process.
+# `torch.set_grad_enabled(False)` at module level is a process-wide switch that nothing
+# restores, and a test module's import runs even when every test in it skips -- so on a host
+# with no card this file used to disable autograd for the whole session while contributing
+# nothing. That broke `tests/test_train_interface.py`'s two gradcheck invariants in any
+# full-suite run, silently, because they need `requires_grad=True` to build a graph.
+@pytest.fixture(autouse=True)
+def _grad_off():
+    with torch.no_grad():
+        yield
 
 CACHE = Path(os.environ.get("BOLTZ_CACHE", "~/.boltz")).expanduser()
 STATE = torch.load(CACHE / "boltz2_conf.ckpt", map_location="cpu", mmap=True, weights_only=False)["state_dict"]

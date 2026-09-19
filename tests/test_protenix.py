@@ -66,7 +66,17 @@ from tt_bio.tenstorrent import (  # noqa: E402
 
 pytestmark = pytest.mark.device
 
-torch.set_grad_enabled(False)
+
+# Autograd stays off for these tests, but scoped to them rather than to the process.
+# `torch.set_grad_enabled(False)` at module level is a process-wide switch that nothing
+# restores, and a test module's import runs even when every test in it skips -- so on a host
+# with no card this file used to disable autograd for the whole session while contributing
+# nothing. That broke `tests/test_train_interface.py`'s two gradcheck invariants in any
+# full-suite run, silently, because they need `requires_grad=True` to build a graph.
+@pytest.fixture(autouse=True)
+def _grad_off():
+    with torch.no_grad():
+        yield
 
 
 def _ck(dev):
