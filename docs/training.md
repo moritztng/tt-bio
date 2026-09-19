@@ -81,6 +81,15 @@ input quantisation. Then the controls: an fp32 arm must show the error collapse,
 deliberately broken arm must fail. A reference that fails level 1 reports itself rather than
 the device, because sending the next reader to the wrong file is worse than no result.
 
+Level 1 runs anywhere, including a box with no card:
+
+```
+pytest tests/test_autograd_reference_gate.py
+```
+
+Twenty-six references, one second. It checks what the device is scored against, not the
+device. `--seed 7` reproduces a run exactly, in any process.
+
 **The bars are per op class, off measured floors.** One bar for every op is wrong twice over.
 
 | class | fp32 | bf16 | where the bar comes from |
