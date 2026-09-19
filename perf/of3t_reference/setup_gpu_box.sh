@@ -23,9 +23,15 @@ cat /proc/loadavg
 df -h "$ROOT" | tail -1
 
 echo "=== deps ==="
-apt-get update -qq && apt-get install -y -qq git curl >/dev/null
+# libxrender1/libxext6 are rdkit.Chem.Draw's, and pdbeccdutils imports Draw at module scope, so
+# without them upstream's own conftest fails to import. The pip list is upstream's declared
+# dependency set from pyproject.toml plus what the reference harness needs; installing it in one
+# go is worth doing because chasing ModuleNotFoundError one package at a time cost a pass.
+apt-get update -qq && apt-get install -y -qq git curl libxrender1 libxext6 >/dev/null
 pip install -q --no-input "pytorch-lightning>=2.1" ml-collections biotite "rdkit<2026" \
-  pdbeccdutils kalign-python ijson dm-tree einops torchmetrics deepspeed 2>&1 | tail -3 || true
+  pdbeccdutils kalign-python ijson dm-tree einops torchmetrics deepspeed \
+  numpy scipy pandas requests awscli awscrt boto3 PyYAML wandb func_timeout tqdm \
+  typing-extensions lmdb memory_profiler pytest 2>&1 | tail -3 || true
 
 echo "=== upstream ==="
 [ -d openfold-3 ] || git clone -q --branch "$TAG" https://github.com/aqlaboratory/openfold-3.git
