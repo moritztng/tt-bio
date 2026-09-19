@@ -112,6 +112,28 @@ per-step assertion fails the healthy case. What has to hold is that the device w
 travelled as far as the master has over the run: `opt.check_displacement()` asserts
 `0.9 < ratio < 1.1` and raises, with the two displacements quoted, rather than warning.
 
+**The diffusion module's fp32 is the forward's boundary, not the backward's.** Measured on one
+Protenix token-DiT block against a float64 reference, `perf/ptx_diffusion/`: bf16 activations
+cost 4.25e-02 worst relative L2 across 22 gradients against fp32's 1.65e-02, at cos 0.9991, and
+a 150-step fit of a fixed target still drops the loss 2076x where fp32 drops it 2869x. bf16
+activations train. Neither the accumulator nor the attention site is the lever -- dropping the
+backward config from `precise()` costs 9 %, and raising only the attention matmuls and the
+softmax back buys 5 % -- so the error is operand rounding and no kernel setting reaches it. The
+reason `PROTENIX_DIFFUSION_FP32_DEVICE` stays on for training is that the forward we serve is
+fp32, and a training forward that is not the served forward is the second implementation
+`tt_bio/ops.py` exists to prevent. `PROTENIX_DIFFUSION_FP32_DEVICE=0` is a measured lever with
+a quoted cost, not an unknown.
+
+**A bf16 master stalls, and the stall is in the master, not the device copy.** Same block, same
+seed, 150 Adam steps at lr 1e-3: with an fp32 master the fraction of master elements a step
+moves stays 1.000 throughout; with a bf16 master it falls 1.000 -> 0.361 by step 149 while the
+loss curve stays the prettiest of the three arms. On the same block's real gradient at Adam's
+step-1 magnitude over 8,261,376 elements, a bf16 master keeps 0.9999 of its updates at lr
+1.8e-3, 0.605 at lr 1e-4 and 0.086 at lr 1e-5, and an fp32 master keeps 1.000 at all of them.
+Since Adam's effective step shrinks as `m/sqrt(v)` falls toward convergence, every run reaches
+the stalling regime from above whatever lr it started at. This is the master ratio, not the
+device copy's -- the per-step scatter the paragraph above describes is a property of the copy.
+
 **Every run carries provenance, and the clock is sampled during the work.** On this hardware
 the clock sets the time. The 512 aa cell reads 21.90 s at 800 MHz, 17.34 s at about 1063 and
 14.69 s in the 1350 burst, so a number recorded against a clock read before the work started

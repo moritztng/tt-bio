@@ -91,8 +91,15 @@ def one(ag, ttnn, tt, t, nt, blocks, cfg, bwcfg, seed_t, backward):
     dev_h = tt.get_device()
     if backward:
         out = stack(ag, t, nt, blocks, cfg=cfg, bwcfg=bwcfg)
+        # Read at the tape's high-water mark (everything the forward retained, nothing freed
+        # yet) and again after the backward has run, and keep the larger. Reading only the
+        # first would quote what the tape RETAINS and call it the peak; reading only the
+        # second would miss it, because a backward frees as it goes.
         peak = dram(ttnn, dev_h)
         out.backward(seed=seed_t)
+        after = dram(ttnn, dev_h)
+        if None not in (peak, after):
+            peak = max(peak, after)
     else:
         with ag.no_grad():
             out = stack(ag, t, nt, blocks, cfg=cfg, bwcfg=bwcfg)
@@ -169,7 +176,8 @@ def main():
                 "seconds_max": round(s[-1], 4),
                 "spread_pct": round(100 * (s[-1] - s[0]) / med, 2),
                 "tokens_per_s": round(args.nt / med, 2),
-                "dram_peak_bytes": max(p for p in peaks[arm] if p is not None),
+                "dram_peak_bytes": (max(p for p in peaks[arm] if p is not None)
+                                    if any(p is not None for p in peaks[arm]) else None),
                 "aiclk_during": clocks[arm]}
 
     f, b = summarise("fwd"), summarise("fwd_bwd")
