@@ -1,0 +1,20 @@
+{
+ "module": "triangle_attention_fp32",
+ "shape": [
+  1,
+  64,
+  64,
+  64
+ ],
+ "bar": 0.2,
+ "grad_norm": 148.15215932510836,
+ "best_rel": 0.009236048009599006,
+ "best_eps": 0.02,
+ "control_rel": 0.339490698673066,
+ "aiclk": [
+  1350,
+  1350,
+  5
+ ],
+ "verdict": "PASS"
+}
