@@ -1,0 +1,5762 @@
+{
+ "started_utc": "2026-09-19T08:06:24Z",
+ "host": "tt-quietbox2",
+ "card": "1",
+ "note": "One process per arm: TT_BIO_APB_CONCAT_HEADS is consumed at model construction and re-lanes proj_g/proj_o, so it cannot be flipped in process. Arms interleaved block by block; the A/A floor is the spread across the base blocks, compared the same way base is compared to apb.",
+ "blocks": [
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 0,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.81 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.95 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 5.74 -> 4.76 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.1,
+    "loadavg1": 4.76
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.359,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.3,
+       "aiclk_n": 67,
+       "power_w_mean": 76.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.04
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.647,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.2,
+       "aiclk_n": 69,
+       "power_w_mean": 71.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.23
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.759,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.7,
+       "aiclk_n": 63,
+       "power_w_mean": 76.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.78
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.874,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 65,
+       "power_w_mean": 74.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.18
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.351,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.5,
+       "aiclk_n": 67,
+       "power_w_mean": 75.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.16
+     }
+    ],
+    "model_load_s": 3.892,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.603,
+     "clock": {
+      "aiclk_min": 1300,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.2,
+      "aiclk_n": 70,
+      "power_w_mean": 77.4
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 6.89,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 0,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.96 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (3.15 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 5.33 -> 5.12 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 5.12
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.645,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.0,
+       "aiclk_n": 70,
+       "power_w_mean": 73.4
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.71
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.218,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 67,
+       "power_w_mean": 77.5
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.23
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.695,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.8,
+       "aiclk_n": 64,
+       "power_w_mean": 72.4
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 7.71
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.945,
+      "clock": {
+       "aiclk_min": 1287,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.8,
+       "aiclk_n": 65,
+       "power_w_mean": 81.6
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 9.99
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.488,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.9,
+       "aiclk_n": 69,
+       "power_w_mean": 68.7
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 10.25
+     }
+    ],
+    "model_load_s": 3.827,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.341,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.3,
+      "aiclk_n": 70,
+      "power_w_mean": 70.8
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.845265,
+     "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+     "loadavg1": 5.66,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 0,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.48 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.63 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.01 -> 5.26 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 5.26
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.354,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.6,
+       "aiclk_n": 67,
+       "power_w_mean": 73.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.11
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.41,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.2,
+       "aiclk_n": 67,
+       "power_w_mean": 77.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.68
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.824,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.0,
+       "aiclk_n": 65,
+       "power_w_mean": 79.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.24
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.19,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.2,
+       "aiclk_n": 68,
+       "power_w_mean": 76.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.82
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.843,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.4,
+       "aiclk_n": 71,
+       "power_w_mean": 78.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.63
+     }
+    ],
+    "model_load_s": 4.024,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.948,
+     "clock": {
+      "aiclk_min": 1318,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1344.5,
+      "aiclk_n": 72,
+      "power_w_mean": 69.3
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 6.18,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 1,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (3.03 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (3.07 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 7.07 -> 6.09 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 6.09
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.202,
+      "clock": {
+       "aiclk_min": 1287,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.6,
+       "aiclk_n": 67,
+       "power_w_mean": 74.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.54
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.517,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.8,
+       "aiclk_n": 70,
+       "power_w_mean": 74.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.61
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.788,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.0,
+       "aiclk_n": 66,
+       "power_w_mean": 79.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.38
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.9,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.5,
+       "aiclk_n": 65,
+       "power_w_mean": 76.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.72
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.626,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1344.1,
+       "aiclk_n": 69,
+       "power_w_mean": 72.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.71
+     }
+    ],
+    "model_load_s": 4.175,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.419,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.2,
+      "aiclk_n": 68,
+      "power_w_mean": 74.6
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 5.55,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 1,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.16 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.23 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 7.81 -> 7.16 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 7.16
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.727,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.3,
+       "aiclk_n": 64,
+       "power_w_mean": 70.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 9.31
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.82,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.6,
+       "aiclk_n": 65,
+       "power_w_mean": 75.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 8.9
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.54,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.3,
+       "aiclk_n": 69,
+       "power_w_mean": 76.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 9.15
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.105,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.6,
+       "aiclk_n": 66,
+       "power_w_mean": 77.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 8.3
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.916,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.4,
+       "aiclk_n": 65,
+       "power_w_mean": 80.1
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 8.86
+     }
+    ],
+    "model_load_s": 4.305,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 17.233,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.7,
+      "aiclk_n": 72,
+      "power_w_mean": 72.2
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.845265,
+     "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+     "loadavg1": 7.6,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 1,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.24 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.40 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 5.56 -> 5.73 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.1,
+    "loadavg1": 5.73
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.811,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.3,
+       "aiclk_n": 65,
+       "power_w_mean": 72.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.7
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.281,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.3,
+       "aiclk_n": 67,
+       "power_w_mean": 77.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.87
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.274,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.9,
+       "aiclk_n": 67,
+       "power_w_mean": 72.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.94
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.732,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.2,
+       "aiclk_n": 64,
+       "power_w_mean": 78.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.61
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.772,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.3,
+       "aiclk_n": 65,
+       "power_w_mean": 76.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.7
+     }
+    ],
+    "model_load_s": 4.715,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.56,
+     "clock": {
+      "aiclk_min": 1306,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.2,
+      "aiclk_n": 70,
+      "power_w_mean": 70.4
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 8.19,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 2,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (3.26 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (3.34 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 5.53 -> 5.65 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 5.65
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.526,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.2,
+       "aiclk_n": 68,
+       "power_w_mean": 73.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.25
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.4,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.5,
+       "aiclk_n": 67,
+       "power_w_mean": 74.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.25
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.965,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.3,
+       "aiclk_n": 67,
+       "power_w_mean": 77.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.68
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.668,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.1,
+       "aiclk_n": 63,
+       "power_w_mean": 76.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.9
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.452,
+      "clock": {
+       "aiclk_min": 1275,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.1,
+       "aiclk_n": 67,
+       "power_w_mean": 77.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.03
+     }
+    ],
+    "model_load_s": 3.831,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.628,
+     "clock": {
+      "aiclk_min": 1306,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.1,
+      "aiclk_n": 68,
+      "power_w_mean": 73.2
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 5.73,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 2,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.62 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.83 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 4.18 -> 5.28 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 5.28
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.536,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.7,
+       "aiclk_n": 68,
+       "power_w_mean": 73.1
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 4.96
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.672,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1338.8,
+       "aiclk_n": 64,
+       "power_w_mean": 80.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.57
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.616,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1344.6,
+       "aiclk_n": 64,
+       "power_w_mean": 68.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.51
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.027,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.0,
+       "aiclk_n": 64,
+       "power_w_mean": 73.9
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 7.15
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.342,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.0,
+       "aiclk_n": 69,
+       "power_w_mean": 75.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 7.78
+     }
+    ],
+    "model_load_s": 4.189,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.668,
+     "clock": {
+      "aiclk_min": 1300,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1339.3,
+      "aiclk_n": 71,
+      "power_w_mean": 78.5
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.845265,
+     "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+     "loadavg1": 5.52,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 2,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.61 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.57 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 5.60 -> 6.28 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.1,
+    "loadavg1": 6.28
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.395,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.2,
+       "aiclk_n": 68,
+       "power_w_mean": 73.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.78
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.912,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.2,
+       "aiclk_n": 66,
+       "power_w_mean": 75.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.34
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.277,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.0,
+       "aiclk_n": 67,
+       "power_w_mean": 78.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.55
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.234,
+      "clock": {
+       "aiclk_min": 1281,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 68,
+       "power_w_mean": 76.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.14
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.794,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.2,
+       "aiclk_n": 65,
+       "power_w_mean": 79.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.08
+     }
+    ],
+    "model_load_s": 4.065,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 17.079,
+     "clock": {
+      "aiclk_min": 1300,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.5,
+      "aiclk_n": 72,
+      "power_w_mean": 74.1
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 5.95,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 3,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.01 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.28 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 4.72 -> 5.28 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 5.28
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.855,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.0,
+       "aiclk_n": 67,
+       "power_w_mean": 74.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.44
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.089,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.0,
+       "aiclk_n": 66,
+       "power_w_mean": 73.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.35
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.53,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.4,
+       "aiclk_n": 68,
+       "power_w_mean": 78.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.74
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.849,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.0,
+       "aiclk_n": 65,
+       "power_w_mean": 75.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.76
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.842,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.9,
+       "aiclk_n": 66,
+       "power_w_mean": 74.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.34
+     }
+    ],
+    "model_load_s": 4.612,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 17.165,
+     "clock": {
+      "aiclk_min": 1300,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.0,
+      "aiclk_n": 74,
+      "power_w_mean": 71.8
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 5.47,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 3,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.07 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.10 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 5.96 -> 4.78 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 4.78
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.059,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.8,
+       "aiclk_n": 67,
+       "power_w_mean": 78.4
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 7.82
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.286,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.3,
+       "aiclk_n": 68,
+       "power_w_mean": 73.6
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 7.77
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.196,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.2,
+       "aiclk_n": 67,
+       "power_w_mean": 78.1
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 7.2
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.832,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.3,
+       "aiclk_n": 64,
+       "power_w_mean": 82.1
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 8.03
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.763,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.8,
+       "aiclk_n": 66,
+       "power_w_mean": 77.9
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 7.48
+     }
+    ],
+    "model_load_s": 4.304,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.343,
+     "clock": {
+      "aiclk_min": 1306,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1340.9,
+      "aiclk_n": 68,
+      "power_w_mean": 77.0
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.845265,
+     "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+     "loadavg1": 7.19,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 3,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (3.42 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (3.12 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 4.88 -> 4.85 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 4.85
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.549,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.5,
+       "aiclk_n": 68,
+       "power_w_mean": 72.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.12
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.111,
+      "clock": {
+       "aiclk_min": 1287,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.2,
+       "aiclk_n": 67,
+       "power_w_mean": 75.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.46
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.778,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.4,
+       "aiclk_n": 64,
+       "power_w_mean": 75.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.84
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.948,
+      "clock": {
+       "aiclk_min": 1262,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.2,
+       "aiclk_n": 65,
+       "power_w_mean": 77.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.41
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.203,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1344.3,
+       "aiclk_n": 66,
+       "power_w_mean": 68.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.66
+     }
+    ],
+    "model_load_s": 3.63,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.478,
+     "clock": {
+      "aiclk_min": 1306,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1339.6,
+      "aiclk_n": 70,
+      "power_w_mean": 75.5
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 5.77,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 4,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (3.19 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (3.38 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.95 -> 5.50 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 5.5
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.363,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.1,
+       "aiclk_n": 67,
+       "power_w_mean": 73.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.83
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.248,
+      "clock": {
+       "aiclk_min": 1281,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.6,
+       "aiclk_n": 67,
+       "power_w_mean": 74.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.57
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.899,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 65,
+       "power_w_mean": 78.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.81
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.863,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.6,
+       "aiclk_n": 65,
+       "power_w_mean": 72.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.82
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.54,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.0,
+       "aiclk_n": 69,
+       "power_w_mean": 72.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.65
+     }
+    ],
+    "model_load_s": 4.161,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.381,
+     "clock": {
+      "aiclk_min": 1306,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.2,
+      "aiclk_n": 68,
+      "power_w_mean": 79.6
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 7.74,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 4,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.46 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.42 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.65 -> 6.41 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 6.41
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.831,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.0,
+       "aiclk_n": 64,
+       "power_w_mean": 72.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.36
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.671,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.8,
+       "aiclk_n": 65,
+       "power_w_mean": 76.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.62
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.657,
+      "clock": {
+       "aiclk_min": 1287,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.2,
+       "aiclk_n": 70,
+       "power_w_mean": 77.7
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.14
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.066,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.5,
+       "aiclk_n": 67,
+       "power_w_mean": 75.7
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.43
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.801,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.0,
+       "aiclk_n": 65,
+       "power_w_mean": 77.1
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.23
+     }
+    ],
+    "model_load_s": 4.79,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "4feb454b8dc21c099c5f7ac8e1764aae02891785",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.971,
+     "clock": {
+      "aiclk_min": 1306,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.8,
+      "aiclk_n": 72,
+      "power_w_mean": 74.5
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.845265,
+     "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+     "loadavg1": 6.66,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 4,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (3.22 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (3.19 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 5.89 -> 4.99 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 4.99
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.262,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.7,
+       "aiclk_n": 67,
+       "power_w_mean": 74.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 4.57
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.4,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.0,
+       "aiclk_n": 68,
+       "power_w_mean": 74.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.66
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.974,
+      "clock": {
+       "aiclk_min": 1275,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1338.4,
+       "aiclk_n": 65,
+       "power_w_mean": 81.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.59
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.922,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 66,
+       "power_w_mean": 79.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 4.86
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.461,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.4,
+       "aiclk_n": 69,
+       "power_w_mean": 79.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.52
+     }
+    ],
+    "model_load_s": 3.907,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.416,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1342.5,
+      "aiclk_n": 70,
+      "power_w_mean": 74.4
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 4.86,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 5,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.65 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.93 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 7.34 -> 5.90 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 5.9
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.532,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.4,
+       "aiclk_n": 69,
+       "power_w_mean": 73.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.53
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.902,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 66,
+       "power_w_mean": 78.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 10.02
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.727,
+      "clock": {
+       "aiclk_min": 1262,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.2,
+       "aiclk_n": 65,
+       "power_w_mean": 81.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 10.06
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.376,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.7,
+       "aiclk_n": 68,
+       "power_w_mean": 70.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.41
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.262,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.4,
+       "aiclk_n": 68,
+       "power_w_mean": 69.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.33
+     }
+    ],
+    "model_load_s": 3.696,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.384,
+     "clock": {
+      "aiclk_min": 1306,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.1,
+      "aiclk_n": 68,
+      "power_w_mean": 72.6
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 5.55,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 5,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.50 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.48 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 5.82 -> 4.85 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.1,
+    "loadavg1": 4.85
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.226,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.3,
+       "aiclk_n": 68,
+       "power_w_mean": 78.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.15
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.844,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.2,
+       "aiclk_n": 65,
+       "power_w_mean": 77.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.75
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.913,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.3,
+       "aiclk_n": 64,
+       "power_w_mean": 71.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.71
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.456,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.6,
+       "aiclk_n": 68,
+       "power_w_mean": 73.4
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 8.08
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.996,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 65,
+       "power_w_mean": 78.1
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 9.07
+     }
+    ],
+    "model_load_s": 3.905,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.705,
+     "clock": {
+      "aiclk_min": 1268,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1340.4,
+      "aiclk_n": 72,
+      "power_w_mean": 78.2
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.845265,
+     "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+     "loadavg1": 5.76,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 5,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.39 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.46 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.31 -> 5.53 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 338.4,
+    "loadavg1": 5.53
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.95,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.8,
+       "aiclk_n": 66,
+       "power_w_mean": 79.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.0
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.475,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.1,
+       "aiclk_n": 68,
+       "power_w_mean": 79.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.53
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.724,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.6,
+       "aiclk_n": 64,
+       "power_w_mean": 78.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.19
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.848,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.9,
+       "aiclk_n": 65,
+       "power_w_mean": 76.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.73
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.99,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.2,
+       "aiclk_n": 67,
+       "power_w_mean": 75.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.07
+     }
+    ],
+    "model_load_s": 3.839,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.283,
+     "clock": {
+      "aiclk_min": 1293,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.3,
+      "aiclk_n": 69,
+      "power_w_mean": 74.9
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 8.1,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 6,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (3.69 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (3.58 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.16 -> 4.76 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 4.76
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.652,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.4,
+       "aiclk_n": 69,
+       "power_w_mean": 70.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 4.96
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.246,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.6,
+       "aiclk_n": 67,
+       "power_w_mean": 72.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.37
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.858,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.5,
+       "aiclk_n": 65,
+       "power_w_mean": 78.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.32
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.897,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.9,
+       "aiclk_n": 66,
+       "power_w_mean": 74.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.88
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.344,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.0,
+       "aiclk_n": 68,
+       "power_w_mean": 72.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.29
+     }
+    ],
+    "model_load_s": 3.93,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.472,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.5,
+      "aiclk_n": 69,
+      "power_w_mean": 73.8
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 5.73,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 6,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.04 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.02 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.69 -> 5.86 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 5.86
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.272,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.4,
+       "aiclk_n": 67,
+       "power_w_mean": 73.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 7.7
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.745,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 66,
+       "power_w_mean": 78.9
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 8.02
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.876,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.9,
+       "aiclk_n": 65,
+       "power_w_mean": 76.6
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 8.5
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.482,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.5,
+       "aiclk_n": 68,
+       "power_w_mean": 74.6
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 8.4
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.221,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.3,
+       "aiclk_n": 67,
+       "power_w_mean": 77.5
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 7.29
+     }
+    ],
+    "model_load_s": 4.25,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.97,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1342.4,
+      "aiclk_n": 71,
+      "power_w_mean": 73.2
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.845265,
+     "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+     "loadavg1": 6.52,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 6,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (1.90 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (1.91 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 4.87 -> 4.34 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 4.34
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.824,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.8,
+       "aiclk_n": 65,
+       "power_w_mean": 75.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.82
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.957,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.1,
+       "aiclk_n": 66,
+       "power_w_mean": 72.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.66
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.648,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.7,
+       "aiclk_n": 69,
+       "power_w_mean": 71.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.41
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.031,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.1,
+       "aiclk_n": 65,
+       "power_w_mean": 74.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.21
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.491,
+      "clock": {
+       "aiclk_min": 1275,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1338.7,
+       "aiclk_n": 63,
+       "power_w_mean": 86.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.06
+     }
+    ],
+    "model_load_s": 4.63,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 17.179,
+     "clock": {
+      "aiclk_min": 1318,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.2,
+      "aiclk_n": 73,
+      "power_w_mean": 71.5
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 4.89,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 7,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.40 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.38 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 5.87 -> 5.05 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.1,
+    "loadavg1": 5.05
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.139,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.4,
+       "aiclk_n": 66,
+       "power_w_mean": 81.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.13
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.248,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.9,
+       "aiclk_n": 68,
+       "power_w_mean": 73.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.92
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.322,
+      "clock": {
+       "aiclk_min": 1287,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.9,
+       "aiclk_n": 68,
+       "power_w_mean": 78.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.62
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.788,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 66,
+       "power_w_mean": 80.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.38
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.985,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.7,
+       "aiclk_n": 67,
+       "power_w_mean": 78.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.64
+     }
+    ],
+    "model_load_s": 4.036,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.403,
+     "clock": {
+      "aiclk_min": 1306,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.2,
+      "aiclk_n": 68,
+      "power_w_mean": 77.1
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 5.75,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 7,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.51 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.51 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.24 -> 6.84 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 246.2,
+    "loadavg1": 6.84
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.772,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.1,
+       "aiclk_n": 64,
+       "power_w_mean": 80.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.42
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.19,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.6,
+       "aiclk_n": 67,
+       "power_w_mean": 77.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.47
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.527,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.4,
+       "aiclk_n": 68,
+       "power_w_mean": 78.3
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 4.92
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.563,
+      "clock": {
+       "aiclk_min": 1287,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.1,
+       "aiclk_n": 64,
+       "power_w_mean": 76.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.06
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.703,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.1,
+       "aiclk_n": 65,
+       "power_w_mean": 73.9
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.12
+     }
+    ],
+    "model_load_s": 4.842,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.767,
+     "clock": {
+      "aiclk_min": 1306,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.4,
+      "aiclk_n": 70,
+      "power_w_mean": 73.8
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.845265,
+     "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+     "loadavg1": 5.53,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 7,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.72 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.73 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.07 -> 6.69 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 6.69
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.546,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.3,
+       "aiclk_n": 68,
+       "power_w_mean": 74.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.85
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.868,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.6,
+       "aiclk_n": 65,
+       "power_w_mean": 79.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.56
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.788,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.9,
+       "aiclk_n": 63,
+       "power_w_mean": 78.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.78
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.038,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.7,
+       "aiclk_n": 67,
+       "power_w_mean": 73.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.46
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.55,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.5,
+       "aiclk_n": 70,
+       "power_w_mean": 69.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.69
+     }
+    ],
+    "model_load_s": 3.78,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.584,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1342.7,
+      "aiclk_n": 71,
+      "power_w_mean": 74.4
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 8.42,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 8,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.33 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.33 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 5.39 -> 4.99 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 4.99
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.93,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.2,
+       "aiclk_n": 64,
+       "power_w_mean": 75.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.69
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.891,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.8,
+       "aiclk_n": 66,
+       "power_w_mean": 77.2
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.22
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.282,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.0,
+       "aiclk_n": 67,
+       "power_w_mean": 78.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.98
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.074,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.7,
+       "aiclk_n": 66,
+       "power_w_mean": 75.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.85
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.906,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.5,
+       "aiclk_n": 66,
+       "power_w_mean": 76.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.13
+     }
+    ],
+    "model_load_s": 4.709,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.827,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1342.3,
+      "aiclk_n": 70,
+      "power_w_mean": 76.6
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 7.46,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 8,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.10 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (1.96 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.91 -> 5.61 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 5.61
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.014,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.6,
+       "aiclk_n": 67,
+       "power_w_mean": 72.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.81
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.513,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.1,
+       "aiclk_n": 69,
+       "power_w_mean": 81.7
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 7.0
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.9,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.6,
+       "aiclk_n": 65,
+       "power_w_mean": 77.4
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 7.31
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.551,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.5,
+       "aiclk_n": 65,
+       "power_w_mean": 77.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.99
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.968,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.7,
+       "aiclk_n": 66,
+       "power_w_mean": 74.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 9.7
+     }
+    ],
+    "model_load_s": 3.873,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.209,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.9,
+      "aiclk_n": 69,
+      "power_w_mean": 76.8
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.845265,
+     "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+     "loadavg1": 7.01,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 8,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (4.01 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (4.04 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 7.01 -> 7.58 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 7.58
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.266,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.7,
+       "aiclk_n": 68,
+       "power_w_mean": 72.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.7
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.327,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.5,
+       "aiclk_n": 68,
+       "power_w_mean": 74.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.95
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.938,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.6,
+       "aiclk_n": 64,
+       "power_w_mean": 77.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.45
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.024,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.3,
+       "aiclk_n": 67,
+       "power_w_mean": 73.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.38
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.483,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.0,
+       "aiclk_n": 67,
+       "power_w_mean": 77.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.82
+     }
+    ],
+    "model_load_s": 3.933,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.314,
+     "clock": {
+      "aiclk_min": 1268,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1340.3,
+      "aiclk_n": 70,
+      "power_w_mean": 77.3
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 7.82,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 9,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.48 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.63 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.72 -> 7.12 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.1,
+    "loadavg1": 7.12
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.177,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.7,
+       "aiclk_n": 69,
+       "power_w_mean": 75.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.7
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.824,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.6,
+       "aiclk_n": 65,
+       "power_w_mean": 76.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.82
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.228,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1338.7,
+       "aiclk_n": 67,
+       "power_w_mean": 81.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.51
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.322,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.5,
+       "aiclk_n": 68,
+       "power_w_mean": 72.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.1
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.786,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.0,
+       "aiclk_n": 65,
+       "power_w_mean": 77.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.27
+     }
+    ],
+    "model_load_s": 3.854,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.948,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.5,
+      "aiclk_n": 73,
+      "power_w_mean": 75.0
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 5.71,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 9,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.77 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (3.07 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.85 -> 7.58 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 7.58
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.937,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1338.8,
+       "aiclk_n": 65,
+       "power_w_mean": 80.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.11
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.442,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.8,
+       "aiclk_n": 68,
+       "power_w_mean": 81.3
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.65
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.668,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.6,
+       "aiclk_n": 66,
+       "power_w_mean": 77.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.95
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.835,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.9,
+       "aiclk_n": 65,
+       "power_w_mean": 75.5
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.55
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.392,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.7,
+       "aiclk_n": 68,
+       "power_w_mean": 74.6
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.25
+     }
+    ],
+    "model_load_s": 4.262,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.218,
+     "clock": {
+      "aiclk_min": 1318,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1342.7,
+      "aiclk_n": 67,
+      "power_w_mean": 73.5
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.845265,
+     "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+     "loadavg1": 6.9,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 9,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.54 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.40 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.55 -> 5.66 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 5.66
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.863,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.7,
+       "aiclk_n": 65,
+       "power_w_mean": 71.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.77
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.742,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.5,
+       "aiclk_n": 64,
+       "power_w_mean": 77.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.94
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.362,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1344.8,
+       "aiclk_n": 68,
+       "power_w_mean": 73.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.24
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.194,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1338.3,
+       "aiclk_n": 67,
+       "power_w_mean": 78.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.83
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.718,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.0,
+       "aiclk_n": 64,
+       "power_w_mean": 74.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.2
+     }
+    ],
+    "model_load_s": 4.139,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 17.243,
+     "clock": {
+      "aiclk_min": 1312,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1342.9,
+      "aiclk_n": 73,
+      "power_w_mean": 73.6
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 7.19,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 10,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (3.69 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (3.92 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 5.20 -> 4.29 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 4.29
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.655,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.1,
+       "aiclk_n": 68,
+       "power_w_mean": 72.9
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.43
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.06,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.0,
+       "aiclk_n": 65,
+       "power_w_mean": 80.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.93
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.646,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.1,
+       "aiclk_n": 64,
+       "power_w_mean": 82.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.76
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.961,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.1,
+       "aiclk_n": 66,
+       "power_w_mean": 81.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.86
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.464,
+      "clock": {
+       "aiclk_min": 1281,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.7,
+       "aiclk_n": 68,
+       "power_w_mean": 81.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.32
+     }
+    ],
+    "model_load_s": 4.014,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.423,
+     "clock": {
+      "aiclk_min": 1262,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1340.2,
+      "aiclk_n": 69,
+      "power_w_mean": 77.1
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 4.7,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 10,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.49 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.62 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.90 -> 6.01 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 62.1,
+    "loadavg1": 6.01
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.823,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.6,
+       "aiclk_n": 65,
+       "power_w_mean": 80.3
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.97
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.042,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.5,
+       "aiclk_n": 66,
+       "power_w_mean": 76.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.39
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.527,
+      "clock": {
+       "aiclk_min": 1275,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.1,
+       "aiclk_n": 70,
+       "power_w_mean": 77.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.98
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.809,
+      "clock": {
+       "aiclk_min": 1287,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.2,
+       "aiclk_n": 64,
+       "power_w_mean": 78.4
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.96
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.656,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.7,
+       "aiclk_n": 64,
+       "power_w_mean": 75.0
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 5.99
+     }
+    ],
+    "model_load_s": 4.95,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.826,
+     "clock": {
+      "aiclk_min": 1293,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.1,
+      "aiclk_n": 70,
+      "power_w_mean": 77.7
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.845265,
+     "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+     "loadavg1": 6.35,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 10,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.31 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.50 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 5.22 -> 5.40 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 246.3,
+    "loadavg1": 5.4
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 15.913,
+      "clock": {
+       "aiclk_min": 1300,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.1,
+       "aiclk_n": 66,
+       "power_w_mean": 79.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 4.47
+     },
+     {
+      "tag": "1",
+      "fold_s": 16.251,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.4,
+       "aiclk_n": 68,
+       "power_w_mean": 74.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 4.75
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.413,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.5,
+       "aiclk_n": 67,
+       "power_w_mean": 75.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 7.23
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.577,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.6,
+       "aiclk_n": 65,
+       "power_w_mean": 77.3
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.01
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.932,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.9,
+       "aiclk_n": 65,
+       "power_w_mean": 77.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.12
+     }
+    ],
+    "model_load_s": 4.734,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.737,
+     "clock": {
+      "aiclk_min": 1300,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1343.2,
+      "aiclk_n": 70,
+      "power_w_mean": 72.7
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 4.58,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 11,
+   "pos": 0,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (3.18 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (3.44 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 5.48 -> 5.14 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 5.14
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.729,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.9,
+       "aiclk_n": 70,
+       "power_w_mean": 69.5
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.3
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.972,
+      "clock": {
+       "aiclk_min": 1287,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.8,
+       "aiclk_n": 65,
+       "power_w_mean": 75.8
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.46
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.478,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.0,
+       "aiclk_n": 63,
+       "power_w_mean": 72.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.37
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.89,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.2,
+       "aiclk_n": 66,
+       "power_w_mean": 74.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 9.82
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.397,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.8,
+       "aiclk_n": 68,
+       "power_w_mean": 73.7
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 8.87
+     }
+    ],
+    "model_load_s": 3.792,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.525,
+     "clock": {
+      "aiclk_min": 1281,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1340.5,
+      "aiclk_n": 70,
+      "power_w_mean": 73.6
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 8.42,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 11,
+   "pos": 1,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.54 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.67 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.62 -> 5.66 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 5.66
+   },
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.563,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.4,
+       "aiclk_n": 68,
+       "power_w_mean": 73.8
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.91
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.786,
+      "clock": {
+       "aiclk_min": 1268,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.9,
+       "aiclk_n": 65,
+       "power_w_mean": 81.9
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 7.49
+     },
+     {
+      "tag": "2",
+      "fold_s": 15.967,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.0,
+       "aiclk_n": 64,
+       "power_w_mean": 75.9
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 6.97
+     },
+     {
+      "tag": "3",
+      "fold_s": 16.26,
+      "clock": {
+       "aiclk_min": 1287,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1339.2,
+       "aiclk_n": 67,
+       "power_w_mean": 79.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 7.21
+     },
+     {
+      "tag": "4",
+      "fold_s": 16.253,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.1,
+       "aiclk_n": 67,
+       "power_w_mean": 78.2
+      },
+      "apb_served_declined": [
+       5064,
+       0
+      ],
+      "plddt": 0.845265,
+      "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+      "loadavg1": 8.57
+     }
+    ],
+    "model_load_s": 3.935,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": "1",
+     "module_flag": true,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.837,
+     "clock": {
+      "aiclk_min": 1306,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.4,
+      "aiclk_n": 70,
+      "power_w_mean": 72.0
+     },
+     "apb_served_declined": [
+      5064,
+      0
+     ],
+     "plddt": 0.845265,
+     "cif_sha256": "cbb1c81dc063e76310267a5adb10d9d41b63397fd2a3078a0d72b2339305570e",
+     "loadavg1": 5.82,
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 11,
+   "pos": 2,
+   "returncode": 0,
+   "guard_before": {
+    "admissible": true,
+    "checks": [
+     "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+     "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.00 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: pid 270928 BUSY on dev[3] (2.10 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+     "pair_channel: HOST: loadavg1 6.12 -> 6.26 over 60s, under ceiling 8.00 and stationary within 1.50",
+     "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+    ],
+    "waited_s": 154.2,
+    "loadavg1": 6.26
+   },
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "model": "boltz2",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 16.017,
+      "clock": {
+       "aiclk_min": 1318,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1343.2,
+       "aiclk_n": 67,
+       "power_w_mean": 75.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.87
+     },
+     {
+      "tag": "1",
+      "fold_s": 15.881,
+      "clock": {
+       "aiclk_min": 1306,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1341.3,
+       "aiclk_n": 64,
+       "power_w_mean": 78.6
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.18
+     },
+     {
+      "tag": "2",
+      "fold_s": 16.67,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1344.0,
+       "aiclk_n": 70,
+       "power_w_mean": 71.1
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 6.11
+     },
+     {
+      "tag": "3",
+      "fold_s": 15.721,
+      "clock": {
+       "aiclk_min": 1312,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1340.8,
+       "aiclk_n": 64,
+       "power_w_mean": 79.0
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.66
+     },
+     {
+      "tag": "4",
+      "fold_s": 15.986,
+      "clock": {
+       "aiclk_min": 1293,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1342.5,
+       "aiclk_n": 65,
+       "power_w_mean": 75.4
+      },
+      "apb_served_declined": [
+       0,
+       5064
+      ],
+      "plddt": 0.863008,
+      "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+      "loadavg1": 5.66
+     }
+    ],
+    "model_load_s": 4.627,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "1",
+     "lease_cards": "1",
+     "flag": "TT_BIO_APB_CONCAT_HEADS",
+     "attr": "_APB_CONCAT_HEADS",
+     "model": "boltz2",
+     "env_flag": null,
+     "module_flag": false,
+     "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+     "git_head": "02d058175f1ff81286381cfa7dc8bb128016543f",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 17.44,
+     "clock": {
+      "aiclk_min": 1268,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1341.9,
+      "aiclk_n": 75,
+      "power_w_mean": 72.4
+     },
+     "apb_served_declined": [
+      0,
+      5064
+     ],
+     "plddt": 0.863008,
+     "cif_sha256": "f2d1dce81ffa3f34f073043117cde35ad7648bdd679584d69b0e712f5ee97b72",
+     "loadavg1": 6.6,
+     "discarded": true
+    }
+   }
+  }
+ ],
+ "preflight": {
+  "admissible": true,
+  "checks": [
+   "pair_channel: BOARD PAIR: sibling 0 has no fd -- the power-budget channel is clear",
+   "pair_channel: HOST: pid 270927 BUSY on dev[2] (2.98 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+   "pair_channel: HOST: pid 270928 BUSY on dev[3] (3.04 cores, owner train-i-run) -- OTHER board pair, host channel only. Level shift, not drift. Ratio stays claimable, absolute seconds do not.",
+   "pair_channel: HOST: loadavg1 5.81 -> 7.06 over 60s, under ceiling 8.00 and stationary within 1.50",
+   "pair_channel: ADMISSIBLE for a paired ratio -- absolute seconds are NOT a fold time of record, and the session's own A/A arm is the arbiter"
+  ]
+ },
+ "summary": {
+  "512": {
+   "base_median_s": 16.049,
+   "on_median_s": 15.982,
+   "base_n": 120,
+   "on_n": 60,
+   "delta_s": 0.067,
+   "ratio_base_over_on": 1.00419,
+   "aa_floor_ratio_max": 1.03725,
+   "base_block_medians": [
+    16.351,
+    16.354,
+    16.202,
+    15.811,
+    16.4,
+    16.234,
+    15.855,
+    16.111,
+    16.248,
+    16.262,
+    16.262,
+    15.95,
+    16.246,
+    15.957,
+    16.139,
+    16.038,
+    15.93,
+    16.266,
+    16.177,
+    15.863,
+    16.06,
+    15.932,
+    15.972,
+    15.986
+   ],
+   "on_block_medians": [
+    16.218,
+    15.916,
+    16.027,
+    16.059,
+    15.831,
+    15.996,
+    16.221,
+    15.772,
+    15.968,
+    15.937,
+    15.823,
+    16.253
+   ],
+   "clock_min": 1262,
+   "clock_max": 1350,
+   "clock_samples": 11947,
+   "verdict_rule": "a ratio inside aa_floor_ratio_max is a NULL, not a win"
+  }
+ },
+ "finished_utc": "2026-09-19T10:35:27Z"
+}
