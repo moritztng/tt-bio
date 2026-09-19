@@ -207,17 +207,31 @@ class ReducedRAdam:
     def step(self, *a, **kw):
         self.steps += 1
         flat = self._flatten()
+        # The exchange is timed separately from the update it sits in front of, because the
+        # question a scaling ladder asks is whether a wider world lost its time to the reduce
+        # or to the host, and those two are both inside the `optimizer` stage. `HostReduce`
+        # counts waiting and bytes cumulatively, so the per-step figure is a delta; `reduce_s`
+        # is the whole exchange including the write, the read and the sum, and `reduce_wait_s`
+        # is the part of it spent polling for a peer, which is rank skew rather than transport.
+        t_red = time.perf_counter()
+        waited0, bytes0 = self.comm.waited, self.comm.bytes_moved
         if self.comm.world > 1:
             flat = self.comm.allreduce(flat, step=self.steps)
             self._scatter(flat)
+        reduce_s = time.perf_counter() - t_red
         out = self.inner.step(*a, **kw)
         digest = master_hash([m.detach().cpu().numpy() for m in self.mirrors])
+        t_chk = time.perf_counter()
         self.comm.check_equal(digest, step=self.steps)
+        reduce_s += time.perf_counter() - t_chk
         # The norm of the gradient the update was actually taken from, after the reduce, so it
         # means the same thing on one chip and on two. Logged every step because a loss curve
         # alone cannot distinguish a run that has converged from one whose gradient has
         # vanished or blown up, and this run's history carried neither this nor the lr.
-        self.last = {"master_digest": digest.hex(), "grad_norm": float(np.linalg.norm(flat))}
+        self.last = {"master_digest": digest.hex(), "grad_norm": float(np.linalg.norm(flat)),
+                     "reduce_s": round(reduce_s, 5),
+                     "reduce_wait_s": round(self.comm.waited - waited0, 5),
+                     "reduce_mb": round((self.comm.bytes_moved - bytes0) / 1e6, 4)}
         return out
 
     def _flatten(self) -> np.ndarray:
@@ -400,6 +414,9 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
                    "data": round(t0 - t_data, 4), "outer": round(outer, 4), **parts,
                    "lr": lr, "grad_norm": step.optimizer.last.get("grad_norm"),
                    "digest": step.optimizer.last.get("master_digest"),
+                   "reduce_s": step.optimizer.last.get("reduce_s", 0.0),
+                   "reduce_wait_s": step.optimizer.last.get("reduce_wait_s", 0.0),
+                   "reduce_mb": step.optimizer.last.get("reduce_mb", 0.0),
                    "stages": timing.as_dict(), "loss_terms": terms}
             history.append(row)
             if gs % cfg.log_every == 0:
