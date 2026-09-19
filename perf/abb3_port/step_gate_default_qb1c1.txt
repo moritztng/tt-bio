@@ -1,0 +1,79 @@
+# scripts/abb3_port/step_gate.py at its OLD default and at its new one, on qb1 card 1
+# (/dev/tenstorrent/1), Blackhole p150a, 34.23 GB of DRAM (8 banks x 4 278 190 016 B).
+RECORDED-AT: d380ba536 scripts/abb3_port/step_gate.py
+#
+# --micro 8 was the shipped default AND the value the module docstring's run line quoted, and it
+# OOMs in the first backward at abodybuilder3_grad.py:189. Every recorded run overrode it --
+# step_gate_50_devicefape_qb1c3.txt is 32 x 2 and step_gate_100_hostfape_qb1c3.txt is 16 x 4 -- so
+# no recorded number ever exercised the default. Reproduced below on this base, which already
+# carries train-h's checkpointed sidechain chunks, so checkpointing does not rescue micro 8.
+#
+# The new default is 4 x 16: the same global batch of 64, and it leaves 2427 MB of the card's
+# 32640 MB free at peak. That peak is measured, not assumed -- the allocator is sampled after
+# every abodybuilder3_ops call of the warmup step, which is where the peak lands, and the wrapper
+# is removed before anything is timed. 30213 MB of 32640 MB is a 7.4 % margin; micro 8 asks for
+# another 256 MB in one buffer and has 7.6 MB.
+#
+# CLOCK: 1350 MHz, min = median = max over 42 samples taken DURING the five timed steps. The
+# reported card index is 0 because TT_VISIBLE_DEVICES=1 makes physical card 1 the only visible
+# one. Card lease held as worker:train-o-b2-orphans throughout.
+#
+# The 25.470 s step is not comparable with step_gate_complete_qb1c3.txt's figure and is not
+# offered as a perf claim: this is a fit-and-clock record for the default, run at a different
+# micro/accumulate split beside a cotenant on card 0 of the same host.
+#
+== --micro 8 --accumulate 8 --steps 1 --warmup 1 ==
+2026-09-19 00:11:25.070 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 268435456 B DRAM buffer across 8 banks, where each bank needs to store 33554432 B, but bank size is 4278190016 B (allocated: 4270559616 B, free: 7630400 B, largest free block: 1572864 B) (assert.hpp:104)
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 0 elsewhere, 570 pid(s) unreadable
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+  sidechain FAPE on the card
+  taped device parameters: 436
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/train-o-b2-orphans/scripts/abb3_port/step_gate.py", line 279, in <module>
+    raise SystemExit(main())
+  File "/home/ttuser/.coworker/wt/train-o-b2-orphans/scripts/abb3_port/step_gate.py", line 148, in main
+    step.step(micro)
+  File "/home/ttuser/.coworker/wt/train-o-b2-orphans/tt_bio/train/abodybuilder3_step.py", line 228, in step
+    grad.backward(packed["roots"], packed["seeds"])
+  File "/home/ttuser/.coworker/wt/train-o-b2-orphans/tt_bio/train/abodybuilder3_grad.py", line 109, in backward
+    t.node.fn(t.grad)
+  File "/home/ttuser/.coworker/wt/train-o-b2-orphans/tt_bio/train/abodybuilder3_grad.py", line 189, in bw
+    x.add_grad(ttnn.matmul(g, wv, transpose_b=True, compute_kernel_config=cfg))
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/decorators.py", line 473, in __call__
+    result = self.function(*function_args, **function_kwargs)
+RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+info:
+Out of Memory: Not enough space to allocate 268435456 B DRAM buffer across 8 banks, where each bank needs to store 33554432 B, but bank size is 4278190016 B (allocated: 4270559616 B, free: 7630400 B, largest free block: 1572864 B)
+backtrace:
+
+EXIT=1
+== --steps 5 ==
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 0 elsewhere, 569 pid(s) unreadable
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+  sidechain FAPE on the card
+  taped device parameters: 436
+  every one of 436 parameters took a non-zero gradient
+host [device open, before timing]: our node(s) ['/dev/tenstorrent/2']; 0 cotenant(s) on our node, 0 elsewhere, 582 pid(s) unreadable
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+  step   1  25.577 s  loss 4.9937  (median so far 25.577 s)
+  step   5  25.689 s  loss 4.9918  (median so far 25.470 s)
+
+STEP: median 25.470 s over 5 COMPLETE steps at batch 64 (16 x 4) and 256 tokens, min 25.143 s, max 25.689 s
+BREAKDOWN (median over steps, seconds and share of the step):
+  forward             5.035 s   19.8 %
+  download            0.176 s    0.7 %
+  losses              4.761 s   18.7 %
+  host_backward       4.599 s   18.1 %
+  device_backward    10.574 s   41.5 %
+  optimizer           0.082 s    0.3 %
+LOSS TERMS (cumulative over 6 steps, share of the loss stage):
+  fape_sidechain      26.34 s   57.4 %
+  fape_backbone       13.44 s   29.3 %
+  renamed_gt           4.19 s    9.1 %
+  final_backbone       1.80 s    3.9 %
+  supervised_chi       0.14 s    0.3 %
+CLOCK: AICLK during the run: card 0 min 1350 median 1350 max 1350 MHz over 42
+DRAM: peak 30213 MB of the card's 32640 MB at micro 4 x 16 and 256 tokens, 2427 MB spare. Sampled after every abodybuilder3_ops call of the warmup step; the timed steps run uninstrumented
+INCLUDES: device forward and backward, host geometry tail, the stage-1 losses (FAPE, supervised chi, final-block) and one RAdam step
+TARGETS: synthetic -- their structures/*.pt are not staged on this host; a loss's COST is shape-set and its VALUE is checked by loss_gate.py
+EXIT=0

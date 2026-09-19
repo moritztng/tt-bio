@@ -37,7 +37,8 @@ REPO = Path(__file__).resolve().parents[1]
 #: ``RECORDED-AT: <40-hex commit> <producing script, repo-relative>``. Any file under ``perf/``
 #: carrying it is checked; these must carry it, so that stripping the stanza or deleting the file
 #: fails rather than quietly removing the check.
-REQUIRED = ("perf/abb3_port/model_gate_qb1c1.txt",)
+REQUIRED = ("perf/abb3_port/model_gate_qb1c1.txt",
+            "perf/abb3_port/step_gate_default_qb1c1.txt")
 
 STANZA = re.compile(r"^RECORDED-AT:\s*([0-9a-f]{7,40})\s+(\S+)\s*$", re.M)
 
