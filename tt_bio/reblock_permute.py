@@ -602,6 +602,14 @@ def eligible_back(x, memory_config) -> bool:
         return _reject("back_sharded_in", shape)
     if memory_config.buffer_type != ttnn.BufferType.DRAM or N < 256:
         return _reject(f"back_window_{memory_config.buffer_type}", shape)
+    # An L1 SOURCE is the channel loop's L1 path, where this kernel replaces a permute into L1
+    # plus a clone to DRAM. It carries the forward kernel's L1 floor rather than the DRAM one:
+    # MEASURED on the 11x10 grid, qb1 card 0, 1350 MHz sampled during, 9 interleaved reps against
+    # an A/A floor of 1.0002-1.0015x -- 256 LOSES at 0.9918x / 0.9903x, 288 wins 1.0086x /
+    # 1.0092x, 320 wins 1.0135x / 1.0172x (perf/trix_layout/back_onepass_qb1c0.json). 256's
+    # chunks are 4.19 MB, small enough that the kernel's own dispatch outweighs the deleted pass.
+    if x.memory_config().buffer_type == ttnn.BufferType.L1 and N < L1_N_MIN:
+        return _reject("back_l1_src_narrow", shape)
     return True
 
 

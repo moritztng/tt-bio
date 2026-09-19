@@ -1,0 +1,1077 @@
+{
+ "nt": 128,
+ "seed": 7,
+ "fd_bar": 2e-06,
+ "bars": {
+  "float32": [
+   0.025,
+   0.9999,
+   "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here"
+  ],
+  "bfloat16": [
+   0.01,
+   0.9999,
+   "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03"
+  ]
+ },
+ "blocks_in_module": 24,
+ "arms": [
+  {
+   "arm": "fp32",
+   "nt": 128,
+   "seed": 7,
+   "fd_worst": 7.288467035543244e-08,
+   "fd_probed": 528,
+   "fd_eligible": 8408567,
+   "fd_ok": true,
+   "fd_seconds": 13.0,
+   "grads": {
+    "a": {
+     "rel_l2": 0.011907777878774652,
+     "max_abs": 0.6644935375076937,
+     "max_rel": 0.642678428369462,
+     "cos": 0.9999389498486094,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "s": {
+     "rel_l2": 0.010673968317242542,
+     "max_abs": 0.9755339719599334,
+     "max_rel": 0.5054379898429284,
+     "cos": 0.9999694821460463,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "g1": {
+     "rel_l2": 0.01313524942847915,
+     "max_abs": 0.2781936307189037,
+     "max_rel": 0.25084088892398143,
+     "cos": 0.9999581733002776,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "ws1": {
+     "rel_l2": 0.015426892085364729,
+     "max_abs": 0.08799273095289672,
+     "max_rel": 0.5584963197139416,
+     "cos": 0.999950640301541,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "bs1": {
+     "rel_l2": 0.013814682903162716,
+     "max_abs": 0.04245937421625667,
+     "max_rel": 0.392104184875851,
+     "cos": 0.9999523533522389,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "wb1": {
+     "rel_l2": 0.015932868369645733,
+     "max_abs": 0.41268635973396073,
+     "max_rel": 0.6174123748396418,
+     "cos": 0.9999517892996019,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "g2": {
+     "rel_l2": 0.0086679871724459,
+     "max_abs": 0.27086274349600714,
+     "max_rel": 0.4061025583856684,
+     "cos": 0.9999833347614423,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "ws2": {
+     "rel_l2": 0.013418943517003495,
+     "max_abs": 0.09871595041899273,
+     "max_rel": 0.5685421591120787,
+     "cos": 0.9999448019357335,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "bs2": {
+     "rel_l2": 0.012255979168289272,
+     "max_abs": 0.04444664580612989,
+     "max_rel": 0.5625231944544616,
+     "cos": 0.9999455760954442,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "wb2": {
+     "rel_l2": 0.010311457865450357,
+     "max_abs": 0.31382636956981713,
+     "max_rel": 0.36112108282222977,
+     "cos": 0.999985896577105,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "wq": {
+     "rel_l2": 0.016362374048368267,
+     "max_abs": 0.3005055214538803,
+     "max_rel": 0.679803851894503,
+     "cos": 0.9999522989399943,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "wk": {
+     "rel_l2": 0.016515651343251527,
+     "max_abs": 0.3062986740125062,
+     "max_rel": 0.6658067053226446,
+     "cos": 0.9999513721163089,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "wv": {
+     "rel_l2": 0.012733495599364653,
+     "max_abs": 0.21172353537776267,
+     "max_rel": 0.5775144124779426,
+     "cos": 0.9999566750330793,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "wo": {
+     "rel_l2": 0.012712137847505996,
+     "max_abs": 0.2293120295517035,
+     "max_rel": 0.5573639036406635,
+     "cos": 0.9999580399592709,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "wgate": {
+     "rel_l2": 0.014081710360296408,
+     "max_abs": 0.0972634108107151,
+     "max_rel": 0.5199557122823246,
+     "cos": 0.9999567956363725,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "walast": {
+     "rel_l2": 0.013607597683339214,
+     "max_abs": 0.00598839291922032,
+     "max_rel": 0.6373343122802944,
+     "cos": 0.999957619227282,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "balast": {
+     "rel_l2": 0.013636735870749239,
+     "max_abs": 0.05534607708475958,
+     "max_rel": 0.7126078347075667,
+     "cos": 0.999950466231998,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "wa1": {
+     "rel_l2": 0.010925007173653089,
+     "max_abs": 0.24166576533690964,
+     "max_rel": 0.38276752648150125,
+     "cos": 0.9999745266539397,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "wa2": {
+     "rel_l2": 0.010651552407762811,
+     "max_abs": 0.2975844122728546,
+     "max_rel": 0.42280768325606916,
+     "cos": 0.9999780252511236,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "wbt": {
+     "rel_l2": 0.010683607077946968,
+     "max_abs": 0.3313830079262594,
+     "max_rel": 0.3737279317555099,
+     "cos": 0.999977634056987,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "wsc": {
+     "rel_l2": 0.011782245362030342,
+     "max_abs": 0.0070849335075596764,
+     "max_rel": 0.4831211066423661,
+     "cos": 0.9999776780245463,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    },
+    "bsc": {
+     "rel_l2": 0.011955852763350797,
+     "max_abs": 0.10551583479491455,
+     "max_rel": 0.3556038537813885,
+     "cos": 0.9999735557820771,
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here",
+     "pass": true
+    }
+   },
+   "aiclk_before": {
+    "0": 1350,
+    "1": 800,
+    "2": 800,
+    "3": 1350
+   },
+   "aiclk_after": {
+    "0": 1350,
+    "1": 800,
+    "2": 800,
+    "3": 1350
+   },
+   "bar": {
+    "rel_l2": 0.025,
+    "cos": 0.9999,
+    "from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03 (gradcheck_dispatch.py); fp32 does not mean exact here"
+   },
+   "worst_rel_l2": 0.016515651343251527,
+   "worst_cos": 0.9999389498486094,
+   "pass": true
+  },
+  {
+   "arm": "bf16",
+   "nt": 128,
+   "seed": 7,
+   "fd_worst": 8.912778614680662e-08,
+   "fd_probed": 528,
+   "fd_eligible": 8408570,
+   "fd_ok": true,
+   "fd_seconds": 16.7,
+   "grads": {
+    "a": {
+     "rel_l2": 0.03593947641869678,
+     "max_abs": 2.0142971711990274,
+     "max_rel": 2.317115895738787,
+     "cos": 0.9993668022044446,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "s": {
+     "rel_l2": 0.03068782394821252,
+     "max_abs": 3.067764464576115,
+     "max_rel": 1.874816067076322,
+     "cos": 0.9995373254840989,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "g1": {
+     "rel_l2": 0.03771081857768529,
+     "max_abs": 0.9436950291248856,
+     "max_rel": 1.337411459882435,
+     "cos": 0.999297666667494,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "ws1": {
+     "rel_l2": 0.04101454929991455,
+     "max_abs": 0.251415573797811,
+     "max_rel": 2.7699827014433285,
+     "cos": 0.9991634299819883,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "bs1": {
+     "rel_l2": 0.038511751236194054,
+     "max_abs": 0.15160915006654185,
+     "max_rel": 2.1966787020648506,
+     "cos": 0.9992686217659509,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wb1": {
+     "rel_l2": 0.040383462992986,
+     "max_abs": 0.949037694838168,
+     "max_rel": 2.843564163429405,
+     "cos": 0.9991853265786557,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "g2": {
+     "rel_l2": 0.022673416495388943,
+     "max_abs": 0.5545192256262608,
+     "max_rel": 0.5365279366529677,
+     "cos": 0.9997477422298275,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "ws2": {
+     "rel_l2": 0.037734928342277256,
+     "max_abs": 0.2791889009049069,
+     "max_rel": 2.037549704130019,
+     "cos": 0.9993085225598038,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "bs2": {
+     "rel_l2": 0.03832250774731774,
+     "max_abs": 0.16178448913636778,
+     "max_rel": 1.3356666422707055,
+     "cos": 0.999283634231816,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wb2": {
+     "rel_l2": 0.02338975059380197,
+     "max_abs": 0.6784224854424448,
+     "max_rel": 1.4131200811564426,
+     "cos": 0.9997268107963269,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wq": {
+     "rel_l2": 0.04142059394940212,
+     "max_abs": 0.7775513157992533,
+     "max_rel": 2.753655001447236,
+     "cos": 0.9991426608159327,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wk": {
+     "rel_l2": 0.04194350085563136,
+     "max_abs": 0.7865213212317053,
+     "max_rel": 3.1420386903718804,
+     "cos": 0.9991215497489797,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wv": {
+     "rel_l2": 0.037108324612891215,
+     "max_abs": 0.6352145004860761,
+     "max_rel": 2.5800670315967333,
+     "cos": 0.9993133287887671,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wo": {
+     "rel_l2": 0.038518038984479884,
+     "max_abs": 0.8132281780729356,
+     "max_rel": 2.469061568851429,
+     "cos": 0.9992660081080434,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wgate": {
+     "rel_l2": 0.04083853529584032,
+     "max_abs": 0.30405873567374986,
+     "max_rel": 2.229691795215338,
+     "cos": 0.9991817238390585,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "walast": {
+     "rel_l2": 0.039582242969809285,
+     "max_abs": 0.022654162698557523,
+     "max_rel": 2.2211737913092104,
+     "cos": 0.9992306767387412,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "balast": {
+     "rel_l2": 0.04249929243507169,
+     "max_abs": 0.23486352426781104,
+     "max_rel": 2.1541502994335735,
+     "cos": 0.9991073496693202,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wa1": {
+     "rel_l2": 0.028523813815778367,
+     "max_abs": 0.6895288783055378,
+     "max_rel": 1.6784517975850475,
+     "cos": 0.9995992031216385,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wa2": {
+     "rel_l2": 0.026693029624026973,
+     "max_abs": 0.6596314576678337,
+     "max_rel": 1.4984298999196102,
+     "cos": 0.9996481358368418,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wbt": {
+     "rel_l2": 0.028090060762115,
+     "max_abs": 1.0035135959995056,
+     "max_rel": 1.8282024208064709,
+     "cos": 0.9996129223125197,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wsc": {
+     "rel_l2": 0.02942834151106841,
+     "max_abs": 0.01769125835053169,
+     "max_rel": 1.8474941834209422,
+     "cos": 0.9995763819418185,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "bsc": {
+     "rel_l2": 0.029521145398895093,
+     "max_abs": 0.20100726925394508,
+     "max_rel": 2.040137878399171,
+     "cos": 0.9995736752289472,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    }
+   },
+   "aiclk_before": {
+    "0": 1350,
+    "1": 800,
+    "2": 800,
+    "3": 1350
+   },
+   "aiclk_after": {
+    "0": 1350,
+    "1": 800,
+    "2": 800,
+    "3": 1350
+   },
+   "bar": {
+    "rel_l2": 0.01,
+    "cos": 0.9999,
+    "from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03"
+   },
+   "worst_rel_l2": 0.04249929243507169,
+   "worst_cos": 0.9991073496693202,
+   "pass": false
+  },
+  {
+   "arm": "bf16_lofi",
+   "nt": 128,
+   "seed": 7,
+   "fd_worst": 8.912778614680662e-08,
+   "fd_probed": 528,
+   "fd_eligible": 8408570,
+   "fd_ok": true,
+   "fd_seconds": 11.3,
+   "grads": {
+    "a": {
+     "rel_l2": 0.04028299996315699,
+     "max_abs": 2.60447536357767,
+     "max_rel": 1.923559772515541,
+     "cos": 0.9992469825202083,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "s": {
+     "rel_l2": 0.03549696501986086,
+     "max_abs": 3.4364070644672102,
+     "max_rel": 2.129274075746624,
+     "cos": 0.9994142777128665,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "g1": {
+     "rel_l2": 0.04330948561759242,
+     "max_abs": 1.0218200291248856,
+     "max_rel": 1.0418437636228959,
+     "cos": 0.9991135174315356,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "ws1": {
+     "rel_l2": 0.045356765120762546,
+     "max_abs": 0.2476125715272221,
+     "max_rel": 2.680927991960415,
+     "cos": 0.9990030115820224,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "bs1": {
+     "rel_l2": 0.043091973358180116,
+     "max_abs": 0.16183777270601762,
+     "max_rel": 2.0614358120679577,
+     "cos": 0.9991055936732898,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wb1": {
+     "rel_l2": 0.044254116270402134,
+     "max_abs": 1.1345172769344831,
+     "max_rel": 2.9204354466979927,
+     "cos": 0.9990255011477117,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "g2": {
+     "rel_l2": 0.027823917120385223,
+     "max_abs": 0.8045192256262608,
+     "max_rel": 0.9909188095576761,
+     "cos": 0.9996533250700356,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "ws2": {
+     "rel_l2": 0.04040724166742897,
+     "max_abs": 0.3482808937098323,
+     "max_rel": 2.321054343182154,
+     "cos": 0.999220810605236,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "bs2": {
+     "rel_l2": 0.04189961595643634,
+     "max_abs": 0.16178448913636778,
+     "max_rel": 1.417786819481795,
+     "cos": 0.9991580096346153,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wb2": {
+     "rel_l2": 0.02691539641547788,
+     "max_abs": 0.8196255366599239,
+     "max_rel": 1.7070746374995107,
+     "cos": 0.9996424252147437,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wq": {
+     "rel_l2": 0.044254742843612596,
+     "max_abs": 0.8713013157992533,
+     "max_rel": 2.935839617997638,
+     "cos": 0.9990213528955052,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wk": {
+     "rel_l2": 0.04484664476103039,
+     "max_abs": 0.8573930923831066,
+     "max_rel": 3.2262236170677183,
+     "cos": 0.9989942921975975,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wv": {
+     "rel_l2": 0.040716275930736255,
+     "max_abs": 0.6865789791132659,
+     "max_rel": 2.8234474481581238,
+     "cos": 0.9991836435220507,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wo": {
+     "rel_l2": 0.04093081340220797,
+     "max_abs": 0.8757281780729356,
+     "max_rel": 2.6810597758367942,
+     "cos": 0.999180988279991,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wgate": {
+     "rel_l2": 0.043376329272035184,
+     "max_abs": 0.3154452839983407,
+     "max_rel": 2.2006199427958513,
+     "cos": 0.9990917834985004,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "walast": {
+     "rel_l2": 0.042445626983644666,
+     "max_abs": 0.020701037698557523,
+     "max_rel": 2.3920115755856286,
+     "cos": 0.9991362644324866,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "balast": {
+     "rel_l2": 0.04634746777490689,
+     "max_abs": 0.26611352426781104,
+     "max_rel": 3.3053000437523963,
+     "cos": 0.9989595616010707,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wa1": {
+     "rel_l2": 0.029993847764041192,
+     "max_abs": 0.7459125336354653,
+     "max_rel": 1.6006937148270466,
+     "cos": 0.9995575424419808,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wa2": {
+     "rel_l2": 0.02833327746292104,
+     "max_abs": 0.7105487375595398,
+     "max_rel": 1.558272532253014,
+     "cos": 0.9996041971004341,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wbt": {
+     "rel_l2": 0.028561202454378622,
+     "max_abs": 1.0347635959995056,
+     "max_rel": 1.8859208375576235,
+     "cos": 0.9995971562088815,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wsc": {
+     "rel_l2": 0.030077520198966902,
+     "max_abs": 0.018478329086435652,
+     "max_rel": 1.8378635677002497,
+     "cos": 0.9995583671042744,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "bsc": {
+     "rel_l2": 0.029521145398895093,
+     "max_abs": 0.20100726925394508,
+     "max_rel": 2.040137878399171,
+     "cos": 0.9995736752289472,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    }
+   },
+   "aiclk_before": {
+    "0": 1350,
+    "1": 800,
+    "2": 800,
+    "3": 1350
+   },
+   "aiclk_after": {
+    "0": 1350,
+    "1": 800,
+    "2": 800,
+    "3": 1350
+   },
+   "bar": {
+    "rel_l2": 0.01,
+    "cos": 0.9999,
+    "from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03"
+   },
+   "worst_rel_l2": 0.04634746777490689,
+   "worst_cos": 0.9989595616010707,
+   "pass": false
+  },
+  {
+   "arm": "mixed",
+   "nt": 128,
+   "seed": 7,
+   "fd_worst": 8.912778614680662e-08,
+   "fd_probed": 528,
+   "fd_eligible": 8408570,
+   "fd_ok": true,
+   "fd_seconds": 11.3,
+   "grads": {
+    "a": {
+     "rel_l2": 0.03426844274977898,
+     "max_abs": 2.0767971711990274,
+     "max_rel": 1.923559772515541,
+     "cos": 0.99943086009105,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "s": {
+     "rel_l2": 0.029361766705984695,
+     "max_abs": 2.611193686058698,
+     "max_rel": 1.6941251827550974,
+     "cos": 0.9995809231281477,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "g1": {
+     "rel_l2": 0.035852524150495314,
+     "max_abs": 0.8811950291248856,
+     "max_rel": 0.7494028102465028,
+     "cos": 0.9993781473621494,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "ws1": {
+     "rel_l2": 0.03930758500415683,
+     "max_abs": 0.25621764085378707,
+     "max_rel": 2.26533934770682,
+     "cos": 0.9992431682028086,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "bs1": {
+     "rel_l2": 0.03737484040331022,
+     "max_abs": 0.12374489221906321,
+     "max_rel": 1.9302942426772223,
+     "cos": 0.9993260799836897,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wb1": {
+     "rel_l2": 0.03843750372457814,
+     "max_abs": 0.9443359450598254,
+     "max_rel": 2.34925736864411,
+     "cos": 0.9992614100231163,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "g2": {
+     "rel_l2": 0.022077235874684055,
+     "max_abs": 0.5280409869956202,
+     "max_rel": 0.4192967676887183,
+     "cos": 0.9997597790648646,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "ws2": {
+     "rel_l2": 0.03584412867115278,
+     "max_abs": 0.25685451482096733,
+     "max_rel": 2.2400530177386866,
+     "cos": 0.999373008897267,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "bs2": {
+     "rel_l2": 0.03549985990962031,
+     "max_abs": 0.16178448913636778,
+     "max_rel": 1.5379010328815224,
+     "cos": 0.99938345495907,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wb2": {
+     "rel_l2": 0.02260065727649151,
+     "max_abs": 0.6290407460183598,
+     "max_rel": 1.4907512289736002,
+     "cos": 0.9997447866080013,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wq": {
+     "rel_l2": 0.039696888645960146,
+     "max_abs": 0.7697388157992533,
+     "max_rel": 2.7628364412453887,
+     "cos": 0.9992133033956344,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wk": {
+     "rel_l2": 0.040194002221983195,
+     "max_abs": 0.7783110256962686,
+     "max_rel": 2.4869030227128115,
+     "cos": 0.9991928729982361,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wv": {
+     "rel_l2": 0.03497685581761297,
+     "max_abs": 0.5672028038470067,
+     "max_rel": 2.247043601170801,
+     "cos": 0.9993920293994031,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wo": {
+     "rel_l2": 0.036366598626435674,
+     "max_abs": 0.7819781780729356,
+     "max_rel": 2.1206991234362818,
+     "cos": 0.9993502168308586,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wgate": {
+     "rel_l2": 0.03875957789134231,
+     "max_abs": 0.2689567007496483,
+     "max_rel": 1.9524411164931532,
+     "cos": 0.9992685954080675,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "walast": {
+     "rel_l2": 0.03737898987592155,
+     "max_abs": 0.01760195843428719,
+     "max_rel": 2.368652658880156,
+     "cos": 0.9993187433091234,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "balast": {
+     "rel_l2": 0.038793193317097484,
+     "max_abs": 0.21906104904738877,
+     "max_rel": 2.0850813147744445,
+     "cos": 0.9992603559901394,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wa1": {
+     "rel_l2": 0.027389499081217832,
+     "max_abs": 0.6594880025564738,
+     "max_rel": 1.7165105093304889,
+     "cos": 0.9996300862952787,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wa2": {
+     "rel_l2": 0.025771340688363936,
+     "max_abs": 0.6317781938520977,
+     "max_rel": 1.222383112732073,
+     "cos": 0.9996715495315274,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wbt": {
+     "rel_l2": 0.027253597899040322,
+     "max_abs": 0.8826020850151632,
+     "max_rel": 1.7069171963957535,
+     "cos": 0.9996351079222074,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "wsc": {
+     "rel_l2": 0.02865484547483504,
+     "max_abs": 0.01794689069136879,
+     "max_rel": 2.0352911899744464,
+     "cos": 0.9995989829066916,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    },
+    "bsc": {
+     "rel_l2": 0.028540804668624215,
+     "max_abs": 0.18474323757067923,
+     "max_rel": 1.8103015285141892,
+     "cos": 0.9995997992935979,
+     "rel_l2_bar": 0.01,
+     "cos_bar": 0.9999,
+     "bar_from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03",
+     "pass": false
+    }
+   },
+   "aiclk_before": {
+    "0": 1350,
+    "1": 800,
+    "2": 800,
+    "3": 1350
+   },
+   "aiclk_after": {
+    "0": 1350,
+    "1": 800,
+    "2": 800,
+    "3": 1350
+   },
+   "bar": {
+    "rel_l2": 0.01,
+    "cos": 0.9999,
+    "from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03"
+   },
+   "worst_rel_l2": 0.040194002221983195,
+   "worst_cos": 0.9991928729982361,
+   "pass": false
+  }
+ ],
+ "stall": {
+  "lr=0.0018": {
+   "bfloat16": {
+    "kept": 0.999907,
+    "elements": 8261376
+   },
+   "float32": {
+    "kept": 1.0,
+    "elements": 8261376
+   }
+  },
+  "lr=0.001": {
+   "bfloat16": {
+    "kept": 0.999907,
+    "elements": 8261376
+   },
+   "float32": {
+    "kept": 1.0,
+    "elements": 8261376
+   }
+  },
+  "lr=0.0001": {
+   "bfloat16": {
+    "kept": 0.604561,
+    "elements": 8261376
+   },
+   "float32": {
+    "kept": 1.0,
+    "elements": 8261376
+   }
+  },
+  "lr=1e-05": {
+   "bfloat16": {
+    "kept": 0.085955,
+    "elements": 8261376
+   },
+   "float32": {
+    "kept": 1.0,
+    "elements": 8261376
+   }
+  }
+ },
+ "aiclk_end": {
+  "0": 1350,
+  "1": 800,
+  "2": 800,
+  "3": 1350
+ },
+ "all_pass": false
+}

@@ -1,0 +1,156 @@
+{
+ "nt": 128,
+ "blocks": 24,
+ "seed": 7,
+ "bf16_max": 3.3895313892515355e+38,
+ "fp32_max": 3.4028234663852886e+38,
+ "device_nodes_held": [
+  3
+ ],
+ "aiclk": {
+  "0": 1350,
+  "1": 800,
+  "2": 800,
+  "3": 1350
+ },
+ "rows": [
+  {
+   "scale": 1.0,
+   "seed_scale": 1.0,
+   "seed_max_abs": 4.272464053414202,
+   "fwd_max_abs": 45.06330490112305,
+   "gain": 547.3598293808236,
+   "grad_max_abs": 2338.5751953125,
+   "all_finite_fp32": true,
+   "would_overflow_bf16": false,
+   "bf16_headroom_decades": 35.1611883211957,
+   "per_tensor_max_abs": {
+    "s": 2338.5751953125,
+    "wbt": 1023.6453247070312,
+    "wb2": 915.6153564453125,
+    "wa1": 677.4942626953125,
+    "g2": 671.5594482421875,
+    "wa2": 615.5916748046875
+   }
+  },
+  {
+   "scale": 1.0,
+   "seed_scale": 1000000.0,
+   "seed_max_abs": 4272464.053414202,
+   "fwd_max_abs": 45.06330490112305,
+   "gain": 547.364182065192,
+   "grad_max_abs": 2338593792.0,
+   "all_finite_fp32": true,
+   "would_overflow_bf16": false,
+   "bf16_headroom_decades": 29.161184867637026,
+   "per_tensor_max_abs": {
+    "s": 2338593792.0,
+    "wbt": 1023521792.0,
+    "wb2": 915545152.0,
+    "wa1": 677389376.0,
+    "g2": 671550080.0,
+    "wa2": 615663296.0
+   }
+  },
+  {
+   "scale": 1.0,
+   "seed_scale": 1000000000000.0,
+   "seed_max_abs": 4272464053414.202,
+   "fwd_max_abs": 45.06330490112305,
+   "gain": 547.3365519625,
+   "grad_max_abs": 2338475743379456.0,
+   "all_finite_fp32": true,
+   "would_overflow_bf16": false,
+   "bf16_headroom_decades": 23.161206790708352,
+   "per_tensor_max_abs": {
+    "s": 2338475743379456.0,
+    "wbt": 1023577545506816.0,
+    "wb2": 915674947911680.0,
+    "wa1": 677489886101504.0,
+    "g2": 671670540959744.0,
+    "wa2": 615736644993024.0
+   }
+  },
+  {
+   "scale": 1.0,
+   "seed_scale": 1e+18,
+   "seed_max_abs": 4.2724640534142024e+18,
+   "fwd_max_abs": 45.06330490112305,
+   "gain": 547.3882185507192,
+   "grad_max_abs": 2.338696487020385e+21,
+   "all_finite_fp32": true,
+   "would_overflow_bf16": false,
+   "bf16_headroom_decades": 17.16116579681695,
+   "per_tensor_max_abs": {
+    "s": 2.338696487020385e+21,
+    "wbt": 1.0234514595692465e+21,
+    "wb2": 9.155608343586569e+20,
+    "wa1": 6.774099934820958e+20,
+    "g2": 6.715645322720014e+20,
+    "wa2": 6.156982233194006e+20
+   }
+  },
+  {
+   "scale": 1.0,
+   "seed_scale": 1e+24,
+   "seed_max_abs": 4.272464053414202e+24,
+   "fwd_max_abs": 45.06330490112305,
+   "gain": 547.3504025126127,
+   "grad_max_abs": 2.3385349193569324e+27,
+   "all_finite_fp32": true,
+   "would_overflow_bf16": false,
+   "bf16_headroom_decades": 11.161195800867903,
+   "per_tensor_max_abs": {
+    "s": 2.3385349193569324e+27,
+    "wbt": 1.0234452836930055e+27,
+    "wb2": 9.156019284892847e+26,
+    "wa1": 6.774795500696347e+26,
+    "g2": 6.714969758186255e+26,
+    "wa2": 6.157356413237822e+26
+   }
+  },
+  {
+   "scale": 1.0,
+   "seed_scale": 1e+30,
+   "seed_max_abs": 4.272464053414202e+30,
+   "fwd_max_abs": 45.06330490112305,
+   "gain": 547.3953239792284,
+   "grad_max_abs": 2.3387268447082743e+33,
+   "all_finite_fp32": true,
+   "would_overflow_bf16": false,
+   "bf16_headroom_decades": 5.161160159449792,
+   "per_tensor_max_abs": {
+    "s": 2.3387268447082743e+33,
+    "wbt": 1.0235266580860837e+33,
+    "wb2": 9.155471834169115e+32,
+    "wa1": 6.77589884837961e+32,
+    "g2": 6.715431667160715e+32,
+    "wa2": 6.1567965238952205e+32
+   }
+  },
+  {
+   "scale": 1.0,
+   "seed_scale": 1e+36,
+   "seed_max_abs": 4.2724640534142026e+36,
+   "fwd_max_abs": 45.06330490112305,
+   "gain": Infinity,
+   "grad_max_abs": Infinity,
+   "all_finite_fp32": false,
+   "would_overflow_bf16": true,
+   "bf16_headroom_decades": -Infinity,
+   "per_tensor_max_abs": {
+    "g2": Infinity,
+    "wb2": Infinity,
+    "wa1": Infinity,
+    "wa2": Infinity,
+    "wbt": Infinity,
+    "s": Infinity
+   }
+  }
+ ],
+ "swept": "seed",
+ "first_scale_overflowing_bf16": 1.0,
+ "median_gain": 547.364182065192,
+ "seed_magnitude_that_overflows_bf16": 6.192461071279663e+35,
+ "grad_decades_per_decade_of_input": Infinity
+}

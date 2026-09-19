@@ -1,0 +1,1177 @@
+{
+ "host": "tt-quietbox2",
+ "model": "protenix-v2",
+ "size": 512,
+ "card": 1,
+ "grid": [
+  11,
+  10
+ ],
+ "fold_s": 55.063,
+ "wall_s": 55.063,
+ "plddt": 0.824303,
+ "n_tokens": 512,
+ "aiclk_after": [
+  [
+   1,
+   1350
+  ]
+ ],
+ "nodes_forced": [
+  1
+ ],
+ "loadavg1": 6.27,
+ "git_head": "67f1ecaa8e38868865f8abe16e45c6e1b490085c",
+ "rows": [
+  {
+   "op": "linear",
+   "in0": "1x16x512x256|BFLOAT16|L1",
+   "in1": "256x1024|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 33536,
+   "sites": {
+    "tenstorrent.swiglu:8333 <- tenstorrent.__call__:8609": 16768,
+    "tenstorrent.swiglu:8344 <- tenstorrent.__call__:8609": 16768
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x384|FLOAT32|DRAM",
+   "in1": "384x768|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "-",
+   "out_mc": "None",
+   "n": 19200,
+   "sites": {
+    "tenstorrent.s_terms:9517 <- tenstorrent.__call__:9565": 9600,
+    "tenstorrent.s_terms:9525 <- tenstorrent.__call__:9565": 9600
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x16x512x1024|BFLOAT16|L1",
+   "in1": "1024x256|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 16768,
+   "sites": {
+    "tenstorrent.swiglu:8355 <- tenstorrent.__call__:8609": 16768
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x768|FLOAT32|DRAM",
+   "in1": "768x768|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 9600,
+   "sites": {
+    "tenstorrent.__call__:8281 <- protenix._token_dit_device:1279": 4800,
+    "tenstorrent.__call__:8291 <- protenix._token_dit_device:1279": 4800
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x384|FLOAT32|DRAM",
+   "in1": "384x768|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 9600,
+   "sites": {
+    "protenix.linb:1275 <- protenix._token_dit_device:1281": 4800,
+    "protenix.linb:1275 <- protenix._token_dit_device:1286": 4800
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x768|FLOAT32|DRAM",
+   "in1": "768x1536|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 9600,
+   "sites": {
+    "protenix.linb:1275 <- protenix._token_dit_device:1284": 4800,
+    "protenix.linb:1275 <- protenix._token_dit_device:1285": 4800
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x4117x128|FLOAT32|DRAM",
+   "in1": "128x128|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 8400,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 7200,
+    "protenix._block:578 <- protenix.__call__:701": 1200
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x4117x128|FLOAT32|DRAM",
+   "in1": "128x128|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "-",
+   "out_mc": "None",
+   "n": 7200,
+   "sites": {
+    "tenstorrent.s_terms:9517 <- tenstorrent.__call__:9565": 3600,
+    "tenstorrent.s_terms:9525 <- tenstorrent.__call__:9565": 3600
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x768|FLOAT32|DRAM",
+   "in1": "768x3072|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 4800,
+   "sites": {
+    "tenstorrent.__call__:8093 <- protenix._token_dit_device:1279": 4800
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "1x16x512x64|FLOAT32|DRAM",
+   "in1": "1x16x64x512|FLOAT32|DRAM",
+   "cfg": "MatmulMultiCoreReuseProgramConfig",
+   "grid": "-",
+   "out_mc": "",
+   "n": 4800,
+   "sites": {
+    "tenstorrent.batched_matmul:2800 <- tenstorrent.__call__:8160": 4800
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "1x16x512x512|FLOAT32|DRAM",
+   "in1": "1x16x512x64|FLOAT32|DRAM",
+   "cfg": "MatmulMultiCoreReuseProgramConfig",
+   "grid": "-",
+   "out_mc": "",
+   "n": 4800,
+   "sites": {
+    "tenstorrent.batched_matmul:2800 <- tenstorrent.__call__:8165": 4800
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x1536|FLOAT32|DRAM",
+   "in1": "1536x768|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 4800,
+   "sites": {
+    "protenix.linb:1275 <- protenix._token_dit_device:1287": 4800
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x4117x128|FLOAT32|DRAM",
+   "in1": "128x256|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 2400,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 2400
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "129x4x32x32|FLOAT32|DRAM",
+   "in1": "129x4x32x128|FLOAT32|DRAM",
+   "cfg": "MatmulMultiCoreReuseProgramConfig",
+   "grid": "-",
+   "out_mc": "",
+   "n": 1200,
+   "sites": {
+    "tenstorrent.batched_matmul:2800 <- protenix._attention:564": 1200
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "129x4x32x128|FLOAT32|DRAM",
+   "in1": "129x4x128x32|FLOAT32|DRAM",
+   "cfg": "MatmulMultiCoreReuseProgramConfig",
+   "grid": "-",
+   "out_mc": "",
+   "n": 1200,
+   "sites": {
+    "tenstorrent.batched_matmul:2800 <- protenix._attention:567": 1200
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x4117x256|FLOAT32|DRAM",
+   "in1": "256x128|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1200,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1200
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x512x256|BFLOAT16|DRAM",
+   "in1": "256x8|BFLOAT16|DRAM",
+   "cfg": "mc1DProgramConfig",
+   "grid": "-",
+   "out_mc": "LEAVED",
+   "n": 1078,
+   "sites": {
+    "tenstorrent._pair_proj_linear:4529 <- tenstorrent.__call__:7408": 1048,
+    "tenstorrent._narrow_proj_linear:4578 <- tenstorrent._proj_z:9958": 30
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "1x256x512x512|BFLOAT16|DRAM",
+   "in1": "1x256x512x512|BFLOAT16|DRAM",
+   "cfg": "mcProgramConfig",
+   "grid": "-",
+   "out_mc": "LEAVED",
+   "n": 1048,
+   "sites": {
+    "tenstorrent.__call__:6694 <- tenstorrent.__call__:8704": 524,
+    "tenstorrent.__call__:6694 <- tenstorrent.__call__:8708": 524
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x384|BFLOAT16|DRAM",
+   "in1": "384x384|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 968,
+   "sites": {
+    "tenstorrent.__call__:8281 <- tenstorrent.__call__:8735": 484,
+    "tenstorrent.__call__:8291 <- tenstorrent.__call__:8735": 484
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x384|BFLOAT16|L1",
+   "in1": "384x1536|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 968,
+   "sites": {
+    "tenstorrent.swiglu:8333 <- tenstorrent.__call__:8373": 484,
+    "tenstorrent.swiglu:8344 <- tenstorrent.__call__:8373": 484
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x86x512x64|BFLOAT16|L1",
+   "in1": "64x128|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 800,
+   "sites": {
+    "tenstorrent.swiglu:8333 <- tenstorrent.__call__:8609": 400,
+    "tenstorrent.swiglu:8344 <- tenstorrent.__call__:8609": 400
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x384|FLOAT32|L1",
+   "in1": "384x768|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 800,
+   "sites": {
+    "tenstorrent.swiglu:8333 <- tenstorrent.__call__:8373": 400,
+    "tenstorrent.swiglu:8344 <- tenstorrent.__call__:8373": 400
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x384|BFLOAT16|DRAM",
+   "in1": "384x1536|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 484,
+   "sites": {
+    "tenstorrent.__call__:8093 <- tenstorrent.__call__:8735": 484
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x512x256|BFLOAT16|DRAM",
+   "in1": "256x16|BFLOAT16|DRAM",
+   "cfg": "mc1DProgramConfig",
+   "grid": "-",
+   "out_mc": "LEAVED",
+   "n": 484,
+   "sites": {
+    "tenstorrent._narrow_proj_linear:4578 <- tenstorrent.__call__:8125": 484
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "1x16x512x32|BFLOAT16|DRAM",
+   "in1": "1x16x32x512|BFLOAT16|DRAM",
+   "cfg": "MatmulMultiCoreReuseProgramConfig",
+   "grid": "-",
+   "out_mc": "",
+   "n": 484,
+   "sites": {
+    "tenstorrent.batched_matmul:2800 <- tenstorrent.__call__:8197": 484
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "1x16x512x512|BFLOAT16|DRAM",
+   "in1": "1x16x512x32|BFLOAT16|DRAM",
+   "cfg": "MatmulMultiCoreReuseProgramConfig",
+   "grid": "-",
+   "out_mc": "",
+   "n": 484,
+   "sites": {
+    "tenstorrent.batched_matmul:2800 <- tenstorrent.__call__:8207": 484
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x1536|BFLOAT16|L1",
+   "in1": "1536x384|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 484,
+   "sites": {
+    "tenstorrent.swiglu:8355 <- tenstorrent.__call__:8373": 484
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "35x512x128|BFLOAT16|DRAM",
+   "in1": "128x8|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 480,
+   "sites": {
+    "tenstorrent.head_out:9998 <- tenstorrent.heads_over:10049": 240,
+    "tenstorrent.head_out:10014 <- tenstorrent.heads_over:10049": 240
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x86x512x128|BFLOAT16|L1",
+   "in1": "128x64|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 400,
+   "sites": {
+    "tenstorrent.swiglu:8355 <- tenstorrent.__call__:8609": 400
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x768|FLOAT32|L1",
+   "in1": "768x384|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 400,
+   "sites": {
+    "tenstorrent.swiglu:8355 <- tenstorrent.__call__:8373": 400
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "35x8x512|BFLOAT16|DRAM",
+   "in1": "1x512x512|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 240,
+   "sites": {
+    "tenstorrent.head_out:10005 <- tenstorrent.heads_over:10049": 240
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "35x512x8|BFLOAT16|DRAM",
+   "in1": "8x128|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 240,
+   "sites": {
+    "tenstorrent.head_out:10027 <- tenstorrent.heads_over:10049": 240
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "4117x3|FLOAT32|DRAM",
+   "in1": "3x128|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 201,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 201
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "4117x512|FLOAT32|DRAM",
+   "in1": "512x128|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 201,
+   "sites": {
+    "protenix.denoise:1062 <- protenix.edm_sample:3061": 200,
+    "protenix._atom_cond:980 <- protenix.denoise:1008": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x256|FLOAT32|DRAM",
+   "in1": "256x384|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 200,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 200
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x4117x128|FLOAT32|DRAM",
+   "in1": "128x768|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 200,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 200
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "512x4117|FLOAT32|DRAM",
+   "in1": "4117x768|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 200,
+   "sites": {
+    "protenix.denoise:1033 <- protenix.edm_sample:3061": 200
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x384|FLOAT32|DRAM",
+   "in1": "384x768|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 200,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 200
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x768|FLOAT32|DRAM",
+   "in1": "768x128|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 200,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 200
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x4117x128|FLOAT32|DRAM",
+   "in1": "128x3|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 200,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 200
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "1x64x512x512|BFLOAT16|DRAM",
+   "in1": "1x64x512x512|BFLOAT16|DRAM",
+   "cfg": "mcProgramConfig",
+   "grid": "-",
+   "out_mc": "LEAVED",
+   "n": 160,
+   "sites": {
+    "tenstorrent.__call__:6694 <- tenstorrent.__call__:8704": 80,
+    "tenstorrent.__call__:6694 <- tenstorrent.__call__:8708": 80
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x512x64|BFLOAT16|DRAM",
+   "in1": "64x64|BFLOAT16|DRAM",
+   "cfg": "mc1DProgramConfig",
+   "grid": "-",
+   "out_mc": "LEAVED",
+   "n": 160,
+   "sites": {
+    "tenstorrent._pair_proj_linear:4508 <- tenstorrent._trimul_out_proj:5818": 160
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x512x64|BFLOAT16|DRAM",
+   "in1": "64x2|BFLOAT16|DRAM",
+   "cfg": "mc1DProgramConfig",
+   "grid": "-",
+   "out_mc": "LEAVED",
+   "n": 160,
+   "sites": {
+    "tenstorrent._pair_proj_linear:4529 <- tenstorrent.__call__:7408": 160
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x512x64|BFLOAT16|DRAM",
+   "in1": "64x64|BFLOAT16|DRAM",
+   "cfg": "mc1DProgramConfig",
+   "grid": "-",
+   "out_mc": "LEAVED",
+   "n": 160,
+   "sites": {
+    "tenstorrent._pair_proj_linear:4508 <- tenstorrent.gate_and_project:7552": 160
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x82x512x64|BFLOAT16|L1",
+   "in1": "64x128|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 160,
+   "sites": {
+    "tenstorrent.swiglu:8333 <- tenstorrent.__call__:8609": 80,
+    "tenstorrent.swiglu:8344 <- tenstorrent.__call__:8609": 80
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x16x512x256|FLOAT32|L1",
+   "in1": "256x512|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 128,
+   "sites": {
+    "tenstorrent.swiglu:8333 <- tenstorrent.__call__:8609": 64,
+    "tenstorrent.swiglu:8344 <- tenstorrent.__call__:8609": 64
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x82x512x128|BFLOAT16|L1",
+   "in1": "128x64|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 80,
+   "sites": {
+    "tenstorrent.swiglu:8355 <- tenstorrent.__call__:8609": 80
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "35x512x128|BFLOAT16|DRAM",
+   "in1": "128x32|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 80,
+   "sites": {
+    "tenstorrent.project_ab:10228 <- tenstorrent.contiguous_ab:10317": 40,
+    "tenstorrent.project_ab:10235 <- tenstorrent.contiguous_ab:10317": 40
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x16x512x512|FLOAT32|L1",
+   "in1": "512x256|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 64,
+   "sites": {
+    "tenstorrent.swiglu:8355 <- tenstorrent.__call__:8609": 64
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x35x512x128|BFLOAT16|L1",
+   "in1": "128x512|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 60,
+   "sites": {
+    "tenstorrent.swiglu:8333 <- tenstorrent.__call__:8609": 30,
+    "tenstorrent.swiglu:8344 <- tenstorrent.__call__:8609": 30
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x512x256|BFLOAT16|DRAM",
+   "in1": "256x64|BFLOAT16|DRAM",
+   "cfg": "mc1DProgramConfig",
+   "grid": "-",
+   "out_mc": "LEAVED",
+   "n": 40,
+   "sites": {
+    "tenstorrent._narrow_proj_linear:4578 <- ops.linear:79": 40
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "16384x35|BFLOAT16|DRAM",
+   "in1": "16384x35|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "-",
+   "out_mc": "",
+   "n": 40,
+   "sites": {
+    "tenstorrent.z_rows:10413 <- tenstorrent.outer_product_mean:10434": 40
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x512x1024|BFLOAT16|DRAM",
+   "in1": "1024x256|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 40,
+   "sites": {
+    "tenstorrent.outer_product_mean:10447 <- tenstorrent.run:10483": 40
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x35x512x512|BFLOAT16|L1",
+   "in1": "512x128|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "LEAVED",
+   "n": 30,
+   "sites": {
+    "tenstorrent.swiglu:8355 <- tenstorrent.__call__:8609": 30
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x512x256|FLOAT32|DRAM",
+   "in1": "256x16|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 24,
+   "sites": {
+    "tenstorrent.compute_bias:7911 <- protenix._dit_block_biases:1260": 24
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x4117x128|BFLOAT16|DRAM",
+   "in1": "128x128|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 21,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 18,
+    "protenix._block:578 <- protenix.__call__:701": 3
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x4117x128|BFLOAT16|DRAM",
+   "in1": "128x128|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "-",
+   "out_mc": "None",
+   "n": 18,
+   "sites": {
+    "tenstorrent.s_terms:9517 <- tenstorrent.__call__:9565": 9,
+    "tenstorrent.s_terms:9525 <- tenstorrent.__call__:9565": 9
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x512x256|BFLOAT16|DRAM",
+   "in1": "256x256|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 10,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 10
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x512x64|BFLOAT16|DRAM",
+   "in1": "64x256|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 10,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 10
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x384|BFLOAT16|DRAM",
+   "in1": "384x384|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 10,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 10
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x4117x128|BFLOAT16|DRAM",
+   "in1": "128x256|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 6,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 6
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "129x32x128x16|FLOAT32|DRAM",
+   "in1": "16x4|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 6,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 6
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x512x512x108|BFLOAT16|DRAM",
+   "in1": "108x64|BFLOAT16|DRAM",
+   "cfg": "mc1DProgramConfig",
+   "grid": "-",
+   "out_mc": "LEAVED",
+   "n": 4,
+   "sites": {
+    "tenstorrent._narrow_proj_linear:4578 <- ops.linear:79": 4
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "129x32x128x16|BFLOAT16|DRAM",
+   "in1": "16x16|BFLOAT16|DRAM",
+   "cfg": "mc1DProgramConfig",
+   "grid": "-",
+   "out_mc": "LEAVED",
+   "n": 3,
+   "sites": {
+    "tenstorrent._narrow_proj_linear:4578 <- ops.linear:79": 3
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "129x32x128x16|BFLOAT16|DRAM",
+   "in1": "16x4|BFLOAT16|DRAM",
+   "cfg": "mc1DProgramConfig",
+   "grid": "-",
+   "out_mc": "LEAVED",
+   "n": 3,
+   "sites": {
+    "tenstorrent._narrow_proj_linear:4578 <- ops.linear:79": 3
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "129x4x32x32|BFLOAT16|DRAM",
+   "in1": "129x4x32x128|BFLOAT16|DRAM",
+   "cfg": "MatmulMultiCoreReuseProgramConfig",
+   "grid": "-",
+   "out_mc": "",
+   "n": 3,
+   "sites": {
+    "tenstorrent.batched_matmul:2800 <- protenix._attention:564": 3
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "129x4x32x128|BFLOAT16|DRAM",
+   "in1": "129x4x128x32|BFLOAT16|DRAM",
+   "cfg": "MatmulMultiCoreReuseProgramConfig",
+   "grid": "-",
+   "out_mc": "",
+   "n": 3,
+   "sites": {
+    "tenstorrent.batched_matmul:2800 <- protenix._attention:567": 3
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x4117x256|BFLOAT16|DRAM",
+   "in1": "256x128|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 3,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 3
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "129x32x128x16|FLOAT32|DRAM",
+   "in1": "16x16|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 3,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 3
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "528384x1|BFLOAT16|DRAM",
+   "in1": "1x16|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 2,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 2
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "528384x1|FLOAT32|DRAM",
+   "in1": "1x16|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 2,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 2
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x384|BFLOAT16|DRAM",
+   "in1": "384x256|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 2,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 2
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "4117x3|BFLOAT16|DRAM",
+   "in1": "3x128|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "4117x1|BFLOAT16|DRAM",
+   "in1": "1x128|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "4117x385|BFLOAT16|DRAM",
+   "in1": "385x128|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "528384x3|BFLOAT16|DRAM",
+   "in1": "3x16|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "129x32x128|BFLOAT16|DRAM",
+   "in1": "128x16|BFLOAT16|DRAM",
+   "cfg": "mc1DProgramConfig",
+   "grid": "-",
+   "out_mc": "LEAVED",
+   "n": 1,
+   "sites": {
+    "tenstorrent._narrow_proj_linear:4578 <- ops.linear:79": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "129x128x128|BFLOAT16|DRAM",
+   "in1": "128x16|BFLOAT16|DRAM",
+   "cfg": "mc1DProgramConfig",
+   "grid": "-",
+   "out_mc": "LEAVED",
+   "n": 1,
+   "sites": {
+    "tenstorrent._narrow_proj_linear:4578 <- ops.linear:79": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x4117x128|BFLOAT16|DRAM",
+   "in1": "128x384|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "matmul",
+   "in0": "512x4117|BFLOAT16|DRAM",
+   "in1": "4117x384|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "protenix.__call__:831 <- protenix._trunk_cond:2238": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "4117x1|FLOAT32|DRAM",
+   "in1": "1x128|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "4117x385|FLOAT32|DRAM",
+   "in1": "385x128|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "528384x3|FLOAT32|DRAM",
+   "in1": "3x16|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x449|BFLOAT16|DRAM",
+   "in1": "449x384|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x512x139|BFLOAT16|DRAM",
+   "in1": "139x256|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x512x1|BFLOAT16|DRAM",
+   "in1": "1x256|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "1x35x512x34|BFLOAT16|DRAM",
+   "in1": "34x128|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x449|BFLOAT16|DRAM",
+   "in1": "449x128|BFLOAT16|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x512x139|FLOAT32|DRAM",
+   "in1": "139x256|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "protenix._diffusion_pair_cond:2069 <- protenix._trunk_cond:2265": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x512x512|FLOAT32|DRAM",
+   "in1": "512x256|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "protenix._diffusion_pair_cond:2134 <- protenix._trunk_cond:2265": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x833|FLOAT32|DRAM",
+   "in1": "833x384|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "512x384|FLOAT32|DRAM",
+   "in1": "384x128|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "129x32x128|FLOAT32|DRAM",
+   "in1": "128x16|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  },
+  {
+   "op": "linear",
+   "in0": "129x128x128|FLOAT32|DRAM",
+   "in1": "128x16|FLOAT32|DRAM",
+   "cfg": "derived",
+   "grid": "ttnn.CoreGrid(x=11, y=10)",
+   "out_mc": "",
+   "n": 1,
+   "sites": {
+    "ops.linear:82 <- dispatch.call:70": 1
+   }
+  }
+ ]
+}
