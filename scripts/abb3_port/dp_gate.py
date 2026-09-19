@@ -59,6 +59,14 @@ def arm(out: Path, chips: list, args, round_no: int) -> dict:
            "--global-batch", str(args.global_batch),
            "--checkpoint-minutes", "600", "--max-restarts", "0",
            "--rendezvous", args.rendezvous, "--data", args.data, "--split", args.split]
+    # The host's cores divided by the arm's width, so a rank holds its share instead of the
+    # whole box. Torch's default intra-op width is the core count whatever the world is, so
+    # four ranks take 4x the cores that exist: measured on qb1, world 4 unpinned spends 914 s
+    # of a 931 s step in `losses` and `host_backward` at load average 62 on 16 cores, against
+    # 8.5 s of device work. `--torch-threads 0` keeps torch's default and reproduces that.
+    if args.torch_threads:
+        per = max(1, args.torch_threads // len(chips))
+        cmd += ["--torch-threads", str(per)]
     print(f"\n[dp] world {len(chips)} on chips {chips}, round {round_no}", flush=True)
     t0 = time.monotonic()
     rc = subprocess.run(cmd, cwd=str(REPO)).returncode
@@ -135,6 +143,9 @@ def main() -> int:
     ap.add_argument("--rendezvous", default="/dev/shm/abb3-dp-gate")
     ap.add_argument("--data", default="synthetic", help="synthetic | sabdab")
     ap.add_argument("--split", default="train")
+    ap.add_argument("--torch-threads", type=int, default=0,
+                    help="the host's core count, divided across each arm's ranks. 0 leaves "
+                         "torch's default, which is the whole box per rank")
     ap.add_argument("--json", default=None, help="write the whole report here")
     args = ap.parse_args()
     chips = [int(c) for c in args.chips.split(",")]
