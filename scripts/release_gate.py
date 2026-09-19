@@ -4430,6 +4430,15 @@ def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
            "--model", L1_BUDGET_MODEL, "--single_sequence",
            "--sampling_steps", str(L1_BUDGET_STEPS), "--diffusion_samples", "1",
            "--seed", str(SEED), "--out_dir", str(out), "--debug"]
+    # This arm builds its own fold command and so has never honoured the gate's --fast, which is
+    # a coverage hole rather than an oversight to fix silently: --fast ships a bfp8 trunk
+    # (`_dtype()` returns bfloat8_b under `_FAST_MODE`), and this is the ONLY arm that checks
+    # whether a configuration gives the same answer on a different core grid. Block float shares
+    # one exponent per block and the grid sets where the block boundaries fall, which is exactly
+    # how TT_BIO_TRIATT_B8 failed this arm. Opt-in rather than default so the gate's shipped
+    # behaviour is unchanged until somebody decides this should always run.
+    if os.environ.get("C14_L1BUDGET_FAST") == "1":
+        cmd.append("--fast")
     print(f"\n{'='*70}\n[l1-budget] folding {L1_BUDGET_DATA.name} on {L1_BUDGET_MODEL}, "
           f"grid {'native' if grid is None else f'{grid[0]}x{grid[1]}'}"
           f"{f', trimul width capped at {cap}' if cap else ''}\n{'='*70}", flush=True)
