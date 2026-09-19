@@ -1,0 +1,96 @@
+# scripts/abb3_port/step_gate.py at its OLD default and at its new one, on qb1 card 1
+# (/dev/tenstorrent/2), Blackhole p150a, 34.23 GB of DRAM (8 banks x 4 278 190 016 B).
+RECORDED-AT: db857fe72 scripts/abb3_port/step_gate.py
+#
+# RE-RECORDED on the composed tree: origin/main 81d3d3dd4, then wk/train-n-padfloor 85fe8c72f,
+# then wk/train-o-b2-orphans 18c798ad9, both merges clean. The previous recording (d380ba536, on
+# O alone) stopped being evidence the moment N sat beside it: N widened linear_b to 32 output
+# columns in tt_bio/abodybuilder3.py, which is in this script's import closure, and
+# tests/test_recorded_claims.py named that commit. Card 1 is /dev/tenstorrent/2 here, not node 1:
+# the UMD chip IDs order by PCI BDF and chip 1 is 0000:41:00.0. The old header said node 1 and
+# the run it recorded already printed node 2.
+#
+# --micro 8 is still the value that does not fit, and the composed tree moves WHERE it dies: on
+# O alone it was 268 435 456 B at abodybuilder3_grad.py:189 with 7 630 400 B free, here it is
+# 100 663 296 B at abodybuilder3_grad.py:270 with 25 830 976 B free. Further into the same
+# backward, asking for less, and still short. The property the default rests on is unchanged.
+#
+# WHAT MOVED at the shipped default, 4 x 16, same card, same flags, d380ba536 -> db857fe72:
+#   step median         25.470 s -> 22.379 s   -12.1 %   (min 25.143 -> 22.257, max 25.689 -> 23.171)
+#   device_backward     10.574 s ->  7.454 s   -29.5 %   (41.5 % -> 33.3 % of the step)
+#   forward              5.035 s ->  4.910 s
+#   losses               4.761 s ->  5.018 s
+#   host_backward        4.599 s ->  4.624 s
+#   download             0.176 s ->  0.176 s
+#   optimizer            0.082 s ->  0.070 s
+#   DRAM peak           30213 MB -> 30981 MB of 32640 MB, spare 2427 MB -> 1659 MB
+# The step win is N's, seen through a complete step instead of one micro-batch: N measured
+# -17.70 % of device kernel time and the three host stages here do not move, so the same change
+# reads -29.5 % on device_backward and -12.1 % on the step. The 768 MB the peak GAINED is N's
+# too, and it is the direction that costs margin: 4 x 16 now fits with 5.1 % spare where it had
+# 7.4 %. It still fits and still runs to completion, which is what this record claims, but the
+# next change that widens a padded axis has 1659 MB to spend, not 2427 MB.
+#
+# CLOCK: 1350 MHz median, min 1343, max 1350, over 37 samples taken DURING the five timed steps.
+# The reported card index is 0 because TT_VISIBLE_DEVICES=1 makes physical card 1 the only visible
+# one. Lease held as worker:train-q-rerecord. Both runs report 0 cotenants on our node; the micro 8
+# run had one elsewhere, on card 0, and it died in the allocator before anything was timed.
+#
+# The 22.379 s step is not comparable with step_gate_complete_qb1c3.txt and is not offered as a
+# perf claim for the model: it is a fit-and-clock record for the shipped default.
+#
+== --micro 8 --accumulate 8 --steps 1 --warmup 1 ==
+2026-09-19 00:57:05.012 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 100663296 B DRAM buffer across 8 banks, where each bank needs to store 12582912 B, but bank size is 4278190016 B (allocated: 4252359040 B, free: 25830976 B, largest free block: 8388608 B) (assert.hpp:104)
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 1 elsewhere, 581 pid(s) unreadable
+  elsewhere  pid 1113544 -> /dev/tenstorrent/1  python3 perf/trix_gatedbank/op_ab.py perf/trix_gatedbank/op_ab_512_qb1c0.json 1:1:2,1:1:2,
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+  sidechain FAPE on the card
+  taped device parameters: 436
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/train-q-rerecord/scripts/abb3_port/step_gate.py", line 279, in <module>
+    raise SystemExit(main())
+  File "/home/ttuser/.coworker/wt/train-q-rerecord/scripts/abb3_port/step_gate.py", line 148, in main
+    step.step(micro)
+  File "/home/ttuser/.coworker/wt/train-q-rerecord/tt_bio/train/abodybuilder3_step.py", line 228, in step
+    grad.backward(packed["roots"], packed["seeds"])
+  File "/home/ttuser/.coworker/wt/train-q-rerecord/tt_bio/train/abodybuilder3_grad.py", line 109, in backward
+    t.node.fn(t.grad)
+  File "/home/ttuser/.coworker/wt/train-q-rerecord/tt_bio/train/abodybuilder3_grad.py", line 270, in bw
+    twice_diff = ttnn.multiply(ttnn.subtract(av, bv), 2.0)
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/decorators.py", line 473, in __call__
+    result = self.function(*function_args, **function_kwargs)
+RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+info:
+Out of Memory: Not enough space to allocate 100663296 B DRAM buffer across 8 banks, where each bank needs to store 12582912 B, but bank size is 4278190016 B (allocated: 4252359040 B, free: 25830976 B, largest free block: 8388608 B)
+EXIT=1
+
+== --steps 5 ==
+host [before opening the device]: our node(s) not open yet; 0 cotenant(s) on our node, 0 elsewhere, 578 pid(s) unreadable
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+  sidechain FAPE on the card
+  taped device parameters: 436
+  every one of 436 parameters took a non-zero gradient
+host [device open, before timing]: our node(s) ['/dev/tenstorrent/2']; 0 cotenant(s) on our node, 0 elsewhere, 572 pid(s) unreadable
+  unreadable pids: [1, 2, 3, 4, 5, 6, 7, 10, 12, 13, 14, 15] ...
+  step   1  22.257 s  loss 4.9937  (median so far 22.257 s)
+  step   5  22.310 s  loss 4.9918  (median so far 22.379 s)
+
+STEP: median 22.379 s over 5 COMPLETE steps at batch 64 (16 x 4) and 256 tokens, min 22.257 s, max 23.171 s
+BREAKDOWN (median over steps, seconds and share of the step):
+  forward             4.910 s   21.9 %
+  download            0.176 s    0.8 %
+  losses              5.018 s   22.4 %
+  host_backward       4.624 s   20.7 %
+  device_backward     7.454 s   33.3 %
+  optimizer           0.070 s    0.3 %
+LOSS TERMS (cumulative over 6 steps, share of the loss stage):
+  fape_sidechain      25.82 s   55.3 %
+  fape_backbone       13.83 s   29.6 %
+  renamed_gt           5.03 s   10.8 %
+  final_backbone       1.85 s    4.0 %
+  supervised_chi       0.16 s    0.3 %
+CLOCK: AICLK during the run: card 0 min 1343 median 1350 max 1350 MHz over 37
+DRAM: peak 30981 MB of the card's 32640 MB at micro 4 x 16 and 256 tokens, 1659 MB spare. Sampled after every abodybuilder3_ops call of the warmup step; the timed steps run uninstrumented
+INCLUDES: device forward and backward, host geometry tail, the stage-1 losses (FAPE, supervised chi, final-block) and one RAdam step
+TARGETS: synthetic -- their structures/*.pt are not staged on this host; a loss's COST is shape-set and its VALUE is checked by loss_gate.py
+EXIT=0
