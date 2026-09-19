@@ -229,7 +229,37 @@ if d:
                    "instrument can speak for the gradient's magnitude, and that sentence is "
                    "built on the trunk holding ~5 % of it")
 
-# --- D14's crop ladder: both units at every rung, and the 384 refusal's own arithmetic -----
+# --- D14's crop ladder, CLOSED at 384 (pass 51) ---------------------------------------------
+# The r2_* rungs are kept as history; r3_* is the ladder that decides the defect. 384's
+# backward fell 32.370 -> 17.983 GB and now completes, which is the whole claim, so the PASS
+# flags are asserted as hard as the byte counts -- a ladder that silently stopped running
+# would read as "no drift".
+_r3 = {}
+for _n in (128, 256, 384, 640):
+    _d = j(f"perf/of3t_l1/out/r3_{_n}.json")
+    if _d:
+        _r3[_n] = _d
+if len(_r3) == 4:
+    for _n, _fwd, _bwd, _peak in ((128, True, True, 2.522e9), (256, True, True, 7.384e9),
+                                  (384, True, True, 17.983e9), (640, True, False, 34.215e9)):
+        check(f"D14 r3 {_n} forward", _r3[_n]["forward"]["ok"], _fwd)
+        check(f"D14 r3 {_n} backward", _r3[_n]["backward"]["ok"], _bwd)
+        close(f"D14 r3 {_n} backward DRAM peak", _r3[_n]["backward"]["dram_peak_b"], _peak,
+              tol=2e-3)
+    # The consistency check the row itself named: the same weight count at every passing rung.
+    _wg = {_n: _r3[_n]["backward"].get("params_with_grad") for _n in (128, 256, 384)}
+    if len(set(_wg.values())) == 1 and list(_wg.values())[0] == 1639:
+        ok.append(f"D14 1639 trunk weights carry a gradient at every passing rung {sorted(_wg)}")
+    else:
+        bad.append(f"D14's passing rungs disagree on how many weights carry a gradient: {_wg} "
+                   f"-- the scoreboard says 1639 at all three, which is the consistency check")
+    if _r3[384]["backward"]["ok"] and not _r3[640]["backward"]["ok"]:
+        ok.append("D14 is closed where it matters: 384 trains, 640 does not -- the ladder "
+                  "stops between them")
+    else:
+        bad.append("D14's ladder has moved; EVIDENCE says 384 trains and 640 does not")
+
+# --- the r2 ladder, kept as the history 384's closure is measured against --------------
 _rungs = {}
 for _n in (128, 256, 384):
     _d = j(f"perf/of3t_l1/out/r2_{_n}.json")
