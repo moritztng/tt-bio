@@ -1,0 +1,23 @@
+{
+ "fold_s": 18.502,
+ "size": 512,
+ "reblock_permute_served_declined": [
+  0,
+  0
+ ],
+ "reblock_permute_back_served_declined": [
+  560,
+  0
+ ],
+ "reblock_permute_gated_served_declined": [
+  1120,
+  0
+ ],
+ "gated_shapes_N_N_C": {
+  "(512, 512, 512)": 1120
+ },
+ "rejects": {},
+ "trimul_mask_after_move": true,
+ "aiclk": 1350,
+ "loadavg1": 10.45
+}

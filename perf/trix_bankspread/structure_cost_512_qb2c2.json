@@ -1,0 +1,48 @@
+{
+ "shape": [
+  1,
+  512,
+  512,
+  256
+ ],
+ "median_ms_by_arm": {
+  "base": 1.44325,
+  "xor8": 1.12455,
+  "legal": 1.2919,
+  "onebank": 2.37875,
+  "noread": 1.1402999999999999
+ },
+ "arms_in_order": {
+  "base_r0": 1.4134,
+  "xor8_r0": 1.1053,
+  "legal_r0": 1.292,
+  "onebank_r0": 2.3862,
+  "noread_r0": 1.1512,
+  "base_r1": 1.4731,
+  "xor8_r1": 1.1438,
+  "legal_r1": 1.2918,
+  "onebank_r1": 2.3713,
+  "noread_r1": 1.1294,
+  "base_last": 1.4729
+ },
+ "aa_floor_pct": 4.2097,
+ "xor_proxy_ratio": 1.2834,
+ "legal_ratio": 1.1172,
+ "structure_cost_ratio": 0.6067,
+ "banks_buy_ratio": 1.8413,
+ "read_leg_ms": 0.303,
+ "read_leg_share": 0.2099,
+ "default_bit_exact_vs_ttnn_permute": true,
+ "aiclk_during_sysfs_20hz": {
+  "n": 44,
+  "min": 1350,
+  "max": 1350,
+  "median": 1350
+ },
+ "aiclk_during_measuring_thread": {
+  "n": 121,
+  "min": 1350,
+  "max": 1350,
+  "median": 1350
+ }
+}
