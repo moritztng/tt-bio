@@ -93,7 +93,7 @@ def in_proj(x, w, ckc, dtype, memory_config, split=None):
     if not _ENABLED:
         return None
     shape = [int(d) for d in x.shape]
-    if not G.fast_dtypes_ok(dtype, x.dtype, w.dtype):
+    if not G.fast_dtypes_ok(x.dtype, w.dtype, dest=dtype):
         return _reject("dtype", shape)
     if x.layout != ttnn.TILE_LAYOUT or len(w.shape) != 2:
         return _reject("layout_or_rank", shape)

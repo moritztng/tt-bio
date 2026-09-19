@@ -1590,6 +1590,37 @@ def _pad_head_lanes(t: torch.Tensor, n_heads: int, head_dim: int, padded_head_di
 # SDPA reader pays once per (q_chunk, k_chunk) pair.
 _TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
 
+# Triangle attention's INTERIOR in bfp8, and nothing else. This is its own flag and not a mode:
+# `_FAST_MODE` bundles unrelated changes and measures 0.95x on the fold, and `_dtype()` staying
+# bf16 is what keeps the fused qkv+gate weight built at all (`__init__` only concatenates it when
+# `_dtype() == bfloat16`).
+#
+# Scope, chosen from the byte ledger and from what already failed. The two largest pair-scale
+# buffers a trunk PairformerLayer moves are the 268.4 MB concatenated q/k/v/gate of the two
+# triangle attentions, written by our fused qkv kernel and read three times by our fused SDPA
+# kernel, so producer and every consumer is ours (`perf/c14_bfp8/region_census.py`). Narrowing
+# them deletes 3.75 Z a buffer. Three things stay bf16 on purpose:
+#
+#   * `z`, the residual accumulator, and every `z_update`. Quantising an accumulation 5 times a
+#     layer through 64 layers and 3 recycles is the mechanism behind the 1.4965 A that killed the
+#     whole-track arm and the 13.21 A at 512 aa that killed b2z's `transition` site. The out
+#     projection keeps `_dtype()` for exactly this reason, so the region's exit rounds once into
+#     bf16 and the accumulator never sees block float.
+#   * the stored weights. `_FAST_MODE` demoting them is what put esmfold2's confidence at NaN.
+#   * the normed pair tensor. `ttnn.layer_norm` has no output-dtype argument and returns the input
+#     format, so introducing bfp8 there would cost a typecast (0.2577 ms measured) to buy a
+#     0.166 ms saving -- a debit, rejected on paper.
+#
+# There is no `typecast` anywhere in the region: every producer in it is a matmul whose
+# destination format is a program argument, and the accumulator CB is a separate `interm_fmt`
+# (fp32 under `fp32_dest_acc_en`), so the narrowing is one rounding at the pack stage.
+_TRIATT_B8 = env_flag("TT_BIO_TRIATT_B8", False)
+
+
+def _triatt_dtype():
+    """The storage format for triangle attention's q/k/v/gate/bias, i.e. the region's interior."""
+    return ttnn.bfloat8_b if _TRIATT_B8 else _dtype()
+
 
 # When the production q_chunk does not divide the padded length, offer the dividing chunks below
 # it before falling back to one that pads. See the block in `_tri_att_q_chunks` for the 896 aa
@@ -1799,7 +1830,7 @@ def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None, pad: bool = False):
 
 
 def _tri_att_sdpa_inner(q, k, v, bias, scale: float, ckc=None):
-    if _TRIATT_BIAS_B8 and bias is not None and bias.dtype != ttnn.bfloat8_b:
+    if (_TRIATT_BIAS_B8 or _TRIATT_B8) and bias is not None and bias.dtype != ttnn.bfloat8_b:
         b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
         try:
             return _tri_att_sdpa_at(q, k, v, b8, scale, ckc)
@@ -7375,7 +7406,8 @@ class TriangleAttention(Module):
             return None, None
         return _triatt_qkv.qkvg_heads(
             x, self.qkvg_weight, self.o_weight, self.compute_kernel_config,
-            self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkvg_weight),
+            self.n_heads, self.head_dim, _triatt_dtype(),
+            _qkv_mm_config(x, self.qkvg_weight),
         ) or (None, None)
 
     def _fused_qkvgb(self, x):
@@ -7395,7 +7427,8 @@ class TriangleAttention(Module):
             return None, None, None
         return _triatt_qkv.qkvgb_heads(
             x, self.qkvgb_weight, self.o_weight, self.compute_kernel_config,
-            self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkvgb_weight),
+            self.n_heads, self.head_dim, _triatt_dtype(),
+            _qkv_mm_config(x, self.qkvgb_weight),
             int(self.bias_weight.shape[-1]),
         ) or (None, None, None)
 
@@ -7653,14 +7686,14 @@ class TriangleAttention(Module):
                         input_tensor=x_chunk,
                         weight_tensor=self.qkv_weight,
                         compute_kernel_config=self.compute_kernel_config,
-                        dtype=_dtype(),
+                        dtype=_triatt_dtype(),
                         config=qkv_cfg_chunk,
                     )
                 g_cfg_chunk = _qkv_mm_config(x_chunk, self.g_weight)
                 if g_chunk is None and isinstance(qkv_chunk, tuple) and not self.biased:
                     g_chunk = _triatt_qkv.gate_proj(
                         x_chunk, self.g_weight, self.o_weight, self.compute_kernel_config,
-                        self.n_heads, self.head_dim, _dtype(), g_cfg_chunk,
+                        self.n_heads, self.head_dim, _triatt_dtype(), g_cfg_chunk,
                     )
                 g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
                 if g_chunk is None:
@@ -7795,14 +7828,15 @@ class TriangleAttention(Module):
                         input_tensor=x,
                         weight_tensor=self.qkv_weight,
                         compute_kernel_config=self.compute_kernel_config,
-                        dtype=_dtype(),
+                        dtype=_triatt_dtype(),
                         config=_qkv_mm_config(x, self.qkv_weight),
                     )
             if g is None and (isinstance(qkv, tuple) or fold_o is not None) \
                     and not self.biased:
                 g = _triatt_qkv.gate_proj(
                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
-                    self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.g_weight),
+                    self.n_heads, self.head_dim, _triatt_dtype(),
+                    _qkv_mm_config(x, self.g_weight),
                 )
             g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
             if g is None:

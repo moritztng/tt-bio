@@ -774,6 +774,26 @@ is 227.5 GB/s against Blackhole's 424.7, so the deleted bytes are worth roughly 
 block A/B has not been run on Wormhole with the kernel built, so the flag ships off on every card.
 `perf/roof_gate_epilogue/FINDINGS.md` has the full record.
 
+## `TT_BIO_TRIATT_B8` — off
+
+Triangle attention's interior in `bfloat8_b`: the fused qkv+gate matmul writes the block format and
+the fused SDPA reads it. The pair representation, the stored weights and every residual update stay
+bf16, so the region rounds once on the way out and the accumulator never sees block float.
+
+Enabling it is worth **+0.2020 s a fold at 512 residues** (1.01422x, on a p300c at a pinned
+1350 MHz, measured against the rest of the shipping default) and costs **0.37848 Å against the
+0.60 Å bar**, which is well inside the variation the sampler already produces between seeds.
+
+**It is off because the output depends on the core grid.** Block float shares one exponent across a
+block of values, and the block boundaries follow how the work is split across cores, so the same
+input folded on two different grids gives two different structures. The release gate's `l1-budget`
+arm fails on exactly that with the flag on and passes with it off. Turn it on per run if you want
+the second and your results do not need to match across parts; `TT_BIO_TRIATT_B8=0` is the default
+and the way back.
+
+Unmeasured: 298 residues, and any combination with `TT_BIO_TRIATT_BIAS_B8`. The measurements and
+the grid-dependence evidence are in `perf/c14_bfp8/compose_result.md`.
+
 ## `TT_BIO_TRIMUL_MASK_L1` — on
 
 The triangle multiplication masks its pair input before the contraction. The mask is `[1, 1, L, L]`

@@ -228,9 +228,7 @@ def test_a_new_lever_a_ladder_model_DOES_import_is_still_a_finding(rg):
 
 def test_size_ladder_is_in_the_default_arm_set(rg):
     """The whole point: a release runs it without anyone remembering to."""
-    src = (REPO_ROOT / "scripts" / "release_gate.py").read_text()
-    default = src.split("models = args.model or", 1)[1].split("fold_models", 1)[0]
-    assert '"size-ladder"' in default
+    assert "size-ladder" in rg.default_arms()
 
 
 def test_subset_record_keeps_the_other_models_own_provenance(rg, tmp_path, monkeypatch):
