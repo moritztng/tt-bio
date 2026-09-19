@@ -1,0 +1,94 @@
+{
+ "tag": "smoke-new-qb1c1",
+ "model": "boltz2",
+ "size": 512,
+ "host": "tt-quietbox",
+ "card_env": "1",
+ "ttnn": "0.68.0",
+ "tree": "/home/ttuser/.coworker/wt/pvx-baseline",
+ "clock_target": 1350,
+ "timers": [],
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "diffusion_samples": 1,
+ "seed": 0,
+ "started_utc": "2026-09-19T14:43:28Z",
+ "loadavg_start": [
+  "1.32",
+  "1.84",
+  "4.72"
+ ],
+ "foreign_at_start": [],
+ "runs": [
+  {
+   "i": 0,
+   "cold": true,
+   "fold_s": 28.548,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "57995ebbbe68ff1a"
+   },
+   "foreign_tt": [],
+   "loadavg1": 1.86,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 70,
+   "power_w_mean": 67.3
+  },
+  {
+   "i": 1,
+   "cold": false,
+   "fold_s": 18.113,
+   "plddt": 0.844645,
+   "n_tokens": null,
+   "cif_sha256": {
+    "cdk2x2_512.cif": "57995ebbbe68ff1a"
+   },
+   "foreign_tt": [],
+   "loadavg1": 2.92,
+   "aiclk_mean": 1350.0,
+   "aiclk_min": 1350,
+   "aiclk_max": 1350,
+   "aiclk_n": 61,
+   "power_w_mean": 72.4
+  }
+ ],
+ "fixture_sha256": {
+  "cdk2x2_512.yaml": "24d8b2d8c06e4409995abae024766e316da3175dde7596073b68c7963d2df398",
+  "cdk2x2_512.a3m": "ef2301402e7716e9df368987210456194b108c8ae7e144b7bf09a3dd6f40bf5e"
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "device_nodes": [
+  2
+ ],
+ "clock_after_force": {
+  "2": 1350
+ },
+ "clock_reasserts": 0,
+ "summary": {
+  "n": 1,
+  "fold_s_sorted": [
+   18.113
+  ],
+  "median_fold_s": 18.113,
+  "min_fold_s": 18.113,
+  "max_fold_s": 18.113,
+  "aa_floor_s": 0.0,
+  "aa_floor_pct": 0.0,
+  "aiclk_mean_over_timed": 1350.0,
+  "aiclk_min_over_timed": 1350,
+  "digests": [
+   "57995ebbbe68ff1a"
+  ],
+  "plddts": [
+   0.844645
+  ],
+  "cotenanted_folds": 0,
+  "clean_session": true
+ }
+}
