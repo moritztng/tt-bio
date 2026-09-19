@@ -111,13 +111,20 @@ def test_an_empty_run_directory_is_the_readers_failure_and_not_a_curve(tmp_path)
     assert p.returncode == 2
 
 
-def test_the_binned_curve_carries_the_loss_terms_beside_the_total(tmp_path):
-    """A total that falls while one term climbs is a different result, and the bar is on the
-    structure rather than on the total."""
+def test_the_binned_curve_names_the_stage_timers_as_seconds(tmp_path):
+    """`loss_terms` is per-stage WALL CLOCK, and the only loss value in a row is `loss`.
+
+    `abodybuilder3_step.py:102` says so, but the values -- 0.50, 0.52, 0.12, 0.21, 0.10 --
+    are entirely plausible as loss components, and they were printing in the same unlabelled
+    table as `loss` and `grad_norm`. A component breakdown built off them looks right and is a
+    breakdown of timings. The `_s` suffix is what stops the cap write-up shipping one.
+    """
     _write(tmp_path / "history-rank0.jsonl",
            [_row(i, 1000.0 + i * 10.0, loss=6.0 - i * 0.01) for i in range(1, 101)])
     state = _curve(tmp_path, "--bins", "4")
     assert len(state["curve"]) == 4
     assert [b["n"] for b in state["curve"]] == [25, 25, 25, 25]
     assert state["curve"][0]["loss"] > state["curve"][-1]["loss"]
-    assert state["curve"][0]["fape_backbone"] == 0.5
+    assert state["curve"][0]["fape_backbone_s"] == 0.5
+    assert "fape_backbone" not in state["curve"][0], (
+        "an unsuffixed name is the one a reader mistakes for a loss component")
