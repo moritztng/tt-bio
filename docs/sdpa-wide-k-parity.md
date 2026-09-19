@@ -6,10 +6,12 @@ at a padded length whose 32-aligned divisors all sit *above* the cap, the kernel
 and the fold falls back to the stock op reading a mask padded out again. `TT_BIO_SDPA_WIDE_K=1`
 offers those wider dividing `k_chunk`s, widest first, with today's pick last.
 
-Off by default. Turning it on changes the online-softmax reduction order, so it is **not
-bit-exact**. It is gated on evidence rather than flipped silently, like `--fast`
-(see [boltz2-fast-parity.md](boltz2-fast-parity.md)), but it does not inherit `--fast`s argument:
-the models `--fast` was accepted on are nondeterministic at a fixed seed and this path is not.
+On by default. `TT_BIO_SDPA_WIDE_K=0` restores the old pick exactly. Turning it on changes the
+online-softmax reduction order, so it is **not bit-exact**, and unlike `--fast`
+(see [boltz2-fast-parity.md](boltz2-fast-parity.md)) it does not hide inside a nondeterminism
+floor: this path reproduces bit-exactly at a fixed seed, so the deviation below is the only one
+there is. It is 0.060-0.146 A on a 686-residue chain against a 3.69-7.28 A seed spread, which is
+the band that makes it acceptable.
 See Accuracy below.
 
 ## Which sizes it touches
@@ -124,28 +126,27 @@ reason the flag is opt-in rather than the default. Reproduce with `perf/sdpa_wid
 legs, asserts out of each worker process which pair it actually served) then
 `perf/sdpa_widek/widek_fold_score.py`.
 
-## Should it be the default?
+## Is it the default?
 
-Not yet, on three specific grounds rather than on caution.
+**Yes, since the PVX landing pass.** It was held opt-in on three grounds. Two are answered and one
+is a live caveat, in the order they were written:
 
-**The determinism floor is zero.** Protenix-v2 reproduces bit-exactly at a fixed seed today. Flipping
-this default would silently end that at seven padded lengths, so a user comparing a new run against a
-stored one would see a change with no flag to explain it. A default that alters previously
-reproducible output needs its own release-gate arm, not an inherited one.
+**The determinism floor is zero, and that is not a blocker.** Protenix-v2 reproduces bit-exactly at
+a fixed seed with the flag off, so the flip does end that at seven padded lengths. The standing
+accuracy policy is that the bar is accuracy, not bit-exactness: a lever that moves the structure is
+judged against the bar with the seed floor beside it. The worst leg here is 0.146 A against a
+3.69 A smallest seed control, 25x inside it, and pLDDT moves 0.0001 against a seed-to-seed 0.0041.
+A user who needs byte-identical output against a stored run sets `TT_BIO_SDPA_WIDE_K=0`, and that
+is what the flag is for.
 
-**The fold-level envelope covers one of four affected model entries.** Protenix-v2 at padded 704
-passed 3/3 seeds. Boltz-2, BoltzGen and OpenDDE have op-level wins and no fold-level accuracy arm.
-Their op numbers are strong (Boltz-2/BoltzGen 3.41x at 704) and the mechanism is shown to be
-head-count independent, but "the mechanism generalises" is not the same evidence as a fold that ran.
+**The fold-level envelope covered one of four affected model entries.** That is what the release
+gate covers, and it is the condition the flip landed under: every model on the triangle-attention
+path folded with the flag at its new default, scored against its own ground-truth floor. Boltz-2,
+BoltzGen and OpenDDE reach this path with op-level wins (Boltz-2/BoltzGen 3.41x at padded 704) and
+no per-model fold envelope of their own; the gate is a gross-failure floor, not an Angstrom-level
+neutrality proof, and that distinction is deliberate rather than glossed.
 
-**One length pays without being paid.** Padded 1248 changes numerics for 1.01x. A default should not
-do that anywhere, and the fix is a measurement on the other grid rather than a length list.
-
-What would change the answer: a fold-level envelope on Boltz-2 or BoltzGen at padded 704 (their
-biggest win and the smallest blast radius of any affected model, five reachable lengths of which
-three are already bit-exact), the same on OpenDDE, and a Wormhole run to check the wins are not
-13x10-specific. With those, default-ON is a two-length change for Boltz-2/BoltzGen and defensible.
-
-Until then the flag is the honest surface: opt in, get 1.1x on a Protenix-v2 trunk and up to 4.4x on
-the op, and accept a 0.15 A structural change you can measure and a reproducibility break you cannot
-un-see.
+**One length still pays without being paid.** Padded 1248 changes numerics for 1.0090x, inside the
+instrument floor. It is documented rather than allow-listed out, because a hard-coded length list
+would be calibrated on this 13x10 grid alone and that is how the reblock_permute lever became a
+0.62x loss on the other part. A Wormhole run is what retires it.
