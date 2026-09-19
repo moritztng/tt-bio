@@ -8,7 +8,7 @@ WT=/home/ttuser/.coworker/wt/pvx-baseline
 OUT=/home/ttuser/pvx_qb2/out3
 DEST=$WT/perf/pvx_baseline/out/qb2c3
 mkdir -p "$DEST"
-end=$(( $(date +%s) + 14400 ))
+end=$(( $(date +%s) + ${HARVEST_S:-28800} ))
 while [ "$(date +%s)" -lt "$end" ]; do
   n=0
   for f in "$OUT"/*.json; do
