@@ -160,7 +160,8 @@
       "n": 12,
       "median_rel": 0.353,
       "max_rel": 1.111,
-      "interpretation": "truncation, not a wrong gradient: O(h^2 L''') on a curved trained surface, with samples now deep in the trunk. h-sweep 1e-3..1e-7 running."
+      "interpretation": "truncation, not a wrong gradient: O(h^2 L''') on a curved trained surface, with samples now deep in the trunk. h-sweep 1e-3..1e-7 running.",
+      "resolution": "h-independent disagreement on TRUNK parameters only, while diffusion-module entries converge to 1.785e-08. Cause: their trunk runs 4 recycling passes over the same weights and tapes only the last (model.py:230), so finite differences measure the TOTAL derivative through all four cycles while the analytic gradient is the PARTIAL derivative through the final cycle. Finite differences cannot validate a recycled trunk gradient by construction; re-run the validation at num_recycles = 0."
     }
   }
 }
