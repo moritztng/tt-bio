@@ -71,6 +71,57 @@ FLAGS = {
 }
 
 
+GUARD = REPO / "perf" / "c12_orchestrator" / "pair_guard"
+
+
+def _guard(card: str) -> dict:
+    """Both guards, once. Neither covers the other's channel: `pair_idle` sees the board-power
+    coupling between the two chips of one p300c, `host_quiet` sees the host -- the PSU, host DRAM
+    and PCIe that retracted `c14-matmul-ceiling`'s +0.2510 s while it was folding on node 3 with a
+    release gate folding on node 0, the OTHER board, and its own sibling idle throughout."""
+    v = {"loadavg1": round(os.getloadavg()[0], 2)}
+    for name, argv in (
+        ("host_quiet", [sys.executable, str(GUARD / "host_quiet.py")]),
+        ("pair_idle", [sys.executable, str(GUARD / "pair_idle.py"), "--card", str(card)]),
+    ):
+        r = subprocess.run(argv, capture_output=True, text=True)
+        said = [ln for ln in (r.stdout + r.stderr).splitlines() if ln.strip()]
+        v[name] = {"rc": r.returncode, "say": said[-1] if said else ""}
+    v["quiet"] = v["host_quiet"]["rc"] == 0 and v["pair_idle"]["rc"] == 0
+    return v
+
+
+def _wait_quiet(card: str, cap_s: float, tag: str) -> dict:
+    """Block until the box is quiet, PER ARM PROCESS rather than once at launch.
+
+    This is the whole fix. Three sessions of `c14-matmul-ceiling` failed their own A/A test because
+    a release gate started AFTER their launch check passed, and this driver was forked from
+    `perf/c14_land/apb_fold_ab.py` before that row's refusal existed, so it would have timed a
+    contaminated session and reported the ratio without a caveat
+    (`verification-instrument-drift-is-shared-code-drift`). Waiting beats aborting: the arms stay
+    interleaved and the session survives a transient neighbour. Never quietly proceeds -- if the
+    box does not clear inside `cap_s` the run fails, because a contaminated number costs more than
+    a missing one."""
+    t0 = time.time()
+    v = _guard(card)
+    waited = 0.0
+    while not v["quiet"]:
+        waited = time.time() - t0
+        if waited > cap_s:
+            v["waited_s"] = round(waited, 1)
+            raise SystemExit(
+                f"NOT QUIET after {waited:.0f}s at {tag}: "
+                f"host_quiet rc={v['host_quiet']['rc']} ({v['host_quiet']['say']}), "
+                f"pair_idle rc={v['pair_idle']['rc']} ({v['pair_idle']['say']}), "
+                f"loadavg1={v['loadavg1']}. Refusing to time a contaminated session.")
+        print(f"  {tag}: NOT QUIET ({v['host_quiet']['say']} | {v['pair_idle']['say']} | "
+              f"load {v['loadavg1']}), waited {waited:.0f}s of {cap_s:.0f}s", flush=True)
+        time.sleep(30)
+        v = _guard(card)
+    v["waited_s"] = round(time.time() - t0, 1)
+    return v
+
+
 def _helpers():
     """Reuse the b2x-flag-levers Boltz-2 config rather than re-deriving 40 lines of it."""
     p = REPO / "perf" / "b2x-flag-levers" / "ab_flag_levers.py"
@@ -78,6 +129,28 @@ def _helpers():
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)
     return m
+
+
+def _foreign_device_holders():
+    """Pids other than this process tree holding a /dev/tenstorrent fd, with their cwd."""
+    mine = {os.getpid(), os.getppid()}
+    out = []
+    for d in Path("/proc").glob("[0-9]*/fd"):
+        pid = int(d.parent.name)
+        if pid in mine:
+            continue
+        try:
+            if not any(str(f.resolve()).startswith("/dev/tenstorrent")
+                       for f in d.iterdir()):
+                continue
+        except OSError:
+            continue
+        try:
+            cwd = os.readlink(f"/proc/{pid}/cwd")
+        except OSError:
+            cwd = "?"
+        out.append({"pid": pid, "cwd": cwd})
+    return out
 
 
 class ClockSampler(threading.Thread):
@@ -124,6 +197,45 @@ class ClockSampler(threading.Thread):
 
 
 # --------------------------------------------------------------------------- worker (one arm)
+#: The levers the region touches, each with its own [served, declined] counter next to its guard
+#: (the same ones `scripts/lever_census.py` reads). A silent fall back to a generic kernel is a
+#: failure of this campaign and not a cost, so every fold records these rather than inferring the
+#: kernel path from a ratio. `APB_CONCAT_HEADS_STATS`, which this harness carried for its original
+#: lever, says nothing about bfp8 and has been dropped.
+REGION_COUNTERS = [
+    ("TRIATT_PERSISTENT_MASK", "tt_bio.triatt_sdpa", "STATS", "REJECTS"),
+    ("TRIATT_GATE_EPILOGUE", "tt_bio.triatt_sdpa", "GATE_STATS", "GATE_REJECTS"),
+    ("TRIATT_HEAD_MAJOR_QKV", "tt_bio.triatt_qkv", "STATS", "REJECTS"),
+    ("TRIATT_HEAD_MAJOR_TAIL", "tt_bio.triatt_qkv", "TAIL_STATS", None),
+    ("TRIMUL_IN_PROJ_DUAL_NOC", "tt_bio.mm_dualnoc", "STATS", "REJECTS"),
+    ("TRIMUL_TAIL_F1", "tt_bio.trimul_tail", "STATS", "REJECTS"),
+]
+
+
+def _counters(reset=False):
+    """Read (and optionally zero) every region counter. Returns {lever: [served, declined]}."""
+    import importlib
+    out = {}
+    for lever, mod, stats, rejects in REGION_COUNTERS:
+        try:
+            m = importlib.import_module(mod)
+        except ImportError:
+            continue
+        s = getattr(m, stats, None)
+        if s is None:
+            continue
+        if reset:
+            s[0] = s[1] = 0
+            if rejects and isinstance(getattr(m, rejects, None), dict):
+                getattr(m, rejects).clear()
+        else:
+            r = getattr(m, rejects, None) if rejects else None
+            out[lever] = {"served_declined": list(s)}
+            if r:
+                out[lever]["rejects"] = {str(k): v for k, v in r.items()}
+    return out
+
+
 def worker(args) -> int:
     import torch
     torch.set_grad_enabled(False)
@@ -141,6 +253,11 @@ def worker(args) -> int:
     attr = FLAGS[args.flag]
     want = args.arm == "on"
     got = bool(getattr(TT, attr, False))
+    # The base arm must be the SHIPPED state, so no sibling bfp8 flag may be set either: the
+    # region composes with TT_BIO_TRIATT_BIAS_B8 and a stray one would price a stack as a single.
+    for other in FLAGS:
+        if other != args.flag:
+            assert not bool(getattr(TT, FLAGS[other], False)), f"{other} is set; arms are not clean"
     assert got == want, (
         f"arm={args.arm} wants {attr}={want} but the module imported {got}. The flag must be set "
         "in the ENVIRONMENT before import. For APB in particular a post-load flip would run "
@@ -148,6 +265,20 @@ def worker(args) -> int:
 
     H = _helpers()
     dev = get_device()
+
+    # CLOCK. The AICLK sets the fold time on this part -- the 512 aa cell reads 21.90 s at 800 MHz
+    # and 14.69 s at the 1350 burst -- so a governed arm measures the governor, not the lever. Hold
+    # it in-process, off our own fd table (TT_VISIBLE_DEVICES is a UMD logical id, not a device
+    # node), and let the watchdog repair the clears that every legacy device open causes. This is
+    # `tt_bio/aiclk.py` from wk/b2z2-aiclk-burst-pin, vendored here as a measurement tool rather
+    # than imported from an unmerged branch's production path.
+    spec = importlib.util.spec_from_file_location(
+        "_bfp8_aiclk", Path(__file__).resolve().parent / "aiclk_hold.py")
+    AICLK = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(AICLK)
+    held = AICLK.engage(str(dev.arch()).split(".")[-1].lower())
+    assert held == int(os.environ["TT_BIO_AICLK"]), (
+        f"asked for {os.environ.get('TT_BIO_AICLK')} MHz, engage() returned {held}")
     out: dict = {"arm": args.arm, "size": args.size, "folds": []}
 
     work = Path(tempfile.mkdtemp(prefix="c14-bfp8-", dir=str(REPO / "perf" / "c14_bfp8")))
@@ -172,7 +303,8 @@ def worker(args) -> int:
         "flag": args.flag, "attr": attr,
         "env_flag": os.environ.get(args.flag),
         "module_flag": got,
-        "counter_name": "APB_CONCAT_HEADS_STATS (meaningful for the APB flag only)",
+        "counters": [c[0] for c in REGION_COUNTERS],
+        "aiclk_held_mhz": held,
         "git_head": os.popen(f"git -C {REPO} rev-parse HEAD").read().strip(),
         "protocol": {"recycling_steps": cfg["recycling_steps"],
                      "sampling_steps": cfg["sampling_steps"],
@@ -184,11 +316,16 @@ def worker(args) -> int:
     def one(tag: str) -> dict:
         for p in struct_dir.glob("*"):
             p.unlink() if p.is_file() else shutil.rmtree(p)
-        stats = getattr(TT, "APB_CONCAT_HEADS_STATS", [0, 0])
-        stats[0] = stats[1] = 0
+        _counters(reset=True)
         state.pfn = None
-        cs = ClockSampler(args.card)
+        # Sample the clock on the node the hold actually holds. TT_VISIBLE_DEVICES is a UMD
+        # logical id, not a /dev/tenstorrent node, so ClockSampler(args.card) can watch an
+        # idle sibling: the 2026-09-18 20:03Z run recorded 800 MHz min=max over 1682 samples
+        # off node 0 while the fold ran on node 1, whose own hold watchdog saw no sag.
+        _nodes = AICLK.status().get("nodes") or [args.card]
+        cs = ClockSampler(_nodes[0])
         cs.start()
+        foreign = _foreign_device_holders()
         ttnn.synchronize_device(dev)
         t = time.perf_counter()
         metrics, _b, _f = state.predict_one(target, cfg)
@@ -198,11 +335,17 @@ def worker(args) -> int:
         clk = cs.take()
         cifs = sorted(struct_dir.glob("*.cif"))
         row = {
-            "tag": tag, "fold_s": round(wall, 3), "clock": clk,
-            "apb_served_declined": list(stats),
+            "tag": tag, "fold_s": round(wall, 3), "clock": clk, "clock_node": _nodes[0],
+            "kernel_path": _counters(),
             "plddt": metrics.get("complex_plddt", metrics.get("plddt")),
             "cif_sha256": hashlib.sha256(cifs[0].read_bytes()).hexdigest() if cifs else None,
             "loadavg1": round(os.getloadavg()[0], 2),
+            # benchlock checks for co-tenants ONCE, at acquisition, and is blind to a fold that
+            # starts afterwards (memory `benchlock-one-shot-check-blind-to-mid-run-contention`).
+            # Sample the box per fold instead, so a contaminated fold can be named not guessed.
+            "foreign_device_holders": foreign,
+            "foreign_device_holders_end": _foreign_device_holders(),
+            "aiclk_hold": AICLK.status(),
         }
         if args.cifdir and tag != "warmup":
             d = Path(args.cifdir) / f"{args.size}_{args.arm}_{args.block}_{tag}"  # scorer reads the arm from the tag
@@ -221,7 +364,8 @@ def worker(args) -> int:
     shutil.rmtree(work, ignore_errors=True)
     med = st.median([f["fold_s"] for f in out["folds"]])
     print(f"    {args.arm:4s} block{args.block} {args.size}aa median {med:7.3f}s "
-          f"apb_counter={out['folds'][0]['apb_served_declined']} "
+          f"sdpa={out['folds'][0]['kernel_path'].get('TRIATT_PERSISTENT_MASK', {}).get('served_declined')} "
+          f"qkv={out['folds'][0]['kernel_path'].get('TRIATT_HEAD_MAJOR_QKV', {}).get('served_declined')} "
           f"clk={out['folds'][0]['clock'].get('aiclk_min')}-"
           f"{out['folds'][0]['clock'].get('aiclk_max')}", flush=True)
     return 0
@@ -265,8 +409,10 @@ def driver(args) -> int:
                        "--block", str(b), "--card", str(args.card), "--out", str(jf)]
                 if args.cifdir:
                     cmd += ["--cifdir", str(args.cifdir)]
+                guard = _wait_quiet(args.card, args.quiet_wait, f"{size} aa block {b} {arm}")
                 r = subprocess.run(cmd, env=env)
-                row = {"size": size, "arm": arm, "block": b, "returncode": r.returncode}
+                row = {"size": size, "arm": arm, "block": b, "returncode": r.returncode,
+                       "guard_before": guard, "guard_after": _guard(args.card)}
                 if jf.exists():
                     row["result"] = json.loads(jf.read_text())
                 out["blocks"].append(row)
@@ -317,6 +463,21 @@ def driver(args) -> int:
               f"delta {s['delta_s']:+.4f}s  ratio {s['ratio_base_over_on']:.5f}  "
               f"A/A floor {s['aa_floor_ratio_max']}  clk {s['clock_min']}-{s['clock_max']} "
               f"({s['clock_samples']} samples)", flush=True)
+
+    # Exit non-zero when an arm produced nothing. Without this the driver prints "an arm produced
+    # no fold" and returns 0, so a dead session is indistinguishable from a finished one to every
+    # caller: benchlock logs rc=0, a wrapper's `&&` runs, and the JSON on disk looks like a result.
+    # Both dead sessions this campaign has had were exactly that -- 2026-09-18 18:14Z and 21:21Z,
+    # both `ModuleNotFoundError: No module named 'torch'` because the parent was started under
+    # /usr/bin/python3 and children inherit sys.executable. Start it with the venv interpreter:
+    # /home/ttuser/tt-bio-dev/env/bin/python3.
+    dead = [size for size, s in summary.items() if "error" in s]
+    if dead:
+        rcs = [(r["size"], r["arm"], r.get("returncode")) for r in out["blocks"]
+               if r.get("returncode")]
+        print(f"FAILED: no fold from an arm at {', '.join(dead)} aa. "
+              f"Non-zero blocks: {rcs}", file=sys.stderr, flush=True)
+        return 1
     return 0
 
 
@@ -327,6 +488,9 @@ def main() -> int:
     ap.add_argument("--blocks", type=int, default=3)
     ap.add_argument("--folds", type=int, default=3)
     ap.add_argument("--card", default="0")
+    ap.add_argument("--quiet-wait", type=float, default=2400.0, dest="quiet_wait",
+                    help="seconds to wait for the host+pair to go quiet BEFORE EACH ARM "
+                         "(not once at launch); the run fails rather than timing a loud box")
     ap.add_argument("--cifdir", default=None)
     # worker-only
     ap.add_argument("--arm", choices=["base", "on"])
