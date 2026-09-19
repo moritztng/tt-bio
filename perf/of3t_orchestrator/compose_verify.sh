@@ -104,9 +104,13 @@ done
                   || { echo "DANGLING DOC REFERENCE:$missing"; exit 1; }
 
 # (3) recompute the CPU-only instruments
-for i in instrument_b_lr instrument_c_optim; do
-  f="perf/of3t_equivalence/$i.py"
-  [ -f "$f" ] && { echo "--- $i"; ( cd "$CO" && PYTHONPATH=. timeout 1800 "$PY" "$f" 2>&1 | tail -8 ); }
+for f in perf/of3t_equivalence/instrument_b_lr.py \
+         perf/of3t_equivalence/instrument_c_optim.py \
+         perf/of3t_orchestrator/instrument_b2_clip.py; do
+  [ -f "$CO/$f" ] || continue
+  echo "--- $(basename "$f" .py)"
+  ( cd "$CO" && PYTHONPATH=. timeout 1800 "$PY" "$f" 2>&1 | tail -8 ) || \
+    { echo "INSTRUMENT FAILED: $f"; exit 1; }
 done
 
 git worktree remove --force "$BASE"
