@@ -443,6 +443,50 @@ if b and c:
                    f"wrong -- 1e-3 is the scheduler's Python signature default, not what OF3 "
                    f"ships")
 
+# --- ONE reference, campaign-wide ----------------------------------------------------------
+# `of3t-reference` is reopened to republish BUNDLE-MIN with Dropout in eval (D18), which will
+# change `grads_f64_recycles0.pt`'s sha256. Four rows cite the old digest inside their own
+# artifacts, and a rebuild that lands while any of them still quotes the old one leaves the
+# campaign holding TWO references at once -- silently, because each file is internally
+# consistent. So: every artifact that names the validated gradient's digest must name the SAME
+# one, and it must be the one the MANIFEST declares.
+_man = j("perf/of3t_reference/bundle_min/MANIFEST.json")
+if _man:
+    _declared = None
+    for _a in _man.get("artifacts", []):
+        if isinstance(_a, dict) and _a.get("file") == "grads_f64_recycles0.pt":
+            _declared = _a.get("sha256")
+    _citers = {
+        "perf/of3t_updaterule/reference_profile.json": ("declared_sha256",),
+        "perf/of3t_gradients/reach_by_norm.json": ("reference", "sha256"),
+        "perf/of3t_gradients/instrument_a_bundle_block0.json": ("bundle", "sha256"),
+    }
+    _seen = {}
+    for _rel, _path in _citers.items():
+        _d = j(_rel)
+        if not _d:
+            continue
+        _v = _d
+        for _k in _path:
+            _v = _v.get(_k) if isinstance(_v, dict) else None
+        if _v:
+            _seen[_rel] = _v
+    if _declared and _seen:
+        _bad = {k: v for k, v in _seen.items() if not _declared.startswith(str(v)[:40])
+                and not str(v).startswith(_declared[:40])}
+        if _bad:
+            bad.append(f"TWO REFERENCES IN FLIGHT: the MANIFEST declares "
+                       f"{_declared[:16]}... for grads_f64_recycles0.pt while "
+                       + "; ".join(f"{k} cites {v[:16]}..." for k, v in _bad.items())
+                       + ". Every figure measured against the other one is a figure about an "
+                         "artifact that no longer exists (D18)")
+        else:
+            ok.append(f"one reference campaign-wide: {len(_seen)} artifacts and the MANIFEST "
+                      f"all cite {_declared[:16]}...")
+    elif not _declared:
+        warn.append("the MANIFEST no longer declares a sha256 for grads_f64_recycles0.pt -- "
+                    "the one-reference check cannot run, which is how D18 stayed invisible")
+
 # --- every UNFIXED defect must be named in the orchestrator's GAP ----------------------------
 # GAP has drifted twice: it described the campaign as it stood seven passes earlier, and then
 # omitted the hardest blocker entirely. The gate only checks that the field EXISTS. A summary
