@@ -18,7 +18,7 @@ from typing import Optional
 
 from . import objectives, recipes
 
-__all__ = ["finetune", "Run"]
+__all__ = ["finetune", "Run", "TRAIN_MODES"]
 
 
 @dataclass
@@ -71,9 +71,18 @@ class Run:
         return out
 
 
+#: What the optimizer may own. A name, not a flag pair, so Tier 0 can check it before a device
+#: opens -- it decides the memory arithmetic, and `plan()` answers differently for each.
+TRAIN_MODES = ("adapters", "weights")
+
+
 def finetune(forward, dataset, *, out_dir, global_batch, steps, objective="af3",
-             recipe="lora", **kw) -> Run:
+             train="adapters", recipe="default", **kw) -> Run:
     """Fine-tune ``forward`` on ``dataset``. One call, no loop, no callables in the objective.
+
+    ``train="adapters"`` puts a LoRA factor pair beside each site and freezes the trunk.
+    ``train="weights"`` trains the model's own weights at those same sites, which is the
+    pre-training run. One argument, the same body, and ``plan()`` prices them apart.
 
     ``global_batch`` is required and is never derived from the chip count. It is the axis a
     published recipe pins, and a framework that redefines it per box makes every comparison
@@ -86,11 +95,15 @@ def finetune(forward, dataset, *, out_dir, global_batch, steps, objective="af3",
     Everything else forwards to the recipe. ``tt_bio.train.recipes.source(recipe)`` prints the
     body that is about to run, and running that text yourself is Tier 2.
     """
+    if train not in TRAIN_MODES:
+        raise ValueError(f"no train mode {train!r}; modes are {list(TRAIN_MODES)}. It is a "
+                         f"name because it decides the memory arithmetic, and Tier 0 checks "
+                         f"it before a device opens")
     if objective not in objectives.names():
         raise KeyError(f"no objective {objective!r}; rows are {objectives.names()}. An "
                        f"objective is a name at this tier -- pass a callable at Tier 2, where "
                        f"you own the loop that calls it")
     out = recipes.recipe(recipe)(forward, dataset, out_dir=out_dir,
                                  global_batch=global_batch, steps=steps,
-                                 objective=objective, **kw)
+                                 objective=objective, train=train, **kw)
     return Run(recipe=recipe, **out)
