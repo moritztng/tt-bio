@@ -157,7 +157,7 @@ class no_autocast:
         return False
 
 
-def build(dtype, seed, device):
+def build(dtype, seed, device, num_recycles=None):
     import pytorch_lightning as pl
     from openfold3.core.loss.loss_module import OpenFold3Loss
     from openfold3.projects.of3_all_atom.model import OpenFold3
@@ -166,6 +166,13 @@ def build(dtype, seed, device):
     cfg = OF3ProjectEntry().get_model_config_with_presets(presets=["train"])
     cfg.architecture.shared.use_confidence_emb_prob = 0.8
     cfg.architecture.shared.diffusion.use_conditioning_prob = 0.8
+    if num_recycles is not None:
+        # Their trunk draws the recycle count from U{0..num_recycles} and tapes only the FINAL
+        # cycle (model.py:230). Pinning the config to 0 makes the drawn count 0, so the taped
+        # function and the evaluated function are the same one -- which is the only regime in
+        # which a finite difference can validate a trunk gradient at all. It is a change to the
+        # amount of work, not to the update rule, and it is recorded in the manifest.
+        cfg.architecture.shared.num_recycles = num_recycles
     pl.seed_everything(seed, workers=True)
     model = OpenFold3(cfg).to(device=device, dtype=dtype)
     model.train()
@@ -232,6 +239,12 @@ def main() -> int:
     ap.add_argument("--fd-min-grad", type=float, default=1e-6,
                     help="only validate entries whose analytic gradient is at least this large")
     ap.add_argument("--clip-val", type=float, default=10.0)
+    ap.add_argument("--num-recycles", type=int,
+                    help="pin shared.num_recycles. Set 0 to make the drawn count 0, which is the "
+                         "only regime where a finite difference can validate a trunk gradient: "
+                         "with more cycles the FD measures the total derivative through all of "
+                         "them while the analytic gradient is the partial derivative through the "
+                         "final one.")
     ap.add_argument("--checkpoint", type=Path,
                     help="trained weights to load before taking the gradient. Without this the "
                          "gradient is taken at a random initialisation, where 2,271 of 4,890 "
@@ -248,7 +261,7 @@ def main() -> int:
         raise SystemExit(f"batch sha256 {got} != expected {args.batch_sha256}")
 
     raw_batch = torch.load(args.batch, weights_only=False)
-    cfg, model, loss_fn = build(dtype, args.seed, device)
+    cfg, model, loss_fn = build(dtype, args.seed, device, args.num_recycles)
 
     ckpt_info = None
     if args.checkpoint:
@@ -378,6 +391,7 @@ def main() -> int:
             "n_tokens": int(raw_batch["token_mask"].sum()),
         },
         "seed": args.seed,
+        "num_recycles_pinned": args.num_recycles,
         "checkpoint": ckpt_info,
         "dtype": args.dtype,
         "their_fp32_autocast_blocks_disabled": bool(dtype is torch.float64),
