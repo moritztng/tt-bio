@@ -95,19 +95,23 @@
     {
       "file": "grads_f64_recycles0.pt",
       "bytes": 2947812293,
-      "on_qb2": "in transfer, hash is the source hash",
+      "on_qb2": true,
       "what": "THE VALIDATED GRADIENT. Trained weights, num_recycles 0, float64, None preserved.",
       "sha256": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74"
     },
     {
       "file": "draws_recycles0.pt",
-      "on_qb2": "in transfer",
-      "what": "the draws for the validated gradient. num_recycles 0."
+      "on_qb2": true,
+      "what": "the draws for the validated gradient. num_recycles 0.",
+      "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5",
+      "bytes": 525598
     },
     {
       "file": "grad_presence_recycles0.json",
-      "on_qb2": "in transfer",
-      "what": "presence pattern for the validated gradient."
+      "on_qb2": true,
+      "what": "presence pattern for the validated gradient.",
+      "sha256": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f",
+      "bytes": 342321
     },
     {
       "file": "grads_f64_recycles3.pt",
@@ -242,8 +246,9 @@
     "note": "w0 is not shipped separately; it is this checkpoint, publicly downloadable."
   },
   "transfer_verification": {
-    "method": "qb2 pulls straight from the rented box over ssh; the sha256 is computed independently on both ends and compared",
-    "grads_f64_recycles3.pt": "VERIFIED, source and qb2 agree on 2a19e011640a080ca51f2939961a2f51845438d16db48b825da32b62c49ee657",
-    "grads_f64_recycles0.pt": "source hash 1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74; qb2 copy still transferring at the time of writing, SHA256SUMS.recycles0 on qb2 is the check"
+    "method": "qb2 pulls straight from the rented box over ssh; the sha256 is computed independently on both ends and compared. pc, at 97 % full, is not in the path.",
+    "grads_f64_recycles0.pt": "VERIFIED 1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
+    "grads_f64_recycles3.pt": "VERIFIED 2a19e011640a080ca51f2939961a2f51845438d16db48b825da32b62c49ee657",
+    "checksums_on_qb2": "SHA256SUMS.recycles0 and SHA256SUMS.recycles3 in the same directory"
   }
 }
