@@ -105,8 +105,22 @@ What is verified, and at what scope — the full table is `~/.coworker/state/of3
   against a 1e-06 bar.
 - **Module scope only**: gradients against finite-difference-validated float64 references
   (8.71e-03 to 2.00e-02), and a 20-step trajectory whose divergence *decays*, exponent -0.465.
-- **Not run at all**: the whole-model per-parameter comparison, the whole-model trajectory,
-  coverage, their own training test, and any s/step figure at any clock.
+- **Stack scope, and it FAILS**: every pair-track sub-module passes alone (0.0092 to 0.0172
+  against a 0.05 bar) while the assembled block reads **4.3e-01 to 1.4e+00**. Passing parts do
+  not compose into a passing block, and every earlier result on this branch is module-scope.
+- **Not run at all**: the whole-model per-parameter comparison against the frozen bundle, the
+  whole-model trajectory, coverage, and their own training test.
+- **Perf: no s/step exists on either side.** The method is pre-registered — their
+  `initial_training.yml` at both `bf16-mixed` and a `32-true` arm, 100 steps with 15 discarded,
+  median with p05/p95, SM clock sampled *during* at 5 s, the drawn recycle count reported with
+  every figure, host cores and `gpu_frac` recorded — but nothing has been measured. If you find
+  a "1.87x slower than an A100" in the reference state doc, that is fleet-history anecdote about
+  a host-bottlenecked H100, not this campaign's baseline.
+
+One number a reviewer should carry away about method: turning `fp32_softmax` off moves the
+triangle-attention weight gradient **3.2x** (1.449e-01 to 5.239e-02) while moving the forward
+**12 %**. A forward comparison cannot see that class of error, which is why this campaign
+separates the two instruments and does not let a forward reading stand in for a gradient one.
 
 Our clipping is not theirs: their global norm **excludes disabled parameters** and ours does
 not (clip 0.108 against 0.662 on a measured case, and their runner disables the confidence head
@@ -119,6 +133,22 @@ does block any claim about validation metrics or about matching a published chec
 
 **The honest status: the state-free half of OpenFold3's update rule is verified, and the
 model-dependent half is verified only on single modules.**
+
+## The hard bound on this branch, measured
+
+**The taped trunk does not fit L1 at crop 384 — the smallest crop OpenFold3's own recipe
+trains at — and no shipped placement flag moves it.** At program creation in
+`triangle_multiplication_start`'s `minimal_matmul`, statically allocated circular buffers clash
+with L1 buffers: L1 buffer at 884736 against a static CB region ending at 1159680, on qb2 p300c
+at crop 384 batch 1. `TT_BIO_RESIDUAL_L1=0` reproduces the **identical** clash at the same
+addresses, and three further flags leave it unchanged.
+
+The mechanism is the one the Protenix campaign already paid for — the tape keeps what the
+forward frees — but there it inverted L1-placement levers into slowdowns, and here it is a hard
+failure, on `TriangleMultiplication` rather than the Transition.
+
+**So this branch does not train OpenFold3 at any crop upstream trains at.** Everything below
+about what it fixes and verifies is true and is bounded by that.
 
 ## What this branch fixes, and what it has found but not fixed
 
@@ -144,6 +174,30 @@ Also worth a reviewer's eye rather than a fix: the vendored tree is now **mixed-
 `core/utils/relpos.py` from 0.4.5, everything else 0.4.3. `of3t-data` states this in `NOTICE`
 rather than hiding it, which is the right call, but a mixed vendor is a provenance hazard and
 `scripts/of3_port/audit_vendor_provenance.py` is what has to keep it honest.
+
+## How this branch sits against the other unmerged work
+
+Checked by trial merge rather than by intersecting file lists, because the file-list method got
+it wrong (see below). Against the TRAIN campaign's branches:
+
+- `wk/of3t` touches **205** files, the TRAIN branches **126** between them, and the intersection
+  is exactly one: **`docs/training.md`**. No TRAIN branch touches `tt_bio/train/optim.py`.
+- A trial merge of `wk/train-i-run` nevertheless conflicts on **three** files —
+  `README.md`, `docs/training.md`, `tt_bio/train/cli.py`. **Two of those have nothing to do with
+  this branch**: `wk/of3t` touches `README.md` and `cli.py` zero times. `wk/train-i-run` bases at
+  `350773d09`, an older main, and main itself has since committed 4 times to `README.md` and
+  once to `cli.py`.
+
+**So merging this branch does not make the TRAIN branches harder to merge.** They are stale
+against main and will need reconciling with it whichever order the gate takes. The only genuine
+overlap with this campaign is one documentation file.
+
+A method note worth carrying: `git diff --name-only origin/main...X` per branch, then intersect,
+predicted one conflict where a trial merge produced three. Three-dot diff is computed against
+each branch's **own** merge base, so for a branch based on an older main it silently omits
+everything main changed since. **Check the merge bases before intersecting file lists, and
+prefer a trial merge in a throwaway worktree when the answer matters** — it costs seconds and
+cannot be wrong about what git will do.
 
 ## Recomposing
 
