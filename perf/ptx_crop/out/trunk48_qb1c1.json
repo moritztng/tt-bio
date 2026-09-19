@@ -1,0 +1,1444 @@
+{
+ "doc": "Does the recipe crop fit? Measured on the SHIPPED forward, at full pairformer depth.\n\nThe campaign inherited \"384 tokens does not fit in card DRAM\" from a table\n(`state/ptxft-build.md` MEMORY) that measured a differentiable TWIN of the pairformer, not\nthe module the fold runs. `state/ptx/LEDGER.md` K1 leaves it open in both directions and\ntells this row to inherit neither story, so the arm here is the shipped\n`tenstorrent.Pairformer` on the real remapped protenix-v2 weights, at the depth the\ncheckpoint ships (48) and at the widths it ships (c_z 256, 8 triangle heads of 32).\n\nThe forward is UNTAPED, which is what the refused allocation was measured under: under\nper-block checkpointing the block forward carries no tape, so what fails is one block own\nworking set. That is why this arm can run today without waiting on `ptx-fastpath`.\n\nPer size it reports:\n\n  verdict       PASS, or OOM classified by the ENGINE own `size_limits.classify_device_oom`\n                so the refusal is read as shape / full / fragmented rather than guessed.\n  peak          device DRAM and L1 high-water over every `dram_peak` tag the shipped\n                modules already carry (trimul, tri_att, transition, per block), plus the\n                allocator own `total_bytes_allocated_per_bank`.\n  blocks        the per-block DRAM curve, which is what separates \"one block is too big\"\n                from \"the chain accumulates\".\n  fragmentation the smallest `largest_contiguous_bytes_free_per_bank` and the allocator\n                free-block count at the high-water. `of3-1024aa-oom-allocation-count-not-size`\n                is the governing warning: an OOM can be a count problem rather than a size\n                problem and the fix differs completely. `MemoryView.block_table` does not\n                convert through this wheel, so the free-block census is the observable\n                (same instrument and same limitation as `perf/b2z2_size_ladder/ladder.py`).\n\nMasks are None at every size run here, which is not a simplification: 256 / 384 / 512 are\nall multiples of the token bucket, so the shipped trunk passes None too at these lengths.\n\n    trunk_profile.py --sizes 256,384,512 --blocks 48 --out out/trunk_qb1c1.json\n",
+ "env": {
+  "host": "tt-quietbox",
+  "grid": [
+   11,
+   10
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "1",
+  "commit": "67f1ecaa8e38868865f8abe16e45c6e1b490085c",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/ptx-crop/tt_bio/__init__.py",
+  "started_utc": "2026-09-19T00:31:58Z",
+  "loadavg": [
+   6.7275390625,
+   3.7626953125,
+   6.1748046875
+  ],
+  "dram_total_b": 34225520128,
+  "dram_banks": 8,
+  "dram_bytes_per_bank": 4278190016,
+  "l1_total_b": 160793600,
+  "ckpt": "/home/ttuser/protenix_ckpt/protenix-v2.pt",
+  "fast_mode": false,
+  "ckpt_pairformer_blocks": 48,
+  "blocks": 48,
+  "c_z": 256,
+  "pairformer_params": 227960832,
+  "ckpt_load_s": 1.46
+ },
+ "runs": [
+  {
+   "tokens": 256,
+   "blocks": 48,
+   "dram_before_b": 546603008,
+   "started_utc": "2026-09-19T00:32:01Z",
+   "loadavg": [
+    6.7275390625,
+    3.7626953125,
+    6.1748046875
+   ],
+   "dram_inputs_b": 580354048,
+   "verdict": "PASS",
+   "z_out_shape": [
+    1,
+    256,
+    256,
+    256
+   ],
+   "wall_s": 3.87,
+   "peak_dram_b": 699301888,
+   "peak_dram_tag": "trimul(end) channel loop done [z=1x256x256x256]",
+   "peak_l1_b": 0,
+   "peak_l1_tag": null,
+   "min_largest_contiguous_free_dram_b": 4186568640,
+   "min_largest_contiguous_free_l1_b": 1461760,
+   "census_at_peak": {
+    "dram_free_blocks": 2,
+    "largest_contiguous_free_per_bank_b": 4186568640
+   },
+   "probe_samples": 385,
+   "probe_s": 1.89,
+   "block_trace": [
+    [
+     "pairformer enter [z=1x256x256x256]",
+     580354048,
+     4205645760
+    ],
+    [
+     "pairformer block 0 done",
+     582909952,
+     4201150400
+    ],
+    [
+     "pairformer block 1 done",
+     583958528,
+     4201150400
+    ],
+    [
+     "pairformer block 2 done",
+     585007104,
+     4201150400
+    ],
+    [
+     "pairformer block 3 done",
+     586055680,
+     4201150400
+    ],
+    [
+     "pairformer block 4 done",
+     587104256,
+     4201150400
+    ],
+    [
+     "pairformer block 5 done",
+     588152832,
+     4201150400
+    ],
+    [
+     "pairformer block 6 done",
+     589201408,
+     4201150400
+    ],
+    [
+     "pairformer block 7 done",
+     590249984,
+     4201150400
+    ],
+    [
+     "pairformer block 8 done",
+     591298560,
+     4201150400
+    ],
+    [
+     "pairformer block 9 done",
+     592347136,
+     4201150400
+    ],
+    [
+     "pairformer block 10 done",
+     593395712,
+     4201150400
+    ],
+    [
+     "pairformer block 11 done",
+     594444288,
+     4201150400
+    ],
+    [
+     "pairformer block 12 done",
+     595492864,
+     4201150400
+    ],
+    [
+     "pairformer block 13 done",
+     596541440,
+     4201150400
+    ],
+    [
+     "pairformer block 14 done",
+     597590016,
+     4201150400
+    ],
+    [
+     "pairformer block 15 done",
+     598638592,
+     4201150400
+    ],
+    [
+     "pairformer block 16 done",
+     599687168,
+     4201150400
+    ],
+    [
+     "pairformer block 17 done",
+     600735744,
+     4201150400
+    ],
+    [
+     "pairformer block 18 done",
+     601784320,
+     4201150400
+    ],
+    [
+     "pairformer block 19 done",
+     602832896,
+     4201150400
+    ],
+    [
+     "pairformer block 20 done",
+     603881472,
+     4201150400
+    ],
+    [
+     "pairformer block 21 done",
+     604930048,
+     4201150400
+    ],
+    [
+     "pairformer block 22 done",
+     605978624,
+     4201150400
+    ],
+    [
+     "pairformer block 23 done",
+     607027200,
+     4201150400
+    ],
+    [
+     "pairformer block 24 done",
+     608075776,
+     4201150400
+    ],
+    [
+     "pairformer block 25 done",
+     609124352,
+     4201150400
+    ],
+    [
+     "pairformer block 26 done",
+     610172928,
+     4201150400
+    ],
+    [
+     "pairformer block 27 done",
+     611221504,
+     4201150400
+    ],
+    [
+     "pairformer block 28 done",
+     612270080,
+     4201150400
+    ],
+    [
+     "pairformer block 29 done",
+     613318656,
+     4201150400
+    ],
+    [
+     "pairformer block 30 done",
+     614367232,
+     4201150400
+    ],
+    [
+     "pairformer block 31 done",
+     615415808,
+     4201150400
+    ],
+    [
+     "pairformer block 32 done",
+     616464384,
+     4196923328
+    ],
+    [
+     "pairformer block 33 done",
+     617512960,
+     4196792256
+    ],
+    [
+     "pairformer block 34 done",
+     618561536,
+     4196661184
+    ],
+    [
+     "pairformer block 35 done",
+     619610112,
+     4196530112
+    ],
+    [
+     "pairformer block 36 done",
+     620658688,
+     4196399040
+    ],
+    [
+     "pairformer block 37 done",
+     621707264,
+     4196267968
+    ],
+    [
+     "pairformer block 38 done",
+     622755840,
+     4196136896
+    ],
+    [
+     "pairformer block 39 done",
+     623804416,
+     4196005824
+    ],
+    [
+     "pairformer block 40 done",
+     624852992,
+     4195874752
+    ],
+    [
+     "pairformer block 41 done",
+     625901568,
+     4195743680
+    ],
+    [
+     "pairformer block 42 done",
+     626950144,
+     4195612608
+    ],
+    [
+     "pairformer block 43 done",
+     627998720,
+     4195481536
+    ],
+    [
+     "pairformer block 44 done",
+     629047296,
+     4195350464
+    ],
+    [
+     "pairformer block 45 done",
+     630095872,
+     4195219392
+    ],
+    [
+     "pairformer block 46 done",
+     631144448,
+     4195088320
+    ],
+    [
+     "pairformer block 47 done",
+     632193024,
+     4194957248
+    ]
+   ],
+   "dram_after_free_b": 598441984
+  },
+  {
+   "tokens": 384,
+   "blocks": 48,
+   "dram_before_b": 598441984,
+   "started_utc": "2026-09-19T00:32:05Z",
+   "loadavg": [
+    6.4287109375,
+    3.75,
+    6.15771484375
+   ],
+   "dram_inputs_b": 674234368,
+   "verdict": "PASS",
+   "z_out_shape": [
+    1,
+    384,
+    384,
+    256
+   ],
+   "wall_s": 27.24,
+   "peak_dram_b": 877076480,
+   "peak_dram_tag": "trimul(end) channel loop done [z=1x384x384x256]",
+   "peak_l1_b": 0,
+   "peak_l1_tag": null,
+   "min_largest_contiguous_free_dram_b": 4157046720,
+   "min_largest_contiguous_free_l1_b": 1461760,
+   "census_at_peak": {
+    "dram_free_blocks": 5,
+    "largest_contiguous_free_per_bank_b": 4157046720
+   },
+   "probe_samples": 385,
+   "probe_s": 1.83,
+   "block_trace": [
+    [
+     "pairformer enter [z=1x384x384x256]",
+     674234368,
+     4185520064
+    ],
+    [
+     "pairformer block 0 done",
+     676798464,
+     4185358272
+    ],
+    [
+     "pairformer block 1 done",
+     677847040,
+     4185358272
+    ],
+    [
+     "pairformer block 2 done",
+     678895616,
+     4185358272
+    ],
+    [
+     "pairformer block 3 done",
+     679944192,
+     4185358272
+    ],
+    [
+     "pairformer block 4 done",
+     680992768,
+     4185358272
+    ],
+    [
+     "pairformer block 5 done",
+     682041344,
+     4185358272
+    ],
+    [
+     "pairformer block 6 done",
+     683089920,
+     4185358272
+    ],
+    [
+     "pairformer block 7 done",
+     684138496,
+     4185358272
+    ],
+    [
+     "pairformer block 8 done",
+     685187072,
+     4185358272
+    ],
+    [
+     "pairformer block 9 done",
+     686235648,
+     4185358272
+    ],
+    [
+     "pairformer block 10 done",
+     687284224,
+     4185358272
+    ],
+    [
+     "pairformer block 11 done",
+     688332800,
+     4185358272
+    ],
+    [
+     "pairformer block 12 done",
+     689381376,
+     4185358272
+    ],
+    [
+     "pairformer block 13 done",
+     690429952,
+     4185358272
+    ],
+    [
+     "pairformer block 14 done",
+     691478528,
+     4185358272
+    ],
+    [
+     "pairformer block 15 done",
+     692527104,
+     4185358272
+    ],
+    [
+     "pairformer block 16 done",
+     693575680,
+     4185358272
+    ],
+    [
+     "pairformer block 17 done",
+     694624256,
+     4185358272
+    ],
+    [
+     "pairformer block 18 done",
+     695672832,
+     4185358272
+    ],
+    [
+     "pairformer block 19 done",
+     696721408,
+     4185358272
+    ],
+    [
+     "pairformer block 20 done",
+     697769984,
+     4185358272
+    ],
+    [
+     "pairformer block 21 done",
+     698818560,
+     4185358272
+    ],
+    [
+     "pairformer block 22 done",
+     699867136,
+     4185358272
+    ],
+    [
+     "pairformer block 23 done",
+     700915712,
+     4185358272
+    ],
+    [
+     "pairformer block 24 done",
+     701964288,
+     4185358272
+    ],
+    [
+     "pairformer block 25 done",
+     703012864,
+     4185358272
+    ],
+    [
+     "pairformer block 26 done",
+     704061440,
+     4185358272
+    ],
+    [
+     "pairformer block 27 done",
+     705110016,
+     4185358272
+    ],
+    [
+     "pairformer block 28 done",
+     706158592,
+     4185358272
+    ],
+    [
+     "pairformer block 29 done",
+     707207168,
+     4185358272
+    ],
+    [
+     "pairformer block 30 done",
+     708255744,
+     4185358272
+    ],
+    [
+     "pairformer block 31 done",
+     709304320,
+     4185358272
+    ],
+    [
+     "pairformer block 32 done",
+     710352896,
+     4185358272
+    ],
+    [
+     "pairformer block 33 done",
+     711401472,
+     4185358272
+    ],
+    [
+     "pairformer block 34 done",
+     712450048,
+     4185358272
+    ],
+    [
+     "pairformer block 35 done",
+     713498624,
+     4185358272
+    ],
+    [
+     "pairformer block 36 done",
+     714547200,
+     4185358272
+    ],
+    [
+     "pairformer block 37 done",
+     715595776,
+     4185358272
+    ],
+    [
+     "pairformer block 38 done",
+     716644352,
+     4185358272
+    ],
+    [
+     "pairformer block 39 done",
+     717692928,
+     4185358272
+    ],
+    [
+     "pairformer block 40 done",
+     718741504,
+     4185358272
+    ],
+    [
+     "pairformer block 41 done",
+     719790080,
+     4185358272
+    ],
+    [
+     "pairformer block 42 done",
+     720838656,
+     4185358272
+    ],
+    [
+     "pairformer block 43 done",
+     721887232,
+     4185358272
+    ],
+    [
+     "pairformer block 44 done",
+     722935808,
+     4185358272
+    ],
+    [
+     "pairformer block 45 done",
+     723984384,
+     4185358272
+    ],
+    [
+     "pairformer block 46 done",
+     725032960,
+     4185358272
+    ],
+    [
+     "pairformer block 47 done",
+     726081536,
+     4185358272
+    ]
+   ],
+   "dram_after_free_b": 650289152
+  },
+  {
+   "tokens": 512,
+   "blocks": 48,
+   "dram_before_b": 650289152,
+   "started_utc": "2026-09-19T00:32:32Z",
+   "loadavg": [
+    9.3837890625,
+    4.79296875,
+    6.43212890625
+   ],
+   "dram_inputs_b": 784900096,
+   "verdict": "PASS",
+   "z_out_shape": [
+    1,
+    512,
+    512,
+    256
+   ],
+   "wall_s": 16.78,
+   "peak_dram_b": 1055121408,
+   "peak_dram_tag": "trimul(start) channel loop done [z=1x512x512x256]",
+   "peak_l1_b": 0,
+   "peak_l1_tag": null,
+   "min_largest_contiguous_free_dram_b": 4127500224,
+   "min_largest_contiguous_free_l1_b": 1461760,
+   "census_at_peak": {
+    "dram_free_blocks": 5,
+    "largest_contiguous_free_per_bank_b": 4127500224
+   },
+   "probe_samples": 385,
+   "probe_s": 0.75,
+   "block_trace": [
+    [
+     "pairformer enter [z=1x512x512x256]",
+     784900096,
+     4178018240
+    ],
+    [
+     "pairformer block 0 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 1 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 2 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 3 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 4 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 5 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 6 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 7 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 8 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 9 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 10 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 11 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 12 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 13 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 14 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 15 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 16 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 17 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 18 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 19 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 20 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 21 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 22 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 23 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 24 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 25 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 26 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 27 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 28 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 29 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 30 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 31 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 32 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 33 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 34 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 35 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 36 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 37 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 38 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 39 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 40 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 41 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 42 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 43 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 44 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 45 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 46 done",
+     786685952,
+     4177831872
+    ],
+    [
+     "pairformer block 47 done",
+     786685952,
+     4177831872
+    ]
+   ],
+   "dram_after_free_b": 652075008
+  },
+  {
+   "tokens": 640,
+   "blocks": 48,
+   "dram_before_b": 652075008,
+   "started_utc": "2026-09-19T00:32:49Z",
+   "loadavg": [
+    9.15771484375,
+    4.9541015625,
+    6.45751953125
+   ],
+   "dram_inputs_b": 862281728,
+   "verdict": "PASS",
+   "z_out_shape": [
+    1,
+    640,
+    640,
+    256
+   ],
+   "wall_s": 25.76,
+   "peak_dram_b": 1284096000,
+   "peak_dram_tag": "trimul(start) channel loop done [z=1x640x640x256]",
+   "peak_l1_b": 0,
+   "peak_l1_tag": null,
+   "min_largest_contiguous_free_dram_b": 4089499584,
+   "min_largest_contiguous_free_l1_b": 1461760,
+   "census_at_peak": {
+    "dram_free_blocks": 5,
+    "largest_contiguous_free_per_bank_b": 4089499584
+   },
+   "probe_samples": 385,
+   "probe_s": 0.81,
+   "block_trace": [
+    [
+     "pairformer enter [z=1x640x640x256]",
+     862281728,
+     4168394688
+    ],
+    [
+     "pairformer block 0 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 1 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 2 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 3 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 4 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 5 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 6 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 7 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 8 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 9 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 10 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 11 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 12 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 13 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 14 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 15 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 16 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 17 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 18 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 19 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 20 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 21 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 22 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 23 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 24 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 25 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 26 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 27 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 28 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 29 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 30 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 31 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 32 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 33 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 34 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 35 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 36 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 37 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 38 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 39 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 40 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 41 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 42 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 43 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 44 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 45 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 46 done",
+     864665600,
+     4168142784
+    ],
+    [
+     "pairformer block 47 done",
+     864665600,
+     4168142784
+    ]
+   ],
+   "dram_after_free_b": 654458880
+  },
+  {
+   "tokens": 768,
+   "blocks": 48,
+   "dram_before_b": 654458880,
+   "started_utc": "2026-09-19T00:33:14Z",
+   "loadavg": [
+    8.474609375,
+    5.1591796875,
+    6.48681640625
+   ],
+   "dram_inputs_b": 957038592,
+   "verdict": "PASS",
+   "z_out_shape": [
+    1,
+    768,
+    768,
+    256
+   ],
+   "wall_s": 25.7,
+   "peak_dram_b": 1614217216,
+   "peak_dram_tag": "trimul(end) channel loop done [z=1x768x768x256]",
+   "peak_l1_b": 0,
+   "peak_l1_tag": null,
+   "min_largest_contiguous_free_dram_b": 4038602688,
+   "min_largest_contiguous_free_l1_b": 1461760,
+   "census_at_peak": {
+    "dram_free_blocks": 6,
+    "largest_contiguous_free_per_bank_b": 4038602688
+   },
+   "probe_samples": 385,
+   "probe_s": 1.58,
+   "block_trace": [
+    [
+     "pairformer enter [z=1x768x768x256]",
+     957038592,
+     4156608448
+    ],
+    [
+     "pairformer block 0 done",
+     960954368,
+     4156305344
+    ],
+    [
+     "pairformer block 1 done",
+     962002944,
+     4156305344
+    ],
+    [
+     "pairformer block 2 done",
+     963051520,
+     4156305344
+    ],
+    [
+     "pairformer block 3 done",
+     964100096,
+     4156305344
+    ],
+    [
+     "pairformer block 4 done",
+     965148672,
+     4156305344
+    ],
+    [
+     "pairformer block 5 done",
+     966197248,
+     4156305344
+    ],
+    [
+     "pairformer block 6 done",
+     967245824,
+     4156305344
+    ],
+    [
+     "pairformer block 7 done",
+     968294400,
+     4156305344
+    ],
+    [
+     "pairformer block 8 done",
+     969342976,
+     4156305344
+    ],
+    [
+     "pairformer block 9 done",
+     970391552,
+     4156305344
+    ],
+    [
+     "pairformer block 10 done",
+     971440128,
+     4156305344
+    ],
+    [
+     "pairformer block 11 done",
+     972488704,
+     4156305344
+    ],
+    [
+     "pairformer block 12 done",
+     973537280,
+     4156305344
+    ],
+    [
+     "pairformer block 13 done",
+     974585856,
+     4156305344
+    ],
+    [
+     "pairformer block 14 done",
+     975634432,
+     4118425536
+    ],
+    [
+     "pairformer block 15 done",
+     976683008,
+     4118294464
+    ],
+    [
+     "pairformer block 16 done",
+     977731584,
+     4118163392
+    ],
+    [
+     "pairformer block 17 done",
+     978780160,
+     4118032320
+    ],
+    [
+     "pairformer block 18 done",
+     979828736,
+     4117901248
+    ],
+    [
+     "pairformer block 19 done",
+     980877312,
+     4117770176
+    ],
+    [
+     "pairformer block 20 done",
+     981925888,
+     4117639104
+    ],
+    [
+     "pairformer block 21 done",
+     982974464,
+     4117508032
+    ],
+    [
+     "pairformer block 22 done",
+     984023040,
+     4117376960
+    ],
+    [
+     "pairformer block 23 done",
+     985071616,
+     4117245888
+    ],
+    [
+     "pairformer block 24 done",
+     986120192,
+     4117114816
+    ],
+    [
+     "pairformer block 25 done",
+     987168768,
+     4116983744
+    ],
+    [
+     "pairformer block 26 done",
+     988217344,
+     4116852672
+    ],
+    [
+     "pairformer block 27 done",
+     989265920,
+     4116721600
+    ],
+    [
+     "pairformer block 28 done",
+     990314496,
+     4116590528
+    ],
+    [
+     "pairformer block 29 done",
+     991363072,
+     4116459456
+    ],
+    [
+     "pairformer block 30 done",
+     992411648,
+     4116328384
+    ],
+    [
+     "pairformer block 31 done",
+     993460224,
+     4116197312
+    ],
+    [
+     "pairformer block 32 done",
+     994508800,
+     4116066240
+    ],
+    [
+     "pairformer block 33 done",
+     995557376,
+     4115935168
+    ],
+    [
+     "pairformer block 34 done",
+     996605952,
+     4115804096
+    ],
+    [
+     "pairformer block 35 done",
+     997654528,
+     4115673024
+    ],
+    [
+     "pairformer block 36 done",
+     998703104,
+     4115541952
+    ],
+    [
+     "pairformer block 37 done",
+     999751680,
+     4115410880
+    ],
+    [
+     "pairformer block 38 done",
+     1000800256,
+     4115279808
+    ],
+    [
+     "pairformer block 39 done",
+     1001848832,
+     4115148736
+    ],
+    [
+     "pairformer block 40 done",
+     1002897408,
+     4115017664
+    ],
+    [
+     "pairformer block 41 done",
+     1003945984,
+     4114886592
+    ],
+    [
+     "pairformer block 42 done",
+     1004994560,
+     4114755520
+    ],
+    [
+     "pairformer block 43 done",
+     1006043136,
+     4114624448
+    ],
+    [
+     "pairformer block 44 done",
+     1007091712,
+     4114493376
+    ],
+    [
+     "pairformer block 45 done",
+     1008140288,
+     4114362304
+    ],
+    [
+     "pairformer block 46 done",
+     1009188864,
+     4114231232
+    ],
+    [
+     "pairformer block 47 done",
+     1010237440,
+     4114100160
+    ]
+   ],
+   "dram_after_free_b": 707657728
+  }
+ ],
+ "weights_upload_s": 1.68,
+ "dram_after_weights_b": 546603008,
+ "aiclk": {
+  "0": {
+   "min": 1343,
+   "max": 1350,
+   "median": 1350,
+   "n": 22
+  }
+ },
+ "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 22 samples, polled DURING the work"
+}
