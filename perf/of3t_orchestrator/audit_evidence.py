@@ -774,6 +774,41 @@ if DEF.is_file() and ORCH.is_file():
     else:
         ok.append(f"GAP names all {len(unfixed)} UNFIXED defects")
 
+# --- an UNFIXED defect must not leave a hypothesis hanging ------------------------------------
+# Pass 82's own finding, and I am the case that motivates it. D19 carried a paragraph headed
+# "A hypothesis with a decisive test, offered rather than asserted" for twenty passes. The test
+# had already run at stack scope and REFUTED the hypothesis -- and the refuting number went into
+# PROTOCOL.md, into EVIDENCE.md and into my own state doc, but never back into the defect entry,
+# which is where a reader goes to find out what is wrong. I read it, believed the question open,
+# and spent most of a pass rebuilding a control that had already been run.
+#
+# So: a defect entry may state a hypothesis, but an UNFIXED one may not leave it OPEN. It must
+# carry a resolution word in the same entry. This does not ask the campaign to settle every
+# question -- "REFUTED", "CONFIRMED", "still open" and "what would settle it" all satisfy it.
+# It only forbids the one shape that cost a pass: a hypothesis presented as live, in an entry
+# whose evidence has already moved on, with nothing in the entry saying which.
+if DEF.is_file():
+    import re as _re2
+    _txt = DEF.read_text()
+    _entries = _re2.split(r"^### (D\d+)\.", _txt, flags=_re2.M)
+    _HYP = _re2.compile(r"hypothesis|is live\b|offered rather than asserted", _re2.I)
+    _RES = _re2.compile(r"REFUTED|CONFIRMED|RESOLVED|settled|still open|remains open|"
+                        r"what would settle", _re2.I)
+    _dangling = []
+    for _i in range(1, len(_entries), 2):
+        _num, _body = _entries[_i], _entries[_i + 1]
+        _head = _body.split("\n", 1)[0]
+        if "UNFIXED" not in _head:
+            continue
+        if _HYP.search(_body) and not _RES.search(_body):
+            _dangling.append(_num)
+    if _dangling:
+        bad.append(f"these UNFIXED defects state a hypothesis and never say whether it still "
+                   f"stands: {', '.join(_dangling)} -- a reader of the entry cannot tell that "
+                   f"the evidence has moved on, which cost pass 82 most of a pass")
+    else:
+        ok.append("no UNFIXED defect leaves a hypothesis open without saying so")
+
 # --- PROVES / DOESNOT are transcription too, and they are what Moritz reads ------------------
 # EVIDENCE.md is audited figure by figure; the two summary fields quote the same numbers in
 # prose and were, until pass 44, unchecked -- one of them still said "amended nine times" at
