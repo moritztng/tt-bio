@@ -95,8 +95,9 @@
     {
       "file": "grads_f64_recycles0.pt",
       "bytes": 2947812293,
-      "on_qb2": "in transfer",
-      "what": "THE VALIDATED GRADIENT. Trained weights, num_recycles 0, float64, None preserved."
+      "on_qb2": "in transfer, hash is the source hash",
+      "what": "THE VALIDATED GRADIENT. Trained weights, num_recycles 0, float64, None preserved.",
+      "sha256": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74"
     },
     {
       "file": "draws_recycles0.pt",
@@ -111,13 +112,16 @@
     {
       "file": "grads_f64_recycles3.pt",
       "bytes": 2947812293,
-      "on_qb2": "in transfer",
-      "what": "the shipped-config gradient at the drawn recycle count 3. Not FD-validatable."
+      "on_qb2": true,
+      "what": "the shipped-config gradient at the drawn recycle count 3. Not FD-validatable.",
+      "sha256": "2a19e011640a080ca51f2939961a2f51845438d16db48b825da32b62c49ee657"
     },
     {
       "file": "draws_recycles3.pt",
-      "on_qb2": "in transfer",
-      "what": "the draws for the shipped-config gradient. Match these exactly or the comparison is void."
+      "on_qb2": true,
+      "what": "the draws for the shipped-config gradient. Match these exactly or the comparison is void.",
+      "sha256": "5dcb87fec6f03adeb1a3849b2d5f3f407cb9ed89bdaa83e343b79ddf913432ff",
+      "bytes": 525598
     },
     {
       "file": "hsweep.json",
@@ -236,5 +240,10 @@
     ],
     "missing_note": "The two layer_norm_z weights stay at their random initialisation. They are named here rather than buried: a consumer loading the same checkpoint into our stack must end up with the same two tensors unset, or the two sides do not start from the same w_0.",
     "note": "w0 is not shipped separately; it is this checkpoint, publicly downloadable."
+  },
+  "transfer_verification": {
+    "method": "qb2 pulls straight from the rented box over ssh; the sha256 is computed independently on both ends and compared",
+    "grads_f64_recycles3.pt": "VERIFIED, source and qb2 agree on 2a19e011640a080ca51f2939961a2f51845438d16db48b825da32b62c49ee657",
+    "grads_f64_recycles0.pt": "source hash 1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74; qb2 copy still transferring at the time of writing, SHA256SUMS.recycles0 on qb2 is the check"
   }
 }
