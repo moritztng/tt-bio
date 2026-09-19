@@ -434,6 +434,10 @@ def main() -> int:
     ap.add_argument("--blocks", type=int, default=4, help="pairformer blocks; 0 = all 48")
     ap.add_argument("--arms", default="off,tape")
     ap.add_argument("--backward", action="store_true", help="also run and watch the backward")
+    ap.add_argument("--no-fp32-softmax", action="store_true",
+                    help="build the Pairformer with fp32_softmax=False. A PRECISION change on a "
+                         "path OF3 chose, so it measures headroom and is not a shippable lever; "
+                         "any result under it is labelled as such.")
     ap.add_argument("--ab-arms", choices=("both", "on", "off"), default="both",
                     help="which checkpointing arm the --ckpt-ab loop runs. Interleaving is the "
                          "default and the right thing, but the OFF arm leaves ~23 GB of a "
@@ -521,9 +525,16 @@ def main() -> int:
     dump()
 
     base_dram, base_l1 = peak.bytes_now()
+    # `fp32_softmax=True` is OF3's own setting and the default here. The flag exists to ask
+    # ONE question this row's census raised and cannot answer by arithmetic: 75.1 % of the 640
+    # wall is fp32-softmax score row blocks, so does the taped step fit without them? Turning
+    # it off is a PRECISION change on a path OF3 chose deliberately, it is not a shippable
+    # lever, and nothing measured under it may be reported as one. It measures headroom.
     pf = Pairformer(nb, 32, 4, 24, 16, True, comb, ckc,
-                    scale_pair_bias=False, fp32_softmax=True, transpose_bias=True,
+                    scale_pair_bias=False, fp32_softmax=not args.no_fp32_softmax,
+                    transpose_bias=True,
                     accurate_softmax=accurate_softmax_site("openfold3.trunk"))
+    out["env"]["fp32_softmax"] = not args.no_fp32_softmax
     ttnn.synchronize_device(dev)
     w_dram, w_l1 = peak.bytes_now()
     out["env"]["weights_dram_b"] = w_dram - base_dram
