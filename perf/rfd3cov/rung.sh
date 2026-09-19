@@ -22,7 +22,7 @@ PY=/home/ttuser/tt-bio/env/bin/python3
 B=$WT/perf/rfd3cov
 TOTAL=$1; CONTIG=$2; DEV=$3; STEPS=${4:-100}; NDES=${5:-1}; BUDGET=${6:-3000}
 TARGET=${7:-perf/ceilrfd3/targets/laczc_1008.cif}
-TAG=$(echo "$CONTIG" | tr -c 'A-Za-z0-9' '_')
+TAG=$(printf %s "$CONTIG" | tr -c "A-Za-z0-9" "_")
 OUT=$B/out/${TOTAL}_${TAG}_n${NDES}_dev${DEV}
 mkdir -p "$OUT"
 CLK=$OUT/aiclk.log; RAM=$OUT/host.log

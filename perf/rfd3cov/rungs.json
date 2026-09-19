@@ -1,0 +1,10 @@
+[
+ {"name": "control 1024", "total": 1024, "designed": 100, "contig": "A1-924,100",
+  "target": "perf/ceilrfd3/targets/laczc_1008.cif", "dev": 3, "steps": 100, "designs": 1},
+ {"name": "bar route A", "total": 1536, "designed": 528, "contig": "A1-1008,528",
+  "target": "perf/ceilrfd3/targets/laczc_1008.cif", "dev": 0, "steps": 100, "designs": 1},
+ {"name": "bar route A repeat", "total": 1536, "designed": 528, "contig": "A1-1008,528",
+  "target": "perf/ceilrfd3/targets/laczc_1008.cif", "dev": 2, "steps": 100, "designs": 1},
+ {"name": "bar route B", "total": 1536, "designed": 80, "contig": "A1-1008,B1-448,80",
+  "target": "perf/bhdesign/targets/big_1831.cif", "dev": 1, "steps": 100, "designs": 1}
+]
