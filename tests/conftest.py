@@ -213,3 +213,49 @@ def pytest_runtest_makereport(item, call):
     rep.longrepr = (str(item.path), (item.location[1] or 0) + 1,
                     "Skipped: opened a TT card with none present -- mark it @pytest.mark.device "
                     "so it skips before it takes a lease")
+
+
+# ---------------------------------------------------------------------------
+# A test may not leave torch's global autograd switch changed.
+#
+# Added 2026-09-18 (train-orchestrator pass 34) after this cost a day of invisible coverage.
+# `torch.set_grad_enabled(False)` is process-wide and nothing restores it, so one leak silently
+# changes the meaning of every test that runs afterwards. The casualties were
+# tests/test_train_interface.py's two gradcheck invariants -- the ones that check a reference is
+# verified before the device is blamed, and that a kinked op needs a gate mask. They need
+# requires_grad to build a graph, so they failed in every full-suite run and passed in isolation.
+#
+# Four test modules were doing it at import; those are fixed by scoping the flag to a fixture.
+# The leak that survived that fix is more interesting and is NOT test hygiene: the shipped
+# `tt_bio/main.py` calls torch.set_grad_enabled(False) inside its CLI verb bodies, so
+# tests/test_predict_exit_code.py leaks it merely by invoking `predict` through CliRunner. That
+# makes it a library defect rather than a test defect -- any program that calls a tt-bio verb
+# in-process loses autograd for the rest of its life, which matters a great deal more now that
+# the same package is becoming a training framework.
+#
+# So this check is DYNAMIC rather than a grep: it catches the leak whatever produced it --
+# module level, test body, or shipped code reached through a CLI runner. It restores the flag so
+# the damage stops at the test that caused it, and fails that test so the cause is named at the
+# source instead of surfacing as someone else's broken gradient three files later.
+@pytest.fixture(autouse=True)
+def _autograd_flag_is_not_a_shared_global(request):
+    try:
+        import torch
+    except Exception:
+        yield
+        return
+    before = torch.is_grad_enabled()
+    yield
+    after = torch.is_grad_enabled()
+    if before == after:
+        return
+    torch.set_grad_enabled(before)   # stop it here, so downstream tests are not collateral
+    raise AssertionError(
+        f"this test left torch's global autograd switch {after} (it was {before}). That is "
+        f"process-wide and nothing restores it, so every test after this one runs with a "
+        f"different meaning -- which is exactly how tests/test_train_interface.py's gradcheck "
+        f"invariants came to fail only in full-suite runs. Scope it instead:\n\n"
+        f"    with torch.no_grad():\n        ...\n\n"
+        f"If the change comes from shipped code rather than from this test (tt_bio/main.py's "
+        f"CLI verbs call torch.set_grad_enabled(False) in their bodies), the fix belongs there: "
+        f"a library must not mutate a caller's global autograd state.")
