@@ -122,3 +122,51 @@ Pre-registered predictions, written before the rebuild exists:
    defect and this closes only part of it.
 3. D19's near-linear 0.74x composition disappears, because one differing sub-module per block is
    what produces a per-block constant that composes linearly.
+
+---
+
+## Pass 90 addendum — the skew is completely bounded, and upstream's own loader refuses it
+
+The two changes above were found by reading diffs. Reading diffs is not a bound. `full_model_keys.py`
+builds the whole `OpenFold3` model from each revision's own `model_config` and diffs its parameter
+names against the checkpoint's:
+
+| revision | model params | checkpoint tensors | missing | unexpected |
+|---|---|---|---|---|
+| **0.4.3** | 4,936 | 4,935 | **1** (`version_tensor`) | **0** |
+| **0.5.0** | 4,890 | 4,935 | **3** | **48** |
+
+0.5.0's 48 stranded tensors are exactly the `layer_norm_z` hoist, counted across both paths the
+checkpoint carries: 24 `diffusion_module.diffusion_transformer.blocks.N.attention_pair_bias.layer_norm_z.weight`
+and the 24 under `sample_diffusion.`. Its 3 missing are the hoisted shared norm under both paths
+plus `version_tensor`. **There is no other parameter-level divergence at whole-model scope.** The
+p2 checkpoint fits 0.4.3's model exactly.
+
+**Upstream 0.5.0 already ships the check, and it rejects this combination.**
+`entry_points/experiment_runner.py:750-772`:
+
+```python
+missing = model_keys - ckpt_keys
+unexpected = ckpt_keys - model_keys
+if missing == {"model.version_tensor"} and not unexpected:
+    logger.warning("No version_tensor found for this checkpoint. ...continuing...")
+    self.lightning_module.load_state_dict(state_dict, strict=False)
+    return
+elif missing or unexpected:
+    raise ValueError(f"Checkpoint state_dict keys do not match model state_dict keys. "
+                     f"Missing keys: {missing}, Unexpected keys: {unexpected}")
+```
+
+With missing=3 and unexpected=48 this takes the `raise` branch. **Upstream's supported entry point
+will not load `of3-p2-155k.pt` on 0.5.0 at all.** The reference bundle therefore went around that
+loader — constructing the model and calling `load_state_dict(..., strict=False)` directly. 0.5.0
+also registers `version_tensor = MODEL_VERSION = [2,0,0]` as a buffer (`model.py:50,116`) and
+raises on a mismatched one, so upstream treats checkpoint-to-architecture version binding as a
+correctness gate, not a convention.
+
+**And a correction to the gate this campaign is installing.** A key-set check catches the
+diffusion half and is **structurally blind to the trunk half**: `transpose_bias` carries no
+parameter, so a model that computes the wrong ending-node function loads with `missing=0,
+unexpected=0`. The key check is necessary and not sufficient. Pair it with an explicit revision
+assertion against the checkpoint's declared `version_compatibility` window, which catches both
+kinds. That pairing is now the requirement on `of3t-rebase` deliverable 1.

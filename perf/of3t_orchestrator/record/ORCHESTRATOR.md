@@ -2873,3 +2873,42 @@ and reopened them. No number in this document that was taken against the 0.5.0 b
 read as a statement about our port until `of3t-rebase` reports. The charter is not met and the
 reproduction is not established unreachable, so neither GO nor NO-GO is available and the honest
 verdict is the one the gate refuses: still working.
+
+PASS 90. **The skew is now bounded rather than sampled, and upstream's own loader refuses the
+combination the reference was built on.** Pass 89 found two changes by reading diffs. Reading
+diffs is not a bound, so this pass built the whole `OpenFold3` model from each revision's own
+`model_config` and diffed its parameter names against the checkpoint
+(`perf/of3t_orchestrator/revision/full_model_keys.py`):
+
+| revision | model params | checkpoint tensors | missing | unexpected |
+|---|---|---|---|---|
+| **0.4.3** | 4,936 | 4,935 | **1** (`version_tensor`) | **0** |
+| **0.5.0** | 4,890 | 4,935 | **3** | **48** |
+
+The 48 are exactly the `layer_norm_z` hoist across both paths the checkpoint carries, 24 under
+`diffusion_module.` and 24 under `sample_diffusion.`. **No other parameter-level divergence
+exists at whole-model scope**, and the preview2 checkpoint fits 0.4.3's model exactly. So D23 is
+bounded: rebuilding at 0.4.3 removes all of it, and there is no third change waiting.
+
+**Upstream already wrote the gate this campaign is installing, and it rejects p2-on-0.5.0.**
+`entry_points/experiment_runner.py:750-772`, `_load_state_dict_with_version_validation`, computes
+the same two sets; it warns and loads `strict=False` only when `missing ==
+{"model.version_tensor"}` with nothing unexpected, and otherwise raises `ValueError`. At
+missing=3 / unexpected=48 that is the raise branch — **upstream's supported entry point will not
+load this checkpoint on 0.5.0 at all**, and the bundle reached it by going around that loader
+with a direct `load_state_dict(..., strict=False)`. 0.5.0 also registers `version_tensor =
+MODEL_VERSION = [2,0,0]` and raises on a mismatch. The binding is upstream's own correctness
+gate, not an inference from a version string.
+
+**And the gate I installed yesterday is necessary and not sufficient, which is worth more than
+the bound.** A key-set check catches the diffusion half of D23 and is **structurally blind to the
+trunk half**: `transpose_bias` carries no parameter, so a model computing the wrong ending-node
+function loads with missing 0 and unexpected 0 and looks perfect. Pairing it with an assertion
+that the installed revision sits inside the checkpoint's declared `version_compatibility` window
+catches both kinds. `of3t-rebase`'s brief is amended and its live session was told directly
+rather than left to pick it up on a relaunch, which is the lesson this campaign was handed on
+day one.
+
+`of3t-rebase` launched 01:00 CEST on qb2 and is running. The verdict does not move on this pass:
+the bound and the loader evidence make D23 harder to doubt, and neither is a measurement of our
+port.

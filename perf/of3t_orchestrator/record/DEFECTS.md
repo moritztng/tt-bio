@@ -1092,4 +1092,29 @@ the unified `AttentionPairBias` with `layer_norm_z` and no `transpose_bias`, so 
 3. D19's near-linear 0.74x composition disappears, one differing sub-module per block being what
    produces a per-block constant that composes linearly.
 
+**PASS 90 — the skew is completely bounded, and upstream's own loader refuses it.** The two
+changes above were found by reading diffs, which is not a bound. Building the whole `OpenFold3`
+model from each revision's own `model_config` and diffing parameter names against the checkpoint
+(`full_model_keys.py`): **0.4.3 gives missing 1 (`version_tensor`), unexpected 0** against 4,936
+model params and 4,935 checkpoint tensors; **0.5.0 gives missing 3, unexpected 48** against 4,890.
+The 48 are exactly the `layer_norm_z` hoist counted across both paths the checkpoint carries, 24
+under `diffusion_module.` and 24 under `sample_diffusion.`. **There is no other parameter-level
+divergence at whole-model scope**, and p2 fits 0.4.3 exactly.
+
+And upstream 0.5.0 **already ships this check**: `entry_points/experiment_runner.py:750-772`,
+`_load_state_dict_with_version_validation`, computes the same two sets, warns and loads
+`strict=False` only when `missing == {"model.version_tensor"}` with nothing unexpected, and
+otherwise **raises ValueError**. At missing=3 / unexpected=48 the p2-on-0.5.0 case takes the raise
+branch, so **upstream's supported entry point will not load this checkpoint on 0.5.0 at all** —
+the bundle went around it with a direct `load_state_dict(..., strict=False)`. 0.5.0 also registers
+`version_tensor = MODEL_VERSION = [2,0,0]` and raises on a mismatch, so upstream treats the
+checkpoint-to-architecture binding as a correctness gate rather than a convention.
+
+**Correction to the gate this campaign is installing: it is necessary and not sufficient.** A
+key-set check catches the diffusion half and is structurally blind to the trunk half —
+`transpose_bias` carries no parameter, so a model computing the wrong ending-node function loads
+with missing 0 and unexpected 0. Pair it with an explicit assertion that the installed revision
+sits inside the checkpoint's declared `version_compatibility` window, which catches both kinds.
+`of3t-rebase`'s brief is amended accordingly and the live session was told directly.
+
 Owner: `of3t-rebase`, dispatched pass 89.
