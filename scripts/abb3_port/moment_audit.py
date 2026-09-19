@@ -9,8 +9,9 @@ reported.
 
 That is worth a script because the failure it detects is invisible everywhere else. On 2026-09-19
 the `base-loss` leg had taken 1,248 steps on all 436 of its parameters while 356 of them sat in
-exactly this state: `tt_bio/train/abodybuilder3_step.py:241` substitutes `torch.zeros_like` for a
-missing gradient, so RAdam stepped every parameter, `opt_steps` reached 1,248 on every parameter,
+exactly this state: `tt_bio/train/abodybuilder3_step.py::TrainStep.step` substitutes
+`torch.zeros_like` for a missing gradient, so RAdam stepped every parameter, `opt_steps` reached
+1,248 on every parameter,
 and `grad_norm` averaged the zeros in with the live ones and declined convincingly. The checkpoint
 knew. Nothing read it.
 

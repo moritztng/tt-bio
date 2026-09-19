@@ -9,9 +9,10 @@ Nothing in the stack could see it. 4,124 tests passed, so did the cross-chip res
 heartbeat, the dry run and the lr-schedule check, and three resumes replayed 56 of 57 steps
 bit-identically, because a frozen parameter is perfectly reproducible. `grad_norm` read a plausible
 0.18 and even declined, since it is the norm over all 436 mirrors and the 80 live ones carried it.
-`tt_bio/train/abodybuilder3_step.py:241` is what makes the failure silent: a missing gradient
-becomes `torch.zeros_like`, so RAdam steps every parameter, `opt_steps` advances on every
-parameter, and from there an untrained parameter is indistinguishable from a trained one.
+`tt_bio/train/abodybuilder3_step.py::TrainStep.step` is what makes the failure silent: a
+missing gradient becomes `torch.zeros_like`, so RAdam steps every parameter, `opt_steps`
+advances on every parameter, and from there an untrained parameter is indistinguishable from a
+trained one.
 
 **The gate reads `p.grad`, which is what the tape produced, before any substitution.** The
 substitution is written into the host mirror and never back into `p.grad`, so a real step followed
@@ -21,10 +22,11 @@ to it.
 **The weights are the run's own, and that is why this gate sees what the older one does not.**
 `scripts/abb3_port/step_gate.py` has carried an every-parameter-takes-a-gradient assertion since
 the port's first complete step, and it passed throughout: its fixture redraws every parameter from
-`N(0, 0.05)` first. The run does not. `scripts/abb3_port/repro.py:37` starts from
-`ABB3StructureModule(cfg).state_dict()`, and `tt_bio/af2_reference.py:98` allocates every `Linear`
-weight with `torch.zeros` because that class exists to hold weights loaded from a checkpoint and
-never to initialise them, so 300 of the 316 tensors the run starts from are identically zero. Zero
+`N(0, 0.05)` first. The run does not. `scripts/abb3_port/repro.py::initial_state_dict` starts
+from `ABB3StructureModule(cfg).state_dict()`, and `tt_bio/af2_reference.py::Linear.__init__`
+allocates every weight with `torch.zeros` because that class exists to hold weights loaded from
+a checkpoint and never to initialise them, so 300 of the 316 tensors the run starts from are
+identically zero. Zero
 is a fixed point: no gradient passes upstream through `W = 0` (`dx = g W^T`), so the layer's input
 stays zero and `dW = x^T g` is zero as well. A fixture that redraws the weights deletes the defect
 before the check runs, which :func:`test_a_dense_initialisation_makes_the_same_gate_green` states
@@ -124,7 +126,7 @@ def test_a_real_training_step_reaches_every_trainable_parameter():
         f"training steps ({[len(d) for d in dead]} dead per step, {len(absent)} of them with "
         f"`p.grad is None`). {len(live)} trained, and their shapes are {_shapes(step, live)} "
         f"against {_shapes(step, never_moved)} dead -- not one weight matrix is training.\n"
-        f"abodybuilder3_step.py:241 substitutes torch.zeros_like for a missing gradient, so RAdam "
+        f"TrainStep.step substitutes torch.zeros_like for a missing gradient, so RAdam "
         f"steps all {total} of them, opt_steps advances on all of them, and grad_norm averages "
         f"the zeros in with the live ones. A run in this state is reproducible, resumes "
         f"bit-identically, passes every other gate, and does not train.")
@@ -252,11 +254,12 @@ def test_the_same_check_is_red_on_the_model_the_first_leg_trained():
     """The control in the other direction: narrowing the predicate must not excuse the defect.
 
     The leg ran on `ABB3StructureModule(cfg).state_dict()` with nothing drawn over it
-    (`scripts/abb3_port/repro.py:37` as it stood, allocating through
-    `tt_bio/af2_reference.py:98`), so every weight matrix in the trunk was exactly zero. That
-    model is constructed here rather than mocked, which is the only version of this control
-    worth having: green on the repaired tree proves nothing on its own, and red on the broken
-    tree taken as sufficient is exactly how the first version of the check shipped.
+    (`scripts/abb3_port/repro.py::initial_state_dict` as it stood, allocating through
+    `tt_bio/af2_reference.py::Linear.__init__`), so every weight matrix in the trunk was
+    exactly zero. That model is constructed here rather than mocked, which is the only version
+    of this control worth having: green on the repaired tree proves nothing on its own, and red
+    on the broken tree taken as sufficient is exactly how the first version of the check
+    shipped.
     """
     cfg = ABB3Config(use_plddt=False, no_blocks=BLOCKS)
     model = ABB3StructureModule(cfg)
