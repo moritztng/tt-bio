@@ -155,9 +155,20 @@ def preread(workdir: Path, baseline_path: Path, models=None, card=None,
             continue                                  # this model has not started
         base_model = (card_block.get("models") or {}).get(model)
         if base_model is None:
-            out.append({"model": model, "gate": False, "pending": meas["pending"],
-                        "findings": [f"{model}: no {card} baseline"], "span": meas["span"],
-                        "runtime_s": meas["runtime_s"], "exponents": {}})
+            # NOT a red. "I could not find your cells" and "your measurement drifted" are
+            # different answers, and printing the first as FAIL is the pre-read being
+            # mistaken for the verdict, which is the one thing this tool must not do. The
+            # usual cause is a --baseline pointed at a copied monolith whose
+            # `<stem>.d/` fragment dir did not come with it: the fragments hold every
+            # model's rows, so the merge silently yields a card block with no models and
+            # every row reads as a regression.
+            frag = rg._size_ladder_fragment_dir(baseline_path)
+            why = (f"{model}: no {card} cells in {baseline_path.name}"
+                   + ("" if frag.is_dir() else f" and no fragment dir {frag.name}/ beside it"))
+            out.append({"model": model, "gate": None, "unscorable": True,
+                        "pending": meas["pending"], "findings": [why],
+                        "span": meas["span"], "runtime_s": meas["runtime_s"],
+                        "exponents": {}})
             continue
         res = rg._size_ladder_compare(base_model, meas, model, rungs)
         res["pending"], res["span"] = meas["pending"], meas["span"]
@@ -197,14 +208,22 @@ def main() -> int:
                                 for t in r["span"])) if r.get("span") else "-"
         day = (datetime.utcfromtimestamp(r["span"][0]).strftime("%m-%d ")
                if r.get("span") else "")
-        print(f"{r['model']:<12} {'PASS' if r['gate'] else 'FAIL':<8} {day + span:<19} "
+        verdict = "NO-CELLS" if r.get("unscorable") else ("PASS" if r["gate"] else "FAIL")
+        print(f"{r['model']:<12} {verdict:<8} {day + span:<19} "
               f"{rt:<34} {exp}{pend}")
         for f in r["findings"]:
             print(f"    - {f}")
-    bad = [r["model"] for r in rows if not r["gate"]]
-    print(f"\n{len(rows) - len(bad)}/{len(rows)} scored models PASS"
-          + (f"; FAIL: {', '.join(bad)}" if bad else ""))
-    return 1 if bad else 0
+    bad = [r["model"] for r in rows if not r.get("unscorable") and not r["gate"]]
+    nocell = [r["model"] for r in rows if r.get("unscorable")]
+    scored = len(rows) - len(nocell)
+    print(f"\n{scored - len(bad)}/{scored} scored models PASS"
+          + (f"; FAIL: {', '.join(bad)}" if bad else "")
+          + (f"; NOT SCORED (no cells): {', '.join(nocell)}" if nocell else ""))
+    # A run nobody could score is not a green one: exit 2 so a caller can tell "your
+    # baseline is missing" from "your measurement drifted" without parsing the text.
+    if bad:
+        return 1
+    return 2 if nocell and not scored else 0
 
 
 if __name__ == "__main__":

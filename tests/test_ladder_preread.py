@@ -122,3 +122,85 @@ def test_the_warmup_fold_is_read_for_its_refusal_and_never_for_its_timing(pre, t
     meas = pre._measure_from_disk(work, "rf3", (256, 1088), since=0)
     assert meas["runtime_s"] == {"256": 21.0}, "the warm-up must not enter the median"
     assert "1088" in meas["refused"]
+
+
+BASELINE = {"cards": {"p300c": {"recorded": "2026-09-18", "models": {}}}}
+
+# One served lever, so the fixture exercises the baseline lookup and nothing else: a
+# dark-and-ON lever or a lever absent from the cells is its own red, and a fixture that
+# trips those cannot show what a missing fragment dir does on its own.
+ONE_LEVER = {"grid": "11x10", "rows": [
+    {"flag": "SERVED", "resolved": "True", "served": 10, "declined": 0, "how": "stats"}]}
+
+
+# boltz2's own ladder, so the fixture leaves no rung unrecorded; the timings are the real
+# p300c cells so the exponent it declares is the real one.
+LADDER = {256: 4.1, 512: 11.0, 640: 17.3, 768: 25.7, 896: 37.3, 1024: 53.9}
+
+
+def _fragment(pre, rungs):
+    """boltz2 cells that agree with ONE_LEVER, built through the translation under test."""
+    levers = pre._census_levers(ONE_LEVER)
+    return {"cards": {"p300c": {"models": {"boltz2": {
+        "grid": "11x10", "runtime_s": {str(r): v for r, v in rungs.items()},
+        "exponents": {"256->512": {"k": 1.424, "tol": 0.5}},
+        "levers": {str(r): levers for r in rungs}}}}}}
+
+
+def test_a_baseline_whose_fragments_are_missing_is_not_a_regression(pre, tmp_path):
+    """"I cannot find your cells" must not print as FAIL.
+
+    The baseline is a monolith overlaid with `<stem>.d/<model>.json` fragments, and every
+    model's rows live in the fragments. Copy the monolith somewhere to score a remote run
+    and the fragment dir does not come with it: the merge yields a card block with no
+    models, and before this was pinned every row of a healthy run read FAIL with
+    "no p300c baseline" attached. That is the pre-read being mistaken for the verdict,
+    which the module docstring calls worse than having no pre-read at all.
+    """
+    work = tmp_path / "work"
+    work.mkdir()
+    for rung, t in LADDER.items():
+        _rung(work, "boltz2", rung, "rep0", t, census=ONE_LEVER)
+
+    lone = tmp_path / "lone.json"
+    lone.write_text(json.dumps(BASELINE))
+    rows = pre.preread(work, lone, models=["boltz2"], card="p300c")
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["unscorable"] is True
+    assert row["gate"] is None, "unscorable must not be falsy-as-FAIL"
+    assert "no p300c cells" in row["findings"][0]
+    assert "lone.d/" in row["findings"][0], "name the dir that was not there"
+    # the run's own numbers still come back, so the reader can see it folded fine
+    assert row["runtime_s"] == {str(r): v for r, v in LADDER.items()}
+
+    # With the fragments beside it the same run scores, and scores PASS: proof the
+    # NO-CELLS verdict was about the baseline and never about the measurement.
+    frag_dir = tmp_path / "lone.d"
+    frag_dir.mkdir()
+    (frag_dir / "boltz2.json").write_text(
+        json.dumps(_fragment(pre, LADDER)))
+    rows = pre.preread(work, lone, models=["boltz2"], card="p300c")
+    assert not rows[0].get("unscorable")
+    assert rows[0]["gate"] is True, rows[0]["findings"]
+
+
+def test_the_wrong_card_is_reported_as_missing_cells_not_as_drift(pre, tmp_path):
+    """Scoring a p300c run against p150a cells is the mistake this tool exists to stop.
+
+    The card type is probed from the host running the pre-read, which for a remote run is
+    the wrong host. A card with no cells must say so rather than red the run.
+    """
+    work = tmp_path / "work"
+    work.mkdir()
+    _rung(work, "boltz2", 256, "rep0", 4.1, census=ONE_LEVER)
+    lone = tmp_path / "lone.json"  # fragments present, wrong card asked for
+    lone.write_text(json.dumps(BASELINE))
+    (tmp_path / "lone.d").mkdir()
+    (tmp_path / "lone.d" / "boltz2.json").write_text(
+        json.dumps(_fragment(pre, LADDER)))
+    rows = pre.preread(work, lone, models=["boltz2"], card="p150a")
+    assert rows[0]["unscorable"] is True
+    assert "no p150a cells" in rows[0]["findings"][0]
+    # the fragment dir IS there, so the message must not blame it
+    assert "fragment dir" not in rows[0]["findings"][0]
