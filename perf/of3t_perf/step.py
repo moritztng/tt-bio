@@ -79,6 +79,79 @@ class _Captured(Exception):
     """Raised out of the intercepted sampler once the step's inputs are all in hand."""
 
 
+# The shipped trunk CONSUMES its inputs: it deallocates the device tensors it was handed as it
+# walks the cycles, which is right for a fold that runs once and fatal for a harness that replays
+# the same call. The first device run of this harness died exactly there -- rep 0's no_grad prefix
+# raised "Buffer is not allocated" out of openfold3_msa_embedder.py:39 on msa_feat, because the
+# capture fold had already freed it. rollout_ladder guards against this with an is_allocated check
+# and then declines to price the rollout; the trunk is the whole deliverable, so it gets a
+# replayable copy instead of a guard.
+#
+# The copy is taken on HOST, inside the intercept, BEFORE the real trunk runs, and re-uploaded per
+# rep. That keeps the input the shipped pipeline's own -- featurizer, bucketing and input embedder
+# untouched -- while making it survivable. bf16 round-trips through torch bit-exactly, so a
+# replayed tensor is the captured one rather than a re-derivation. Layout, dtype AND memory config
+# are all carried: rebuilding an L1-sharded input as interleaved DRAM would quietly change what the
+# timing is about, which is the same class of mistake as timing a model whose weights were never
+# declared.
+
+
+def _snapshot(obj):
+    """Host copy of every device tensor in an argument tree, tagged so it can be rebuilt."""
+    import ttnn
+    if isinstance(obj, ttnn.Tensor):
+        if not obj.is_allocated():
+            return ("DEAD", None)
+        try:
+            mc = obj.memory_config()
+        except Exception:
+            mc = None
+        return ("T", (ttnn.to_torch(obj), obj.dtype, obj.layout, mc))
+    if isinstance(obj, dict):
+        return ("d", {k: _snapshot(v) for k, v in obj.items()})
+    if isinstance(obj, list):
+        return ("l", [_snapshot(v) for v in obj])
+    if isinstance(obj, tuple):
+        return ("t", tuple(_snapshot(v) for v in obj))
+    return ("raw", obj)
+
+
+def _rehydrate(sn, dev):
+    """Rebuild an argument tree on device from what _snapshot kept."""
+    import ttnn
+    kind, v = sn
+    if kind == "T":
+        host, dtype, layout, mc = v
+        kw = {"dtype": dtype, "layout": layout, "device": dev}
+        if mc is not None:
+            kw["memory_config"] = mc
+        try:
+            return ttnn.from_torch(host, **kw)
+        except Exception:
+            kw.pop("memory_config", None)
+            return ttnn.from_torch(host, **kw)
+    if kind == "DEAD":
+        return None
+    if kind == "d":
+        return {k: _rehydrate(x, dev) for k, x in v.items()}
+    if kind == "l":
+        return [_rehydrate(x, dev) for x in v]
+    if kind == "t":
+        return tuple(_rehydrate(x, dev) for x in v)
+    return v
+
+
+def _count_dead(sn):
+    kind, v = sn
+    if kind == "DEAD":
+        return 1
+    if kind == "d":
+        return sum(_count_dead(x) for x in v.values())
+    if kind in ("l", "t"):
+        return sum(_count_dead(x) for x in v)
+    return 0
+
+
 def capture(tokens, out):
     """Run the shipped OF3 pipeline to the sampler, keeping the trunk's and sampler's inputs.
 
@@ -97,6 +170,8 @@ def capture(tokens, out):
         # Record and CARRY ON: the sampler's inputs are downstream of a real trunk output, so
         # stopping here would leave half the step uncaptured.
         held["trunk"] = (self, args, kwargs)
+        # Taken BEFORE the real call, which frees these tensors as it walks the cycles.
+        held["trunk_snap"] = (_snapshot(args), _snapshot(kwargs))
         t0 = time.perf_counter()
         r = real_trunk(self, *args, **kwargs)
         held["capture_trunk_s"] = time.perf_counter() - t0
@@ -127,7 +202,10 @@ def capture(tokens, out):
     out["prep_to_sampler_s"] = round(time.perf_counter() - t0, 2)
     if "trunk" not in held:
         raise SystemExit("the fold never reached OF3Trunk.__call__; nothing to time")
-    out["capture"] = {"trunk_forward_s": round(held.get("capture_trunk_s", 0.0), 3),
+    sa, sk = held["trunk_snap"]
+    out["capture"] = {"trunk_inputs_snapshotted": True,
+                      "trunk_inputs_dead_at_capture": _count_dead(sa) + _count_dead(sk),
+                      "trunk_forward_s": round(held.get("capture_trunk_s", 0.0), 3),
                       "trunk_forward_note": "the shipped call, progress_fn INCLUDED "
                                             "and cold; the timed arms below drop it",
                       "trunk_cycles": held.get("capture_trunk_cycles"),
@@ -154,7 +232,7 @@ def walk_weights(obj, prefix="", seen=None, out=None, depth=0, stat=None):
     import ttnn
     out = {} if out is None else out
     seen = set() if seen is None else seen
-    stat = {"max_depth": 0, "truncated": 0} if stat is None else stat
+    stat = {"max_depth": 0, "truncated": 0, "caches_skipped": 0} if stat is None else stat
     stat["max_depth"] = max(stat["max_depth"], depth)
     if depth > WALK_DEPTH:
         stat["truncated"] += 1
@@ -166,6 +244,9 @@ def walk_weights(obj, prefix="", seen=None, out=None, depth=0, stat=None):
         list(enumerate(obj)) if isinstance(obj, (list, tuple)) else
         vars(obj).items() if hasattr(obj, "__dict__") else [])
     for k, v in items:
+        if isinstance(k, str) and k.endswith("_cache"):
+            stat["caches_skipped"] = stat.get("caches_skipped", 0) + 1
+            continue
         name = f"{prefix}{k}"
         if isinstance(v, ttnn.Tensor):
             out[name] = (obj, k, v)
@@ -192,6 +273,7 @@ def declare_weights(trunk, out):
                      "by_rank": _rank_hist(params),
                      "walk_depth_reached": stat["max_depth"],
                      "walk_truncated_at_limit": stat["truncated"],
+                     "cache_attrs_skipped": stat["caches_skipped"],
                      "pairformer_weights": len(deep),
                      "deepest_name": max(params, key=lambda n: n.count(".")) if params else None}
     if not deep:
@@ -218,6 +300,62 @@ def _rank_hist(params):
     return h
 
 
+def clear_device_caches(root, out=None):
+    """Deallocate every memoised device tensor hanging off a shipped module.
+
+    Walks the same tree as `walk_weights` and empties the dicts whose attribute name ends in
+    `_cache`. Returns (tensors_freed, dicts_cleared). Deliberately narrow: it frees CACHES, never
+    a weight and never an activation, so a module that is asked for the same chunk again simply
+    rebuilds it.
+    """
+    import ttnn
+    freed = [0, 0]
+    seen = set()
+
+    def walk(obj, depth=0):
+        if depth > WALK_DEPTH or id(obj) in seen:
+            return
+        seen.add(id(obj))
+        items = (list(obj.items()) if isinstance(obj, dict) else
+                 list(enumerate(obj)) if isinstance(obj, (list, tuple)) else
+                 list(vars(obj).items()) if hasattr(obj, "__dict__") else [])
+        for k, v in items:
+            if isinstance(k, str) and k.endswith("_cache") and isinstance(v, dict):
+                for t in _tensors_in(v):
+                    try:
+                        if t.is_allocated():
+                            ttnn.deallocate(t)
+                            freed[0] += 1
+                    except Exception:
+                        pass
+                v.clear()
+                freed[1] += 1
+                continue
+            if isinstance(v, (list, tuple, dict)) or hasattr(v, "__dict__"):
+                walk(v, depth + 1)
+
+    walk(root)
+    if out is not None:
+        out["cache_clear"] = {"tensors_freed": freed[0], "dicts_cleared": freed[1]}
+    return tuple(freed)
+
+
+def _tensors_in(obj, acc=None, depth=0):
+    import ttnn
+    acc = [] if acc is None else acc
+    if depth > 6:
+        return acc
+    if isinstance(obj, ttnn.Tensor):
+        acc.append(obj)
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            _tensors_in(v, acc, depth + 1)
+    elif isinstance(obj, (list, tuple)):
+        for v in obj:
+            _tensors_in(v, acc, depth + 1)
+    return acc
+
+
 def cycle_once(trunk, held, cycles, taped):
     """One trunk forward at a pinned cycle count, taped or not.
 
@@ -230,7 +368,14 @@ def cycle_once(trunk, held, cycles, taped):
     breakdown reads; the numerical coupling is `of3t-equivalence`'s business, not this file's.
     """
     from tt_bio import autograd as ag
-    _self, args, kwargs = held["trunk"]
+    from tt_bio.tenstorrent import get_device
+    # Fresh device copies every call. The captured originals are gone -- the shipped trunk freed
+    # them during the capture fold -- and even if they survived, rep 1 would be replaying inputs
+    # rep 0 had already consumed, which times a different thing each rep.
+    snap_args, snap_kwargs = held["trunk_snap"]
+    dev = get_device()
+    args = _rehydrate(snap_args, dev)
+    kwargs = _rehydrate(snap_kwargs, dev)
     # `progress_fn` comes along with the captured call and it is not free: the emit rate is a
     # measured perf cost on this tree, not cosmetics, and the shipped trunk fires it once per
     # cycle. Dropped from every timed arm so the stage is the trunk's cost and not the
@@ -269,6 +414,21 @@ def rollout_ladder(held, dev, out, rungs=LADDER):
     if dead:
         return {"note": f"captured sampler inputs {dead} were freed on the way out; "
                         f"rollout not priced"}
+    # WARM-UP, discarded. The first sampler call in a process compiles kernels and misses the
+    # program cache; timing it as rung 0 put 32.617 s against 4 steps and inverted the fit.
+    warm = list(args)
+    for i in list_idx:
+        v = args[i]
+        warm[i] = v[:min(2, full)] if len(v) == full else v
+    t0 = time.perf_counter()
+    with ag.no_grad():
+        xw = self_(*warm, **{k: v for k, v in kwargs.items() if k != "progress_fn"})
+    ttnn.synchronize_device(dev)
+    warm_s = time.perf_counter() - t0
+    if hasattr(xw, "is_allocated") and xw.is_allocated():
+        ttnn.deallocate(xw)
+    print(f"  [rollout] warm-up (discarded) {warm_s:7.3f}s", flush=True)
+
     rows = []
     for n in rungs:
         if n > full:
@@ -286,13 +446,44 @@ def rollout_ladder(held, dev, out, rungs=LADDER):
             ttnn.deallocate(xl)
         rows.append({"steps": n, "s": round(s, 3)})
         print(f"  [rollout] {n:>3} steps  {s:7.3f}s", flush=True)
-    r = {"rungs": rows, "full_schedule_steps": full}
+    r = {"rungs": rows, "full_schedule_steps": full,
+         "warmup_discarded_s": round(warm_s, 3),
+         "full_schedule_note": ("our shipped sampler's schedule is this many steps; their mini "
+                                "rollout is 20, so the 20-step rung IS their rollout and the "
+                                "longer rungs are not part of their step")}
     if len(rows) >= 2:
-        (n0, s0), (n1, s1) = (rows[0]["steps"], rows[0]["s"]), (rows[-1]["steps"], rows[-1]["s"])
-        per = (s1 - s0) / (n1 - n0)
+        # Least squares over every rung, not a line through the two endpoints: with three or more
+        # rungs the endpoints throw away the middle, and a single bad rung then sets the answer.
+        ns = [x["steps"] for x in rows]
+        ss = [x["s"] for x in rows]
+        k = len(ns)
+        mn, ms = sum(ns) / k, sum(ss) / k
+        den = sum((n - mn) ** 2 for n in ns)
+        per = sum((n - mn) * (v - ms) for n, v in zip(ns, ss)) / den if den else 0.0
+        fixed = ms - per * mn
+        resid = max(abs(v - (fixed + per * n)) for n, v in zip(ns, ss))
+        monotonic = all(b["s"] >= a["s"] for a, b in zip(rows, rows[1:]))
         r["per_step_s"] = round(per, 4)
-        r["fixed_s"] = round(s0 - per * n0, 3)
-        r["their_mini_rollout_20_s"] = round(r["fixed_s"] + 20 * per, 3)
+        r["fixed_s"] = round(fixed, 3)
+        r["fit_max_residual_s"] = round(resid, 3)
+        r["fit_monotonic"] = monotonic
+        if per <= 0 or not monotonic:
+            # A rollout cannot get cheaper per step. If the fit says it does, a rung is
+            # contaminated and the fit is the wrong thing to publish -- say so instead.
+            r["fit_valid"] = False
+            r["fit_note"] = ("REJECTED: per-step rate %.4f s and monotonic=%s. A rung is "
+                             "contaminated (cold compile, or a co-tenant landing on the board "
+                             "mid-ladder). No per-step rate is claimed from this ladder."
+                             % (per, monotonic))
+            r["their_mini_rollout_20_s"] = None
+        else:
+            r["fit_valid"] = True
+            r["their_mini_rollout_20_s"] = round(fixed + 20 * per, 3)
+        # The direct reading is worth keeping beside the fit: the 20-step rung is their rollout
+        # measured, with no model in between.
+        direct = [x["s"] for x in rows if x["steps"] == 20]
+        if direct:
+            r["their_mini_rollout_20_s_DIRECT"] = direct[0]
     return r
 
 
@@ -311,6 +502,24 @@ def main():
                          "step; pin it so the timing is not reading the draw")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--no-rollout", action="store_true")
+    ap.add_argument("--clear-caches", action="store_true",
+                    help="free the device-resident module caches the capture fold warmed, "
+                         "before the timed arms. Reports how many tensors it freed and the DRAM "
+                         "before and after, because warm and cleared bound the answer from "
+                         "opposite sides: warm over-counts the memory a step needs, cleared "
+                         "over-counts the time it takes")
+    ap.add_argument("--shim", action="store_true",
+                    help="install perf/of3t_perf/fused_unary_shim.py, which supplies exact "
+                         "process-local rules for PARAMETERISED fused unaries so a taped cycle "
+                         "and its backward can be timed at all. It fails closed: anything "
+                         "without an exact rule is recorded and re-raised. No gradient claim "
+                         "comes from a shimmed run, only a cost")
+    ap.add_argument("--no-tape", action="store_true",
+                    help="skip the taped cycle and the backward, and run that cycle under "
+                         "no_grad instead. The stages that need no tape -- the no_grad "
+                         "prefix, the download and the mini rollout -- are measurable while "
+                         "taped_ttnn's fused-activation gap is open; the two that do need it "
+                         "are reported as NOT MEASURED rather than as zero")
     ap.add_argument("--out", type=Path, default=Path("perf/of3t_perf/stages.json"))
     a = ap.parse_args()
 
@@ -325,7 +534,12 @@ def main():
                        "grad_on_final_cycle_only": True,
                        "mini_rollout_steps": 20,
                        "diffusion_half": "EXCLUDED: 5 ttnn.embedding gathers have no tape "
-                                         "entry (perf/of3t_perf/verb_census.json)"}}
+                                         "entry (perf/of3t_perf/verb_census.json)"},
+        "tape_gap": ("ttnn.add_ with a fused MUL_UNARY_SFPU params=[0.25] on "
+                     "input_tensor_a_activations has no backward in tt_bio.taped_ttnn "
+                     "(_activation, taped_ttnn.py:270). Raised at tenstorrent.py:3758 in "
+                     "_fp32_softmax_tail, reached from the OF3 trunk's pairformer at crop 384. "
+                     "SHARED path, not an OF3 file, and owned by of3t-tape.")}
     a.out.parent.mkdir(parents=True, exist_ok=True)
     dump = lambda: a.out.write_text(json.dumps(out, indent=1, default=str))
     dump()
@@ -334,6 +548,14 @@ def main():
         try:
             import torch
             import ttnn
+            if a.shim:
+                from perf.of3t_perf import fused_unary_shim
+                fused_unary_shim.install()
+                out["shim"] = {"installed": True,
+                               "what": "process-local rules for parameterised fused unaries; "
+                                       "taped_ttnn.py is of3t-tape's file and is unchanged",
+                               "gradient_claim": "NONE -- this makes a COST measurable and "
+                                                 "nothing else"}
             from tt_bio import autograd as ag
             from tt_bio.tenstorrent import get_device
 
@@ -343,6 +565,19 @@ def main():
             out["env"]["arch"] = str(dev.arch())
             out["dram"] = {"after_prep": _dram(dev)}
             params = declare_weights(trunk, out)
+            if a.clear_caches:
+                before = _dram(dev)
+                n_t, n_d = clear_device_caches(trunk, out)
+                out["cache_clear"]["dram_before"] = before
+                out["cache_clear"]["dram_after"] = _dram(dev)
+                out["cache_clear"]["dram_freed"] = before - out["cache_clear"]["dram_after"]
+                out["cache_clear"]["caveat"] = (
+                    "steady-state training keeps these caches across steps, so a cleared arm "
+                    "charges the first timed cycle a construction cost training would not pay; "
+                    "a warm arm charges the device memory an inference fold left behind")
+                print(f"[caches] freed {n_t} tensors from {n_d} dicts, "
+                      f"DRAM {before / 1e6:.0f} MB -> {out['cache_clear']['dram_after'] / 1e6:.0f} MB",
+                      flush=True)
             dump()
 
             stages = []
@@ -364,7 +599,7 @@ def main():
 
                 # --- forward, the one taped cycle
                 t0 = time.perf_counter()
-                s, z = cycle_once(trunk, held, 1, taped=True)
+                s, z = cycle_once(trunk, held, 1, taped=not a.no_tape)
                 ttnn.synchronize_device(dev)
                 row["forward_taped_cycle_s"] = time.perf_counter() - t0
                 row["dram_after_taped_forward"] = _dram(dev)
@@ -401,7 +636,15 @@ def main():
                 got = sum(1 for t in params.values() if getattr(t, "grad", None) is not None)
                 row["params_with_grad"] = f"{got} of {len(params)}"
                 row["backward_valid"] = bool(taped_root and got)
-                if not row["backward_valid"]:
+                if a.no_tape:
+                    row["backward_note"] = (
+                        "NOT MEASURED -- --no-tape was passed, so this cycle ran under no_grad "
+                        "and no backward was attempted. Not a zero and not a failure")
+                    row["forward_taped_cycle_s_note"] = (
+                        "this is the cycle run UNTAPED, so it is the forward's own cost "
+                        "without the tape's retention; it is a floor for the taped cycle, "
+                        "not a measurement of it")
+                elif not row["backward_valid"]:
                     row["backward_note"] = (
                         "INVALID -- the backward reached no declared weight, so this is the "
                         "cost of an empty graph, not of a training step's backward")
@@ -411,15 +654,27 @@ def main():
                 row["trunk_step_s"] = (row["forward_nograd_prefix_s"]
                                        + row["forward_taped_cycle_s"] + row["download_s"]
                                        + row["host_backward_s"] + row["device_backward_s"])
+                if a.no_tape:
+                    # A total that adds a 0.0 backward reads as a step time that happens to be
+                    # fast. It is a PARTIAL, and the name says so rather than a footnote saying
+                    # so somewhere else.
+                    row["trunk_step_s_PARTIAL"] = row.pop("trunk_step_s")
+                    row["trunk_step_s"] = None
+                    row["trunk_step_note"] = ("PARTIAL: forward + download only. The taped "
+                                              "cycle's retention cost and the device backward "
+                                              "are both missing, so this is a LOWER BOUND on "
+                                              "the trunk's step time, not the step time")
                 stages.append(row)
                 out["stages"] = stages
-                print(f"[rep {rep}] prefix {row['forward_nograd_prefix_s']:.2f}s  "
+                print(f"[rep {rep}] {'(no-tape) ' if a.no_tape else ''}"
+                      f"prefix {row['forward_nograd_prefix_s']:.2f}s  "
                       f"taped-cycle {row['forward_taped_cycle_s']:.2f}s  "
                       f"download {row['download_s']:.2f}s  "
                       f"backward {row['device_backward_s']:.2f}s "
                       f"({row['params_with_grad']} weights, "
                       f"{row['tape_nodes_from_root']} nodes)  "
-                      f"= {row['trunk_step_s']:.2f}s", flush=True)
+                      f"= {(row['trunk_step_s'] or row.get('trunk_step_s_PARTIAL', 0.0)):.2f}s"
+                      f"{' PARTIAL' if a.no_tape else ''}", flush=True)
                 dump()
 
             if not a.no_rollout:
@@ -428,6 +683,9 @@ def main():
         except Exception:
             out["error"] = traceback.format_exc()
             print(out["error"], flush=True)
+        if a.shim:
+            from perf.of3t_perf import fused_unary_shim
+            out["shim"]["census"] = fused_unary_shim.summary()
         out["clock"] = clk.summary() if hasattr(clk, "summary") else None
     dump()
     print("WROTE", a.out)

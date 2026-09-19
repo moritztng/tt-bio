@@ -57,7 +57,7 @@ dataset_configs:
       config:
         debug_mode: false
         template:
-          n_templates: 0
+          n_templates: 4
           take_top_k: false
         crop:
           token_crop:

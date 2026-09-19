@@ -190,12 +190,20 @@ class AdamW:
         self._reduce(replicas)
         disabled = set(disabled)
         per_sample = bool(self.accum)
+        # The schedule is read BEFORE the counter moves, and the order is the whole of it.
+        # Upstream steps the optimizer and THEN the scheduler (`runner.py:464-465`), and
+        # `AlphaFoldLRScheduler` is built with `last_epoch=-1`, so `_LRScheduler.__init__`
+        # steps it once to 0 before training starts. Their k-th update therefore runs at
+        # `lr(k-1)` and their first runs at `lr(0)`, which the AF3 warmup makes exactly 0.
+        # `self.steps` counts COMPLETED steps, so reading here is that same order. Reading
+        # after the increment put every step of ours one rung further along the warmup than
+        # theirs and made our first update non-zero where theirs is identically zero.
+        lr = self.lr if self.schedule is None else float(self.schedule(self.steps))
         self.steps += 1
         self.beta1_pow *= self.beta1
         self.beta2_pow *= self.beta2
         bc1 = 1.0 - self.beta1_pow
         bc2 = 1.0 - self.beta2_pow
-        lr = self.lr if self.schedule is None else float(self.schedule(self.steps))
         # Global-norm clipping, computed once over every gradient before any of them is
         # applied. Per-parameter clipping would be a different algorithm: it changes the
         # DIRECTION of the update, not just its length.

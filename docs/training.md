@@ -368,6 +368,38 @@ trunk still has to stay taped downstream of its first adapter or the gradient ne
 adapters in the early layers, so declining a non-adapter site outright would train only
 whatever sits after the last adapter, with no error and a loss curve that still falls.
 
+## The learning-rate schedule: your first step runs at lr(0)
+
+`AdamW` reads its schedule before it advances its step counter, so update k runs at `lr(k-1)`
+and the first update runs at `lr(0)`. Under the AF3 warmup that is exactly zero, so step 1
+moves nothing. This is not a quirk to work around: it is the order upstream trains in.
+Lightning calls `optimizer.step()` and then `scheduler.step()`, and `AlphaFoldLRScheduler` is
+constructed with `last_epoch=-1`, which steps it once to 0 before training starts.
+
+It matters if you are comparing a run against a reference: read the rate off `opt.last_lr`
+rather than computing `af3_lr(k)` yourself, or you will be one rung further along the warmup
+than the run was. Checked against upstream's own scheduler driven on a real `torch.optim.Adam`
+over 2,005 steps, exact at every one: `perf/of3t_updaterule/lr_wiring.py`.
+
+## Labels a loss term uses only if you supply them
+
+`batch(indices)` returns the labels the objective names, and for `mse` three of them are
+optional in the API and not optional in the loss. AlphaFold 3 upweights DNA and RNA tokens by
+5 and ligand tokens by 10, and `losses.mse` applies that weighting only through `is_dna`,
+`is_rna` and `is_ligand`. A featuriser that does not emit them trains every nucleic-acid and
+ligand token at protein weight, and the term still fires, so no loss value looks wrong.
+
+Two things to know when you write a dataset:
+
+* **Name them upstream's way.** OpenFold3's pipeline already does. Protenix-v2, Boltz-2 and
+  BoltzGen call the same fact `mol_type`, so their batches do not carry the weighting today.
+* **Check the breakdown.** `af3_loss` lists the absent ones under `breakdown["mse"]["without"]`.
+  That field is the only difference between a batch with no ligand and a batch whose featuriser
+  never mentioned one: the loss value and the gradient are identical in both cases.
+
+On a 56-token batch with two ligand tokens, supplying the three flags moves the loss 0.233 and
+the gradient it seeds 0.764.
+
 ## Gradient clipping: two things to pass, or you train a different rule
 
 `AdamW` clips on the global norm at `clip_norm=10.0`, which is upstream's own value. Two

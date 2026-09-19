@@ -41,8 +41,15 @@ from tt_bio.train.optim import af3_lr
 # on the plateau boundary all land inside a domain small enough to enumerate exhaustively --
 # corner cases a default-configured run reaches only after 100k steps, or never.
 CONFIGS = [
+    # max_lr is NOT the scheduler's Python signature default of 1e-3. `runner.py:863` builds it
+    # as `max_lr=optimizer_config.learning_rate`, and OpenFold3 ships 1.8e-3 -- the same number
+    # instrument C drives the optimizer at. This arm read 1e-3 until the orchestrator's
+    # cross-instrument audit caught the two disagreeing (LEDGER R35). The verdict does not
+    # change, because with base_lr=0 the schedule is exactly proportional to max_lr and both
+    # sides scale identically; the label was the defect, and a reader would have taken
+    # "of3_defaults" for what OF3 runs.
     ("of3_defaults",
-     dict(base_lr=0.0, max_lr=1e-3, warmup_no_steps=1000,
+     dict(base_lr=0.0, max_lr=1.8e-3, warmup_no_steps=1000,
           start_decay_after_n_steps=50000, decay_every_n_steps=50000, decay_factor=0.95),
      100001),
     ("many_decay_periods",
