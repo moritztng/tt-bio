@@ -320,6 +320,13 @@ and any plan treating the forward gap as the single blocker is mis-scoped. A mec
 heads `DEFECTS.md`; a **common cause is not asserted** — pass 47 explicitly bounded D9 out as
 the explanation for D8.
 
+**D22: the port targets openfold3 0.4.3 and the reference bundle was built with 0.5.0** —
+537 differing lines / 19 files against 0.4.3 versus 2,028 / 50 against 0.5.0, so we are **3.8x
+closer to 0.4.3**. It is real skew and it is **not** the cause of the diffusion gap: the vendor
+carries **no model layers** (108 files of data, geometry and config; its only model file is
+`core/model/structure/augmentation.py`), the operands read **0.000e+00** at the boundary, and
+every DiT-path layer file is functionally inert between the revisions. Owner `of3t-diffusion`.
+
 **D20's coverage half is CLOSED** (pass 71): the diffusion path is 100 % taped forward and
 backward and all 870 reachable weights carry a gradient, so `diffusion_module`'s 91.21 % of the
 squared norm is an unrun — now partly run — measurement, not a port gap. What remains of D20 is
@@ -391,6 +398,14 @@ set identical to main.
   shape of a mis-wired operand, not of an fp32-vs-float64 gap, which reads ~1e-2. A ceiling is
   publishable; the output of an instrument with a named defect is not.
 
+- **The diffusion transformer computes a DIFFERENT FUNCTION from upstream's, and it is not
+  precision.** `of3t-diffusion` measured **2.07e-02** relative L2 after a *single* block on real
+  tokens, compounding to **1.59e-01** over 24, with the decisive control being **our own bf16
+  against our own fp32 at 2.05e-02 vs 2.07e-02** — a gap a 16-bit mantissa cannot widen is not a
+  rounding gap. Operands against their captured `dit_in` are exact at **0.000e+00**, their side
+  agrees fp32-to-float64 to seven digits, and the size ladder is flat from n=32 to 384. That
+  forward gap, not our tape, is what caps the device gradient at 0.7672.
+
 - **Where it passes is the sharpest thing the campaign knows.** The single track reads
   **6.102e-03 to 6.390e-02** in the same run that puts the pair track at 4.3e-01 to 1.4e+00,
   and `single_transition` — the one sub-module with no attention and no pair coupling — is the
@@ -414,7 +429,7 @@ set identical to main.
   rented H200, both cases. **The port no longer stops at the trunk.** What stops the claim is a
   measured disagreement in the pair track, not a missing path.
 
-**Twenty-one defects**, of which **seven remain UNFIXED** — two in inference users get today,
+**Twenty-two defects**, of which **eight remain UNFIXED** — two in inference users get today,
 three affecting models other than OpenFold3, one a near-miss in which the central claim would
 have passed with our trunk deleted, and **five found in the campaign's own instruments** rather
 than in the model. D18's fix is in flight and its own detector passes; **D20**'s coverage half
@@ -502,6 +517,40 @@ because a grant that merely includes a card is enough for something to open it. 
 critical path is host-side, so it costs nothing. Tenancy left on their state doc, since a
 concluded row has no brief to amend. Separately, qb2's **SSH host key rotated** at the
 19:35:53Z boot: `tt-quietbox2.fritz.box` now fails verification, `tt-quietbox2` works.
+
+PASS 87. **The port targets openfold3 0.4.3, the reference is 0.5.0, and that still does not
+explain the gap.** `of3t-diffusion` established that our diffusion transformer computes a
+**different function** from upstream's — **2.07e-02** after one block, **1.59e-01** over 24 —
+and convicted it with the right control: **our bf16 against our fp32 reads 2.05e-02 vs
+2.07e-02**, so a 16-bit mantissa cannot widen it and it is not rounding. Its leading
+explanation was revision skew.
+
+Pinned from release trees already on the disk — all 108 vendored files diffed against both,
+import rewrites normalised: **537 lines / 19 files from 0.4.3** against **2,028 / 50 from
+0.5.0**, so we are **3.8x closer to 0.4.3**. Their figure reproduces; the 0.4.3 column is new.
+**D22.**
+
+Then the same evidence refutes the use made of it, three ways: the vendor carries **no model
+layers at all** (108 files of data, geometry and config; its only model file is
+`core/model/structure/augmentation.py`, and the ttnn model is hand-written), their own operands
+read **0.000e+00** at the boundary, and **every DiT-path layer file is functionally inert
+between the revisions** — `diffusion_transformer.py`'s `AttentionPairBias` →
+`DiffusionAttentionPairBias` split has **line-for-line identical** forwards once 0.4.3's
+`use_ada_layer_norm=True` branch is taken, `transition.py`'s 56 lines delete an unused AF2
+class, `diffusion_conditioning.py` changes one **initialisation** parameter. *So the gap points
+back at our hand-written DiT — the more expensive answer, which is why it needs saying.*
+
+**And the revision does bite one module over, naming the campaign's worst sub-module.** 0.5.0
+adds `transpose_bias` to `triangular_attention.py`, absent in 0.4.3, for — upstream's
+docstring — *"Triangle Attention from the end node."* `tri_att_end` is D8's worst group at
+**0.3838** and pass 85 measured the start/end asymmetry at **3.1x-4.4x assembled against ~1.0
+alone**. It is the one sub-module whose bias ordering is revision-dependent. Our port has the
+flag, so it is explained rather than open — but two passes of asymmetry hunting ended at a flag
+upstream added between the revision we target and the one we measure against, and nobody had
+written that down.
+
+Also: it6 claimed DONE and lost a **sync race**, not a check — the fleet ran the gate at
+22:57:51 and the state doc reached pc at 22:59:58. Told the row to re-claim rather than redo.
 
 PASS 86. **The triangle-attention error is on the attention-LOGIT path, and the artifact
 already knew.** No block-2 assembled case exists, but `bisect_grad.json` carries per-tensor

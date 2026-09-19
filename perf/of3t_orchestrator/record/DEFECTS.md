@@ -926,3 +926,66 @@ a reference that is the sum over 48. For terms of similar magnitude and uncorrel
 that ratio must land near `sqrt(49/48)`, and it did. It is committed **labelled as a mismatch, not
 a result**.
 
+### D22. Our port targets openfold3 0.4.3; the reference bundle was built with 0.5.0. CONFIRMED and quantified — but it does NOT explain the diffusion gap. UNFIXED.
+
+Found by `of3t-diffusion` (pass 86) as "revision skew, 50 files and 1,989 lines", and pinned to
+a revision this pass by `of3t-orchestrator` from the two release trees already unpacked on pc.
+
+**Which revision, measured.** Normalising away vendoring import rewrites and diffing all 108
+vendored Python files against both releases:
+
+| our `tt_bio/_vendor/openfold3` vs | differing lines | files differing |
+|---|---|---|
+| **0.4.3** | **537** | **19** |
+| **0.5.0** | **2,028** | **50** |
+
+**3.8x closer to 0.4.3.** The row's 50-files/1,989-lines figure against 0.5.0 reproduces here
+at 50 files / 2,028 lines under a slightly different import filter, so the two measurements
+agree and the new fact is the 0.4.3 column. The reference bundle is 0.5.0 (`c4771653`).
+
+**It cannot be the cause of the diffusion transformer's 2.07e-02, for three independent
+reasons.**
+
+1. **The vendor contains no model layers.** All 108 files are `core/data/*` (pipelines, io,
+   framework, primitives, tools, resources), `core/utils/geometry`, `core/config` and
+   `projects/of3_all_atom/config`. The **only** vendored model file is
+   `core/model/structure/augmentation.py`. There is no vendored diffusion transformer, no
+   vendored attention, no vendored transition — the ttnn model is hand-written. Vendor skew is
+   skew in the featurizer and config, not in the function under test.
+2. **The row measured the operands exact.** Our `s`, `z` against their captured `dit_in` read
+   **0.000e+00**, so whatever the featurizer divergence does, it does not reach this boundary.
+3. **Every DiT-path layer file is functionally INERT between 0.4.3 and 0.5.0.** Checked file by
+   file: `diffusion_transformer.py` splits `AttentionPairBias` into a dedicated
+   `DiffusionAttentionPairBias` and drops the `use_ada_layer_norm` flag — and the two forward
+   methods are **line for line identical** once 0.4.3's `use_ada_layer_norm=True` branch is
+   taken, so the split is a pure refactor. `transition.py`'s 56 changed lines are the
+   **deletion of `StructureModuleTransition`**, an unused AF2 class. `diffusion_conditioning.py`
+   changes exactly one line, `linear_init_params.linear_z` to `.linear_s` — an
+   **initialisation** parameter, inert when a checkpoint is loaded.
+
+**So the DiT gap points back at the hand-written module, not at the revision.** That is the
+opposite of the row's leading explanation and it is the more expensive answer, which is why it
+needs saying: *"we are comparing two different models" is the comfortable reading, and the
+evidence does not support it here.*
+
+**Where the revision DOES bite is the trunk, and it names the campaign's worst sub-module.**
+0.5.0 adds a `transpose_bias` argument to `triangular_attention.py` that 0.4.3 does not have:
+
+```
+# 0.4.3                 triangle_bias = permute_final_dims(self.linear_z(x), (2, 0, 1))
+# 0.5.0   transpose_bias: permute_final_dims(self.linear_z(x), (2, 1, 0))  else (2, 0, 1)
+```
+
+Upstream's own docstring: *"In practice this is used for Triangle Attention from the **end
+node**, where the input is transposed prior to calling this function."* **`tri_att_end` is the
+worst group in D8's decomposition at 0.3838**, and pass 85 measured the start/end asymmetry at
+**3.1x-4.4x assembled against ~1.0 alone**. It is the one sub-module in the block whose bias
+ordering is revision-dependent. Our port **has** the flag — the stack-scope arms measure
+**1.8986** shipped against **5.7014** with it off — so this is explained rather than open, but
+it is why the end node is special and it was never written down.
+
+**What is still open.** Whether the 537 lines that separate our vendor from 0.4.3 matter, and
+whether the hand-written ttnn modules were written against 0.4.3 throughout. The vendor being
+0.4.3-era is evidence about the vendor, not proof about hand-written code that was never
+vendored at all.
+

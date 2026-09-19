@@ -4937,3 +4937,49 @@ rather than having to reverse-engineer it.
 *The cheapest measurement in this campaign was one already taken.* Four passes of looking for
 the next run, and the sharpest localisation of its largest blocker was sitting in a 4.9 KB JSON
 file that had been in the branch since pass 23.
+
+### R124 -- The port targets 0.4.3, the reference is 0.5.0, and that still does not explain the gap
+
+`of3t-diffusion` established this evening that **our diffusion transformer computes a different
+function** from upstream 0.5.0's -- **2.07e-02** after one block, **1.59e-01** over 24 -- and
+convicted it with the control that matters: **bf16 against fp32 on our own side reads 2.05e-02
+vs 2.07e-02**, so a 16-bit mantissa cannot widen it and it is not rounding. Its leading
+explanation was revision skew, "50 files and 1,989 lines".
+
+**Pinned to a revision, from trees already on the disk.** Diffing all 108 vendored Python files
+against both unpacked releases with vendoring import rewrites normalised away:
+
+| our vendor vs | differing lines | files |
+|---|---|---|
+| **0.4.3** | **537** | **19** |
+| **0.5.0** | **2,028** | **50** |
+
+Their figure reproduces and the new column is 0.4.3: **we are 3.8x closer to it**. So the port
+targets 0.4.3 and the bundle was built with 0.5.0. Recorded as **D22**.
+
+**And then the same evidence refutes the use they made of it**, three independent ways. **The
+vendor contains no model layers at all** -- 108 files of `core/data/*`, geometry and config,
+whose *only* model file is `core/model/structure/augmentation.py`; the ttnn model is
+hand-written and was never vendored, so vendor skew is featurizer skew. **Their own operand
+check reads 0.000e+00** against the captured `dit_in`, so featurizer divergence does not reach
+that boundary. And **every DiT-path layer file is functionally inert between the two
+revisions**: `diffusion_transformer.py`'s `AttentionPairBias` -> `DiffusionAttentionPairBias`
+split has **line-for-line identical** forwards once 0.4.3's `use_ada_layer_norm=True` branch is
+taken; `transition.py`'s 56 lines delete an unused AF2 class; `diffusion_conditioning.py`
+changes one **initialisation** parameter, inert under a loaded checkpoint.
+
+**So the gap points back at our hand-written DiT** -- the more expensive answer, which is why
+it needs saying out loud. *"We are comparing two different models" is the comfortable reading,
+and at this boundary the evidence does not carry it.*
+
+**The revision does bite, one module over, and it names the campaign's worst sub-module.** 0.5.0
+adds `transpose_bias` to `triangular_attention.py`; 0.4.3 has no such argument. Upstream's
+docstring: *"used for Triangle Attention from the end node, where the input is transposed prior
+to calling this function."* **`tri_att_end` is D8's worst group at 0.3838**, and pass 85
+measured the start/end asymmetry at **3.1x-4.4x assembled against ~1.0 alone**. It is the one
+sub-module in the block whose bias ordering is revision-dependent. Our port has the flag --
+stack arms **1.8986** shipped against **5.7014** with it off -- so it is explained rather than
+open, but two passes of asymmetry hunting ended at a flag upstream added between the revision
+we target and the one we measure against, and nobody had written that down.
+
+*The whole of this pass was diff and grep against files that were already on the disk.*
