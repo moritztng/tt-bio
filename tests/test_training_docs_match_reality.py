@@ -194,6 +194,24 @@ def _dry_run_branch_source(cli_text: str) -> str:
     return ""
 
 
+def _plan_call_source(cli_text: str) -> str:
+    """The source of the `plan(...)` call inside the finetune command, or "".
+
+    The print path and the call site are two separate ways to break the same promise, and only
+    one of them is visible in the branch. A dry run can say "duration: UNMEASURED" forever while
+    `plan()` is never given the one argument that would let it answer -- which is what `main`
+    does at cli.py:219 -- so the gate reads both.
+    """
+    import ast
+
+    tree = ast.parse(cli_text)
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                and node.func.id == "plan"):
+            return ast.get_source_segment(cli_text, node) or ""
+    return ""
+
+
 @pytest.mark.skipif(not CLI.is_file(), reason="tt_bio/train/cli.py is not on this tree yet")
 def test_the_dry_run_answers_the_duration_question_the_readme_promises_it_answers():
     block = _readme_dryrun_block()
@@ -215,6 +233,17 @@ def test_the_dry_run_answers_the_duration_question_the_readme_promises_it_answer
         "when `fit.seconds_per_step is None`, quoting dryrun.py's own reason. Owner of "
         "tt_bio/train/cli.py: train-b3-train. Alternative fix: drop 'and how long' from the "
         "README comment, which makes this gate skip.")
+
+    call = _plan_call_source(CLI.read_text(encoding="utf-8"))
+    assert call, ("could not find a `plan(...)` call in tt_bio/train/cli.py, so this gate cannot "
+                  "see whether the command gives plan() a way to answer. Re-cut it rather than "
+                  "deleting it")
+    assert "seconds_per_step_1chip" in call, (
+        "the dry run says it answers 'how long' and `plan()` is called without "
+        "`seconds_per_step_1chip`, so the answer can only ever be UNMEASURED. `dryrun.py` prints "
+        "a step time the moment it is given one; the command has to pass the user's measurement "
+        "through. A print path that explains the silence is not the same as a command that can "
+        "break it.")
 
 
 def test_the_control_the_duration_gate_reads_the_print_path_and_not_the_module():
@@ -241,3 +270,23 @@ def test_the_control_the_duration_gate_reads_the_print_path_and_not_the_module()
     )
     assert "seconds_per_step" not in _dry_run_branch_source(defective)
     assert "seconds_per_step" in _dry_run_branch_source(fixed)
+
+
+def test_the_control_the_call_site_half_of_the_duration_gate_can_fail():
+    """Both directions for the second half, for the reason the first half has a control.
+
+    `main` at 638187138 is the defective shape verbatim: a dry run that prints, and a `plan()`
+    call with no way to answer. A gate that could not fail on it would be decoration.
+    """
+    defective = (
+        "def finetune(tokens, chips):\n"
+        "    fit = plan(tokens=tokens or 256, chips=chips, frozen_trunk=True)\n"
+        "    # seconds_per_step_1chip is mentioned here and nowhere that matters\n"
+    )
+    fixed = (
+        "def finetune(tokens, chips, seconds_per_step):\n"
+        "    fit = plan(tokens=tokens or 256, chips=chips, frozen_trunk=True,\n"
+        "               seconds_per_step_1chip=seconds_per_step)\n"
+    )
+    assert "seconds_per_step_1chip" not in _plan_call_source(defective)
+    assert "seconds_per_step_1chip" in _plan_call_source(fixed)
