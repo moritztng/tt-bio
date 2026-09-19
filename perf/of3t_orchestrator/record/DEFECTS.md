@@ -989,3 +989,22 @@ whether the hand-written ttnn modules were written against 0.4.3 throughout. The
 0.4.3-era is evidence about the vendor, not proof about hand-written code that was never
 vendored at all.
 
+**RECONCILIATION — the row concluded at 23:00:42 still calling revision skew the leading
+explanation, and did not see the three checks above.** Its final DONE reads *"the leading
+explanation is revision skew rather than a port defect"*; the amendment carrying the refutation
+reached its brief minutes after it exited. **The campaign's position is the one recorded here**:
+the skew is real, it is 0.4.3-against-0.5.0, and it is **not** the cause at this boundary. The
+row is not wrong to have said it — it is the reading its own evidence supported, and it named
+the gap in that evidence itself (*"the DiT is hand-written and unvendored, so the skew evidence
+cannot exhibit the specific change"*). The missing piece was the release trees, which were on
+the disk the whole time.
+
+**And the row itself produced the strongest evidence that this is NOT one mechanism with D19 —
+by measuring the composition law rather than matching shapes.** D19's trunk error grows
+**near-linearly, at 0.74x of block count**. The DiT's grows **sub-linearly, at 0.32x**, and its
+curve is flat and then jumps: **2.07e-02, 2.28e-02, 2.23e-02** through four blocks, **3.42e-02**
+at eight, **1.42e-01** at sixteen, **1.59e-01** at 24. *A shared mechanism should compose the
+same way.* This supersedes the "both are per-block forward errors compounding with depth"
+resemblance that this record noted at pass 83 — resemblance of shape is not resemblance of law,
+and the law is measurable.
+

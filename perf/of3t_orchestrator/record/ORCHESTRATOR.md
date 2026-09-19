@@ -442,8 +442,45 @@ this pass that constrain rather than relax: **A18**, that a ceiling is publishab
 instrument whose completeness you can assert, and its addendum, that gating a gradient
 instrument on its forward is **necessary and not sufficient**.
 
-This row stays open until the device arm's bijection is complete and instrument A is re-run at
-diffusion scope, or that ceiling is documented as final.
+**THE CEILING, DOCUMENTED AS FINAL. Fourteen of fourteen rows concluded.**
+
+The campaign was asked for the simplest way to be *completely sure* we reproduce OpenFold3
+training. The answer is the decomposition in §1: `w_{k+1} = U(w_k, b_k, k, s_k)` factors into
+five components, **four of which need no card** — and those four are now **exact against
+upstream's own objects**. The fifth is the gradient, and that is where it stops.
+
+**It stops at a ceiling rather than at a missing measurement, and the distinction is the
+result.** A18's first clause: a disagreeing forward invalidates the gradient comparison taken
+at it. Our diffusion transformer's forward disagrees with upstream's by **2.07e-02 after one
+block**, and our trunk's by **7.811e-03 per block**. So completing the device bijection from
+283 of 870 and re-running instrument A **cannot produce a valid number** — the comparison is
+void before it is taken. There is no measurement left to run at this scope; there is a port to
+fix. That is why this closes here rather than asking for another pass.
+
+**What would reopen it, in order.** Each is a code fix followed by a re-run of an instrument
+that already exists, and each has a number to beat:
+
+1. **The hand-written diffusion transformer** — 2.07e-02 per block, sub-linear at 0.32x of
+   block count, flat then jumping. Not precision (bf16 vs fp32: 2.05e-02 vs 2.07e-02), not the
+   inputs (operands exact at 0.000e+00), not revision skew at this boundary (D22's three
+   refutations). It is ours, it is localisable, and it caps 61.02 % of the diffusion norm.
+2. **The trunk forward** — D19, 7.811e-03 per block, composing **near-linearly at 0.74x**, so
+   correlated and systematic rather than a precision floor.
+3. **The pair-track gradient** — D8/D9, invisible to any forward fix (3.2x gradient shift under
+   a 12 % forward change), graded by attention involvement, and localised this campaign to the
+   **attention-logit path**: `linear_q`/`linear_k`/`linear_z`/`layer_norm` at 0.1098 against
+   `linear_v`/`linear_o`/`linear_g` at 0.0263.
+4. **The revision** — D22, our port targets 0.4.3 and the reference is 0.5.0. Not the cause of
+   (1), but it is a standing hazard for every future comparison and it should be closed by
+   choosing a revision rather than by discovering one.
+
+**What the campaign proved about itself.** Of twenty-two defects, **five were found in its own
+instruments** rather than in the model, including one near-miss in which the central claim
+would have passed with our trunk deleted. The bars were fixed before any number existed and
+amended eighteen times on the record, each amendment marked for whether a number already
+existed. Every figure on the scoreboard is re-read from the artifacts by 148 mechanical checks
+on every compose. *A verification campaign that cannot catch itself is not a verification
+campaign*, and the record is the evidence that this one could.
 
 
 **`of3t-tape` is FINISHED (VERDICT GO), and it corrects the charter's headline.** "OF3 comes for
@@ -518,6 +555,31 @@ critical path is host-side, so it costs nothing. Tenancy left on their state doc
 concluded row has no brief to amend. Separately, qb2's **SSH host key rotated** at the
 19:35:53Z boot: `tt-quietbox2.fritz.box` now fails verification, `tt-quietbox2` works.
 
+PASS 88. **Fourteen of fourteen concluded, and the campaign closes at a documented ceiling.**
+`of3t-diffusion` finished at 23:00:42. What remains is not a measurement anybody can take: by
+A18's first clause a disagreeing forward invalidates the gradient comparison taken at it, and
+both our diffusion transformer (**2.07e-02** per block) and our trunk (**7.811e-03** per block)
+disagree — so completing the device bijection from 283 of 870 and re-running instrument A is
+**void before it is taken**. There is a port to fix, not a number to collect, and the verdict
+now says so with the four reopening conditions in order and a figure to beat on each.
+
+The last row left me two corrections. **My diagnosis of its failed DONE was wrong** — not a
+sync race on pc, but its state doc alone never mirrored to qb2 plus **qb2's copy of the
+donecheck being four hours stale**, still carrying the one-tier placeholder guard, which then
+fired on two of the exact sentences the fixed guard's selftest names as must-stay-quiet
+controls. *A gate that exists as a copy per host is not one gate, it is N gates.* The standing
+instruction I wrote two passes earlier — report the gate, never edit the statement — is what
+stopped that corrupting the record. And **it beat my common-cause lead with a better test**:
+where I matched shapes at pass 83, it measured the composition **laws** — D19 near-linear at
+**0.74x** of block count, the DiT sub-linear at **0.32x**, flat then jumping. A shared
+mechanism composes the same way, so the resemblance is refuted. *Resemblance of shape is not
+resemblance of law.*
+
+It concluded minutes before the amendment refuting its own revision-skew explanation reached
+its brief, so D22 carries the reconciliation: the row is not wrong to have said it, it named
+the gap in that evidence itself, and the release trees that close the gap were on the disk the
+whole time.
+
 PASS 87. **The port targets openfold3 0.4.3, the reference is 0.5.0, and that still does not
 explain the gap.** `of3t-diffusion` established that our diffusion transformer computes a
 **different function** from upstream's — **2.07e-02** after one block, **1.59e-01** over 24 —
@@ -549,8 +611,16 @@ flag, so it is explained rather than open — but two passes of asymmetry huntin
 upstream added between the revision we target and the one we measure against, and nobody had
 written that down.
 
-Also: it6 claimed DONE and lost a **sync race**, not a check — the fleet ran the gate at
-22:57:51 and the state doc reached pc at 22:59:58. Told the row to re-claim rather than redo.
+Also: I diagnosed it6's failed DONE as a **sync race on pc** and was wrong. The row's own
+account is better: the check runs on **qb2**, which carries a mirror of the pc state path, and
+**its doc alone was never mirrored there** while every other of3t row was. On top of that
+**qb2's copy of the donecheck was stale** — 20,421 B from 18:38 against 23,505 B from 22:12,
+still carrying the one-tier placeholder guard — so once the doc was in place the stale gate
+fired on exactly the two true sentences item 6 names as must-stay-quiet controls (`production
+does not run`, `cannot run their trunk`). The row did the right thing twice: left the sentences
+alone, reported the gate, and synced the fixed version, keeping the stale one beside it. *A
+gate that exists as a copy per host is not one gate, it is N gates, and mine had already
+drifted by four hours.*
 
 PASS 86. **The triangle-attention error is on the attention-LOGIT path, and the artifact
 already knew.** No block-2 assembled case exists, but `bisect_grad.json` carries per-tensor

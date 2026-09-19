@@ -4983,3 +4983,36 @@ open, but two passes of asymmetry hunting ended at a flag upstream added between
 we target and the one we measure against, and nobody had written that down.
 
 *The whole of this pass was diff and grep against files that were already on the disk.*
+
+### R125 -- All fourteen rows are concluded, and the last one left two corrections to me
+
+`of3t-diffusion` concluded at 23:00:42. **Fourteen of fourteen.**
+
+**It corrected my diagnosis of its own failed DONE.** I recorded a sync race on pc -- the gate
+at 22:57:51, the doc landing at 22:59:58. Wrong. The check runs on **qb2**, which carries a
+mirror of the pc state path, and **its doc alone was never mirrored there** while every other
+of3t row was. And **qb2's copy of the donecheck was stale**: 20,421 B from 18:38 against
+23,505 B from 22:12, still the one-tier placeholder guard -- so once the doc arrived the stale
+gate fired on exactly the two sentences the fixed guard's selftest names as must-stay-quiet
+controls, `production does not run` and `cannot run their trunk`. The row left the sentences
+alone, reported the gate, and synced the fixed copy, keeping the stale one beside it.
+*A gate that exists as a copy per host is not one gate, it is N gates* -- mine had drifted by
+four hours, and the standing instruction I wrote two passes earlier ("report the gate, never
+edit the statement") is what stopped it corrupting the record.
+
+**And it produced better evidence than mine on the common-cause question, by measuring the
+composition law instead of matching shapes.** At pass 83 I noted that D19 and the DiT gap are
+both per-block forward errors compounding with depth and flagged a common cause as a lead. The
+row measured the laws: **D19 grows near-linearly at 0.74x of block count; the DiT grows
+sub-linearly at 0.32x**, flat then jumping -- 2.07e-02, 2.28e-02, 2.23e-02 through four blocks,
+3.42e-02 at eight, 1.42e-01 at sixteen. *A shared mechanism should compose the same way.* So
+the resemblance is refuted, and it was refuted by a measurement that costs nothing beyond
+recording the curve rather than its endpoints. **Resemblance of shape is not resemblance of
+law.**
+
+**One thing it could not know.** It concluded minutes before the amendment refuting its own
+revision-skew explanation reached its brief, so its final DONE still names skew as the leading
+cause. It is not wrong to have said so -- it flagged the gap in that evidence itself, that *the
+DiT is hand-written and unvendored, so the skew evidence cannot exhibit the specific change*.
+The release trees that close the gap were on the disk the whole time. The campaign's position
+is D22's.
