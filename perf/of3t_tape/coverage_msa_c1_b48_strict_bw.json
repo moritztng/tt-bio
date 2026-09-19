@@ -1,0 +1,274 @@
+{
+ "label": "msa cycles=1 blocks=48 strict_bw",
+ "sites": {
+  "add_|taped": {
+   "openfold3_msa_embedder.py:108": 4,
+   "openfold3_msa_embedder.py:112": 2,
+   "openfold3_msa_embedder.py:115": 1,
+   "openfold3_msa_embedder.py:126": 3,
+   "tenstorrent.py:10193": 21,
+   "tenstorrent.py:3766": 8,
+   "tenstorrent.py:8836": 4,
+   "tenstorrent.py:8840": 4,
+   "tenstorrent.py:8844": 4,
+   "tenstorrent.py:8848": 4,
+   "tenstorrent.py:8856": 4
+  },
+  "chunk|taped": {
+   "tenstorrent.py:6769": 8,
+   "tenstorrent.py:8736": 7
+  },
+  "clone|taped": {
+   "openfold3_msa_embedder.py:110": 3
+  },
+  "concat|taped": {
+   "tenstorrent.py:5550": 7
+  },
+  "deallocate|taped": {
+   "openfold3_msa_embedder.py:113": 2,
+   "openfold3_msa_embedder.py:127": 3,
+   "tenstorrent.py:10131": 3,
+   "tenstorrent.py:10150": 24,
+   "tenstorrent.py:10164": 24,
+   "tenstorrent.py:10189": 24,
+   "tenstorrent.py:10194": 21,
+   "tenstorrent.py:10380": 4,
+   "tenstorrent.py:10572": 4,
+   "tenstorrent.py:10625": 4,
+   "tenstorrent.py:10626": 4,
+   "tenstorrent.py:10696": 4,
+   "tenstorrent.py:10697": 4,
+   "tenstorrent.py:3705": 8,
+   "tenstorrent.py:3723": 8,
+   "tenstorrent.py:3725": 8,
+   "tenstorrent.py:3769": 8,
+   "tenstorrent.py:3791": 8,
+   "tenstorrent.py:3885": 8,
+   "tenstorrent.py:3887": 8,
+   "tenstorrent.py:6160": 8,
+   "tenstorrent.py:6388": 16,
+   "tenstorrent.py:6772": 8,
+   "tenstorrent.py:6779": 8,
+   "tenstorrent.py:6780": 8,
+   "tenstorrent.py:6814": 8,
+   "tenstorrent.py:6815": 8,
+   "tenstorrent.py:6834": 8,
+   "tenstorrent.py:7028": 8,
+   "tenstorrent.py:7038": 8,
+   "tenstorrent.py:7551": 8,
+   "tenstorrent.py:7623": 8,
+   "tenstorrent.py:7624": 8,
+   "tenstorrent.py:7625": 8,
+   "tenstorrent.py:7640": 8,
+   "tenstorrent.py:7650": 8,
+   "tenstorrent.py:7676": 8,
+   "tenstorrent.py:7868": 8,
+   "tenstorrent.py:7881": 8,
+   "tenstorrent.py:7882": 8,
+   "tenstorrent.py:8483": 7,
+   "tenstorrent.py:8485": 7,
+   "tenstorrent.py:8494": 7,
+   "tenstorrent.py:8837": 4,
+   "tenstorrent.py:8841": 4,
+   "tenstorrent.py:8845": 4,
+   "tenstorrent.py:8849": 4,
+   "tenstorrent.py:8857": 4
+  },
+  "experimental.minimal_matmul|taped": {
+   "tenstorrent.py:5902": 8,
+   "tenstorrent.py:7839": 8,
+   "tenstorrent.py:7855": 8
+  },
+  "experimental.nlp_concat_heads|taped": {
+   "tenstorrent.py:7639": 8
+  },
+  "experimental.nlp_create_qkv_heads|taped": {
+   "tenstorrent.py:7547": 8
+  },
+  "from_torch|none": {
+   "tenstorrent.py:6242": 8,
+   "tenstorrent.py:6262": 8
+  },
+  "get_memory_view|none": {
+   "tenstorrent.py:4275": 1,
+   "tenstorrent.py:5374": 2
+  },
+  "layer_norm|taped": {
+   "tenstorrent.py:10065": 3,
+   "tenstorrent.py:10359": 4,
+   "tenstorrent.py:4065": 3,
+   "tenstorrent.py:6555": 8,
+   "tenstorrent.py:6998": 8,
+   "tenstorrent.py:7515": 8,
+   "tenstorrent.py:8456": 7
+  },
+  "linear|taped": {
+   "tenstorrent.py:10136": 24,
+   "tenstorrent.py:10152": 24,
+   "tenstorrent.py:10165": 24,
+   "tenstorrent.py:10366": 4,
+   "tenstorrent.py:10373": 4,
+   "tenstorrent.py:10611": 4,
+   "tenstorrent.py:4638": 32,
+   "tenstorrent.py:4687": 3,
+   "tenstorrent.py:8464": 7,
+   "tenstorrent.py:8475": 7,
+   "tenstorrent.py:8486": 7
+  },
+  "matmul|taped": {
+   "tenstorrent.py:10143": 24,
+   "tenstorrent.py:10570": 4,
+   "tenstorrent.py:2892": 16,
+   "tenstorrent.py:6804": 8
+  },
+  "multiply_|taped": {
+   "tenstorrent.py:10163": 24,
+   "tenstorrent.py:10549": 4,
+   "tenstorrent.py:6773": 8,
+   "tenstorrent.py:6776": 8,
+   "tenstorrent.py:7039": 8,
+   "tenstorrent.py:7648": 8,
+   "tenstorrent.py:8484": 7
+  },
+  "multiply|taped": {
+   "tenstorrent.py:10610": 4,
+   "tenstorrent.py:3691": 8
+  },
+  "permute|taped": {
+   "tenstorrent.py:10085": 3,
+   "tenstorrent.py:10142": 24,
+   "tenstorrent.py:10151": 24,
+   "tenstorrent.py:10474": 4,
+   "tenstorrent.py:10475": 4,
+   "tenstorrent.py:10595": 4,
+   "tenstorrent.py:3702": 8,
+   "tenstorrent.py:3884": 8,
+   "tenstorrent.py:6174": 16,
+   "tenstorrent.py:7529": 8
+  },
+  "reshape|taped": {
+   "openfold3_msa_embedder.py:110": 3,
+   "openfold3_msa_embedder.py:125": 3,
+   "tenstorrent.py:10059": 3,
+   "tenstorrent.py:10060": 3,
+   "tenstorrent.py:10248": 3,
+   "tenstorrent.py:10353": 4,
+   "tenstorrent.py:10477": 4,
+   "tenstorrent.py:10569": 4,
+   "tenstorrent.py:10593": 4,
+   "tenstorrent.py:10607": 4,
+   "tenstorrent.py:10628": 4,
+   "tenstorrent.py:10702": 4,
+   "tenstorrent.py:7448": 8,
+   "tenstorrent.py:7887": 8
+  },
+  "softmax_in_place|taped": {
+   "tenstorrent.py:3776": 8
+  },
+  "softmax|taped": {
+   "tenstorrent.py:10088": 3
+  },
+  "squeeze|taped": {
+   "tenstorrent.py:7641": 8
+  },
+  "to_layout|taped": {
+   "tenstorrent.py:10476": 4,
+   "tenstorrent.py:10478": 4,
+   "tenstorrent.py:10592": 4,
+   "tenstorrent.py:10594": 4,
+   "tenstorrent.py:3883": 8,
+   "tenstorrent.py:3886": 8
+  },
+  "transpose|taped": {
+   "tenstorrent.py:6158": 8,
+   "tenstorrent.py:6159": 8
+  },
+  "typecast|taped": {
+   "tenstorrent.py:3690": 8,
+   "tenstorrent.py:3754": 8,
+   "tenstorrent.py:3790": 8
+  },
+  "unsqueeze|taped": {
+   "tenstorrent.py:7528": 8,
+   "tenstorrent.py:7543": 8
+  }
+ },
+ "totals": {
+  "none": 19,
+  "taped": 1095
+ },
+ "verbs": {
+  "add_": {
+   "taped": 59
+  },
+  "chunk": {
+   "taped": 15
+  },
+  "clone": {
+   "taped": 3
+  },
+  "concat": {
+   "taped": 7
+  },
+  "deallocate": {
+   "taped": 390
+  },
+  "experimental.minimal_matmul": {
+   "taped": 24
+  },
+  "experimental.nlp_concat_heads": {
+   "taped": 8
+  },
+  "experimental.nlp_create_qkv_heads": {
+   "taped": 8
+  },
+  "from_torch": {
+   "none": 16
+  },
+  "get_memory_view": {
+   "none": 3
+  },
+  "layer_norm": {
+   "taped": 41
+  },
+  "linear": {
+   "taped": 140
+  },
+  "matmul": {
+   "taped": 52
+  },
+  "multiply": {
+   "taped": 12
+  },
+  "multiply_": {
+   "taped": 67
+  },
+  "permute": {
+   "taped": 103
+  },
+  "reshape": {
+   "taped": 59
+  },
+  "softmax": {
+   "taped": 3
+  },
+  "softmax_in_place": {
+   "taped": 8
+  },
+  "squeeze": {
+   "taped": 8
+  },
+  "to_layout": {
+   "taped": 32
+  },
+  "transpose": {
+   "taped": 16
+  },
+  "typecast": {
+   "taped": 24
+  },
+  "unsqueeze": {
+   "taped": 16
+  }
+ }
+}
