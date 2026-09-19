@@ -66,6 +66,24 @@
    "n_compared": 8
   },
   {
+   "module": "tri_att_start_nofp32",
+   "forward_rel": 0.029234622879668225,
+   "per_tensor": {
+    "linear_z.weight": 0.033493889469556795,
+    "mha.linear_g.weight": 0.030423214954798064,
+    "layer_norm.bias": 0.034127095661621004,
+    "layer_norm.weight": 0.04270706382990976,
+    "mha.linear_o.weight": 0.029440098912915103,
+    "mha.linear_q.weight": 0.035638364331136485,
+    "mha.linear_k.weight": 0.04282993837490207,
+    "mha.linear_v.weight": 0.015669324592407698
+   },
+   "absent": [],
+   "worst": "mha.linear_k.weight",
+   "worst_rel": 0.04282993837490207,
+   "n_compared": 8
+  },
+  {
    "module": "tri_att_end",
    "forward_rel": 0.023904190600381025,
    "per_tensor": {
@@ -82,6 +100,43 @@
    "worst": "mha.linear_q.weight",
    "worst_rel": 0.1448588139050881,
    "n_compared": 8
+  },
+  {
+   "module": "tri_att_end_nofp32",
+   "forward_rel": 0.026769485735580124,
+   "per_tensor": {
+    "linear_z.weight": 0.0420094745797496,
+    "mha.linear_g.weight": 0.02693959543980803,
+    "layer_norm.bias": 0.04597541191717078,
+    "layer_norm.weight": 0.04016090409705227,
+    "mha.linear_o.weight": 0.027211021383933227,
+    "mha.linear_q.weight": 0.052386521073598986,
+    "mha.linear_k.weight": 0.049873573405614935,
+    "mha.linear_v.weight": 0.014446077483486239
+   },
+   "absent": [],
+   "worst": "mha.linear_q.weight",
+   "worst_rel": 0.052386521073598986,
+   "n_compared": 8
+  },
+  {
+   "module": "tri_att_end_scaledbias",
+   "forward_rel": 0.023877796105919447,
+   "per_tensor": {
+    "mha.linear_g.weight": 0.024903021159211024,
+    "layer_norm.bias": 0.0898095519590345,
+    "layer_norm.weight": 0.1025931493736746,
+    "mha.linear_o.weight": 0.024591497622749384,
+    "mha.linear_q.weight": 0.14501310378019291,
+    "mha.linear_k.weight": 0.12248766392109653,
+    "mha.linear_v.weight": 0.02461312232083179
+   },
+   "absent": [
+    "linear_z.weight"
+   ],
+   "worst": "mha.linear_q.weight",
+   "worst_rel": 0.14501310378019291,
+   "n_compared": 7
   },
   {
    "module": "pair_transition",

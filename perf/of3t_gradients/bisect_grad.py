@@ -84,16 +84,37 @@ def main():
         ("tri_mul_in", lambda: TriangleMultiplicationIncoming(c_z=128, c_hidden=128),
          "pair_stack.tri_mul_in.", lambda: T.TriangleMultiplication(
              True, ours_flat(L + "tri_mul_in."), ckc)),
+        # R11 from `of3t-memory`: OF3's `fp32_softmax=True` path has no backward. Both
+        # settings are run rather than argued about, because the forward agrees on both and
+        # only the gradient can tell them apart.
         ("tri_att_start", lambda: TheirTriAtt(c_in=128, c_hidden=head_dim,
                                               no_heads=n_heads, inf=1e9),
          "pair_stack.tri_att_start.", lambda: T.TriangleAttention(
              head_dim, n_heads, False, ours_flat(L + "tri_att_start.", "mha."), ckc,
              scale_pair_bias=False, fp32_softmax=True)),
+        ("tri_att_start_nofp32", lambda: TheirTriAtt(c_in=128, c_hidden=head_dim,
+                                                     no_heads=n_heads, inf=1e9),
+         "pair_stack.tri_att_start.", lambda: T.TriangleAttention(
+             head_dim, n_heads, False, ours_flat(L + "tri_att_start.", "mha."), ckc,
+             scale_pair_bias=False, fp32_softmax=False)),
         ("tri_att_end", lambda: TriangleAttentionEndingNode(c_in=128, c_hidden=head_dim,
                                                             no_heads=n_heads, inf=1e9),
          "pair_stack.tri_att_end.", lambda: T.TriangleAttention(
              head_dim, n_heads, True, ours_flat(L + "tri_att_end.", "mha."), ckc,
              scale_pair_bias=False, fp32_softmax=True)),
+        ("tri_att_end_nofp32", lambda: TriangleAttentionEndingNode(c_in=128, c_hidden=head_dim,
+                                                                   no_heads=n_heads, inf=1e9),
+         "pair_stack.tri_att_end.", lambda: T.TriangleAttention(
+             head_dim, n_heads, True, ours_flat(L + "tri_att_end.", "mha."), ckc,
+             scale_pair_bias=False, fp32_softmax=False)),
+        # `scale_pair_bias=True` at the triangle attentions is the WRONG setting per R27/K34 and
+        # is run only as this instrument's own control: it must read WORSE, and if it does not,
+        # the instrument is not reading the bias path at all.
+        ("tri_att_end_scaledbias", lambda: TriangleAttentionEndingNode(
+            c_in=128, c_hidden=head_dim, no_heads=n_heads, inf=1e9),
+         "pair_stack.tri_att_end.", lambda: T.TriangleAttention(
+             head_dim, n_heads, True, ours_flat(L + "tri_att_end.", "mha."), ckc,
+             scale_pair_bias=True, fp32_softmax=True)),
         ("pair_transition", lambda: SwiGLUTransition(c_in=128, n=4),
          "pair_stack.pair_transition.", lambda: T.Transition(
              ours_flat(L + "transition_z."), ckc)),

@@ -111,6 +111,14 @@ def main() -> int:
     ap.add_argument("--per-tensor-fd", action="store_true",
                     help="central differences per tensor as well as jointly")
     ap.add_argument("--fd-eps", type=float, default=1e-5)
+    ap.add_argument("--out-of-place-residual", action="store_true",
+                    help="alias ttnn.add_ to ttnn.add for this process. An EXPERIMENT, not a "
+                         "change: PairformerLayer accumulates its five pair residuals in place, "
+                         "and this asks whether that is what the composed pair-track gradient "
+                         "is losing. Same arithmetic, a fresh buffer.")
+    ap.add_argument("--cotangent", choices=("both", "z", "s"), default="both",
+                    help="which output drives the backward. `z` isolates the pair track from "
+                         "everything that reaches it through AttentionPairBias.")
     ap.add_argument("--tag", default="")
     a = ap.parse_args()
 
@@ -125,12 +133,17 @@ def main() -> int:
     from tt_bio.train.lora import walked_weights
     from bijection_device import device_bijection
 
+    if a.out_of_place_residual:
+        ttnn.add_ = ttnn.add
     t0 = time.perf_counter()
-    tag = a.tag or f"b{a.blocks}_n{a.tokens}"
+    tag = a.tag or (f"b{a.blocks}_n{a.tokens}"
+                    + ("_oop" if a.out_of_place_residual else "")
+                    + ("" if a.cotangent == "both" else f"_cot{a.cotangent}"))
     rep = {"instrument": "PROTOCOL SS3 instrument A, pairformer stack scope",
            "blocks": a.blocks, "tokens": a.tokens, "checkpoint": CKPT,
            "bars": {"per_tensor": PER_TENSOR_BAR, "median": MEDIAN_BAR,
                     "reference_finite_difference": FD_BAR},
+           "out_of_place_residual": a.out_of_place_residual,
            "reference_is_the_frozen_bundle": False,
            "reference_note": ("self-generated float64 reference, upstream's own PairFormerBlock. "
                               "of3t-reference's BUNDLE-MIN is the only reference a PUBLISHED "
@@ -183,7 +196,12 @@ def main() -> int:
     # the size the loss actually produces rather than one 1e5 times too small.
     cs64 = (cot_s.to(torch.float64) / (cot_s.norm() + 1e-30)) * s64.norm()
     cz64 = (cot_z.to(torch.float64) / (cot_z.norm() + 1e-30)) * z64.norm()
+    if a.cotangent == "z":
+        cs64 = torch.zeros_like(cs64)
+    elif a.cotangent == "s":
+        cz64 = torch.zeros_like(cz64)
     cot_s, cot_z = cs64.to(torch.float32), cz64.to(torch.float32)
+    rep["cotangent"] = a.cotangent
 
     def loss_value():
         with torch.no_grad():
