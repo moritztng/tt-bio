@@ -1,0 +1,1868 @@
+{
+ "sites": {
+  "permute|tenstorrent.py:8098|dims=0,1,3,2|in=1x16x512x48|out=1x16x48x512": 4800,
+  "reshape|tenstorrent.py:8099|dims=-|in=1x16x48x512|out=1x768x512": 4800,
+  "permute|tenstorrent.py:8100|dims=0,2,1|in=1x768x512|out=1x512x768": 4800,
+  "reshape|tenstorrent.py:869|dims=-|in=1x140x32x128|out=1x1x4480x128": 1200,
+  "to_layout|tenstorrent.py:872|dims=-|in=1x1x4128x128|out=1x1x4128x128": 1200,
+  "to_layout|tenstorrent.py:876|dims=-|in=1x1x4608x128|out=1x1x4608x128": 1200,
+  "reshape|tenstorrent.py:877|dims=-|in=1x1x4608x128|out=1x144x32x128": 1200,
+  "reshape|tenstorrent.py:8145|dims=-|in=1x140x128x128|out=140x1x128x128": 1200,
+  "reshape|tenstorrent.py:8146|dims=-|in=1x140x128x256|out=140x1x128x256": 1200,
+  "reshape|tenstorrent.py:8149|dims=-|in=140x4x128x32|out=1x560x128x32": 1200,
+  "reshape|tenstorrent.py:8150|dims=-|in=140x4x128x32|out=1x560x128x32": 1200,
+  "reshape|tenstorrent.py:8151|dims=-|in=140x4x128x32|out=1x560x128x32": 1200,
+  "reshape|tenstorrent.py:8153|dims=-|in=140x4x32x128|out=1x560x32x128": 1200,
+  "reshape|tenstorrent.py:8155|dims=-|in=1x560x32x32|out=140x4x32x32": 1200,
+  "reshape|tenstorrent.py:8158|dims=-|in=140x32x128|out=1x140x32x128": 1200,
+  "reshape|tenstorrent.py:7209|dims=-|in=1x512x512x128|out=512x512x128": 560,
+  "permute|tenstorrent.py:7290|dims=0,3,1,2|in=1x512x512x4|out=1x4x512x512": 560,
+  "reshape|tenstorrent.py:7647|dims=-|in=512x512x128|out=1x512x512x128": 560,
+  "permute|tenstorrent.py:3672|dims=1,0,2|in=512x512x128|out=512x512x128": 560,
+  "permute|tenstorrent.py:8019|dims=0,3,1,2|in=1x512x512x16|out=1x16x512x512": 264,
+  "transpose|tenstorrent.py:8074|dims=-2,-1|in=1x16x512x32|out=1x16x32x512": 264,
+  "permute|tenstorrent.py:8098|dims=0,1,3,2|in=1x16x512x24|out=1x16x24x512": 264,
+  "reshape|tenstorrent.py:8099|dims=-|in=1x16x24x512|out=1x384x512": 264,
+  "permute|tenstorrent.py:8100|dims=0,2,1|in=1x384x512|out=1x512x384": 264,
+  "reshape|tenstorrent.py:10696|dims=-|in=1x4480x128|out=1x140x32x128": 200,
+  "reshape|tenstorrent.py:10704|dims=-|in=1x140x32x128|out=1x4480x128": 200,
+  "permute|tenstorrent.py:10718|dims=0,2,1|in=1x768x512|out=1x512x768": 200,
+  "permute|tenstorrent.py:10796|dims=0,2,1|in=1x512x128|out=1x128x512": 200,
+  "permute|tenstorrent.py:10803|dims=0,2,1|in=1x128x4480|out=1x4480x128": 200,
+  "reshape|tenstorrent.py:10806|dims=-|in=1x4480x128|out=1x140x32x128": 200,
+  "reshape|tenstorrent.py:10814|dims=-|in=1x140x32x128|out=1x4480x128": 200,
+  "permute|tenstorrent.py:9873|dims=0,2,1|in=64x512x32|out=64x32x512": 128,
+  "permute|tenstorrent.py:9882|dims=0,2,1|in=64x32x512|out=64x512x32": 128,
+  "reshape|tenstorrent.py:9790|dims=-|in=1x64x512x64|out=64x512x64": 16,
+  "reshape|tenstorrent.py:9791|dims=-|in=1x512x512x128|out=512x512x128": 16,
+  "permute|tenstorrent.py:9816|dims=2,0,1|in=512x512x8|out=8x512x512": 16,
+  "reshape|tenstorrent.py:9979|dims=-|in=64x512x64|out=1x64x512x64": 16,
+  "reshape|tenstorrent.py:10084|dims=-|in=1x64x512x64|out=64x512x64": 16,
+  "permute|tenstorrent.py:10205|dims=1,2,0|in=64x512x32|out=512x32x64": 16,
+  "permute|tenstorrent.py:10206|dims=2,1,0|in=64x512x32|out=32x512x64": 16,
+  "to_layout|tenstorrent.py:10207|dims=-|in=32x512x64|out=32x512x64": 16,
+  "reshape|tenstorrent.py:10208|dims=-|in=32x512x64|out=16384x64": 16,
+  "to_layout|tenstorrent.py:10209|dims=-|in=16384x64|out=16384x64": 16,
+  "reshape|tenstorrent.py:10281|dims=-|in=512x32x64|out=16384x64": 16,
+  "to_layout|tenstorrent.py:10304|dims=-|in=16384x16384|out=16384x16384": 16,
+  "reshape|tenstorrent.py:10305|dims=-|in=16384x16384|out=512x1024x512": 16,
+  "to_layout|tenstorrent.py:10306|dims=-|in=512x1024x512|out=512x1024x512": 16,
+  "permute|tenstorrent.py:10307|dims=0,2,1|in=512x1024x512|out=512x512x1024": 16,
+  "reshape|tenstorrent.py:10399|dims=-|in=512x512x128|out=1x512x512x128": 16,
+  "reshape|tenstorrent.py:11800|dims=-|in=512x512x128|out=1x512x512x128": 11,
+  "reshape|tenstorrent.py:11358|dims=-|in=1x140x32x128x12|out=140x32x128x12": 2,
+  "permute|tenstorrent.py:11359|dims=0,3,1,2|in=140x32x128x12|out=140x12x32x128": 2,
+  "reshape|tenstorrent.py:11340|dims=-|in=1x4480|out=280x16x1": 1,
+  "permute|tenstorrent.py:11342|dims=1,2,0|in=280x16x1|out=16x1x280": 1,
+  "permute|tenstorrent.py:11349|dims=2,0,1|in=16x1x1120|out=1120x16x1": 1,
+  "reshape|tenstorrent.py:11350|dims=-|in=1120x16x1|out=140x1x1x128": 1,
+  "permute|tenstorrent.py:11380|dims=0,3,1,2|in=1x512x512x384|out=1x384x512x512": 1,
+  "reshape|tenstorrent.py:10687|dims=-|in=1x4480x128|out=1x140x32x128": 1,
+  "permute|tenstorrent.py:12372|dims=0,2,1,3|in=1x512x512x128|out=1x512x512x128": 1,
+  "reshape|tenstorrent.py:11800|dims=-|in=512x512x32|out=1x512x512x32": 1
+ },
+ "meta": {
+  "reshape|tenstorrent.py:11800|dims=-|in=512x512x128|out=1x512x512x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:11800",
+   "stack": [
+    "tenstorrent.py:11800",
+    "tenstorrent.py:11831",
+    "tenstorrent.py:12218",
+    "tenstorrent.py:12777",
+    "tenstorrent.py:12896",
+    "boltz2.py:5841"
+   ],
+   "dims": null,
+   "in_shape": [
+    512,
+    512,
+    128
+   ],
+   "out_shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:9790|dims=-|in=1x64x512x64|out=64x512x64": {
+   "op": "reshape",
+   "site": "tenstorrent.py:9790",
+   "stack": [
+    "tenstorrent.py:9790",
+    "tenstorrent.py:10478",
+    "tenstorrent.py:10552",
+    "tenstorrent.py:12866",
+    "tenstorrent.py:12909",
+    "boltz2.py:5841"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    64,
+    512,
+    64
+   ],
+   "out_shape": [
+    64,
+    512,
+    64
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:9791|dims=-|in=1x512x512x128|out=512x512x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:9791",
+   "stack": [
+    "tenstorrent.py:9791",
+    "tenstorrent.py:10478",
+    "tenstorrent.py:10552",
+    "tenstorrent.py:12866",
+    "tenstorrent.py:12909",
+    "boltz2.py:5841"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out_shape": [
+    512,
+    512,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:9816|dims=2,0,1|in=512x512x8|out=8x512x512": {
+   "op": "permute",
+   "site": "tenstorrent.py:9816",
+   "stack": [
+    "tenstorrent.py:9816",
+    "tenstorrent.py:9860",
+    "tenstorrent.py:9915",
+    "tenstorrent.py:9944",
+    "tenstorrent.py:2782",
+    "tenstorrent.py:9973"
+   ],
+   "dims": [
+    2,
+    0,
+    1
+   ],
+   "in_shape": [
+    512,
+    512,
+    8
+   ],
+   "out_shape": [
+    8,
+    512,
+    512
+   ],
+   "identity_perm": false,
+   "in_mem": "L1",
+   "out_mem": "L1",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:9873|dims=0,2,1|in=64x512x32|out=64x32x512": {
+   "op": "permute",
+   "site": "tenstorrent.py:9873",
+   "stack": [
+    "tenstorrent.py:9873",
+    "tenstorrent.py:9918",
+    "tenstorrent.py:9944",
+    "tenstorrent.py:2782",
+    "tenstorrent.py:9973",
+    "tenstorrent.py:10478"
+   ],
+   "dims": [
+    0,
+    2,
+    1
+   ],
+   "in_shape": [
+    64,
+    512,
+    32
+   ],
+   "out_shape": [
+    64,
+    32,
+    512
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:9882|dims=0,2,1|in=64x32x512|out=64x512x32": {
+   "op": "permute",
+   "site": "tenstorrent.py:9882",
+   "stack": [
+    "tenstorrent.py:9882",
+    "tenstorrent.py:9918",
+    "tenstorrent.py:9944",
+    "tenstorrent.py:2782",
+    "tenstorrent.py:9973",
+    "tenstorrent.py:10478"
+   ],
+   "dims": [
+    0,
+    2,
+    1
+   ],
+   "in_shape": [
+    64,
+    32,
+    512
+   ],
+   "out_shape": [
+    64,
+    512,
+    32
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:9979|dims=-|in=64x512x64|out=1x64x512x64": {
+   "op": "reshape",
+   "site": "tenstorrent.py:9979",
+   "stack": [
+    "tenstorrent.py:9979",
+    "tenstorrent.py:10478",
+    "tenstorrent.py:10552",
+    "tenstorrent.py:12866",
+    "tenstorrent.py:12909",
+    "boltz2.py:5841"
+   ],
+   "dims": null,
+   "in_shape": [
+    64,
+    512,
+    64
+   ],
+   "out_shape": [
+    1,
+    64,
+    512,
+    64
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:10084|dims=-|in=1x64x512x64|out=64x512x64": {
+   "op": "reshape",
+   "site": "tenstorrent.py:10084",
+   "stack": [
+    "tenstorrent.py:10084",
+    "tenstorrent.py:10482",
+    "tenstorrent.py:10552",
+    "tenstorrent.py:12866",
+    "tenstorrent.py:12909",
+    "boltz2.py:5841"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    64,
+    512,
+    64
+   ],
+   "out_shape": [
+    64,
+    512,
+    64
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:10205|dims=1,2,0|in=64x512x32|out=512x32x64": {
+   "op": "permute",
+   "site": "tenstorrent.py:10205",
+   "stack": [
+    "tenstorrent.py:10205",
+    "tenstorrent.py:10245",
+    "tenstorrent.py:10482",
+    "tenstorrent.py:10552",
+    "tenstorrent.py:12866",
+    "tenstorrent.py:12909"
+   ],
+   "dims": [
+    1,
+    2,
+    0
+   ],
+   "in_shape": [
+    64,
+    512,
+    32
+   ],
+   "out_shape": [
+    512,
+    32,
+    64
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:10206|dims=2,1,0|in=64x512x32|out=32x512x64": {
+   "op": "permute",
+   "site": "tenstorrent.py:10206",
+   "stack": [
+    "tenstorrent.py:10206",
+    "tenstorrent.py:10245",
+    "tenstorrent.py:10482",
+    "tenstorrent.py:10552",
+    "tenstorrent.py:12866",
+    "tenstorrent.py:12909"
+   ],
+   "dims": [
+    2,
+    1,
+    0
+   ],
+   "in_shape": [
+    64,
+    512,
+    32
+   ],
+   "out_shape": [
+    32,
+    512,
+    64
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "to_layout|tenstorrent.py:10207|dims=-|in=32x512x64|out=32x512x64": {
+   "op": "to_layout",
+   "site": "tenstorrent.py:10207",
+   "stack": [
+    "tenstorrent.py:10207",
+    "tenstorrent.py:10245",
+    "tenstorrent.py:10482",
+    "tenstorrent.py:10552",
+    "tenstorrent.py:12866",
+    "tenstorrent.py:12909"
+   ],
+   "dims": null,
+   "in_shape": [
+    32,
+    512,
+    64
+   ],
+   "out_shape": [
+    32,
+    512,
+    64
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": true
+  },
+  "reshape|tenstorrent.py:10208|dims=-|in=32x512x64|out=16384x64": {
+   "op": "reshape",
+   "site": "tenstorrent.py:10208",
+   "stack": [
+    "tenstorrent.py:10208",
+    "tenstorrent.py:10245",
+    "tenstorrent.py:10482",
+    "tenstorrent.py:10552",
+    "tenstorrent.py:12866",
+    "tenstorrent.py:12909"
+   ],
+   "dims": null,
+   "in_shape": [
+    32,
+    512,
+    64
+   ],
+   "out_shape": [
+    16384,
+    64
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "to_layout|tenstorrent.py:10209|dims=-|in=16384x64|out=16384x64": {
+   "op": "to_layout",
+   "site": "tenstorrent.py:10209",
+   "stack": [
+    "tenstorrent.py:10209",
+    "tenstorrent.py:10245",
+    "tenstorrent.py:10482",
+    "tenstorrent.py:10552",
+    "tenstorrent.py:12866",
+    "tenstorrent.py:12909"
+   ],
+   "dims": null,
+   "in_shape": [
+    16384,
+    64
+   ],
+   "out_shape": [
+    16384,
+    64
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": true
+  },
+  "reshape|tenstorrent.py:10281|dims=-|in=512x32x64|out=16384x64": {
+   "op": "reshape",
+   "site": "tenstorrent.py:10281",
+   "stack": [
+    "tenstorrent.py:10281",
+    "tenstorrent.py:10303",
+    "tenstorrent.py:10352",
+    "tenstorrent.py:2782",
+    "tenstorrent.py:10388",
+    "tenstorrent.py:10482"
+   ],
+   "dims": null,
+   "in_shape": [
+    512,
+    32,
+    64
+   ],
+   "out_shape": [
+    16384,
+    64
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "to_layout|tenstorrent.py:10304|dims=-|in=16384x16384|out=16384x16384": {
+   "op": "to_layout",
+   "site": "tenstorrent.py:10304",
+   "stack": [
+    "tenstorrent.py:10304",
+    "tenstorrent.py:10352",
+    "tenstorrent.py:2782",
+    "tenstorrent.py:10388",
+    "tenstorrent.py:10482",
+    "tenstorrent.py:10552"
+   ],
+   "dims": null,
+   "in_shape": [
+    16384,
+    16384
+   ],
+   "out_shape": [
+    16384,
+    16384
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": true
+  },
+  "reshape|tenstorrent.py:10305|dims=-|in=16384x16384|out=512x1024x512": {
+   "op": "reshape",
+   "site": "tenstorrent.py:10305",
+   "stack": [
+    "tenstorrent.py:10305",
+    "tenstorrent.py:10352",
+    "tenstorrent.py:2782",
+    "tenstorrent.py:10388",
+    "tenstorrent.py:10482",
+    "tenstorrent.py:10552"
+   ],
+   "dims": null,
+   "in_shape": [
+    16384,
+    16384
+   ],
+   "out_shape": [
+    512,
+    1024,
+    512
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "to_layout|tenstorrent.py:10306|dims=-|in=512x1024x512|out=512x1024x512": {
+   "op": "to_layout",
+   "site": "tenstorrent.py:10306",
+   "stack": [
+    "tenstorrent.py:10306",
+    "tenstorrent.py:10352",
+    "tenstorrent.py:2782",
+    "tenstorrent.py:10388",
+    "tenstorrent.py:10482",
+    "tenstorrent.py:10552"
+   ],
+   "dims": null,
+   "in_shape": [
+    512,
+    1024,
+    512
+   ],
+   "out_shape": [
+    512,
+    1024,
+    512
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": true
+  },
+  "permute|tenstorrent.py:10307|dims=0,2,1|in=512x1024x512|out=512x512x1024": {
+   "op": "permute",
+   "site": "tenstorrent.py:10307",
+   "stack": [
+    "tenstorrent.py:10307",
+    "tenstorrent.py:10352",
+    "tenstorrent.py:2782",
+    "tenstorrent.py:10388",
+    "tenstorrent.py:10482",
+    "tenstorrent.py:10552"
+   ],
+   "dims": [
+    0,
+    2,
+    1
+   ],
+   "in_shape": [
+    512,
+    1024,
+    512
+   ],
+   "out_shape": [
+    512,
+    512,
+    1024
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:10399|dims=-|in=512x512x128|out=1x512x512x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:10399",
+   "stack": [
+    "tenstorrent.py:10399",
+    "tenstorrent.py:10482",
+    "tenstorrent.py:10552",
+    "tenstorrent.py:12866",
+    "tenstorrent.py:12909",
+    "boltz2.py:5841"
+   ],
+   "dims": null,
+   "in_shape": [
+    512,
+    512,
+    128
+   ],
+   "out_shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:7209|dims=-|in=1x512x512x128|out=512x512x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:7209",
+   "stack": [
+    "tenstorrent.py:7209",
+    "tenstorrent.py:8590",
+    "tenstorrent.py:10485",
+    "tenstorrent.py:10552",
+    "tenstorrent.py:12866",
+    "tenstorrent.py:12909"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out_shape": [
+    512,
+    512,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:7290|dims=0,3,1,2|in=1x512x512x4|out=1x4x512x512": {
+   "op": "permute",
+   "site": "tenstorrent.py:7290",
+   "stack": [
+    "tenstorrent.py:7290",
+    "tenstorrent.py:8590",
+    "tenstorrent.py:10485",
+    "tenstorrent.py:10552",
+    "tenstorrent.py:12866",
+    "tenstorrent.py:12909"
+   ],
+   "dims": [
+    0,
+    3,
+    1,
+    2
+   ],
+   "in_shape": [
+    1,
+    512,
+    512,
+    4
+   ],
+   "out_shape": [
+    1,
+    4,
+    512,
+    512
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:7647|dims=-|in=512x512x128|out=1x512x512x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:7647",
+   "stack": [
+    "tenstorrent.py:7647",
+    "tenstorrent.py:8590",
+    "tenstorrent.py:10485",
+    "tenstorrent.py:10552",
+    "tenstorrent.py:12866",
+    "tenstorrent.py:12909"
+   ],
+   "dims": null,
+   "in_shape": [
+    512,
+    512,
+    128
+   ],
+   "out_shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "L1",
+   "out_mem": "L1",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:3672|dims=1,0,2|in=512x512x128|out=512x512x128": {
+   "op": "permute",
+   "site": "tenstorrent.py:3672",
+   "stack": [
+    "tenstorrent.py:3672",
+    "tenstorrent.py:3628",
+    "tenstorrent.py:7271",
+    "tenstorrent.py:8594",
+    "tenstorrent.py:10485",
+    "tenstorrent.py:10552"
+   ],
+   "dims": [
+    1,
+    0,
+    2
+   ],
+   "in_shape": [
+    512,
+    512,
+    128
+   ],
+   "out_shape": [
+    512,
+    512,
+    128
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "L1",
+   "shape_preserving": true
+  },
+  "permute|tenstorrent.py:8019|dims=0,3,1,2|in=1x512x512x16|out=1x16x512x512": {
+   "op": "permute",
+   "site": "tenstorrent.py:8019",
+   "stack": [
+    "tenstorrent.py:8019",
+    "tenstorrent.py:8613",
+    "tenstorrent.py:8684",
+    "tenstorrent.py:12880",
+    "tenstorrent.py:12909",
+    "boltz2.py:5841"
+   ],
+   "dims": [
+    0,
+    3,
+    1,
+    2
+   ],
+   "in_shape": [
+    1,
+    512,
+    512,
+    16
+   ],
+   "out_shape": [
+    1,
+    16,
+    512,
+    512
+   ],
+   "identity_perm": false,
+   "in_mem": "L1",
+   "out_mem": "L1",
+   "shape_preserving": false
+  },
+  "transpose|tenstorrent.py:8074|dims=-2,-1|in=1x16x512x32|out=1x16x32x512": {
+   "op": "transpose",
+   "site": "tenstorrent.py:8074",
+   "stack": [
+    "tenstorrent.py:8074",
+    "tenstorrent.py:8613",
+    "tenstorrent.py:8684",
+    "tenstorrent.py:12880",
+    "tenstorrent.py:12909",
+    "boltz2.py:5841"
+   ],
+   "dims": [
+    -2,
+    -1
+   ],
+   "in_shape": [
+    1,
+    16,
+    512,
+    32
+   ],
+   "out_shape": [
+    1,
+    16,
+    32,
+    512
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:8098|dims=0,1,3,2|in=1x16x512x24|out=1x16x24x512": {
+   "op": "permute",
+   "site": "tenstorrent.py:8098",
+   "stack": [
+    "tenstorrent.py:8098",
+    "tenstorrent.py:8613",
+    "tenstorrent.py:8684",
+    "tenstorrent.py:12880",
+    "tenstorrent.py:12909",
+    "boltz2.py:5841"
+   ],
+   "dims": [
+    0,
+    1,
+    3,
+    2
+   ],
+   "in_shape": [
+    1,
+    16,
+    512,
+    24
+   ],
+   "out_shape": [
+    1,
+    16,
+    24,
+    512
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:8099|dims=-|in=1x16x24x512|out=1x384x512": {
+   "op": "reshape",
+   "site": "tenstorrent.py:8099",
+   "stack": [
+    "tenstorrent.py:8099",
+    "tenstorrent.py:8613",
+    "tenstorrent.py:8684",
+    "tenstorrent.py:12880",
+    "tenstorrent.py:12909",
+    "boltz2.py:5841"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    16,
+    24,
+    512
+   ],
+   "out_shape": [
+    1,
+    384,
+    512
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:8100|dims=0,2,1|in=1x384x512|out=1x512x384": {
+   "op": "permute",
+   "site": "tenstorrent.py:8100",
+   "stack": [
+    "tenstorrent.py:8100",
+    "tenstorrent.py:8613",
+    "tenstorrent.py:8684",
+    "tenstorrent.py:12880",
+    "tenstorrent.py:12909",
+    "boltz2.py:5841"
+   ],
+   "dims": [
+    0,
+    2,
+    1
+   ],
+   "in_shape": [
+    1,
+    384,
+    512
+   ],
+   "out_shape": [
+    1,
+    512,
+    384
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:11340|dims=-|in=1x4480|out=280x16x1": {
+   "op": "reshape",
+   "site": "tenstorrent.py:11340",
+   "stack": [
+    "tenstorrent.py:11340",
+    "tenstorrent.py:11465",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946",
+    "boltz2.py:6213"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    4480
+   ],
+   "out_shape": [
+    280,
+    16,
+    1
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:11342|dims=1,2,0|in=280x16x1|out=16x1x280": {
+   "op": "permute",
+   "site": "tenstorrent.py:11342",
+   "stack": [
+    "tenstorrent.py:11342",
+    "tenstorrent.py:11465",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946",
+    "boltz2.py:6213"
+   ],
+   "dims": [
+    1,
+    2,
+    0
+   ],
+   "in_shape": [
+    280,
+    16,
+    1
+   ],
+   "out_shape": [
+    16,
+    1,
+    280
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:11349|dims=2,0,1|in=16x1x1120|out=1120x16x1": {
+   "op": "permute",
+   "site": "tenstorrent.py:11349",
+   "stack": [
+    "tenstorrent.py:11349",
+    "tenstorrent.py:11465",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946",
+    "boltz2.py:6213"
+   ],
+   "dims": [
+    2,
+    0,
+    1
+   ],
+   "in_shape": [
+    16,
+    1,
+    1120
+   ],
+   "out_shape": [
+    1120,
+    16,
+    1
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:11350|dims=-|in=1120x16x1|out=140x1x1x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:11350",
+   "stack": [
+    "tenstorrent.py:11350",
+    "tenstorrent.py:11465",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946",
+    "boltz2.py:6213"
+   ],
+   "dims": null,
+   "in_shape": [
+    1120,
+    16,
+    1
+   ],
+   "out_shape": [
+    140,
+    1,
+    1,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:11358|dims=-|in=1x140x32x128x12|out=140x32x128x12": {
+   "op": "reshape",
+   "site": "tenstorrent.py:11358",
+   "stack": [
+    "tenstorrent.py:11358",
+    "tenstorrent.py:11364",
+    "tenstorrent.py:11465",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    140,
+    32,
+    128,
+    12
+   ],
+   "out_shape": [
+    140,
+    32,
+    128,
+    12
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:11359|dims=0,3,1,2|in=140x32x128x12|out=140x12x32x128": {
+   "op": "permute",
+   "site": "tenstorrent.py:11359",
+   "stack": [
+    "tenstorrent.py:11359",
+    "tenstorrent.py:11364",
+    "tenstorrent.py:11465",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946"
+   ],
+   "dims": [
+    0,
+    3,
+    1,
+    2
+   ],
+   "in_shape": [
+    140,
+    32,
+    128,
+    12
+   ],
+   "out_shape": [
+    140,
+    12,
+    32,
+    128
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:11380|dims=0,3,1,2|in=1x512x512x384|out=1x384x512x512": {
+   "op": "permute",
+   "site": "tenstorrent.py:11380",
+   "stack": [
+    "tenstorrent.py:11380",
+    "tenstorrent.py:11465",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946",
+    "boltz2.py:6213"
+   ],
+   "dims": [
+    0,
+    3,
+    1,
+    2
+   ],
+   "in_shape": [
+    1,
+    512,
+    512,
+    384
+   ],
+   "out_shape": [
+    1,
+    384,
+    512,
+    512
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:10687|dims=-|in=1x4480x128|out=1x140x32x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:10687",
+   "stack": [
+    "tenstorrent.py:10687",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    4480,
+    128
+   ],
+   "out_shape": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:10696|dims=-|in=1x4480x128|out=1x140x32x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:10696",
+   "stack": [
+    "tenstorrent.py:10696",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    4480,
+    128
+   ],
+   "out_shape": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:869|dims=-|in=1x140x32x128|out=1x1x4480x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:869",
+   "stack": [
+    "tenstorrent.py:869",
+    "tenstorrent.py:8106",
+    "tenstorrent.py:9605",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10697",
+    "tenstorrent.py:11434"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out_shape": [
+    1,
+    1,
+    4480,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "to_layout|tenstorrent.py:872|dims=-|in=1x1x4128x128|out=1x1x4128x128": {
+   "op": "to_layout",
+   "site": "tenstorrent.py:872",
+   "stack": [
+    "tenstorrent.py:872",
+    "tenstorrent.py:8106",
+    "tenstorrent.py:9605",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10697",
+    "tenstorrent.py:11434"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    1,
+    4128,
+    128
+   ],
+   "out_shape": [
+    1,
+    1,
+    4128,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": true
+  },
+  "to_layout|tenstorrent.py:876|dims=-|in=1x1x4608x128|out=1x1x4608x128": {
+   "op": "to_layout",
+   "site": "tenstorrent.py:876",
+   "stack": [
+    "tenstorrent.py:876",
+    "tenstorrent.py:8106",
+    "tenstorrent.py:9605",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10697",
+    "tenstorrent.py:11434"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    1,
+    4608,
+    128
+   ],
+   "out_shape": [
+    1,
+    1,
+    4608,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": true
+  },
+  "reshape|tenstorrent.py:877|dims=-|in=1x1x4608x128|out=1x144x32x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:877",
+   "stack": [
+    "tenstorrent.py:877",
+    "tenstorrent.py:8106",
+    "tenstorrent.py:9605",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10697",
+    "tenstorrent.py:11434"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    1,
+    4608,
+    128
+   ],
+   "out_shape": [
+    1,
+    144,
+    32,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:8145|dims=-|in=1x140x128x128|out=140x1x128x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:8145",
+   "stack": [
+    "tenstorrent.py:8145",
+    "tenstorrent.py:9605",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10697",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    140,
+    128,
+    128
+   ],
+   "out_shape": [
+    140,
+    1,
+    128,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:8146|dims=-|in=1x140x128x256|out=140x1x128x256": {
+   "op": "reshape",
+   "site": "tenstorrent.py:8146",
+   "stack": [
+    "tenstorrent.py:8146",
+    "tenstorrent.py:9605",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10697",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    140,
+    128,
+    256
+   ],
+   "out_shape": [
+    140,
+    1,
+    128,
+    256
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:8149|dims=-|in=140x4x128x32|out=1x560x128x32": {
+   "op": "reshape",
+   "site": "tenstorrent.py:8149",
+   "stack": [
+    "tenstorrent.py:8149",
+    "tenstorrent.py:9605",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10697",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472"
+   ],
+   "dims": null,
+   "in_shape": [
+    140,
+    4,
+    128,
+    32
+   ],
+   "out_shape": [
+    1,
+    560,
+    128,
+    32
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:8150|dims=-|in=140x4x128x32|out=1x560x128x32": {
+   "op": "reshape",
+   "site": "tenstorrent.py:8150",
+   "stack": [
+    "tenstorrent.py:8150",
+    "tenstorrent.py:9605",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10697",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472"
+   ],
+   "dims": null,
+   "in_shape": [
+    140,
+    4,
+    128,
+    32
+   ],
+   "out_shape": [
+    1,
+    560,
+    128,
+    32
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:8151|dims=-|in=140x4x128x32|out=1x560x128x32": {
+   "op": "reshape",
+   "site": "tenstorrent.py:8151",
+   "stack": [
+    "tenstorrent.py:8151",
+    "tenstorrent.py:9605",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10697",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472"
+   ],
+   "dims": null,
+   "in_shape": [
+    140,
+    4,
+    128,
+    32
+   ],
+   "out_shape": [
+    1,
+    560,
+    128,
+    32
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:8153|dims=-|in=140x4x32x128|out=1x560x32x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:8153",
+   "stack": [
+    "tenstorrent.py:8153",
+    "tenstorrent.py:9605",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10697",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472"
+   ],
+   "dims": null,
+   "in_shape": [
+    140,
+    4,
+    32,
+    128
+   ],
+   "out_shape": [
+    1,
+    560,
+    32,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:8155|dims=-|in=1x560x32x32|out=140x4x32x32": {
+   "op": "reshape",
+   "site": "tenstorrent.py:8155",
+   "stack": [
+    "tenstorrent.py:8155",
+    "tenstorrent.py:9605",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10697",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    560,
+    32,
+    32
+   ],
+   "out_shape": [
+    140,
+    4,
+    32,
+    32
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:8158|dims=-|in=140x32x128|out=1x140x32x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:8158",
+   "stack": [
+    "tenstorrent.py:8158",
+    "tenstorrent.py:9605",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10697",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472"
+   ],
+   "dims": null,
+   "in_shape": [
+    140,
+    32,
+    128
+   ],
+   "out_shape": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:10704|dims=-|in=1x140x32x128|out=1x4480x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:10704",
+   "stack": [
+    "tenstorrent.py:10704",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out_shape": [
+    1,
+    4480,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:10718|dims=0,2,1|in=1x768x512|out=1x512x768": {
+   "op": "permute",
+   "site": "tenstorrent.py:10718",
+   "stack": [
+    "tenstorrent.py:10718",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946"
+   ],
+   "dims": [
+    0,
+    2,
+    1
+   ],
+   "in_shape": [
+    1,
+    768,
+    512
+   ],
+   "out_shape": [
+    1,
+    512,
+    768
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:8098|dims=0,1,3,2|in=1x16x512x48|out=1x16x48x512": {
+   "op": "permute",
+   "site": "tenstorrent.py:8098",
+   "stack": [
+    "tenstorrent.py:8098",
+    "tenstorrent.py:9603",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10779",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472"
+   ],
+   "dims": [
+    0,
+    1,
+    3,
+    2
+   ],
+   "in_shape": [
+    1,
+    16,
+    512,
+    48
+   ],
+   "out_shape": [
+    1,
+    16,
+    48,
+    512
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:8099|dims=-|in=1x16x48x512|out=1x768x512": {
+   "op": "reshape",
+   "site": "tenstorrent.py:8099",
+   "stack": [
+    "tenstorrent.py:8099",
+    "tenstorrent.py:9603",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10779",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    16,
+    48,
+    512
+   ],
+   "out_shape": [
+    1,
+    768,
+    512
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:8100|dims=0,2,1|in=1x768x512|out=1x512x768": {
+   "op": "permute",
+   "site": "tenstorrent.py:8100",
+   "stack": [
+    "tenstorrent.py:8100",
+    "tenstorrent.py:9603",
+    "tenstorrent.py:9744",
+    "tenstorrent.py:10779",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472"
+   ],
+   "dims": [
+    0,
+    2,
+    1
+   ],
+   "in_shape": [
+    1,
+    768,
+    512
+   ],
+   "out_shape": [
+    1,
+    512,
+    768
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:10796|dims=0,2,1|in=1x512x128|out=1x128x512": {
+   "op": "permute",
+   "site": "tenstorrent.py:10796",
+   "stack": [
+    "tenstorrent.py:10796",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946"
+   ],
+   "dims": [
+    0,
+    2,
+    1
+   ],
+   "in_shape": [
+    1,
+    512,
+    128
+   ],
+   "out_shape": [
+    1,
+    128,
+    512
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:10803|dims=0,2,1|in=1x128x4480|out=1x4480x128": {
+   "op": "permute",
+   "site": "tenstorrent.py:10803",
+   "stack": [
+    "tenstorrent.py:10803",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946"
+   ],
+   "dims": [
+    0,
+    2,
+    1
+   ],
+   "in_shape": [
+    1,
+    128,
+    4480
+   ],
+   "out_shape": [
+    1,
+    4480,
+    128
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:10806|dims=-|in=1x4480x128|out=1x140x32x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:10806",
+   "stack": [
+    "tenstorrent.py:10806",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    4480,
+    128
+   ],
+   "out_shape": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "reshape|tenstorrent.py:10814|dims=-|in=1x140x32x128|out=1x4480x128": {
+   "op": "reshape",
+   "site": "tenstorrent.py:10814",
+   "stack": [
+    "tenstorrent.py:10814",
+    "tenstorrent.py:11434",
+    "tenstorrent.py:11472",
+    "boltz2.py:4308",
+    "boltz2.py:4486",
+    "boltz2.py:5946"
+   ],
+   "dims": null,
+   "in_shape": [
+    1,
+    140,
+    32,
+    128
+   ],
+   "out_shape": [
+    1,
+    4480,
+    128
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  },
+  "permute|tenstorrent.py:12372|dims=0,2,1,3|in=1x512x512x128|out=1x512x512x128": {
+   "op": "permute",
+   "site": "tenstorrent.py:12372",
+   "stack": [
+    "tenstorrent.py:12372",
+    "boltz2.py:5075",
+    "boltz2.py:5970",
+    "boltz2.py:6213",
+    "worker.py:769"
+   ],
+   "dims": [
+    0,
+    2,
+    1,
+    3
+   ],
+   "in_shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "out_shape": [
+    1,
+    512,
+    512,
+    128
+   ],
+   "identity_perm": false,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": true
+  },
+  "reshape|tenstorrent.py:11800|dims=-|in=512x512x32|out=1x512x512x32": {
+   "op": "reshape",
+   "site": "tenstorrent.py:11800",
+   "stack": [
+    "tenstorrent.py:11800",
+    "tenstorrent.py:12397",
+    "boltz2.py:5075",
+    "boltz2.py:5970",
+    "boltz2.py:6213",
+    "worker.py:769"
+   ],
+   "dims": null,
+   "in_shape": [
+    512,
+    512,
+    32
+   ],
+   "out_shape": [
+    1,
+    512,
+    512,
+    32
+   ],
+   "identity_perm": null,
+   "in_mem": "DRAM",
+   "out_mem": "DRAM",
+   "shape_preserving": false
+  }
+ },
+ "chains": {
+  "permute|tenstorrent.py:8098|dims=0,1,3,2|in=1x16x512x48|out=1x16x48x512 >>> reshape|tenstorrent.py:8099|dims=-|in=1x16x48x512|out=1x768x512": 4800,
+  "reshape|tenstorrent.py:8099|dims=-|in=1x16x48x512|out=1x768x512 >>> permute|tenstorrent.py:8100|dims=0,2,1|in=1x768x512|out=1x512x768": 4800,
+  "to_layout|tenstorrent.py:876|dims=-|in=1x1x4608x128|out=1x1x4608x128 >>> reshape|tenstorrent.py:877|dims=-|in=1x1x4608x128|out=1x144x32x128": 1200,
+  "permute|tenstorrent.py:3672|dims=1,0,2|in=512x512x128|out=512x512x128 >>> reshape|tenstorrent.py:7647|dims=-|in=512x512x128|out=1x512x512x128": 282,
+  "reshape|tenstorrent.py:7209|dims=-|in=1x512x512x128|out=512x512x128 >>> permute|tenstorrent.py:3672|dims=1,0,2|in=512x512x128|out=512x512x128": 281,
+  "permute|tenstorrent.py:8098|dims=0,1,3,2|in=1x16x512x24|out=1x16x24x512 >>> reshape|tenstorrent.py:8099|dims=-|in=1x16x24x512|out=1x384x512": 264,
+  "reshape|tenstorrent.py:8099|dims=-|in=1x16x24x512|out=1x384x512 >>> permute|tenstorrent.py:8100|dims=0,2,1|in=1x384x512|out=1x512x384": 264,
+  "permute|tenstorrent.py:9882|dims=0,2,1|in=64x32x512|out=64x512x32 >>> permute|tenstorrent.py:9873|dims=0,2,1|in=64x512x32|out=64x32x512": 64,
+  "to_layout|tenstorrent.py:876|dims=-|in=1x1x4608x128|out=1x1x4608x128 >>> to_layout|tenstorrent.py:876|dims=-|in=1x1x4608x128|out=1x1x4608x128": 47,
+  "reshape|tenstorrent.py:7647|dims=-|in=512x512x128|out=1x512x512x128 >>> reshape|tenstorrent.py:7209|dims=-|in=1x512x512x128|out=512x512x128": 45,
+  "reshape|tenstorrent.py:8158|dims=-|in=140x32x128|out=1x140x32x128 >>> reshape|tenstorrent.py:869|dims=-|in=1x140x32x128|out=1x1x4480x128": 38,
+  "reshape|tenstorrent.py:10696|dims=-|in=1x4480x128|out=1x140x32x128 >>> reshape|tenstorrent.py:869|dims=-|in=1x140x32x128|out=1x1x4480x128": 22,
+  "permute|tenstorrent.py:10206|dims=2,1,0|in=64x512x32|out=32x512x64 >>> to_layout|tenstorrent.py:10207|dims=-|in=32x512x64|out=32x512x64": 16,
+  "to_layout|tenstorrent.py:10207|dims=-|in=32x512x64|out=32x512x64 >>> reshape|tenstorrent.py:10208|dims=-|in=32x512x64|out=16384x64": 16,
+  "reshape|tenstorrent.py:10208|dims=-|in=32x512x64|out=16384x64 >>> to_layout|tenstorrent.py:10209|dims=-|in=16384x64|out=16384x64": 16,
+  "permute|tenstorrent.py:10205|dims=1,2,0|in=64x512x32|out=512x32x64 >>> reshape|tenstorrent.py:10281|dims=-|in=512x32x64|out=16384x64": 16,
+  "to_layout|tenstorrent.py:10304|dims=-|in=16384x16384|out=16384x16384 >>> reshape|tenstorrent.py:10305|dims=-|in=16384x16384|out=512x1024x512": 16,
+  "reshape|tenstorrent.py:10305|dims=-|in=16384x16384|out=512x1024x512 >>> to_layout|tenstorrent.py:10306|dims=-|in=512x1024x512|out=512x1024x512": 16,
+  "to_layout|tenstorrent.py:10306|dims=-|in=512x1024x512|out=512x1024x512 >>> permute|tenstorrent.py:10307|dims=0,2,1|in=512x1024x512|out=512x512x1024": 16,
+  "permute|tenstorrent.py:10803|dims=0,2,1|in=1x128x4480|out=1x4480x128 >>> reshape|tenstorrent.py:10696|dims=-|in=1x4480x128|out=1x140x32x128": 11,
+  "permute|tenstorrent.py:3672|dims=1,0,2|in=512x512x128|out=512x512x128 >>> permute|tenstorrent.py:3672|dims=1,0,2|in=512x512x128|out=512x512x128": 10,
+  "reshape|tenstorrent.py:9979|dims=-|in=64x512x64|out=1x64x512x64 >>> reshape|tenstorrent.py:10084|dims=-|in=1x64x512x64|out=64x512x64": 9,
+  "reshape|tenstorrent.py:9979|dims=-|in=64x512x64|out=1x64x512x64 >>> reshape|tenstorrent.py:9790|dims=-|in=1x64x512x64|out=64x512x64": 8,
+  "reshape|tenstorrent.py:7647|dims=-|in=512x512x128|out=1x512x512x128 >>> reshape|tenstorrent.py:9791|dims=-|in=1x512x512x128|out=512x512x128": 6,
+  "permute|tenstorrent.py:9882|dims=0,2,1|in=64x32x512|out=64x512x32 >>> permute|tenstorrent.py:10205|dims=1,2,0|in=64x512x32|out=512x32x64": 4,
+  "reshape|tenstorrent.py:8099|dims=-|in=1x16x48x512|out=1x768x512 >>> permute|tenstorrent.py:10718|dims=0,2,1|in=1x768x512|out=1x512x768": 4,
+  "reshape|tenstorrent.py:10399|dims=-|in=512x512x128|out=1x512x512x128 >>> reshape|tenstorrent.py:7209|dims=-|in=1x512x512x128|out=512x512x128": 3,
+  "permute|tenstorrent.py:9873|dims=0,2,1|in=64x512x32|out=64x32x512 >>> permute|tenstorrent.py:9882|dims=0,2,1|in=64x32x512|out=64x512x32": 2,
+  "permute|tenstorrent.py:9882|dims=0,2,1|in=64x32x512|out=64x512x32 >>> permute|tenstorrent.py:10206|dims=2,1,0|in=64x512x32|out=32x512x64": 2,
+  "reshape|tenstorrent.py:11358|dims=-|in=1x140x32x128x12|out=140x32x128x12 >>> permute|tenstorrent.py:11359|dims=0,3,1,2|in=140x32x128x12|out=140x12x32x128": 2,
+  "reshape|tenstorrent.py:11800|dims=-|in=512x512x128|out=1x512x512x128 >>> reshape|tenstorrent.py:7209|dims=-|in=1x512x512x128|out=512x512x128": 1,
+  "reshape|tenstorrent.py:11340|dims=-|in=1x4480|out=280x16x1 >>> permute|tenstorrent.py:11342|dims=1,2,0|in=280x16x1|out=16x1x280": 1,
+  "permute|tenstorrent.py:11349|dims=2,0,1|in=16x1x1120|out=1120x16x1 >>> reshape|tenstorrent.py:11350|dims=-|in=1120x16x1|out=140x1x1x128": 1,
+  "permute|tenstorrent.py:10803|dims=0,2,1|in=1x128x4480|out=1x4480x128 >>> reshape|tenstorrent.py:10806|dims=-|in=1x4480x128|out=1x140x32x128": 1,
+  "reshape|tenstorrent.py:8158|dims=-|in=140x32x128|out=1x140x32x128 >>> reshape|tenstorrent.py:10814|dims=-|in=1x140x32x128|out=1x4480x128": 1,
+  "reshape|tenstorrent.py:8158|dims=-|in=140x32x128|out=1x140x32x128 >>> reshape|tenstorrent.py:10704|dims=-|in=1x140x32x128|out=1x4480x128": 1
+ }
+}

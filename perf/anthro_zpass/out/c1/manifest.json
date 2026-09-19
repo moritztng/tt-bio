@@ -1,0 +1,33 @@
+{
+ "size": 512,
+ "arch": "blackhole",
+ "block_call": 8,
+ "block": {
+  "path": "perf/anthro_zpass/runs/c1/block_512.json.gz",
+  "n_ops": 245,
+  "n_buffers": 166
+ },
+ "n_transpose_calls": 12702,
+ "kinds": {
+  "MIXED": 1438,
+  "TILED_INNER": 11264
+ },
+ "unit_calls": {
+  "PairAssemblyDevice": 2,
+  "MSA": 4,
+  "Pairformer": 5,
+  "PairConditioningDevice": 1,
+  "Diffusion": 200,
+  "ConfidenceHeadsDevice": 1
+ },
+ "pairformer_layer_calls": {
+  "MSALayer": 16,
+  "Pairformer": 264
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "recycling_steps": 3,
+ "plddt": 0.845919
+}

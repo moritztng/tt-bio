@@ -3,6 +3,28 @@
 All notable changes to TT-Bio are recorded here. Versioning is [SemVer](https://semver.org);
 releases are cut from a commit that has passed the on-hardware test suite (see `RELEASING.md`).
 
+## [Unreleased]
+
+### Fixed
+
+- **A tt-bio verb no longer turns off its caller's autograd.** `predict`, `warmup`, `embed`,
+  `affinity`, `saprot` and `design` called `torch.set_grad_enabled(False)` in their bodies, which
+  is process-wide and nothing restored it, so reaching any of them from a script, a notebook or a
+  test left the rest of that program without gradients. The verbs still run inference with grad
+  off; the setting now stops at the verb's edge. Same inputs give the same outputs.
+
+### Added
+
+- **Protenix-v2 and OpenDDE now report per-chain-pair ipTM in `results.json`.** A multi-chain
+  entry carries `pair_chains_iptm` and `chains_ptm`, the same two fields Boltz-2 already writes
+  and in the same shape, for every sample rather than only the best one. Read
+  `pair_chains_iptm[binder][target]` to score one named interface of a complex; the global `iptm`
+  averages the whole interface, and on a two-chain target the two agree. The matrix was already
+  computed to derive the per-chain averages and then dropped, so nothing about the fold changed:
+  the same input gives the same coordinates, pLDDT, pTM and ipTM as before. Opened as #15 by
+  @ssiddhantsharma; the diagonal (each chain's own pTM) and the device confidence path
+  (`TT_PROTENIX_CONF_DEVICE=1`) were added on top of it.
+
 ## [0.9.0] - 2026-09-18
 
 ### Added

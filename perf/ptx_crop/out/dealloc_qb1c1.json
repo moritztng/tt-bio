@@ -1,0 +1,51 @@
+{
+ "doc": "How many deallocates one shipped PairformerLayer makes, split DRAM against L1.\n\nThe brief names 88 deallocates in the fast pairformer chain and asks whether the training\npath retains what inference frees. `tape_profile.py`'s keeper counts only the DRAM ones,\nbecause holding an L1 intermediate past its op changes which kernel runs. This counts both,\nso the 88 can be reconciled rather than contradicted.\n",
+ "env": {
+  "host": "tt-quietbox",
+  "arch": "Arch.BLACKHOLE",
+  "tt_visible_devices": "1",
+  "commit": "4ab2aad2a670bf418afd3a98c110d80c4b175329",
+  "c_z": 256,
+  "blocks": 1,
+  "ckpt_blocks": 48,
+  "started_utc": "2026-09-19T00:45:34Z"
+ },
+ "runs": [
+  {
+   "dram": 38,
+   "l1": 114,
+   "unknown": 0,
+   "dram_b": 0,
+   "dram_b_unknown": 38,
+   "total": 152,
+   "tokens": 256
+  },
+  {
+   "dram": 38,
+   "l1": 46,
+   "unknown": 0,
+   "dram_b": 0,
+   "dram_b_unknown": 38,
+   "total": 84,
+   "tokens": 384
+  },
+  {
+   "dram": 44,
+   "l1": 100,
+   "unknown": 0,
+   "dram_b": 0,
+   "dram_b_unknown": 44,
+   "total": 144,
+   "tokens": 512
+  }
+ ],
+ "aiclk": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 2
+  }
+ },
+ "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 2 samples, polled DURING the work"
+}

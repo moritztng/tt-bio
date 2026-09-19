@@ -1,0 +1,52 @@
+{
+ "shape": [
+  1,
+  16,
+  512,
+  128
+ ],
+ "hidden": 512,
+ "grid": [
+  11,
+  10
+ ],
+ "block": [
+  4,
+  4,
+  1,
+  4,
+  1
+ ],
+ "round": 2,
+ "ref_mean_abs": 39.71999914852816,
+ "ref_max_abs": 1806.986152473165,
+ "vs_float64": [
+  {
+   "arm": "fused",
+   "max_abs": 9.843750306859647,
+   "mean_abs": 0.0969664051186005,
+   "mean_abs_over_mean_ref": 0.002441248922388097,
+   "rel_l2": 0.00292355410976873
+  },
+  {
+   "arm": "prod_fused_silu",
+   "max_abs": 9.843750306859647,
+   "mean_abs": 0.09843441152694574,
+   "mean_abs_over_mean_ref": 0.0024782077954952136,
+   "rel_l2": 0.00295757024941471
+  },
+  {
+   "arm": "prod_unfused_silu",
+   "max_abs": 9.843750306859647,
+   "mean_abs": 0.10097497784629478,
+   "mean_abs_over_mean_ref": 0.0025421696880886377,
+   "rel_l2": 0.0029833594858472592
+  }
+ ],
+ "bit_exact_fused_vs_prod_fused_silu": false,
+ "bit_exact_fused_vs_prod_unfused_silu": false,
+ "bit_exact_prod_fused_vs_prod_unfused": false,
+ "elems_differing_fused_vs_prod_fused_silu": 1205226,
+ "n_elems": 4194304,
+ "fused_out_memcfg": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::L1,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)"
+}

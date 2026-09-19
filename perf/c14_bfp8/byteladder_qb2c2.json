@@ -1,0 +1,429 @@
+{
+  "key": [
+    1,
+    512,
+    512,
+    128
+  ],
+  "grid": [
+    10,
+    11
+  ],
+  "cores": 110,
+  "nodes": [
+    2
+  ],
+  "reps": 9,
+  "mhz_requested": 1350,
+  "mgd": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/tt_metal/fabric/mesh_graph_descriptors/p150_mesh_graph_descriptor.textproto",
+  "prediction": {
+    "registered_utc": "2026-09-18T13:20Z",
+    "row": "c14-bfp8-fastpath",
+    "question": "At the pair class largest executed key [1,512,512,128] on BLACKHOLE, does a change of STORAGE WIDTH convert to time? Every prior bfp8 realization number in this campaign is Wormhole (b2z-bfp8-narrow, 0.26-0.30 at c_z=128) and the one Blackhole byte number (c14-byte-deletion, 1.9% of the op for 50% of its DRAM bytes) is a DESTINATION RETARGET, not a width cut, so it does not answer this.",
+    "rate_provenance": {
+      "dram_roof_gbs": 442.9,
+      "dram_roof_where": "c10-fold-census, qb2, during-sampled 1350 MHz",
+      "clone_same_shape_gbs": 364.84,
+      "clone_same_shape_where": "c14-byte-deletion, qb1 node 0 (p150a, 110 cores), 1350 MHz, ttnn.clone on this exact key = 82.4% of the roof",
+      "class_in_fold_gbs": {
+        "multiply_": 415.9,
+        "add_": 423.6,
+        "layer_norm_w": 239.0
+      },
+      "class_where": "c10-fold-census on qb2 at a during-sampled 1350 MHz"
+    },
+    "bytes_nominal_Z": {
+      "note": "Z = 67.108864 MB = one bf16 [1,512,512,128] tensor",
+      "bf16_per_elt": 2.0,
+      "fp32_per_elt": 4.0,
+      "bfp8_b_per_elt": 1.0625,
+      "bfp8_ratio": 0.53125
+    },
+    "arms_predicted_time_ratio_vs_bf16": {
+      "clone_f32": [
+        1.75,
+        2.0
+      ],
+      "clone_b8": [
+        0.6,
+        0.75
+      ],
+      "ln_b8": [
+        0.7,
+        0.9
+      ],
+      "mul_b8": [
+        0.6,
+        0.85
+      ],
+      "add_b8": [
+        0.6,
+        0.85
+      ],
+      "linear_b8act": [
+        0.9,
+        1.0
+      ]
+    },
+    "points": {
+      "clone_f32": 1.9,
+      "clone_b8": 0.68,
+      "ln_b8": 0.8,
+      "mul_b8": 0.72,
+      "add_b8": 0.72,
+      "linear_b8act": 0.96
+    },
+    "reasoning": {
+      "clone_f32": "the opposite-direction control demanded by memory dtype-narrowing-byte-discount-needs-opposite-direction-control: if doubling the bytes does not roughly double the time, narrowing cannot halve it and the whole axis is dead on this class.",
+      "clone_b8": "0.531x the bytes but block float is not a byte-for-byte move: the packer re-derives one shared exponent per 16-element block. ttnn.permute on bfloat8_b already measures 1.13-1.44x SLOWER than bf16 on 0.53x the bytes (ttx-reblock-bfp8-pairtrack), so a pure mover is expected to keep well under half the byte cut.",
+      "ln_b8": "layer_norm is at 96.5% of a same-shape clone at this key (c14-byte-deletion) so it is byte-bound here, but removing gamma/beta made it 1.43x SLOWER, i.e. the affine term is load-bearing work a width cut cannot touch.",
+      "mul_b8": "multiply_ and add_ read 415.9 and 423.6 GB/s in-fold against a 442.9 roof, 94-96%, the least non-byte slack in the fold.",
+      "linear_b8act": "c13-matmul-rate fitted the thin-K key as t(kt) = 0.0723 + 0.00554*kt ms, 73.9% of the time at K=128 not scaling with K at all, measured with DRAM traffic removed. A width cut cannot touch a per-output-tile pipeline cost."
+    },
+    "what_would_make_it_negative": [
+      "clone_f32 < 1.40x -> the class is not byte-bound at this key and bfp8 has no mechanism here; the row closes with that as the answer.",
+      "clone_b8 >= 0.95x -> the block format own pack/unpack cost eats the byte cut on a pure mover, so no downstream region can pay however it is scoped.",
+      "any arm throwing on a bfp8 operand -> that op is not bfp8-capable and the region containing it needs a conversion at that edge, which is charged against the region."
+    ],
+    "aa_floor_rule": "the bf16 clone arm runs twice per rep as its own A/A twin; a session whose A/A floor exceeds 1.0% is discarded, not reported."
+  },
+  "arms": {
+    "clone_b16": {
+      "ms_med": 0.3524870007822756,
+      "ms_min": 0.34830900040105917,
+      "ms": [
+        0.40376600009039976,
+        0.3524870007822756,
+        0.35114499951305334,
+        0.3513749998091953,
+        0.34830900040105917,
+        0.3533489998517325,
+        0.3563539994502207,
+        0.3563939990272047,
+        0.34926099942822475
+      ],
+      "bytes": 134217728.0,
+      "gbs": 380.77355392434373,
+      "Z": 2.0,
+      "vs_clone_b16": 1.0
+    },
+    "clone_b16_aa": {
+      "ms_med": 0.3524469993863022,
+      "ms_min": 0.3490509989205748,
+      "ms": [
+        0.3511039994918974,
+        0.3524469993863022,
+        0.35871900035999715,
+        0.3639999995357357,
+        0.3490509989205748,
+        0.35122400004183874,
+        0.350242999047623,
+        0.35409100019023754,
+        0.35401999957684893
+      ],
+      "bytes": 134217728.0,
+      "gbs": 380.8167702766839,
+      "Z": 2.0,
+      "vs_clone_b16": 0.9998865166775381
+    },
+    "clone_f32": {
+      "ms_med": 0.6953550000616815,
+      "ms_min": 0.690455999574624,
+      "ms": [
+        0.7021689998509828,
+        0.6968190009501996,
+        0.693883001076756,
+        0.6947750007384457,
+        0.690455999574624,
+        0.6966779983486049,
+        0.6953550000616815,
+        0.6926509995537344,
+        0.6985919990256662
+      ],
+      "bytes": 268435456.0,
+      "gbs": 386.0408798041122,
+      "Z": 4.0,
+      "vs_clone_b16": 1.9727110461335533,
+      "ratio_vs_own_b16": 1.9727110461335533,
+      "byte_ratio": 2.0,
+      "realization": 0.9727110461335533
+    },
+    "clone_b8": {
+      "ms_med": 0.19057600002270192,
+      "ms_min": 0.18961400019179564,
+      "ms": [
+        0.1974989991140319,
+        0.19456400150374975,
+        0.19057600002270192,
+        0.19094699928245973,
+        0.18961400019179564,
+        0.19828000040433835,
+        0.19035600053030066,
+        0.19036599951505195,
+        0.18964499940921087
+      ],
+      "bytes": 71303168.0,
+      "gbs": 374.1455796716595,
+      "Z": 1.0625,
+      "vs_clone_b16": 0.5406610728899391,
+      "ratio_vs_own_b16": 0.5406610728899391,
+      "byte_ratio": 0.53125,
+      "realization": 0.9799230445014632
+    },
+    "cast_b16_to_b8": {
+      "ms_med": 0.2576749993750127,
+      "ms_min": 0.2556409999669995,
+      "ms": [
+        0.2789659993140958,
+        0.2645880013005808,
+        0.2595979985926533,
+        0.2569440002844203,
+        0.26507899929129053,
+        0.2576749993750127,
+        0.2569440002844203,
+        0.2567230003478471,
+        0.2556409999669995
+      ],
+      "bytes": 102760448.0,
+      "gbs": 398.7986737139579,
+      "Z": 1.53125,
+      "vs_clone_b16": 0.7310198640039313
+    },
+    "cast_b8_to_b16": {
+      "ms_med": 0.32943299993348774,
+      "ms_min": 0.3252540009270888,
+      "ms": [
+        0.33372100006090477,
+        0.3314559999125777,
+        0.3252540009270888,
+        0.32943299993348774,
+        0.3277690011600498,
+        0.32843000008142553,
+        0.32567500056757126,
+        0.33033500039891805,
+        0.332358000378008
+      ],
+      "bytes": 102760448.0,
+      "gbs": 311.93125163765393,
+      "Z": 1.53125,
+      "vs_clone_b16": 0.9345961672412769
+    },
+    "ln_b16": {
+      "ms_med": 0.5830000009154901,
+      "ms_min": 0.50718400052574,
+      "ms": [
+        0.5965660002402728,
+        0.5876089999219403,
+        0.5901039985474199,
+        0.50718400052574,
+        0.5830000009154901,
+        0.5202590000408236,
+        0.5247579993010731,
+        0.606685000093421,
+        0.5698040004062932
+      ],
+      "bytes": 134217728.0,
+      "gbs": 230.2190871170441,
+      "Z": 2.0,
+      "vs_clone_b16": 1.6539617053157598
+    },
+    "ln_b8": {
+      "ms_med": 0.3543010006978875,
+      "ms_min": 0.3533790004439652,
+      "ms": [
+        0.36897899917676114,
+        0.3594600002543302,
+        0.3540399993653409,
+        0.3566350005712593,
+        0.353749999703723,
+        0.36709500091092195,
+        0.3533790004439652,
+        0.353940000422881,
+        0.3543010006978875
+      ],
+      "bytes": 71303168.0,
+      "gbs": 201.25025856418682,
+      "Z": 1.0625,
+      "vs_clone_b16": 1.005146288832173,
+      "ratio_vs_own_b16": 0.6077204119065617,
+      "byte_ratio": 0.53125,
+      "realization": 0.8368631212660017
+    },
+    "mul_b16": {
+      "ms_med": 0.8027219992072787,
+      "ms_min": 0.795296999058337,
+      "ms": [
+        0.8027219992072787,
+        0.7995169999048812,
+        0.8049660009419313,
+        0.795296999058337,
+        0.8124410014715977,
+        0.7979530000739032,
+        0.8075120003923075,
+        0.8027519997995114,
+        0.8015099992917385
+      ],
+      "bytes": 201326592.0,
+      "gbs": 250.80487665570195,
+      "Z": 3.0,
+      "vs_clone_b16": 2.2773095104948413
+    },
+    "mul_b8": {
+      "ms_med": 0.4538020002655685,
+      "ms_min": 0.44903200068802107,
+      "ms": [
+        0.45515499914472457,
+        0.4521989994827891,
+        0.4538020002655685,
+        0.45713799954683054,
+        0.45399199916573707,
+        0.4518879995885072,
+        0.44903200068802107,
+        0.4620770014298614,
+        0.4506049990595784
+      ],
+      "bytes": 106954752.0,
+      "gbs": 235.6859421893452,
+      "Z": 1.59375,
+      "vs_clone_b16": 1.2874290378324427,
+      "ratio_vs_own_b16": 0.5653289690748687,
+      "byte_ratio": 0.53125,
+      "realization": 0.9272981993069467
+    },
+    "add_b16": {
+      "ms_med": 0.8003379989531823,
+      "ms_min": 0.7920119987829821,
+      "ms": [
+        0.8021909998205956,
+        0.8075919995462755,
+        0.8061379994614981,
+        0.7990849990164861,
+        0.7978920002642553,
+        0.79420600013691,
+        0.7920119987829821,
+        0.804405999588198,
+        0.8003379989531823
+      ],
+      "bytes": 201326592.0,
+      "gbs": 251.55195962621923,
+      "Z": 3.0,
+      "vs_clone_b16": 2.2705461397923594
+    },
+    "add_b8": {
+      "ms_med": 0.45170799967308994,
+      "ms_min": 0.45039499855192844,
+      "ms": [
+        0.4512569994403748,
+        0.45926199891255237,
+        0.45053500070935115,
+        0.45170799967308994,
+        0.45279000005393755,
+        0.45335100003285334,
+        0.45039499855192844,
+        0.4505659999267664,
+        0.45389200022327714
+      ],
+      "bytes": 106954752.0,
+      "gbs": 236.77852080858713,
+      "Z": 1.59375,
+      "vs_clone_b16": 1.2814883915452566,
+      "ratio_vs_own_b16": 0.5643965427905588,
+      "byte_ratio": 0.53125,
+      "realization": 0.9292873753801412
+    },
+    "lin_b16": {
+      "ms_med": 0.9707150002213893,
+      "ms_min": 0.9627689996705158,
+      "ms": [
+        0.998547999188304,
+        0.9707150002213893,
+        0.9826379991864087,
+        0.9654750010668067,
+        0.9754539987625321,
+        0.9637410003051627,
+        0.9627689996705158,
+        0.9634910002205288,
+        0.973570000496693
+      ],
+      "bytes": 134217728.0,
+      "gbs": 138.2668733556082,
+      "Z": 2.0,
+      "vs_clone_b16": 2.7539029753354827
+    },
+    "lin_b8act": {
+      "ms_med": 0.7128090001060627,
+      "ms_min": 0.7082709998940118,
+      "ms": [
+        0.7178089999797521,
+        0.7128090001060627,
+        0.7142519989429275,
+        0.7178689993452281,
+        0.7101150004018564,
+        0.7119479996617883,
+        0.7082709998940118,
+        0.7213049993879395,
+        0.7097430006979266
+      ],
+      "bytes": 102760448.0,
+      "gbs": 144.16266908065094,
+      "Z": 1.53125,
+      "vs_clone_b16": 2.022227765915121,
+      "ratio_vs_own_b16": 0.7343133668929538,
+      "byte_ratio": 0.765625,
+      "realization": 1.1335963012567305
+    },
+    "lin_b8all": {
+      "ms_med": 0.5489140003192006,
+      "ms_min": 0.5434039994725026,
+      "ms": [
+        0.5525809992832365,
+        0.5489140003192006,
+        0.5449669988593087,
+        0.5454279998957645,
+        0.5526109998754691,
+        0.5519999995158287,
+        0.5549659999815049,
+        0.5458779996843077,
+        0.5434039994725026
+      ],
+      "bytes": 71303168.0,
+      "gbs": 129.8986142793521,
+      "Z": 1.0625,
+      "vs_clone_b16": 1.5572602652040894,
+      "ratio_vs_own_b16": 0.5654739034567413,
+      "byte_ratio": 0.53125,
+      "realization": 0.9269890059589518
+    }
+  },
+  "errors": {},
+  "nodes_forced": [
+    2
+  ],
+  "capable": [
+    "clone_b16",
+    "clone_b16_aa",
+    "clone_f32",
+    "clone_b8",
+    "cast_b16_to_b8",
+    "cast_b8_to_b16",
+    "ln_b16",
+    "ln_b8",
+    "mul_b16",
+    "mul_b8",
+    "add_b16",
+    "add_b8",
+    "lin_b16",
+    "lin_b8act",
+    "lin_b8all"
+  ],
+  "clock": {
+    "n": 1375,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+  },
+  "aiclk_after": {
+    "2": 1350
+  },
+  "aa_floor_pct": 0.01134833224618261
+}

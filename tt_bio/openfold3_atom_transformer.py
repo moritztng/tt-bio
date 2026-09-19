@@ -27,6 +27,7 @@ from __future__ import annotations
 import ttnn
 
 from . import tenstorrent as _T
+from . import ops
 from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul
 from .eltwise_fusion import scale_add, mask_add
 
@@ -84,9 +85,9 @@ class OF3AtomTransformer(Module):
         return v
 
     def _lin(self, x, wkey, bkey=None, activation=None):
-        return ttnn.linear(x, self._w_tt(wkey), bias=(self._w_tt(bkey, False) if bkey else None),
-                           activation=activation, compute_kernel_config=self.compute_kernel_config,
-                           core_grid=CORE_GRID_MAIN)
+        return ops.linear(x, self._w_tt(wkey), bias=(self._w_tt(bkey, False) if bkey else None),
+                          activation=activation, compute_kernel_config=self.compute_kernel_config,
+                          core_grid=CORE_GRID_MAIN)
 
     def _heads(self, x, n_blk, n_seq):
         # x: [1, n_blk, n_seq, 128] -> [1, n_blk, H, n_seq, dh]

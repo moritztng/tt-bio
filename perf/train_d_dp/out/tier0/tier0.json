@@ -1,0 +1,13 @@
+{
+  "entry": "tier 0, tt-bio finetune --chips",
+  "chips": "2,0",
+  "world": 2,
+  "nodes": [
+    3,
+    1
+  ],
+  "distinct_master_sha": 1,
+  "median_step_s": 0.05202780650870409,
+  "reached_launcher": true,
+  "featuriser": "STAND-IN: perf/train_d_dp/model.py registered as protenix-v2, because the shipped catalogue is empty by design"
+}

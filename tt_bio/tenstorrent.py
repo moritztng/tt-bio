@@ -10,6 +10,7 @@ from math import pi, prod
 from functools import lru_cache
 from types import MappingProxyType
 
+from . import ops
 from . import reblock_permute as _reblock
 from . import triatt_qkv as _triatt_qkv
 from . import triatt_sdpa as _triatt_sdpa
@@ -299,9 +300,27 @@ _TRANSITION_L1_ROWS = env_flag("TT_BIO_TRANSITION_L1_ROWS", True)
 # is silu-specific and program-config-invariant: a fused relu costs +2.4 us and a fused gelu +141.3
 # against its own 135.3 standalone, and the +174 holds across eight explicit
 # MatmulMultiCoreReuseMultiCast configs. So unfusing pays a full L1 round trip and still wins,
-# because the fused path runs silu at half the SFPU rate the standalone op reaches. Release-gated:
-# the unfused form applies silu to the bf16-packed matmul output rather than to the fp32 dest
-# accumulator, so it is not bit-exact.
+# because the fused path runs silu at half the SFPU rate the standalone op reaches.
+#
+# DEFAULT OFF, and held there by Moritz on measured accuracy, not on bit-exactness. On cdk2x2_512
+# with this flag on, Protenix-v2 loses 0.05088 and 0.07210 CA-lDDT per domain against 1HCL and the
+# two arms are fully rank-separated over four seeds: the worst flag-off fold scores 0.03905 and
+# 0.05107 above the best flag-on one. Boltz-2 (-0.00091 / -0.00265, four seeds) and OpenFold3
+# (-0.01238 / -0.00251, two seeds) are clean on the same fixture, which is why a Boltz-2-only
+# screen clears this lever and Protenix-v2 does not, and why a structural seed-floor reading
+# cannot see it: Protenix-v2 scatters widely on that fixture while landing at the same quality
+# every time, so only the comparison against the experimental answer separates the arms. Do not
+# reopen without a Protenix-v2 CA-lDDT-vs-1HCL re-score on the configuration you want to ship.
+# Set TT_BIO_UNFUSED_SILU=1 for the unfused form: at 512 aa cdk2x2 on a qb2 p300c at a forced
+# 1350 MHz it is worth +0.2336 s paired over 5 interleaved reps (95 % CI [+0.1024,+0.3648])
+# against that session's paired A/A floor of +0.0324 s +/-0.1087.
+#
+# SCOPE, because this one is wide and the flag's name does not say so: `Transition` is the shared
+# swiglu block, so the default reaches every model that builds it -- boltz-2, protenix
+# (protenix.py:911, :2110, :2143, :2472, :2502), openfold3's MSA embedder
+# (openfold3_msa_embedder.py:81) and the pairformer/msa stacks in this file. It is not a boltz-2
+# lever. openfold3's diffusion stack has its own _SwiGLUTransition and af2 its own ReluTransition,
+# neither of which reads this flag.
 _UNFUSED_SILU = env_flag("TT_BIO_UNFUSED_SILU", False)
 _FAST_MODE = False
 _DTYPE_OVERRIDE = None
@@ -534,6 +553,45 @@ def trunk_compute_kernel_config(base):
 # DRAM, and that costs more than the clone saves: 7.122 -> 7.431 (start) / 7.863 (end) ms per
 # trimul at 298 aa. Bit-exact either way, and still a loss.
 _TRIMUL_OUT_MOVE_DRAM = False
+# The same question asked of the KERNEL rather than of `ttnn.permute`, and it answers the other
+# way. On the L1 path the output channel move writes to L1 and a separate `ttnn.clone` then moves
+# the chunk to DRAM for the concat: two full passes over a tensor that only has to be read once.
+# `_TRIMUL_OUT_MOVE_DRAM` above is the loss that follows from asking `ttnn.permute` to skip the
+# clone, and its mechanism is that op's forced 64-byte stores, which cost more in DRAM than in L1.
+# `reblock_permute_back` does not have that store pattern -- it writes whole pages from 100 cores --
+# so it can take the destination directly and the clone drops out. Bit-exact: the kernel is a pure
+# index reordering, `torch.equal` against `ttnn.permute`, and an L1 source changes the
+# TensorAccessor and not the arithmetic.
+#
+# Only where `reblock_permute.eligible_back` serves (N a multiple of 32, N >= 256, DRAM
+# destination); every other shape keeps today's permute-then-clone unchanged.
+TRIMUL_BACK_ONE_PASS_L1 = True
+_TRIMUL_BACK_ONE_PASS_L1 = env_flag("TT_BIO_TRIMUL_BACK_ONE_PASS_L1", TRIMUL_BACK_ONE_PASS_L1)
+
+
+def set_trimul_back_one_pass_l1(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _TRIMUL_BACK_ONE_PASS_L1
+    prev, _TRIMUL_BACK_ONE_PASS_L1 = _TRIMUL_BACK_ONE_PASS_L1, bool(on)
+    return prev
+
+# The gated channel move on the L1 path. `reblock_permute.eligible_gated` has always had an L1
+# clause -- 288 <= N <= 352, the forward kernel's own measured L1 window -- but the call site
+# asked for a DRAM destination on top of it, so the clause was unreachable and every L1-path
+# trimul kept the four-way split: `ttnn.chunk` plus two `multiply_` plus two plain channel moves,
+# where the fused kernel does all five in two passes. Let the kernel's own gate decide.
+#
+# Bit-exact: the same kernel, `torch.equal` against the sequence it replaces at 24 shapes, and an
+# L1 destination changes the TensorAccessor and not the arithmetic.
+TRIMUL_GATED_MOVE_L1 = True
+_TRIMUL_GATED_MOVE_L1 = env_flag("TT_BIO_TRIMUL_GATED_MOVE_L1", TRIMUL_GATED_MOVE_L1)
+
+
+def set_trimul_gated_move_l1(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _TRIMUL_GATED_MOVE_L1
+    prev, _TRIMUL_GATED_MOVE_L1 = _TRIMUL_GATED_MOVE_L1, bool(on)
+    return prev
 # The trimul's per-chunk TAIL -- the two transformed operands and their product -- is the only part
 # of the channel loop whose footprint is set by the chunk width rather than by the whole pair
 # tensor. At 512 aa the loop's head, the fused in-projection and its four-way split, is 402.7 MB
@@ -1340,6 +1398,14 @@ def _tri_att_sdpa_program_config(q_len: int, k_len: int) -> ttnn.SDPAProgramConf
 
 # Circular-buffer budgets that a q_chunk overflowed on THIS device, so the first fold pays at most
 # one throw per shape and every later call skips straight to a config that fits.
+# Keyed by operand dtype as well as shape. An L1 refusal is a statement about a CB
+# footprint, and `sdpa_generic.cb_table` sizes q/k/v/mask/out from `tile_bytes(<operand dtype>)`,
+# so the same (shape, chunk) costs 0.62-0.77x as much L1 in bfp8 as in bf16 (the five intermediate
+# CB groups stay bf16, which is what keeps it well above the 0.53 tile-byte ratio -- measured over
+# the whole surface in perf/bfp8_l1chunk/l1_surface.json). Without the dtype a bf16 refusal retires
+# a chunk bfp8 fits: at padded 1024 bf16 holds q512 only to k64 while bfp8 reaches k512, so one
+# bf16 throw would have barred the whole wider ladder. The leak is one-directional -- bfp8 fits a
+# strict superset, so a bfp8 refusal barring bf16 costs at most one extra device throw.
 _SDPA_Q_CHUNK_OVER_L1: set = set()
 
 # Kill switch so a fold-level A/B can run both arms without a checkout. Bit-exact either way.
@@ -1384,9 +1450,27 @@ _ATOM_SHIFT_GATHER_OFF = not env_flag("TT_BIO_ATOM_SHIFT_GATHER", True)
 _ATOM_AXIS_BUCKET = env_flag("TT_BIO_ATOM_AXIS_BUCKET", True)
 ATOM_AXIS_BUCKET_STATS = [0, 0]      # [served, declined], one pair per fold
 
-# Boltz-2 diffusion, three levers under A/B. All three are boltz-2-exclusive by construction:
-# DiffusionTransformer is built only by tenstorrent.Diffusion, and atom_level=True AdaLN exists
-# nowhere else (protenix and openfold3 have their own classes and pass atom_level=False).
+# Three diffusion levers under A/B. Only ONE of them is boltz-2-exclusive; the earlier claim here
+# that all three were is wrong, and wrong in the direction that hides an unmeasured default.
+# The actual scope, checked against every construction site:
+#
+#   L7 BOLTZ2_BIAS_SLICE_HOIST   boltz-2 only. It lives in `DiffusionModule._hoist_layer_bias`,
+#                                and tenstorrent.DiffusionModule is built only by boltz2.py:4232
+#                                and main.py:3486. RF3, protenix and pxdesign each have their own
+#                                DiffusionModule class with a different signature.
+#   L6 BOLTZ2_ADALN_S_MEMO       NOT exclusive. It gates on `atom_level`, and RF3 passes
+#                                atom_level=True at rf3/atom_encoder.py:139 and
+#                                rf3/diffusion_atom_decoder.py:50. RF3 inherits this default today.
+#   L8 TT_BIO_DIT_COND_HOIST     NOT exclusive. It gates on `not atom_level`, and RF3 passes
+#                                atom_level=False at rf3/token_dit.py:84, which imports this very
+#                                class. Flipping L8's default flips it for RF3's token DiT too.
+#
+# `tenstorrent.DiffusionTransformer` is built at seven sites, not three: boltz-2's atom encoder
+# (:10628), token transformer (:10645) and atom decoder (:10658), RF3's token DiT, atom encoder
+# and atom decoder, and reference.py:1449. BoltzGen is genuinely out of scope, it has its own
+# torch DiffusionTransformer at boltzgen/model/modules/transformers.py:70, and so is openfold3
+# via OF3DiffusionTransformer. Keep the levers unified rather than gating them per model
+# (standing rule), but measure the models that inherit them before a default flips.
 #
 # L7: cut each layer's head-range out of the attention bias once per fold instead of once per
 # denoise step. The bias is uploaded by _populate_diffusion_cache and is constant across all
@@ -1410,9 +1494,30 @@ _B2_ADALN_S_MEMO = env_flag("BOLTZ2_ADALN_S_MEMO", True)
 # changes is the grouping of the launches and the order of one bf16 rounding.
 # Measured integrated over a whole step (perf/roof_difftx): 15.0004 -> 13.2218 ms on a Blackhole
 # p150a, 1.1345x, against a 0.27 % A/A floor -- and 1.0122x on Wormhole, where the concatenation
-# gain and the slice tax cancel. Default OFF: release-gated until a qb2 fold-level A/B and the
-# structure arm have run. Read at CALL time, not import time, so an interleaved A/B can flip it.
-_B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", False)
+# gain and the slice tax cancel. On a qb2 p300c at 1350 MHz, walling this block directly
+# (perf/c12_cond_hoist) reads 1.071x and 1.085x across two sessions: 0.213-0.257 s of a 14.9 s fold,
+# against a block A/A floor of 0.033-0.041 s. The FOLD cannot see that. Its A/A on a shared box is
+# 0.8-1.5 s and three fold-only sessions disagreed in sign, so measure this at the block.
+# The structure arm has run and is favourable on every cell (512 aa CA-lDDT 0.93755 -> 0.93935,
+# 298 aa CA-RMSD 0.77143 -> 0.76557 A), against a 0.60 A kill bar with a 1.84 A seed floor beside it.
+# The win holds across the size axis and decays with it: block delta +0.2809 s at 298 aa,
+# +0.2415 s at 512 aa and +0.1811 s at 768 aa (379.2, 326.0 and 244.6 Mcycles at 1350 MHz), each
+# above its own interleaved A/A and with the two arms' rep ranges not overlapping at any size.
+# The saving is a per-call fixed cost, not bandwidth: the deleted norm traffic grows 2.58x from
+# 298 to 768 aa while the saving falls to 0.64x, and the saving is 13.9x / 7.0x / 3.5x what those
+# bytes are worth at the measured 435.2 GB/s DRAM roof.
+# `_cond_weights()` is built in `__init__` when this is on, so its ~0.30 s lands at model load:
+# lazily it fell inside the first hoisted fold, which left a one-fold process worse off than
+# leaving the lever off.
+#
+# DEFAULT ON since 2026-09-18. Worth +0.2052 s at the 512 aa cdk2x2 fold, paired over 5
+# interleaved reps at a forced 1350 MHz (95 % CI [+0.1561,+0.2543], arm means 14.5880 -> 14.3920 s)
+# against that session's paired A/A floor of +0.0324 s +/-0.1087. That single-lever figure is the
+# one that ships. The same session also carried TT_BIO_UNFUSED_SILU and read +0.4798 s for the
+# pair, but that flag is held off on a Protenix-v2 accuracy regression, so the stack number does
+# not describe any default. Set TT_BIO_DIT_COND_HOIST=0 to get the per-step form back.
+# Read at CALL time, not import time, so an interleaved A/B can flip it.
+_B2_DIT_COND_HOIST = env_flag("TT_BIO_DIT_COND_HOIST", True)
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
@@ -1764,12 +1869,70 @@ def _dividing_k_chunks(q_len: int, k_len: int) -> tuple:
     return tuple(wider) + (prod,)
 
 
-def _tri_att_k_chunks(q_len: int, k_len: int) -> tuple:
+# Dividing k_chunks WIDER than the shipped pick, offered only where the fused kernel's CB set
+# actually fits at the call's operand dtype. OFF by default.
+#
+# `_dividing_k_chunks` returns the shipped pick alone whenever that pick divides the padded
+# sequence, and at every production length it does, so the k axis has no upward rung today. It has
+# one under bfp8. At padded 512 the fused kernel holds (q512, k256) in 1153024 B of CB and
+# (q512, k512) in 1480704 B against a 1463808 B budget: 16896 B over in bf16 and 337920 B under in
+# bfp8. The bf16 refusal is the device's, not a model of it -- it throws at 1591808 B against the
+# 1572864 B cap (perf/bfp8_l1chunk/chunk_decomp_qb2c1.json, negative control).
+#
+# MEASURED on qb2 card 1, 1350 MHz sampled min = max during the run, A/A floor 0.0086 %, 15 reps
+# interleaved ABBA, 150 of 150 calls served on every arm: the wider k is 1.1554x over the SAME
+# dtype at the shipped k, because k_num_chunks drops 2 -> 1 and the online-softmax rescale pass
+# disappears. `per_core_cost` ranks that step at 1.001x, so the ladder's own cost model is what is
+# wrong about this axis, not the axis that is small -- do not screen the k rung with it.
+#
+# Filtered on the HOST rather than by a device throw. The loop in `_tri_att_sdpa_at` answers a
+# fused refusal with the STOCK op at the same config, and at bf16 (q512, k512) the stock op both
+# fits and is slower than today's pick, so a throw-driven filter would hand bf16 a regression. A
+# host filter never offers it the rung.
+_SDPA_WIDE_K_UP = env_flag("TT_BIO_SDPA_WIDE_K_UP", False)
+
+
+def _k_chunks_up(q_len: int, k_len: int, heads: int, head_dim: int, dtype) -> tuple:
+    """Wider dividing k_chunks whose CBs fit at `dtype`, widest first. Empty when none do.
+
+    Fit is tested at the WIDEST dividing q_chunk, which is the q the loop pairs a wide k with
+    first, so a rung offered here is a rung that config can actually take.
+    """
+    from . import sdpa_generic as SG
+    from . import triatt_sdpa as _TS
+    prod = _sdpa_chunks_shipped(q_len, k_len)[1]
+    padded = _padded_sdpa_len(k_len)
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    qs = [qc for qc in _tri_att_q_chunks(q_len, k_len) if padded % qc == 0]
+    if not qs:
+        return ()
+    qc = qs[0]
+    out = []
+    for kc in range(padded, prod, -SDPA_CHUNK_TILE):
+        if padded % kc:
+            continue
+        q_pf = _TS.q_parallel_factor(padded, heads, qc, cores, cap=0)
+        p = SG.plan_for_shape(padded, heads, head_dim, qc, kc, grid=(cores, 1), split=(
+            max(cores // (heads * q_pf), 1), heads, q_pf), dtype=dtype)
+        if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"]:
+            continue
+        pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
+        if SG.cb_fits_l1(p, mask_cb_tiles=pers,
+                         **{f"{o}_dtype": dtype for o in ("q", "k", "v", "mask", "out")}):
+            out.append(kc)
+    return tuple(out)
+
+
+def _tri_att_k_chunks(q_len: int, k_len: int, heads=None, head_dim=None, dtype=None) -> tuple:
     """k_chunks to try, widest first, production pick last. One entry unless the shipped pick fails
-    to divide the padded sequence, which is the only case K5 changes."""
+    to divide the padded sequence -- the only case K5 changes -- or `_SDPA_WIDE_K_UP` adds a rung
+    above it that fits at this operand dtype."""
+    up = ()
+    if _SDPA_WIDE_K_UP and None not in (heads, head_dim, dtype):
+        up = _k_chunks_up(q_len, k_len, heads, head_dim, dtype)
     if not _sdpa_wide_k():
-        return (_sdpa_chunks_shipped(q_len, k_len)[1],)
-    return _dividing_k_chunks(q_len, k_len)
+        return up + (_sdpa_chunks_shipped(q_len, k_len)[1],)
+    return up + _dividing_k_chunks(q_len, k_len)
 
 
 # [calls served at a k_chunk wider than the shipped pick, calls that fell back to the shipped pick].
@@ -1798,7 +1961,7 @@ def _sdpa_pick(q_len, k_len, q_chunk, k_chunk, route: str):
     SDPA_CHUNK_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, route]
     SDPA_ROUTE_COUNTS[route] += 1
 # Circular-buffer refusals on the wide-k path, keyed by the FULL config. Deliberately not
-# `_SDPA_Q_CHUNK_OVER_L1`: that set is keyed on q_chunk alone, so writing a (q, wide k) refusal into
+# `_SDPA_Q_CHUNK_OVER_L1`: that set carries no k_chunk, so writing a (q, wide k) refusal into
 # it would retire a q_chunk the shipped k runs perfectly well.
 _SDPA_QK_OVER_L1: set = set()
 
@@ -1855,7 +2018,8 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         # Above the cap and eligible, and no pair ran: an L1 refusal, or a token count with no
         # 32-aligned divisor. Counted so the census reads a reach, not just a default.
         SDPA_FUSED_LARGE_S_STATS[1] += 1
-    k_chunks = _tri_att_k_chunks(q_len, k_len)
+    k_chunks = _tri_att_k_chunks(q_len, k_len, int(q.shape[1]), int(q.shape[3]),
+                                 q.dtype)
     if len(k_chunks) > 1:
         # Only q_chunks that DIVIDE the padded sequence are offered against a wide k. The q ladder's
         # last entry is the production cap, which is the one entry that need not divide, and pairing
@@ -1870,7 +2034,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
                     if _padded_sdpa_len(q_len) % qc == 0)
         for k_chunk in k_chunks[:-1]:
             for q_chunk in _qs:
-                cfg = (q_len, k_len, q_chunk, k_chunk)
+                cfg = (q_len, k_len, q_chunk, k_chunk, q.dtype)
                 if cfg in _SDPA_QK_OVER_L1:
                     continue
                 o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
@@ -1895,7 +2059,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         SDPA_K_CHUNK_STATS[1] += 1
     k_chunk = k_chunks[-1]
     fits = [qc for qc in _tri_att_q_chunks(q_len, k_len)
-            if (q_len, k_len, qc) not in _SDPA_Q_CHUNK_OVER_L1]
+            if (q_len, k_len, qc, q.dtype) not in _SDPA_Q_CHUNK_OVER_L1]
     # The bias is re-read once per batch row by the stock reader; hold it instead. Same
     # preference order as the stock loop below -- `fits` is widest first, production pick last, and
     # the wide q_chunk is worth 1.08-1.81x on its own, so K2 must not silently take the narrow one.
@@ -1919,7 +2083,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
             return o
         except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
             absorb_l1_refusal("tri_att_sdpa/q_chunk", exc)
-            _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, q_chunk))
+            _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, q_chunk, q.dtype))
     # The last rung, guarded like every rung above it. It used to be issued bare, so an L1
     # refusal HERE was fatal where the identical refusal one rung up was absorbed -- and the
     # last rung is the one a single-entry ladder leaves, which is what a padded length with a
@@ -1942,7 +2106,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         return o
     except Exception as exc:  # noqa: BLE001 -- re-raised unless it is the L1 budget
         absorb_l1_refusal("tri_att_sdpa/last_q_chunk", exc)
-        _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, fits[-1]))
+        _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, fits[-1], q.dtype))
         _latch("sdpa_q_chunk", "refused", exc)
     o = ttnn.transformer.scaled_dot_product_attention(
         q, k, v, attn_mask=bias, is_causal=False, scale=scale)
@@ -2220,7 +2384,7 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
             # 3.46x the 18944 B that refused the widest q there. Bit-identical, and measured
             # perf-neutral (1.167x vs 1.177x at 768, same q and k). Only offered at one k chunk.
             for kv_bf in ((2, 1) if wide else (2,)):
-                cfg = (q_len, k_len, q_chunk, k_chunk, kv_bf)
+                cfg = (q_len, k_len, q_chunk, k_chunk, kv_bf, q.dtype)
                 if cfg in _TRIATT_HIFI_OVER_L1:
                     continue
                 try:
@@ -5625,12 +5789,9 @@ class Module:
 
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         """Shared linear projection on this module's kernel config and core grid."""
-        if dtype is None:
-            dtype = _dtype(ttnn.bfloat16)
-        return ttnn.linear(
-            x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
-            dtype=dtype, core_grid=CORE_GRID_MAIN, **kw,
-        )
+        return ops.linear(x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
+                          dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype,
+                          core_grid=CORE_GRID_MAIN, **kw)
 
     def _split_heads(self, qkv, n_heads):
         """Packed [B, L, 3*d] -> per-head (q, k, v) [B, H, L, d_head] via the
@@ -6511,7 +6672,8 @@ class TriangleMultiplication(Module):
                             and (mask is None or mask_moved_ok)
                             and not _FAST_MODE
                             and not _TRIMUL_RAW_CHANNEL_MOVES
-                            and memory_config.buffer_type == ttnn.BufferType.DRAM
+                            and (_TRIMUL_GATED_MOVE_L1
+                                 or memory_config.buffer_type == ttnn.BufferType.DRAM)
                             and _reblock.eligible_gated(gp_in_fused, slice_c, memory_config)
                         )
                         branch = "gated-move" if gated else "four-way-split"
@@ -6587,22 +6749,27 @@ class TriangleMultiplication(Module):
                     # equivalent transpose(1,2) then transpose(2,3) is ~2.6ms (the inner
                     # transpose is tile-local) and BIT-EXACT. On the small-L L1 path the
                     # single permute is marginally faster, so keep it there.
-                    if large_seq and not _TRIMUL_RAW_CHANNEL_MOVES:
-                        x_chunk_t = _channel_move_back(x_chunk, memory_config)
+                    # The chunk's next stop is DRAM on both paths -- the concat holds all
+                    # n_pairs of them -- so where the one-pass kernel serves, it takes that
+                    # destination itself and the clone below drops out. `ttnn.permute` cannot:
+                    # see `_TRIMUL_OUT_MOVE_DRAM`, where the same shortcut is a measured loss
+                    # for that op's forced 64-byte stores.
+                    back_mc = memory_config if large_seq else ttnn.DRAM_MEMORY_CONFIG
+                    one_pass = not _TRIMUL_RAW_CHANNEL_MOVES and (
+                        large_seq
+                        or (_TRIMUL_BACK_ONE_PASS_L1
+                            and _reblock.eligible_back(x_chunk, back_mc)))
+                    if one_pass:
+                        x_chunk_t = _channel_move_back(x_chunk, back_mc)
                         ttnn.deallocate(x_chunk)
                         x_chunk = x_chunk_t
                     else:
-                        # The channel move is the last touch of the chunk before the concat, so
-                        # on the L1 path it writes its result straight to DRAM: the separate
-                        # clone that used to move it there was a whole extra round trip of the
-                        # chunk (13.1 MB each way at 298 aa) for no arithmetic. Index-only, so
-                        # bit-exact either way.
                         x_chunk = ttnn.permute(
                             x_chunk, (0, 2, 3, 1),
                             memory_config=ttnn.DRAM_MEMORY_CONFIG if _TRIMUL_OUT_MOVE_DRAM
                             else memory_config,
                         )
-                    if large_seq or _TRIMUL_OUT_MOVE_DRAM:
+                    if large_seq or _TRIMUL_OUT_MOVE_DRAM or one_pass:
                         _acc_append(x_chunks, x_chunk, host_acc)
                     else:
                         # L1-resident chunk: move it to DRAM so all n_pairs can be held at
@@ -9664,6 +9831,15 @@ class DiffusionTransformer(Module):
         self.atom_level = atom_level
         self.dim = dim
         self._cond_w = None
+        # L8. Build the concatenated conditioning blocks HERE when the lever is on, not at first
+        # use. The concatenation costs 0.54-0.57 s once per process (measured, perf/c12_cond_hoist
+        # sessions 2-4) against 0.21-0.28 s saved per fold, so paying it lazily charges the first
+        # fold for all of it and leaves a process that folds exactly once worse off. At model load
+        # it sits with the rest of the model's setup, where a one-time cost belongs.
+        # Still lazy-safe below: a run that flips the attribute after construction, which is how
+        # the interleaved A/B selects its arm, finds `_cond_w is None` and builds on demand.
+        if _B2_DIT_COND_HOIST and not atom_level:
+            self._cond_weights()
 
     def _cond_weights(self):
         """The 24 layers' conditioning projections, concatenated into two weight blocks.
@@ -11893,10 +12069,9 @@ class PairConditioningDevice:
         self.zp_proj_weight = w(z_to_p_trans[1].weight, transpose=True)
 
     def _linear(self, x, weight, bias=None, activation=None):
-        return ttnn.linear(
-            x, weight, bias=bias, activation=activation,
-            compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
-        )
+        return ops.linear(x, weight, bias=bias, activation=activation,
+                          compute_kernel_config=self.compute_kernel_config,
+                          core_grid=CORE_GRID_MAIN)
 
     def __call__(self, z, relative_position_encoding, seq_len, seq_pad):
         """``(z_to_p, token_trans_bias)`` from the trunk's device pair tensor.
@@ -12136,10 +12311,9 @@ class PairAssemblyDevice:
         ) if dist_embed is not None else None
 
     def _linear(self, x, weight, bias=None, activation=None, core_grid=CORE_GRID_MAIN):
-        return ttnn.linear(
-            x, weight, bias=bias, activation=activation,
-            compute_kernel_config=self.compute_kernel_config, core_grid=core_grid,
-        )
+        return ops.linear(x, weight, bias=bias, activation=activation,
+                          compute_kernel_config=self.compute_kernel_config,
+                          core_grid=core_grid)
 
     def _pack(self, feats, padded):
         """The one host feature upload: ``[1, padded, padded, n_pack]``, zero-padded.
@@ -12347,8 +12521,8 @@ class ConfidenceHeadsDevice:
                                dtype=ttnn.bfloat16)
 
     def _linear(self, x, weight):
-        return ttnn.linear(x, weight, compute_kernel_config=self.compute_kernel_config,
-                           core_grid=CORE_GRID_MAIN)
+        return ops.linear(x, weight, compute_kernel_config=self.compute_kernel_config,
+                          core_grid=CORE_GRID_MAIN)
 
     def _reduce(self, z, weight, contract):
         """``softmax(z @ weight) @ contract``: one head's bins, already contracted."""

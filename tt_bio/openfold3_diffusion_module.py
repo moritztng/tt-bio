@@ -38,6 +38,7 @@ import math
 
 import ttnn
 
+from . import ops
 from .tenstorrent import Module, CORE_GRID_MAIN, _dtype, _cached, pad_dim
 from .openfold3_atom_transformer import OF3AtomTransformer
 from .openfold3_diffusion_transformer import OF3DiffusionTransformer
@@ -244,9 +245,9 @@ class OF3DiffusionModule(Module):
         return v
 
     def _lin(self, x, w, activation=None):
-        return ttnn.linear(x, w, activation=activation,
-                           compute_kernel_config=self.compute_kernel_config,
-                           core_grid=CORE_GRID_MAIN)
+        return ops.linear(x, w, activation=activation,
+                          compute_kernel_config=self.compute_kernel_config,
+                          core_grid=CORE_GRID_MAIN)
 
     def __call__(self, si_trunk, si, zij, cl0, plm0, rl_noisy, xl_noisy,
                  atom_mask_col, atom_mask_col_na, atom_to_token_idx_tt,

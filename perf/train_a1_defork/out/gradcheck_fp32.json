@@ -1,0 +1,435 @@
+{
+ "dtype": "float32",
+ "fidelity": "HiFi4",
+ "seed": 7,
+ "break_silu": false,
+ "fd_bar": 2e-06,
+ "mask_bar": 0.99,
+ "bars": {
+  "eltwise/float32": {
+   "rel_l2": 3e-06,
+   "cos": 0.999999,
+   "from": "10x the measured fp32 eltwise floor 3.0e-07"
+  },
+  "eltwise/bfloat16": {
+   "rel_l2": 0.01,
+   "cos": 0.9999,
+   "from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03"
+  },
+  "reduction/float32": {
+   "rel_l2": 0.025,
+   "cos": 0.9999,
+   "from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here"
+  },
+  "reduction/bfloat16": {
+   "rel_l2": 0.01,
+   "cos": 0.9999,
+   "from": "the bf16 mantissa, sqrt(2)*2^-9 = 2.76e-03"
+  },
+  "kink/float32": {
+   "rel_l2": null,
+   "cos": null,
+   "from": "not scored; split into MASK_BAR and the device-gate arm, see KINK"
+  },
+  "kink/bfloat16": {
+   "rel_l2": null,
+   "cos": null,
+   "from": "not scored; split into MASK_BAR and the device-gate arm, see KINK"
+  }
+ },
+ "cases": [
+  {
+   "case": "linear",
+   "fd_worst": 8.755684430570261e-10,
+   "fd_probed": 72,
+   "fd_eligible": 20575,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.0013996086398124427,
+     "max_abs": 0.005157885126114259,
+     "max_rel": 0.04562415704489964,
+     "cos": 0.999999800914222,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    },
+    "w": {
+     "rel_l2": 0.0013479640328263416,
+     "max_abs": 0.04694040096185148,
+     "max_rel": 0.04168027811593354,
+     "cos": 0.9999997975696785,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 0.0008600984684977882,
+     "max_abs": 0.013934497339343821,
+     "max_rel": 0.017180726777317096,
+     "cos": 0.9999998688145268,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "linear_nobias",
+   "fd_worst": 2.2180941749286363e-10,
+   "fd_probed": 48,
+   "fd_eligible": 20480,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.0013996086398124427,
+     "max_abs": 0.005157885126114259,
+     "max_rel": 0.04562415704489964,
+     "cos": 0.999999800914222,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    },
+    "w": {
+     "rel_l2": 0.0013479640328263416,
+     "max_abs": 0.04694040096185148,
+     "max_rel": 0.04168027811593354,
+     "cos": 0.9999997975696785,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "linear_silu",
+   "fd_worst": 6.589080271792937e-10,
+   "fd_probed": 72,
+   "fd_eligible": 20576,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.0016357682325552731,
+     "max_abs": 0.003597293249671951,
+     "max_rel": 0.044688905004238215,
+     "cos": 0.9999996360370298,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    },
+    "w": {
+     "rel_l2": 0.001582497629484518,
+     "max_abs": 0.041603326118661244,
+     "max_rel": 0.04237096210508173,
+     "cos": 0.9999996536860009,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 0.0012827127047496595,
+     "max_abs": 0.016747943184000746,
+     "max_rel": 0.007448161935079852,
+     "cos": 0.9999997301656884,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "linear_relu",
+   "fd_worst": 4.754268287814922e-10,
+   "fd_probed": 72,
+   "fd_eligible": 20576,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.012768995622489482,
+     "max_abs": 0.14881722293128857,
+     "max_rel": 3.4418472228482435,
+     "cos": 0.9999192278058002,
+     "class": "kink",
+     "rel_l2_bar": null,
+     "cos_bar": null,
+     "bar_from": "not scored; split into MASK_BAR and the device-gate arm, see KINK",
+     "pass": true
+    },
+    "w": {
+     "rel_l2": 0.012955190134601528,
+     "max_abs": 1.615883392057972,
+     "max_rel": 4.6358418253403935,
+     "cos": 0.999916753454847,
+     "class": "kink",
+     "rel_l2_bar": null,
+     "cos_bar": null,
+     "bar_from": "not scored; split into MASK_BAR and the device-gate arm, see KINK",
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 0.013383519265805213,
+     "max_abs": 0.7121859694022201,
+     "max_rel": 0.22238528856105905,
+     "cos": 0.9999104843435366,
+     "class": "kink",
+     "rel_l2_bar": null,
+     "cos_bar": null,
+     "bar_from": "not scored; split into MASK_BAR and the device-gate arm, see KINK",
+     "pass": true
+    }
+   },
+   "mask_agreement": 0.9998372395833334,
+   "mask_bar": 0.99,
+   "mask_pass": true,
+   "device_gate": {
+    "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+    "rel_l2_bar": 0.025,
+    "cos_bar": 0.9999,
+    "x": {
+     "rel_l2": 0.001407065227251421,
+     "max_abs": 0.003734695678016653,
+     "max_rel": 0.03368665456962304,
+     "cos": 0.999999822031715,
+     "pass": true
+    },
+    "w": {
+     "rel_l2": 0.0013204858393484164,
+     "max_abs": 0.04470386012220118,
+     "max_rel": 0.04466870024864935,
+     "cos": 0.9999998147595962,
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 0.0008257440994826613,
+     "max_abs": 0.013962318343613944,
+     "max_rel": 0.006423574042826097,
+     "cos": 0.9999998878964276,
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "linear_sigmoid",
+   "fd_worst": 7.533223877952982e-10,
+   "fd_probed": 72,
+   "fd_eligible": 20576,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.0012836519371269975,
+     "max_abs": 0.0008669185100910193,
+     "max_rel": 0.06693024065234145,
+     "cos": 0.9999996617203057,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    },
+    "w": {
+     "rel_l2": 0.0012266678207173364,
+     "max_abs": 0.008361615961132607,
+     "max_rel": 0.041028375806944926,
+     "cos": 0.9999996688771504,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 0.0009497530352453411,
+     "max_abs": 0.0032069802130307856,
+     "max_rel": 0.02507122595082208,
+     "cos": 0.9999996860263504,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "layernorm",
+   "fd_worst": 1.2262020426838013e-09,
+   "fd_probed": 72,
+   "fd_eligible": 8448,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 0.0001820169240524101,
+     "max_abs": 0.000349202917266922,
+     "max_rel": 0.005973396233549553,
+     "cos": 0.9999999927150723,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    },
+    "gamma": {
+     "rel_l2": 0.0010095375464724188,
+     "max_abs": 0.024680440588463526,
+     "max_rel": 0.03066002483515994,
+     "cos": 0.9999996060032178,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    },
+    "beta": {
+     "rel_l2": 0.0008587583904451697,
+     "max_abs": 0.016745081262225625,
+     "max_rel": 0.014409200081450475,
+     "cos": 0.9999998978452652,
+     "class": "reduction",
+     "rel_l2_bar": 0.025,
+     "cos_bar": 0.9999,
+     "bar_from": "3.5x the measured fp32 HiFi2 matmul floor 7.05e-03; fp32 does not mean exact here",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "mul",
+   "fd_worst": 1.564504111450436e-10,
+   "fd_probed": 48,
+   "fd_eligible": 16383,
+   "fd_ok": true,
+   "grads": {
+    "a": {
+     "rel_l2": 3.632310118507393e-08,
+     "max_abs": 4.927137453591968e-07,
+     "max_rel": 1.0278662698602358e-07,
+     "cos": 0.9999999999999994,
+     "class": "eltwise",
+     "rel_l2_bar": 3e-06,
+     "cos_bar": 0.999999,
+     "bar_from": "10x the measured fp32 eltwise floor 3.0e-07",
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 3.664884643746984e-08,
+     "max_abs": 4.6510307161184983e-07,
+     "max_rel": 1.0628118893452496e-07,
+     "cos": 0.9999999999999998,
+     "class": "eltwise",
+     "rel_l2_bar": 3e-06,
+     "cos_bar": 0.999999,
+     "bar_from": "10x the measured fp32 eltwise floor 3.0e-07",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "add",
+   "fd_worst": 1.7279714206905234e-10,
+   "fd_probed": 48,
+   "fd_eligible": 16384,
+   "fd_ok": true,
+   "grads": {
+    "a": {
+     "rel_l2": 2.5317832156725383e-08,
+     "max_abs": 1.1858855675228597e-07,
+     "max_rel": 5.862054430542867e-08,
+     "cos": 1.0000000000000002,
+     "class": "eltwise",
+     "rel_l2_bar": 3e-06,
+     "cos_bar": 0.999999,
+     "bar_from": "10x the measured fp32 eltwise floor 3.0e-07",
+     "pass": true
+    },
+    "b": {
+     "rel_l2": 2.5317832156725383e-08,
+     "max_abs": 1.1858855675228597e-07,
+     "max_rel": 5.862054430542867e-08,
+     "cos": 1.0000000000000002,
+     "class": "eltwise",
+     "rel_l2_bar": 3e-06,
+     "cos_bar": 0.999999,
+     "bar_from": "10x the measured fp32 eltwise floor 3.0e-07",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "sigmoid",
+   "fd_worst": 5.734208796191996e-10,
+   "fd_probed": 24,
+   "fd_eligible": 8192,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 7.554413022961965e-08,
+     "max_abs": 1.592708070985438e-07,
+     "max_rel": 2.455898132785712e-06,
+     "cos": 0.9999999999999976,
+     "class": "eltwise",
+     "rel_l2_bar": 3e-06,
+     "cos_bar": 0.999999,
+     "bar_from": "10x the measured fp32 eltwise floor 3.0e-07",
+     "pass": true
+    }
+   },
+   "pass": true
+  },
+  {
+   "case": "silu",
+   "fd_worst": 8.259455413528358e-11,
+   "fd_probed": 24,
+   "fd_eligible": 8192,
+   "fd_ok": true,
+   "grads": {
+    "x": {
+     "rel_l2": 6.174155938366246e-08,
+     "max_abs": 4.086492122468144e-07,
+     "max_rel": 8.372716433077556e-07,
+     "cos": 0.9999999999999981,
+     "class": "eltwise",
+     "rel_l2_bar": 3e-06,
+     "cos_bar": 0.999999,
+     "bar_from": "10x the measured fp32 eltwise floor 3.0e-07",
+     "pass": true
+    }
+   },
+   "pass": true
+  }
+ ],
+ "control_grad_off": {
+  "untaped_declined": true,
+  "untaped_bit_exact": true,
+  "frozen_untaped": true,
+  "frozen_bit_exact": true,
+  "nograd_untaped": true,
+  "nograd_bit_exact": true,
+  "live_call_is_taped": true,
+  "pass": true
+ },
+ "all_pass": true
+}

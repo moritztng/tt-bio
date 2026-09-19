@@ -209,3 +209,44 @@ if __name__ == "__main__":
     test_predict_reports_a_contended_fan_out_as_contention_not_a_run_failure()
     test_worker_device_open_exits_on_the_code_only_for_contention()
     print("ALL CONTENDED-EXIT-CODE TESTS PASSED")
+
+
+def test_the_verdict_itself_says_blocked_not_a_missed_floor():
+    """The half the earlier fix left open, and it recurred on 2026-09-18.
+
+    `_CONTENDED` only feeds a run-end epilogue. A gate that dies partway never prints it, and
+    that is exactly the run that needs it: a c13-land-first gate died mid-size-ladder with
+    opendde-abag, nesso1 and all three capacity legs contended, and the log a reader actually
+    sees ended on "GATE FAIL - opendde-abag missed parse or the DockQ floor". Nothing had run.
+    So the caveat belongs at the verdict, where it cannot be truncated away.
+    """
+    import release_gate as rg
+
+    contended = {"gate": False, "error": f"predict exited {CONTENDED_EXIT_CODE}"}
+    missed = {"gate": False, "error": "DockQ 0.21 below floor"}
+    passed = {"gate": True, "error": None}
+
+    assert rg._contended(contended)
+    assert not rg._contended(missed) and not rg._contended(passed)
+    # The rc must be read as a number, not matched as a substring: 175 is not 75.
+    assert not rg._contended({"gate": False, "error": "predict exited 175"})
+
+    assert rg._verdict(contended).startswith("BLOCKED")
+    assert "nothing scored" in rg._verdict(contended)
+    assert rg._verdict(missed) == "FAIL (DockQ 0.21 below floor)"
+    assert rg._verdict(passed) == "PASS"
+
+    accuracy = "GATE FAIL — opendde-abag missed parse or the DockQ floor (see above)"
+    ok = "GATE PASS — opendde-abag cleared parse + DockQ floor"
+
+    # Nothing ran: say so, and do not name a floor that was never evaluated.
+    line = rg._gate_line(contended, ok, accuracy, "opendde-abag")
+    assert "GATE BLOCKED" in line and "not an accuracy result" in line
+    assert "DockQ floor" not in line
+
+    # A real miss is still a real miss, including when it sits beside a contended leg -- the
+    # measured failure is the stronger statement and must not be softened into BLOCKED.
+    assert rg._gate_line([contended, missed], ok, accuracy, "x") == accuracy
+    assert rg._gate_line([missed], ok, accuracy, "x") == accuracy
+    assert rg._gate_line([passed], ok, accuracy, "x") == ok
+    assert rg._gate_line([passed, contended], ok, accuracy, "x").startswith("GATE BLOCKED")

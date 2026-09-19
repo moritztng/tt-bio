@@ -897,13 +897,10 @@ class _WorkerState:
         to a protein Cys is honored end-to-end. Confidence-based best-of-N ranking and
         CIF writing reuse Protenix-v2's machinery verbatim (OpenDDE.fold rides the same
         ConfidenceHead / build_complex_features / _write_protenix_structure)."""
-        import types
-
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import (_generate_esmfold2_a3m,
                                  _generate_opendde_paired_a3m, _read_bio_chains,
-                                 _read_bio_constraints,
-                                 _write_protenix_structure, cap_a3m_text)
+                                 _read_bio_constraints, cap_a3m_text)
         from tt_bio.protenix_data import build_complex_features
 
         model = cfg.get("model", "opendde")
@@ -1001,49 +998,9 @@ class _WorkerState:
                 return_confidence=True, max_parallel_samples=cfg.get("max_parallel_samples"))
         confs = conf if isinstance(conf, list) else [conf]
 
-        # AF-style ranking score: ipTM-weighted for complexes, pTM for monomers, falling
-        # back to pLDDT only if neither is available -- identical to Protenix-v2's ranking.
-        def _score(c):
-            ptm, iptm = c.get("ptm", 0.0), c.get("iptm", 0.0)
-            if iptm > 0.0:
-                return 0.8 * iptm + 0.2 * ptm
-            return ptm if ptm > 0.0 else c["plddt"]
-
-        order = sorted(range(len(confs)), key=lambda k: _score(confs[k]), reverse=True)
-        rank_of = {k: r for r, k in enumerate(order)}
-
-        struct_dir = Path(cfg["struct_dir"])
-        stem, fmt = path.stem, cfg["output_format"]
-        for k in range(len(confs)):
-            r = rank_of[k]
-            name = f"{stem}.{fmt}" if r == 0 else f"{stem}_model_{r}.{fmt}"
-            _write_protenix_structure(coords[k], feats, None, struct_dir / name, fmt,
-                                      b_factors=confs[k]["plddt_atom"] * 100.0,
-                                      mod_names=_artifact_residue_names(chains))
-
-        def _row(c):
-            return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
-                    "ptm": round(c.get("ptm", 0.0), 6), "iptm": round(c.get("iptm", 0.0), 6),
-                    "confidence_score": round(_score(c), 6)}
-
-        best = confs[order[0]]
-        metrics = {
-            **_row(best),
-            "n_residues": sum(len(cseq) for _c, cseq, _s, mt, _mods in chains if mt != "ligand"),
-            "n_chains": len(chains), "n_tokens": int(feats["restype"].shape[0]),
-            "msa": any(a for _, a, _ in chain_specs), "n_atoms": int(coords.shape[1]),
-            # the depth actually folded, so --max_msa_seqs is checkable from results.json
-            # instead of only from a "msa: true" that says nothing about how deep it went
-            "msa_depth": int(feats["msa"].shape[0]),
-            "samples": n_sample,
-        }
-        if len(confs) > 1:
-            metrics["all_runs"] = [{"rank": rank_of[k], **_row(confs[k])} for k in order]
-        if cfg.get("write_pae"):                       # token-token PAE/PDE of the best sample
-            import numpy as np
-            np.savez(struct_dir / f"{stem}_pae.npz",
-                     pae=best["pae"].numpy(), pde=best["pde"].numpy())
-        return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
+        # Rank, write and emit through the Protenix-v2 builder: OpenDDE rides that trunk, sampler
+        # and ConfidenceHead, so it gets the same structure names and the same metrics row.
+        return self._protenix_emit(path, cfg, feats, chains, chain_specs, coords, confs)
 
     def _protenix_inputs(self, path: Path, cfg: dict[str, Any]):
         """Sequences -> (optional per-chain MSA) -> model-ready features for one target.
@@ -1129,9 +1086,20 @@ class _WorkerState:
                                       mod_names=_artifact_residue_names(chains))
 
         def _row(c):
-            return {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
-                    "ptm": round(c.get("ptm", 0.0), 6), "iptm": round(c.get("iptm", 0.0), 6),
-                    "confidence_score": round(_score(c), 6)}
+            row = {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
+                   "ptm": round(c.get("ptm", 0.0), 6), "iptm": round(c.get("iptm", 0.0), 6),
+                   "confidence_score": round(_score(c), 6)}
+            # Boltz-2's two chain-level keys, in the shape tt_bio.main writes for Boltz-2: the
+            # full chain-pair ipTM matrix and its diagonal lifted out as each chain's own pTM.
+            # Per sample rather than winner-only, because an antibody-vs-antigen chain-pair
+            # ipTM is what ranks that interface and the winner's value cannot rank the rest
+            # (AbAg-XM audit 2026-07-27). Absent for a monomer and for models whose
+            # confidence head does not compute the matrix (openfold3).
+            pci = c.get("pair_chains_iptm")
+            if pci:
+                row["pair_chains_iptm"] = pci
+                row["chains_ptm"] = {ci: pci[ci][ci] for ci in pci}
+            return row
 
         best = confs[order[0]]
         metrics = {
@@ -1139,6 +1107,8 @@ class _WorkerState:
             "n_residues": sum(len(cseq) for _c, cseq, _s, mt, _mods in chains if mt != "ligand"),
             "n_chains": len(chains), "n_tokens": int(feats["restype"].shape[0]),
             "msa": any(a for _, a, _ in chain_specs),
+            # the depth actually folded, so --max_msa_seqs is checkable from results.json
+            # instead of only from a "msa: true" that says nothing about how deep it went
             "msa_depth": int(feats["msa"].shape[0]),
             "n_atoms": int(coords[0].shape[-2]), "samples": len(confs),
         }

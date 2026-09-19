@@ -32,7 +32,44 @@ NOC_FOR_DRAM_WRITE = ttnn.NOC.NOC_1
 
 #: Bytes one TILE_HW x TILE_HW tile occupies, per dtype. sdpa_generic and softmax_generic
 #: size their CBs from this same table -- see `tile_bytes`.
-_TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096}
+#:
+#: Block formats are not width x datums: a bfp8_b tile is 1024 mantissa bytes plus a 64-byte
+#: exponent section (one exponent per 16-element row, rounded up to the L1 alignment), so it is
+#: 1088 and not 1024. tt-metal fixes both halves -- `tile_size()` in
+#: tt_metal/api/tt-metalium/tt_backend_api_types.hpp:107 returns (256 * 4) + (16 * 4), and
+#: `Tile::get_tile_size` (tt_metal/impl/data_format/tile.cpp:79) builds the same number as
+#: tile_hw + aligned_exp_size. Getting this wrong under-sizes every CB page by 6.25 %, which
+#: hangs or corrupts rather than raising.
+_TILE_BYTES = {ttnn.bfloat16: 2048, ttnn.float32: 4096, ttnn.bfloat8_b: 1088}
+
+#: The storage dtypes a hand-transcribed fast path may take. `bfloat8_b` is here because every CB
+#: page size in these transcriptions comes from `tile_bytes` and every tile size in their kernels
+#: from `get_tile_size(cb)`, so there is no 2-bytes-an-element assumption in the dataflow for a
+#: 1088-byte block-float tile to break. What the four gates below used to test was `== bfloat16`,
+#: which is our own line rather than a kernel limit: `ttnn.experimental.minimal_matmul` has taken
+#: BFLOAT8_B and BFLOAT4_B since before our pin.
+FAST_DTYPES = frozenset({ttnn.bfloat16, ttnn.bfloat8_b})
+
+
+def fast_dtypes_ok(*dtypes) -> bool:
+    """True when every operand dtype is one a fast path covers AND they are all the same.
+
+    Uniformity is LOAD BEARING and this is the one clause here that is not merely a policy line.
+    It was previously documented the other way -- `is_uniform_dataformat` is passed as a
+    compile-time hint the SDPA kernel takes either way, so a mixed set reads as legal from the
+    source. It is not. MEASURED on qb1 card 1 at 512 aa, 110 cores, 1350 MHz, against an fp64
+    reference of the same operands (`perf/bfp8_sdpa/probe2_qb1c1.json`): bfp8 q/k/v with a bf16
+    mask is SERVED, returns a finite tensor, raises nothing, and scores **12.55 rel_rms against
+    0.0267 for the bf16 control** -- 470x the control, i.e. wrong values rather than imprecise
+    ones. Uniform bfp8 on the same path scores 0.0283, a 5.7 % debit and fine.
+
+    So do not relax this on a source read. The failure mode it protects against is silent: no
+    decline, no exception, no NaN. `tile_bytes` sizes the operand CBs per dtype correctly, but
+    `sdpa_generic.cb_table` pins the five intermediate CB groups to bf16 unconditionally
+    (`:231-233`), and the mask meets those intermediates in the score add.
+    """
+    seen = set(dtypes)
+    return len(seen) == 1 and seen <= FAST_DTYPES
 
 
 def tile_bytes(dtype):
@@ -40,8 +77,8 @@ def tile_bytes(dtype):
     try:
         return _TILE_BYTES[dtype]
     except KeyError:
-        raise ValueError(f"no tile size for {dtype}: these transcriptions cover the call the "
-                         "fold issues, which is bf16 and fp32 only") from None
+        raise ValueError(f"no tile size for {dtype}: these transcriptions cover bf16, fp32 "
+                         "and bfp8_b") from None
 
 _CACHE: dict = {}
 

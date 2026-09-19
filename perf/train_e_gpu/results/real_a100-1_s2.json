@@ -1,0 +1,206 @@
+{
+ "tag": "a100-1",
+ "mode": "real",
+ "stage": 2,
+ "started_utc": "2026-09-18T20:31:53Z",
+ "upstream_commit": "18e4058015a39c5405c08a0d5629cf302627b253",
+ "args": {
+  "mode": "real",
+  "stage": 2,
+  "steps": 40,
+  "warmup": 10,
+  "epochs": 100,
+  "params": "params.yaml",
+  "ddp": false,
+  "dvclive": false,
+  "tag": "a100-1",
+  "out": "/root/abb3/out/real_a100-1_s2.json"
+ },
+ "host": {
+  "cpu_model": "AMD EPYC 7513 32-Core Processor",
+  "cpu_threads": 128,
+  "meminfo": [
+   "MemTotal:       527920260 kB",
+   "MemFree:        97077000 kB",
+   "MemAvailable:   396888456 kB"
+  ],
+  "loadavg": [
+   "2.65 3.08 7.95 2/4379 14421"
+  ],
+  "python": "3.10.13",
+  "torch": "2.1.2",
+  "cuda": "12.1",
+  "uname": "Linux-6.8.0-134-generic-x86_64-with-glibc2.31"
+ },
+ "nvidia_smi_idle": {
+  "gpu": [
+   "NVIDIA A100-SXM4-80GB, 81920, 210, 1410, 59.99, 400.00, 23, 0, Enabled"
+  ],
+  "compute_apps": []
+ },
+ "params_used": {
+  "base": {
+   "seed": 100,
+   "cmd": "python",
+   "debug": false,
+   "data_dir": "data/",
+   "all_data": true,
+   "num_workers": 0,
+   "pin_memory": false
+  },
+  "train": {
+   "epochs": 1000,
+   "batch_size": 64,
+   "early_stopping": 10000
+  },
+  "finetune": {
+   "metric": "loss",
+   "epochs": 500,
+   "batch_size": 64,
+   "early_stopping": 10000,
+   "use_annealing": true,
+   "dropout": 0.1,
+   "turn_off_scheduler": true,
+   "learning_rate": 0.0001
+  },
+  "model": {
+   "edge_chain_feature": true,
+   "use_original_sm": true,
+   "c_ipa": 16,
+   "c_resnet": 256,
+   "c_s": 23,
+   "rel_pos_dim": 64,
+   "dropout_rate": 0.1,
+   "embed_dim": 128,
+   "epsilon": 1e-07,
+   "inf": 10000000.0,
+   "no_angles": 7,
+   "no_blocks": 8,
+   "no_heads_ipa": 12,
+   "no_qk_points": 4,
+   "no_resnet_blocks": 2,
+   "no_transition_layers": 1,
+   "no_v_points": 8,
+   "rotation_propagation": true,
+   "trans_scale_factor": 1
+  },
+  "optimiser": {
+   "optimiser": "RAdam",
+   "lr": 0.0005,
+   "weight_decay": 0.0001,
+   "T_0": 50,
+   "eta_min": 0,
+   "T_mult": 1
+  },
+  "language": {
+   "model": null,
+   "chunk_size": 1000
+  }
+ },
+ "result": {
+  "accumulate_grad_batches": 8,
+  "global_batch": 64,
+  "steps_recorded": 50,
+  "warmup_discarded": 10,
+  "step_s": {
+   "n": 40,
+   "median": 6.999736009631306,
+   "mean": 7.024090121802874,
+   "stdev": 0.24769467365111042,
+   "min": 6.59738514944911,
+   "max": 7.709395160898566,
+   "p05": 6.676633179187775,
+   "p95": 7.620367852039635
+  },
+  "step_s_all": [
+   6.669309932738543,
+   6.806290792301297,
+   6.925138673745096,
+   6.836364360526204,
+   7.139027886092663,
+   6.9974816190078855,
+   6.987658984027803,
+   7.0054925894364715,
+   6.816477879881859,
+   6.884270564652979,
+   7.343324369750917,
+   7.061684765852988,
+   7.210667879320681,
+   7.097888223826885,
+   6.981811497360468,
+   7.103767309337854,
+   7.013344243168831,
+   6.698038740083575,
+   7.070589513517916,
+   7.015344657935202,
+   7.002999557182193,
+   7.0191010581329465,
+   6.676633179187775,
+   6.716093213297427,
+   7.384531239978969,
+   6.9907313557341695,
+   7.620367852039635,
+   7.27414287161082,
+   7.306557202711701,
+   6.809597617946565,
+   6.789940232411027,
+   6.993599105626345,
+   7.082430253736675,
+   7.013816460035741,
+   6.996472462080419,
+   7.114606618881226,
+   7.709395160898566,
+   7.505285266786814,
+   6.987302023917437,
+   6.972649059258401,
+   6.907129716128111,
+   6.8218904864043,
+   6.893553784117103,
+   6.794655910693109,
+   7.00810178834945,
+   6.913511347025633,
+   6.690020140260458,
+   6.896933481097221,
+   6.59738514944911,
+   6.877710076980293
+  ],
+  "padded_tokens_per_step": {
+   "n": 40,
+   "median": 242.0,
+   "mean": 242.2,
+   "stdev": 1.9506737823450144,
+   "min": 238.0,
+   "max": 246.0,
+   "p05": 238.0,
+   "p95": 245.0
+  },
+  "micro_batch_padded_tokens": {
+   "n": 400,
+   "median": 237.0,
+   "mean": 237.0225,
+   "stdev": 3.41777657869186,
+   "min": 230.0,
+   "max": 247.0,
+   "p05": 232.0,
+   "p95": 243.0
+  },
+  "fit_wall_s": 351.1606142539531,
+  "peak_cuda_alloc_GB": 12.339845657348633,
+  "peak_cuda_reserved_GB": 25.91796875,
+  "smi_before": {
+   "gpu": [
+    "NVIDIA A100-SXM4-80GB, 81920, 210, 1410, 59.99, 400.00, 23, 0, Enabled"
+   ],
+   "compute_apps": []
+  },
+  "smi_after": {
+   "gpu": [
+    "NVIDIA A100-SXM4-80GB, 81920, 1410, 1410, 84.92, 400.00, 31, 51, Enabled"
+   ],
+   "compute_apps": [
+    "2806316, [Not Found], 690"
+   ]
+  }
+ },
+ "finished_utc": "2026-09-18T20:37:45Z"
+}

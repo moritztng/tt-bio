@@ -1,0 +1,6 @@
+# raw run dirs; the canonical records are committed as *_result.json at this level
+seq_keep0/
+seq_keep1/
+seq_ctrl/
+trans_ab/
+*.log

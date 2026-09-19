@@ -1,0 +1,27 @@
+DiffusionModule, tt_bio/protenix.py:836-1416
+  routed through tt_bio.ops (hook can see):     43  {'ops.layer_norm': 1, 'self._lin': 25, 'self._ln': 15, 'self._ln_dit': 2}
+  bare ttnn math calls (hook cannot see):       96
+      ttnn.reshape               37
+      ttnn.add                   25
+      ttnn.relu                  8
+      ttnn.matmul                7
+      ttnn.multiply              6
+      ttnn.typecast              4
+      ttnn.sigmoid               4
+      ttnn.concat                3
+      ttnn.linear                2
+  in-place ttnn ops (destroy their input):       0  {}
+  ttnn.deallocate (free a live activation):      0
+  ROUTED FRACTION: 43/139 = 30.9 %
+
+The three primitives the token DiT instantiates, tt_bio/tenstorrent.py:
+  AdaLN                : 9474  routed   0  bare-ttnn   4  in-place   2  dealloc   2  {'ttnn.layer_norm': 2, 'ttnn.linear': 2}
+  AttentionPairBias    : 7806  routed   0  bare-ttnn  53  in-place   5  dealloc  22  {'ttnn.reshape': 16, 'ttnn.linear': 7, 'ttnn.permute': 7, 'ttnn.typecast': 6, 'ttnn.layer_norm': 3, 'ttnn.concat': 3, 'ttnn.transformer.scaled_dot_product_attention': 3, 'ttnn.multiply': 2, 'ttnn.softmax': 2, 'ttnn.pad': 2, 'ttnn.matmul': 1, 'ttnn.transpose': 1}
+  Transition           : 8299  routed   0  bare-ttnn   8  in-place   1  dealloc   7  {'ttnn.linear': 3, 'ttnn.concat': 3, 'ttnn.layer_norm': 1, 'ttnn.silu': 1}
+
+SUBTOTAL (AdaLN + AttentionPairBias + Transition): routed 0, bare-ttnn 65, in-place 8, deallocate 31
+AttentionPairBias carries 3 ttnn.transformer.scaled_dot_product_attention calls, which have no
+backward -- the same obstacle ptx-fastpath owns on the pairformer.
+
+DIFFUSION MODULE + its three primitives: routed 43/204 = 21.1 %, in-place 8, deallocate 31.
+Compare the fast pairformer, which ptx-fastpath quotes at 0/29 routed, 24 in-place, 88 deallocates.
