@@ -586,12 +586,33 @@ def walked_weights(forward, cfg: Optional[LoraConfig], model, *args,
     denominator. One forward under ``no_grad`` materialises them. It costs the same one
     inference the call-site census costs.
 
-    No hook is installed. Under a tape the forward below runs frozen, which is production's own
-    arithmetic, and with no tape it is plain inference.
+    **The discovery forward runs TAPED, and that is the second ordering finding.** Several
+    shipped fused kernels decline while a tape is open (``ops.taping()``), and declining routes
+    the call down a different composed path which fuses a DIFFERENT weight. Measured on a
+    4-block pair stack: an untaped discovery forward reaches 196 device weights and the taped
+    forward that trains reaches 204, the extra 8 being ``_gp_gout_cache`` -- built only because
+    the F1 trimul tail declined under the tape and let ``g_out`` ride the in-projection. A
+    discovery pass that is not taped therefore hands the optimizer a parameter set the training
+    forward does not use, and the difference is invisible: the paths are simply absent.
+
+    So the hook is installed for the duration if the caller has not installed it, and
+    ``no_grad`` keeps the arithmetic production's own either way.
     """
+    from .. import ops
     from ..tenstorrent import walk_device_weights
-    with ag.no_grad():
-        forward(*args, **kwargs)
+    # `ops.taping()` is `grad_hook() is not None`, and that ONE predicate is what the fused
+    # kernels consult to decline. Installing the hook is therefore the whole of what makes the
+    # discovery forward take the training forward's route; opening a tape as well would swap the
+    # ttnn proxy and route MORE than a training step does, which is the same error mirrored.
+    installed = ops.grad_hook() is not None
+    if not installed:
+        ag.install()
+    try:
+        with ag.no_grad():
+            forward(*args, **kwargs)
+    finally:
+        if not installed:
+            ag.uninstall()
     found = {path: (owner, key, t)
              for path, owner, key, t in walk_device_weights(model)}
     if not found:
