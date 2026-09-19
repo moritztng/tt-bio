@@ -111,7 +111,7 @@ def main() -> int:
         return 1
     extra = (["--chips-after-restart", args.chips_after_restart]
              if args.chips_after_restart else [])
-    if supervise(killed, args, *extra, kill_at=args.kill_at) != 0:
+    if supervise(killed, args, extra=extra, kill_at=args.kill_at) != 0:
         print("FAIL: the killed arm did not finish after its restart")
         return 1
 
