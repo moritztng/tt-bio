@@ -48,37 +48,47 @@ def _confirm(band: torch.Tensor, cand: torch.Tensor) -> tuple[str, float] | None
     return None
 
 
-def _index(atoms: dict[str, torch.Tensor]) -> dict:
+def _index(atoms: dict[str, torch.Tensor]) -> tuple[dict, dict]:
+    """Exact-value index, plus a shape bucket for the lossy-storage fallback.
+
+    The fallback exists because a weight the device stores in something coarser than bf16 never
+    reaches the exact index at all. Bucketing it by shape keeps that path O(bucket) instead of
+    O(every parameter in the model), which is the difference between minutes and hours once this
+    runs over a whole checkpoint rather than one block.
+    """
     idx: dict[tuple, list[str]] = {}
+    buckets: dict[tuple, list[str]] = {}
     for k, v in atoms.items():
         vb = v.to(torch.bfloat16)
         idx.setdefault((tuple(sorted(v.shape)), fingerprint(vb)), []).append(k)
-    return idx
+        buckets.setdefault(tuple(sorted(v.shape)), []).append(k)
+    return idx, buckets
 
 
 def _try_at(band: torch.Tensor, atoms: dict, idx: dict, used: set) -> tuple | None:
-    hit = idx.get((tuple(sorted(band.shape)), fingerprint(band)))
-    for k in hit or ():
+    exact, buckets = idx
+    shape = tuple(sorted(band.shape))
+    for k in exact.get((shape, fingerprint(band)), ()):
         if k in used:
             continue
         c = _confirm(band, atoms[k])
         if c:
             return k, c[0], c[1]
     # fingerprint is exact-value based, so a lossily stored weight never reaches the index.
-    for k, v in atoms.items():
-        if k in used or tuple(sorted(v.shape)) != tuple(sorted(band.shape)):
+    for k in buckets.get(shape, ()):
+        if k in used:
             continue
-        c = _confirm(band, v)
+        c = _confirm(band, atoms[k])
         if c:
             return k, c[0], c[1]
     return None
 
 
-def match_tensor(dev: torch.Tensor, atoms: dict, idx: dict) -> dict:
+def match_tensor(dev: torch.Tensor, atoms: dict, idx: tuple) -> dict:
     """One device tensor against their tensors. Whole first, then a greedy band scan per axis."""
     whole = _try_at(dev, atoms, idx, set())
     if whole:
-        return {"kind": "whole", "padding": 0,
+        return {"kind": "whole", "padding": 0, "unexplained_band": 0,
                 "parts": [{"their": whole[0], "axis": 0, "start": 0,
                            "length": int(dev.shape[0]), "layout": whole[1], "rel": whole[2]}]}
     best = None
@@ -86,7 +96,7 @@ def match_tensor(dev: torch.Tensor, atoms: dict, idx: dict) -> dict:
         n = int(dev.shape[axis])
         lengths = sorted({int(s) for v in atoms.values() for s in v.shape if 0 < s <= n}
                          | ({n} if dev.ndim == 1 else set()), reverse=True)
-        parts, used, pos, pad = [], set(), 0, 0
+        parts, used, pos, pad, unexplained = [], set(), 0, 0, 0
         while pos < n:
             hit = None
             for L in lengths:
@@ -102,17 +112,23 @@ def match_tensor(dev: torch.Tensor, atoms: dict, idx: dict) -> dict:
                 rest = dev.narrow(axis, pos, n - pos)
                 if parts and not rest.any():
                     pad = n - pos                    # tile padding, named rather than dropped
-                    break
-                parts = []
+                else:
+                    # A band nobody explains does not invalidate the bands that WERE confirmed
+                    # elementwise. Discarding the whole tensor was this matcher's own version of
+                    # the defect SS3a is about: it silently dropped 190 diffusion tensors whose
+                    # q, k and v all matched because a fourth band did not. Keep the parts,
+                    # NAME the remainder, and let the report carry it.
+                    unexplained = n - pos
                 break
             used.add(hit["their"])
             parts.append(hit)
             pos += hit["length"]
         if len(parts) > 1 and (best is None or len(parts) > len(best[0])):
-            best = (parts, axis, pad)
+            best = (parts, axis, pad, unexplained)
     if best:
-        return {"kind": f"concat_axis{best[1]}", "padding": best[2], "parts": best[0]}
-    return {"kind": "unmatched", "padding": 0, "parts": []}
+        return {"kind": f"concat_axis{best[1]}", "padding": best[2],
+                "unexplained_band": best[3], "parts": best[0]}
+    return {"kind": "unmatched", "padding": 0, "unexplained_band": 0, "parts": []}
 
 
 def device_bijection(device_tensors: dict[str, torch.Tensor],
