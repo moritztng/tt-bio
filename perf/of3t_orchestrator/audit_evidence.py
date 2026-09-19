@@ -160,6 +160,28 @@ if b and c:
                    f"wrong -- 1e-3 is the scheduler's Python signature default, not what OF3 "
                    f"ships")
 
+# --- every UNFIXED defect must be named in the orchestrator's GAP ----------------------------
+# GAP has drifted twice: it described the campaign as it stood seven passes earlier, and then
+# omitted the hardest blocker entirely. The gate only checks that the field EXISTS. A summary
+# written by transcription drifts exactly like a scoreboard does, so it gets the same treatment
+# as the scoreboard: checked against its source.
+DEF = Path("/home/moritz/.coworker/state/of3t/DEFECTS.md")
+ORCH = Path("/home/moritz/.coworker/state/of3t-orchestrator.md")
+if DEF.is_file() and ORCH.is_file():
+    import re as _re
+    unfixed = [m.group(1) for m in
+               _re.finditer(r"^### (D\d+)\..*$", DEF.read_text(), _re.M)
+               if "UNFIXED" in m.group(0)]
+    o = ORCH.read_text()
+    g = _re.search(r"^GAP:(.*?)(?=^VERDICT:)", o, _re.M | _re.S)
+    gap = g.group(1) if g else ""
+    missing = [d for d in unfixed if not _re.search(rf"\b{d}\b", gap)]
+    if missing:
+        bad.append(f"GAP does not name these UNFIXED defects: {', '.join(missing)} "
+                   f"-- the summary has drifted from DEFECTS.md")
+    else:
+        ok.append(f"GAP names all {len(unfixed)} UNFIXED defects")
+
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
 for line in ok:
     print(f"  ok    {line}")
