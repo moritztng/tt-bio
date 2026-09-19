@@ -549,6 +549,41 @@ if ORCH.is_file():
     elif claims:
         ok.append(f"PROVES/DOESNOT quote all {len(claims)} audited figures as the artifacts "
                   f"have them")
+    # VERDICT is the third summary field and it was NOT in the first version of this check --
+    # written one pass earlier, covering PROVES and DOESNOT only. It was stale in exactly the
+    # way they were ("eleven rows, eight concluded", "31 scoreboard figures", "fourteen
+    # defects") and my own new guard walked straight past it. A check scoped to the two fields
+    # you happened to be reading is a check scoped to your attention.
+    # The VERDICT field is multi-paragraph, so stopping at the first blank line captures only
+    # its opening sentence -- which is how the first version of this check reported drift on a
+    # field that said the right thing three lines lower. Stop at the narrative that follows it
+    # (a line beginning "**`of3t-" or "PASS <n>."), not at whitespace.
+    vd = _re.search(r"^VERDICT:(.*?)(?=^\*\*`of3t-|^PASS \d+\.|\Z)", o, _re.M | _re.S)
+    verdict = vd.group(1) if vd else ""
+    _words = {7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve",
+              13: "thirteen", 14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen",
+              18: "eighteen", 19: "nineteen", 20: "twenty", 21: "twenty-one"}
+    if DEF.is_file():
+        _dt = DEF.read_text()
+        n_def = len(_re.findall(r"^### D\d+\.", _dt, _re.M))
+        n_unf = len([m for m in _re.finditer(r"^### D\d+\..*$", _dt, _re.M)
+                     if "UNFIXED" in m.group(0)])
+        for _n, _label in ((n_def, "defects"), (n_unf, "UNFIXED")):
+            _w = _words.get(_n)
+            if _w and _label == "defects" and f"{_w} defects" not in verdict.lower():
+                bad.append(f"VERDICT does not say '{_w} defects' -- DEFECTS.md has {_n}")
+            if _label == "UNFIXED" and not _re.search(rf"\b(?:{_n}|{_words.get(_n, 'zzz')})\b"
+                                                      r"[^.]{0,40}UNFIXED", verdict):
+                bad.append(f"VERDICT does not state the UNFIXED count -- DEFECTS.md has {_n}")
+    _nc = len(list(Path("/home/moritz/.coworker/state/concluded").glob("of3t-*"))) \
+        if Path("/home/moritz/.coworker/state/concluded").is_dir() else 0
+    if _nc and _words.get(_nc) and _words[_nc] not in verdict.lower():
+        bad.append(f"VERDICT does not state the concluded-row count -- "
+                   f"state/concluded holds {_nc} of3t rows ({_words[_nc]})")
+    if not bad or all("VERDICT" not in b for b in bad):
+        ok.append("VERDICT states the defect, UNFIXED and concluded-row counts as their "
+                  "sources have them")
+
     # And the amendment count, which is a claim about the protocol's own history.
     _pp = Path("/home/moritz/.coworker/state/of3t/PROTOCOL.md")
     if _pp.is_file():
