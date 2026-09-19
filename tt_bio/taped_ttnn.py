@@ -689,6 +689,11 @@ def _v_create_qkv_heads(shipped, args, kwargs):
             def bw(g):
                 # [B, H, L, dh] -> [B, L, 1, H*dh], then into slot s of the packed axis.
                 rows = ttnn.reshape(ttnn.permute(g, [0, 2, 1, 3]), [B, L, 1, H * dh])
+                # One zero tensor for both empty slots, then one concat. `ttnn.pad` would be
+                # the single-allocation form and cannot be used: it refuses front padding
+                # (`pad.cpp:278 front_padding_is_zero`), so slots 1 and 2 have no pad
+                # expression. The packed width is 2,415,919,104 B at a 384-token pair track,
+                # which is why this op is where the backward runs out of card.
                 zero = ttnn.zeros([B, L, 1, H * dh], dtype=rows.dtype,
                                   layout=ttnn.TILE_LAYOUT, device=rows.device())
                 parts = [rows if i == s else zero for i in range(3)]

@@ -20,6 +20,7 @@ topological sort and the fan-in sum below are the whole of what it would have su
 
 from __future__ import annotations
 
+import gc
 import contextlib
 import math
 import sys
@@ -1057,6 +1058,15 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
         for src, dup in zip(inputs, inner):
             if isinstance(src, Tensor) and isinstance(dup, Tensor) and dup.grad is not None:
                 src.add_grad(dup.grad)
+        # Drop the inner tape NOW, and collect, because refcounting will not. A node closure
+        # that reads its own output makes the cycle out -> node -> fn -> out, which is
+        # `hallgrad-tape-self-closure-leak` and is exactly what the ops whose backward reads
+        # their output (relu, sigmoid, softmax, max) build. One leaked inner tape per block is
+        # invisible; 96 of them -- two recomputes per block over 48 blocks -- is the difference
+        # between a backward that peaks at 8.92 GiB and one that is refused 2.4 GB with 30.3 GiB
+        # held. The collect is per segment, not per op, so it costs a few seconds over a trunk.
+        del y, inner
+        gc.collect()
 
     if not isinstance(produced, (tuple, list)):
         return _tape(produced.value if isinstance(produced, Tensor) else produced, parents,

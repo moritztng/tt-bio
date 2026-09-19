@@ -355,6 +355,34 @@ def fd_check(comp, params, holders, analytic, a, out):
     return res
 
 
+
+def backward_roots(comp, roots, gs):
+    """Backward each root separately, releasing as we go.
+
+    Equivalent to one call with both seeds and cheaper in peak memory, and the reason it is
+    equivalent is the seam: `_trunk_cond` round-trips the trunk to host before the diffusion
+    conditioning is built, so the denoiser's graph and the trunk's share no node. Two disjoint
+    graphs summed into the same leaves is what one combined walk would have done anyway, and
+    doing them one at a time lets the first one's tape go before the second one's recomputes
+    start. The denoiser's tape alone is 4.25 GiB at this crop (`ptx-diffusion`).
+    """
+    import gc
+    import torch
+    import ttnn
+    from tt_bio import autograd as ag
+    for r, g in zip(roots, gs):
+        ag.backward([r], [ttnn.from_torch(torch.tensor(g), layout=ttnn.TILE_LAYOUT,
+                                          device=comp.dev, dtype=ttnn.bfloat16)])
+        ag.release_pins()
+        gc.collect()
+
+
+def _dram(dev):
+    import ttnn
+    mv = ttnn.get_memory_view(dev, ttnn.BufferType.DRAM)
+    return int(mv.total_bytes_allocated_per_bank) * int(mv.num_banks)
+
+
 def _set(owner, key, v):
     if isinstance(owner, (dict, list)):
         owner[key] = v
@@ -439,11 +467,18 @@ def main():
                 t0 = time.perf_counter()
                 for t in params.values():
                     t.grad = None
+                out["dram"] = {"after_init": _dram(comp.dev)}
+                print(f"[dram] after init {out['dram']['after_init']/2**30:.2f} GiB", flush=True)
                 total0, breakdown0, seeds0, fwd0 = comp.loss(params)
+                out["dram"]["after_taped_forward"] = _dram(comp.dev)
+                print(f"[dram] after taped forward "
+                      f"{out['dram']['after_taped_forward']/2**30:.2f} GiB", flush=True)
+                dump()
                 roots0, gs0 = seed_roots(comp, fwd0, seeds0)
-                ag.backward(roots0, [ttnn.from_torch(torch.tensor(g), layout=ttnn.TILE_LAYOUT,
-                                                     device=comp.dev, dtype=ttnn.bfloat16)
-                                     for g in gs0])
+                # Diffusion first: its tape is the bigger of the two and letting it go before
+                # the trunk's recomputes start is what keeps the peak on the card.
+                order0 = sorted(range(len(roots0)), key=lambda i: gs0[i].size, reverse=True)
+                backward_roots(comp, [roots0[i] for i in order0], [gs0[i] for i in order0])
                 ag.release_pins()
                 analytic = {n: t.grad for n, t in params.items() if t.grad is not None}
                 out["verify_seeds"] = sorted(seeds0)
@@ -481,9 +516,7 @@ def main():
                     "r_update_is_none": fwd["roots"]["r_update"] is None}
                 roots, gs = seed_roots(comp, fwd, seeds)
                 out["diag"][f"step{step}"]["n_roots"] = len(roots)
-                ag.backward(roots, [ttnn.from_torch(torch.tensor(g), layout=ttnn.TILE_LAYOUT,
-                                                    device=comp.dev, dtype=ttnn.bfloat16)
-                                    for g in gs])
+                backward_roots(comp, roots, gs)
                 ag.release_pins()
                 have = {n: (t.grad is not None) for n, t in params.items()}
                 opt.step()
