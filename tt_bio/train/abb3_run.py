@@ -97,7 +97,7 @@ from .mesh import Mesh
 from .sharding import batches, steps_per_epoch
 
 __all__ = ["RunConfig", "ReducedRAdam", "CosineRestartsByStep", "run",
-           "TRIPWIRE_FRACTIONS"]
+           "TRIPWIRE_FRACTIONS", "scored_steps"]
 
 #: r2's rule, kept as the run's falsifiability check: a folding model reaches ~90 % of its final
 #: accuracy in the first few percent of its budget, so a validation curve that is flat at 3 % is
@@ -293,6 +293,35 @@ class CosineRestartsByStep:
                    T_mult=int(spec.get("T_mult", 1)), eta_min=float(spec.get("eta_min", 0.0)))
 
 
+def scored_steps(total_steps: int, sched: "CosineRestartsByStep") -> set:
+    """The steps whose checkpoint will be scored, and which therefore must be written and kept.
+
+    Two kinds, in one set because the write trigger and the prune guard need the same answer:
+
+    * the 3 % and 10 % tripwires, which decide whether the run continues at all;
+    * every cosine MINIMUM, because a reading is only comparable to another reading at the same
+      phase of the schedule. Both tripwires land deep in an anneal -- 3.5 % and 1.1 % of peak lr
+      -- while a wall-clock cap lands wherever the clock stops, which can be 85 % of peak. A
+      model mid-update scores worse than the same model annealed, so differencing a cap reading
+      against the 10 % one would read schedule phase as curve.
+
+    The minima are derived from the schedule rather than transcribed: ``set_step`` samples the
+    cosine at fractional epoch ``(gs - 1) / steps_per_epoch``, so the last step of cycle ``k`` is
+    ``k * T_0 * steps_per_epoch`` -- one step further on the cosine has restarted and is back at
+    peak. ``T_mult`` lengthens each successive cycle, which is why this walks the cycles rather
+    than striding a constant.
+    """
+    steps = {int(f * total_steps) for f in TRIPWIRE_FRACTIONS}
+    spe, t_mult = sched.steps_per_epoch, int(sched.inner.T_mult)
+    length = at = int(sched.inner.T_0)
+    while at * spe <= total_steps:
+        steps.add(at * spe)
+        length *= t_mult
+        at += length
+    return steps
+
+
+
 # ------------------------------------------------------------------------------- the loop
 
 
@@ -342,7 +371,7 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
     if cfg.rank == 0:
         sched.write(cfg.out_dir)
     log = open(cfg.out_dir / f"history-rank{cfg.rank}.jsonl", "a", buffering=1)
-    tripwires = {int(f * cfg.steps) for f in TRIPWIRE_FRACTIONS}
+    scored = scored_steps(cfg.steps, sched)
     last_ckpt = time.monotonic()
     t_run = time.monotonic()
     # Sampled for the life of the run, not checked either side of it. A cotenant that arrives
@@ -392,13 +421,13 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             # would resume from.
             out_of_time = bool(cfg.max_seconds) and time.monotonic() - t_run > cfg.max_seconds
             due = ((time.monotonic() - last_ckpt >= cadence) or gs == cfg.steps
-                   or gs in tripwires or out_of_time)
+                   or gs in scored or out_of_time)
             if due and cfg.rank == 0:
                 path = save_run_state(
                     ckpt_dir / f"step-{gs:09d}.safetensors", step, global_step=gs,
                     metrics=parts, provenance=prov.as_dict(), history_tail=history[-50:])
                 written.append(path)
-                _prune(written, cfg.keep_checkpoints, tripwires)
+                _prune(written, cfg.keep_checkpoints, scored)
                 print(f"[rank 0] checkpoint {path.name} at step {gs}", flush=True)
             if due:
                 last_ckpt = time.monotonic()
@@ -417,12 +446,13 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
 
 
 def _prune(written: list, keep: int, protect: set) -> None:
-    """Keep the newest ``keep``, and never delete a tripwire checkpoint.
+    """Keep the newest ``keep``, and never delete a checkpoint in ``protect``.
 
     The newest is what a resume needs -- not the best-scoring one, which is a different
-    question and the wrong file to restart from. The tripwire checkpoints are kept because the
-    3 % and 10 % validation points are the run's falsifiability check and re-reaching step
-    5,805 to re-evaluate it costs days.
+    question and the wrong file to restart from. ``protect`` is :func:`scored_steps`: the
+    tripwires, because the 3 % and 10 % validation points are the run's falsifiability check
+    and re-reaching step 5,805 to re-evaluate it costs days; and the cosine minima, because a
+    cap reading has to be phase-matched to the tripwire it is differenced against.
     """
     while len(written) > keep:
         for i, p in enumerate(written):

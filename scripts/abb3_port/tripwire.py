@@ -119,7 +119,7 @@ def main() -> int:
     ap.add_argument("--released", default="/home/ttuser/abb3/base-loss")
     ap.add_argument("--split-csv",
                     default="/home/ttuser/abb3_src/ABodyBuilder3/data/split.csv")
-    ap.add_argument("--steps", type=int, default=193_512, help="the full schedule, for the %")
+    ap.add_argument("--steps", type=int, default=193_512, help="the full schedule, for the %% figure")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--blocks", type=int, default=8)
     ap.add_argument("--micro", type=int, default=4)

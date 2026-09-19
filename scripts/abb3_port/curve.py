@@ -130,7 +130,7 @@ def bins(rows: list, n: int) -> list:
         for t in terms:
             vals = [r["loss_terms"][t] for r in rs
                     if (r.get("loss_terms") or {}).get(t) is not None]
-            row[t] = statistics.fmean(vals) if vals else None
+            row[t + "_s"] = statistics.fmean(vals) if vals else None
         packed.append(row)
     return packed
 
@@ -226,6 +226,7 @@ def main() -> int:
     head = state["curve"]
     if head:
         keys = [k for k in head[0] if k not in ("step_from", "step_to", "n")]
+        print("  columns ending _s are stage WALL CLOCK in seconds, not loss components")
         print("  " + " ".join(f"{k:>12}" for k in ["steps", *keys]))
         for b in head:
             cells = [f"{b[k]:>12.6g}" if isinstance(b.get(k), float) else f"{'':>12}"

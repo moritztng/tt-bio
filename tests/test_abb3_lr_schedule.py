@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from tt_bio.train.abb3_run import CosineRestartsByStep
+from tt_bio.train.abb3_run import CosineRestartsByStep, _prune, scored_steps
 from tt_bio.train.abodybuilder3_step import RECIPE
 from tt_bio.train.sharding import steps_per_epoch
 
@@ -110,6 +110,51 @@ def test_the_cycle_is_fifty_epochs_and_the_restart_resets_to_the_base_lr():
     assert s.set_step(cycle + 1) == pytest.approx(RECIPE["lr"], rel=1e-15), (
         "a warm restart returns to the base lr, which is what makes the troughs a feature of "
         "the recipe rather than the end of it")
+
+
+def test_the_scored_steps_are_the_tripwires_and_every_cosine_trough():
+    """A cap reading has to be phase-matched to the tripwire it is differenced against.
+
+    The cap verdict is `d_final = A_10 - A_cap`, and the 10 % tripwire lands at 1.1 % of peak
+    lr while the wall-clock cap lands wherever the clock stops -- 85 % of peak on one of the
+    live projections. A model mid-update scores worse than the same model annealed, so that
+    difference can come out negative, and a negative `d_final` is a pre-registered STOP. The
+    troughs are therefore written and kept, so the cap can be scored at one.
+
+    Checked through the shipped scheduler rather than against the number 6,600: a trough is a
+    step whose lr is at eta_min and whose successor is back at the base lr.
+    """
+    total = 193_512
+    s = sched()
+    scored = scored_steps(total, s)
+
+    assert {5805, 19351} == {int(f * total) for f in (0.03, 0.10)} <= scored
+    troughs = sorted(scored - {5805, 19351})
+    assert troughs[:4] == [6600, 13200, 19800, 26400]
+    assert max(troughs) <= total
+
+    for t in troughs[:4]:
+        assert s.set_step(t) < 1e-8, f"step {t} is not a trough"
+        assert s.set_step(t + 1) == pytest.approx(RECIPE["lr"], rel=1e-15)
+    # A step that is not a trough must not be in the set, or "protected" means "everything".
+    assert 3_300 not in scored and s.set_step(3_300) > 0.2 * RECIPE["lr"]
+
+
+def test_pruning_stops_rather_than_deleting_a_scored_checkpoint():
+    """`_prune` protects by exact step number, so "nearest before" is not a thing it can say.
+
+    Which is why one set feeds both the write trigger and the protection: a trough the
+    30-minute cadence never happens to land on is not there to be protected, and the cadence
+    lands up to ~145 steps either side of any given step.
+    """
+    scored = scored_steps(193_512, sched())
+    written = [Path(f"step-{n:09d}.safetensors")
+               for n in (19_800, 26_400, 26_500, 26_600, 26_700)]
+    _prune(written, 1, scored)
+    assert [p.name for p in written] == ["step-000019800.safetensors",
+                                         "step-000026400.safetensors"], (
+        "prune has to give up while two protected files are over its keep count, rather than "
+        "deleting the one the cap reading is scored on")
 
 
 def test_the_schedule_round_trips_through_the_file_a_reader_checks_it_with():
