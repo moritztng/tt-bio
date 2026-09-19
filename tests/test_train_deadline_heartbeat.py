@@ -99,8 +99,8 @@ def test_a_real_resume_off_a_checkpoint_is_healthy_and_counted(tmp_path):
     code, state = _run(tmp_path, "--stall-minutes", "1e9")
     assert code == 0 and state["verdict"] == "LIVE"
     assert state["resumes_survived"] == 1
-    assert state["resumes"][0] == {"died_at": 5120, "resumed_at": 5001, "lost_steps": 120,
-                                   "from_checkpoint": True, "verdict": "RESUMED"}
+    assert {"died_at": 5120, "resumed_at": 5001, "lost_steps": 120, "from_checkpoint": True,
+            "verdict": "RESUMED"}.items() <= state["resumes"][0].items()
     assert state["last_step"] == 5002
 
 
@@ -303,8 +303,8 @@ def test_the_line_a_host_reset_tore_is_recovered_and_not_dropped(tmp_path):
     (tmp_path / "supervisor.pid").write_text("1\n")
     code, state = _run(tmp_path, "--stall-minutes", "1e9")
     assert code == 0 and state["verdict"] == "LIVE"
-    assert state["resumes"][0] == {"died_at": 692, "resumed_at": 684, "lost_steps": 9,
-                                   "from_checkpoint": True, "verdict": "RESUMED"}
+    assert {"died_at": 692, "resumed_at": 684, "lost_steps": 9, "from_checkpoint": True,
+            "verdict": "RESUMED"}.items() <= state["resumes"][0].items()
 
 
 def test_a_relaunched_supervisor_counts_as_a_restart(tmp_path):
@@ -341,3 +341,73 @@ def test_being_called_wrong_is_also_the_instrument_failing_and_not_the_run():
     p = subprocess.run([sys.executable, str(HEARTBEAT)], capture_output=True, text=True,
                        cwd=str(REPO))
     assert p.returncode == 2
+
+
+# --------------------------------------------------------- what makes a jump-back explainable
+
+def _hb():
+    """The heartbeat script, loaded by path the way the release gate loads its harness."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "abb3_heartbeat", Path(__file__).resolve().parents[1]
+        / "scripts" / "abb3_port" / "heartbeat.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _rows(pairs):
+    return [{"step": st, "loss": 5.0 + st, "digest": dg} for st, dg in pairs]
+
+
+def test_a_resume_is_explained_by_its_replay_when_the_checkpoint_is_long_pruned():
+    """Pruning deletes the checkpoint a resume came off; the replayed rows outlive it.
+
+    This is the real case: the leg resumed from checkpoints 551 and 683, `keep_checkpoints`
+    was 3, and by the time anything read the history both were gone. Judging on the live
+    checkpoint set called three healthy resumes UNEXPLAINED-JUMP-BACK.
+    """
+    hb = _hb()
+    rows = _rows([(10, "a"), (11, "b"), (12, "c"), (11, "b"), (12, "c"), (13, "d")])
+    res = hb.resumes(rows, checkpoints={})
+    assert [r["verdict"] for r in res] == ["RESUMED"]
+    assert res[0]["replay"] == {"replayed_from": 11, "compared": 2, "disagree": [],
+                                "agrees": True}
+
+
+def test_a_jump_back_whose_replay_disagrees_is_still_an_incident():
+    hb = _hb()
+    rows = _rows([(10, "a"), (11, "b"), (12, "c"), (11, "X"), (12, "c"), (13, "d")])
+    res = hb.resumes(rows, checkpoints={})
+    assert res[0]["verdict"] == "UNEXPLAINED-JUMP-BACK"
+    assert res[0]["replay"]["disagree"] == [11]
+    assert res[0]["verdict"] in hb.BAD_RESTARTS
+
+
+def test_a_declaration_excuses_the_restart_it_names_and_no_other():
+    """The lr repair really did change the digest, so only a declaration can explain it."""
+    hb = _hb()
+    rows = _rows([(10, "a"), (11, "b"), (12, "c"), (11, "X"), (12, "c"), (13, "d")])
+    assert hb.resumes(rows, {}, [{"died_at": 12, "resumed_at": 11, "why": "the lr repair"}]
+                      )[0]["verdict"] == "DECLARED-RESTART"
+    for wrong in ({"died_at": 12, "resumed_at": 10, "why": "x"},
+                  {"died_at": 99, "resumed_at": 11, "why": "x"},
+                  {"died_at": 12, "resumed_at": 11}):
+        assert hb.resumes(rows, {}, [wrong])[0]["verdict"] == "UNEXPLAINED-JUMP-BACK", wrong
+
+
+def test_the_counter_back_at_one_with_checkpoints_present_is_still_from_scratch():
+    """The failure the instrument exists for: a healthy curve on a model that lost three days."""
+    hb = _hb()
+    rows = _rows([(10, "a"), (11, "b"), (1, "z"), (2, "y")])
+    assert hb.resumes(rows, checkpoints={5: "p"})[0]["verdict"] == "RESTARTED-FROM-SCRATCH"
+    assert hb.resumes(rows, checkpoints={})[0]["verdict"] == "RESTARTED-NO-CHECKPOINT"
+
+
+def test_declared_restarts_reads_the_run_directory_and_tolerates_its_absence(tmp_path):
+    hb = _hb()
+    assert hb.declared_restarts(tmp_path) == []
+    (tmp_path / hb.DECLARED).write_text("{ not json")
+    assert hb.declared_restarts(tmp_path) == []
+    (tmp_path / hb.DECLARED).write_text('[{"died_at": 552, "resumed_at": 552, "why": "r39"}]')
+    assert hb.declared_restarts(tmp_path)[0]["died_at"] == 552
