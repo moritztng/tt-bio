@@ -108,10 +108,14 @@ What is verified, and at what scope — the full table is `~/.coworker/state/of3
 - **Not run at all**: the whole-model per-parameter comparison, the whole-model trajectory,
   coverage, their own training test, and any s/step figure at any clock.
 
-Two otherwise-finished instruments have an untouched half, and one of them is a missing feature
-rather than a missing measurement: **there is no EMA anywhere in `tt_bio/train/`**, while
-upstream updates one every optimizer step, and our clipping is global-norm where their shipped
-default is per-sample.
+Our clipping is not theirs: their global norm **excludes disabled parameters** and ours does
+not (clip 0.108 against 0.662 on a measured case, and their runner disables the confidence head
+on 4 of 5 datasets in their own `initial_training` config), and their shipped default is
+**per-sample** clipping, which changes the direction of the accumulated update rather than only
+its length. Clipping feeds the update, so both are live defects. The EMA, by contrast, **is not
+on the update path** — it is updated after `optimizer.step()` from the model and read back only
+for validation — so the fact that we have none does not affect a weight trajectory, though it
+does block any claim about validation metrics or about matching a published checkpoint.
 
 **The honest status: the state-free half of OpenFold3's update rule is verified, and the
 model-dependent half is verified only on single modules.**
