@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Bit-exactness across the shapes the relocation's padding maths can break.
+"""Bit-exactness across the shapes the relocated writer's padding maths can break.
 
-The op-level falsifier runs one clean shape. This one walks the ragged cases: M and N not
-multiples of the per-core block, several batch counts, a grid that leaves an H-dim tail, and a
-1-core-tall case where the mcast sender core is itself the last block row. Each shape is run on
-both arms in one process and compared with torch.equal.
+Every case is pinned to the 1D mcast_in1 program config, so the patched builder is the one that
+runs; auto-selection on HEAD picks other factories for most shapes and would make the comparison
+vacuous. The harness prints one MM1D-DESC marker line per program build, and the script refuses
+to grade a shape whose two arms did not report writer_on_in0 = 0 then 1.
+
+Cases: M and N off the per-core block multiple (H and W tails), a 1x1 grid where the mcast sender
+core is the whole output, batch > 1 with fuse_batch off (the MtNt advance), and a subblock width
+that does not divide per_core_N.
 """
 from __future__ import annotations
 
@@ -16,15 +20,29 @@ import ttnn
 
 DRAM = ttnn.DRAM_MEMORY_CONFIG
 
-SHAPES = [
-    # (B, M, K, N, grid_y, grid_x)
-    (1, 512, 128, 512, 10, 11),
-    (16, 512, 128, 512, 10, 11),
-    (1, 96, 64, 352, 3, 11),     # M/N not multiples of the block
-    (1, 32, 32, 32, 1, 1),       # single core, sender core is the whole output
-    (3, 160, 96, 288, 2, 7),     # batch > 1 with a ragged grid
-    (1, 1024, 256, 64, 10, 11),  # tall and thin
-    (2, 64, 512, 1024, 4, 8),
+
+def subblocks(per_core_M, per_core_N, max_tiles=4):
+    best = (1, 1)
+    for h in range(1, per_core_M + 1):
+        if per_core_M % h:
+            continue
+        for w in range(1, per_core_N + 1):
+            if per_core_N % w or h * w > max_tiles:
+                continue
+            if h * w > best[0] * best[1]:
+                best = (h, w)
+    return best
+
+
+# (Mt, Kt, Nt, batch, grid_x, grid_y, fuse_batch)
+CASES = [
+    (256, 4, 16, 1, 11, 10, True),    # the trimul key-A shape, H tail on the last cores
+    (110, 4, 16, 1, 11, 10, True),    # no tail
+    (100, 2, 16, 1, 10, 1, True),     # per_core_M exact, one row of cores
+    (13, 3, 3, 1, 7, 1, True),        # N not a multiple of 4, ragged M
+    (4, 2, 8, 1, 1, 1, True),         # single core, sender core is the whole output
+    (8, 2, 8, 3, 4, 1, False),        # batch 3 unfused: exercises the MtNt advance
+    (9, 5, 12, 2, 5, 1, False),       # batch 2 unfused with an H tail
 ]
 
 
@@ -35,9 +53,21 @@ def main() -> int:
         fp32_dest_acc_en=True, packer_l1_acc=True)
     torch.manual_seed(0)
     bad = 0
-    for (B, M, K, N, gy, gx) in SHAPES:
-        grid = ttnn.CoreGrid(y=gy, x=gx)
-        xt, wt = torch.randn(1, B, M, K) * 0.05, torch.randn(K, N) * 0.05
+    for (Mt, Kt, Nt, batch, gx, gy, fuse_batch) in CASES:
+        M, K, N = Mt * 32, Kt * 32, Nt * 32
+        ncores = gx * gy
+        per_core_M = -(-Mt // ncores) if fuse_batch else -(-(Mt * batch) // ncores)
+        if not fuse_batch:
+            per_core_M = -(-Mt // ncores)
+        per_core_N = Nt
+        sh, sw = subblocks(per_core_M, per_core_N)
+        pc = ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+            compute_with_storage_grid_size=(gx, gy), in0_block_w=Kt,
+            out_subblock_h=sh, out_subblock_w=sw,
+            per_core_M=per_core_M, per_core_N=per_core_N,
+            fuse_batch=fuse_batch, fused_activation=None, mcast_in0=False)
+        xt = torch.randn(1, batch, M, K) * 0.05
+        wt = torch.randn(K, N) * 0.05
 
         def dev(t):
             return ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
@@ -52,28 +82,35 @@ def main() -> int:
             outs = []
             for _ in range(2):
                 r = ttnn.linear(x_d, w_d, compute_kernel_config=KC, memory_config=DRAM,
-                                dtype=ttnn.bfloat16, core_grid=grid)
+                                dtype=ttnn.bfloat16, program_config=pc)
                 ttnn.synchronize_device(device)
                 outs.append(ttnn.to_torch(r))
                 ttnn.deallocate(r)
             return outs
 
+        tag = ("Mt=%-4d Kt=%-3d Nt=%-3d b=%d %dx%-2d pcM=%-3d sb=%dx%d fuse=%d"
+               % (Mt, Kt, Nt, batch, gx, gy, per_core_M, sh, sw, int(fuse_batch)))
+        print("SHAPE %s" % tag, flush=True)
+        sys.stderr.flush()
         try:
             ship, split = arm("0"), arm("1")
         except Exception as e:  # noqa: BLE001
-            print("B=%-3d M=%-5d K=%-4d N=%-5d %2dx%-2d  RAISED %s" % (B, M, K, N, gy, gx, e), flush=True)
+            print("  RAISED %s" % str(e).splitlines()[0][:160], flush=True)
             bad += 1
             continue
         eq = all(torch.equal(a, b) for a, b in zip(ship, split))
         selfeq = torch.equal(split[0], split[1])
         d = max((a.float() - b.float()).abs().max().item() for a, b in zip(ship, split))
-        print("B=%-3d M=%-5d K=%-4d N=%-5d %2dx%-2d  equal %-5s  split self %-5s  maxdiff %.3e"
-              % (B, M, K, N, gy, gx, eq, selfeq, d), flush=True)
+        ref = (xt.to(torch.float32) @ wt.to(torch.float32))
+        pcc = torch.corrcoef(torch.stack([
+            split[0].float().flatten(), ref.reshape(split[0].shape).flatten()]))[0, 1].item()
+        print("  equal %-5s  split self %-5s  maxdiff %.3e  split PCC %.6f"
+              % (eq, selfeq, d, pcc), flush=True)
         bad += 0 if (eq and selfeq) else 1
         ttnn.deallocate(x_d)
         ttnn.deallocate(w_d)
     ttnn.close_device(device)
-    print("VERDICT: %d/%d shapes bit-exact" % (len(SHAPES) - bad, len(SHAPES)), flush=True)
+    print("VERDICT: %d/%d cases bit-exact" % (len(CASES) - bad, len(CASES)), flush=True)
     return 0 if bad == 0 else 1
 
 

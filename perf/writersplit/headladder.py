@@ -70,14 +70,22 @@ def main() -> int:
         return ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                device=device, memory_config=DRAM)
 
-    shapes = {}
+    # The 1D mcast_in1 program config is pinned, not auto-selected: on tt-metal HEAD the auto
+    # path picks a different factory for this shape and the A/B would compare two copies of the
+    # same program. Both arms use the identical config, so the ratio is the relocation alone.
+    shapes, configs = {}, {}
     for kt, K in ((4, 128), (32, 1024)):
         shapes[kt] = (dev(torch.randn(1, B, M, K) * 0.05), dev(torch.randn(K, N) * 0.05))
+        configs[kt] = ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+            compute_with_storage_grid_size=(GRID.x, GRID.y), in0_block_w=4,
+            out_subblock_h=1, out_subblock_w=4,
+            per_core_M=-(-(B * M // 32) // (GRID.x * GRID.y)), per_core_N=N // 32,
+            fuse_batch=True, fused_activation=None, mcast_in0=False)
 
     def call(kt):
         x, w = shapes[kt]
         return ttnn.linear(x, w, compute_kernel_config=KC, memory_config=DRAM,
-                           dtype=ttnn.bfloat16, core_grid=GRID)
+                           dtype=ttnn.bfloat16, program_config=configs[kt])
 
     def ladder(kt, ns=(1, 2, 4, 8, 16)):
         pts = []
