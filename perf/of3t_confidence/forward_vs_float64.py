@@ -65,7 +65,8 @@ def main():
     kw = dict(si_input=si_input, si_trunk=si_trunk, zij_trunk=zij_trunk,
               repr_x_pred=repr_x, max_atom_per_token_mask=mask,
               use_zij_trunk_embedding=True)
-    ref = head.forward(**kw, s_path="host", dtype=torch.float64)
+    ref = head.forward(**kw, s_path="host", dtype=torch.float32)
+    torch.save(ref["si_conf"].float(), "/tmp/of3t/of3t-confidence/si_conf_host.pt")
     runs = {"host-fp32": head.forward(**kw, s_path="host", dtype=torch.float32),
             "device": head.forward(**kw, s_path="device")}
     print(f"\n{'tensor':34s} " + "  ".join(f"{k:>22s}" for k in runs))

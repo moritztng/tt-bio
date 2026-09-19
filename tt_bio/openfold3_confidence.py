@@ -158,25 +158,42 @@ class OF3ConfidenceHead:
     # the graph, which is why training does not get to choose it.
     # ------------------------------------------------------------------
 
-    def _wd(self, key, transpose=True):
-        """Upload one weight once (TILE/bf16), cached. ``transpose`` for a Linear."""
+    def _wd(self, key, transpose=True, dtype=None):
+        """Upload one weight once (TILE), cached. ``transpose`` for a Linear."""
+        dtype = dtype or ttnn.bfloat16
         cache = self.__dict__.setdefault("_wd_cache", {})
-        v = cache.get((key, transpose))
+        v = cache.get((key, transpose, dtype))
         if v is None:
             if key not in self._w:
                 return None
             w = self._w[key].float()
             v = ttnn.from_torch(w.t().contiguous() if transpose else w,
-                                layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
-            cache[(key, transpose)] = v
+                                layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=dtype)
+            cache[(key, transpose, dtype)] = v
         return v
 
     def _lin(self, x, key):
-        return ttnn.linear(x, self._wd(key), compute_kernel_config=self.compute_kernel_config)
+        w = self._wd(key, dtype=x.dtype if x.dtype == ttnn.float32 else None)
+        return ttnn.linear(x, w, compute_kernel_config=self.compute_kernel_config)
 
-    def _ln(self, x, prefix):
-        return ttnn.layer_norm(x, weight=self._wd(prefix + ".layer_norm.weight", False),
-                               bias=self._wd(prefix + ".layer_norm.bias", False),
+    def _ln(self, x, prefix, fp32=False):
+        """One head LayerNorm. ``fp32`` casts the input and the gain first.
+
+        The two atom heads need it and the pair heads do not, and the reason is the
+        magnitude of what they normalise. ``si_trunk`` reaches the confidence head raw,
+        at absmax 2.28e5 with a per-row std of 1.6e4, so the variance a LayerNorm sums
+        is of order 3e8; in bf16 that sum keeps 8 mantissa bits and the reciprocal
+        square root it feeds is what the pLDDT logits ARE. The pair track arrives at
+        absmax 1.1e3 and has no such problem. Measured: bf16 throughout puts
+        plddt_logits at 2.44e-01 relative L2 against the host fp32 path, over the
+        PROTOCOL SS3d 5.0e-02 per-tensor bar, while the pair heads read 6.2e-03 (pae)
+        and 3.3e-03 (distogram) on the same run.
+        """
+        dt = ttnn.float32 if fp32 else None
+        if fp32 and x.dtype != ttnn.float32:
+            x = ttnn.typecast(x, ttnn.float32)
+        return ttnn.layer_norm(x, weight=self._wd(prefix + ".layer_norm.weight", False, dt),
+                               bias=self._wd(prefix + ".layer_norm.bias", False, dt),
                                epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
 
     def distance_onehot(self, repr_x_pred):
@@ -228,8 +245,8 @@ class OF3ConfidenceHead:
         pae_logits = self._lin(self._ln(z, "pae"), "pae.linear.weight")
         plog = self._lin(self._ln(z, "pde"), "pde.linear.weight")
         pde_logits = ttnn.add(plog, ttnn.permute(plog, (0, 2, 1, 3)))
-        plddt_logits = self._lin(self._ln(s, "plddt"), "plddt.linear.weight")
-        resolved_logits = self._lin(self._ln(s, "experimentally_resolved"),
+        plddt_logits = self._lin(self._ln(s, "plddt", fp32=True), "plddt.linear.weight")
+        resolved_logits = self._lin(self._ln(s, "experimentally_resolved", fp32=True),
                                     "experimentally_resolved.linear.weight")
         return {
             "plddt_logits": plddt_logits,
