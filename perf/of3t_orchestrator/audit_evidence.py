@@ -15,6 +15,7 @@ CPU only, no card, no network. Run from a `wk/of3t` checkout.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -139,13 +140,22 @@ if upper.is_file():
                         + (" ..." if len(absent) > 4 else ""))
         else:
             ok.append("bundle says PUBLISHED and declares every artifact present")
-    if "HOLD" in st.upper():
-        # A held DATA artifact does not make the COMPOSITION wrong -- no claim is being made
-        # against it -- so this warns loudly rather than failing, the same way an unpushed
-        # worktree does. It becomes a failure the moment a row quotes a number from it.
-        warn.append(f"reference bundle is ON HOLD, do not compare against it: {st[:110]}")
+    # A held DATA artifact does not make the COMPOSITION wrong -- no claim is being made
+    # against it -- so this warns loudly rather than failing, the same way an unpushed worktree
+    # does. It becomes a failure the moment a row quotes a number from it.
+    #
+    # Read the STRUCTURED hold, not the substring "HOLD" in prose. The first version fired on a
+    # manifest whose status began "PUBLISHED." because the word appeared later in a sentence
+    # saying the hold was lifted -- a keyword gate cannot tell a claim from its own negation,
+    # and this campaign has the same lesson filed twice already.
+    _hold = m.get("hold")
+    _hstate = str(_hold.get("state", "")) if isinstance(_hold, dict) else str(_hold or "")
+    _held = bool(_hstate) and not _hstate.strip().upper().startswith(
+        ("PUBLISHED", "NONE", "LIFTED", "CLEARED", "NO HOLD"))
+    if _held:
+        warn.append(f"reference bundle is ON HOLD, do not compare against it: {_hstate[:110]}")
     else:
-        ok.append("reference bundle manifest carries no hold")
+        ok.append(f"reference bundle carries no hold ({(_hstate or st)[:48]}...)")
     if lower.is_file():
         lo = json.loads(lower.read_text())
         if "status" not in lo:
@@ -626,15 +636,22 @@ if b and c:
 _man = j("perf/of3t_reference/bundle_min/MANIFEST.json")
 if _man:
     _declared = None
+    _declared_file = None
     for _a in _man.get("artifacts", []):
-        if isinstance(_a, dict) and _a.get("file") == "grads_f64_recycles0.pt":
+        # Follow whatever the MANIFEST currently calls the validated gradient. Hardcoding
+        # `grads_f64_recycles0.pt` was right until `of3t-reference` republished as
+        # `grads_f64_r0.pt`, at which point the check stopped being able to run -- and a check
+        # that cannot run is how D18 stayed invisible for thirty-nine passes.
+        if isinstance(_a, dict) and str(_a.get("file", "")).startswith("grads_f64") \
+                and "recycles3" not in str(_a.get("file", "")):
             _declared = _a.get("sha256")
+            _declared_file = _a.get("file")
     _citers = {
         "perf/of3t_updaterule/reference_profile.json": ("declared_sha256",),
         "perf/of3t_gradients/reach_by_norm.json": ("reference", "sha256"),
         "perf/of3t_gradients/instrument_a_bundle_block0.json": ("bundle", "sha256"),
     }
-    _seen = {}
+    _seen, _stamped = {}, []
     for _rel, _path in _citers.items():
         _d = j(_rel)
         if not _d:
@@ -642,8 +659,13 @@ if _man:
         _v = _d
         for _k in _path:
             _v = _v.get(_k) if isinstance(_v, dict) else None
-        if _v:
+        # A citer that DECLARES it was taken against a withdrawn reference is history, not a
+        # live claim, and history is allowed to disagree. `of3t-gradients` stamps these with
+        # `reference_standing` naming both digests. Undeclared disagreement is the defect.
+        if _v and not (_d.get("superseded_by") or _d.get("reference_standing")):
             _seen[_rel] = _v
+        elif _v:
+            _stamped.append(_rel)
     if _declared and _seen:
         _bad = {k: v for k, v in _seen.items() if not _declared.startswith(str(v)[:40])
                 and not str(v).startswith(_declared[:40])}
@@ -669,8 +691,13 @@ if _man:
         else:
             ok.append(f"one reference campaign-wide: {len(_seen)} artifacts and the MANIFEST "
                       f"all cite {_declared[:16]}...")
-    elif not _declared:
-        warn.append("the MANIFEST no longer declares a sha256 for grads_f64_recycles0.pt -- "
+    if _stamped:
+        ok.append(f"{len(_stamped)} citer(s) declare which reference they were taken "
+                  f"against, so a disagreeing digest in them is history rather than a live "
+                  f"claim: "
+                  + ", ".join(x.split('/')[-1] for x in _stamped))
+    if not _declared:
+        warn.append("the MANIFEST declares no sha256 for any grads_f64* artifact -- "
                     "the one-reference check cannot run, which is how D18 stayed invisible")
 
 # --- every UNFIXED defect must be named in the orchestrator's GAP ----------------------------
@@ -727,7 +754,26 @@ if ORCH.is_file():
     if _d:
         claims.append((f"{_d['arms']['clip_binds']['worst']['rel']:.3e}", proves,
                        "the clip/optimizer seam"))
-    missing = [(s, why) for s, where, why in claims if s not in where]
+    # A share written "3.156 %" and a check formatting "3.16 %" disagree about nothing. Accept
+    # either rendering rather than forcing the prose to carry the check's precision -- the
+    # point is that the summary follows the artifact, not that it matches a format string.
+    def _quoted(s, where):
+        if s in where:
+            return True
+        if s.endswith(" %"):
+            try:
+                v = float(s[:-2])
+            except ValueError:
+                return False
+            # Compare NUMERICALLY against every percentage in the text, rather than trying to
+            # guess the author's rounding. "3.156 %" and a check computing "3.16 %" disagree
+            # about nothing, and a matcher that insists on a format string makes the prose
+            # serve the checker.
+            for m in re.finditer(r"(\d+(?:\.\d+)?)\s*%", where):
+                if abs(float(m.group(1)) - v) <= 0.005 + 0.002 * abs(v):
+                    return True
+        return False
+    missing = [(s, why) for s, where, why in claims if not _quoted(s, where)]
     if missing:
         for s, why in missing:
             bad.append(f"PROVES/DOESNOT does not quote {s} ({why}) -- the artifact has moved "
