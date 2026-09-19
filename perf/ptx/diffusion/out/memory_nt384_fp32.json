@@ -1,0 +1,16 @@
+{
+ "nt": 384,
+ "blocks": 24,
+ "dtype": "float32",
+ "device_nodes_held": [
+  3,
+  3
+ ],
+ "dram_base_bytes": 16384,
+ "dram_bytes": {
+  "fwd": 82558976,
+  "fwd_bwd": 4642422784
+ },
+ "retained_bytes": 4559863808,
+ "retained_bytes_per_block": 189994325
+}
