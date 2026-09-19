@@ -29,7 +29,9 @@ tape cannot follow is loud, not a silently dropped gradient.
 from __future__ import annotations
 
 import contextlib
+import re
 import sys
+import types
 
 import ttnn
 
@@ -87,14 +89,26 @@ def _identity_grad(shipped, args, kwargs, cast=False):
     typecast, to_layout, to_memory_config, clone and reallocate are all this: the value is
     whatever the shipped verb produced and the gradient passes straight through. They are
     the ops a tuned forward is mostly made of, and none of them is a no-op on device.
+
+    "Straight through" is about the VALUE, not the container. The cotangent arrives in the
+    output's layout, and a parent that was tiled before a `to_layout(..., ROW_MAJOR)` needs
+    it tiled again: hand it back row-major and the first matmul upstream dies with "Inputs
+    to matmul must be tilized", several ops away from the op that caused it. The invariant
+    every closure here keeps is that a parent receives its cotangent in ITS OWN layout and
+    dtype -- the layout half was missing, and the OF3 diffusion module's atom broadcast is
+    where it first ran, because that is a `to_layout -> reshape -> embedding` chain whose
+    gradient comes back through the layout change.
     """
     x = _wrap(args[0])
     ra, rk = _raw(args, kwargs)
     out_v = shipped(*ra, **rk)
     src_dtype = x.value.dtype
+    src_layout = x.value.layout
 
     def make():
         def bw(g):
+            if g.layout != src_layout:
+                g = ttnn.to_layout(g, src_layout)
             x.add_grad(ttnn.typecast(g, src_dtype) if cast and g.dtype != src_dtype else g)
         return bw
 
@@ -130,11 +144,20 @@ def _v_matmul(shipped, args, kwargs):
 
     def make():
         def bw(g):
+            # `ttnn.matmul` BROADCASTS a leading axis of 1 against a batched operand, and the
+            # gradient of a broadcast operand is the sum over the axis it was spread along.
+            # Without that sum the gradient comes back with the OUTPUT's batch and `add_grad`
+            # refuses it: measured in the OF3 MSA module's recompute at crop 128 as
+            # "gradient shape (36, 128, 128) does not match value shape (1, 128, 128)". The
+            # binary verbs have taken `_reduce_to` since they were written; the matmul had
+            # the same broadcast and not the same reduction. It is a no-op on equal shapes,
+            # so the ordinary path pays one shape comparison.
             if a.requires_grad:
-                a.add_grad(ttnn.matmul(g, b.value, transpose_b=not tb,
-                                       compute_kernel_config=cfg) if not ta else
-                           ttnn.matmul(b.value, g, transpose_a=tb, transpose_b=True,
-                                       compute_kernel_config=cfg))
+                da = (ttnn.matmul(g, b.value, transpose_b=not tb,
+                                  compute_kernel_config=cfg) if not ta else
+                      ttnn.matmul(b.value, g, transpose_a=tb, transpose_b=True,
+                                  compute_kernel_config=cfg))
+                a.add_grad(_reduce_to(da, a.value.shape))
             if b.requires_grad:
                 # The weight reduces over every token, so it is `_flat2d`'s DRAM-normalised
                 # long-K path and fp32 out, for the reason documented there.
@@ -145,13 +168,14 @@ def _v_matmul(shipped, args, kwargs):
                 # (1, 4, 64, 32) value in AttentionPairBias.
                 if (not ta and not tb and len(a.value.shape) > 2
                         and len(b.value.shape) == 2):
-                    b.add_grad(ttnn.matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
-                                           compute_kernel_config=cfg, dtype=ttnn.float32))
+                    db = ttnn.matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
+                                     compute_kernel_config=cfg, dtype=ttnn.float32)
                 else:
-                    b.add_grad(ttnn.matmul(a.value, g, transpose_a=not ta,
-                                           compute_kernel_config=cfg) if not tb else
-                               ttnn.matmul(g, a.value, transpose_a=True, transpose_b=ta,
-                                           compute_kernel_config=cfg))
+                    db = (ttnn.matmul(a.value, g, transpose_a=not ta,
+                                      compute_kernel_config=cfg) if not tb else
+                          ttnn.matmul(g, a.value, transpose_a=True, transpose_b=ta,
+                                      compute_kernel_config=cfg))
+                b.add_grad(_reduce_to(db, b.value.shape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
         return bw
@@ -167,16 +191,19 @@ def _v_softmax(shipped, args, kwargs):
     x = _wrap(args[0])
     dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
     ra, rk = _raw(args, kwargs)
-    y = ttnn.softmax(*ra, **rk) if shipped is ttnn.softmax_in_place else shipped(*ra, **rk)
+    y0 = ttnn.softmax(*ra, **rk) if shipped is ttnn.softmax_in_place else shipped(*ra, **rk)
+    box = [y0]
 
     def make():
         def bw(g):
+            y = box[0]                      # through the box, so `free` may evict y to DRAM
             inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
             x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
         return bw
 
-    out = _tape(y, [x], make)
-    out.evictable = False          # the closure holds y, this tensor's own value
+    out = _tape(y0, [x], make)
+    if out.node is not None:
+        out.box = box
     return out
 
 
@@ -191,15 +218,21 @@ def _unary(fn, reads_output=False):
         inplace = kwargs.get("output_tensor") is not None
         kw = {k: v for k, v in kwargs.items() if k != "output_tensor"}
         out_v = shipped(x.value, *[_unwrap(a) for a in args[1:]], **kw)
+        box = [out_v]
         def make():
             def bw(g):
-                # Through the Tensor: `free` may have evicted the input to DRAM.
-                x.add_grad(ttnn.multiply(g, fn(x.value, out_v)))
+                # Through the Tensor for the input and through the box for the output:
+                # `free` may have evicted either to DRAM.
+                x.add_grad(ttnn.multiply(g, fn(x.value, box[0])))
             return bw
 
         out = _tape(out_v, [x], make)
-        if reads_output:
-            out.evictable = False
+        # The box is handed over whether or not the RULE reads the output, because the
+        # CLOSURE reads it either way -- `fn` is called with `box[0]` and a rule that ignores
+        # its second argument still evaluates it. Keeping the box current under eviction
+        # costs one assignment and removes the only way it could go stale.
+        if out.node is not None:
+            out.box = box
         elif inplace:
             # `ttnn.silu(x, output_tensor=x)` is the unary form of the same signal, and
             # the same ordering rule applies: after `_tape`, so `free` can see that a
@@ -232,10 +265,26 @@ _VERBS["exp"] = _unary(lambda xv, y: y, reads_output=True)
 _FUSED_UNARY = {}
 
 
+# A fused activation that carries a scalar. `UnaryWithParam(MUL_UNARY_SFPU, c)` is one
+# op_type with a different function per call site, so it cannot be a constant entry above:
+# the registry holds a builder that is handed the scalar and returns the same
+# (forward, derivative) pair the plain entries are.
+_FUSED_UNARY_PARAM: dict = {}
+
+
 def _register_fused_unary():
     u = getattr(ttnn, "UnaryOpType", None)
     if u is None:                                                  # pragma: no cover
         return
+    if hasattr(u, "MUL_UNARY_SFPU"):
+        # `add_(x, y, input_tensor_a_activations=[MUL_UNARY_SFPU(c)])` is `x * c + y`. The
+        # fp32-softmax tail rides the score scale on the add instead of paying a pass for
+        # it (`tenstorrent.py:3757`), and openfold3's trunk, template and MSA stacks all
+        # take that path by default -- `fp32_softmax=True` at every one of them -- so this
+        # is the shipped path for a whole model, not an opt-in corner. The derivative is
+        # the constant.
+        _FUSED_UNARY_PARAM[u.MUL_UNARY_SFPU] = lambda c: (
+            lambda x: ttnn.multiply(x, c), lambda x, y: c)
     if hasattr(u, "SIGMOID"):
         _FUSED_UNARY[u.SIGMOID] = (
             ttnn.sigmoid, lambda x, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)))
@@ -251,12 +300,95 @@ def _register_fused_unary():
 _register_fused_unary()
 
 
-def _activation(kwargs, key):
+_SCALAR_RE = re.compile(r"params=\[([^\]]*)\]")
+_PARAM_CHECKED: set = set()
+
+
+def _unary_scalar(op):
+    """The scalar a parameterised fused unary carries, or None if it carries none.
+
+    ttnn binds `op_type` on `UnaryWithParam` and nothing else -- there is no `params`
+    attribute -- so the value is read out of the repr, which prints `params=[0.25]`. A
+    format dependency is not something a gradient may rest on, so the number is not
+    trusted: `_fused_param` measures it against the kernel the first time it sees it.
+
+    The repr rounds -- 1/sqrt(32) prints as `params=[0.17677669]`, eight significant digits
+    against the double's seventeen -- which is 3e-08 relative and three orders below bf16's
+    own resolution at every site in this tree. It is recorded rather than corrected: there
+    is nothing to correct it against, and a gradient carrying it is closer to the kernel's
+    own fp32 constant than to the double the caller wrote.
+    """
+    m = _SCALAR_RE.search(repr(op))
+    if m is None:
+        return None
+    parts = [p for p in m.group(1).split(",") if p.strip()]
+    if len(parts) != 1:
+        return None
+    try:
+        return float(parts[0])
+    except ValueError:                                             # pragma: no cover
+        return None
+
+
+def _check_param(op, fwd, probe):
+    """Confirm the scalar read out of the repr is the one the kernel applies.
+
+    One comparison per distinct activation, on the operand already in hand: the kernel
+    computes `f(x) + 0` through the fused path, and the model computes `f(x)` directly.
+    The bar is loose on purpose, and it has to be: the probe is bf16, so one ulp at
+    magnitude 1 is already 3.9e-03 and a tighter bar measures the dtype rather than the
+    parse. This is not a precision check. It is here to catch the parse returning something
+    that is not the scale at all, which is what an fp32 bit pattern
+    (`rfd3_bias._scale_bits`) would look like if ttnn ever stored one: off by nine orders,
+    not by a rounding. 5e-02 leaves a factor of twelve over the bf16 floor and still
+    refuses a scalar wrong by more than 5 %.
+    """
+    key = repr(op)
+    if key in _PARAM_CHECKED:
+        return
+    _PARAM_CHECKED.add(key)
+    zero = ttnn.multiply(probe, 0.0)
+    kern = ttnn.add(probe, zero, input_tensor_a_activations=[op])
+    ours = fwd(probe)
+    diff = ttnn.max(ttnn.abs(ttnn.subtract(kern, ours)))
+    scale = ttnn.max(ttnn.abs(kern))
+    d = float(ttnn.to_torch(diff).flatten()[0])
+    sc = float(ttnn.to_torch(scale).flatten()[0])
+    for t in (zero, kern, ours, diff, scale):
+        ttnn.deallocate(t)
+    if d > 5.0e-2 * (sc + 1.0e-30):
+        raise NotImplementedError(
+            f"tt_bio.autograd read the scalar of {op!r} out of its repr and the kernel "
+            f"disagrees: max |kernel - model| {d:.3e} against |kernel| {sc:.3e}. The "
+            f"gradient would be scaled by the wrong constant, so this refuses.")
+
+
+def _fused_param(op, probe):
+    """A parameterised fused unary as a (forward, derivative) pair, or None if it is not
+    one. Unknown `op_type` returns None so `_activation` can raise with its own message."""
+    build = _FUSED_UNARY_PARAM.get(getattr(op, "op_type", None))
+    if build is None:
+        return None
+    c = _unary_scalar(op)
+    if c is None:                                                  # pragma: no cover
+        raise NotImplementedError(
+            f"tt_bio.autograd cannot read the scalar of {op!r}, so it cannot differentiate "
+            f"it. Guessing it would scale the gradient by the wrong constant.")
+    pair = build(c)
+    if probe is not None:
+        _check_param(op, pair[0], probe)
+    return pair
+
+
+def _activation(kwargs, key, probe=None):
     """The single fused unary on one operand, or None. Anything unmodelled raises.
 
     Declining loudly is the whole point. The forward would be right either way, because it
     comes from the shipped verb; it is the backward that would quietly differentiate a
     different function.
+
+    `probe` is the operand the activation is fused onto, when the caller has it. It is what
+    a parameterised activation's scalar is checked against.
     """
     acts = kwargs.get(key) or ()
     acts = list(acts)
@@ -266,13 +398,19 @@ def _activation(kwargs, key):
         raise NotImplementedError(
             f"tt_bio.autograd tapes one fused activation per operand; {key} has {len(acts)}.")
     op = acts[0]
-    if op not in _FUSED_UNARY:
-        raise NotImplementedError(
-            f"tt_bio.autograd has no backward for the fused activation {op!r} on {key}. "
-            f"Add it to tt_bio.taped_ttnn._FUSED_UNARY -- forwarding it to the shipped verb "
-            f"and ignoring it here gives a correct forward and a wrong gradient, which is "
-            f"how the TriangleAttention gate read 4.88x high.")
-    return _FUSED_UNARY[op]
+    pair = _fused_param(op, probe)
+    if pair is not None:
+        return pair
+    # A bare `UnaryOpType` carries no scalar and has no `op_type` attribute; only the
+    # plain registry can hold it, and only it is safe to look up as a dict key.
+    if not hasattr(op, "op_type") and op in _FUSED_UNARY:
+        return _FUSED_UNARY[op]
+    raise NotImplementedError(
+        f"tt_bio.autograd has no backward for the fused activation {op!r} on {key}. "
+        f"Add it to tt_bio.taped_ttnn._FUSED_UNARY, or to _FUSED_UNARY_PARAM if it carries "
+        f"a scalar -- forwarding it to the shipped verb and ignoring it here gives a "
+        f"correct forward and a wrong gradient, which is how the TriangleAttention gate "
+        f"read 4.88x high.")
 
 
 def _binary(grad_a, grad_b, scalar, out_of_place=None):
@@ -313,8 +451,8 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
 
             return _tape(out_v, [a], make_s)
         b = _wrap(raw_b)
-        fa = _activation(kwargs, "input_tensor_a_activations")
-        fb = _activation(kwargs, "input_tensor_b_activations")
+        fa = _activation(kwargs, "input_tensor_a_activations", a.value)
+        fb = _activation(kwargs, "input_tensor_b_activations", b.value)
         out_v = shipped(a.value, b.value, **kw)
         def make():
             def bw(g):
@@ -480,6 +618,11 @@ def _sliced(x: "Tensor", out_v, starts, ends):
 
     def make():
         def bw(g):
+            # `ttnn.concat` is tile-only, and a slice of a row-major tensor hands this
+            # closure a row-major cotangent. Tile once here rather than per axis;
+            # `add_grad` puts it back into the parent's layout.
+            if g.layout != ttnn.TILE_LAYOUT:
+                g = ttnn.to_layout(g, ttnn.TILE_LAYOUT)
             for ax in range(len(shape)):
                 before, after = starts[ax], shape[ax] - ends[ax]
                 if not before and not after:
@@ -704,6 +847,56 @@ def _v_create_qkv_heads(shipped, args, kwargs):
     return tuple(_tape(o, [x], slot(s)) for s, o in enumerate(outs))
 
 
+@_verb("embedding")
+def _v_embedding(shipped, args, kwargs):
+    """A gather by row index. Its gradient is a scatter-add back into the table.
+
+    `ttnn.embedding(indices, table)` is the broadcast every atom-level model makes: OF3's
+    diffusion module fans a per-token single onto 601 atoms, its atom transformer fans the
+    same tensor onto 19 key blocks, and the pair branch gathers a [96,96] map into blocked
+    windows. The INDICES are host-precomputed and carry no gradient; the TABLE is the taped
+    activation, and since many rows read the same table entry the backward accumulates
+    rather than assigns. A closure that assigned would be exactly right on a permutation
+    and silently wrong here, which is why the test drives it with duplicates.
+
+    `ttnn.embedding_bw` is that scatter-add, with two constraints the shipped signature
+    does not advertise: the cotangent must be rank 4 with both leading dims 1, and it must
+    be bf16 or bfp8 (it refuses fp32 outright). Neither costs accuracy here, because the
+    forward is already bf16 at this point -- every shipped call site downcasts the table
+    before the gather, since `ttnn.embedding` is bf16-only too. Measured against float64
+    index_add at the shapes OF3 runs: 1.03e-2 relative at [96,384] from 608 rows, 1.35e-2
+    at [9216,128] from 77824. That is the kernel's own bf16 accumulation, not the input
+    rounding -- splitting the cotangent into bf16 high and residual and running it twice
+    moves 1.354e-2 to 1.344e-2, so there is nothing to buy there. It grows with rows per
+    table entry: 6.2e-2 at 43 duplicates, over §3d's per-tensor bar. If a table ever gets
+    that crowded the escape is a one-hot matmul, which accumulates in the fp32 dest
+    register; at OF3's ~8 rows per entry it is not needed and would cost a [77824, 9216]
+    intermediate.
+    """
+    idx = _unwrap(args[0])
+    w = _wrap(args[1])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+    w_shape, w_dtype, w_layout = w.value.shape, w.value.dtype, w.value.layout
+    V, C = int(w_shape[-2]), int(w_shape[-1])
+
+    def make():
+        def bw(g):
+            flat = ttnn.reshape(ttnn.to_layout(g, ttnn.ROW_MAJOR_LAYOUT), (1, 1, -1, C))
+            gb = ttnn.to_layout(flat, ttnn.TILE_LAYOUT)
+            if gb.dtype != ttnn.bfloat16:
+                gb = ttnn.typecast(gb, ttnn.bfloat16)
+            gw = ttnn.embedding_bw(idx, w.value, gb)
+            gw = ttnn.reshape(ttnn.to_layout(gw, ttnn.ROW_MAJOR_LAYOUT), tuple(w_shape))
+            if w_layout != ttnn.ROW_MAJOR_LAYOUT:
+                gw = ttnn.to_layout(gw, w_layout)
+            if gw.dtype != w_dtype:
+                gw = ttnn.typecast(gw, w_dtype)
+            w.add_grad(gw)
+        return bw
+
+    return _tape(out_v, [w], make)
+
 # --- placement and lifetime --------------------------------------------------------------
 
 _VERBS["clone"] = _VERBS["reallocate"] = _VERBS["to_layout"] = \
@@ -757,7 +950,10 @@ class _Ttnn:
         real = object.__getattribute__(self, "_real")
         attr = getattr(real, name)
         qual = object.__getattribute__(self, "_prefix") + name
-        if isinstance(attr, type(ttnn)):
+        # `types.ModuleType`, not `type(ttnn)`: the latter reads this module's own global,
+        # so a second proxy that rebinds it makes this test a false negative and every
+        # `ttnn.experimental.*` verb comes back raw, failing later as a pybind TypeError.
+        if isinstance(attr, types.ModuleType):
             out = _Ttnn(attr, qual + ".")
         elif callable(attr) and not isinstance(attr, type):
             out = _taped_verb(qual, attr)
@@ -972,9 +1168,11 @@ def _v_max(shipped, args, kwargs):
     out_v = shipped(*ra, **rk)
     xv = x.value
 
+    box = [out_v]
+
     def make():
         def bw(g):
-            m = out_v
+            m = box[0]                      # through the box: `free` may have evicted it
             if not keepdim:
                 kept = list(shape)
                 kept[ax] = 1
@@ -984,5 +1182,6 @@ def _v_max(shipped, args, kwargs):
         return bw
 
     out = _tape(out_v, [x], make)
-    out.evictable = False          # the closure holds out_v to build the equality mask
+    if out.node is not None:
+        out.box = box
     return out
