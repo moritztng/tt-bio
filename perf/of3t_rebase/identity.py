@@ -32,6 +32,7 @@ import argparse
 import hashlib
 import json
 import os
+import inspect
 import socket
 import sys
 import time
@@ -115,28 +116,52 @@ def main() -> int:
                                      "openfold3_diffusion_transformer.py:265"}
 
             if a.perturb:
-                key = next(k for k in sd
-                           if k.startswith("pairformer_stack.blocks.0") and k.endswith("weight"))
-                sd[key] = sd[key] * (1.0 + 2.0 ** -8)
-                rec["perturbed_key"] = key
+                # One weight per digested module, each 1 + 2^-8, one bf16 ulp at unit
+                # magnitude. Both, because a control that only reaches the pairformer leaves
+                # the diffusion-transformer digest unable to fail, and a digest that cannot
+                # fail proves nothing.
+                keys = [next(k for k in sd if k.startswith("pairformer_stack.blocks.0")
+                             and k.endswith("weight")),
+                        next(k for k in sd
+                             if k.startswith("diffusion_module.diffusion_transformer.blocks.0")
+                             and k.endswith("weight"))]
+                for key in keys:
+                    sd[key] = sd[key] * (1.0 + 2.0 ** -8)
+                rec["perturbed_keys"] = keys
 
             dmsd = _sub(sd, "diffusion_module")
             dsd = _sub(dmsd, "diffusion_transformer")
-            rec["dit_has_shared_layer_norm_z"] = "layer_norm_z.weight" in dsd.data \
-                if hasattr(dsd, "data") else "layer_norm_z.weight" in dsd
+            # `_sub` hands back a plain dict here and a Weights elsewhere; read through both
+            # rather than branching on hasattr, which is how c_a came out None the first time.
+            dget = (lambda k: dsd.data[k]) if hasattr(dsd, "data") else (lambda k: dsd[k])
+            dhas = (lambda k: k in dsd.data) if hasattr(dsd, "data") else (lambda k: k in dsd)
+            rec["dit_has_shared_layer_norm_z"] = dhas("layer_norm_z.weight")
             dit = OF3DiffusionTransformer(dsd, ckc, n_blocks=a.blocks)
             rec["dit_per_block_layer_norm_z"] = dit.ln_z_w is None
 
             pf_sd = remap_pairformer_stack(sd, prefix="pairformer_stack")
-            pf = Pairformer(a.blocks, *_PF_DIMS, True, pf_sd, ckc,
-                            scale_pair_bias=True, tri_att_scale_pair_bias=False,
-                            fp32_softmax=True, transpose_bias=(not ob))
+            # The shipped call from openfold3_trunk.py, restricted to the kwargs THIS tree's
+            # Pairformer accepts. `origin/main` has no `tri_att_scale_pair_bias`; that kwarg
+            # arrived on the campaign branch. Dropping it silently would compare two different
+            # functions and call the difference a digest, so what was dropped is reported.
+            want = {"scale_pair_bias": True, "tri_att_scale_pair_bias": False,
+                    "fp32_softmax": True, "transpose_bias": (not ob)}
+            accepted = set(inspect.signature(Pairformer.__init__).parameters)
+            kw = {k: v for k, v in want.items() if k in accepted}
+            rec["pairformer_kwargs"] = {"passed": kw,
+                                        "dropped_this_tree_has_no_such_kwarg":
+                                            sorted(set(want) - set(kw))}
+            pf = Pairformer(a.blocks, *_PF_DIMS, True, pf_sd, ckc, **kw)
 
             n = a.tokens
             c_s = int(sd["pairformer_stack.blocks.0.attn_pair_bias.layer_norm_a.weight"].shape[0])
             c_z = int(sd["pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.weight"].shape[0])
-            c_a = int(dsd.data["blocks.0.attention_pair_bias.layer_norm_a.layer_norm_s.weight"]
-                      .shape[0]) if hasattr(dsd, "data") else None
+            # Every dim off the checkpoint, never guessed: a wrong one builds a module that
+            # runs and digests a different function on each side.
+            c_a = int(dget("blocks.0.attention_pair_bias.mha.linear_q.bias").shape[0])
+            c_ds = int(dget("blocks.0.attention_pair_bias.layer_norm_a."
+                            "layer_norm_s.weight").shape[0])
+            c_dz = int(dget("blocks.0.attention_pair_bias.linear_z.weight").shape[1])
             g = torch.Generator().manual_seed(a.seed)
             mk = lambda x: ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                            device=dev)
@@ -148,11 +173,14 @@ def main() -> int:
             dump()
 
             a_t = torch.randn(1, n, c_a, generator=g) * 0.5
-            ds_t = torch.randn(1, n, c_s, generator=g) * 0.5
+            ds_t = torch.randn(1, n, c_ds, generator=g) * 0.5
+            dz_t = torch.randn(1, n, n, c_dz, generator=g) * 0.5
             mkt = torch.ones(1, n)
-            do = dit(mk(a_t), mk(ds_t), mk(z_t), mk(mkt), mk(mkt.reshape(1, n, 1)))
+            do = dit(mk(a_t), mk(ds_t), mk(dz_t), mk(mkt), mk(mkt.reshape(1, n, 1)))
             rec["diffusion_transformer"] = {"sha256": digest(do, ttnn),
-                                            "shapes": {"a": list(a_t.shape)}}
+                                            "shapes": {"a": list(a_t.shape),
+                                                       "s": list(ds_t.shape),
+                                                       "z": list(dz_t.shape)}}
             out["checkpoints"][tag] = rec
             dump()
 
