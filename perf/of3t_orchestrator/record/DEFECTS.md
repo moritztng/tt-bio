@@ -335,6 +335,31 @@ values arrive through the recorded `randn` draws at shapes (1,48) and (1,48,422,
 
 ---
 
+**RESOLVED AGAINST ITSELF, pass 82 — the hypothesis above is REFUTED, and this entry should
+have said so twenty passes ago.** The discriminator it asks for had already run, at stack scope,
+and the answer is recorded in A16 and on the scoreboard but was never brought back here:
+
+> one block's masked-z error of **7.811e-03** composes to **2.792e-01 over 48 blocks** —
+> **near-linearly**, not as the `sqrt(48)` that rounding alone predicts, and **39.7x and 95.2x
+> above upstream's own replay floor.**
+
+Random rounding error composes as `sqrt(depth)`; `sqrt(48) x 7.811e-03 = 5.4e-02`, and the
+measurement is **five times that**. Near-linear composition means the per-block errors are
+**correlated** — the signature of a systematic bias, not of a precision floor. Combined with the
+disagreement sitting two orders above upstream's own replay of itself, **"this is our device
+precision" is dead.** D19 is a **defect**, and the standing rule that bit-exactness is not
+required does **not** absolve it: an accuracy bar is still a bar, and this one is missed by a
+mechanism rather than by arithmetic.
+
+**Why this correction is filed as a finding and not a tidy-up.** I read this entry during pass
+82, believed its hypothesis was open, and spent most of a pass designing a control — their model
+in bf16 against their float64 self — to settle a question the campaign had already settled. The
+refuting number was in `PROTOCOL.md`, in `EVIDENCE.md`, and in my own state doc. It was not
+here, in the entry a reader goes to when they want to know what is wrong. *A defect entry that
+states a live hypothesis while the evidence file already refutes it is worse than one that says
+nothing, because it actively spends the reader's time.* The audit now checks for exactly that
+shape (see `audit_evidence.py`, `open hypothesis in an UNFIXED defect`).
+
 ### D17. The parameter bijection reached 6.5 % of the reference gradient's magnitude. CLOSED, passes 41-42 — 98.01 %.
 
 Found by `of3t-updaterule` (pass 39) by profiling the published float64 reference per tensor

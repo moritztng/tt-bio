@@ -462,6 +462,28 @@ critical path is host-side, so it costs nothing. Tenancy left on their state doc
 concluded row has no brief to amend. Separately, qb2's **SSH host key rotated** at the
 19:35:53Z boot: `tt-quietbox2.fritz.box` now fails verification, `tt-quietbox2` works.
 
+PASS 82. **D19's hypothesis was refuted twenty passes ago and its entry never said so.** Its
+paragraph *"A hypothesis with a decisive test, offered rather than asserted"* — that 6.735e-03
+might just be device bf16 — sent me most of a pass designing the control to settle it.
+`of3t-gradients` had already settled it at stack scope: one block's masked-z error of
+**7.811e-03** composes to **2.792e-01 over 48 blocks, near-linearly**, where `sqrt(48) x
+7.811e-03 = 5.4e-02` — **five times** what rounding predicts — and 39.7x/95.2x above upstream's
+own replay floor. Near-linear composition means **correlated** per-block error: a systematic
+bias, not a precision floor. **D19 is a defect**, and "bit-exactness is not required" does not
+absolve it.
+
+The refuting number was in PROTOCOL, in EVIDENCE and in my own state doc — **not in the defect
+entry**, which is where a reader goes to ask what is wrong. It did not merely lag; it spent a
+reader's pass, and I was that reader on a record I wrote. Two mechanical lessons: I searched for
+*"depth curve"*, *"block 47"*, *"bf16 floor"* — none of which the record uses — and read silence
+as absence (*a grep miss is a vocabulary mismatch, not a measurement gap*); and **DEFECTS.md is
+not in numerical order** (D1, D10, D15, D18, **D20**, D19 ...), so my first insert of this
+correction landed inside D18.
+
+The audit gains the check for the class: an UNFIXED defect may state a hypothesis but may not
+leave it dangling — `REFUTED`, `CONFIRMED`, `still open`, `what would settle it` all satisfy it.
+It caught my misplaced insert on its first run, and it is controlled both ways.
+
 PASS 81b. **I shipped a pattern match as a finding into someone else's state doc, and
 withdrew it in the same pass.** From the diffusion row's co-tenancy note I found
 `c14-land-tail` — concluded — with a surviving cron waiter armed on card 2 to a 22:28:29Z

@@ -4755,3 +4755,40 @@ load condition**, at 2045 s of a 3600 s budget, so the NULL they record would be
 pvx-orchestrator's scheduling and not about the flag they are testing. Their pass-18 stopping
 rule was not written about that kind of NULL. I did not touch pvx's release gate: diagnosing
 another campaign's contention is in scope, arbitrating it is not.
+
+### R119 -- D19's hypothesis was refuted twenty passes ago and its entry never said so
+
+**Second wrong premise in two passes, same root.** I went looking for D19's last open question,
+read its entry, found a paragraph headed *"A hypothesis with a decisive test, offered rather
+than asserted"* — our 6.735e-03 might just be device bf16 — and spent most of a pass designing
+the control that would settle it: their model in bf16 against their own float64.
+
+**It had already been settled, by `of3t-gradients` at stack scope, and the answer is no.**
+
+> one block's masked-z error of **7.811e-03** composes to **2.792e-01 over 48 blocks** —
+> **near-linearly**, not the `sqrt(48)` rounding predicts, and **39.7x / 95.2x above upstream's
+> own replay floor.**
+
+`sqrt(48) x 7.811e-03 = 5.4e-02`; the measurement is **five times that**. Random rounding
+composes as `sqrt(depth)`; near-linear composition means the per-block errors are **correlated**
+— a systematic bias, not a precision floor. **D19 is a defect**, and "bit-exactness is not
+required" does not absolve it: a mechanism misses the bar, not arithmetic.
+
+**The number was in `PROTOCOL.md` (A16), in `EVIDENCE.md`, and in my own state doc. It was not
+in the defect entry** — the one place a reader goes to ask what is wrong. Filed as a finding
+because the entry did not merely lag; it **actively spent a reader's pass**, and I was that
+reader, on a record I wrote.
+
+**Two mechanical lessons, both cheap and both mine.** First, I searched my own record for
+*"depth curve"*, *"block 47"*, *"grows with depth"*, *"bf16 floor"* — none of which it uses —
+and read the silence as absence. *A grep miss is not a measurement gap; it is a vocabulary
+mismatch, and the larger the record the more often it will be.* Second, **`DEFECTS.md` is not
+in numerical order** (D1, D10, D15, D18, **D20**, D19, D17 ...), so my first insert of this very
+correction landed inside **D18**. The new check caught it on its first run, which is the best
+argument for it I could have arranged.
+
+**The check.** An UNFIXED defect may state a hypothesis but may not leave it dangling: the entry
+must carry a resolution word. `REFUTED`, `CONFIRMED`, `still open`, `what would settle it` all
+satisfy it — the campaign is not asked to answer every question, only to stop presenting a
+question as live in an entry whose evidence has already moved on. Controlled both ways: it fires
+on the pre-fix D19 and is quiet after.
