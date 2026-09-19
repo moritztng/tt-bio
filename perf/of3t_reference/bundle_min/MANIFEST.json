@@ -1,0 +1,110 @@
+{
+  "bundle": "BUNDLE-MIN",
+  "published": "2026-09-19",
+  "row": "of3t-reference",
+  "what_it_is": "One frozen training batch, the weights it was taken at, the per-parameter float64 step-1 gradient with its presence pattern, and every random draw the step made. This is the artifact PROTOCOL instrument A is measured against.",
+  "canonical_location": {
+    "host": "tt-quietbox2",
+    "path": "/home/ttuser/of3t/bundle_min/",
+    "why": "qb2 has 3.0 TB free and is the host of3t-gradients runs on, so consumer and data are co-located. pc is at 97 % and git carries no .pt."
+  },
+  "upstream": {
+    "repo": "github.com/aqlaboratory/openfold-3",
+    "tag": "v0.5.0",
+    "commit": "c4771653c5d0a3ebb0b3af71b05efd64bc44ee86",
+    "note": "Reference stack targets 0.5.0 per LEDGER R1-AMENDED. tt-bio's production pin stays 0.4.3 (0bb17be5199846e806b6347b6e17c6249c88ff1b)."
+  },
+  "environment": {
+    "device": "NVIDIA A100-SXM4-80GB",
+    "torch": "2.5.1+cu124",
+    "cuda": "12.4",
+    "numpy": "2.1.2",
+    "dtype": "float64",
+    "their_fp32_autocast_and_unconditional_float_casts_disabled": true
+  },
+  "seed": 20260919,
+  "batch": {
+    "pdb_id": "5nw3",
+    "n_tokens": 56,
+    "composition": "one protein chain, one Fe ligand, one Na ligand",
+    "crop": "their WeightedPDBDataset, token_budget 384",
+    "why_this_one": "smallest entry in the corpus on which all eleven loss terms are non-zero"
+  },
+  "step_1_result": {
+    "loss": 6.242307891698905,
+    "loss_bit_identical_on_replay": true,
+    "gradient_global_norm": 4.642245878270448,
+    "clip_coef_their_grad_manager_would_apply": 1.0,
+    "n_parameters": 4147,
+    "n_absent_gradients": 0,
+    "drawn_recycle_count": 3,
+    "n_torch_randn_draws": 45,
+    "python_random_values": [0.6334896914538571, 0.8063837539475641]
+  },
+  "finite_difference_validation": {
+    "method": "float64 central differences on the same forward, h = 1e-5, RNG pinned per evaluation",
+    "n_samples": 16,
+    "sampling_rule": "entries with |analytic| >= 1e-6, because 99.9 % of individual entries are exactly zero on a padded 56-token batch",
+    "max_rel_err": 1.0804224315183522e-4,
+    "median_rel_err": 3.5808603381448577e-6,
+    "worst_param": "diffusion_module.atom_attn_dec.linear_q_out.weight"
+  },
+  "artifacts": [
+    {
+      "file": "batch_step003.pt",
+      "bytes": 100822382,
+      "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
+      "on_qb2": true,
+      "what": "the frozen batch, already collated by their openfold_batch_collator"
+    },
+    {
+      "file": "draws.pt",
+      "bytes": 525598,
+      "sha256": "5dcb87fec6f03adeb1a3849b2d5f3f407cb9ed89bdaa83e343b79ddf913432ff",
+      "on_qb2": true,
+      "what": "recycle count, diffusion noise levels, every torch.randn draw, every random.random draw, and the full RNG state including OpenFold3.synced_generator"
+    },
+    {
+      "file": "grad_presence.json",
+      "bytes": 342321,
+      "sha256": "3034929504c51c815ab5cfc6d6972e6db9cfdba423ad00370f2f11c845a70f1f",
+      "on_qb2": true,
+      "also_in_git": true,
+      "what": "per parameter, whether it had a gradient at all. None must match None; never fill with zeros."
+    },
+    {
+      "file": "manifest.json",
+      "bytes": 11325,
+      "sha256": "494bf43257433b7f97e0a0ac7ab0331583599d5994458f672ea8f1ada4b2af28",
+      "on_qb2": true,
+      "also_in_git": true,
+      "what": "the run's own record, written by bundle_min.py, including every finite-difference check"
+    },
+    {
+      "file": "grads_f64.pt",
+      "bytes": 2947812293,
+      "sha256": "pending-transfer",
+      "on_qb2": false,
+      "what": "per-parameter gradient, float64, None preserved. Produced and verified on the rented A100; the copy to qb2 was interrupted and is re-running."
+    },
+    {
+      "file": "w0.pt",
+      "bytes": 4573705142,
+      "sha256": "pending-transfer",
+      "on_qb2": false,
+      "what": "the float64 weights the gradient was taken at. Values are exactly float32-representable: the model is initialised in float32 and cast up, so a float32 copy is lossless."
+    }
+  ],
+  "how_to_regenerate": {
+    "script": "perf/of3t_reference/bundle_min.py",
+    "corpus": "perf/of3t_reference/build_corpus.sh then perf/of3t_reference/build_batch.py",
+    "command": "PYTHONPATH=<openfold-3 v0.5.0 checkout> python bundle_min.py --batch <batch> --batch-sha256 <sha> --out <dir> --dtype float64 --fd-samples 16",
+    "warning": "Regeneration reproduces the bundle only within one environment. Rebuilding the batches twice on the same box gives 20/20 byte-identical files; rebuilding on a different machine from the same seed, corpus and config gives 0/20, while producing the identical entry order and token counts. Fetch the bytes and check the sha256."
+  },
+  "consumer_rules": [
+    "Match the draws before comparing anything. The recycle count is drawn per step from U{0..3} and the diffusion head noises 48 structures; two stacks that drew differently are comparing different work.",
+    "The recycle draw comes from OpenFold3.synced_generator, a private np.random.default_rng held as a model attribute (model.py:77). torch.manual_seed does not reach it.",
+    "None is not zero. Compare the presence pattern as a set before any magnitude.",
+    "The gradient is BEFORE clipping. At world size 1 with accumulate_grad_batches 1 the optimizer-facing gradient is exactly grad * clip_coef."
+  ]
+}

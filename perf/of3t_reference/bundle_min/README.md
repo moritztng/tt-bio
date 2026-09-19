@@ -18,7 +18,7 @@ manifest rather than editing this one; a downstream row that verified a hash mus
 | `grads_f64.pt` | per-parameter gradient, float64, `None` kept as `None` |
 | `draws.pt` | recycle count, diffusion noise levels, every `torch.randn` draw, every `random.random` draw, and the full RNG state including the model's private generator |
 
-The four large files live on `tt-quietbox2` at `/home/moritz/of3t_bundle/bundle_min/`; the manifest
+The four large files live on `tt-quietbox2` at `/home/ttuser/of3t/bundle_min/`; the manifest
 in git carries their sizes and sha256 so a consumer can verify what it fetched. They are not in git
 because they are 7.5 GB.
 
