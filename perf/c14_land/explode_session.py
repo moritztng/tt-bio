@@ -11,14 +11,27 @@ index taken from the record's own "pos" field.
 """
 import argparse
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+import provenance  # noqa: E402
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--session", required=True)
 ap.add_argument("--dir", required=True)
+ap.add_argument("--repo", default=str(Path(__file__).resolve().parents[2]))
 a = ap.parse_args()
 
 d = json.loads(Path(a.session).read_text())
+
+# Refuse to hand the scorer legs that did not all run the same tt_bio. Heads may differ --
+# a harness or docs commit cannot reach a fold -- but the imported code may not.
+ok, lines = provenance.check(provenance.heads_of(d), a.repo)
+print("\n".join(lines))
+if not ok:
+    sys.exit(1)
+
 out = Path(a.dir)
 out.mkdir(parents=True, exist_ok=True)
 n = 0
