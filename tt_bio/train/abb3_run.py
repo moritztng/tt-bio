@@ -104,6 +104,13 @@ __all__ = ["RunConfig", "ReducedRAdam", "CosineRestartsByStep", "run",
 #: a broken run and it is knowable in days rather than weeks. 10 % is the confirmation point.
 TRIPWIRE_FRACTIONS = (0.03, 0.10)
 
+#: How many steps of a launch the gradient-coverage gate watches before it decides. Upstream's
+#: zero-initialised residual projections make step 1 unrepresentative and one update is enough to
+#: switch them on, so two would do; ten is ~2 minutes of a 5-day leg and leaves room for a branch
+#: that takes longer. A launch that dies before reaching it is not checked, which is the right
+#: trade: the gate exists to stop a long run, not to adjudicate a crash.
+GRADIENT_COVERAGE_STEPS = 10
+
 
 @dataclass
 class RunConfig:
@@ -386,7 +393,7 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
     # the loss stage, and which TERM it is decides whether a lever touches the serial part or
     # the parallel part -- the distinction the whole optimisation queue is ranked on.
     prev_terms: dict = {}
-    first_step = True
+    coverage_left, never_moved = GRADIENT_COVERAGE_STEPS, None
     with provenance.during(seed=cfg.seed, config=cfg.as_dict()) as prov:
         for batch in plan:
             gs = batch.step + 1
@@ -397,9 +404,12 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             t0 = time.perf_counter()
             parts, timing = step.step(micros)
             wall = time.perf_counter() - t0
-            if first_step:
-                first_step = False
-                _assert_every_parameter_trains(step, gs, cfg.rank)
+            if coverage_left:
+                dead = set(step.ungradiented)
+                never_moved = dead if never_moved is None else (never_moved & dead)
+                coverage_left -= 1
+                if not coverage_left:
+                    _assert_every_parameter_trains(never_moved, len(step.params), gs, cfg.rank)
             terms = {k: round(v - prev_terms.get(k, 0.0), 4)
                      for k, v in step.loss_terms.items()}
             prev_terms = dict(step.loss_terms)
@@ -449,11 +459,22 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             "steps_done": history[-1]["step"] if history else start}
 
 
-def _assert_every_parameter_trains(step, gs: int, rank: int) -> None:
-    """Refuse to keep running if any parameter got no gradient on this launch's first step.
+def _assert_every_parameter_trains(never_moved: set, total: int, gs: int, rank: int) -> None:
+    """Refuse to keep running if a parameter got no gradient on ANY of this launch's first steps.
 
-    Checked once per launch rather than once per run, so a resume re-establishes it and the
-    cost is one comparison per parameter against a 12-second step.
+    Checked once per launch rather than once per run, so a resume re-establishes it, and the
+    cost is one comparison per parameter over `GRADIENT_COVERAGE_STEPS` 12-second steps.
+
+    **One step is not the test, and finding that out is what the gate is worth.** Upstream
+    initialises every residual branch's output projection to zero -- `init="final"` on the IPA's
+    `linear_out`, the transition's `linear_3`, the angle resnet's `linear_3` and the backbone
+    update -- so at step 1 those branches contribute nothing and the weights BEHIND them have an
+    exactly zero gradient. That is upstream's behaviour and not a defect: the `final` weights
+    themselves have a nonzero gradient (`x^T g`, no factor of the weight), so one update switches
+    the branches on and everything upstream of them starts moving at step 2. A first-step check
+    reported 218 of 500 here and was reading that transient. What separates the transient from a
+    dead parameter is time, so the set is intersected across several steps and a parameter has to
+    be zero on all of them to count.
 
     **This is the check the first `base-loss` leg did not have.** It ran 1,388 steps in which
     356 of 436 parameters had an identically zero gradient, because `initial_state_dict`
@@ -470,14 +491,14 @@ def _assert_every_parameter_trains(step, gs: int, rank: int) -> None:
     `x^T g`, not a product with the weight. A genuinely zero gradient here means a broken tape
     or a broken init, both of which stop the run.
     """
-    dead = getattr(step, "ungradiented", [])
-    if not dead:
+    if not never_moved:
         return
-    total = len(step.params)
+    dead = sorted(never_moved)
     names = ", ".join(str(i) for i in dead[:8])
     raise RuntimeError(
-        f"[rank {rank}] step {gs}: {len(dead)} of {total} parameters received no gradient "
-        f"(indices {names}{'...' if len(dead) > 8 else ''}). Refusing to continue: a run in "
+        f"[rank {rank}] step {gs}: {len(dead)} of {total} parameters received no gradient on "
+        f"any of the last {GRADIENT_COVERAGE_STEPS} steps (indices {names}"
+        f"{'...' if len(dead) > 8 else ''}). Refusing to continue: a run in "
         f"this state produces a plausible loss curve and trains nothing. Check the starting "
         f"weights first -- `tt_bio.train.abb3_init.initialise_` draws them, and a model built "
         f"without it is all zeros.")
