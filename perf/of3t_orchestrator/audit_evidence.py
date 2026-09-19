@@ -275,6 +275,38 @@ if d:
         bad.append("D14's one-ulp control no longer fails -- a gate nobody has watched fail is "
                    "not a gate, and the bit-identity result leans on this one discriminating")
 
+# --- one SS3b presence answer, not two -----------------------------------------------------
+# Two committed artifacts from the same row state how many of their 4,147 gradient-carrying
+# tensors we can carry, and on 2026-09-19 they disagreed by 48: `full_model_of3_full_mat64`
+# said 3,497 (pass 41) while `reach_by_norm` said 3,545 (pass 42, after one call to the
+# confidence head). Both are internally consistent, both are live, and a reader landing on the
+# older one gets the 94.44 % -era answer. Same class as the bundle-digest guard, except this
+# one was already true when it was written. The rule is not "they must be equal" -- a
+# historical artifact is allowed -- it is that the superseded one must SAY it is superseded.
+_pres = j("perf/of3t_gradients/full_model_of3_full_mat64.json")
+_reach = j("perf/of3t_gradients/reach_by_norm.json")
+if _pres and _reach:
+    _old = _pres.get("presence", {}).get("ours_carried_by_a_device_tensor")
+    _new = _reach.get("reach", {}).get("device_bijection_mat64", {}).get("tensors")
+    try:
+        _old, _new = int(_old), int(_new)
+    except (TypeError, ValueError):
+        _old = _new = None
+    if _old is not None and _old != _new:
+        if _pres.get("superseded_by") or _pres.get("presence", {}).get("superseded_by"):
+            ok.append(f"SS3b has one live answer: {_new}; the older {_old} is marked superseded")
+        else:
+            # WARN and not DRIFT, deliberately: the remedy is one field in an artifact this
+            # row owns and I do not, and a compose held red for hours over someone else's
+            # metadata is a gate I would learn to scroll past. It is named, it is in their
+            # brief, and it becomes a failure if it survives their next artifact update.
+            warn.append(f"TWO SS3b ANSWERS LIVE: full_model_of3_full_mat64 says {_old} of 4147 "
+                       f"carried while reach_by_norm says {_new} -- a {abs(_new-_old)}-tensor "
+                       f"gap, both committed, neither marked superseded. Re-run the older or "
+                       f"give it a `superseded_by`")
+    elif _old is not None:
+        ok.append(f"SS3b agrees across artifacts: {_new} of 4147 carried")
+
 # --- the block-0 decomposition, recomputed rather than transcribed ------------------------
 # EVIDENCE quotes five group medians and a projection. All of it is derived from one artifact
 # by arithmetic, so none of it should be typed twice -- recompute and compare.
