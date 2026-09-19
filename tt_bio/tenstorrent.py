@@ -8874,7 +8874,14 @@ class Pairformer(Module):
         # separates the two. No-op unless TT_BIO_DRAM_PEAK is set.
         dram_peak(f"pairformer enter [z={'x'.join(str(d) for d in z.shape)}]")
         for i, block in enumerate(self.blocks):
-            s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)
+            # Through the seam, so a tape can checkpoint the block and inference cannot tell.
+            # A 48-block trunk is the case per-block checkpointing exists for: the tape keeps
+            # every block's intermediates AND a gradient per op, which at 384 aa is the whole
+            # card, while recomputing one block at a time is 7.762 GB (`ptx-crop`).
+            s, z = ops.checkpoint_segment(
+                lambda s_, z_, b=block: b(s_, z_, mask, attn_mask_start, attn_mask_end,
+                                          extra_attn_bias),
+                s, z)
             dram_peak(f"pairformer block {i} done")
         return s, z
 

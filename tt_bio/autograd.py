@@ -29,6 +29,7 @@ import ttnn
 
 __all__ = [
     "Tensor", "precise_config", "no_grad", "parameter", "forget_parameters",
+    "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
     "relu", "silu", "reshape",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
@@ -231,6 +232,14 @@ def backward(roots, seeds=None) -> None:
     for t in order:
         if t.node is not None:
             g = t.grad
+            if g is None:
+                # On the tape and reachable from a root, but no gradient ever landed on it. A
+                # multi-output segment makes this ordinary rather than exceptional: a
+                # checkpointed `PairformerLayer` publishes both `s` and `z` as parents of the
+                # next block, and an objective that seeds only the pair track leaves the single
+                # track's node with nothing to propagate. Zero in, zero out -- running the
+                # closure on a None is the crash, not the diagnosis.
+                continue
             if g.dtype != t.value.dtype:
                 g = ttnn.typecast(g, t.value.dtype)
             t.node.fn(g)
@@ -964,6 +973,28 @@ def pair_contract(a: Tensor, b: Tensor, *, incoming: bool = False, config=None) 
     return permute(prod, (1, 2, 0))
 
 
+# Every input a checkpointed segment pinned. The pin has to outlive the forward, because the
+# recompute happens in the backward, so nothing in `checkpoint` itself can drop it -- and a pinned
+# tensor is never released, so a run that does several forwards without a backward between them
+# accumulates one whole segment input per block per forward. Measured: a finite-difference sweep
+# at 384 aa (six extra forwards) left the next training step's backward OOM at 31.9 GB. The run
+# owns the release, and `release_pins` is how it says so.
+_CKPT_PINS: list = []
+
+
+def release_pins() -> None:
+    """Drop every pin a checkpointed segment took. Call after a backward, or after a forward
+    whose tape is being discarded."""
+    for t in _CKPT_PINS:
+        t.pinned = False
+    _CKPT_PINS.clear()
+
+
+# Sentinel: "whichever registered parameters this segment turns out to read", resolved by the
+# touch census around the untaped forward. A caller that names its own parameters still can.
+_ALL_PARAMS = object()
+
+
 def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
     """Run ``fn`` untaped, and re-run it taped inside its own backward.
 
@@ -989,27 +1020,66 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
     input can be frozen while the weights are not, so the old signature was correct for
     hallucination and wrong here.
     """
+    # PIN the inputs across the untaped forward. A shipped block deallocates the tensor it was
+    # handed the moment it has read it -- that is what the tuned forward is -- and under
+    # `no_grad` nothing on the tape objects, so the segment frees its own input and the
+    # recompute later reads a dead buffer: "Buffer is not allocated", raised inside the
+    # BACKWARD from a free issued in the forward. Pinning is exactly `free`'s existing
+    # mechanism: a pinned tensor is evicted to DRAM rather than released, so the block's
+    # tuning still gets its L1 place back and the recompute still gets its value. The pin
+    # outlives the forward because the recompute happens in the backward.
+    held = [t for t in inputs if isinstance(t, Tensor)]
+    for t in held:
+        t.pinned = True
+        _CKPT_PINS.append(t)
+    _TOUCHED.clear()
     with no_grad():
         produced = fn(*inputs)
-    out_value = produced.value if isinstance(produced, Tensor) else produced
+    # Only the parameters this segment READ. Naming all of them would give every block a node,
+    # including the ones that touch no trainable weight, and those recompute to an empty tape.
+    touched = [t for k, t in _PARAMS.items() if k in _TOUCHED] if params is _ALL_PARAMS \
+        else list(params)
+    _TOUCHED.clear()
+    parents = list(held) + touched
 
-    def make():
-        def bw(g):
-            # Re-run the segment on fresh tape nodes over the same input VALUES, then
-            # backprop through that inner tape and forward the results to the real inputs.
-            inner = [Tensor(t.value, requires_grad=t.requires_grad) for t in inputs]
+    def _recompute(k, g):
+        """Re-run the segment on fresh nodes over the same input VALUES, seed output `k`."""
+        from .taped_ttnn import recompute_scope
+        inner = [Tensor(t.value, requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
+                 for t in inputs]
+        with recompute_scope():
             y = fn(*inner)
-            if y.node is None:
-                raise RuntimeError("checkpoint(fn): the recomputed segment built no tape; "
-                                   "fn must use taped ops and at least one input must "
-                                   "require a gradient")
-            y.backward(seed=g)
-            for src, dup in zip(inputs, inner):
-                if dup.grad is not None:
-                    src.add_grad(dup.grad)
-        return bw
+        y = y[k] if k is not None else y
+        if y.node is None:
+            raise RuntimeError("checkpoint(fn): the recomputed segment built no tape; fn must "
+                               "use taped ops and at least one input must require a gradient")
+        y.backward(seed=g)
+        for src, dup in zip(inputs, inner):
+            if isinstance(src, Tensor) and isinstance(dup, Tensor) and dup.grad is not None:
+                src.add_grad(dup.grad)
 
-    return _tape(out_value, list(inputs) + list(params), make)
+    if not isinstance(produced, (tuple, list)):
+        return _tape(produced.value if isinstance(produced, Tensor) else produced, parents,
+                     lambda: (lambda g: _recompute(None, g)))
+
+    # A segment with SEVERAL outputs, which is what a real block is: a `PairformerLayer`
+    # returns the pair (s, z) and the single-output form cannot express it.
+    #
+    # One node per output, and each one recomputes the segment seeding ONLY itself. That costs
+    # a recompute per output rather than per segment, and it is exact rather than approximate:
+    # the derivative through a shared ancestor is the SUM over the output paths that reach it,
+    # so two backward passes with one seed each add up to precisely what one pass with both
+    # seeds would have produced. The alternative -- one node that waits for every output's
+    # gradient before recomputing -- needs to know when the last one has arrived, and the
+    # reverse-topological walk gives no such signal per tensor.
+    outs = []
+    for k, prod in enumerate(produced):
+        if prod is None:
+            outs.append(None)
+            continue
+        outs.append(_tape(prod.value if isinstance(prod, Tensor) else prod, parents,
+                          (lambda k=k: (lambda g: _recompute(k, g)))))
+    return tuple(outs)
 
 
 # ---------------------------------------------------------------------------------------
@@ -1124,9 +1194,19 @@ class _no_param_scan:
         return False
 
 
+# Which parameters a stretch of forward actually read. `checkpoint` needs it: a 48-block trunk
+# where only the last block's weights are trainable would otherwise name every registered
+# parameter as a parent of every block, so every block gets a node, and 47 of those nodes
+# recompute a segment that touches no parameter and builds no tape.
+_TOUCHED: set = set()
+
+
 def _param(v):
     t = _PARAMS.get(id(v))
-    return t if t is not None and t.value is v else None
+    if t is not None and t.value is v:
+        _TOUCHED.add(id(v))
+        return t
+    return None
 
 
 def _param_on_tape(v):
@@ -1367,6 +1447,22 @@ def _hook(name, shipped, args, kwargs):
         return impl(shipped, args, kwargs)
 
 
+def _checkpoint_segment(fn, *inputs):
+    """`ops.checkpoint_segment`'s implementation: checkpoint a block, or just run it.
+
+    Run it plainly whenever a tape could not use the trade -- grad off, nothing on the tape and
+    no registered parameter. Under a tape it is not an optimisation that buys depth, it is what
+    makes the thing fit: at 384 aa the composed backward exhausted all 34.23 GB of the card
+    without it, and `ptx-crop` measured the same trunk WITH per-block checkpointing at 7.762 GB.
+    """
+    if not _GRAD_ENABLED:
+        return fn(*inputs)
+    live = [t for t in inputs if isinstance(t, Tensor) and t.requires_grad]
+    if not live and not _PARAMS:
+        return fn(*inputs)
+    return checkpoint(fn, *inputs, params=_ALL_PARAMS)
+
+
 def install():
     """Route `tt_bio.ops` through the tape. Idempotent; returns the hook it replaced.
 
@@ -1376,6 +1472,7 @@ def install():
     # A recycling model asks `ops.recycle_region` whether a non-final cycle is differentiated.
     # Installed together with the verb hook because the two are the same opt-in.
     ops.set_recycle_hook(no_grad)
+    ops.set_checkpoint_hook(_checkpoint_segment)
     return ops.set_grad_hook(_hook)
 
 
@@ -1383,6 +1480,7 @@ def uninstall() -> None:
     """Put the inference path back. Idempotent."""
     from . import ops
     ops.set_recycle_hook(None)
+    ops.set_checkpoint_hook(None)
     ops.set_grad_hook(None)
 
 

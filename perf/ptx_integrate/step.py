@@ -169,7 +169,10 @@ class Composed:
         # tensors and a parameter walk cannot see them. Same argument `weights_for` makes for
         # spending a forward on its census: the parameter set comes from the model.
         t0 = time.perf_counter()
-        self.forward()
+        from tt_bio import autograd as _ag
+        with _ag.no_grad():
+            self.forward()
+        _ag.release_pins()
         out["discovery_s"] = round(time.perf_counter() - t0, 2)
 
     # ---- the composed forward ---------------------------------------------------------
@@ -316,7 +319,13 @@ def fd_check(comp, params, holders, analytic, a, out):
                 ag._PARAMS.pop(id(prev), None)
                 ag.parameter(t)
                 _set(owner, key, up)
-                vals[sign] = comp.loss(params)[0]
+                # A finite difference needs the VALUE, not a tape. Under `no_grad` the
+                # checkpointed segments run plainly, nothing is pinned and nothing is retained,
+                # which is both faster and the difference between the sweep leaving the card
+                # clean and leaving the next backward without room (measured: OOM at 31.9 GB).
+                with ag.no_grad():
+                    vals[sign] = comp.loss(params)[0]
+                ag.release_pins()
                 vals["moved"] = moved
                 t.value = prev
                 ag._PARAMS.pop(id(up), None)
@@ -435,6 +444,7 @@ def main():
                 ag.backward(roots0, [ttnn.from_torch(torch.tensor(g), layout=ttnn.TILE_LAYOUT,
                                                      device=comp.dev, dtype=ttnn.bfloat16)
                                      for g in gs0])
+                ag.release_pins()
                 analytic = {n: t.grad for n, t in params.items() if t.grad is not None}
                 out["verify_seeds"] = sorted(seeds0)
                 out["verify_loss"] = total0
@@ -474,6 +484,7 @@ def main():
                 ag.backward(roots, [ttnn.from_torch(torch.tensor(g), layout=ttnn.TILE_LAYOUT,
                                                     device=comp.dev, dtype=ttnn.bfloat16)
                                     for g in gs])
+                ag.release_pins()
                 have = {n: (t.grad is not None) for n, t in params.items()}
                 opt.step()
                 # The optimizer replaces `t.value`; the module still holds the tensor it

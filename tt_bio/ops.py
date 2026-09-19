@@ -37,7 +37,8 @@ import ttnn
 from .dispatch import OpSurface
 
 __all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook",
-           "set_recycle_hook", "recycle_region", "taping"]
+           "set_recycle_hook", "recycle_region", "taping",
+           "set_checkpoint_hook", "checkpoint_segment"]
 
 
 # The slot, and the decorator that uses it, are `tt_bio/dispatch.py`'s -- shared with
@@ -80,6 +81,28 @@ def taping():
     at all in inference, where `grad_hook()` is None.
     """
     return grad_hook() is not None
+
+
+_CHECKPOINT = None
+
+
+def set_checkpoint_hook(fn):
+    """Install the per-block checkpointing implementation. Returns the old one."""
+    global _CHECKPOINT
+    prev, _CHECKPOINT = _CHECKPOINT, fn
+    return prev
+
+
+def checkpoint_segment(fn, *inputs):
+    """Run one block. Under a tape, as a checkpointed segment; otherwise just run it.
+
+    A deep stack asks here instead of calling its block directly, so the memory/recompute
+    trade is the tape's decision and not something the model file has to know about. With
+    nothing installed this is `fn(*inputs)` and inference pays one `is None` test per block.
+    """
+    if _CHECKPOINT is None:
+        return fn(*inputs)
+    return _CHECKPOINT(fn, *inputs)
 
 
 def recycle_region(cyc, last):

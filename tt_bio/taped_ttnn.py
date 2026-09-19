@@ -39,7 +39,7 @@ from .autograd import (_axis, _differentiating, _flat2d, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
                        _taped_layer_norm, _taped_linear, _unwrap, _wrap)
 
-__all__ = ["tape", "VERBS", "taped_ttnn"]
+__all__ = ["tape", "recompute_scope", "VERBS", "taped_ttnn"]
 
 # ---------------------------------------------------------------------------------------
 # The shipped forward, taped where it computes.
@@ -823,6 +823,40 @@ def _swap(to_shim: bool) -> None:
         for mod in _SHIMMED:
             mod.ttnn = ttnn
         _SHIMMED = []
+
+
+@contextlib.contextmanager
+def recompute_scope():
+    """Make the shipped modules taped again for a recomputation inside a BACKWARD.
+
+    `tape()` is a forward-time context: it swaps the shim in, and on the way out it forgets the
+    raw-handle wrappers and puts the grad hook back. A checkpointed segment recomputes itself
+    from inside `backward`, which the documented usage runs AFTER the tape block has closed --
+    so the shipped module is looking at the real `ttnn` again and hands it an `autograd.Tensor`,
+    which pybind refuses. This is the narrower thing that recompute needs: swap the shim in if
+    it is not already in, put it back exactly as found, and touch neither the wrapper map nor
+    the hook, because the backward that is running owns both.
+    """
+    if _SHIMMED:
+        yield
+        return
+    from . import ops
+    # The hook as well as the shim. `ops.linear` and `ops.layer_norm` tape through the hook,
+    # not the shim, so a recompute without it would rebuild the segment with those sites
+    # untaped and produce a partial gradient rather than an error. And `ops.taping()` -- which
+    # is how nine fused kernels decide to decline, none of which has a backward -- is defined
+    # as the hook being installed, so without it the recompute walks straight into
+    # `generic_op has no tape entry`.
+    prev = ops.grad_hook()
+    if prev is None:
+        ops.set_grad_hook(ag._hook)
+    _swap(True)
+    try:
+        yield
+    finally:
+        _swap(False)
+        if prev is None:
+            ops.set_grad_hook(None)
 
 
 @contextlib.contextmanager
