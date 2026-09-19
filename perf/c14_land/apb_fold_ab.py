@@ -60,13 +60,19 @@ FIX = REPO / "perf" / "size512" / "fixtures"
 # silently produce two identical arms. Both are settable in the environment before import.
 FLAGS = {
     "TT_BIO_APB_CONCAT_HEADS": "_APB_CONCAT_HEADS",
+    # c14-matmul-ceiling's lever, +0.047 s at the fold, accuracy already discharged on BOTH
+    # Boltz-2 and RF3 (CA-lDDT against the experimental structure, A/A exactly 0.000000).
+    # Three of that row's sessions failed their own A/A test because a 0.047 s effect sits at
+    # this box's paired noise floor and a release gate started mid-session. n and a per-arm
+    # guard are the whole fix, and this harness has the guard. Run --blocks 6 --folds 3.
+    "TT_BIO_MM_SHORT_M_BW": "_MM_SHORT_M_BW",
     "TT_BIO_SDPA_BAND_DIV_K": "_SDPA_BAND_DIV_K",
     "TT_BIO_TRIATT_BIAS_B8": "_TRIATT_BIAS_B8",
-    # READ THIS ONE BACKWARDS. For every other flag here the "on" arm is the lever and a positive
-    # delta_s is a win. TT_BIO_ADALN_MEMO_EAGER is a measurement control that restores the OLD
-    # AdaLN retain, so "on" is the arm being beaten: base = the hit-driven change, on = the code
-    # it replaces, and the change wins when delta_s (base - on) is NEGATIVE.
-    "TT_BIO_ADALN_MEMO_EAGER": "_B2_ADALN_MEMO_EAGER",
+    # TT_BIO_ADALN_MEMO_EAGER was here. Its module global came off this branch with the
+    # hit-driven AdaLN retain that pass 6 measured as a net loss, so the entry pointed at a name
+    # this tree no longer defines. The worker asserts the global, so selecting it would have
+    # failed at the arm rather than silently producing two identical arms -- but a FLAGS entry
+    # that cannot resolve is a trap, and the check that found it now runs over the whole map.
 }
 
 
