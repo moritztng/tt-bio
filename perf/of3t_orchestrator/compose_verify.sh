@@ -257,7 +257,23 @@ if [ -f "$_DOC" ] && grep -q '<!-- BEGIN GENERATED' "$_DOC"; then
       fi
     done
     echo
-    echo "The third column is what the **collision check** uses: files touched by commits on"
+    echo "**Shape of the diff**, because 300-odd files is three very different piles:"
+    echo
+    echo "| pile | files | lines | what it is |"
+    echo "|---|---|---|---|"
+    _eng=$(git -C "$CO" diff --name-only origin/main HEAD | grep "^tt_bio/" | grep -v "_vendor" || true)
+    if [ -n "$_eng" ]; then
+      # shellcheck disable=SC2086
+      _engstat=$(git -C "$CO" diff --shortstat origin/main HEAD -- $_eng | tr -d '\n')
+      echo "| **engine** | $(printf '%s\n' "$_eng" | wc -l) under \`tt_bio/\`, none vendored | **$(echo "$_engstat" | grep -oE '[0-9]+ insertion[^,]*|[0-9]+ deletion[^,]*' | paste -sd' / ' -)** | the part that changes behaviour |"
+    fi
+    _ven=$(git -C "$CO" diff --shortstat origin/main HEAD -- tt_bio/_vendor/ | tr -d '\n')
+    echo "| vendored upstream | $(git -C "$CO" diff --name-only origin/main HEAD -- tt_bio/_vendor/ | wc -l) under \`tt_bio/_vendor/openfold3/\` | $(echo "$_ven" | grep -oE '[0-9]+ insertion[^,]*|[0-9]+ deletion[^,]*' | paste -sd' / ' -) | their pipeline, carried in |"
+    echo "| campaign artifacts | $(git -C "$CO" diff --name-only origin/main HEAD -- 'perf/of3t_*' | wc -l) under \`perf/of3t_*/\` | the bulk | measurements and instruments |"
+    echo
+    echo "Total $(git -C "$CO" diff --shortstat origin/main HEAD | tr -d '\n')."
+    echo
+    echo "The third column of the row table is what the **collision check** uses: files touched by commits on"
     echo "that branch and on no other row's. An **empty cell does not mean the row edited"
     echo "nothing outside its namespace** -- rows build on \`wk/of3t\`, so an early row's"
     echo "commits are reachable from every later row and drop out of its own unique set."
