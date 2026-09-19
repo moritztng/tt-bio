@@ -188,7 +188,14 @@ for r in $ROWS; do
   # row to push cannot work -- its work has to be reshaped to fit the wall. (K38; this cost
   # two passes of wrong remedies on of3t-reference.)
   if [ -f "$lg" ] && [ "$ah" -gt 0 ]; then
-    last=$(grep -oE 'it[0-9]+ rc=[0-9]+' "$lg" | tail -1)
+    # `|| true` again, and this is the THIRD site in this script where `set -o pipefail` plus a
+    # grep whose empty result is the NORMAL case took the whole compose down (the other two are
+    # the remote-host probe above and the ownership table below). A row that is ahead of origin
+    # but whose log has no `itN rc=N` line yet -- a first pass still running -- is completely
+    # ordinary, and it aborted the compose at rc=1 right after printing a healthy ancestry line.
+    # Pattern, named so the next grep added here gets it right: in this script every
+    # `x=$(grep ... | ...)` needs `|| true`, because none of them treat "no match" as an error.
+    last=$(grep -oE 'it[0-9]+ rc=[0-9]+' "$lg" 2>/dev/null | tail -1 || true)
     case "$last" in *rc=124) echo "  NOTE of3t-$r: last turn was KILLED by the 3000s cap ($last)"\
       " -- it likely commits and never reaches a push; reshape the work, do not re-ask";; esac
   fi

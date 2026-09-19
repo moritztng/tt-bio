@@ -75,6 +75,19 @@ values for OF3. For `TriangleAttention` `False` is *correct* and was established
 reference golden); for `AttentionPairBias` it is *wrong*. **Flipping the single flag fixes one
 track and breaks the other.** The fix is to split the flag.
 
+**PASS 92: the default was flipped ON in the composition anyway, and is now held at False with a
+guard.** `of3t-pairbias`'s commit `bb59a9730` landed the split **and** the flip, against its own
+verdict ("Land the MECHANISM. Do NOT flip the OF3 trunk default on this evidence"), so
+`wk/of3t` — the single branch that goes to Moritz's merge gate — carried `scale_pair_bias=True`
+while `origin/main` carries `False`. Merged as it stood it would have served the 1.245 A rank-0
+regression to every OpenFold3 user. Found by `of3t-confhead` reading the branch rather than the
+verdict, verified against git by the orchestrator, and reverted on `wk/of3t-orchestrator`, which
+the compose merges last. **The split stays** — it is correct, unified, byte-identical on the other
+four models, and `of3t-confhead` needs it to drive its arms. `compose_verify.sh` now asserts the
+composed tree carries `scale_pair_bias=False, tri_att_scale_pair_bias=False` and exits 1 naming
+the line otherwise; shown failing on the pairbias tree. When D1+D10 are approved, the assertion
+changes in the same commit as the flip.
+
 **Status: MEASURED end to end, and the answer is that the fix must NOT ship alone.**
 `of3t-pairbias` split the flag (`tri_att_scale_pair_bias`, default-preserving) and folded 1UBQ
 through the production CLI with a searched MSA, 5 diffusion samples, **nine seeds per arm**,
@@ -121,7 +134,94 @@ bias must arrive pre-baked by `sqrt(head_dim)` under both revisions and D1's dia
 revision-stable.** Owner `of3t-confhead`, dispatched pass 90 — D1 and D10 ship together or not at
 all.
 
+### D24. On a single chain, OpenFold3 ranks its samples with a rule two of whose four terms are identically zero — and it is the only model of five that leaves it unhandled. UNFIXED. Affects every monomer fold shipped today.
+
+Found by `of3t-confhead` pass 1, machine-checked in `perf/of3t_confhead/rank_rule.py`. Independent
+of D1: it is the shipped selector, on the shipped default.
+
+`openfold3_fold.py:277` selects the returned sample with AF3 SI 5.9.3's full-complex metric,
+
+```
+0.8*iptm + 0.2*ptm + 0.5*disorder - 100*has_clash
+```
+
+which is faithfully upstream's (`openfold3 0.5.0 core/metrics/sample_ranking.py`). **On a single
+chain two of those four terms are identically zero by construction**: ipTM averages over
+cross-chain pairs that do not exist, and `has_clash` is an inter-chain indicator. Verified against
+a verbatim transcription of upstream's own `compute_ptm` rather than asserted — one chain gives
+ipTM **0.000000** in both implementations, two chains give **0.154491** in both, so the collapse is
+the rule and not a broken call. (Our `_ptm_iptm` and theirs also agree on pTM to six decimals,
+0.150017, which is a free parity reading.)
+
+**So 0.8 of the weight budget is identically zero and what actually ranks a monomer's samples is
+`0.2*ptm + 0.5*disorder`** — in which the RASA disorder term carries **2.5x the weight of the only
+confidence term, with a positive sign**. A rival sample needs pTM higher by 0.125 to outrank a
+sample 0.05 more disordered. That is a concrete reason for a selector to prefer the looser mode and
+it predicts the sign D10 observes.
+
+**OpenFold3 is alone in the family in leaving the degeneracy unhandled**, checked against the four
+source sites:
+
+| model | monomer handling | site |
+|---|---|---|
+| **openfold3 / openbind** | **none — 0.8 of the weight budget is identically zero** | `openfold3_fold.py:277` |
+| boltz-2 / boltzgen | substitutes pTM for ipTM | `boltz2.py:6238` |
+| protenix-v2 / opendde | substitutes pTM, then pLDDT | `worker.py:1065` |
+| rf3 | substitutes pTM | `rf3/confidence.py:108` |
+
+**What is NOT established**, and the row says so: that disorder is what flips these particular
+picks. The previous row stored only per-run aggregates, never per-sample ptm/disorder/pLDDT, so the
+term that moves each decision is unmeasured. `perf/of3t_confhead/rank_fold.py` is written for it
+and needs a card.
+
+**The obvious fix is not sufficient, and that is arithmetic rather than opinion.** With the family
+ipTM→pTM fallback the monomer rule becomes `1.0*ptm + 0.5*disorder`, so the pTM edge a better
+sample needs falls from **2.5x** the disorder gap to **0.5x** — a 5x reduction, not an elimination.
+`rules.py --selftest` constructs a 0.05 pTM gap against a 0.30 disorder gap where **both** rules
+still serve the 1.6 A sample over the 0.5 A one, while the seven candidate rules that do not reward
+RASA serve the 0.5 A one. Nine candidate rules are committed **before** any per-sample number
+exists, because a rule chosen after seeing which one wins on nine seeds of one target is a rule
+fitted to nine seeds of one target.
+
+Scope if a selection-rule change lands: `openfold3_fold.py:277` is **openfold3 and openbind**, so
+it reaches 2 of the 5 named models by construction and the other 3 must be shown byte-identical
+with a control that moves them. Owner `of3t-confhead`.
+
 ### D10. The confidence head mis-ranks diffusion samples, and it is what makes D1's fix serve worse. UNFIXED.
+
+**PASS 92 CORRECTION TO THE PASS-90 REFRAME BELOW, by `of3t-confhead`, and it is right.** A
+five-sample ordering has two one-sided marginals and they disagree here. Pass 90 quoted only the
+first and overstated it.
+
+| | ship | D1 fix | random |
+|---|---|---|---|
+| picks the best sample | 1/9 | 3/9 | 1.8/9 |
+| **predicted** rank of the truly best sample | 3.56 ± 0.44 | 2.22 ± 0.32 | 3.00 |
+| **true** rank of the sample the head picked | 2.67 ± 0.41 | 3.33 ± 0.60 | 3.00 |
+| Spearman rho, predicted vs true | 0.178 ± 0.173 | 0.267 ± 0.155 | 0.000 |
+
+Quote the first marginal and the head looks better with the fix; quote the second and it looks
+worse. The symmetric statistic settles it: **fix minus ship is +0.089 ± 0.232 Spearman**, which
+separates neither arm from the other nor convincingly from chance. **Ordering quality is
+statistically unchanged**, so pass 90's "the head ranks better with the fix" is withdrawn — the
+half it got right, and which stands, is that this is *not* a calibration regression to undo.
+
+**What the row established instead is sharper and is a decision, not a distribution.** The
+corrected trunk's samples go bimodal: pooled over 45 samples the fix arm spans 0.560–1.670 A with
+its largest gap at 1.362 → 1.592 A, and the mode above that gap holds **10 of 45 samples (22 %)**.
+The head serves rank 0 **from that worst mode on 5 of 9 seeds**, where random selection would do
+it 22 % of the time — **P = 0.030**. The shipped arm's equivalent mode holds 4 of 45 and the head
+serves from it **0 of 9** times. So the head is not ordering randomly and is not broadly
+mis-calibrated; **it is actively preferring the worst mode.**
+
+| policy | ship | D1 fix |
+|---|---|---|
+| what the head picks (rank 0) | 0.782 A | **1.245 A** |
+| picking at random | 0.815 A | **1.079 A** |
+| a perfect selector | 0.679 A | 0.629 A |
+
+**In the corrected-trunk arm the head selects worse than a coin flip**, 1.245 A against 1.079 A,
+against this target's own **0.324 A** seed floor. The mechanism candidate is D24.
 
 **PASS 90 REFRAME, from data already in `perf/of3t_pairbias/fold_rmsd.json`: the head's ORDERING
 IMPROVES under D1's fix. What changes is the sample distribution.** That file carries, per seed

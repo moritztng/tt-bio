@@ -291,6 +291,26 @@ GAP: the open defects are enumerated in `state/of3t/DEFECTS.md` and every UNFIXE
 named here by number, which the compose audit now checks mechanically so this field cannot
 drift again unnoticed.
 
+**D24 IS A SHIPPED-INFERENCE DEFECT ON THE SHIPPED DEFAULT, independent of D1.** On a single
+chain `openfold3_fold.py:277` ranks samples with `0.8*iptm + 0.2*ptm + 0.5*disorder -
+100*has_clash`, and **ipTM and `has_clash` are identically zero by construction** — ipTM averages
+over cross-chain pairs that do not exist, `has_clash` is an inter-chain indicator. Machine-checked
+against a verbatim transcription of upstream's own `compute_ptm`: one chain gives ipTM
+**0.000000** both sides, two chains **0.154491** both sides, so it is the rule and not a broken
+call. **0.8 of the weight budget vanishes** and a monomer's samples are ranked by
+`0.2*ptm + 0.5*disorder`, the RASA disorder term carrying **2.5x the weight of the only confidence
+term, with a positive sign**. **OpenFold3 and OpenBind are the only two of five models that leave
+it unhandled** — Boltz-2 (`boltz2.py:6238`), Protenix-v2 (`worker.py:1065`) and RF3
+(`rf3/confidence.py:108`) each substitute pTM. It affects every monomer fold shipped today, it is
+a credible mechanism for D10's *"serves from the worst mode on 5 of 9 seeds, P = 0.030"*, and the
+family fallback alone does **not** fix it: it cuts the pTM edge a better sample needs from 2.5x the
+disorder gap to 0.5x, a 5x reduction rather than an elimination, with a constructed counterexample
+where both rules still serve the 1.6 A sample. UNFIXED. Owner `of3t-confhead`.
+
+**D24 is ALSO why `wk/of3t` must not merge with D1 on.** The composition carried
+`scale_pair_bias=True` against main's `False` and against `of3t-pairbias`'s own verdict; it is
+reverted and guarded as of pass 92, with the guard shown failing.
+
 **D23 IS THE PASS-89 FINDING AND IT REOPENS TWO OTHERS.** The reference bundle is upstream
 openfold3 **0.5.0** loading **`of3-p2-155k.pt`**, which upstream's own
 `entry_points/parameters.py` declares `version_compatibility=">=0.4,<0.4.4dev0"` and lists in
@@ -395,8 +415,8 @@ validation is sound (median 0.353 at h = 1e-5 is truncation; an h-sweep is choos
 either side**: the GPU baseline's method is pre-registered and nothing is measured, so the
 second half of Moritz's bar is untouched.
 
-VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Sixteen concluded rows, nine defects
-UNFIXED**, one of them raised this pass.
+VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Sixteen concluded rows; twenty-four
+defects on the record, ten of them UNFIXED**, two raised in the last four passes.
 
 **PASS 91: THE CEILING THIS CAMPAIGN CLOSED ON IS GONE FOR THE DIFFUSION HALF, AND IT WAS THE
 REFERENCE.** Pass 88 closed on A18's first clause — a disagreeing forward invalidates the gradient
@@ -3054,3 +3074,45 @@ Still open on that row and correctly reported as PARTIAL: the trunk arms wait on
 gradient rebuild in flight, the diffusion-scope gradient waits on re-capturing a 3.2 GB boundary
 at 0.4.3 so A18's discriminator can be re-read, and the inference digests are unrun. `of3t-confhead`
 is live on pc doing the CPU half, not folding, as instructed.
+
+PASS 92. **The branch that goes to the merge gate was carrying a 0.463 A regression, and a second
+shipped-inference defect surfaced underneath it.**
+
+`of3t-confhead` flagged to me, rather than working around, that `wk/of3t` carried
+`scale_pair_bias=True` on the OF3 trunk while `origin/main` carries `False`. Verified against git:
+true. `of3t-pairbias` measured that correction over nine seeds on 1UBQ and its own verdict reads
+*"Land the MECHANISM. Do NOT flip the OF3 trunk default on this evidence"* — it buys 0.050 A of
+best-of-5 and costs **0.463 A** on the structure a user receives, against this target's own
+**0.324 A** seed floor — and then its commit `bb59a9730` landed the split **and** the flip.
+**Merged as it stood, the single reviewable branch would have served that regression to every
+OpenFold3 user.** The split stays; the default is back to `False`, one token, on
+`wk/of3t-orchestrator`, which the compose merges last. `compose_verify.sh` now asserts the composed
+tree carries it and exits 1 naming the line otherwise, **shown failing** on the pairbias tree.
+
+Two holes in my own compose script came with it. The orchestrator merge ended in `|| true` — it
+lands last and is the only thing that can override a row, so a conflict there would silently drop
+exactly this kind of correction while the compose still printed "clean". And a **third** site where
+`set -o pipefail` plus a grep whose empty result is the normal case aborted the whole compose, this
+time on a row that is ahead of origin with no `itN rc=N` line yet. Both fixed, and the pattern is
+now named in the script so the next grep added gets it right.
+
+**D24, new and user-facing.** `openfold3_fold.py:277` ranks samples with AF3 SI 5.9.3's
+`0.8*iptm + 0.2*ptm + 0.5*disorder - 100*has_clash`, faithfully upstream's. **On a single chain
+ipTM and `has_clash` are identically zero by construction**, so 0.8 of the weight budget vanishes
+and what ranks a monomer's samples is `0.2*ptm + 0.5*disorder` — the RASA disorder term carrying
+**2.5x the weight of the only confidence term, with a positive sign**. Machine-checked against a
+verbatim transcription of upstream's `compute_ptm`: one chain gives ipTM 0.000000 both sides, two
+chains 0.154491 both sides, so it is the rule and not a broken call. **OpenFold3 and OpenBind are
+the only two of the five models that leave it unhandled**; Boltz-2, Protenix-v2 and RF3 each
+substitute pTM at their own site. This affects every monomer fold shipped today and is independent
+of D1.
+
+**And a correction to my own pass-90 reading, which `of3t-confhead` was right to make.** I reported
+that the confidence head ranks *better* under D1's fix. That used one of two one-sided marginals.
+The other points the opposite way (true rank of the picked sample 2.67 → 3.33), and the symmetric
+statistic separates neither arm: **+0.089 ± 0.232 Spearman**. Ordering quality is statistically
+unchanged; my "ranks better" is withdrawn. The half that stands is that this is not a calibration
+regression to undo. The row's own finding is sharper than either reading: the head **serves from
+the worst sample mode on 5 of 9 seeds against a 22 % base rate, P = 0.030**, and in the
+corrected-trunk arm it **selects worse than a coin flip**, 1.245 A against 1.079 A. That is one
+decision, not a distribution, which is why D24 is a credible mechanism for it.
