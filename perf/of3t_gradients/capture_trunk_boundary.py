@@ -182,7 +182,12 @@ def main() -> int:
                     "n_torch_randn": len(draws["torch_randn"]),
                     "n_python_random": len(draws["python_random"])}
 
-    cfg, model, loss_fn = BM.build(dtype, a.seed, "cpu", num_recycles=0)
+    # `of3t-reference` acted on the dropout finding and its `build` now pins every Dropout to
+    # r = 0 itself, returning a fourth value describing what it disabled. Taking the first
+    # three keeps this working against both revisions rather than pinning to one.
+    built = BM.build(dtype, a.seed, "cpu", num_recycles=0)
+    cfg, model, loss_fn = built[0], built[1], built[2]
+    rep["their_build_disabled"] = (built[3] if len(built) > 3 else None)
     ck = torch.load(CKPT, map_location="cpu", weights_only=False)
     sd = ck.get("state_dict", ck) if isinstance(ck, dict) else ck
     sd = {(k[6:] if k.startswith("model.") else k): v for k, v in sd.items()}
