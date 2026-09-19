@@ -147,47 +147,65 @@ class Clock:
             self.fds.pop(n, None)
 
 
-class Sampler(threading.Thread):
-    """AICLK and card power at 4 Hz while a fold runs.
+def all_nodes():
+    return sorted(int(p.name.split("!")[1])
+                  for p in Path("/sys/class/tenstorrent").glob("tenstorrent!*")
+                  if p.name.split("!")[1].isdigit())
 
-    Reads sysfs only, so the probe cannot be the contention it measures.
+
+class Sampler(threading.Thread):
+    """AICLK and card power at 4 Hz while a fold runs, on EVERY chip in the box.
+
+    Reads sysfs only, so the probe cannot be the contention it measures. The other chips are
+    sampled because a p300c is a board pair on one power budget: a busy partner is the
+    difference between a 14.6 s fold and a 22.8 s one on the same commit, so the partner's
+    clock and watts belong in the record next to the number, not in a sentence about the box.
     """
 
-    def __init__(self, nodes):
+    def __init__(self, mine):
         super().__init__(daemon=True)
-        self.nodes = nodes
+        self.mine = set(mine)
         self.stop = threading.Event()
-        self.a = []
-        self.w = []
+        self.a = defaultdict(list)
+        self.w = defaultdict(list)
 
     def run(self):
-        clk = [Path(f"/sys/class/tenstorrent/tenstorrent!{n}/tt_aiclk") for n in self.nodes]
-        pw = [next(iter(Path(f"/sys/class/tenstorrent/tenstorrent!{n}").glob(
-            "device/hwmon/hwmon*/power1_input")), None) for n in self.nodes]
+        nodes = all_nodes()
+        clk = {n: Path(f"/sys/class/tenstorrent/tenstorrent!{n}/tt_aiclk") for n in nodes}
+        pw = {n: next(iter(Path(f"/sys/class/tenstorrent/tenstorrent!{n}").glob(
+            "device/hwmon/hwmon*/power1_input")), None) for n in nodes}
         while not self.stop.wait(0.25):
-            for p in clk:
+            for n in nodes:
                 try:
-                    v = int(p.read_text())
+                    v = int(clk[n].read_text())
                     if v < 3000:
-                        self.a.append(v)
+                        self.a[n].append(v)
                 except (OSError, ValueError):
                     pass
-            for p in pw:
-                if p is not None:
+                if pw[n] is not None:
                     try:
-                        self.w.append(int(p.read_text()))
+                        self.w[n].append(int(pw[n].read_text()))
                     except (OSError, ValueError):
                         pass
 
     def take(self):
-        a, w = self.a[:], self.w[:]
+        a = {n: v[:] for n, v in self.a.items()}
+        w = {n: v[:] for n, v in self.w.items()}
         self.a.clear()
         self.w.clear()
-        if not a:
-            return {}
-        return {"aiclk_mean": round(sum(a) / len(a), 1), "aiclk_min": min(a),
-                "aiclk_max": max(a), "aiclk_n": len(a),
-                "power_w_mean": round(sum(w) / len(w) / 1e6, 1) if w else None}
+        mine = [x for n, v in a.items() if n in self.mine for x in v]
+        out = {"per_node": {str(n): {"aiclk_mean": round(sum(v) / len(v), 1),
+                                     "aiclk_min": min(v), "aiclk_max": max(v),
+                                     "power_w_mean": (round(sum(w[n]) / len(w[n]) / 1e6, 1)
+                                                      if w.get(n) else None)}
+                            for n, v in sorted(a.items()) if v}}
+        if not mine:
+            return out
+        mw = [x for n, v in w.items() if n in self.mine for x in v]
+        out.update({"aiclk_mean": round(sum(mine) / len(mine), 1), "aiclk_min": min(mine),
+                    "aiclk_max": max(mine), "aiclk_n": len(mine),
+                    "power_w_mean": round(sum(mw) / len(mw) / 1e6, 1) if mw else None})
+        return out
 
 
 def foreign_holders():
@@ -201,13 +219,18 @@ def foreign_holders():
     for p in Path("/proc").iterdir():
         if not p.name.isdigit() or int(p.name) == me:
             continue
+        nodes = set()
         try:
             for fd in (p / "fd").iterdir():
-                if os.readlink(fd).startswith("/dev/tenstorrent/"):
-                    cmd = (p / "cmdline").read_bytes().replace(b"\0", b" ").decode(
-                        "utf8", "replace")[:120]
-                    out.append({"pid": int(p.name), "cmd": cmd})
-                    break
+                t = os.readlink(fd)
+                if t.startswith("/dev/tenstorrent/"):
+                    tail = t.rsplit("/", 1)[1]
+                    if tail.isdigit():
+                        nodes.add(int(tail))
+            if nodes:
+                cmd = (p / "cmdline").read_bytes().replace(b"\0", b" ").decode(
+                    "utf8", "replace")[:120]
+                out.append({"pid": int(p.name), "nodes": sorted(nodes), "cmd": cmd})
         except (OSError, PermissionError):
             continue
     return out
