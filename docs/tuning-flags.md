@@ -8,6 +8,29 @@ Reference numbers are Boltz-2 on one Blackhole processor of a p300c (Tenstorrent
 200 sampling steps, 3 recycles, `perf/size512/fixtures/cdk2x2_512.yaml`. Fold ratios are paired: both
 arms are interleaved inside one process, so a ratio is never read across two sessions.
 
+## `TT_BIO_APB_CONCAT_HEADS` — off
+
+Token attention re-assembles its heads with four ops: a slice that drops the padded head channels,
+two permutes and a reshape. Turn this on and `ttnn.experimental.nlp_concat_heads` plus one reshape
+do the same job in two. The padded channels survive instead of being sliced away, so the gate and
+output projections then run 1024 wide instead of 768. Those extra channels are zero and contribute
+nothing, so the result is the same in exact arithmetic, but the projections round differently and
+the structure moves a little.
+
+Enabling it is worth roughly **+0.1 s a fold at 512 residues** on a p300c at a pinned 1350 MHz.
+That is a band rather than a figure: two interleaved sessions of 180 folds each read +0.1068 s and
++0.1427 s, both positive, and neither separated the win from its own control's spread. **It is off
+because the win has not been resolved, not because anything is wrong with it.**
+
+It reaches Boltz-2 and Protenix-v2, and accuracy is measured on both. Boltz-2 moves 0.2244 Å
+all-atom against a 0.35 Å bar, on a fixture whose seed-to-seed scatter is 0.7998 Å. Protenix-v2
+scores 1.997 Å against the experimental structure with the flag on and 1.999 Å with it off, TM 0.867
+either way. The output does not depend on the core grid: the release gate's `l1-budget` arm gives
+one digest across the native, 8x8 and narrow grids in both arms.
+
+`TT_BIO_APB_CONCAT_HEADS=0` is the default and the way back. The measurements are in
+`perf/c14_land/apb_grid_independence.md` and the session files beside it.
+
 ## `TT_BIO_ATOM_SHIFT_GATHER` — on
 
 The atom transformer attends within a sliding window. Upstream assembles each window's key set by
