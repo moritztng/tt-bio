@@ -30,11 +30,14 @@ move inference numerics whether or not a tape node survived. Dispatching cannot.
 
 from __future__ import annotations
 
+import contextlib
+
 import ttnn
 
 from .dispatch import OpSurface
 
-__all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook"]
+__all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook",
+           "set_recycle_hook", "recycle_region"]
 
 
 # The slot, and the decorator that uses it, are `tt_bio/dispatch.py`'s -- shared with
@@ -44,6 +47,31 @@ _SURFACE = OpSurface("tt_bio.ops")
 set_grad_hook = _SURFACE.set_grad_hook
 grad_hook = _SURFACE.grad_hook
 _dispatching = _SURFACE.dispatching
+
+
+# A recycling stack differentiates its LAST cycle only -- AF3's own training structure, and
+# the difference between a tape holding one cycle and a tape holding ten of them. Which cycle
+# that is, is the model's business; whether "not differentiated" means anything at all is the
+# tape's. So the model asks here and the answer is injected, exactly like the grad hook above
+# and for the same reason: nothing in this module may know `tt_bio.autograd` exists, or
+# importing `tt_bio` would reach the training stack (`tests/test_training_opt_in.py`
+# ::test_no_inference_module_imports_training). With nothing installed this is
+# `nullcontext`, so every inference path pays one `is None` test per recycling cycle.
+_RECYCLE = None
+
+
+def set_recycle_hook(fn):
+    """Install the region a non-differentiated recycling cycle runs in. Returns the old one."""
+    global _RECYCLE
+    prev, _RECYCLE = _RECYCLE, fn
+    return prev
+
+
+def recycle_region(cyc, last):
+    """The context a recycling cycle runs in: inert during inference, `no_grad` under a tape."""
+    if _RECYCLE is None or cyc == last:
+        return contextlib.nullcontext()
+    return _RECYCLE()
 
 
 # `_narrow_proj_linear` and `_l1_layer_norm` are tuning that belongs beside the program

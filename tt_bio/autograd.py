@@ -1237,12 +1237,16 @@ def install():
     This is the narrow seam -- two verbs. `tape()` is the whole shipped forward.
     """
     from . import ops
+    # A recycling model asks `ops.recycle_region` whether a non-final cycle is differentiated.
+    # Installed together with the verb hook because the two are the same opt-in.
+    ops.set_recycle_hook(no_grad)
     return ops.set_grad_hook(_hook)
 
 
 def uninstall() -> None:
     """Put the inference path back. Idempotent."""
     from . import ops
+    ops.set_recycle_hook(None)
     ops.set_grad_hook(None)
 
 
