@@ -769,6 +769,50 @@ by composing the branches, since each looked fine alone, and closed by `of3t-dat
 
 ### D8. The assembled pairformer block's pair-track gradients are an order of magnitude outside the bar. UNFIXED.
 
+**PASS 90 RE-ATTRIBUTION: D8 IS LARGELY D23, and what survives is graded by DEPTH rather than by
+attention involvement.** The `tb-off` arms already on the branch equalise our ending-node function
+with the 0.5.0 reference's (the wrong side, but the mismatch is what is removed, so it is a valid
+proxy). Recomputed with the campaign's own A14 rule and bars, not read from a summary
+(`perf/of3t_orchestrator/revision/d8_vs_endnode.py`, `d8_vs_endnode.json`):
+
+| arm | n | median | vs 2.0e-02 | over 5.0e-02 | over-bar norm share | worst |
+|---|---|---|---|---|---|---|
+| block 0, shipped | 52 | 0.0648 | FAIL | 36/52 | 23.7 % | 1.3208 `blocks.0.pair_stack.tri_att_end.layer_norm.weight` |
+| block 0, tb-off | 52 | **0.0115** | **PASS** | **7/52** | **1.9 %** | 0.7918 `blocks.0.attn_pair_bias.linear_z.weight` |
+| block 23, shipped | 52 | 0.0930 | FAIL | 46/52 | 64.1 % | 11.3914 `blocks.23.attn_pair_bias.layer_norm_a.weight` |
+| block 23, tb-off | 52 | **0.0174** | **PASS** | 12/52 | 53.7 % | 11.1199 same tensor |
+| block 47, shipped | 52 | 0.4270 | FAIL | 52/52 | 100 % | 2.9857 `blocks.47.attn_pair_bias.layer_norm_a.weight` |
+| block 47, tb-off | 52 | 0.4004 | FAIL | 52/52 | 100 % | 1.4068 same tensor |
+
+**The worst tensor in the shipped block-0 arm is `tri_att_end.layer_norm.weight`** — the ending
+node, the one sub-module D23's trunk change modifies. The instrument pointed at the cause for
+forty passes and the reading was "the pair track fails in composition".
+
+**What this closes.** At blocks 0 and 23 the median goes FAIL to PASS once both sides compute the
+same function: 0.0648 to 0.0115, and 0.0930 to 0.0174. D8's headline — every sub-module passes
+alone while the assembled block reads 4.3e-01 to 1.4e+00 — is dominated by the reference
+mismatch, not by composition.
+
+**What survives, and it is real.** 7 of 52 at block 0 holding 1.9 % of the block's norm, 12 of 52
+at block 23 holding **53.7 %**, and **block 47 barely moves** — 0.4270 to 0.4004, 52 of 52 over
+bar under either arm. A median inside the bar with 53.7 % of the norm over it is not a pass, so
+D8 is **reduced and re-localised, not closed**, and it stays UNFIXED.
+
+**The grading changes, which redirects the hunt.** The standing lead was that the failure is
+graded by attention and pair-track involvement, `single_transition` the only passer. With the
+function mismatch removed the residual is graded by **depth** — block 0 nearly clean, block 23
+partly, block 47 not at all — and the same tensor, `attn_pair_bias.layer_norm_a.weight`, is worst
+at both 23 and 47. That is a different mechanism from the one D8/D9 were chasing, and the block
+ladder rather than the sub-module ranking is where to cut next. D9's `fp32_softmax` 3.2x was
+measured on the alone arm and R123 already showed the logit/value split does not survive
+assembly, so nothing here revives it.
+
+**Caveat, stated rather than buried:** the tb-off arm equalises on 0.5.0's side. The correct
+configuration is our shipped flag against a 0.4.3 reference, which `of3t-rebase` produces. The
+proxy answers "how much of D8 is the function mismatch" because equalising either way removes it;
+it does not give the final numbers.
+
+
 Every pair-track sub-module passes alone against a 0.05 bar — `tri_mul_out` **0.0172**,
 `tri_mul_in` **0.0156**, `pair_transition` **0.0092** — and **the assembled block reads 4.3e-01
 to 1.4e+00**, while the single track passes in the same run at 6.1e-03 to 6.4e-02

@@ -2909,6 +2909,37 @@ catches both kinds. `of3t-rebase`'s brief is amended and its live session was to
 rather than left to pick it up on a relaunch, which is the lesson this campaign was handed on
 day one.
 
+**And D8 — the campaign's longest-open defect — is largely D23, recomputed this pass from data
+that was already on disk.** The `tb-off` arms equalise our ending-node function with the 0.5.0
+reference's. Recomputed with the campaign's own A14 rule and bars rather than read from a
+summary (`perf/of3t_orchestrator/revision/d8_vs_endnode.py`):
+
+| arm | n | median | vs 2.0e-02 | over 5.0e-02 | over-bar norm share |
+|---|---|---|---|---|---|
+| block 0, shipped | 52 | 0.0648 | FAIL | 36/52 | 23.7 % |
+| block 0, tb-off | 52 | **0.0115** | **PASS** | **7/52** | **1.9 %** |
+| block 23, shipped | 52 | 0.0930 | FAIL | 46/52 | 64.1 % |
+| block 23, tb-off | 52 | **0.0174** | **PASS** | 12/52 | 53.7 % |
+| block 47, shipped | 52 | 0.4270 | FAIL | 52/52 | 100 % |
+| block 47, tb-off | 52 | 0.4004 | FAIL | 52/52 | 100 % |
+
+The worst tensor in the shipped block-0 arm is **`blocks.0.pair_stack.tri_att_end.layer_norm.weight`**
+— the ending node, the one sub-module D23's trunk change touches. The instrument named the cause
+and was read as "the pair track fails in composition".
+
+**It does not close, and what survives redirects the hunt.** 12 of 52 at block 23 still hold
+53.7 % of that block's norm, and block 47 barely moves, 0.4270 to 0.4004 with 52 of 52 over bar
+under either arm. A median inside the bar with half the norm over it is not a pass. But the
+residual is graded by **depth**, not by attention involvement — and the standing lead this
+campaign was handed, that `single_transition` is the only passer because it has no attention and
+no pair coupling, is superseded by it. `attn_pair_bias.layer_norm_a.weight` is worst at both
+block 23 and block 47. The block ladder is where the next cut goes.
+
+The caveat is stated rather than buried: `tb-off` equalises on 0.5.0's side, the wrong one. It
+answers how much of D8 is the mismatch, because equalising either way removes it; it is not the
+final number. `of3t-rebase`'s deliverable 2 is amended to run the ladder at blocks 0, 23 and 47
+against the corrected bundle, with the prediction pre-registered.
+
 `of3t-rebase` launched 01:00 CEST on qb2 and is running. The verdict does not move on this pass:
 the bound and the loader evidence make D23 harder to doubt, and neither is a measurement of our
 port.
