@@ -1,0 +1,34 @@
+{
+  "cards": {
+    "p150a": {
+      "recorded": "2026-08-23",
+      "host": "tt-quietbox",
+      "commit": "8c22b305",
+      "models": {}
+    },
+    "p300c": {
+      "recorded": "2026-08-28",
+      "host": "tt-quietbox2",
+      "commit": "6adf7e04",
+      "models": {}
+    }
+  },
+  "format": 1,
+  "what": "size-ladder release-gate baseline: per-model lever census and runtime scaling exponents at every rung, per card type",
+  "rule": "a perf lever may not land default-ON on the strength of one sequence length; re-record after any size-affecting change",
+  "record_with": "python3 scripts/release_gate.py --model size-ladder --size-ladder-record",
+  "rungs": [
+    256,
+    512,
+    640,
+    768,
+    896,
+    1024
+  ],
+  "fold": {
+    "single_sequence": true,
+    "sampling_steps": 6,
+    "diffusion_samples": 1,
+    "seed": 0
+  }
+}
