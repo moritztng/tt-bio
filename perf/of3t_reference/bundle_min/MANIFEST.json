@@ -39,14 +39,26 @@
     "n_absent_gradients": 0,
     "drawn_recycle_count": 3,
     "n_torch_randn_draws": 45,
-    "python_random_values": [0.6334896914538571, 0.8063837539475641]
+    "python_random_values": [
+      0.6334896914538571,
+      0.8063837539475641
+    ],
+    "n_nonzero_gradient_tensors": 6,
+    "nonzero_gradient_tensors": [
+      "diffusion_module.atom_attn_dec.linear_q_out.weight",
+      "aux_heads.distogram.linear.weight",
+      "aux_heads.experimentally_resolved.linear.weight",
+      "aux_heads.pde.linear.weight",
+      "aux_heads.plddt.linear.weight",
+      "aux_heads.pae.linear.weight"
+    ]
   },
   "finite_difference_validation": {
     "method": "float64 central differences on the same forward, h = 1e-5, RNG pinned per evaluation",
     "n_samples": 16,
     "sampling_rule": "entries with |analytic| >= 1e-6, because 99.9 % of individual entries are exactly zero on a padded 56-token batch",
-    "max_rel_err": 1.0804224315183522e-4,
-    "median_rel_err": 3.5808603381448577e-6,
+    "max_rel_err": 0.00010804224315183522,
+    "median_rel_err": 3.5808603381448577e-06,
     "worst_param": "diffusion_module.atom_attn_dec.linear_q_out.weight"
   },
   "artifacts": [
@@ -106,5 +118,13 @@
     "The recycle draw comes from OpenFold3.synced_generator, a private np.random.default_rng held as a model attribute (model.py:77). torch.manual_seed does not reach it.",
     "None is not zero. Compare the presence pattern as a set before any magnitude.",
     "The gradient is BEFORE clipping. At world size 1 with accumulate_grad_batches 1 the optimizer-facing gradient is exactly grad * clip_coef."
-  ]
+  ],
+  "status": "GRADIENT ARTIFACT ON HOLD -- only 6 of 4147 parameter tensors carry a non-zero gradient. Batch, seed, w0, draws and presence map are sound; do not compare against grads_f64.pt until re-issued.",
+  "determinism_floor": {
+    "method": "two processes, same seed, same batch, same box, float64",
+    "loss_bit_identical": true,
+    "grad_norm_bit_identical": true,
+    "worst_per_tensor_rel_l2": 1.8768118414081684e-16,
+    "note": "file sha256 differs between two runs that agree to 1.9e-16, so a file-hash comparison is the wrong instrument; the hashes here verify a transfer, not a computation"
+  }
 }
