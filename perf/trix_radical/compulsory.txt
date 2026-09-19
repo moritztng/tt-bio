@@ -1,0 +1,104 @@
+==============================================================================================
+TRIANGLE MULTIPLICATION, N=512 tokens, D=256 channels, bf16.
+Z = one pair tensor = N^2 * D * 2 B = 134.218 MB.  Weights = 786.4 kB = 0.59 % of Z.
+==============================================================================================
+
+--- 1. COMPULSORY ARITHMETIC (from the definition; no implementation assumed) ---
+  p_in  (N^2 x D @ D x 2D)                    68.719 GFLOP
+  g_in  (N^2 x D @ D x 2D)                    68.719 GFLOP
+  contraction (D indep. N x N @ N x N)        68.719 GFLOP
+  p_out (N^2 x D @ D x D)                     34.360 GFLOP
+  g_out (N^2 x D @ D x D)                     34.360 GFLOP
+  TOTAL                                      274.878 GFLOP   = 12*N^2*D^2 + 2*N^3*D
+  at the measured 123.65 TFLOP/s roof: 2.223 ms
+  the contraction is 25.0 % of it; projections overtake it only below N = 6D = 1536
+
+--- 2. COMPULSORY DATA MOVEMENT is a function of what L1 can hold ---
+  usable L1 raw              160.79 MB  (110 banks x 1461760 B)
+  largest single alloc        50.33 MB  MEASURED (bank fragments long before it fills)
+  co-resident ceiling        134.11 MB  MEASURED, in 32 MB chunks
+  one pair tensor Z          134.22 MB  bf16
+  one pair tensor Z           71.30 MB  bfp8_b
+
+  schedule                           DRAM     xZ   resident   fits?  note
+  F0  infinite L1                  268.4M     2x     402.7M      NO  a + b + gate all live from one z read
+  C32  channel-blocked            1610.6M    12x      50.3M     yes  8 z re-reads + x round trip + z for the gate + out
+  C64  channel-blocked            1073.7M     8x     100.7M     yes  4 z re-reads + x round trip + z for the gate + out
+  C128 channel-blocked             805.3M     6x     201.3M      NO  2 z re-reads + x round trip + z for the gate + out
+  R   row-blocked, b resident      402.7M     3x     134.2M      NO  z read twice (b pass, row pass), out written once
+
+  So the minimum is 3Z = 402.7 MB, and it needs ONE role tensor resident at full D.
+  2Z is unreachable: it needs 3Z = 402.7 MB resident against a 134.1 MB measured ceiling.
+  C64 is what ships and it moves 2.67x the minimum.
+
+--- 3. DOES SCHEDULE R FIT? this is the design's single load-bearing question ---
+  b in bf16 : resident  134.22 MB = 100.1 % of the co-resident ceiling -> REFUSED by the measured ceiling
+      BI=16   per-core   1334.6 kB of 1461.8 kB ( 91.3 %), spare   127.2 kB for CBs
+      BI=32   per-core   1448.9 kB of 1461.8 kB ( 99.1 %), spare    12.8 kB for CBs
+      BI=64   per-core   1677.7 kB of 1461.8 kB (114.8 %), spare  -216.0 kB for CBs
+      BI=128  per-core   2135.3 kB of 1461.8 kB (146.1 %), spare  -673.5 kB for CBs
+  b in bfp8_b: resident   71.30 MB =  53.2 % of the co-resident ceiling -> fits
+      BI=16   per-core    762.6 kB of 1461.8 kB ( 52.2 %), spare   699.2 kB for CBs
+      BI=32   per-core    877.0 kB of 1461.8 kB ( 60.0 %), spare   584.8 kB for CBs
+      BI=64   per-core   1105.8 kB of 1461.8 kB ( 75.6 %), spare   356.0 kB for CBs
+      BI=128  per-core   1563.3 kB of 1461.8 kB (106.9 %), spare  -101.6 kB for CBs
+
+--- 4. THE FLOOR UNDER EACH SCHEDULE ---
+  C64 adds its two stages (the tail reduces over all D of x, so it cannot join a channel
+  pass); R has one pipelined stage because the tail folds into the row block.
+  C64 at the machine roof : 2.649 ms   (byte-bound: 8Z is 2.617 ms of traffic against 2.223 ms of math)
+  R   at the machine roof : 2.223 ms   (compute-bound: 3Z is 0.981 ms of traffic, 2.27x under the math)
+  -> the schedule decides WHICH SIDE BINDS. R is the true compulsory floor: 2.223 ms.
+
+  the same arithmetic at the production call sites' own measured rates (54.97 / 42.20 / 43.34 TFLOP/s): 5.714 ms
+  at those rates BOTH schedules are compute-bound, so 8Z -> 3Z is worth 0.000 ms today.
+  the byte saving starts to pay only once the arithmetic drops under 8Z's 2.617 ms, i.e. above a class rate of 105.0 TFLOP/s (2.49x today's contraction rate).
+
+--- 5. THE COMPULSORY TRANSPOSE, and why it is sub-tile ---
+  The projections are pair-local and contract over d; the contraction is channel-local and
+  contracts over k. Each output x[i,j,:] needs a[i,:,:] and b[j,:,:], so a core holding
+  channels must hear from every core holding pairs: a full all-to-all, 3Z of it (a, b, x).
+  payload = 3Z = 402.7 MB.
+
+  Why it cannot be done tile-granular ACROSS cores: a matmul tile op contracts the inner
+  tile axis, so for x[i,j,d] = sum_k a[i,k,d] b[j,k,d] the Hadamard axis d must sit OUTSIDE
+  the tile. Keeping d inside the tile turns the contraction into a broadcast-multiply-
+  accumulate at 1024 lanes per instruction instead of 32768 MACs, i.e. 32x less
+  arithmetic per issue: the contraction would go 0.556 -> 17.8 ms. Dead.
+  So d is inside the tile for the projections and outside it for the contraction, and the
+  granule of the exchange is one 32-element column = 64 B. That is exactly the
+  66.1 GB/s the channel move measures, and it is COMPULSORY at the axis level.
+
+  measured move rates: DRAM path   66.1 GB/s    L1->L1 at C=32  108.9 GB/s
+  3Z at the L1->L1 rate                :  3.696 ms
+  shipped today (fwd 1.534 + back 1.017 ms, DIFFERENT PARTS):  2.551 ms = 158 GB/s
+
+  What is NOT compulsory is paying 64 B on the NOC. Block the exchange into 32x32x32 cubes
+  (65.5 kB = 32 whole tiles): move the 32 tiles core-to-core at 2048 B each and
+  rotate the cube inside the receiving core's own L1, where a 64 B granule is a local SRAM
+  read and not a NOC packet. The inter-core traffic is then tile-granular and the sub-tile
+  work never leaves a core.
+
+--- 6. WHERE THE 11.519 ms GOES (module measured; the split is derived) ---
+  compulsory arithmetic at the measured roof            2.223 ms   19.3 %  derived from the definition / measured roof
+  kernel-rate deficit (class rates vs the roof)         3.491 ms   30.3 %  class rates measured, subtraction derived
+  the compulsory transpose, at 64 B granularity         2.551 ms   22.1 %  measured, but on mixed parts -- treat as a band
+  everything else (DRAM round trips, dispatch, barriers)  3.254 ms   28.2 %  BY SUBTRACTION -- trix-scaffold-attribute owns the direct split
+  MODULE, standalone, unmasked                         11.519 ms  100.0 %
+
+  Schedule R attacks rows 3 and 4 (5.805 ms, 50.4 %) and does nothing about row 2.
+  Its ceiling on the module is therefore 11.519 -> 5.714 ms = 2.02x, not the 5.18x the compulsory floor would suggest.
+  Against the compulsory floor the module is 5.18x (unmasked) / 5.55x (masked, the production call).
+
+--- 7. TWO ROBUSTNESS CHECKS ON THE CONCLUSION ---
+  (a) 3Z does not depend on precision. 2Z needs a, b and the gate all resident; even at
+      bfp8_b that is 3 x 71.30 = 213.9 MB against the 134.1 MB measured ceiling.
+      Holding two role tensors at bfp8_b is 142.6 MB, still over. 3Z stands at every dtype.
+
+  (b) the kernel-rate deficit is NOT an arithmetic-throughput problem, so raising the math
+      fidelity does not collect it. HiFi2 halves the FPU passes per bf16 tile product, and
+      `TT_BIO_TRUNK_MATH_FIDELITY` already exposes it; the knowledgebase records the trunk
+      measurement as 6 % and a broken fp32_dest_acc, and bf4 as 0 % plus accuracy loss.
+      A matmul at 34 % of roof is not waiting on FPU passes, which is
+      consistent with row 2 above and with fixterm's per-output-tile decomposition.
+==============================================================================================
