@@ -1,0 +1,31 @@
+=== l1-budget start 2026-09-19T16:54:49Z tree 87018068a ===
+resolved tt_bio: /home/ttuser/.coworker/wt/pvx-land/tt_bio/__init__.py
+benchlock: pvx-land waiting; currently held by: pvx-baseline pid=3418925 since=2026-09-19T16:54:29+00:00
+benchlock: pvx-land acquired after 17s, loadavg 1.86 2.30 1.99
+[release-gate] granted card(s) [0]
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/pvx-land/tt_bio (commit 87018068a)
+
+======================================================================
+[l1-budget] folding affinity_fkg.yaml on protenix-v2, grid native
+======================================================================
+
+======================================================================
+[l1-budget] folding affinity_fkg.yaml on protenix-v2, grid 8x8
+======================================================================
+
+======================================================================
+[l1-budget] folding affinity_fkg.yaml on protenix-v2, grid native, trimul width capped at 128
+======================================================================
+
+##############################################################################
+RELEASE GATE — L1 budgets vs part (affinity_fkg.yaml on protenix-v2, 4 part classes)
+##############################################################################
+leg                     clashes                             CIF md5     wall  result
+l1-budget:arith               -                165 checks / 4 parts       0s  PASS
+l1-budget:native              0    c3073854d423570ae48cb8ce35ccb27e     150s  PASS
+l1-budget:8x8                 0    c3073854d423570ae48cb8ce35ccb27e      96s  PASS
+l1-budget:narrow              0    c3073854d423570ae48cb8ce35ccb27e      37s  PASS
+##############################################################################
+GATE PASS — every part class can narrow out of a clash, and the ladder is numerics-neutral
+benchlock: pvx-land released, rc=0, loadavg 5.89 4.28 2.88
+=== l1-budget end 2026-09-19T17:01:09Z rc=0 ===
