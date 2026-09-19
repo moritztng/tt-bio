@@ -215,7 +215,11 @@ def _unary(fn, reads_output=False):
             return bw
 
         out = _tape(out_v, [x], make)
-        if reads_output and out.node is not None:
+        # The box is handed over whether or not the RULE reads the output, because the
+        # CLOSURE reads it either way -- `fn` is called with `box[0]` and a rule that ignores
+        # its second argument still evaluates it. Keeping the box current under eviction
+        # costs one assignment and removes the only way it could go stale.
+        if out.node is not None:
             out.box = box
         elif inplace:
             # `ttnn.silu(x, output_tensor=x)` is the unary form of the same signal, and
