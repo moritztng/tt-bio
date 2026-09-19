@@ -58,11 +58,26 @@ def main() -> int:
         "n_datapoints": len(dataset),
         "steps": [],
     }
-    # Fixed data order: datapoint index cycles over the cache in sorted order. The real sampler is
-    # weighted and distributed; a reference needs an order a second machine can reproduce without
-    # replaying a sampler's RNG, so we pin the order and say so.
+    # Fixed data order. The real sampler is weighted and distributed; a reference needs an order a
+    # second machine can reproduce without replaying a sampler's RNG, so the order is pinned here
+    # and stated rather than sampled. Walking the datapoint cache in its own order would spend all
+    # 20 steps inside two or three entries, because the cache lists every chain and interface of an
+    # entry consecutively. Instead: group datapoints by entry, then round-robin over entries in
+    # sorted order, taking each entry's next datapoint. Every entry appears, and the step sequence
+    # is a pure function of the cache.
+    by_entry: dict[str, list[int]] = {}
+    for i in range(len(dataset)):
+        by_entry.setdefault(dataset.datapoint_cache.iloc[i]["pdb_id"], []).append(i)
+    entries = sorted(by_entry)
+    order = []
+    for round_no in range(args.steps):
+        entry = entries[round_no % len(entries)]
+        picks = by_entry[entry]
+        order.append(picks[(round_no // len(entries)) % len(picks)])
+    manifest["entries"] = {k: len(v) for k, v in sorted(by_entry.items())}
+
     for step in range(args.steps):
-        idx = step % len(dataset)
+        idx = order[step]
         pl.seed_everything(args.seed + step, workers=True)
         batch = openfold_batch_collator([dataset[idx]])
         path = args.out / f"batch_step{step + 1:03d}.pt"
