@@ -40,6 +40,41 @@ _TS_KEY = {"fc1.weight": "swiglu.linear_a.weight", "fc2.weight": "swiglu.linear_
            "norm.bias": "layer_norm.bias"}
 
 
+
+def inline_apb(path, apb):
+    """The three AttentionPairBias weights built inline, and their exact inverses.
+
+    These are not fusion caches: they are the ONLY upload of five of their tensors per
+    block, so leaving them out drops 20 parameters from a per-parameter claim. Each
+    inverse is exact -- a concatenation, a zero pad and a transpose are all losslessly
+    invertible -- so none of them contributes a tolerance of its own (SS3a).
+    """
+    H, hd, phd = apb.n_heads, apb.head_dim, apb.padded_head_dim
+
+    def unpad(gd, n):
+        # [n*H*phd, C] <- transpose of the upload; drop the zero head lanes, then split.
+        g = gd.reshape(n * H, phd, -1)[:, :hd, :].reshape(n, H * hd, -1)
+        return [g[i] for i in range(n)]
+
+    # Two inverses, not one, and the difference is load-bearing. For a scale-free
+    # transform they coincide; for the pre-baked pair-bias projection they do not. The
+    # upload is Z = s * W.t(), so recovering W from Z divides by s while mapping dL/dZ
+    # back to dL/dW MULTIPLIES by s. Using the gradient inverse to validate against the
+    # weight is wrong by s**2 = 24, which is exactly what the round-trip caught.
+    if path.endswith("qkv_weight"):
+        return [(f"mha.linear_{n}.weight",
+                 (lambda gd, i=i: unpad(gd.t(), 3)[i]),
+                 (lambda w, i=i: unpad(w.t(), 3)[i])) for i, n in enumerate("qkv")]
+    if path.endswith("qkv_bias"):
+        # q's bias is the first third; k and v were uploaded as zeros and have no tensor.
+        f = lambda x: x.reshape(3 * H, phd)[:H, :hd].reshape(H * hd)
+        return [("mha.linear_q.bias", f, f)]
+    if path.endswith("z_weight"):
+        return [("linear_z.weight",
+                 lambda gd: gd.t() * apb._bias_scale,
+                 lambda w: w.t() / apb._bias_scale)]
+    return []
+
 def their_name(path, key):
     """(device path under head.pf, scope-local key) -> (where, their name) or None."""
     parts = path.split(".")
@@ -145,10 +180,36 @@ def main():
         head._wd_cache[key] = leaf
         params[name] = (leaf, (lambda x: x.t()) if transposed else (lambda x: x),
                         "aux", None, name)
-    unmapped = []
+    unmapped, inverse_checks = [], []
     for path, owner, attr, t in walk(head.pf):
         rec = reg.get(id(t))
         if rec is None:
+            parts = path.split(".")
+            if len(parts) >= 3 and parts[2] == "attention_pair_bias":
+                i = int(parts[1])
+                apb = head.pf.blocks[i].attention_pair_bias
+                pieces = inline_apb(path, apb)
+                if pieces:
+                    leaf = ag.parameter(t)
+                    setattr(owner, attr, leaf)
+                    for suffix, inv, winv in pieces:
+                        n = f"{_BLK % i}attn_pair_bias.{suffix}"
+                        # Validate the inverse on the WEIGHT before trusting it on the
+                        # gradient. If a hand-written inverse is wrong, the gradient it
+                        # produces reads as a model error and there is nothing in the
+                        # number that says otherwise -- so it is checked against the
+                        # tensor it claims to recover, where the answer is known.
+                        want = head._w[n].float()
+                        got = winv(torch.Tensor(ttnn.to_torch(t)).float())
+                        r = rel_l2(got, want)
+                        inverse_checks.append((n, r))
+                        if r > 1e-2:
+                            unmapped.append((path, tuple(t.shape),
+                                             f"inverse for {suffix} does not recover the "
+                                             f"weight (relL2 {r:.2e}); not compared"))
+                            continue
+                        params[n] = (leaf, inv, "aux", i, n)
+                    continue
             unmapped.append((path, tuple(t.shape), "built inline, not via torch_to_tt"))
             continue
         weights, key, src, transform, _ = rec
@@ -168,6 +229,10 @@ def main():
             unmapped.append((path, tuple(t.shape), f"no entry in the name map for {key}"))
             continue
         params[tn[3]] = (leaf, inv, tn[0], tn[1], tn[2])
+    if inverse_checks:
+        w = max(inverse_checks, key=lambda x: x[1])
+        print(f"inverse round-trip on the fused uploads: {len(inverse_checks)} checked, "
+              f"worst {w[0]} relL2 {w[1]:.3e} (bf16 storage floor ~4e-03)")
     print(f"taped {len(params)} parameters; {len(unmapped)} device tensors unmapped")
     for p, s_, why in unmapped:
         print(f"  UNMAPPED {p:52s} {str(s_):22s} {why}")
