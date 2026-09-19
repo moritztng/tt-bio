@@ -57,8 +57,16 @@ PID=$!
 cleanup() { kill "$SIDE" 2>/dev/null; kill -9 -"$PID" 2>/dev/null; }
 trap cleanup EXIT INT TERM
 
-# The fold runs in a spawned worker, so the frame that matters belongs to a child of $PID.
-worker() { pgrep -P "$PID" -f "tt_bio" | head -1; }
+# The fold runs in a spawned worker, so the frame that matters belongs to a child of $PID. Its
+# cmdline is `python3 -c from multiprocessing.spawn import ...` and carries no `tt_bio`, so
+# matching on the module name finds nothing and the watch silently falls back to the parent --
+# whose frame is `_stream_run` forever and whose RSS never moves, i.e. a guaranteed false FROZEN.
+# Pick the fattest child instead: the other one is the 3 MB resource tracker.
+worker() {
+  for c in $(pgrep -P "$PID"); do
+    echo "$(awk {print } /proc/$c/statm 2>/dev/null || echo 0) $c"
+  done | sort -rn | head -1 | cut -d" " -f2
+}
 
 waited=0; quiet=0; lastlog=0; lastframe=; lastrss=; verdict=RAN
 while kill -0 "$PID" 2>/dev/null; do
