@@ -265,6 +265,94 @@ def seed_roots(comp, fwd, seeds):
     return roots, gs
 
 
+
+def fd_check(comp, params, holders, analytic, a, out):
+    """The composed step's gradient against float64 central finite differences.
+
+    Through THE SAME composed forward: the loss at w +/- eps*d is obtained by re-running the
+    real trunk, the real distogram head, the real denoiser and the real eight-term objective,
+    so there is no second implementation that could be wrong in the same direction. That is
+    the one thing a component-level check cannot substitute for, and it is why this is slow.
+
+    Two lessons taken from `perf/ptx_fastpath/modulecheck.py` rather than rediscovered. A
+    RANDOM direction is nearly orthogonal to the gradient in half a million dimensions, so the
+    difference is almost all cancellation and the reading is noise; the direction here is the
+    gradient itself. And a perturbation below bf16's spacing is DELETED by the cast, after
+    which the sweep reads rounding artifacts that are stable across eps and look exactly like a
+    systematic gradient error -- so eps is set against the weight's own max-norm and the
+    fraction of elements that actually moved is reported beside every reading.
+    """
+    import torch
+    import ttnn
+    from tt_bio import autograd as ag
+
+    res = {}
+    for name in a.fd_leaves:
+        t = params.get(name)
+        if t is None or t.grad is None:
+            res[name] = {"skipped": "no gradient on this leaf"}
+            continue
+        owner, key, raw = holders[name]
+        w0 = torch.Tensor(ttnn.to_torch(t.value)).float()
+        g = np.asarray(torch.Tensor(ttnn.to_torch(analytic[name])).float(), np.float64)
+        d = g / (np.linalg.norm(g) + 1e-300)          # along the gradient, unit L2
+        dot = float((g * d).sum())                     # the analytic directional derivative
+        scale = float(np.abs(np.asarray(w0, np.float64)).max())
+        rows = []
+        for frac in a.fd_eps:
+            # eps against the weight's own max-norm, so the step is a fixed fraction of the
+            # values being perturbed rather than an absolute number that may vanish.
+            eps = frac * scale / (np.abs(d).max() + 1e-300)
+            vals = {}
+            for sign in (+1, -1):
+                pert = torch.tensor(np.asarray(w0, np.float64) + sign * eps * d,
+                                    dtype=torch.float32)
+                up = ttnn.from_torch(pert, layout=ttnn.TILE_LAYOUT, device=comp.dev,
+                                     dtype=t.value.dtype)
+                back = np.asarray(torch.Tensor(ttnn.to_torch(up)).float(), np.float64)
+                moved = float((back != np.asarray(w0, np.float64)).mean())
+                prev = t.value
+                t.value = up
+                ag._PARAMS.pop(id(prev), None)
+                ag.parameter(t)
+                _set(owner, key, up)
+                vals[sign] = comp.loss(params)[0]
+                vals["moved"] = moved
+                t.value = prev
+                ag._PARAMS.pop(id(up), None)
+                ag.parameter(t)
+                _set(owner, key, prev)
+            num = (vals[+1] - vals[-1]) / (2 * eps)
+            rel = abs(num - dot) / (abs(dot) + 1e-300)
+            rows.append({"eps_frac": frac, "eps": eps, "numeric": num, "rel": rel,
+                         "moved": vals["moved"], "L+": vals[+1], "L-": vals[-1]})
+            print(f"    {name} eps {frac:<6} numeric {num: .6f} analytic {dot: .6f} "
+                  f"rel {rel:.3e}  moved {vals['moved']*100:.1f}%", flush=True)
+            out["_dump"]()
+        best = min(rows, key=lambda r: r["rel"])
+        # The negative control: the same reading against a gradient scaled by 1.5. If the check
+        # cannot reject that, it cannot fail at all and its PASS means nothing.
+        ctrl = min(abs(r["numeric"] - 1.5 * dot) / (abs(1.5 * dot) + 1e-300) for r in rows)
+        res[name] = {"analytic_dot": dot, "grad_norm": float(np.linalg.norm(g)),
+                     "weight_maxabs": scale, "sweep": rows, "best_rel": best["rel"],
+                     "best_eps_frac": best["eps_frac"], "control_rel": ctrl,
+                     "pass": best["rel"] <= a.fd_bar, "control_rejected": ctrl > a.fd_bar,
+                     "bar": a.fd_bar}
+        print(f"  {name}: best rel {best['rel']:.3e} at eps {best['eps_frac']} "
+              f"against a {a.fd_bar:.1e} bar  "
+              f"{'PASS' if best['rel'] <= a.fd_bar else 'FAIL'}; "
+              f"control {ctrl:.3e} {'rejected' if ctrl > a.fd_bar else 'NOT REJECTED'}",
+              flush=True)
+    return res
+
+
+def _set(owner, key, v):
+    if isinstance(owner, (dict, list)):
+        owner[key] = v
+    else:
+        setattr(owner, key, v)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tokens", type=int, default=384)
@@ -273,8 +361,15 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--log-sigma", type=float, default=0.0)
-    ap.add_argument("--fd-leaves", type=int, default=2)
-    ap.add_argument("--fd-eps", default="0.02,0.05,0.1,0.25")
+    ap.add_argument("--fd-leaves", default="",
+                    type=lambda v: tuple(x for x in v.split(",") if x))
+    # Small first. The sweep at 64 tokens showed the distogram head's reading getting WORSE
+    # with eps (8.07e-02 at 0.02, 5.33e-01 at 0.1) while the fraction of elements that moved
+    # rose, so what limits it there is curvature, not bf16 spacing -- and the answer to
+    # curvature is a smaller step, as long as the step still survives the cast.
+    ap.add_argument("--fd-eps", default="0.005,0.01,0.02,0.05",
+                    type=lambda v: tuple(float(x) for x in v.split(",") if x))
+    ap.add_argument("--fd-bar", type=float, default=2.0e-1)
     ap.add_argument("--no-fd", action="store_true")
     ap.add_argument("--diffusion-sites", default="atom_attention_decoder,layernorm_a",
                     type=lambda v: tuple(x for x in v.split(",") if x))
@@ -296,6 +391,7 @@ def main():
 
     def dump():
         a.out.write_text(json.dumps(out, indent=1, default=str))
+    out["_dump"] = dump
     dump()
 
     with during() as clk:
@@ -327,6 +423,40 @@ def main():
             dump()
 
             old_id = {n: id(t.value) for n, t in params.items()}
+
+            # --- VERIFY, before any step, so the gradient checked is the one at the
+            # checkpoint's own weights and not at whatever the optimizer moved them to.
+            if not a.no_fd:
+                t0 = time.perf_counter()
+                for t in params.values():
+                    t.grad = None
+                total0, breakdown0, seeds0, fwd0 = comp.loss(params)
+                roots0, gs0 = seed_roots(comp, fwd0, seeds0)
+                ag.backward(roots0, [ttnn.from_torch(torch.tensor(g), layout=ttnn.TILE_LAYOUT,
+                                                     device=comp.dev, dtype=ttnn.bfloat16)
+                                     for g in gs0])
+                analytic = {n: t.grad for n, t in params.items() if t.grad is not None}
+                out["verify_seeds"] = sorted(seeds0)
+                out["verify_loss"] = total0
+                out["verify_terms"] = {k: (v.get("value"), v.get("skipped"))
+                                       for k, v in breakdown0.items()}
+                if not a.fd_leaves:
+                    # One leaf per graph the step has: the trunk's, the head's, the denoiser's.
+                    pick = []
+                    for want in ("pairformer.last.", "distogram_head.", "diffusion."):
+                        hit = [n for n in sorted(analytic) if n.startswith(want)]
+                        if hit:
+                            pick.append(hit[0])
+                    a.fd_leaves = tuple(pick)
+                out["fd_leaves"] = list(a.fd_leaves)
+                print(f"[verify] loss {total0:.6f}, {len(analytic)} leaves with a gradient, "
+                      f"checking {list(a.fd_leaves)}", flush=True)
+                out["fd"] = fd_check(comp, params, holders, analytic, a, out)
+                out["fd_s"] = round(time.perf_counter() - t0, 2)
+                for t in params.values():
+                    t.grad = None
+                dump()
+
             opt = AdamW(params, lr=a.lr)
             history = []
             for step in range(a.steps):
@@ -376,6 +506,7 @@ def main():
             out["error"] = traceback.format_exc()
             print(out["error"], flush=True)
         out["clock"] = clk.summary() if hasattr(clk, "summary") else None
+    out.pop("_dump", None)
     dump()
     print("WROTE", a.out)
     return 0 if "error" not in out else 1
