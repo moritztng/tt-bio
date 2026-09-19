@@ -58,6 +58,24 @@
    },
    "ran": "tt_bio.main.prepare_features (parse -> tokenize -> featurize)",
    "source": "tt_bio/data/const.py:8-14 chain_type_ids, assigned at tt_bio/data/parse.py:1207-1211 and :1442, emitted at tt_bio/data/featurizer.py:651 into featurizer.py:1093",
+   "span_counts": [
+    [
+     "protein",
+     10
+    ],
+    [
+     "dna",
+     8
+    ],
+    [
+     "rna",
+     8
+    ],
+    [
+     "ligand",
+     31
+    ]
+   ],
    "stack": "boltz-2",
    "upstream": "NONPOLYMER is upstream Boltz's name for the class upstream's diffusion loss calls ligand"
   },
@@ -79,6 +97,28 @@
    },
    "ran": "tt_bio.boltzgen YamlDesignParser.parse_yaml -> Tokenizer.tokenize",
    "source": "tt_bio/data/const.py:8-14 chain_type_ids (BoltzGen ships no const module of its own; tt_bio/boltzgen/data/featurizer.py:15 imports this one), assigned at tt_bio/boltzgen/data/parse/schema.py:992 and :1066, emitted at tt_bio/boltzgen/data/featurizer.py:700 into :906",
+   "span_counts": [
+    [
+     "protein",
+     10
+    ],
+    [
+     "dna",
+     8
+    ],
+    [
+     "rna",
+     8
+    ],
+    [
+     "ligand",
+     31
+    ],
+    [
+     "protein",
+     8
+    ]
+   ],
    "stack": "boltzgen",
    "upstream": "same const as Boltz-2, and the design chain's tokens come back protein, so the design path does not renumber"
   },
@@ -125,6 +165,24 @@
    },
    "ran": "tt_bio.protenix_data.build_complex_features",
    "source": "tt_bio/protenix_data.py:40 MOL_TYPE_IDS, written at protenix_data.py:387 and emitted at protenix_data.py:519",
+   "span_counts": [
+    [
+     "protein",
+     10
+    ],
+    [
+     "dna",
+     8
+    ],
+    [
+     "rna",
+     8
+    ],
+    [
+     "ligand",
+     31
+    ]
+   ],
    "stack": "protenix-v2",
    "upstream": "upstream Protenix has NO integer mol_type feature -- its featuriser emits is_protein/is_ligand/is_dna/is_rna directly (protenix/data/core/featurizer.py:542-552) off a STRING mol_type annotation, so the integer column is our port's own encoding and its order follows OpenFold3's MoleculeType, not ByteDance's"
   }

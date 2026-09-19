@@ -66,13 +66,18 @@ def _observed(mol_type, spans) -> dict:
 
 def measure_protenix() -> dict:
     from tt_bio.protenix_data import MOL_TYPE_IDS, build_complex_features
-    feats = build_complex_features([(PROTEIN, None, "protein"), (RNA, None, "rna"),
-                                    (DNA, None, "dna"), (f"CCD_{LIGAND}", None, "ligand")])
+    # Chain order is protein, DNA, RNA, ligand in all three stacks' inputs, so the columns
+    # they emit are directly comparable elementwise and the dna/rna swap shows up in the
+    # DATA rather than only in the two tables.
+    feats = build_complex_features([(PROTEIN, None, "protein"), (DNA, None, "dna"),
+                                    (RNA, None, "rna"), (f"CCD_{LIGAND}", None, "ligand")])
     mt = feats["mol_type"]
     n_lig = int(len(mt)) - (len(PROTEIN) + len(RNA) + len(DNA))
-    obs = _observed(mt, [("protein", len(PROTEIN)), ("rna", len(RNA)),
-                         ("dna", len(DNA)), ("ligand", n_lig)])
+    spans = [("protein", len(PROTEIN)), ("dna", len(DNA)), ("rna", len(RNA)),
+             ("ligand", n_lig)]
+    obs = _observed(mt, spans)
     return {"stack": "protenix-v2", "observed": obs, "declared": dict(MOL_TYPE_IDS),
+            "span_counts": spans,
             "agrees_with_own_source": obs == dict(MOL_TYPE_IDS),
             "n_tokens": int(len(mt)), "n_ligand_tokens": n_lig,
             "ran": "tt_bio.protenix_data.build_complex_features",
@@ -99,12 +104,14 @@ def measure_boltz2() -> dict:
         single_sequence=True)
     mt = feats["mol_type"]
     n_lig = int(len(mt)) - (len(PROTEIN) + len(DNA) + len(RNA))
-    obs = _observed(mt, [("protein", len(PROTEIN)), ("dna", len(DNA)),
-                         ("rna", len(RNA)), ("ligand", n_lig)])
+    spans = [("protein", len(PROTEIN)), ("dna", len(DNA)), ("rna", len(RNA)),
+             ("ligand", n_lig)]
+    obs = _observed(mt, spans)
     declared = {"protein": const.chain_type_ids["PROTEIN"],
                 "dna": const.chain_type_ids["DNA"], "rna": const.chain_type_ids["RNA"],
                 "ligand": const.chain_type_ids["NONPOLYMER"]}
     return {"stack": "boltz-2", "observed": obs, "declared": declared,
+            "span_counts": spans,
             "agrees_with_own_source": obs == declared,
             "n_tokens": int(len(mt)), "n_ligand_tokens": n_lig,
             "ran": "tt_bio.main.prepare_features (parse -> tokenize -> featurize)",
@@ -126,13 +133,15 @@ def measure_boltzgen() -> dict:
     tok = Tokenizer().tokenize(target.structure)
     mt = tok.tokens["mol_type"]
     n_lig = int(len(mt)) - (2 * len(PROTEIN) - 2 + len(DNA) + len(RNA))
-    obs = _observed(mt, [("protein", len(PROTEIN)), ("dna", len(DNA)), ("rna", len(RNA)),
-                         ("ligand", n_lig), ("protein", len(mt) - len(PROTEIN)
-                                             - len(DNA) - len(RNA) - n_lig)])
+    spans = [("protein", len(PROTEIN)), ("dna", len(DNA)), ("rna", len(RNA)),
+             ("ligand", n_lig),
+             ("protein", len(mt) - len(PROTEIN) - len(DNA) - len(RNA) - n_lig)]
+    obs = _observed(mt, spans)
     declared = {"protein": const.chain_type_ids["PROTEIN"],
                 "dna": const.chain_type_ids["DNA"], "rna": const.chain_type_ids["RNA"],
                 "ligand": const.chain_type_ids["NONPOLYMER"]}
     return {"stack": "boltzgen", "observed": obs, "declared": declared,
+            "span_counts": spans,
             "agrees_with_own_source": obs == declared,
             "n_tokens": int(len(mt)), "n_ligand_tokens": n_lig,
             "ran": "tt_bio.boltzgen YamlDesignParser.parse_yaml -> Tokenizer.tokenize",
