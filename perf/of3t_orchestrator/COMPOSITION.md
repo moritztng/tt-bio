@@ -42,10 +42,14 @@ collection on the composed tree against a detached checkout of `origin/main`, sa
 - the two error sets are **identical**, line for line
 
 So the composition introduces **no new import-level breakage** and adds four tests. The 106 errors
-are this host's missing `ttnn` and `torch` extras and are present on `main` too. **No test
-actually executed** on either tree here: everything either errored on the missing extras or
-skipped. Running the suite for real needs a card host, which this row does not hold, so the
-composition is verified against import breakage and **not** against behaviour.
+are this host's missing `ttnn` and `torch` extras and are present on `main` too.
+
+**No test executes on the orchestrator's host**: without `ttnn` everything errors on the missing
+extras or skips, so this control proves the absence of new import breakage, not behaviour.
+Behaviour was covered separately and on hardware — `of3t-tape` ran the composition in a detached
+worktree on **qb2 card 0**, where `tests/test_tape_reach.py` and `tests/test_fused_unary_param.py`
+gave **13 passed** and the composed tree reproduced **11003 / 11003** routed calls. Re-run that on
+a card after any recompose touching the tape; the CPU control does not substitute for it.
 
 **The finished evidence was recomputed, not read.** Both completed instruments were re-run from
 scratch on the composed tree rather than having their committed JSON believed:
@@ -65,12 +69,31 @@ a uniform x1.01 on one tensor's gradient at every step moves the trajectory **2.
 the bar and invisible, because Adam cancels a uniform per-tensor scale — the standing reason the
 per-parameter gradient check cannot be replaced by a longer run.
 
+## What a reviewer of this branch must not conclude from it
+
+**This branch does not yet train OpenFold3, and the gap is easy to misread.** As of 2026-09-19
+the tape routes **11003 / 11003** calls on the OF3 trunk and the taped backward completes without
+error, but `of3t-equivalence` measured on qb1 card 3 that **0 of TriangleMultiplication's 8
+weights is an autograd leaf** — the backward returns, the input gets a gradient, and no parameter
+does. The same construction sits at every triangle multiplication in the trunk, the MSA stack and
+the template stack.
+
+The two headline numbers mean different things and neither substitutes for the other:
+**11003/11003 is call routing; 0 of 8 is parameter reachability.** Quote both or neither. The fix
+is assigned to `of3t-tape`; the root cause is in `Module.__init__`'s `torch_to_tt` (weights
+arrive as raw handles, so the tape sees constants) and in `lora.weights_for` (it discovers only
+sites routing through `tt_bio.ops.linear`, which `tenstorrent.py` calls at 4 sites in 12k lines).
+
+**Report leaves against total, never leaves alone.** A count with no denominator is how this
+stayed invisible underneath a 100 %-coverage result.
+
 ## Defect found by composing, and it is not a merge artifact
 
-`NOTICE` cites `docs/openfold3-vendor.md` for the eleven flag-gated vendor modifications. **That
-file does not exist**, on the composition or on `wk/of3t-data` itself. A provenance file pointing
-at a missing document is the kind of thing a clean merge hides, and `NOTICE` is the wrong place to
-carry a dangling reference. Owned by `of3t-data`.
+`NOTICE` cited `docs/openfold3-vendor.md` for the eleven flag-gated vendor modifications, and
+that file existed nowhere — not on the composition, not on `wk/of3t-data` itself, so it was the
+row's own gap. No single row could have found it, because each branch looked fine alone.
+**CLOSED** by `of3t-data` at `dd649bf60`, and `compose_verify.sh` now checks every `docs/*.md`
+the diff mentions, so what is guarded is the class rather than the instance.
 
 Also worth a reviewer's eye rather than a fix: the vendored tree is now **mixed-version** —
 `core/utils/relpos.py` from 0.4.5, everything else 0.4.3. `of3t-data` states this in `NOTICE`
