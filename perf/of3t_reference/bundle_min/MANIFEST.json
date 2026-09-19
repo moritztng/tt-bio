@@ -80,9 +80,19 @@
   },
   "bundle": "BUNDLE-MIN",
   "canonical_location": {
-    "host": "tt-quietbox2",
+    "host": "qb2",
+    "note": "git carries the manifest, the hashes and the generator; never a .pt. w0 is the public checkpoint of3-p2-155k.pt and is not shipped as a file.",
     "path": "/home/ttuser/of3t/bundle_min/",
-    "why": "qb2 has 3.0 TB free and is the host of3t-gradients runs on, so consumer and data are co-located. pc is at 97 % and git carries no .pt."
+    "payload": [
+      "grads_f64_r0.pt",
+      "grad_presence_r0.json",
+      "draws_recycles0.pt",
+      "batch_step003.pt"
+    ],
+    "withdrawn_still_on_host": [
+      "grads_f64_recycles0.pt",
+      "grads_f64_recycles3.pt"
+    ]
   },
   "checkpoint": {
     "file": "of3-p2-155k.pt",
@@ -134,7 +144,8 @@
   },
   "hold": {
     "date": "2026-09-19",
-    "state": "IN TRANSFER -- the r = 0 replay gradient is rebuilt and reproduced, and its payload is NOT yet on qb2. Do not consume grads_f64_r0.pt until this reads PUBLISHED and the host-side sha256 matches (LEDGER R67: a HOLD check went green on a bundle mid-transfer).",
+    "host_verified_sha256": "89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113",
+    "state": "PUBLISHED. grads_f64_r0.pt is on qb2 at /home/ttuser/of3t/bundle_min/ and its sha256 was recomputed ON THE HOST after the transfer, not asserted from the producer (LEDGER R67).",
     "withdrawn": {
       "cited_in": [
         "perf/of3t_updaterule/reference_profile.json",
