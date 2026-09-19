@@ -133,7 +133,17 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--blocks", default="0,23,47",
                     help="which pairformer blocks to capture the boundary of")
-    ap.add_argument("--out", type=Path, default=Path("/tmp/of3t/of3t-gradients/cap"))
+    ap.add_argument("--out", type=Path, default=Path("/home/ttuser/of3t_gradients/cap"),
+                    help="durable by default. /tmp is swept, and this capture costs 26 minutes "
+                         "of CPU to rebuild.")
+    ap.add_argument("--no-dropout", action="store_true",
+                    help="put every Dropout module in eval for the whole step. The bundle was "
+                         "taped at r = 0.25 with a mask drawn from the CUDA stream and never "
+                         "recorded, so a replay on another device cannot reproduce it and its "
+                         "draw-to-draw floor is median 0.48-0.55 on the block gradient "
+                         "(dropout_floor_block0.json). At r = 0 the whole capture is "
+                         "bit-reproducible, and r = 0 is also the only function our tape can "
+                         "compute -- tt_bio/train/lora.py:46, the tape has no dropout op.")
     ap.add_argument("--report", type=Path,
                     default=Path("perf/of3t_gradients/capture_trunk_boundary.json"))
     ap.add_argument("--seed", type=int, default=20260919)
@@ -142,7 +152,10 @@ def main() -> int:
     a.out.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
 
-    sys.path.insert(0, "/tmp/of3t/of3t-gradients/ref")
+    # Durable, not /tmp. The campaign's slug scratch under /tmp/of3t/<slug>/ is swept, and
+    # it took this capture (26 min of CPU) and another row's vendored openfold3 0.5.0 with
+    # it mid-pass. Expensive inputs live under ~/of3t_gradients/ now.
+    sys.path.insert(0, "/home/ttuser/of3t_gradients/ref")
     import bundle_min as BM
 
     man = manifest_from_git()
@@ -182,6 +195,22 @@ def main() -> int:
                          "missing": list(inc.missing_keys)}
     print(f"[{time.time()-t0:.0f}s] model built, checkpoint loaded "
           f"({len(sd)} / {len(inc.missing_keys)} missing)", flush=True)
+
+    if a.no_dropout:
+        from openfold3.core.model.primitives.dropout import Dropout
+        n_drop = 0
+        for m in model.modules():
+            if isinstance(m, Dropout):
+                m.eval()
+                n_drop += 1
+        rep["dropout"] = {"disabled": True, "modules": n_drop,
+                          "why": "the bundle's masks were drawn from the CUDA stream and are not "
+                                 "in draws_recycles0.pt; at r = 0 the capture is reproducible and "
+                                 "matches the function our tape computes"}
+    else:
+        rep["dropout"] = {"disabled": False,
+                          "why": "as published, r = 0.25, mask drawn locally and therefore NOT "
+                                 "the mask the published gradient was taken with"}
 
     stack = model.pairformer_stack
     blocks = stack.blocks
