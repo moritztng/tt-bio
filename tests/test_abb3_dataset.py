@@ -86,9 +86,20 @@ def _cfg():
 
 
 def _no_device(monkeypatch):
-    """Keep the uploads on the host, so the assembler is gated without a card."""
+    """Keep the uploads on the host, so the assembler is gated without a card.
+
+    The two input one-hots are expanded on the card by `abb3_features_device`; here they fall
+    back to the untouched reference, which is also what that module is checked against in
+    `test_abb3_features_device.py`. So this stand-in is the thing the device path has to equal,
+    not a second approximation of it.
+    """
     import tt_bio.abodybuilder3 as A
+    import tt_bio.train.abb3_features_device as F
+    from tt_bio.abodybuilder3_reference import single_and_pair_features
     monkeypatch.setattr(A, "to_device_fp32", lambda t: t)
+    monkeypatch.setattr(F, "input_features_device",
+                        lambda aatype, is_heavy, residue_index, *, device, **kw:
+                        single_and_pair_features(aatype, is_heavy, residue_index))
 
 
 def test_the_assembler_produces_exactly_the_contract_the_step_reads(staged, monkeypatch):
