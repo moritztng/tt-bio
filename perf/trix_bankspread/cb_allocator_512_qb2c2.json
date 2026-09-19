@@ -1,0 +1,92 @@
+{
+ "shape": [
+  1,
+  512,
+  512,
+  256
+ ],
+ "ladder": [
+  {
+   "ct_stream": 1,
+   "bufs": 1,
+   "out_cb_tiles": 32,
+   "out_cb_kb": 64.0,
+   "total_cb_kb": 72.0,
+   "ran": true,
+   "bit_exact_vs_ttnn_permute": true
+  },
+  {
+   "ct_stream": 1,
+   "bufs": 2,
+   "out_cb_tiles": 64,
+   "out_cb_kb": 128.0,
+   "total_cb_kb": 136.0,
+   "ran": true,
+   "bit_exact_vs_ttnn_permute": true
+  },
+  {
+   "ct_stream": 2,
+   "bufs": 1,
+   "out_cb_tiles": 64,
+   "out_cb_kb": 128.0,
+   "total_cb_kb": 136.0,
+   "ran": true,
+   "bit_exact_vs_ttnn_permute": true
+  },
+  {
+   "ct_stream": 2,
+   "bufs": 2,
+   "out_cb_tiles": 128,
+   "out_cb_kb": 256.0,
+   "total_cb_kb": 264.0,
+   "ran": true,
+   "bit_exact_vs_ttnn_permute": true
+  },
+  {
+   "ct_stream": 4,
+   "bufs": 1,
+   "out_cb_tiles": 128,
+   "out_cb_kb": 256.0,
+   "total_cb_kb": 264.0,
+   "ran": true,
+   "bit_exact_vs_ttnn_permute": true
+  },
+  {
+   "ct_stream": 4,
+   "bufs": 2,
+   "out_cb_tiles": 256,
+   "out_cb_kb": 512.0,
+   "total_cb_kb": 520.0,
+   "ran": true,
+   "bit_exact_vs_ttnn_permute": true
+  },
+  {
+   "ct_stream": 8,
+   "bufs": 1,
+   "out_cb_tiles": 256,
+   "out_cb_kb": 512.0,
+   "total_cb_kb": 520.0,
+   "ran": true,
+   "bit_exact_vs_ttnn_permute": true
+  },
+  {
+   "ct_stream": 8,
+   "bufs": 2,
+   "out_cb_tiles": 512,
+   "out_cb_kb": 1024.0,
+   "total_cb_kb": 1032.0,
+   "ran": true,
+   "bit_exact_vs_ttnn_permute": true
+  }
+ ],
+ "derived_default": {
+  "ct_stream": 8,
+  "out_cb_tiles": 512,
+  "out_cb_kb": 1024.0,
+  "bit_exact_vs_ttnn_permute": true
+ },
+ "grid": [
+  11,
+  10
+ ]
+}

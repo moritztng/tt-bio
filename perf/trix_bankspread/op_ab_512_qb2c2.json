@@ -1,0 +1,177 @@
+{
+ "shape": [
+  1,
+  512,
+  512,
+  256
+ ],
+ "bytes_each_way": 134217728,
+ "arms_in_order": {
+  "s1b2_r0": {
+   "synced_ms": 1.4503,
+   "batched_ms": 1.4128
+  },
+  "s2b2_r0": {
+   "synced_ms": 1.3445,
+   "batched_ms": 1.3139
+  },
+  "s4b1_r0": {
+   "synced_ms": 1.7258,
+   "batched_ms": 1.6958
+  },
+  "s4b2_r0": {
+   "synced_ms": 1.3057,
+   "batched_ms": 1.2748
+  },
+  "s8b1_r0": {
+   "synced_ms": 1.5512,
+   "batched_ms": 1.5278
+  },
+  "s8b2_r0": {
+   "synced_ms": 1.2973,
+   "batched_ms": 1.2726
+  },
+  "s1b2_r1": {
+   "synced_ms": 1.4467,
+   "batched_ms": 1.4113
+  },
+  "s2b2_r1": {
+   "synced_ms": 1.3455,
+   "batched_ms": 1.3131
+  },
+  "s4b1_r1": {
+   "synced_ms": 1.7237,
+   "batched_ms": 1.6923
+  },
+  "s4b2_r1": {
+   "synced_ms": 1.3044,
+   "batched_ms": 1.2747
+  },
+  "s8b1_r1": {
+   "synced_ms": 1.5501,
+   "batched_ms": 1.5254
+  },
+  "s8b2_r1": {
+   "synced_ms": 1.2979,
+   "batched_ms": 1.2725
+  },
+  "s1b2_r2": {
+   "synced_ms": 1.4436,
+   "batched_ms": 1.4122
+  },
+  "s2b2_r2": {
+   "synced_ms": 1.3466,
+   "batched_ms": 1.3141
+  },
+  "s4b1_r2": {
+   "synced_ms": 1.7264,
+   "batched_ms": 1.6932
+  },
+  "s4b2_r2": {
+   "synced_ms": 1.3053,
+   "batched_ms": 1.2747
+  },
+  "s8b1_r2": {
+   "synced_ms": 1.5507,
+   "batched_ms": 1.5298
+  },
+  "s8b2_r2": {
+   "synced_ms": 1.2988,
+   "batched_ms": 1.2721
+  },
+  "s1b2_last": {
+   "synced_ms": 1.4483,
+   "batched_ms": 1.4129
+  }
+ },
+ "summary": {
+  "s1b2": {
+   "ct_stream": 1,
+   "bufs": 2,
+   "out_cb_kb": 128.0,
+   "synced_ms": 1.4467,
+   "batched_ms": 1.4122,
+   "synced_ratio": 1.0,
+   "batched_ratio": 1.0,
+   "batched_gbs_each_way": 95.04,
+   "saved_ms_per_op_batched": 0.0
+  },
+  "s2b2": {
+   "ct_stream": 2,
+   "bufs": 2,
+   "out_cb_kb": 256.0,
+   "synced_ms": 1.3455,
+   "batched_ms": 1.3139,
+   "synced_ratio": 1.0752,
+   "batched_ratio": 1.0748,
+   "batched_gbs_each_way": 102.15,
+   "saved_ms_per_op_batched": 0.0983
+  },
+  "s4b1": {
+   "ct_stream": 4,
+   "bufs": 1,
+   "out_cb_kb": 256.0,
+   "synced_ms": 1.7258,
+   "batched_ms": 1.6932,
+   "synced_ratio": 0.8383,
+   "batched_ratio": 0.834,
+   "batched_gbs_each_way": 79.27,
+   "saved_ms_per_op_batched": -0.281
+  },
+  "s4b2": {
+   "ct_stream": 4,
+   "bufs": 2,
+   "out_cb_kb": 512.0,
+   "synced_ms": 1.3053,
+   "batched_ms": 1.2747,
+   "synced_ratio": 1.1083,
+   "batched_ratio": 1.1079,
+   "batched_gbs_each_way": 105.29,
+   "saved_ms_per_op_batched": 0.1375
+  },
+  "s8b1": {
+   "ct_stream": 8,
+   "bufs": 1,
+   "out_cb_kb": 512.0,
+   "synced_ms": 1.5507,
+   "batched_ms": 1.5278,
+   "synced_ratio": 0.9329,
+   "batched_ratio": 0.9243,
+   "batched_gbs_each_way": 87.85,
+   "saved_ms_per_op_batched": -0.1156
+  },
+  "s8b2": {
+   "ct_stream": 8,
+   "bufs": 2,
+   "out_cb_kb": 1024.0,
+   "synced_ms": 1.2979,
+   "batched_ms": 1.2725,
+   "synced_ratio": 1.1146,
+   "batched_ratio": 1.1098,
+   "batched_gbs_each_way": 105.48,
+   "saved_ms_per_op_batched": 0.1397
+  }
+ },
+ "aa_floor_pct_synced": 0.1379,
+ "aa_floor_pct_batched": 0.0071,
+ "derived_default_bit_exact_vs_ttnn_permute": true,
+ "aiclk_during_sysfs_20hz": {
+  "n": 66,
+  "min": 1343,
+  "max": 1350,
+  "median": 1350
+ },
+ "aiclk_during_measuring_thread": {
+  "n": 418,
+  "min": 1343,
+  "max": 1350,
+  "median": 1350
+ },
+ "grid": [
+  11,
+  10
+ ],
+ "batch": 8,
+ "iters": 11,
+ "rounds": 3
+}

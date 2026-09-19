@@ -38,6 +38,48 @@ FACE_H = FACE_W = 16
 GROUP_TILES = 32
 IN_CB, OUT_CB, STAGE_CB = 0, 16, 24
 
+# Blackhole interleaved DRAM has 8 banks and puts page p in bank p % 8. Wormhole has 12, and
+# `Nt*Ct % 12` is 4 at 512 aa, so the serialisation `_ct_stream` breaks cannot occur there.
+DRAM_BANKS = 8
+# What the three CBs may take per core. Blackhole gives a Tensix ~1.46 MB of L1, and the allocator
+# takes the whole ladder up to 1032 KB at 512 aa, so this budget is a choice and not a limit:
+# `perf/trix_bankspread/cb_allocator.py` ran every rung and `perf/trix_bankspread/op_ab.py` timed
+# them. 520 KB is what CT_STREAM = 4 double-buffered needs, and 8 streams at 1032 KB bought a
+# further 0.17 % for twice the L1.
+CB_L1_BUDGET = int(os.environ.get("TT_BIO_REBLOCK_CB_L1_BUDGET", str(640 * 1024)))
+# Streaming more than 4 channel tiles is measured at 0.17 % against twice the L1 (1.1098x vs
+# 1.1079x at 512 aa, A/A floor 0.0071 %), so the ladder stops here.
+MAX_CT_STREAM = 4
+# Measurement handle: pin CT_STREAM (1 is the original il-inner walk) and the OUT_CB buffer count.
+# Unset means the derived rule below, which is what the op runs in production.
+_CT_STREAM_PIN = os.environ.get("TT_BIO_REBLOCK_CT_STREAM")
+_CT_BUFS_PIN = os.environ.get("TT_BIO_REBLOCK_CT_BUFS")
+
+
+def _ct_stream(Ct, tile_bytes):
+    """``(CT_STREAM, OUT_CB depth in tiles)`` for a shape with ``Ct`` channel tiles.
+
+    The reader walks the permuted axis with page stride ``Nt*Ct``. That is 0 mod 8 whenever ``Ct``
+    is, which it is at every size the in-projection groups 8 chunks at, so all 32 reads of a group
+    land on one DRAM bank at an outstanding depth of 1: measured 190 GB/s against 324 GB/s for the
+    same pages read in a different order. Streaming ``S`` consecutive pages before advancing the row
+    covers ``min(S, 8)`` banks. Same pages, same transactions, same values.
+
+    What bounds ``S`` is the writer, which gathers along the row index and so has to hold ``32*S``
+    tiles instead of 32. OUT_CB is always double-buffered: at a depth of exactly one block the
+    reader cannot start the next block until the writer has drained this one, and that costs more
+    than the banks buy (measured 0.834x at ``S = 4`` and 0.9243x at ``S = 8``). So a CB that will
+    not fit drops ``S``, never the second buffer.
+    """
+    if _CT_STREAM_PIN is not None:
+        S = max(1, min(int(_CT_STREAM_PIN), Ct))
+        bufs = int(_CT_BUFS_PIN) if _CT_BUFS_PIN is not None else 2
+        return S, GROUP_TILES * S * bufs
+    for S in (MAX_CT_STREAM, 2):
+        if Ct % S == 0 and GROUP_TILES * S * 2 * tile_bytes <= CB_L1_BUDGET:
+            return S, GROUP_TILES * S * 2
+    return 1, GROUP_TILES * 2
+
 # How the cached descriptor gets its two per-call addresses. Set on first use; kept as module state
 # only so a probe can report which path the wheel took.
 ADDR_WRITE_MODE = None
@@ -228,8 +270,11 @@ def _build(x, out, device, reader_ct, writer_ct):
             total_size=depth * tile_bytes, core_ranges=core_grid, format_descriptors=[fmt]
         )
 
-    # c_16 depth MUST be a multiple of the 32-tile group or the writer's L1 window wraps mid-group.
-    cbs = [cb(IN_CB, 2), cb(OUT_CB, GROUP_TILES * 2), cb(STAGE_CB, 2)]
+    # c_16 depth MUST be a multiple of the 32*CT_STREAM block or the writer's L1 window wraps
+    # mid-block. `_ct_stream` returns the pair, so the depth cannot drift from the kernel arg.
+    _, out_cb_depth = _ct_stream(Ct, tile_bytes)
+    assert out_cb_depth % (GROUP_TILES * reader_ct[0]) == 0, (out_cb_depth, reader_ct[0])
+    cbs = [cb(IN_CB, 2), cb(OUT_CB, out_cb_depth), cb(STAGE_CB, 2)]
 
     reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     # `first` is this core's linear index, `block` the start of its contiguous run of groups. Both
@@ -286,8 +331,9 @@ def _build(x, out, device, reader_ct, writer_ct):
 
 
 def _prepare(x, out, device):
-    reader_ct = list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
-    writer_ct = [_elem(), OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB]
+    ct_stream, _ = _ct_stream(int(x.shape[3]) // TILE_W, TILE_H * TILE_W * _elem())
+    reader_ct = [ct_stream] + list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
+    writer_ct = [_elem(), OUT_CB, TILE_H, TILE_W, FACE_H, FACE_W, STAGE_CB, ct_stream]
     writer_ct.extend(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     key = _cache_key(x, out, device, reader_ct, writer_ct)
     entry = _CACHE.get(key)
