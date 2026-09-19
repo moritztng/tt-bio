@@ -86,6 +86,14 @@ def verdict(rows: list) -> dict:
                 s.update([r["warmup_sha256"]] + list(r["fold_sha256"] or []))
         return {d for d in s if d}
     b, o = digests("base"), digests("on")
+    failed = [f"{r['arm']}:{r['grid']}" for r in rows if r["rc"] != 0]
+    if failed:
+        # A refused leg is not a result. This campaign has three times read a non-zero exit as
+        # an outcome (a contended leg as an accuracy failure, a grepped banner as the imported
+        # tree, an argparse refusal as an arm), so the scorer refuses rather than scoring what
+        # survived.
+        return {"verdict": "REFUSED", "why": f"legs did not run: {', '.join(failed)}",
+                "base_digests": sorted(b), "on_digests": sorted(o), "arms_differ": None}
     if len(b) != 1:
         v, why = "C_MAIN_GRID_DEPENDENT", ("the base arm itself does not agree across grids -- "
                                            "shipping main is grid-dependent here and this test "
