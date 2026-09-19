@@ -254,7 +254,7 @@ def run(row, dev, ckc, roofs, cores, l1_budget):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
-    ap.add_argument("--roofs", default=None, help="roofs JSON; omit to skip the % columns")
+    ap.add_argument("--roofs", default=None, help="roofs JSON; omit to skip the %% columns")
     ap.add_argument("--token-len", type=int, default=298)
     ap.add_argument("--n-atom", type=int, default=1192)
     ap.add_argument("--d-batch", type=int, default=1)

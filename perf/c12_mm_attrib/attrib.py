@@ -204,7 +204,7 @@ def main():
     ap.add_argument("--capdir", type=Path, default=CAPDIR)
     ap.add_argument("--out", type=Path,
                     default=Path(__file__).resolve().parent / "mm_sites.json.gz",
-                    help="gzipped when the name ends .gz -- pc / is at 94 %")
+                    help="gzipped when the name ends .gz -- pc / is at 94 %%")
     ap.add_argument("--full-params", action="store_true")
     a = ap.parse_args()
     allrows, per_cap = [], {}
