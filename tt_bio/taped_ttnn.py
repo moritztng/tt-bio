@@ -35,7 +35,8 @@ import ttnn
 
 from . import autograd as ag
 from .autograd import Tensor, precise_config
-from .autograd import (_axis, _differentiating, _flat2d, _on_tape, _raw, _tape,
+from .autograd import (_axis, _differentiating, _flat2d, _on_tape, _raw,
+                       _sum_leading, _tape,
                        _taped_layer_norm, _taped_linear, _unwrap, _wrap)
 
 __all__ = ["tape", "VERBS", "taped_ttnn"]
@@ -109,10 +110,20 @@ def _v_matmul(shipped, args, kwargs):
     """Both shipped matmuls. `transpose_a`/`transpose_b` reassociate rather than transpose
     the result -- see `matmul` above for why writing the post-transpose is the classic way
     to get a wrong gradient that a shape check cannot catch."""
-    a, b = _wrap(args[0]), _wrap(args[1])
     kw = dict(kwargs)
+    # `ttnn.matmul` takes its operands positionally; `experimental.minimal_matmul` names
+    # them, and the shipped QKV and gate projections call it that way. One entry covers
+    # both rather than two entries drifting.
+    a = _wrap(args[0] if args else kw.get("input_tensor"))
+    b = _wrap(args[1] if len(args) > 1 else kw.get("weight_tensor"))
+    bias = _wrap(kw.get("bias_tensor"))
     ta = bool(kw.get("transpose_a", False))
     tb = bool(kw.get("transpose_b", False))
+    if kw.get("activation") is not None:
+        raise NotImplementedError(
+            f"tt_bio.autograd has no backward for the fused activation "
+            f"{kw['activation']!r} on a matmul. `ops.linear` composes its activation on the "
+            f"tape; do the same here rather than dropping it.")
     cfg = kw.get("compute_kernel_config") or precise_config()
     ra, rk = _raw(args, kwargs)
     out_v = shipped(*ra, **rk)
@@ -125,13 +136,21 @@ def _v_matmul(shipped, args, kwargs):
                            ttnn.matmul(b.value, g, transpose_a=tb, transpose_b=True,
                                        compute_kernel_config=cfg))
             if b.requires_grad:
-                b.add_grad(ttnn.matmul(a.value, g, transpose_a=not ta,
-                                       compute_kernel_config=cfg) if not tb else
-                           ttnn.matmul(g, a.value, transpose_a=True, transpose_b=ta,
-                                       compute_kernel_config=cfg))
+                # The weight reduces over every token, so it is `_flat2d`'s DRAM-normalised
+                # long-K path and fp32 out, for the reason documented there.
+                if not ta and not tb and len(a.value.shape) > 2:
+                    b.add_grad(ttnn.matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
+                                           compute_kernel_config=cfg, dtype=ttnn.float32))
+                else:
+                    b.add_grad(ttnn.matmul(a.value, g, transpose_a=not ta,
+                                           compute_kernel_config=cfg) if not tb else
+                               ttnn.matmul(g, a.value, transpose_a=True, transpose_b=ta,
+                                           compute_kernel_config=cfg))
+            if bias is not None and bias.requires_grad:
+                bias.add_grad(_sum_leading(g, bias.value.shape))
         return bw
 
-    return _tape(out_v, [a, b], make)
+    return _tape(out_v, [p for p in (a, b, bias) if p is not None], make)
 
 
 @_verb("softmax", "softmax_in_place")
@@ -195,6 +214,61 @@ _VERBS["relu"] = _unary(lambda xv, y: ttnn.gtz(xv))
 _VERBS["exp"] = _unary(lambda xv, y: y, reads_output=True)
 
 
+# A fused eltwise activation, and its derivative from whichever of (input, output) is
+# cheaper. `ttnn.multiply(a, b, input_tensor_b_activations=[SIGMOID])` applies the unary to
+# the operand BEFORE the binary op, and a tape that forwards the keyword to the shipped verb
+# but ignores it in the backward gets a correct forward and a silently wrong gradient. That
+# is exactly what happened: the shipped `TriangleAttention` gate is
+# `ttnn.multiply_(o, g, input_tensor_b_activations=[SIGMOID])` at `tenstorrent.py:7532`, and
+# the composed module's dL/dz came out 4.88x too large -- flat across a 50x eps sweep, so
+# not noise. Every op-scale check in this directory passed while that was true, because none
+# of them composes a gate. `perf/ptx_fastpath/modulecheck.py` is what found it.
+_FUSED_UNARY = {}
+
+
+def _register_fused_unary():
+    u = getattr(ttnn, "UnaryOpType", None)
+    if u is None:                                                  # pragma: no cover
+        return
+    if hasattr(u, "SIGMOID"):
+        _FUSED_UNARY[u.SIGMOID] = (
+            ttnn.sigmoid, lambda x, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)))
+    if hasattr(u, "RELU"):
+        _FUSED_UNARY[u.RELU] = (ttnn.relu, lambda x, y: ttnn.gtz(x))
+    if hasattr(u, "SILU"):
+        _FUSED_UNARY[u.SILU] = (
+            ttnn.silu,
+            lambda x, y: (lambda sg: ttnn.multiply(
+                sg, ttnn.add(ttnn.multiply(x, ttnn.rsub(sg, 1.0)), 1.0)))(ttnn.sigmoid(x)))
+
+
+_register_fused_unary()
+
+
+def _activation(kwargs, key):
+    """The single fused unary on one operand, or None. Anything unmodelled raises.
+
+    Declining loudly is the whole point. The forward would be right either way, because it
+    comes from the shipped verb; it is the backward that would quietly differentiate a
+    different function.
+    """
+    acts = kwargs.get(key) or ()
+    acts = list(acts)
+    if not acts:
+        return None
+    if len(acts) > 1:
+        raise NotImplementedError(
+            f"tt_bio.autograd tapes one fused activation per operand; {key} has {len(acts)}.")
+    op = acts[0]
+    if op not in _FUSED_UNARY:
+        raise NotImplementedError(
+            f"tt_bio.autograd has no backward for the fused activation {op!r} on {key}. "
+            f"Add it to tt_bio.taped_ttnn._FUSED_UNARY -- forwarding it to the shipped verb "
+            f"and ignoring it here gives a correct forward and a wrong gradient, which is "
+            f"how the TriangleAttention gate read 4.88x high.")
+    return _FUSED_UNARY[op]
+
+
 def _binary(grad_a, grad_b, scalar, out_of_place=None):
     """Register a binary eltwise verb. The second operand may be a python scalar, which the
     shipped chain does often enough (`ttnn.multiply(s, 1 / sqrt(d))`) that treating it as a
@@ -217,6 +291,12 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
         if inplace:
             shipped = out_of_place
         if not isinstance(raw_b, (Tensor, ttnn.Tensor)):
+            _activation(kwargs, "input_tensor_a_activations")      # raises if unmodelled
+            _activation(kwargs, "input_tensor_b_activations")
+            if kwargs.get("input_tensor_a_activations") or kwargs.get(
+                    "input_tensor_b_activations"):
+                raise NotImplementedError(
+                    "tt_bio.autograd does not tape a fused activation on a scalar operand")
             f = float(raw_b)
             out_v = shipped(a.value, raw_b, **kw)
 
@@ -227,6 +307,8 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
 
             return _tape(out_v, [a], make_s)
         b = _wrap(raw_b)
+        fa = _activation(kwargs, "input_tensor_a_activations")
+        fb = _activation(kwargs, "input_tensor_b_activations")
         out_v = shipped(a.value, b.value, **kw)
         if inplace:
             # An in-place verb is a free of its destination plus a write, and the tuned
@@ -245,10 +327,18 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
                 # Read through the Tensors: either operand may have been evicted to DRAM
                 # by a `deallocate` the tape declined between here and the backward.
                 av, bv = a.value, b.value
+                # The binary op sees the ACTIVATED operands, so the binary rule is
+                # evaluated on those and the unary derivative is applied after. Recomputed
+                # rather than retained: the fused forward never materialised them, and
+                # holding two extra tensors is what the L1 budget cannot take.
+                ea = fa[0](av) if fa else av
+                eb = fb[0](bv) if fb else bv
                 if a.requires_grad:
-                    a.add_grad(grad_a(g, av, bv))
+                    da = grad_a(g, ea, eb)
+                    a.add_grad(ttnn.multiply(da, fa[1](av, ea)) if fa else da)
                 if b.requires_grad:
-                    b.add_grad(grad_b(g, av, bv))
+                    db = grad_b(g, ea, eb)
+                    b.add_grad(ttnn.multiply(db, fb[1](bv, eb)) if fb else db)
             return bw
 
         return _tape(out_v, [a, b], make)
