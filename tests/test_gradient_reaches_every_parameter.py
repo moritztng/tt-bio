@@ -59,6 +59,7 @@ pytest.importorskip("ttnn")
 import ttnn                                                                 # noqa: E402
 
 from tt_bio.abodybuilder3_reference import ABB3Config, ABB3StructureModule  # noqa: E402
+from tt_bio.af2_reference import Linear                                     # noqa: E402
 from tt_bio.tenstorrent import get_device                                   # noqa: E402
 from tt_bio.train.abodybuilder3_step import TrainStep                       # noqa: E402
 
@@ -176,25 +177,97 @@ def test_a_zero_initialised_residual_branch_is_a_transient_and_not_a_failure():
         f"and needs more steps, not fewer")
 
 
-def test_the_runs_starting_weights_are_not_already_at_zero():
+def _weights_upstream_zeroes(model) -> set[str]:
+    """State-dict keys the model itself declares zero at init, read off it rather than listed here.
+
+    `af2_reference.Linear` records the initializer its call site asked for, and two of upstream's
+    six draw a zero weight: `final`, every residual branch's output projection, and `gating`.
+    Reading the name off the module is the whole point -- a projection added, renamed or moved
+    later is covered without touching this file, where a typed-out list would go stale green.
+    """
+    return {f"{name}.weight" for name, module in model.named_modules()
+            if isinstance(module, Linear) and getattr(module, "init", None) in ("final", "gating")}
+
+
+def _zeros_nobody_asked_for(model, sd: dict) -> list[str]:
+    """Every identically zero float tensor in `sd` that is neither a bias nor a declared zero.
+
+    Biases are out because a bias is additive: `db = sum(g)` is nonzero as soon as any gradient
+    reaches the layer, and `dx` does not pass through it at all, so starting one at zero costs
+    nothing and is the convention everywhere. What is left is the weights the run has to train.
+    """
+    exempt = _weights_upstream_zeroes(model)
+    return sorted(k for k, v in sd.items()
+                  if v.is_floating_point() and not k.endswith(".bias") and k not in exempt
+                  and float(v.abs().max()) == 0.0)
+
+
+def test_no_weight_the_run_has_to_train_starts_at_zero():
     """The same defect one layer earlier, and this one needs no card.
 
-    A parameter that starts at exactly zero is not merely badly initialised, it is unreachable:
+    A weight that starts at exactly zero is not merely badly initialised, it is unreachable:
     `dx = g W^T` is zero through a zero weight, so nothing upstream of it receives a gradient
     either, and `dW = x^T g` is zero for every layer whose input the zeros have already killed.
-    The all-zero model is a fixed point of its own optimizer, which is how the leg ran 1,248 steps
-    without moving. Its checkpoint says the same thing from the other side: all 356 parameters
-    with a dead moment also have an identically zero master weight, and none of the 80 live ones
-    do (`scripts/abb3_port/moment_audit.py`).
+    The all-zero model is a fixed point of its own optimizer, which is how the leg ran 1,248
+    steps without moving. Its checkpoint says the same thing from the other side: all 356
+    parameters with a dead moment also have an identically zero master weight, and none of the
+    80 live ones do (`scripts/abb3_port/moment_audit.py`).
 
-    `tt_bio/af2_reference.py:98` is the line -- `Linear.__init__` allocates `torch.zeros`, correct
-    for a module that exists to hold a loaded checkpoint and wrong for the one the reproduction
-    initialises from.
+    **Zero is not by itself the defect, which is what the first version of this check got
+    wrong.** It asserted that no tensor at all was zero, and against the repaired initialiser
+    that is red forever on a healthy model: 194 of 316 tensors start at zero and every one of
+    them is correct -- 154 biases and the 40 `init="final"` output projections. A gate that
+    cannot go green gets deleted, so the predicate is narrowed to the tensors whose zero really
+    is fatal, and `test_the_same_check_is_red_on_the_model_the_first_leg_trained` is what keeps
+    the narrowing from being an exemption for the defect.
+
+    `tt_bio/train/abb3_init.py` is what draws them; `tests/test_abb3_init.py` holds the same
+    property against that function's own output. This reads the artifact instead: the state dict
+    `scripts/abb3_port/repro.py` hands the run, over every tensor in it rather than over the
+    `Linear` modules, so a bare parameter or a projection that no initializer walks is covered.
     """
     cfg = ABB3Config(use_plddt=False, no_blocks=BLOCKS)
+    model = ABB3StructureModule(cfg)
     sd = initial_state_dict(cfg, seed=0)
-    zeros = [k for k, v in sd.items() if v.is_floating_point() and float(v.abs().max()) == 0.0]
-    assert not zeros, (
-        f"{len(zeros)} of {len(sd)} tensors in the run's starting weights are identically zero, "
-        f"e.g. {zeros[:6]}. A zero weight cannot receive a gradient and cannot pass one upstream, "
-        f"so the model the reproduction starts from is a fixed point of its own optimizer")
+    exempt = _weights_upstream_zeroes(model)
+    assert exempt, (
+        "no Linear in the model records init=\"final\" or \"gating\", so the exemption is "
+        "reading nothing and this check cannot tell upstream's deliberate zeros from a dead "
+        "weight. The name comes from af2_reference.Linear.init, set at each call site")
+    wrong = [k for k in sorted(exempt) if float(sd[k].abs().max()) != 0.0]
+    assert not wrong, (
+        f"{len(wrong)} of {len(exempt)} weights the model declares final/gating are not zero in "
+        f"the run's starting weights, e.g. {wrong[:4]}. The exemption is derived from the module "
+        f"and has to match the weights it excuses, or it is excusing the wrong tensors")
+    stuck = _zeros_nobody_asked_for(model, sd)
+    assert not stuck, (
+        f"{len(stuck)} of {len(sd)} tensors in the run's starting weights are identically zero "
+        f"and none of them is a bias or one of the {len(exempt)} declared final/gating "
+        f"projections, e.g. {stuck[:6]}. A zero weight cannot receive a gradient and cannot pass "
+        f"one upstream, so the model the reproduction starts from is a fixed point of its own "
+        f"optimizer")
+
+
+def test_the_same_check_is_red_on_the_model_the_first_leg_trained():
+    """The control in the other direction: narrowing the predicate must not excuse the defect.
+
+    The leg ran on `ABB3StructureModule(cfg).state_dict()` with nothing drawn over it
+    (`scripts/abb3_port/repro.py:37` as it stood, allocating through
+    `tt_bio/af2_reference.py:98`), so every weight matrix in the trunk was exactly zero. That
+    model is constructed here rather than mocked, which is the only version of this control
+    worth having: green on the repaired tree proves nothing on its own, and red on the broken
+    tree taken as sufficient is exactly how the first version of the check shipped.
+    """
+    cfg = ABB3Config(use_plddt=False, no_blocks=BLOCKS)
+    model = ABB3StructureModule(cfg)
+    sd = model.state_dict()
+    stuck = _zeros_nobody_asked_for(model, sd)
+    trunk = {k for k, v in sd.items() if v.dim() == 2 and k not in _weights_upstream_zeroes(model)}
+    assert trunk <= set(stuck) and not any(k.endswith(".bias") for k in stuck), (
+        f"the narrowed predicate found {len(stuck)} zero tensors on the untouched allocation and "
+        f"missed {len(trunk - set(stuck))} of its {len(trunk)} non-final weight matrices "
+        f"({sorted(trunk - set(stuck))[:4]}). Narrowed past the defect it exists to catch, it is "
+        f"an exemption rather than a gate")
+    assert "ipa_layers.0.linear_q.weight" in stuck, (
+        "the IPA query projection is not among the tensors the check reports, so whatever it is "
+        "reading is not the trunk the leg failed to train")
