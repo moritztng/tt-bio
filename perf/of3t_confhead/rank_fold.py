@@ -75,7 +75,7 @@ import tt_bio.openfold3_fold as of3_fold                              # noqa: E4
 
 _raw = []
 _orig_head_forward = of3_conf.OF3ConfidenceHead.forward
-_orig_confidence = of3_fold.OF3Fold._confidence
+_orig_confidence = of3_fold.OpenFold3._confidence
 RECORDS = []
 
 
@@ -141,7 +141,7 @@ def _confidence(self, sample, si_input, si_trunk, zij_trunk, aux):
 
 
 of3_conf.OF3ConfidenceHead.forward = _head_forward
-of3_fold.OF3Fold._confidence = _confidence
+of3_fold.OpenFold3._confidence = _confidence
 
 # ---------------------------------------------------------------- AICLK, sampled DURING
 clk = []
