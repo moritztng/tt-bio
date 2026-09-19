@@ -30,7 +30,17 @@ cd "$REPO"
 # the same moment ("cannot lock ref refs/remotes/origin/wk/pvx-...") and takes the whole compose
 # down for a reason that has nothing to do with this campaign. Fetch only what we read, and
 # retry once, so a neighbour's push cannot abort the composition.
-_refs="main"; for _r in $ROWS; do _refs="$_refs wk/of3t-$_r"; done
+# A row can be dispatched (and so listed in ROWS) before it has pushed a branch. The merge loop
+# below tolerates that, but `git fetch` does NOT: naming one absent ref fails the whole fetch,
+# and the retry message then blames a neighbour race for a row that simply has not started.
+# Ask origin what exists first, and fetch only that.
+_avail="$(git ls-remote --heads origin 2>/dev/null | sed 's#.*refs/heads/##')"
+[ -n "$_avail" ] || { sleep 5; _avail="$(git ls-remote --heads origin 2>/dev/null | sed 's#.*refs/heads/##')"; }
+[ -n "$_avail" ] || { echo "cannot list origin refs -- network or remote is down"; exit 1; }
+_refs="main"
+for _r in $ROWS; do
+  printf '%s\n' "$_avail" | grep -qx "wk/of3t-$_r" && _refs="$_refs wk/of3t-$_r"
+done
 _refs="$_refs wk/of3t-orchestrator"
 # shellcheck disable=SC2086
 git fetch -q origin $_refs 2>/dev/null || { sleep 5; git fetch -q origin $_refs 2>/dev/null || {
