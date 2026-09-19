@@ -1038,6 +1038,19 @@ DEFAULT_ARMS = ("boltzgen", "rfd3", "opendde-abag", "capacity",
                 "l1-budget", "batch-position", "nesso1", "pxdesign",
                 "rf3-1024aa", "rfd3-fusion")
 
+
+def default_arms() -> list:
+    """Every arm a bare `release_gate.py` run would score, in the order it would score them.
+
+    `--list-arms` prints this. A launcher that runs the gate one arm per process -- which is what
+    every long gate in this repo does, so a killed arm does not take the passing ones with it --
+    otherwise has to hand-copy the list, and a hand-copied list names arms that do not exist. On
+    2026-09-19 a C14 gate launcher asked for `openbind-0`, the model's prose name; the argument is
+    `openbind`, argparse refused it in 0 s with rc=2, and the run carried what reads like a
+    thirteenth arm that in fact never opened a device. Enumerate from here instead.
+    """
+    return list(MODELS) + list(DEFAULT_ARMS) + ["size-ladder"] + ESMC_DEFAULT
+
 # --- rfd3-fusion: the two size-conditioned RFD3 diffusion fusion levers -----------------------
 # Both ship ON and both are bit-exact where they serve, and both decline SILENTLY on a documented
 # predicate: region 1 needs the fused softmax kernel to engage at the gathered key width, region 2
@@ -4618,6 +4631,10 @@ def main() -> int:
                          "l1-budget, batch-position, nesso1, pxdesign, rf3-1024aa), so a "
                          "newly added model or arm is covered without touching this "
                          "string. esmc-6b is opt-in (slow ~13 GB load).")
+    ap.add_argument("--list-arms", action="store_true",
+                    help="Print the default arm set, one per line, and exit. For a "
+                         "per-arm launcher: `for m in $(release_gate.py --list-arms)`, "
+                         "so the launcher cannot name an arm the gate does not have.")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
     ap.add_argument("--size-ladder-record-lever", default=None, metavar="FLAG[,FLAG...]",
                     help="Add new census levers to the existing size-ladder baseline "
@@ -4686,6 +4703,12 @@ def main() -> int:
     if args.pxdesign_child:
         return _pxdesign_child(Path(args.pxdesign_out), Path(args.pxdesign_json))
 
+    if args.list_arms:
+        # Before the preflight, the card grant and the mesh-descriptor probe: this answers a
+        # question about the argument list and must cost nothing and open nothing.
+        print("\n".join(default_arms()))
+        return 0
+
     global FAST, DIFFUSION_TRACE
     FAST = args.fast
     DIFFUSION_TRACE = args.diffusion_trace
@@ -4718,7 +4741,7 @@ def main() -> int:
         if mgd:
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
-    models = args.model or list(MODELS) + list(DEFAULT_ARMS) + ["size-ladder"] + ESMC_DEFAULT
+    models = args.model or default_arms()
 
     global _JOURNAL_PATH, _JOURNAL_KEY, _ARM_MEMBERS
     _JOURNAL_PATH = Path(args.journal) if args.journal else None
