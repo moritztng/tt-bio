@@ -179,9 +179,21 @@ def main() -> int:
     chips = [int(c) for c in args.chips.split(",")]
     out = Path(args.out)
     if args.print_reboot_hook:
+        # Every argument that defines the CONFIGURATION has to be here, not just the ones that
+        # name the run. The first version printed --out/--steps/--chips/--data/--lease-holder
+        # and nothing else, so a reboot would have resumed at the argument defaults: micro 8
+        # rather than the 4 it was launched with, which does not fit in DRAM at 256 tokens, and
+        # a different rendezvous path. It would have been a different experiment wearing the
+        # same checkpoint.
         print(f"@reboot cd {REPO} && PYTHONPATH={REPO} {sys.executable} "
               f"{HERE / 'supervise.py'} --out {out} --steps {args.steps} "
-              f"--chips {args.chips} --data {args.data} "
+              f"--chips {args.chips} --data {args.data} --split {args.split} "
+              f"--micro {args.micro} --global-batch {args.global_batch} "
+              f"--tokens {args.tokens} --blocks {args.blocks} --seed {args.seed} "
+              f"--rendezvous {args.rendezvous} "
+              f"--checkpoint-minutes {args.checkpoint_minutes} "
+              + (f"--chips-after-restart {args.chips_after_restart} "
+                 if args.chips_after_restart else "") +
               f"--lease-holder {args.lease_holder} "
               + (f"--days {args.days} " if args.days else "") +
               f">> {out / 'logs' / 'supervisor.log'} 2>&1")
