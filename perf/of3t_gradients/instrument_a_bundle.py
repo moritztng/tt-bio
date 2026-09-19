@@ -73,6 +73,13 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--block", type=int, default=0, help="which pairformer block")
     ap.add_argument("--tag", default="")
+    ap.add_argument("--reference", default="bundle", choices=("bundle", "block-eval"),
+                    help="`bundle` is grads_f64_recycles0.pt as published, taped in train mode "
+                         "at dropout r = 0.25 with a mask nobody recorded. `block-eval` "
+                         "differentiates the same block on the same captured boundary with the "
+                         "Dropout modules in eval, which is the r = 0 function our tape can "
+                         "compute at all and the only one that is bit-reproducible "
+                         "(dropout_floor_block0.json: 0.000e+00 worst across two seeds).")
     ap.add_argument("--fp32-softmax", default="on", choices=("on", "off"),
                     help="the shipped setting is on. `off` is the D8 arm.")
     a = ap.parse_args()
@@ -121,6 +128,7 @@ def main() -> int:
                       "block_grad_vs_bundle": caprep["capture_vs_bundle"][str(i)],
                       "replay_mismatches": caprep["replay"]["n_mismatch"]}
 
+    rep["reference_mode"] = a.reference
     args_in = cap["args"]
     s_in, z_in = args_in[0].to(torch.float64), args_in[1].to(torch.float64)
     single_mask = args_in[2].to(torch.float64) if len(args_in) > 2 else None
@@ -145,11 +153,24 @@ def main() -> int:
           f"|z|={float(z_in.norm()):.4g} |cot_z|={float(cot_z.norm()):.4g}", flush=True)
 
     # ---- the reference: the bundle's own entries for this block -----------------------------
-    ref_all = torch.load(os.path.join(BUNDLE, gfile), map_location="cpu", weights_only=False)
     pre = f"pairformer_stack.blocks.{i}."
-    g_ref = {k[len(pre):]: (v.to(torch.float64) if v is not None else None)
-             for k, v in ref_all.items() if k.startswith(pre)}
-    del ref_all
+    if a.reference == "bundle":
+        ref_all = torch.load(os.path.join(BUNDLE, gfile), map_location="cpu", weights_only=False)
+        g_ref = {k[len(pre):]: (v.to(torch.float64) if v is not None else None)
+                 for k, v in ref_all.items() if k.startswith(pre)}
+        del ref_all
+    else:
+        from instrument_a_stack import their_stack, load_ckpt
+        blk = their_stack(load_ckpt(), 1, first=i)[0][0]
+        blk.eval()
+        for q in blk.parameters():
+            q.grad = None
+        s_r, z_r = blk(s_in, z_in, single_mask, pair_mask)
+        ((s_r * cot_s).sum() + (z_r * cot_z).sum()).backward()
+        g_ref = {n: (q.grad.detach().clone() if q.grad is not None else None)
+                 for n, q in blk.named_parameters()}
+        s_ref_out, z_ref_out = s_r.detach(), z_r.detach()
+        del blk, s_r, z_r
     rep["reference_tensor_count"] = len(g_ref)
     rep["reference_grad_present"] = {k: (v is not None) for k, v in g_ref.items()}
     print(f"[{time.perf_counter()-t0:.0f}s] reference: {len(g_ref)} tensors for block {i}, "
