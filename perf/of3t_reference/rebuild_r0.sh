@@ -51,7 +51,7 @@ for run in A B; do
       sleep 5
     done > "clock_${run}.txt" ) & SAMPLER=$!
   trap 'kill $SAMPLER 2>/dev/null || true' EXIT
-  python bundle_min.py --batch batch_step003.pt --batch-sha256 "$BATCH_SHA" \
+  CUBLAS_WORKSPACE_CONFIG=:4096:8 python bundle_min.py --batch batch_step003.pt --batch-sha256 "$BATCH_SHA" \
       --out "out_$run" --dtype float64 --num-recycles 0 --checkpoint of3-p2-155k.pt \
       --fd-h 1e-4 --fd-samples 16 $extra 2>&1 | tail -40
   kill $SAMPLER 2>/dev/null || true

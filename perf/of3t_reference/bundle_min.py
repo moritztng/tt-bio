@@ -28,6 +28,7 @@ import argparse
 import copy
 import hashlib
 import json
+import os
 import random
 import sys
 import time
@@ -155,6 +156,36 @@ class no_autocast:
         torch.amp.autocast = self._orig_autocast
         torch.Tensor.float = self._orig_float
         return False
+
+
+def pin_deterministic_kernels(enable: bool) -> dict:
+    """Make the gradient a function of its inputs rather than of the reduction order.
+
+    Without this, two fresh processes on the same box with the same pinned RNG state produce
+    gradients that agree to a median 2.6e-14 and disagree by up to 1.98 relative L2 on 55 of
+    4,147 tensors -- measured, `reproduction_A13.json` from the first r = 0 rebuild. The 55 are
+    all `layer_norm_z.bias`, whose gradient is a sum over tokens that very nearly cancels, so a
+    last-bit change in the order cuBLAS and the backward's atomics accumulate in is amplified
+    to O(1) *relative* while staying at 1e-16 absolute. PROTOCOL A13 asks whether the artifact
+    reproduces, and a reference that is only reproducible to 1.98 on some tensors is not one.
+
+    CUBLAS_WORKSPACE_CONFIG has to be in the environment before cuBLAS initialises, so it is set
+    here, before the first CUDA call, and also by rebuild_r0.sh for the case where something
+    touches CUDA earlier.
+    """
+    if not enable:
+        return {"enabled": False}
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    torch.use_deterministic_algorithms(True, warn_only=True)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    return {
+        "enabled": True,
+        "cublas_workspace_config": os.environ["CUBLAS_WORKSPACE_CONFIG"],
+        "warn_only": True,
+        "why": ("two nondeterministic runs disagreed by 1.98 worst relative L2 on 55 of 4,147 "
+                "tensors, all layer-norm biases whose gradient sum cancels"),
+    }
 
 
 def build(dtype, seed, device, num_recycles=None):
@@ -297,12 +328,21 @@ def main() -> int:
                          "with more cycles the FD measures the total derivative through all of "
                          "them while the analytic gradient is the partial derivative through the "
                          "final one.")
+    ap.add_argument("--nondeterministic", action="store_true",
+                    help="do NOT pin deterministic kernels. Off by default, and leaving it off "
+                         "is what makes this artifact reproducible: cuBLAS split-k and the "
+                         "scatter/index_add atomics in the backward reorder their reductions "
+                         "between runs, which is a 1e-16 perturbation on most tensors and an "
+                         "O(1) relative one on the LayerNorm biases whose gradient is a sum "
+                         "that cancels.")
     ap.add_argument("--checkpoint", type=Path,
                     help="trained weights to load before taking the gradient. Without this the "
                          "gradient is taken at a random initialisation, where 2,271 of 4,890 "
                          "tensors are exactly zero by design and the step-1 gradient reaches only "
                          "the zero-initialised output projections -- see the doc.")
     args = ap.parse_args()
+
+    deterministic = pin_deterministic_kernels(not args.nondeterministic)
 
     dtype = torch.float64 if args.dtype == "float64" else torch.float32
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -473,6 +513,7 @@ def main() -> int:
             "numpy": np.__version__,
             "cuda": torch.version.cuda,
         },
+        "deterministic_kernels": deterministic,
         "loss": float(loss),
         "loss_replayed_same_rng": loss_again,
         "loss_bit_identical_on_replay": loss_again == float(loss),
