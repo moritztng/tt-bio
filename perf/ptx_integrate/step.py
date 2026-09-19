@@ -185,21 +185,26 @@ class Composed:
 
         m = self.model
         with ag.tape():
+            # `tape()` rebinds `ttnn` inside tt-bio's own modules only, and this file is not
+            # one of them, so the head below addresses the proxy directly -- which is exactly
+            # what `taped_ttnn()` documents itself as being for.
+            from tt_bio.taped_ttnn import taped_ttnn
+            tnn = taped_ttnn()
             if params:
                 # A weight becomes a trainable leaf by pre-seeding the tape's raw-handle map:
                 # `_wrap` is idempotent per handle, so the shipped module's own `ttnn.linear`
                 # call picks up the parameter instead of minting an untracked leaf. No call
                 # site changes and no weight is copied.
                 for t in params.values():
-                    ag.parameter(t.value)
+                    ag.parameter(t)
 
             s_tt, z_tt = m.trunk(self.feats, self.aux["s_inputs"], self.relp,
                                  self.feats["token_bonds"], n_cycles=self.cycles)
             # The real distogram head: upstream symmetrises the pair track, then one linear to
             # 64 bins. `ttnn` here is the taped proxy, so both ops are on the tape.
-            zs = ttnn.add(z_tt, ttnn.permute(z_tt, (0, 2, 1, 3)))
-            dlog = ttnn.linear(zs, self.DW, bias=self.DB,
-                               compute_kernel_config=m.compute_kernel_config)
+            zs = tnn.add(z_tt, tnn.permute(z_tt, (0, 2, 1, 3)))
+            dlog = tnn.linear(zs, self.DW, bias=self.DB,
+                              compute_kernel_config=m.compute_kernel_config)
             # One denoise call, which is what Protenix differentiates per step: one noise
             # level drawn per sample, `denoise_net` called once, no trajectory in the graph.
             x = m.diffusion.denoise(self.x_noisy, self.t_hat, self.cond)
@@ -354,7 +359,7 @@ def main():
                         setattr(owner, key, t.value)
                     holders[n] = (owner, key, t.value)
                     ag._PARAMS.pop(old_id[n], None)
-                    ag.parameter(t.value)
+                    ag.parameter(t)
                     old_id[n] = id(t.value)
                 rec = {"step": step, "loss": total, "s": round(time.perf_counter() - t0, 2),
                        "grad_norm": getattr(opt, "last_grad_norm", None),

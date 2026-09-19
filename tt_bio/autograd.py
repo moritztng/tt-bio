@@ -343,6 +343,36 @@ def _flat2d(t):
     return ttnn.reshape(t, [int(math.prod(s[:-1])), s[-1]])
 
 
+def _reduce_to(g, shape):
+    """A broadcast operand's gradient: the output's, summed over the axes it was spread along.
+
+    `_sum_leading` is the bias case -- reduce everything down to a trailing shape -- and it is
+    wrong here, because the operands of a broadcasting binary op differ in a LEADING axis that
+    is 1 on one side, not in rank alone. `ttnn` broadcasts an operand of shape (497, 128)
+    against (1, 497, 128) happily and the backward then hands back a gradient of the output's
+    shape, which `add_grad` refuses, correctly: a gradient that does not have its value's shape
+    has been summed over the wrong thing or not at all. Same volume is a reshape; a genuinely
+    stretched axis is a sum, at fp32 fidelity for `_sum_leading`'s reason.
+    """
+    gs = [int(d) for d in g.shape]
+    ws = [int(d) for d in shape]
+    if gs == ws:
+        return g
+    gv, wv = 1, 1
+    for d in gs:
+        gv *= d
+    for d in ws:
+        wv *= d
+    if gv == wv:
+        return ttnn.reshape(g, ws)
+    pad = [1] * (len(gs) - len(ws)) + ws
+    out = g
+    for ax in range(len(gs)):
+        if pad[ax] == 1 and gs[ax] != 1:
+            out = ttnn.sum(out, dim=ax, keepdim=True, compute_kernel_config=precise_config())
+    return ttnn.reshape(out, ws)
+
+
 def _sum_leading(t, out_shape):
     """Sum ``t`` down to ``out_shape``, which must be its trailing dims. Used for bias/gamma.
 
@@ -1037,11 +1067,21 @@ _PARAMS: dict = {}
 
 
 def parameter(raw, requires_grad: bool = True):
-    """Declare a raw device weight trainable. Idempotent per handle; returns the leaf.
+    """Declare a device weight trainable. Idempotent per handle; returns the leaf.
 
     The leaf, not a copy: `_wrap` hands the same object to every call site that reads this
     weight, so a 48-block trunk sharing one tensor accumulates into one gradient.
+
+    Pass the LEAF back, not its new value, after an optimizer step. `AdamW.step` replaces
+    `t.value` with a fresh device tensor, so the registry is keyed on a handle that no longer
+    exists and a bare `parameter(t.value)` would mint a SECOND leaf over the same weight --
+    the tape would accumulate into the new one and the optimizer would keep stepping the old,
+    which reads as a run whose second step has no gradients at all. Re-keying is what is
+    wanted, and it is what passing the leaf does.
     """
+    if isinstance(raw, Tensor):
+        _PARAMS[id(raw.value)] = raw
+        return raw
     t = _PARAMS.get(id(raw))
     if t is not None and t.value is raw:
         return t
@@ -1055,9 +1095,42 @@ def forget_parameters() -> None:
     _PARAMS.clear()
 
 
+# True only at the OUTERMOST taped call. A taped verb computes its value by calling the
+# SHIPPED verb, and the shipped verb is sometimes itself a tt-bio function whose body calls
+# `ttnn` -- `ops.linear`'s fallback is literally `ttnn.linear`, and inside `tt_bio.ops` that
+# name is the shim. With a registered parameter among the operands, that re-entrant call would
+# tape a SECOND time and hand the outer verb a `Tensor` where it expects a raw handle, so the
+# outer `_tape` wraps a wrapper and the next op gets an `autograd.Tensor` as a pybind argument.
+# Observed exactly once, as `ttnn.matmul(): incompatible function arguments ... invoked with
+# (ttnn.Tensor, tt_bio.autograd.Tensor)` from the denoiser's atom decoder. Activations do not
+# have this problem because the inner call sees them already unwrapped; a parameter is
+# recognised by IDENTITY of a raw handle, which unwrapping cannot hide. So the lookup is
+# switched off for the duration of a verb, and `_wrap` is deliberately NOT gated: the outer
+# verb still resolves the parameter to its leaf, which is the whole point.
+_PARAM_SCAN = True
+
+
+class _no_param_scan:
+    """Suppress parameter lookup for the duration of one taped verb's shipped call."""
+
+    def __enter__(self):
+        global _PARAM_SCAN
+        self._prev = _PARAM_SCAN
+        _PARAM_SCAN = False
+
+    def __exit__(self, *exc):
+        global _PARAM_SCAN
+        _PARAM_SCAN = self._prev
+        return False
+
+
 def _param(v):
     t = _PARAMS.get(id(v))
     return t if t is not None and t.value is v else None
+
+
+def _param_on_tape(v):
+    return _param(v) if _PARAM_SCAN else None
 
 
 def _wrap(t):
@@ -1116,7 +1189,8 @@ def _on_tape(args, kwargs):
     # A registered parameter counts, even though it arrives as a raw handle: it is the first
     # taped thing in a forward whose inputs are all data, and without it the short circuit
     # below reaches the shipped op and the whole downstream chain is never taped.
-    return any(isinstance(v, Tensor) or _param(v) is not None for v in _walk(args, kwargs))
+    return any(isinstance(v, Tensor) or _param_on_tape(v) is not None
+               for v in _walk(args, kwargs))
 
 
 def _differentiating(args, kwargs):
@@ -1127,7 +1201,7 @@ def _differentiating(args, kwargs):
             if v.requires_grad:
                 return True
         else:
-            p = _param(v)
+            p = _param_on_tape(v)
             if p is not None and p.requires_grad:
                 return True
     return False
@@ -1175,8 +1249,12 @@ def _taped_linear(shipped, args, kwargs):
             if x.requires_grad:
                 # dX reduces over the OUTPUT channel -- 128 to 512 terms -- and is
                 # activation-shaped, so it stays in the forward dtype.
-                x.add_grad(ttnn.matmul(g, w.value, transpose_b=True,
-                                       compute_kernel_config=bwcfg))
+                # `_reduce_to` because a matmul normalises rank: an x of (1, N, N, c)
+                # comes back as (N, N, c) and `add_grad` refuses a gradient that is not
+                # its value's shape, correctly.
+                x.add_grad(_reduce_to(ttnn.matmul(g, w.value, transpose_b=True,
+                                                  compute_kernel_config=bwcfg),
+                                      x.value.shape))
             if w.requires_grad:
                 # dW reduces over every token at once: 4096 terms on a 64x64 pair block,
                 # 262144 at 512 aa. `fp32_dest_acc_en` does not cover that, because
@@ -1187,8 +1265,10 @@ def _taped_linear(shipped, args, kwargs):
                 # a bf16 reduction. Asking for fp32 out fixes it and costs nothing that
                 # matters -- a weight gradient is weight-shaped, and the optimiser wants
                 # it in fp32 anyway.
-                w.add_grad(ttnn.matmul(_flat2d(x.value), _flat2d(g), transpose_a=True,
-                                       compute_kernel_config=bwcfg, dtype=ttnn.float32))
+                w.add_grad(_reduce_to(
+                    ttnn.matmul(_flat2d(x.value), _flat2d(g), transpose_a=True,
+                                compute_kernel_config=bwcfg, dtype=ttnn.float32),
+                    w.value.shape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
         return bw
@@ -1276,13 +1356,15 @@ def _hook(name, shipped, args, kwargs):
     if not _differentiating(args, kwargs):
         # On the tape but frozen, or inside `no_grad`: the SHIPPED op, then rewrapped.
         ra, rk = _raw(args, kwargs)
-        return Tensor(shipped(*ra, **rk))
+        with _no_param_scan():
+            return Tensor(shipped(*ra, **rk))
     impl = _TAPED.get(name)
     if impl is None:
         raise NotImplementedError(
             f"tt_bio.ops.{name} has no taped implementation. Add one to "
             f"tt_bio.autograd._TAPED; declining here would silently drop the gradient.")
-    return impl(shipped, args, kwargs)
+    with _no_param_scan():
+        return impl(shipped, args, kwargs)
 
 
 def install():

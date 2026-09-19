@@ -1072,7 +1072,12 @@ class DiffusionModule(_KeyedWeights):
         # approximation. Inference reads the same bytes it always did.
         _r_dev = self._lin(qn, DE + "linear_no_bias_out.weight")
         self.last_r_update_device = _r_dev
-        r_update = torch.Tensor(ttnn.to_torch(_r_dev)).float().reshape(1, N, 3)[:, :N]
+        # The host read is where the tape ends, deliberately, so it reads the VALUE. Handing a
+        # taped tensor to `ttnn.to_torch` raises, which is the right default -- it is how an
+        # accidental gradient drop gets caught -- but here the boundary is the point: a caller
+        # that wants the gradient seeds `last_r_update_device` above.
+        r_update = torch.Tensor(ttnn.to_torch(getattr(_r_dev, "value", _r_dev)))
+        r_update = r_update.float().reshape(1, N, 3)[:, :N]
 
         # EDM preconditioning
         sr = (t_hat / sd).reshape(-1, 1, 1)

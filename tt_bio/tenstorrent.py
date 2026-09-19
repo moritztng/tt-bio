@@ -10097,7 +10097,7 @@ class PairWeightedAveraging(Module):
                 if acc is None:
                     acc = o
                 else:
-                    ttnn.add_(acc, o)
+                    acc = ttnn.add_(acc, o)
                     ttnn.deallocate(o)
             return acc
 
@@ -10238,7 +10238,7 @@ class OuterProductMean(Module):
             if out is None:
                 out = part
             else:
-                ttnn.add_(out, part)
+                out = ttnn.add_(out, part)
                 ttnn.deallocate(part)
         ttnn.deallocate(a)
         ttnn.deallocate(b)
@@ -10470,7 +10470,7 @@ class OuterProductMean(Module):
                 else:
                     # In place: z is (rows*C, D*J) -- ~400 MB at rows=256, J=768 -- so an
                     # out-of-place add would hold three of them at the peak.
-                    ttnn.add_(z, zp)
+                    z = ttnn.add_(z, zp)
                     ttnn.deallocate(zp)
             return z
 

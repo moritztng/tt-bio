@@ -76,17 +76,32 @@ def scale_add(x, scale: float, bias, **kwargs):
     The rule is the tensor's dtype, not the model or the site, so there is one mechanism
     here and nothing per-model to keep in sync.
     """
-    if FUSE_SCALE_ADD and x.dtype == ttnn.float32 and bias.dtype == ttnn.float32:
+    if (FUSE_SCALE_ADD and x.dtype == ttnn.float32 and bias.dtype == ttnn.float32
+            and not _taping()):
         return ttnn.addalpha(bias, x, scale, **kwargs)
     return ttnn.add(ttnn.multiply(x, scale), bias, **kwargs)
 
+
+
+def _taping():
+    """Is a tape open? The three fusions below decline while one is.
+
+    `addalpha`, `addcmul` and layer_norm's `residual_input_tensor` have no tape entry and
+    `taped_ttnn` raises rather than unwrap. Writing three new backwards would put a second
+    implementation of each gradient in the tree; declining costs the fusion's win in training
+    only, and each of the three already ships the composed sequence it replaces -- which is
+    differentiable today by verbs that already exist. Inference is untouched: `grad_hook()` is
+    None on every inference path.
+    """
+    from . import ops
+    return ops.taping()
 
 def mask_add(x, y, mask, **kwargs):
     """``x + y * mask`` -- one ``ttnn.addcmul`` instead of a multiply then an add.
 
     ``mask`` broadcasts, so the usual column form ``[..., N, 1]`` is fine.
     """
-    if FUSE_MASK_ADD:
+    if FUSE_MASK_ADD and not _taping():
         return ttnn.addcmul(x, y, mask, value=1.0, **kwargs)
     return ttnn.add(x, ttnn.multiply(y, mask), **kwargs)
 
@@ -97,6 +112,6 @@ def norm_residual(x, residual, **kwargs):
     Only valid where the add's result feeds nothing but the norm; otherwise the caller
     still needs the sum as a tensor and there is nothing to fuse.
     """
-    if FUSE_NORM_RESIDUAL:
+    if FUSE_NORM_RESIDUAL and not _taping():
         return ttnn.layer_norm(x, residual_input_tensor=residual, **kwargs)
     return ttnn.layer_norm(ttnn.add(x, residual), **kwargs)

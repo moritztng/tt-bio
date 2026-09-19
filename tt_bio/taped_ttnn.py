@@ -36,7 +36,7 @@ import ttnn
 from . import autograd as ag
 from .autograd import Tensor, precise_config
 from .autograd import (_axis, _differentiating, _flat2d, _on_tape, _raw,
-                       _sum_leading, _tape,
+                       _reduce_to, _sum_leading, _tape,
                        _taped_layer_norm, _taped_linear, _unwrap, _wrap)
 
 __all__ = ["tape", "VERBS", "taped_ttnn"]
@@ -329,10 +329,12 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
                 eb = fb[0](bv) if fb else bv
                 if a.requires_grad:
                     da = grad_a(g, ea, eb)
-                    a.add_grad(ttnn.multiply(da, fa[1](av, ea)) if fa else da)
+                    da = ttnn.multiply(da, fa[1](av, ea)) if fa else da
+                    a.add_grad(_reduce_to(da, av.shape))
                 if b.requires_grad:
                     db = grad_b(g, ea, eb)
-                    b.add_grad(ttnn.multiply(db, fb[1](bv, eb)) if fb else db)
+                    db = ttnn.multiply(db, fb[1](bv, eb)) if fb else db
+                    b.add_grad(_reduce_to(db, bv.shape))
             return bw
 
         out = _tape(out_v, [a, b], make)
@@ -353,6 +355,17 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
             # away -- "TT_THROW @ ttnn/core/tensor/storage.cpp:60", in
             # AttentionPairBias's backward, from a free issued in the forward.
             a.free()
+            # And the caller MUST take the return value. `ttnn.add_(a, b)` returns its
+            # destination, so inference reads the same object whether or not it is rebound --
+            # but under the tape the result has a NEW home and `a.free()` above has just
+            # released the old one, so a call site that discards the return is left holding a
+            # freed buffer and throws "Buffer is not allocated" on its next use. Five sites in
+            # this tree discarded it and all five now rebind: `PairWeightedAveraging`'s head
+            # accumulator, the attention output accumulator, `OuterProductMean`'s row
+            # accumulator, and two MSA residuals in `openfold3_msa_embedder`. It is a
+            # one-token change with no inference effect and there is no way to make the
+            # discarding form work: the tape cannot write into a buffer whose size and
+            # lifetime the backward still needs.
         return out
     return impl
 
@@ -771,7 +784,8 @@ def _taped_verb(qual, shipped):
                 f"ttnn.{qual} has no tape entry, and it was handed a taped tensor. Add one "
                 f"to tt_bio.autograd._VERBS -- unwrapping here would drop the gradient of "
                 f"everything upstream of this call, silently.")
-        out = impl(shipped, args, kwargs)
+        with ag._no_param_scan():
+            out = impl(shipped, args, kwargs)
         return None if out is _FREED else out
 
     return call
