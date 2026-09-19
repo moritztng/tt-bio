@@ -1,0 +1,33 @@
+{
+ "size": 298,
+ "fold_s": 23.243,
+ "structures": {
+  "cdk2x2_298.cif": "8601b488dd2ae2061890ec36eaf55a067ac2eb960b76ab5bfac629d241378ee8"
+ },
+ "reblock_permute": [
+  4480,
+  0
+ ],
+ "reblock_permute_back": [
+  0,
+  0
+ ],
+ "reblock_permute_gated": [
+  0,
+  0
+ ],
+ "ct_stream": 1,
+ "row_batch": 1,
+ "ct_bufs": 2,
+ "aiclk": {
+  "0": 1350,
+  "1": 1350,
+  "2": 1350,
+  "3": 800
+ },
+ "loadavg": [
+  8.68,
+  6.92,
+  6.91
+ ]
+}
