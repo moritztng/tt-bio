@@ -72,5 +72,57 @@ def main():
           f"2.16 * 1.16 = {2.16*1.16:.2f}x")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and "--carryout" not in __import__("sys").argv:
     main()
+
+
+# ---------------------------------------------------------------------------
+# Cross-row check: what survives a stale denominator, and what does not.
+#
+# `trix-transaction` carried its measured op-level win out to the module and the fold. The op number
+# is a direct measurement; the module RATIO turned out to be divided by the retired standalone wall.
+# This reproduces the check so the correction is auditable rather than a one-off shell computation.
+# Run: python3 verify_floor.py --carryout
+# ---------------------------------------------------------------------------
+
+BASE_MS, BANK8_MS, NOREAD_MS = 1.4490, 1.1323, 1.1129   # shipped-kernel ablation, 1350 MHz
+OPS_PER_MODULE_CALL = 2
+IN_FOLD_FACTOR, CALLS = 0.906, 1208
+MODULE_TODAY_MS, MODULE_RETIRED_MS = 12.330, 18.617     # trix-floor vs the retired standalone
+
+
+def carryout():
+    op_sav = BASE_MS - BANK8_MS
+    mod_sav = op_sav * OPS_PER_MODULE_CALL
+    fold_sav_s = mod_sav * IN_FOLD_FACTOR * CALLS / 1e3
+    print(f"op ratio                {BASE_MS/BANK8_MS:.4f}x   (direct measurement, no denominator)")
+    exposed = BASE_MS - NOREAD_MS            # what the DRAM read actually costs, exposed
+    print(f"  ceiling: noread       {BASE_MS/NOREAD_MS:.4f}x   (read deleted entirely)")
+    # Three ways to say "how much of the read side does the fix capture", and they differ.
+    # The defensible one is TIME: of the milliseconds the read costs exposed, how many go away.
+    # `core-coverage-ratio-not-recoverable-time` is the standing lesson -- a ratio of speedups is
+    # not a fraction of a recoverable quantity, and it flatters.
+    print(f"  read exposed          {exposed:.4f} ms; the fix removes {op_sav:.4f} ms = "
+          f"{100*op_sav/exposed:.1f} % OF THE RECOVERABLE TIME")
+    print(f"    (the row quoted 98 %, which is {BASE_MS/BANK8_MS:.4f}/{BASE_MS/NOREAD_MS:.4f}, a "
+          f"ratio of speedups rather than a fraction of time;")
+    print(f"     the excess-speedup form is a third number, "
+          f"{100*(BASE_MS/BANK8_MS - 1)/(BASE_MS/NOREAD_MS - 1):.1f} %. Quote the time one.)")
+    print(f"per-op saving           {op_sav:.4f} ms")
+    print(f"per module call         {mod_sav:.4f} ms   ({OPS_PER_MODULE_CALL} ops per call)")
+    print()
+    print("MODULE RATIO -- inherits whichever wall you divide by:")
+    print(f"  vs retired {MODULE_RETIRED_MS} ms  {MODULE_RETIRED_MS/(MODULE_RETIRED_MS-mod_sav):.4f}x"
+          f"   <- what the row wrote (1.0352x)")
+    print(f"  vs today's {MODULE_TODAY_MS} ms  {MODULE_TODAY_MS/(MODULE_TODAY_MS-mod_sav):.4f}x"
+          f"   <- correct; the correction makes the lever BIGGER")
+    print()
+    print(f"FOLD SAVING             {fold_sav_s:.4f} s")
+    print(f"  = {mod_sav:.4f} ms x {IN_FOLD_FACTOR} in-fold x {CALLS} calls")
+    print("  uses NO module wall, so no staleness can reach it -- pre-register THIS, not a ratio.")
+    print("  A fold RATIO needs a fold wall measured in the same session; the 71.9 s in circulation")
+    print("  has not been re-measured on today's tree either.")
+
+
+if __name__ == "__main__" and "--carryout" in __import__("sys").argv:
+    carryout()
