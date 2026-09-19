@@ -723,7 +723,7 @@ is 227.5 GB/s against Blackhole's 424.7, so the deleted bytes are worth roughly 
 block A/B has not been run on Wormhole with the kernel built, so the flag ships off on every card.
 `perf/roof_gate_epilogue/FINDINGS.md` has the full record.
 
-## `TT_BIO_TRIATT_B8` — on
+## `TT_BIO_TRIATT_B8` — off
 
 Triangle attention's interior in `bfloat8_b`. The fused qkv+gate(+bias) matmul writes its five
 destinations in the block format, the fused SDPA's destination follows `q.dtype`, and the gate
@@ -764,14 +764,19 @@ seed moves the structure 1.02436-1.42336 Å, so the flag's effect is roughly hal
 sampler already produces. plDDT moves by 0.000017. Bit-exactness is lost by construction, which is
 why it is a flag.
 
-**Why it is on, and what you give up.** The structure is not bit-identical to what the flag off
-produces, and that is the whole trade: you get 0.2 s a fold for a structure that differs by about a
-quarter of the seed floor. If you need a run reproducible against an older release byte for byte,
-set `TT_BIO_TRIATT_B8=0`.
+**Why it is off, and it is not the accuracy.** Block float shares one exponent across a block of
+values, so the rounding depends on where the block boundaries fall, and those move when the work is
+split across a different number of cores. With this flag on, folding the same input on a different
+core grid gives a different structure. The release gate checks exactly that and fails on it: on
+protenix-v2, the native grid and an 8x8 grid produce two different structures with the flag on, and
+one identical structure with it off. A user on a p150a and a user on a p300c would not get the same
+answer.
 
-Two things are still unmeasured and neither is a reason to turn it off: 298 residues, and any
-combination with `TT_BIO_TRIATT_BIAS_B8`, which stays off. Block float composes worse on accuracy
-than on speed, so do not assume a second bfp8 region is free because this one was.
+That is a different objection from accuracy, and the accuracy is fine: 0.37848 Å against a 0.60 Å
+bar. Turn it on per run if you want the second and your work does not need to reproduce across
+parts. It stays off by default until the block boundaries can be made independent of the grid.
+
+Also still unmeasured: 298 residues, and any combination with `TT_BIO_TRIATT_BIAS_B8`.
 
 ## `TT_BIO_TRIMUL_MASK_L1` — on
 
