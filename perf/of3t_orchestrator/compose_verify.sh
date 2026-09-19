@@ -18,7 +18,7 @@ set -euo pipefail
 # A row is listed here from the moment it is dispatched, not from its first push, so a new row
 # cannot be silently left out of the composition. Rows with no branch yet are skipped with a line
 # saying so -- silence would be the bug.
-ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule"
+ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity"
 SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a shared /tmp name
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
@@ -54,8 +54,25 @@ cd "$CO"
 PRESENT=""
 for r in $ROWS; do
   if git rev-parse --verify -q "origin/wk/of3t-$r" >/dev/null; then
-    git merge --no-edit -q "origin/wk/of3t-$r" || { echo "CONFLICT merging of3t-$r:"; \
-      git diff --name-only --diff-filter=U; exit 1; }
+    if ! git merge --no-edit -q "origin/wk/of3t-$r"; then
+      # `.gitignore` is the one file where a conflict is routinely NOT a disagreement: both
+      # sides append an ignore rule for their own scratch, and keeping both is what each side
+      # meant. Resolved by union, announced, and ONLY for this path -- any other conflicted
+      # file still stops the composition, because for real content a union is a guess.
+      _u=$(git diff --name-only --diff-filter=U)
+      if [ "$_u" = ".gitignore" ]; then
+        git checkout --theirs .gitignore 2>/dev/null || true
+        git show :2:.gitignore > /tmp/.gi_ours 2>/dev/null
+        git show :3:.gitignore > /tmp/.gi_theirs 2>/dev/null
+        cat /tmp/.gi_ours /tmp/.gi_theirs | awk '!seen[$0]++ || $0==""' > .gitignore
+        rm -f /tmp/.gi_ours /tmp/.gi_theirs
+        git add .gitignore && git commit --no-edit -q
+        echo "  NOTE of3t-$r: .gitignore conflict resolved by UNION (both sides append their"\
+             " own scratch rule); every other path would have stopped the compose"
+      else
+        echo "CONFLICT merging of3t-$r:"; printf '%s\n' "$_u"; exit 1
+      fi
+    fi
     PRESENT="$PRESENT $r"
   else
     echo "of3t-$r: dispatched but has not pushed a branch yet, skipped"
@@ -130,9 +147,28 @@ fi
 # generator and twenty frozen batches, and the campaign's critical path was diagnosed from
 # `origin` twice and called stuck. This is a WARNING rather than a failure: the row owns its
 # branch and may be mid-work, and pushing for it would race a live agent.
+THIS_HOST="$(hostname -s)"
 for r in $ROWS; do
   wt="$D_WT/of3t-$r"
-  [ -d "$wt" ] || continue
+  lg="$D_WT/../workers/of3t-$r.log"
+  # A row whose worktree is on ANOTHER host has no directory here, and `continue` used to skip
+  # it in silence -- so for every carded row this check has been reporting nothing while
+  # looking like it reported "clean". That is the failure mode this check exists to catch,
+  # turned on itself. When qb2 hard-hung on 2026-09-19 the two rows holding the campaign's
+  # critical path were both there, and the compose said nothing about either.
+  if [ ! -d "$wt" ]; then
+    rhost=$(grep -oE 'START of3t-[a-z0-9]+ host=[^ ]+' "$lg" 2>/dev/null | tail -1 | \
+            sed 's/.*host=//')
+    # Only for a LIVE row. A concluded row's worktree holds nothing the campaign is waiting
+    # on -- what origin has IS its final answer -- and noting nine of them buries the one
+    # that matters, which is how a check gets ignored.
+    if [ -n "$rhost" ] && [ "$rhost" != "$THIS_HOST" ] \
+       && [ ! -f "$D_WT/../state/concluded/of3t-$r" ]; then
+      echo "  NOTE of3t-$r: worktree is on $rhost, not $THIS_HOST -- unpushed work there is"\
+           " INVISIBLE to this compose. What origin has is all this composition can carry."
+    fi
+    continue
+  fi
   ah=$(git -C "$wt" rev-list --count "origin/wk/of3t-$r..HEAD" 2>/dev/null || echo 0)
   dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l)
   [ "$ah" -gt 0 ] && echo "  NOTE of3t-$r: worktree is $ah commit(s) ahead of origin -- not in this composition"
@@ -141,7 +177,6 @@ for r in $ROWS; do
   # it pushes, which looks identical to disobedience from `origin` and is not. Asking such a
   # row to push cannot work -- its work has to be reshaped to fit the wall. (K38; this cost
   # two passes of wrong remedies on of3t-reference.)
-  lg="$D_WT/../workers/of3t-$r.log"
   if [ -f "$lg" ] && [ "$ah" -gt 0 ]; then
     last=$(grep -oE 'it[0-9]+ rc=[0-9]+' "$lg" | tail -1)
     case "$last" in *rc=124) echo "  NOTE of3t-$r: last turn was KILLED by the 3000s cap ($last)"\
@@ -193,3 +228,12 @@ echo "--- audit_evidence"
 
 git worktree remove --force "$BASE"
 echo; echo "composition ready at $CO ; push with: git -C $CO push origin wk/of3t"
+# `--push` exists because I once ran `compose_verify.sh; git -C $CO push -f` as one line and
+# force-pushed a FAILED, half-merged composition over a good one: 256 commits replaced by 55.
+# The branch is regenerated every pass so nothing was lost, but the shape of the mistake is
+# permanent -- a push that is not conditional on the verdict is not a verified push.
+if [ "${1:-}" = "--push" ]; then
+  git -C "$CO" push -f -q origin wk/of3t \
+    && echo "pushed wk/of3t -> $(git -C "$CO" rev-parse --short HEAD), \
+$(git -C "$CO" rev-list --count origin/main..HEAD) ahead"
+fi
