@@ -91,12 +91,32 @@ class Linear(nn.Module):
 
     The weight is cast to the activation dtype on every call, which is what AlphaFold's
     bfloat16 custom getter does.
+
+    **The allocation is zeros and the `init` name is only recorded here.** Every inference path
+    loads a state dict over these tensors, so drawing a random weight at construction would be
+    time spent on values that are immediately overwritten -- and one of them, `lecun_normal`,
+    costs a truncated-normal draw per weight. Training is the only caller that needs real
+    starting values, and it asks for them explicitly through
+    `tt_bio.train.abb3_init.initialise_`, which reads the `init` recorded at each call site.
+
+    Recording the name at the site rather than in a table beside it is the point. `init` carries
+    upstream's own string -- "default", "relu", "final", "gating", "glorot", "normal" -- so a
+    reader compares one line against one line of `openfold/model/primitives.py`, and a Linear
+    added later cannot be missed by a table nobody remembered to extend.
+
+    This default of zeros is what made the first `base-loss` leg train nothing: `initial_state_dict`
+    returned this module's allocation unchanged, so every weight matrix started at exactly zero,
+    `dx = g W^T` was zero at the first matmul, and 356 of 436 parameters never saw a gradient
+    across 1,388 steps. The zeros are right for inference and were never right for training; what
+    was missing is the explicit ask.
     """
 
-    def __init__(self, in_features: int, out_features: int):
+    def __init__(self, in_features: int, out_features: int, *, init: str = "default"):
         super().__init__()
         self.weight = nn.Parameter(torch.zeros(out_features, in_features))
         self.bias = nn.Parameter(torch.zeros(out_features))
+        #: Upstream's initializer name for this site. Read by `abb3_init.initialise_`.
+        self.init = init
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return F.linear(x, self.weight.to(x.dtype), self.bias.to(x.dtype))

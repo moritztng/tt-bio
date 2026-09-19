@@ -30,6 +30,7 @@ import ttnn
 from tt_bio.abodybuilder3_reference import ABB3Config, ABB3StructureModule  # noqa: E402
 from tt_bio.tenstorrent import get_device  # noqa: E402
 from tt_bio.train.abb3_dataset import dataset as make_dataset  # noqa: E402
+from tt_bio.train.abb3_init import initialise_  # noqa: E402
 from tt_bio.train.abb3_run import RunConfig, run  # noqa: E402
 from tt_bio.train.abodybuilder3_step import TrainStep  # noqa: E402
 
@@ -40,10 +41,13 @@ def initial_state_dict(cfg: ABB3Config, seed: int) -> dict:
     Every rank building the model from the same seed is what makes the step-1 master hashes
     agree. Broadcasting rank 0's weights would work too and would be one more thing that can
     silently not happen; a seed cannot half-arrive.
+
+    `initialise_` is what draws them. Constructing the module is not enough and used not to be
+    known to be: `af2_reference.Linear` allocates zeros because every inference path loads a
+    state dict over the allocation, so this function used to return an all-zero model and the
+    seed above did nothing. The first `base-loss` leg ran 1,388 steps on it and trained nothing.
     """
-    torch.manual_seed(seed)
-    ref = ABB3StructureModule(cfg)
-    return ref.state_dict()
+    return initialise_(ABB3StructureModule(cfg), seed).state_dict()
 
 
 def main() -> int:

@@ -106,6 +106,10 @@ class TrainStep:
         self.mirror = [ttnn.to_torch(p.value).clone().requires_grad_(True) for p in self.params]
         self.optimizer = torch.optim.RAdam(self.mirror, lr=self.recipe["lr"],
                                            weight_decay=self.recipe["weight_decay"])
+        #: Indices of parameters whose gradient was absent or identically zero on the last step.
+        #: Read by `abb3_run.run` on the first step of every launch. On a healthy step it is
+        #: empty; the first `base-loss` leg would have had 356 of 436 in it from step 1.
+        self.ungradiented: list = []
 
     # ------------------------------------------------------------------ one micro-batch
 
@@ -238,9 +242,19 @@ class TrainStep:
                     ttnn.synchronize_device(sample["device"])
                 parts = packed["parts"]
             with _timer(timing, "optimizer"):
-                for mirror, p in zip(self.mirror, self.params):
-                    mirror.grad = (ttnn.to_torch(p.grad).float() if p.grad is not None
-                                   else torch.zeros_like(mirror))
+                self.ungradiented = []
+                for i, (mirror, p) in enumerate(zip(self.mirror, self.params)):
+                    if p.grad is None:
+                        # A parameter the tape never reached. Substituting a zero here keeps the
+                        # optimizer's step count aligned across parameters; recording it is what
+                        # makes the substitution visible, because RAdam on a zero gradient leaves
+                        # a parameter looking trained to everything downstream.
+                        mirror.grad = torch.zeros_like(mirror)
+                        self.ungradiented.append(i)
+                    else:
+                        mirror.grad = ttnn.to_torch(p.grad).float()
+                        if not bool(torch.any(mirror.grad != 0)):
+                            self.ungradiented.append(i)
                 self.optimizer.step()
                 for mirror, p in zip(self.mirror, self.params):
                     p.value = to_device_fp32(mirror.detach())
@@ -278,21 +292,28 @@ def _parameters(model) -> list:
 
     The device module keeps its weights in plain attributes and lists -- there is no `nn.Module`
     here -- so a registry would be one more thing to keep in sync with the layout.
+
+    **The walk has no depth limit and must not grow one.** It had one, `depth > 4`, and it cut
+    the angle resnet's inner blocks off: `model.angles[i].blocks[j][k][l]` is five containers
+    deep, so 64 of the model's 500 parameters were never in `self.params`, never in the
+    optimizer, never in a checkpoint and never updated. A depth limit is a guess about a layout
+    that changes; `seen` is what actually makes the walk terminate, and it does so on any
+    layout. A parameter this misses is silently frozen, which is the expensive kind of wrong.
     """
     seen, out = set(), []
 
-    def walk(obj, depth=0):
-        if depth > 4 or id(obj) in seen:
+    def walk(obj):
+        if id(obj) in seen:
             return
         seen.add(id(obj))
         if isinstance(obj, grad.Tensor):
             out.append(obj)
         elif isinstance(obj, (list, tuple)):
             for x in obj:
-                walk(x, depth + 1)
+                walk(x)
         elif hasattr(obj, "__dict__"):
             for x in vars(obj).values():
-                walk(x, depth + 1)
+                walk(x)
 
     walk(model)
     return out

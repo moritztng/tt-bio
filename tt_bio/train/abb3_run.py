@@ -386,6 +386,7 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
     # the loss stage, and which TERM it is decides whether a lever touches the serial part or
     # the parallel part -- the distinction the whole optimisation queue is ranked on.
     prev_terms: dict = {}
+    first_step = True
     with provenance.during(seed=cfg.seed, config=cfg.as_dict()) as prov:
         for batch in plan:
             gs = batch.step + 1
@@ -396,6 +397,9 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
             t0 = time.perf_counter()
             parts, timing = step.step(micros)
             wall = time.perf_counter() - t0
+            if first_step:
+                first_step = False
+                _assert_every_parameter_trains(step, gs, cfg.rank)
             terms = {k: round(v - prev_terms.get(k, 0.0), 4)
                      for k, v in step.loss_terms.items()}
             prev_terms = dict(step.loss_terms)
@@ -443,6 +447,40 @@ def run(step, dataset, cfg: RunConfig, *, resume: bool = True, on_step=None) -> 
     print(f"[rank {cfg.rank}] {tenants.summary()}", flush=True)
     return {"history": history, "provenance": prov, "comm": comm, "cotenancy": co,
             "steps_done": history[-1]["step"] if history else start}
+
+
+def _assert_every_parameter_trains(step, gs: int, rank: int) -> None:
+    """Refuse to keep running if any parameter got no gradient on this launch's first step.
+
+    Checked once per launch rather than once per run, so a resume re-establishes it and the
+    cost is one comparison per parameter against a 12-second step.
+
+    **This is the check the first `base-loss` leg did not have.** It ran 1,388 steps in which
+    356 of 436 parameters had an identically zero gradient, because `initial_state_dict`
+    returned an all-zero model and a zero weight matrix passes no gradient back through itself.
+    Nothing noticed: the loss was flat at 5.22 but flat is not obviously wrong at 0.7 % of a
+    schedule, `grad_norm` was a plausible 0.18 because it is the norm over ALL parameters and
+    the 80 live ones carried it, and the master digest changed every step because those 80 moved.
+    Three healthy-looking signals over one dead run. The property that separates them is per
+    parameter, so it has to be asserted per parameter.
+
+    Zero is the right test and not an approximation of one. At a correct init every parameter in
+    this model is downstream of the loss along a path with no zero factor, including the ones
+    whose WEIGHT starts at zero -- upstream's `final` init -- because their gradient is
+    `x^T g`, not a product with the weight. A genuinely zero gradient here means a broken tape
+    or a broken init, both of which stop the run.
+    """
+    dead = getattr(step, "ungradiented", [])
+    if not dead:
+        return
+    total = len(step.params)
+    names = ", ".join(str(i) for i in dead[:8])
+    raise RuntimeError(
+        f"[rank {rank}] step {gs}: {len(dead)} of {total} parameters received no gradient "
+        f"(indices {names}{'...' if len(dead) > 8 else ''}). Refusing to continue: a run in "
+        f"this state produces a plausible loss curve and trains nothing. Check the starting "
+        f"weights first -- `tt_bio.train.abb3_init.initialise_` draws them, and a model built "
+        f"without it is all zeros.")
 
 
 def _prune(written: list, keep: int, protect: set) -> None:
