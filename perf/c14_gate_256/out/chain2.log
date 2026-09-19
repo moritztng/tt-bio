@@ -1,0 +1,40 @@
+benchlock: worker:c14-gate-256-warmup acquired after 49s, loadavg 1.59 4.01 5.81
+=== cell w256 rung=256 processes=10 folds=4 loadN=0  2026-09-19T00:36:48Z
+host_quiet at cell start:
+loadavg1 1.59 (ceiling 2.00)
+host quiet -- timing read admissible
+loadavg at cell start: 1.59 4.01 5.81 1/883 1046447
+before          aiclk=1350 power=52.0W temp=51.2C
+FORCE_AICLK(1350) -> status=0x00 ret=0
+w256p0: rc=0 wall=43.4s loadavg=3.73 sequence=[8.7, 6.6, 5.0, 6.7]
+w256p1: rc=0 wall=50.4s loadavg=11.20 sequence=[9.5, 8.2, 8.2, 7.9]
+w256p2: rc=0 wall=37.8s loadavg=10.22 sequence=[7.8, 4.4, 4.7, 4.4]
+w256p3: rc=0 wall=37.8s loadavg=12.39 sequence=[7.7, 4.7, 4.4, 4.6]
+w256p4: rc=0 wall=49.9s loadavg=20.23 sequence=[9.1, 8.2, 6.8, 8.1]
+w256p5: rc=0 wall=53.6s loadavg=19.30 sequence=[9.9, 6.3, 8.2, 7.2]
+w256p6: rc=0 wall=54.1s loadavg=15.65 sequence=[9.9, 6.6, 8.0, 7.7]
+w256p7: rc=0 wall=39.4s loadavg=8.73 sequence=[7.8, 4.3, 4.3, 4.4]
+w256p8: rc=0 wall=38.2s loadavg=8.11 sequence=[7.6, 4.4, 4.3, 4.6]
+w256p9: rc=0 wall=45.3s loadavg=6.59 sequence=[10.6, 5.5, 4.5, 4.4]
+CLOCK n=209897 min=1350 p05=1350 median=1350 p95=1350 max=1350 mean=1350.0  >=1200: 100.0%
+loadavg at cell end: 6.38 9.35 8.05 3/896 1072973
+=== cell w256 rc=0  2026-09-19T00:44:22Z
+---- cell done rc=0 ----
+=== cell w512 rung=512 processes=6 folds=3 loadN=0  2026-09-19T00:44:22Z
+host_quiet at cell start:
+loadavg1 6.38 over ceiling 2.00
+HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.
+loadavg at cell start: 6.38 9.35 8.05 6/890 1072995
+before          aiclk=1350 power=52.0W temp=51.0C
+FORCE_AICLK(1350) -> status=0x00 ret=0
+w512p0: rc=0 wall=58.4s loadavg=4.85 sequence=[15.1, 12.8, 14.0]
+w512p1: rc=0 wall=62.4s loadavg=6.87 sequence=[15.6, 12.4, 12.5]
+w512p2: rc=0 wall=56.8s loadavg=5.33 sequence=[15.2, 12.8, 12.2]
+w512p3: rc=0 wall=55.5s loadavg=6.85 sequence=[15.1, 12.1, 12.0]
+w512p4: rc=0 wall=56.8s loadavg=3.52 sequence=[15.7, 12.0, 12.7]
+w512p5: rc=0 wall=57.5s loadavg=10.82 sequence=[15.0, 11.9, 14.0]
+CLOCK n=162673 min=1350 p05=1350 median=1350 p95=1350 max=1350 mean=1350.0  >=1200: 100.0%
+loadavg at cell end: 10.82 8.33 7.87 2/989 1095800
+=== cell w512 rc=0  2026-09-19T00:50:13Z
+---- cell done rc=0 ----
+benchlock: worker:c14-gate-256-warmup released, rc=0, loadavg 10.82 8.33 7.87
