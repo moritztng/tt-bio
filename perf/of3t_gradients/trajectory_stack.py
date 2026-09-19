@@ -243,7 +243,7 @@ def main() -> int:
         # whole trajectory and the ratio reads ~0.05. That is the fp32 master doing its job,
         # not a defect, and it is reported as a number rather than as an exception.
         disp = opt.displacement()
-        disp["bf16_spacing_at_unit_weight"] = 2.0 ** -8
+        disp["bf16_spacing_at_unit_weight"] = 2.0 ** -7   # bfloat16 keeps 7 mantissa bits
         return traj, meta, mod, params, disp
 
     # ---- the bijection, once, on a freshly built model -------------------------------------

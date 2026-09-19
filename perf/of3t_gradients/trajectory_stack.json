@@ -7525,7 +7525,7 @@
     "master": 0.5650938811293446,
     "device": 0.45748183234027767,
     "ratio": 0.8095678392871581,
-    "bf16_spacing_at_unit_weight": 0.00390625
+    "bf16_spacing_at_unit_weight": 0.0078125
    }
   },
   "shipped_warmup_1000/shipped": {
@@ -14726,7 +14726,7 @@
     "master": 0.6240450013813159,
     "device": 0.5172859892460419,
     "ratio": 0.8289241771042725,
-    "bf16_spacing_at_unit_weight": 0.00390625
+    "bf16_spacing_at_unit_weight": 0.0078125
    }
   },
   "scaled_warmup_20/lightning": {
@@ -21927,7 +21927,7 @@
     "master": 24.244432377018224,
     "device": 24.131245612477155,
     "ratio": 0.9953314326860314,
-    "bf16_spacing_at_unit_weight": 0.00390625
+    "bf16_spacing_at_unit_weight": 0.0078125
    }
   },
   "scaled_warmup_20/shipped": {
@@ -29128,7 +29128,7 @@
     "master": 26.608855731028008,
     "device": 26.634277545405077,
     "ratio": 1.0009553892371037,
-    "bf16_spacing_at_unit_weight": 0.00390625
+    "bf16_spacing_at_unit_weight": 0.0078125
    }
   },
   "control:x1.01": {
