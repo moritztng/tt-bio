@@ -346,12 +346,12 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
     elif model == "rfd3":
         fx = rfd3_fixture(work, size, args.binder, pathlib.Path(args.target))
         cmd = base + ["design", str(fx), "--model", "rfd3", "--from_pdb", "--out_dir", str(out_dir),
-                      "--num_timesteps", str(args.steps), "--num_designs", "1"]
+                      "--num_timesteps", str(args.steps), "--num_designs", str(args.designs)]
         checker = ("cif", size)
     elif model == "pxdesign":
         fx = pxdesign_fixture(work, size, pathlib.Path(args.target), args.binder)
         cmd = base + ["design", str(fx), "--model", "pxdesign", "--out_dir", str(out_dir),
-                      "--n_step", str(args.steps), "--num_designs", "1"]
+                      "--n_step", str(args.steps), "--num_designs", str(args.designs)]
         checker = ("binder", (args.binder, size))
     elif model == "boltzgen":
         fx, atoms, tres = boltzgen_fixture(work, size, pathlib.Path(args.target), args.binder)
@@ -581,6 +581,12 @@ def main() -> int:
                          "compared across machines")
     ap.add_argument("--target", default="perf/ceilrfd3/targets/laczc_1008.cif")
     ap.add_argument("--binder", type=int, default=80)
+    ap.add_argument("--designs", type=int, default=1,
+                    help="designs per rung for rfd3/pxdesign. Part of the configuration a "
+                         "ceiling is valid in rather than a detail: the samples are ONE batched "
+                         "diffusion trajectory, so 4 -- what this platform sends for pxdesign -- "
+                         "is 4x the activation the default 1 allocates. Left at 1, every earlier "
+                         "walk in this file reproduces unchanged")
     ap.add_argument("--steps", type=int, default=20)
     ap.add_argument("--timeout", type=int, default=3600)
     ap.add_argument("--rescore", action="store_true",

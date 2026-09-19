@@ -1,0 +1,63 @@
+{
+  "rungs": [
+    {
+      "target_residues": 960,
+      "binder": 64,
+      "target_cif": "laczc_1008.cif",
+      "tokens": 1024,
+      "expected_tokens": 1024,
+      "alignment_keys_present": [],
+      "n_keys": 19,
+      "unexpected_keys": [
+        "condition",
+        "distogram_rep_atom_mask"
+      ]
+    },
+    {
+      "target_residues": 1008,
+      "binder": 528,
+      "target_cif": "laczc_1008.cif",
+      "tokens": 1536,
+      "expected_tokens": 1536,
+      "alignment_keys_present": [],
+      "n_keys": 19,
+      "unexpected_keys": [
+        "condition",
+        "distogram_rep_atom_mask"
+      ]
+    },
+    {
+      "target_residues": 1456,
+      "binder": 80,
+      "target_cif": "big_1831.cif",
+      "tokens": 1536,
+      "expected_tokens": 1536,
+      "alignment_keys_present": [],
+      "n_keys": 19,
+      "unexpected_keys": [
+        "condition",
+        "distogram_rep_atom_mask"
+      ]
+    }
+  ],
+  "msa_key_refused_with": "ValueError: /home/ttuser/.coworker/wt/cov-unproven-pxdesign-bhp150a/perf/pxdcov/work_tokens/with_msa.yaml: target.chains.A: this port does not implement msa='/tmp/some.a3m' (PXDesign-d has no trunk, so generation reads no alignment). Remove them, or the run costs the same and ignores them.",
+  "model_input_keys": [
+    "ref_pos",
+    "ref_charge",
+    "ref_element",
+    "ref_atom_name_chars",
+    "ref_mask",
+    "ref_space_uid",
+    "atom_to_token_idx",
+    "restype",
+    "hotspot",
+    "deletion_mean",
+    "asym_id",
+    "residue_index",
+    "entity_id",
+    "sym_id",
+    "token_index",
+    "conditional_templ",
+    "conditional_templ_mask"
+  ]
+}
