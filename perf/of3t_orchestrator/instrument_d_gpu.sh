@@ -24,6 +24,22 @@ mkdir -p "$ROOT"; cd "$ROOT"
 exec > >(tee -a "$ROOT/run.log") 2>&1
 echo "=== START $(date -u +%FT%TZ) ==="
 
+echo "=== LINK CHECK FIRST. A rented box can install fine and still be unable to download. ==="
+# Pass 51 lost ~$2 and 28 minutes to a box whose `git clone` and `pip install` worked and which
+# then pulled from S3 at 43 kB/s, from Cloudflare at 17 B/s and from PyPI at 0.00 MB/s. Every
+# step after this one depends on the link, so it is measured BEFORE anything is provisioned,
+# against a source that has nothing to do with the job. Under 5 MB/s here means stop: the
+# 1.68 GB dataset alone would cost more than the box is worth.
+_lk=$(curl -s --max-time 12 -o /dev/null -w "%{speed_download}" \
+      "https://speed.cloudflare.com/__down?bytes=500000000" 2>/dev/null)
+_lk=${_lk%%.*}
+echo "LINK: ${_lk:-0} B/s from Cloudflare"
+if [ "${_lk:-0}" -lt 5000000 ]; then
+  echo "FATAL: link is ${_lk:-0} B/s, under the 5 MB/s floor. Destroy this box and take another;"
+  echo "       the 1.68 GB cache alone would take $(( 1680000000 / (${_lk:-1} + 1) / 60 )) minutes."
+  exit 3
+fi
+
 echo "=== box stamp ==="
 nvidia-smi
 nvidia-smi --query-gpu=name,driver_version,clocks.max.sm,memory.total --format=csv
