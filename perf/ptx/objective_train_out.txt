@@ -1,0 +1,59 @@
+=== --steps 600 --terms distogram ===
+# stage finetune, live terms 1 of 8: distogram
+# zero-init check: step 0 distogram 4.15888307929826, expected ln(64)*M/(M+1e-6) at M=1024 masked pairs = 4.15888307929826, rel 2.14e-16 (ln(64) itself is 4.15888308335967)
+step     0  loss     0.124766  distogram 4.159
+step   599  loss  6.43475e-06  distogram 0.0002145
+# 600 steps in 4.7 s (8 ms/step), AICLK sampled DURING: min 1350 median 1350 max 1350 MHz, card 2 (qb1, Blackhole p150a)
+term                   step 0          final      ratio      last step
+distogram             4.15888    0.000232179    17912.4x    0.000214492
+TOTAL                0.124766    6.96537e-06    17912.4x    6.43475e-06
+distogram: 0.000232179 against a uniform 4.15888 = 0.0056 % of uniform (ptxft's distogram-only run: 0.00019, 0.005 %)
+=== --steps 600 ===
+# stage finetune, live terms 7 of 8: bond, distogram, mse, pae, pde, plddt, resolved
+# zero-init check: step 0 distogram 4.15888307929826, expected ln(64)*M/(M+1e-6) at M=1024 masked pairs = 4.15888307929826, rel 2.14e-16 (ln(64) itself is 4.15888308335967)
+step     0  loss      112.608  bond 26.65  distogram 4.159  mse 1.473  pae 5.089  pde 5.036  plddt 5.144  resolved 0.4511
+step   599  loss   0.00495992  bond 0.001132  distogram 0.0005593  mse 7.114e-05  pae 0.6872  pde 0.06895  plddt 0.5616  resolved 0.002882
+# 600 steps in 11.8 s (20 ms/step), AICLK sampled DURING: min 1350 median 1350 max 1350 MHz, card 2 (qb1, Blackhole p150a)
+term                   step 0          final      ratio      last step
+bond                  26.6473      0.0857884      310.6x     0.00113163
+distogram             4.15888    0.000597461     6960.9x    0.000559295
+mse                   1.47304     0.00245621      599.7x    7.11428e-05
+pae                    5.0895        1.13862        4.5x        0.68719
+pde                   5.03556       0.337155       14.9x      0.0689468
+plddt                 5.14431       0.917807        5.6x       0.561592
+resolved             0.451056     0.00280449      160.8x     0.00288205
+TOTAL                 112.608       0.354406      317.7x     0.00495992
+distogram: 0.000597461 against a uniform 4.15888 = 0.0144 % of uniform (ptxft's distogram-only run: 0.00019, 0.005 %)
+=== --steps 3000 ===
+# stage finetune, live terms 7 of 8: bond, distogram, mse, pae, pde, plddt, resolved
+# zero-init check: step 0 distogram 4.15888307929826, expected ln(64)*M/(M+1e-6) at M=1024 masked pairs = 4.15888307929826, rel 2.14e-16 (ln(64) itself is 4.15888308335967)
+step     0  loss      112.608  bond 26.65  distogram 4.159  mse 1.473  pae 5.089  pde 5.036  plddt 5.144  resolved 0.4511
+step  2999  loss      44.6974  bond 10.51  distogram 0.0001228  mse 0.6632  pae 0.6948  pde 0.06366  plddt 0.5857  resolved 0.0004464
+# 3000 steps in 56.2 s (19 ms/step), AICLK sampled DURING: min 1350 median 1350 max 1350 MHz, card 2 (qb1, Blackhole p150a)
+term                   step 0          final      ratio      last step
+bond                  26.6473       0.018849     1413.7x        10.5111
+distogram             4.15888    8.16632e-05    50927.3x    0.000122796
+mse                   1.47304     0.00136491     1079.2x       0.663199
+pae                    5.0895        1.02473        5.0x        0.69481
+pde                   5.03556       0.252435       19.9x      0.0636561
+plddt                 5.14431        0.91357        5.6x       0.585702
+resolved             0.451056    0.000441485     1021.7x    0.000446393
+TOTAL                 112.608      0.0832806     1352.1x        44.6974
+distogram: 8.16632e-05 against a uniform 4.15888 = 0.0020 % of uniform (ptxft's distogram-only run: 0.00019, 0.005 %)
+=== --steps 3000 --stage pretrain ===
+# stage pretrain, live terms 6 of 8: distogram, mse, pde, plddt, resolved, smooth_lddt
+# zero-init check: step 0 distogram 4.15888307929826, expected ln(64)*M/(M+1e-6) at M=1024 masked pairs = 4.15888307929826, rel 2.14e-16 (ln(64) itself is 4.15888308335967)
+step     0  loss      9.71428  distogram 4.159  mse 1.473  pde 5.036  plddt 5.144  resolved 0.4511  smooth_lddt 0.9241
+step  2999  loss      18.8104  distogram 5.696e-05  mse 4.473  pde 0.79  plddt 1.655  resolved 2.816e-05  smooth_lddt 0.2294
+# 3000 steps in 48.4 s (16 ms/step), AICLK sampled DURING: min 1350 median 1350 max 1350 MHz, card 2 (qb1, Blackhole p150a)
+term                   step 0          final      ratio      last step
+distogram             4.15888    8.85259e-05    46979.3x    5.69573e-05
+mse                   1.47304     0.00332525      443.0x        4.47308
+pde                   5.03556       0.909677        5.5x       0.790003
+plddt                 5.14431        2.01916        2.5x        1.65467
+resolved             0.451056    3.33777e-05    13513.7x    2.81579e-05
+smooth_lddt          0.924072       0.229827        4.0x       0.229448
+TOTAL                 9.71428       0.965911       10.1x        18.8104
+distogram: 8.85259e-05 against a uniform 4.15888 = 0.0021 % of uniform (ptxft's distogram-only run: 0.00019, 0.005 %)
+
+[exited with code 0]
