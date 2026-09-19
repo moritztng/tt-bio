@@ -790,6 +790,36 @@ grouped by sub-module:
 and the failure is graded by pair/attention involvement rather than by tensor size or depth.
 That is mechanism-shaped, and it is the sharpest statement the campaign has about D8.
 
+**PASS 85 — the start/end asymmetry is a property of COMPOSITION, not of the module.**
+`tri_att_start` and `tri_att_end` are the same operation on different axes, so the ratio
+between them is structural. Comparing **worst relative against worst relative** — the two
+tables state different statistics and mixing them is how I first got this wrong:
+
+| probe | what it measures | `tri_att_start` | `tri_att_end` | end/start |
+|---|---|---|---|---|
+| R36 (`bisect_grad.py`, block 2, 64 tokens) | each sub-module **ALONE** | 0.1389 | 0.1449 | **1.04** |
+| pass 47 (block 0, crop 384, bundle boundary) | the same modules **INSIDE THE ASSEMBLED BLOCK** | 0.3055 | 0.952 | **3.12** |
+
+**Alone the two are indistinguishable; assembled they are 3.1x apart.** That is not two probes
+disagreeing — it is D8's own central finding showing up in a new place. Sub-modules that pass
+alone fail assembled, and now we can add that composition does not degrade them *equally*: it
+hits the ending-node axis about three times harder than the starting-node axis.
+
+**Stated as an observation with a discriminator, not a mechanism** — the last four passes each
+produced a plausible shape the data then refuted, and the two rows also differ in block (2 vs
+0), crop (64 vs 384) and reference. So change one at a time:
+
+  - **re-run the pass-47 decomposition at block 2, 64 tokens** — if the 3.1x survives, the
+    asymmetry is a property of composition alone and is the sharpest handle D8 has had;
+  - **if it collapses toward 1.0**, the asymmetry is depth- or length-dependent, which would
+    connect D8 to **D19's near-linear accumulation through the stack** for the first time and
+    would change the verdict's claim that they are two independent problems;
+  - either way, **an axis-asymmetric error under a symmetric operation points at a reduction
+    axis or a tile boundary**, not at arithmetic precision — which is testable against the
+    shapes directly and is the one lead here that does not need the reference at all.
+
+**Unowned**: `of3t-gradients` is concluded and `of3t-diffusion` is on the device arm.
+
 **And D9's flag cannot explain it.** Projecting D9's own module-scope factors (tri_att_end
 x0.362, tri_att_start x0.308) onto these tensors — generous, since it credits `fp32_softmax`
 with fixing the whole triangle route to D9's measured level — moves the median **0.07813 →

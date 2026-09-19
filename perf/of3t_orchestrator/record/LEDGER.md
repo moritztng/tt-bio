@@ -4859,3 +4859,40 @@ indistinguishable from a check that passes.** Every space is `\s+` now, and the 
 
 *Three passes running, the thing that caught the error was a control, and the thing that
 produced it was reading my own prose as if a regex would.*
+
+### R122 -- Composition does not degrade the two triangle attentions equally
+
+`tri_att_start` and `tri_att_end` are the same operation on different axes, so the ratio
+between them is a structural quantity. **Alone they are indistinguishable; assembled they are
+3.1x apart.**
+
+| probe | what it measures | start | end | end/start |
+|---|---|---|---|---|
+| R36, block 2, 64 tokens | each sub-module **ALONE** | 0.1389 | 0.1449 | **1.04** |
+| pass 47, block 0, crop 384 | the same modules **INSIDE THE ASSEMBLED BLOCK** | 0.3055 | 0.952 | **3.12** |
+
+That is D8's own finding — sub-modules that pass alone fail assembled — showing up in a new
+place, with something added: composition hits the **ending-node axis about three times harder
+than the starting-node axis**. An axis-asymmetric error under a symmetric operation points at a
+reduction axis or a tile boundary rather than at arithmetic precision, and that is checkable
+against the shapes with no reference at all.
+
+**And I nearly published it as something else.** My first version compared R36's numbers
+against pass 47's **medians** and reported a ratio of 4.44, framed as *"two probes disagree."*
+R36's table is headed **worst relative**; pass 47's column is a median over eight tensors.
+Mixing the two statistics invents a discrepancy. Worse, the framing was wrong even with the
+right numbers: R36 measures each sub-module **alone** and pass 47 measures them **inside the
+assembled block**, and the difference between those two is not a disagreement — **it is the
+defect**. Caught before it left the working tree, by checking what the column heading said
+instead of what I expected it to say.
+
+*Two tables that use the same row labels are not two measurements of the same quantity.* Fourth
+correction in five passes, and the second where the record already held what I needed; the
+recurring cost is reading a number without reading its column.
+
+**Stated as an observation with a discriminator, not a mechanism**: re-run the pass-47
+decomposition at block 2 / 64 tokens. If the 3.1x survives it is composition alone, and the
+sharpest handle D8 has had. If it collapses toward 1.0 it is depth- or length-dependent, which
+would connect D8 to **D19's near-linear accumulation** for the first time and would falsify the
+verdict's current claim that the forward and gradient sides are two independent problems.
+**Unowned** -- `of3t-gradients` is concluded, `of3t-diffusion` is on the device arm.

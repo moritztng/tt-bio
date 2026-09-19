@@ -503,6 +503,27 @@ critical path is host-side, so it costs nothing. Tenancy left on their state doc
 concluded row has no brief to amend. Separately, qb2's **SSH host key rotated** at the
 19:35:53Z boot: `tt-quietbox2.fritz.box` now fails verification, `tt-quietbox2` works.
 
+PASS 85. **Composition does not degrade the two triangle attentions equally.** `tri_att_start`
+and `tri_att_end` are the same operation on different axes, so their ratio is structural. Alone
+(R36, block 2, 64 tokens, worst relative) they read **0.1389 / 0.1449 — a ratio of 1.04**.
+Inside the assembled block (pass 47, block 0, crop 384, worst relative) they read **0.3055 /
+0.952 — 3.12**. That is D8's own finding in a new place, plus something new: composition hits
+the **ending-node axis about three times harder**. An axis-asymmetric error under a symmetric
+operation points at a reduction axis or a tile boundary rather than at arithmetic — checkable
+against the shapes with no reference at all.
+
+**I nearly published it as something else.** My first version compared R36's numbers against
+pass 47's **medians**, got 4.44, and framed it as *"two probes disagree."* R36's table is headed
+**worst relative**; pass 47's column is a median. And the framing was wrong even with the right
+numbers — R36 measures each sub-module **alone**, pass 47 measures them **assembled**, and that
+difference is not a disagreement, it **is** the defect. *Two tables with the same row labels are
+not two measurements of the same quantity.* Caught before it left the working tree.
+
+Recorded with a discriminator rather than a mechanism: re-run the pass-47 decomposition at
+block 2 / 64 tokens. If the 3.1x survives it is composition alone; if it collapses toward 1.0
+it is depth-dependent, which would connect D8 to D19's near-linear accumulation and falsify the
+verdict's claim that they are two independent problems.
+
 PASS 84. **VERDICT is what Moritz reads, and six of its claims were false.** It said the
 model-dependent half *"has not been measured"* (the device arm ran this evening); that *"95.5 %
 of the gradient's magnitude has no taped training forward on our side at all"* — two lines after
@@ -518,7 +539,7 @@ pair coupling, at **0.0212**.
 **And the guard I wrote for it could not fail.** The amendment count was wrong in VERDICT while
 the audit read only PROVES — third time a guard of mine has been scoped to the field I happened
 to be reading — so it is now scoped to the claim wherever it appears. The control came back
-**147 confirmed, 0 drifted** on a document I had just doctored to say "fifteen": the phrase is
+**148 confirmed, 0 drifted** on a document I had just doctored to say "fifteen": the phrase is
 hard-wrapped and lands as `times on the\nrecord`, and my regex used literal spaces. *A check
 that cannot match its own target is indistinguishable from a check that passes.* Every space is
 `\s+` now and the control fires.
@@ -612,12 +633,12 @@ PASS 79. **The verification only ever ran for one person on one machine, and not
 so.** Every check reading the campaign's record — GAP against DEFECTS, the summary figures,
 D20's shares, the amendment count — resolved an **absolute path into a gitignored state dir on
 pc**. On any other machine they simply do not appear and the summary still says "confirmed":
-**fewer checks, same word.** *"141 confirmed" looks exactly like "147 confirmed" to someone who
+**fewer checks, same word.** *"141 confirmed" looks exactly like "148 confirmed" to someone who
 has never seen 146.*
 
 They now resolve authoritative-source-first and fall back to the copies the compose publishes
 into the branch, with the state doc joining the record so the summary checks have something to
-read — and **the fallback is announced**: a reviewer gets **147 confirmed, 2 warnings**, one
+read — and **the fallback is announced**: a reviewer gets **148 confirmed, 2 warnings**, one
 naming the documents read from the copy and one saying the concluded-row count reads a
 directory that exists only on my host and **DID NOT RUN — it is not a pass**. Verified by
 simulating a reviewer: deny the state dir entirely, run the audit from the composition.
