@@ -250,5 +250,11 @@
     "grads_f64_recycles0.pt": "VERIFIED 1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
     "grads_f64_recycles3.pt": "VERIFIED 2a19e011640a080ca51f2939961a2f51845438d16db48b825da32b62c49ee657",
     "checksums_on_qb2": "SHA256SUMS.recycles0 and SHA256SUMS.recycles3 in the same directory"
+  },
+  "provenance": {
+    "produced_on": "rented vast.ai A100-SXM4-80GB, instance 51585493, label of3t-reference-a100-1",
+    "instance_state": "destroyed after both gradients were on qb2 and both transfers hash-verified",
+    "rental": "3.1 h, vast.ai credit 36.44 -> 32.92 across the whole row",
+    "reproduce": "perf/of3t_reference/setup_gpu_box.sh, then build_corpus.sh, build_batch.py, bundle_min.py"
   }
 }
