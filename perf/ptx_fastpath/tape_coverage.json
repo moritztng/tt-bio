@@ -1,7 +1,5 @@
 {
  "missing": {
-  "experimental.nlp_concat_heads": 4,
-  "experimental.nlp_create_qkv_heads": 3,
   "max": 1,
   "pad": 9,
   "sum": 1,
@@ -41,6 +39,8 @@
   "divide": 1,
   "exp": 1,
   "experimental.minimal_matmul": 8,
+  "experimental.nlp_concat_heads": 4,
+  "experimental.nlp_create_qkv_heads": 3,
   "layer_norm": 16,
   "linear": 18,
   "matmul": 4,

@@ -1506,6 +1506,64 @@ def _getitem(x: Tensor, index):
     return _sliced(x, ttnn.slice(x.value, starts, ends), starts, ends)
 
 
+# --- attention head packing ------------------------------------------------------------
+# Both layouts below are DERIVED FROM THE DEVICE with an index-valued tensor
+# (`perf/ptx_fastpath/heads.py`), not read off a docstring. A head-split backward written
+# from a guess about the packing is exactly how a wrong gradient ships: it is a pure
+# rearrangement, so nothing about its magnitude looks wrong, and every downstream head
+# would train on another head's signal.
+
+@_verb("experimental.nlp_concat_heads")
+def _v_concat_heads(shipped, args, kwargs):
+    """``[B, H, L, dh] -> [B, 1, L, H*dh]``, measured equal to
+    ``permute(0, 2, 1, 3).reshape(B, 1, L, H*dh)``. The backward is that inverted."""
+    x = _wrap(args[0])
+    B, H, L, dh = (int(d) for d in x.value.shape)
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+
+    def make():
+        def bw(g):
+            x.add_grad(ttnn.permute(ttnn.reshape(g, [B, L, H, dh]), [0, 2, 1, 3]))
+        return bw
+
+    return _tape(out_v, [x], make)
+
+
+@_verb("experimental.nlp_create_qkv_heads")
+def _v_create_qkv_heads(shipped, args, kwargs):
+    """``[B, 1, L, 3*H*dh] -> three [B, H, L, dh]``, measured equal to
+    ``reshape(B, 1, L, 3, H, dh)[:, 0, :, s].permute(0, 2, 1, 3)`` for s in 0, 1, 2.
+
+    Each output gets its own node, so a consumer that differentiates only q -- which the
+    tape cannot know in advance -- contributes only q. Each scatters into the full packed
+    width with zeros in the other two slots and `add_grad` sums them, which costs two
+    packed-width temporaries more than a single shared closure would. It is the price of
+    not having to know the fan-out at forward time, and the packed tensor is the smallest
+    thing in the block.
+    """
+    x = _wrap(args[0])
+    B, _, L, wide = (int(d) for d in x.value.shape)
+    H = int(kwargs.get("num_heads", 1))
+    dh = wide // (3 * H)
+    outs = shipped(x.value, *[_unwrap(a) for a in args[1:]],
+                   **{k: _unwrap(v) for k, v in kwargs.items()})
+
+    def slot(s):
+        def make():
+            def bw(g):
+                # [B, H, L, dh] -> [B, L, 1, H*dh], then into slot s of the packed axis.
+                rows = ttnn.reshape(ttnn.permute(g, [0, 2, 1, 3]), [B, L, 1, H * dh])
+                zero = ttnn.zeros([B, L, 1, H * dh], dtype=rows.dtype,
+                                  layout=ttnn.TILE_LAYOUT, device=rows.device())
+                parts = [rows if i == s else zero for i in range(3)]
+                x.add_grad(ttnn.reshape(ttnn.concat(parts, dim=2), [B, 1, L, 3 * H * dh]))
+            return bw
+        return make
+
+    return tuple(_tape(o, [x], slot(s)) for s, o in enumerate(outs))
+
+
 # --- placement and lifetime --------------------------------------------------------------
 
 _VERBS["clone"] = _VERBS["reallocate"] = _VERBS["to_layout"] = \
