@@ -54,8 +54,25 @@ cd "$CO"
 PRESENT=""
 for r in $ROWS; do
   if git rev-parse --verify -q "origin/wk/of3t-$r" >/dev/null; then
-    git merge --no-edit -q "origin/wk/of3t-$r" || { echo "CONFLICT merging of3t-$r:"; \
-      git diff --name-only --diff-filter=U; exit 1; }
+    if ! git merge --no-edit -q "origin/wk/of3t-$r"; then
+      # `.gitignore` is the one file where a conflict is routinely NOT a disagreement: both
+      # sides append an ignore rule for their own scratch, and keeping both is what each side
+      # meant. Resolved by union, announced, and ONLY for this path -- any other conflicted
+      # file still stops the composition, because for real content a union is a guess.
+      _u=$(git diff --name-only --diff-filter=U)
+      if [ "$_u" = ".gitignore" ]; then
+        git checkout --theirs .gitignore 2>/dev/null || true
+        git show :2:.gitignore > /tmp/.gi_ours 2>/dev/null
+        git show :3:.gitignore > /tmp/.gi_theirs 2>/dev/null
+        cat /tmp/.gi_ours /tmp/.gi_theirs | awk '!seen[$0]++ || $0==""' > .gitignore
+        rm -f /tmp/.gi_ours /tmp/.gi_theirs
+        git add .gitignore && git commit --no-edit -q
+        echo "  NOTE of3t-$r: .gitignore conflict resolved by UNION (both sides append their"\
+             " own scratch rule); every other path would have stopped the compose"
+      else
+        echo "CONFLICT merging of3t-$r:"; printf '%s\n' "$_u"; exit 1
+      fi
+    fi
     PRESENT="$PRESENT $r"
   else
     echo "of3t-$r: dispatched but has not pushed a branch yet, skipped"
@@ -211,3 +228,12 @@ echo "--- audit_evidence"
 
 git worktree remove --force "$BASE"
 echo; echo "composition ready at $CO ; push with: git -C $CO push origin wk/of3t"
+# `--push` exists because I once ran `compose_verify.sh; git -C $CO push -f` as one line and
+# force-pushed a FAILED, half-merged composition over a good one: 256 commits replaced by 55.
+# The branch is regenerated every pass so nothing was lost, but the shape of the mistake is
+# permanent -- a push that is not conditional on the verdict is not a verified push.
+if [ "${1:-}" = "--push" ]; then
+  git -C "$CO" push -f -q origin wk/of3t \
+    && echo "pushed wk/of3t -> $(git -C "$CO" rev-parse --short HEAD), \
+$(git -C "$CO" rev-list --count origin/main..HEAD) ahead"
+fi
