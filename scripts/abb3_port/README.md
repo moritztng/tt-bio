@@ -49,11 +49,18 @@ So an artifact here carries the commit it was recorded at:
 
     RECORDED-AT: <commit> <the script that produced it>
 
-`tests/test_recorded_claims.py` fails when any commit since then has touched the code that feeds
-it. It does not read a hand-written list of that code, because a hand-written list goes stale the
-same silent way: it takes the producing script and follows its module-level imports. Re-run the
-script and update both the numbers and the line. Deleting the artifact is not the fix, and the
-test says so by name.
+`tests/test_recorded_claims.py` fails when that code differs from what the number was recorded
+against, and names the files. It reads content rather than the commit log, which is what keeps a
+merge that brings the recording's own branch in from being reported as the cause. It does not read
+a hand-written list of the code either, because a hand-written list goes stale the same silent
+way: it takes the producing script and follows its module-level imports. Re-run the script and
+update both the numbers and the line. Deleting the artifact is not the fix, and the test says so
+by name.
+
+Expect a red on a work branch. The shared op layer this closure reaches takes about 22 commits a
+day, so a recording goes unconfirmed within a median of 14 minutes of being made. That is the
+shelf life of a device number here, not a fault in the check, and the affordable place to
+re-record is the commit you release from.
 
 The same file keeps each script's `Run:` line equal to its own argparse defaults. `step_gate.py`
 shipped `--micro 8` in both and it OOMs in the first backward, so the one configuration the docs
