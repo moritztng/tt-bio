@@ -27,6 +27,11 @@
 # roughly half the wall clock of 18x3. PRE-REGISTERED STOP, inherited verbatim from the row that
 # built the lever: if this session's own realised A/A half-width is not smaller than its measured
 # delta, it does not book. A fourth refusal is the honest outcome, not a reason to widen the rule.
+# --bracket puts base at BOTH ends of every block, so the A/A floor is estimated at the SAME n and
+# with the same arm separation as the A/B delta. Without it a 12-block session gives 12 A/B pairs
+# and 6 A/A pairs, and a marginal lever gets refused by the design rather than by the box.
+# score_mmshort.py applies the stop, and its three-path known-answer control passes: a 0.047 s
+# effect at f3's noise BOOKS, a zero effect REFUSES, and a 0.047 s effect at f4's noise REFUSES.
 set -u
 WT=/home/ttuser/.coworker/wt/c14-land-tail
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
@@ -45,7 +50,7 @@ for i in $(seq 1 "$BUDGET_MIN"); do
       env TT_BIO_AICLK=1350 TT_VISIBLE_DEVICES="$CARD" TT_BIO_LEASE_CARDS="$CARD" \
           TT_BIO_LEASE_HOLDER=worker:c14-land-tail \
       "$PY" perf/c14_land/apb_fold_ab.py --flag TT_BIO_MM_SHORT_M_BW --sizes 512 \
-        --blocks 12 --folds 5 --card "$CARD" --guard pair_channel --maxload "$MAXLOAD" \
+        --blocks 12 --folds 5 --bracket --card "$CARD" --guard pair_channel --maxload "$MAXLOAD" \
         --quiet-wait 3600 \
         --out perf/c14_land/mmshort_ab.json --cifdir perf/c14_land/mmshort_cifs
   fi

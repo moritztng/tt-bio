@@ -350,8 +350,14 @@ def driver(args) -> int:
     for size in [s.strip() for s in args.sizes.split(",") if s.strip()]:
         print(f"[{size} aa]", flush=True)
         for b in range(args.blocks):
-            for arm in ("base", "on"):
-                jf = tmpdir / f"{size}_{arm}_{b}.json"
+            # --bracket puts base at BOTH ends of every block, which is what makes the A/A floor
+            # structurally matched to the A/B comparison. Without it a 12-block session yields 12
+            # A/B pairs but only 6 A/A pairs, so its floor is estimated at half the n of the effect
+            # it has to beat, and a marginal lever is refused for a reason that is the design's
+            # rather than the lever's. c14-matmul-ceiling's f3 bracketed and is the cleanest session
+            # this box has produced.
+            for pos, arm in enumerate(("base", "on", "base") if args.bracket else ("base", "on")):
+                jf = tmpdir / f"{size}_{arm}_{b}_{pos}.json"
                 env = dict(os.environ)
                 if arm == "on":
                     env[args.flag] = "1"
@@ -363,13 +369,13 @@ def driver(args) -> int:
                        "--block", str(b), "--card", str(args.card), "--out", str(jf)]
                 if args.cifdir:
                     cmd += ["--cifdir", str(args.cifdir)]
-                tag = f"{size} aa block {b} {arm}"
+                tag = f"{size} aa block {b} {arm}[{pos}]"
                 guard = ({"skipped": "--force-contended"} if args.force_contended
                          else wait_admissible(args.card, args.quiet_wait, tag,
                                               guard_args(args)))
                 r = subprocess.run(cmd, env=env)
-                row = {"size": size, "arm": arm, "block": b, "returncode": r.returncode,
-                       "guard_before": guard}
+                row = {"size": size, "arm": arm, "block": b, "pos": pos,
+                       "returncode": r.returncode, "guard_before": guard}
                 if jf.exists():
                     row["result"] = json.loads(jf.read_text())
                 out["blocks"].append(row)
@@ -447,6 +453,9 @@ def main() -> int:
     ap.add_argument("--guard", choices=["host_quiet", "pair_channel"], default="host_quiet",
                     help="host_quiet (default, unchanged) or pair_channel, which keeps the "
                          "board-pair rule hard and admits a stationary neighbour on the other pair")
+    ap.add_argument("--bracket", action="store_true",
+                    help="run base,on,base per block instead of base,on, so the A/A floor has the "
+                         "same n and the same arm separation as the A/B delta")
     ap.add_argument("--maxload", type=float, default=8.0)
     ap.add_argument("--drift", type=float, default=1.5)
     ap.add_argument("--settle", type=float, default=60.0)
