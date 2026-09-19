@@ -126,6 +126,20 @@ _OPM_SMALL_DEPTH = env_flag("TT_BIO_OPM_SMALL_DEPTH", False)
 OPM_SMALL_DEPTH_MAX = int(os.environ.get("TT_BIO_OPM_SMALL_DEPTH_MAX", "8"))
 #: [served, declined], so a census can tell a dark gate from a correctly declining one.
 OPM_SMALL_DEPTH_STATS = [0, 0]
+
+
+def _opm_legacy_layout() -> bool:
+    """Restore OuterProductMean's pre-c14 output stage. OFF by default; the fast path ships.
+
+    Read per call, not at import, so a fold A/B can interleave both arms in one process on one
+    card -- the only form of fold measurement this campaign accepts. Two things come back with it:
+    the 1/S scale applied to z (536,870,912 B) instead of to `a` (2,097,152 B), and `proj_o`
+    issued against the token-row batch instead of with that batch merged into M. Delete the
+    flag once the number is banked; it exists to be measured against, not to be configured.
+    """
+    return env_flag("TT_BIO_OPM_LEGACY_LAYOUT", False)
+
+
 # Pair-tensor byte size above which a chunked path's row/channel blocks are assembled
 # on the HOST instead of by ttnn.concat on device. The concat needs a fresh
 # full-pair-tensor allocation while the input and every block are still live (k=3
@@ -1576,6 +1590,37 @@ def _pad_head_lanes(t: torch.Tensor, n_heads: int, head_dim: int, padded_head_di
 # SDPA reader pays once per (q_chunk, k_chunk) pair.
 _TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
 
+# Triangle attention's INTERIOR in bfp8, and nothing else. This is its own flag and not a mode:
+# `_FAST_MODE` bundles unrelated changes and measures 0.95x on the fold, and `_dtype()` staying
+# bf16 is what keeps the fused qkv+gate weight built at all (`__init__` only concatenates it when
+# `_dtype() == bfloat16`).
+#
+# Scope, chosen from the byte ledger and from what already failed. The two largest pair-scale
+# buffers a trunk PairformerLayer moves are the 268.4 MB concatenated q/k/v/gate of the two
+# triangle attentions, written by our fused qkv kernel and read three times by our fused SDPA
+# kernel, so producer and every consumer is ours (`perf/c14_bfp8/region_census.py`). Narrowing
+# them deletes 3.75 Z a buffer. Three things stay bf16 on purpose:
+#
+#   * `z`, the residual accumulator, and every `z_update`. Quantising an accumulation 5 times a
+#     layer through 64 layers and 3 recycles is the mechanism behind the 1.4965 A that killed the
+#     whole-track arm and the 13.21 A at 512 aa that killed b2z's `transition` site. The out
+#     projection keeps `_dtype()` for exactly this reason, so the region's exit rounds once into
+#     bf16 and the accumulator never sees block float.
+#   * the stored weights. `_FAST_MODE` demoting them is what put esmfold2's confidence at NaN.
+#   * the normed pair tensor. `ttnn.layer_norm` has no output-dtype argument and returns the input
+#     format, so introducing bfp8 there would cost a typecast (0.2577 ms measured) to buy a
+#     0.166 ms saving -- a debit, rejected on paper.
+#
+# There is no `typecast` anywhere in the region: every producer in it is a matmul whose
+# destination format is a program argument, and the accumulator CB is a separate `interm_fmt`
+# (fp32 under `fp32_dest_acc_en`), so the narrowing is one rounding at the pack stage.
+_TRIATT_B8 = env_flag("TT_BIO_TRIATT_B8", False)
+
+
+def _triatt_dtype():
+    """The storage format for triangle attention's q/k/v/gate/bias, i.e. the region's interior."""
+    return ttnn.bfloat8_b if _TRIATT_B8 else _dtype()
+
 
 # When the production q_chunk does not divide the padded length, offer the dividing chunks below
 # it before falling back to one that pads. See the block in `_tri_att_q_chunks` for the 896 aa
@@ -1785,7 +1830,7 @@ def _tri_att_sdpa(q, k, v, bias, scale: float, ckc=None, pad: bool = False):
 
 
 def _tri_att_sdpa_inner(q, k, v, bias, scale: float, ckc=None):
-    if _TRIATT_BIAS_B8 and bias is not None and bias.dtype != ttnn.bfloat8_b:
+    if (_TRIATT_BIAS_B8 or _TRIATT_B8) and bias is not None and bias.dtype != ttnn.bfloat8_b:
         b8 = ttnn.typecast(bias, ttnn.bfloat8_b)
         try:
             return _tri_att_sdpa_at(q, k, v, b8, scale, ckc)
@@ -4061,6 +4106,19 @@ def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
     The byte-level form of `_l1_memory_config_if_it_fits`, for a caller deciding where to put a
     result it has not allocated yet and therefore has no tensor for.
     """
+    # An L1-resident ACTIVATION and a tape cannot coexist, and this is the one place that
+    # decides. The tape keeps what the forward frees, so an L1 buffer the shipped code would
+    # have released is still live when the next program lays out its statically allocated
+    # circular buffers; past 256 tokens they no longer fit and the fold dies with "Statically
+    # allocated circular buffers ... clash with L1 buffers". Fixing the transition's four
+    # placements alone just moved the clash (L1 buffer at 139264, then 196608, same 332288
+    # ceiling), because every L1 site in the chain contributes. So the answer is the one
+    # `ptx-fastpath` left open as the honest possibility: the L1 residency lever is
+    # INFERENCE-ONLY. Declining here sends every such result to DRAM, which is also what the
+    # tape would otherwise pay for twice -- keep it in L1 AND evict it to DRAM for the backward.
+    from . import ops
+    if ops.taping():
+        return False
     try:
         per_core = int(ttnn.get_max_worker_l1_unreserved_size())
     except Exception:
@@ -7516,7 +7574,8 @@ class TriangleAttention(Module):
             return None, None
         return _triatt_qkv.qkvg_heads(
             x, self.qkvg_weight, self.o_weight, self.compute_kernel_config,
-            self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkvg_weight),
+            self.n_heads, self.head_dim, _triatt_dtype(),
+            _qkv_mm_config(x, self.qkvg_weight),
         ) or (None, None)
 
     def _fused_qkvgb(self, x):
@@ -7536,7 +7595,8 @@ class TriangleAttention(Module):
             return None, None, None
         return _triatt_qkv.qkvgb_heads(
             x, self.qkvgb_weight, self.o_weight, self.compute_kernel_config,
-            self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.qkvgb_weight),
+            self.n_heads, self.head_dim, _triatt_dtype(),
+            _qkv_mm_config(x, self.qkvgb_weight),
             int(self.bias_weight.shape[-1]),
         ) or (None, None, None)
 
@@ -7794,14 +7854,14 @@ class TriangleAttention(Module):
                         input_tensor=x_chunk,
                         weight_tensor=self.qkv_weight,
                         compute_kernel_config=self.compute_kernel_config,
-                        dtype=_dtype(),
+                        dtype=_triatt_dtype(),
                         config=qkv_cfg_chunk,
                     )
                 g_cfg_chunk = _qkv_mm_config(x_chunk, self.g_weight)
                 if g_chunk is None and isinstance(qkv_chunk, tuple) and not self.biased:
                     g_chunk = _triatt_qkv.gate_proj(
                         x_chunk, self.g_weight, self.o_weight, self.compute_kernel_config,
-                        self.n_heads, self.head_dim, _dtype(), g_cfg_chunk,
+                        self.n_heads, self.head_dim, _triatt_dtype(), g_cfg_chunk,
                     )
                 g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
                 if g_chunk is None:
@@ -7936,14 +7996,15 @@ class TriangleAttention(Module):
                         input_tensor=x,
                         weight_tensor=self.qkv_weight,
                         compute_kernel_config=self.compute_kernel_config,
-                        dtype=_dtype(),
+                        dtype=_triatt_dtype(),
                         config=_qkv_mm_config(x, self.qkv_weight),
                     )
             if g is None and (isinstance(qkv, tuple) or fold_o is not None) \
                     and not self.biased:
                 g = _triatt_qkv.gate_proj(
                     x, self.g_weight, self.o_weight, self.compute_kernel_config,
-                    self.n_heads, self.head_dim, _dtype(), _qkv_mm_config(x, self.g_weight),
+                    self.n_heads, self.head_dim, _triatt_dtype(),
+                    _qkv_mm_config(x, self.g_weight),
                 )
             g_in_mm = self.g_bias is not None and "g" in self.bias_in_matmul
             if g is None:
@@ -8533,6 +8594,19 @@ class Transition(Module):
         the assembly reads the same bytes from the same places and writes the same bytes to
         different banks.
         """
+        # The transition's intermediates are L1-resident, which is the tuning this module
+        # IS: the row and width chunking exists so `x_norm` and `x_1` fit in L1 and fc1/fc3
+        # read them there. A tape cannot have that. It keeps what the forward frees, so the
+        # L1 buffer is still live when the next program lays out its statically allocated
+        # circular buffers, and past 256 tokens they no longer fit: at 384 aa the shipped
+        # 48-block trunk dies in the first taped transition with "Statically allocated
+        # circular buffers in program 391 clash with L1 buffers ... allocated at 139264 and
+        # static circular buffer region ends at 332288". This is the same mechanism
+        # `ptx-fastpath` measured as the 0.83-0.85x inversion on the 256-token transition,
+        # where it was slow rather than fatal, and it settles the question that row left
+        # open: the L1 lever is INFERENCE-ONLY. Under a tape the intermediates go to DRAM,
+        # which is also cheaper than keeping them in L1 and paying eviction traffic on top.
+        _tape_mc = ttnn.DRAM_MEMORY_CONFIG if ops.taping() else ttnn.L1_MEMORY_CONFIG
         def swiglu(x):
             dtype = self.dtype if self.dtype is not None else _dtype()
             x_norm = ttnn.layer_norm(
@@ -8541,24 +8615,24 @@ class Transition(Module):
                 bias=self.norm_bias,
                 epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config,
-                memory_config=ttnn.L1_MEMORY_CONFIG,
+                memory_config=_tape_mc,
             )
             x_1 = ttnn.linear(
                 x_norm,
                 self.fc1_weight,
                 activation=None if _UNFUSED_SILU else "silu",
                 compute_kernel_config=self.compute_kernel_config,
-                memory_config=ttnn.L1_MEMORY_CONFIG,
+                memory_config=_tape_mc,
                 dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
             )
             if _UNFUSED_SILU:
-                x_1 = ttnn.silu(x_1, memory_config=ttnn.L1_MEMORY_CONFIG, output_tensor=x_1)
+                x_1 = ttnn.silu(x_1, memory_config=_tape_mc, output_tensor=x_1)
             x_2 = ttnn.linear(
                 x_norm,
                 self.fc2_weight,
                 compute_kernel_config=self.compute_kernel_config,
-                memory_config=ttnn.L1_MEMORY_CONFIG,
+                memory_config=_tape_mc,
                 dtype=dtype,
                 core_grid=CORE_GRID_MAIN,
             )
@@ -9016,7 +9090,14 @@ class Pairformer(Module):
         # separates the two. No-op unless TT_BIO_DRAM_PEAK is set.
         dram_peak(f"pairformer enter [z={'x'.join(str(d) for d in z.shape)}]")
         for i, block in enumerate(self.blocks):
-            s, z = block(s, z, mask, attn_mask_start, attn_mask_end, extra_attn_bias)
+            # Through the seam, so a tape can checkpoint the block and inference cannot tell.
+            # A 48-block trunk is the case per-block checkpointing exists for: the tape keeps
+            # every block's intermediates AND a gradient per op, which at 384 aa is the whole
+            # card, while recomputing one block at a time is 7.762 GB (`ptx-crop`).
+            s, z = ops.checkpoint_segment(
+                lambda s_, z_, b=block: b(s_, z_, mask, attn_mask_start, attn_mask_end,
+                                          extra_attn_bias),
+                s, z)
             dram_peak(f"pairformer block {i} done")
         return s, z
 
@@ -10257,7 +10338,7 @@ class PairWeightedAveraging(Module):
                 if acc is None:
                     acc = o
                 else:
-                    ttnn.add_(acc, o)
+                    acc = ttnn.add_(acc, o)
                     ttnn.deallocate(o)
             return acc
 
@@ -10398,7 +10479,7 @@ class OuterProductMean(Module):
             if out is None:
                 out = part
             else:
-                ttnn.add_(out, part)
+                out = ttnn.add_(out, part)
                 ttnn.deallocate(part)
         ttnn.deallocate(a)
         ttnn.deallocate(b)
@@ -10599,6 +10680,25 @@ class OuterProductMean(Module):
             OPM_SMALL_DEPTH_STATS[1] += 1
             S, I, C, D, J = dims
 
+        # `n_msa` is a float so a caller can divide by something other than the row count. AF2
+        # wants `eps + norm`, which at an all-ones bfloat16 mask rounds back to the depth, so it
+        # passes None; the float is what its A/B arm uses.
+        scale = 1 / (n_msa if n_msa is not None else S)
+        legacy = _opm_legacy_layout()
+        # The scale is linear, so it folds into the SMALLEST tensor in the chain, which is the rule
+        # `_small_depth` already states and this path used to break: it multiplied z, the LARGEST
+        # tensor in the chain. At 512 aa that was an in-place pass over 536,870,912 B per call
+        # (3.0227 ms in situ, 0.0484 s over the fold's 16 MSALayer calls) to apply a scalar that
+        # `a` -- 2,097,152 B, 256x smaller -- carries for free. Exact when the scale is a power of
+        # two, which it is whenever the depth is: scaling every partial product by 2^-k scales the
+        # bf16 rounding with it. perf/c14_opm_layout/.
+        if not legacy:
+            if depth_parts is None:
+                a = ttnn.multiply_(a, scale)
+            else:
+                depth_parts = [(ttnn.multiply_(acp, scale), bcp, Sc)
+                               for acp, bcp, Sc in depth_parts]
+
         def z_rows(i0, i1):
             """`z = a b^T` contracted over the full depth, for token rows [i0, i1).
 
@@ -10630,7 +10730,7 @@ class OuterProductMean(Module):
                 else:
                     # In place: z is (rows*C, D*J) -- ~400 MB at rows=256, J=768 -- so an
                     # out-of-place add would hold three of them at the peak.
-                    ttnn.add_(z, zp)
+                    z = ttnn.add_(z, zp)
                     ttnn.deallocate(zp)
             return z
 
@@ -10641,11 +10741,18 @@ class OuterProductMean(Module):
             z = ttnn.reshape(z, (rows, C * D, J))
             z = ttnn.to_layout(z, ttnn.TILE_LAYOUT)
             z = ttnn.permute(z, (0, 2, 1))
-            # `n_msa` is a float so a caller can divide by something other than the row
-            # count. AF2 wants `eps + norm`, which at an all-ones bfloat16 mask rounds
-            # back to the depth, so it passes None; the float is what its A/B arm uses.
-            scale = 1 / (n_msa if n_msa is not None else S)
-            z = ttnn.multiply_(z, scale)
+            if legacy:
+                z = ttnn.multiply_(z, scale)
+            else:
+                # Merge the token-row batch into M. `proj_o` is (rows, J, C*D) x (C*D, c_z): N is
+                # four tiles wide, so issued against the row batch the matmul re-reads a K of 32
+                # tiles for every 32x32 it writes and lands at 58.7 GB/s, 13 % of the 442.9 GB/s
+                # roof and 5.2 % of this part's 127.86 TFLOP/s -- neither bound, just badly
+                # blocked. One 2D matmul over the whole (rows*J) reads each operand once. The
+                # reshape is a leading-dim merge with the last dim unchanged and the second-to-last
+                # a multiple of 32, i.e. ttnn's own zero-cost view (0.0333 ms measured), and it is
+                # value-exact against a float64 reference.
+                z = ttnn.reshape(z, (rows * J, C * D))
             o_bias = self.o_bias
             if self.scale_bias:
                 o_bias = ttnn.multiply(self.o_bias, scale)
@@ -10654,11 +10761,19 @@ class OuterProductMean(Module):
                 self.o_weight,
                 bias=o_bias,
                 compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
+                # The flattened form has to be left to pick its own program config. Pinning the
+                # core grid here is what makes the 2D form no faster than the batched one: with
+                # the grid pinned it reads 9.8592 ms against the batched 9.4773, and without it
+                # 3.3877 ms, on the same shapes in the same interleaved pass. Both forms derive
+                # their grid from the live device, so neither is more card-dependent than the
+                # other. perf/c14_opm_layout/ladder_qb1c2.json.
+                **({"core_grid": CORE_GRID_MAIN} if legacy else {}),
             )
             if self.scale_bias:
                 ttnn.deallocate(o_bias)
             ttnn.deallocate(z)
+            if not legacy:
+                out = ttnn.reshape(out, (rows, J, out.shape[-1]))
             return out
 
         per_row = C * D * J * 2

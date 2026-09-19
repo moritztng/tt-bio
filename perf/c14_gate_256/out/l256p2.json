@@ -1,0 +1,20 @@
+{
+  "tag": "l256p2",
+  "model": "boltz2",
+  "rung": 256,
+  "folds": 5,
+  "rc": 0,
+  "wall_s": 111.99,
+  "log": "/home/ttuser/.coworker/wt/c14-gate-256-warmup/perf/c14_gate_256/work/l256p2/predict.log",
+  "host": "tt-quietbox",
+  "tt_visible_devices": "3",
+  "loadavg": [
+    55.43896484375,
+    33.9443359375,
+    16.38623046875
+  ],
+  "t_start_utc": "2026-09-18T23:49:03Z",
+  "t_end_utc": "2026-09-18T23:50:55Z",
+  "rows": [],
+  "sequence_s": []
+}

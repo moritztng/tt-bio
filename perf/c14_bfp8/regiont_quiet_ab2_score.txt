@@ -1,0 +1,17 @@
+session /home/ttuser/.coworker/wt/c14-land-tail-regiont/perf/c14_bfp8/regiont_quiet_ab2.json
+  admissible blocks: base [14.591, 14.599, 14.627, 14.654]  on [14.479, 14.455, 14.457, 14.379]
+  base 14.630 s  on 14.455 s  delta +0.1750 s  ratio 1.01211  floor 1.00432
+  separation gap +0.0800 s (positive = every on fold beat every base fold)  perm p = 2/70
+  clock 1350-1350 MHz over 1840 during-fold samples
+  [PASS] base median in 14.60-14.70: 14.630 s
+  [PASS] on median in 14.40-14.50: 14.455 s
+  [PASS] ratio in 1.010-1.018 (confirms ~+0.2 s, refutes +0.6640 s): 1.01211
+  [PASS] A/A floor under 1.006: 1.00432
+  [PASS] effect clears its own floor: 2.80x
+  [PASS] registered negative case absent (<2 blocks against): 0 against
+  [PASS] base digest unchanged: {'45781db716ebf020'}
+  [PASS] on digest unchanged: {'791696c3e443676d'}
+  [PASS] base plDDT unchanged: {0.845919}
+  [PASS] on plDDT unchanged: {0.845902}
+  [PASS] no foreign device holder in any scored block: []
+PRE-REGISTRATION HELD

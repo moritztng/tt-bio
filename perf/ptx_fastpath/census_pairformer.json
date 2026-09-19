@@ -1,0 +1,838 @@
+{
+ "root": "Pairformer",
+ "totals": {
+  "gradops": 38,
+  "unrouted": 38,
+  "inplace": 25,
+  "dealloc": 117
+ },
+ "sites": {
+  "gradops": [
+   {
+    "where": "PairformerLayer.__call__",
+    "call": "ttnn.layer_norm",
+    "line": 8728,
+    "routed": false
+   },
+   {
+    "where": "TriangleMultiplication._in_proj_rows",
+    "call": "ttnn.layer_norm",
+    "line": 6328,
+    "routed": false
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "call": "ttnn.layer_norm",
+    "line": 6446,
+    "routed": false
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "call": "ttnn.matmul",
+    "line": 6694,
+    "routed": false
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "call": "ttnn.layer_norm",
+    "line": 6842,
+    "routed": false
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "call": "ttnn.linear",
+    "line": 6849,
+    "routed": false
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "call": "ttnn.layer_norm",
+    "line": 6859,
+    "routed": false
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "call": "ttnn.linear",
+    "line": 6866,
+    "routed": false
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "call": "ttnn.layer_norm",
+    "line": 6883,
+    "routed": false
+   },
+   {
+    "where": "Transition.__call__",
+    "call": "ttnn.layer_norm",
+    "line": 8325,
+    "routed": false
+   },
+   {
+    "where": "Transition.__call__",
+    "call": "ttnn.linear",
+    "line": 8333,
+    "routed": false
+   },
+   {
+    "where": "Transition.__call__",
+    "call": "ttnn.linear",
+    "line": 8344,
+    "routed": false
+   },
+   {
+    "where": "Transition.__call__",
+    "call": "ttnn.linear",
+    "line": 8355,
+    "routed": false
+   },
+   {
+    "where": "AttentionPairBias.compute_bias",
+    "call": "ttnn.layer_norm",
+    "line": 7907,
+    "routed": false
+   },
+   {
+    "where": "AttentionPairBias.compute_bias",
+    "call": "ttnn.linear",
+    "line": 7911,
+    "routed": false
+   },
+   {
+    "where": "AttentionPairBias._kq_norm_one",
+    "call": "ttnn.layer_norm",
+    "line": 8022,
+    "routed": false
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "call": "ttnn.linear",
+    "line": 8093,
+    "routed": false
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "call": "ttnn.layer_norm",
+    "line": 8121,
+    "routed": false
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "call": "ttnn.linear",
+    "line": 8128,
+    "routed": false
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "call": "ttnn.matmul",
+    "line": 8233,
+    "routed": false
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "call": "ttnn.linear",
+    "line": 8242,
+    "routed": false
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "call": "ttnn.linear",
+    "line": 8250,
+    "routed": false
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "call": "ttnn.linear",
+    "line": 8281,
+    "routed": false
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "call": "ttnn.linear",
+    "line": 8291,
+    "routed": false
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "call": "ttnn.layer_norm",
+    "line": 7368,
+    "routed": false
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "call": "ttnn.layer_norm",
+    "line": 7398,
+    "routed": false
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "call": "ttnn.linear",
+    "line": 7713,
+    "routed": false
+   },
+   {
+    "where": "batched_matmul",
+    "call": "ttnn.matmul",
+    "line": 2800,
+    "routed": false
+   },
+   {
+    "where": "batched_matmul",
+    "call": "ttnn.matmul",
+    "line": 2815,
+    "routed": false
+   },
+   {
+    "where": "_l1_layer_norm",
+    "call": "ttnn.layer_norm",
+    "line": 3970,
+    "routed": false
+   },
+   {
+    "where": "_l1_layer_norm",
+    "call": "ttnn.layer_norm",
+    "line": 3973,
+    "routed": false
+   },
+   {
+    "where": "_narrow_proj_linear",
+    "call": "ttnn.linear",
+    "line": 4557,
+    "routed": false
+   },
+   {
+    "where": "_narrow_proj_linear",
+    "call": "ttnn.linear",
+    "line": 4578,
+    "routed": false
+   },
+   {
+    "where": "_pair_proj_linear",
+    "call": "ttnn.linear",
+    "line": 4508,
+    "routed": false
+   },
+   {
+    "where": "_pair_proj_linear",
+    "call": "ttnn.linear",
+    "line": 4529,
+    "routed": false
+   },
+   {
+    "where": "_pair_proj_linear",
+    "call": "ttnn.linear",
+    "line": 4536,
+    "routed": false
+   },
+   {
+    "where": "_pair_bias_from_z",
+    "call": "ttnn.layer_norm",
+    "line": 7087,
+    "routed": false
+   },
+   {
+    "where": "_pair_bias_from_z",
+    "call": "ttnn.layer_norm",
+    "line": 7110,
+    "routed": false
+   }
+  ],
+  "inplace": [
+   {
+    "where": "PairformerLayer.__call__",
+    "call": "ttnn.add_",
+    "line": 8705
+   },
+   {
+    "where": "PairformerLayer.__call__",
+    "call": "ttnn.add_",
+    "line": 8709
+   },
+   {
+    "where": "PairformerLayer.__call__",
+    "call": "ttnn.add_",
+    "line": 8713
+   },
+   {
+    "where": "PairformerLayer.__call__",
+    "call": "ttnn.add_",
+    "line": 8717
+   },
+   {
+    "where": "PairformerLayer.__call__",
+    "call": "ttnn.add_",
+    "line": 8725
+   },
+   {
+    "where": "PairformerLayer.__call__",
+    "call": "ttnn.add_",
+    "line": 8741
+   },
+   {
+    "where": "PairformerLayer.__call__",
+    "call": "ttnn.add_",
+    "line": 8745
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "call": "ttnn.multiply_",
+    "line": 6663
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "call": "ttnn.multiply_",
+    "line": 6666
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "call": "ttnn.multiply_",
+    "line": 6672
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "call": "ttnn.multiply_",
+    "line": 6690
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "call": "ttnn.multiply_",
+    "line": 6876
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "call": "ttnn.multiply_",
+    "line": 6924
+   },
+   {
+    "where": "Transition.__call__",
+    "call": "ttnn.multiply_",
+    "line": 8353
+   },
+   {
+    "where": "AttentionPairBias.__init__",
+    "call": "ttnn.multiply_",
+    "line": 7893
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "call": "ttnn.add_",
+    "line": 8158
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "call": "ttnn.add_",
+    "line": 8189
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "call": "ttnn.add_",
+    "line": 8200
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "call": "ttnn.multiply_",
+    "line": 8201
+   },
+   {
+    "where": "TriangleAttention.__init__",
+    "call": "ttnn.multiply_",
+    "line": 7228
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "call": "ttnn.multiply_",
+    "line": 7531
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "call": "ttnn.add_",
+    "line": 7557
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "call": "ttnn.add_",
+    "line": 7606
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "call": "ttnn.add_",
+    "line": 7748
+   },
+   {
+    "where": "_fp32_softmax_tail",
+    "call": "ttnn.add_",
+    "line": 3674
+   }
+  ],
+  "dealloc": [
+   {
+    "where": "PairformerLayer.__call__",
+    "line": 8706
+   },
+   {
+    "where": "PairformerLayer.__call__",
+    "line": 8710
+   },
+   {
+    "where": "PairformerLayer.__call__",
+    "line": 8714
+   },
+   {
+    "where": "PairformerLayer.__call__",
+    "line": 8718
+   },
+   {
+    "where": "PairformerLayer.__call__",
+    "line": 8726
+   },
+   {
+    "where": "PairformerLayer.__call__",
+    "line": 8740
+   },
+   {
+    "where": "PairformerLayer.__call__",
+    "line": 8742
+   },
+   {
+    "where": "PairformerLayer.__call__",
+    "line": 8746
+   },
+   {
+    "where": "TriangleMultiplication._transform_chunk",
+    "line": 6279
+   },
+   {
+    "where": "TriangleMultiplication._transform_chunk_gated",
+    "line": 6307
+   },
+   {
+    "where": "TriangleMultiplication._in_proj_rows",
+    "line": 6337
+   },
+   {
+    "where": "TriangleMultiplication._gated_rowblocked",
+    "line": 6372
+   },
+   {
+    "where": "TriangleMultiplication._gated_rowblocked",
+    "line": 6375
+   },
+   {
+    "where": "TriangleMultiplication._gated_rowblocked",
+    "line": 6386
+   },
+   {
+    "where": "TriangleMultiplication._gated_rowblocked",
+    "line": 6395
+   },
+   {
+    "where": "TriangleMultiplication._gated_rowblocked",
+    "line": 6405
+   },
+   {
+    "where": "TriangleMultiplication._gated_rowblocked",
+    "line": 6408
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6653
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6662
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6669
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6670
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6704
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6705
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6714
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6733
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6756
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6764
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6815
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6821
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6858
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6875
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6879
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6880
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6908
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6909
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6913
+   },
+   {
+    "where": "TriangleMultiplication.__call__",
+    "line": 6923
+   },
+   {
+    "where": "Transition.__call__",
+    "line": 8352
+   },
+   {
+    "where": "Transition.__call__",
+    "line": 8354
+   },
+   {
+    "where": "Transition.__call__",
+    "line": 8363
+   },
+   {
+    "where": "Transition.__call__",
+    "line": 8592
+   },
+   {
+    "where": "Transition.__call__",
+    "line": 8598
+   },
+   {
+    "where": "Transition.__call__",
+    "line": 8599
+   },
+   {
+    "where": "Transition.__call__",
+    "line": 8602
+   },
+   {
+    "where": "AttentionPairBias._attention",
+    "line": 7986
+   },
+   {
+    "where": "AttentionPairBias._attention",
+    "line": 7990
+   },
+   {
+    "where": "AttentionPairBias._apply_kq_norm",
+    "line": 8056
+   },
+   {
+    "where": "AttentionPairBias._apply_kq_norm",
+    "line": 8060
+   },
+   {
+    "where": "AttentionPairBias._apply_kq_norm",
+    "line": 8061
+   },
+   {
+    "where": "AttentionPairBias._apply_kq_norm_atom",
+    "line": 8078
+   },
+   {
+    "where": "AttentionPairBias._apply_kq_norm_atom",
+    "line": 8079
+   },
+   {
+    "where": "AttentionPairBias._apply_kq_norm_atom",
+    "line": 8080
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8109
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8140
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8142
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8162
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8167
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8168
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8198
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8206
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8208
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8209
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8210
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8211
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8290
+   },
+   {
+    "where": "AttentionPairBias.__call__",
+    "line": 8295
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7434
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7456
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7500
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7506
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7507
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7508
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7523
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7533
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7559
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7608
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7612
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7617
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7672
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7678
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7750
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7758
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7763
+   },
+   {
+    "where": "TriangleAttention.__call__",
+    "line": 7764
+   },
+   {
+    "where": "_acc_append",
+    "line": 5493
+   },
+   {
+    "where": "_acc_concat",
+    "line": 5464
+   },
+   {
+    "where": "_channel_move_back",
+    "line": 6051
+   },
+   {
+    "where": "_sdpa_masked",
+    "line": 1730
+   },
+   {
+    "where": "_fp32_softmax_attention",
+    "line": 3574
+   },
+   {
+    "where": "_fp32_softmax_attention",
+    "line": 3579
+   },
+   {
+    "where": "_fp32_softmax_attention",
+    "line": 3583
+   },
+   {
+    "where": "_fp32_softmax_attention",
+    "line": 3587
+   },
+   {
+    "where": "_atom_shift_gather",
+    "line": 894
+   },
+   {
+    "where": "_accurate_softmax",
+    "line": 3446
+   },
+   {
+    "where": "_accurate_softmax",
+    "line": 3448
+   },
+   {
+    "where": "_accurate_softmax",
+    "line": 3452
+   },
+   {
+    "where": "_accurate_softmax",
+    "line": 3453
+   },
+   {
+    "where": "_accurate_softmax",
+    "line": 3456
+   },
+   {
+    "where": "_triatt_dualprobe",
+    "line": 2246
+   },
+   {
+    "where": "_pair_transpose",
+    "line": 3771
+   },
+   {
+    "where": "_pair_bias_from_z",
+    "line": 7108
+   },
+   {
+    "where": "_pair_bias_from_z",
+    "line": 7112
+   },
+   {
+    "where": "_pair_bias_from_z",
+    "line": 7123
+   },
+   {
+    "where": "_tri_att_fused_qkv_sdpa",
+    "line": 7802
+   },
+   {
+    "where": "_fp32_softmax_attention_block",
+    "line": 3613
+   },
+   {
+    "where": "_fp32_softmax_attention_block",
+    "line": 3631
+   },
+   {
+    "where": "_fp32_softmax_attention_block",
+    "line": 3633
+   },
+   {
+    "where": "_pair_transpose_impl",
+    "line": 3793
+   },
+   {
+    "where": "_pair_transpose_impl",
+    "line": 3795
+   },
+   {
+    "where": "_fp32_softmax_tail",
+    "line": 3660
+   },
+   {
+    "where": "_fp32_softmax_tail",
+    "line": 3677
+   },
+   {
+    "where": "_fp32_softmax_tail",
+    "line": 3681
+   },
+   {
+    "where": "_fp32_softmax_tail",
+    "line": 3686
+   },
+   {
+    "where": "_fp32_softmax_tail",
+    "line": 3693
+   },
+   {
+    "where": "_fp32_softmax_tail",
+    "line": 3697
+   },
+   {
+    "where": "_fp32_softmax_tail",
+    "line": 3699
+   },
+   {
+    "where": "_fp32_softmax_tail",
+    "line": 3702
+   }
+  ]
+ }
+}

@@ -780,6 +780,7 @@ The engine ships its device optimizations on. Each one is an environment variabl
 | `TT_BIO_GATE_GRANULARITY` | 2 | Tiles per DST acquire in the reblock-permute gate kernel. Same structure, bit for bit at every value; 2 is the setting that wins on Blackhole without losing much on Wormhole. |
 | `TT_BIO_HOST_LEVERS` | on | Master switch for the host-side Boltz-2 levers (`TT_BIO_FUSE_BIAS_STACKS` and `TT_BIO_HOST_BLOCK_PAIRWISE`). Set it to `0` to take the host path for all of them at once. |
 | `TT_BIO_MSA_LADDER` | on | Boltz-2 and BoltzGen: pads the MSA depth axis to the smallest of 64, 128, 256, 512, 1024 that holds the alignment instead of always to 1024, so a shallow search stops carrying rows that are not there. **Not bit-exact** — a shorter rung reassociates the same terms. Scored against 1HCL it is as accurate or closer. |
+| `TT_BIO_OPM_LEGACY_LAYOUT` | off | Restores `OuterProductMean`'s old output stage. By default the MSA mean's `1/depth` scalar is applied to the per-row MSA tensor (2,097,152 B at 512 residues) instead of to the assembled pair rows it used to multiply (536,870,912 B), and the output projection runs as one matmul over the flattened token rows instead of once per row against a pinned core grid. Reaches every model that builds the shared `OuterProductMean`: the Boltz-2 and BoltzGen trunk, Protenix, OpenFold3's MSA embedder, RF3 and AF2. **Not bit-exact** — unpinned, the projection sums in a different order, one bf16 step. On the hinged 512-residue fixture the two arms differ by 0.29 to 1.59 A worst pseudo-domain across four seeds, against 1.09 to 1.42 A for the old path against its own seeds, and neither arm separates from the other against the crystal. Worth **0.1577 s** of a 512-residue fold (14.3923 s to 14.2346 s at 1350 MHz, six interleaved reps against a 0.0339 s A/A floor). |
 | `TT_BIO_PAIR_FFN_L1_FC1` | on | ESMFold2 only: keeps both halves of the pair transition's first matmul in L1, so the SiLU multiply that consumes them reads on chip instead of out of DRAM. Folds 512 residues **1.0879x faster on Blackhole**. Same structure, bit for bit; it pays up to 512 residues and is inert above, where the block leaves it no room. |
 | `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` | on | Computes every attention head's MSA row weights from one projection of the pair tensor instead of one projection per head. Same structure, bit for bit. |
 | `TT_BIO_REBLOCK_PERMUTE_GATED` | on | Folds a triangle multiplication’s chunk and its two sigmoid gates into the channel move that feeds them, instead of running the move and then three eltwise passes over the result. Same structure, bit for bit. Every triangle multiplication still opts in, so a model whose shapes the fused reader cannot address keeps the separate ops. |
@@ -885,40 +886,62 @@ Each model downloads its weights automatically on first use. BoltzGen and RFdiff
 
 ## Training
 
-Fine-tune a model you can already run, with the same forward the inference path uses. The
-surface has four levels and you pick the one that matches what you want to write, not how much
-configuration you are willing to tolerate.
+Fine-tune or pre-train a model you can already run, with the same forward the inference path
+uses. The surface has four levels and you pick the one that matches what you want to write, not
+how much configuration you are willing to tolerate.
 
 | Level | You write | You own |
 |---|---|---|
 | `tt-bio finetune ...` | a command line | the config |
 | `train.finetune(...)` | one call | the objective |
-| `plan`, `batches`, `objectives`, `AdamW`, `Checkpointer`, `Mesh`, `LoraConfig` | the loop | the `for` statement |
+| `plan`, `batches`, `objectives`, `AdamW`, `Checkpointer`, `Mesh`, `trainable` | the loop | the `for` statement |
 | `tt_bio.autograd` + `train.gradcheck` | an op and its backward | the gradient |
 
-Dropping a level is not a rewrite. `train.recipes.source("lora")` prints the body the one-call
-version runs, written only in names the level below exports, and a test keeps it that way: if
-the recipe ever needed a private hook, the test fails and the hook becomes public.
+Dropping a level is not a rewrite. `train.recipes.source("default")` prints the body the
+one-call version runs, written only in names the level below exports, and a test keeps it that
+way: if the recipe ever needed a private hook, the test fails and the hook becomes public.
+
+Going wider or going deeper is one argument, at whichever level you are already on. These three
+are the same command:
+
+```bash
+# one chip: LoRA adapters on a frozen trunk
+tt-bio finetune data/ --model protenix-v2 --out runs/a --global-batch 8 --steps 2000
+
+# two chips: same run, one flag
+tt-bio finetune data/ --model protenix-v2 --out runs/b --global-batch 8 --steps 2000 --chips 0,2
+
+# pre-training: train the weights themselves, same loop
+tt-bio finetune data/ --model protenix-v2 --out runs/c --global-batch 8 --steps 200000 \
+    --train weights
+```
+
+The same three at the level below are `train.finetune(...)`, plus `mesh=`, plus
+`train="weights"`. Nothing is rewritten between them: one loop body serves both training modes
+and both chip counts, which the escape-hatch test checks instruction for instruction.
 
 ```bash
 # will this fit, and how long? answered without opening a card
-tt-bio finetune data/ --model protenix-v2 --out runs/a     --global-batch 8 --steps 2000 --tokens 256 --dry-run
+tt-bio finetune data/ --model protenix-v2 --out runs/a --global-batch 8 --steps 2000 --dry-run
 
 tt-bio finetune --show-recipe        # the loop it would run, as source you can edit
 tt-bio finetune --list-objectives    # the named loss rows
 ```
 
-**What works today:** the interface, the dry run, the LoRA adapters, the optimizer, gradient
+**What works today:** the interface, the dry run, both training modes, the optimizer, gradient
 checking, checkpoints, and data parallelism across the chips in one box. **What does not:** no
 model ships a training featuriser yet, so a real `tt-bio finetune` run stops with a named error
 at the point it would read your data. Featurisation is per model on purpose, and a model
-registers its own with `tt_bio.train.catalogue.register`.
+registers its own with `tt_bio.train.catalogue.register`. `--train weights` also comes back
+`UNMEASURED` from the dry run: we have measured a frozen trunk's memory and not a trained one's,
+and it will not print a projection shaped like a measurement.
 
 Four things the API enforces rather than documents, because each is a bug we hit:
 
 - `plan()` answers from measured numbers or returns `UNMEASURED`. It refuses a crop size whose
   forward is measured to run out of memory instead of estimating one, and it will not report a
-  4-chip step time from a 2-chip measurement.
+  4-chip step time from a 2-chip measurement. Protenix's own 384-token crop is one of the
+  refusals.
 - The optimizer refuses a bfloat16 master copy of the weights. An update accumulated at
   bfloat16 stops moving the weight while the gradient still looks healthy.
 - `opt.step()` raises if you spread training over several chips and never gave it a way to

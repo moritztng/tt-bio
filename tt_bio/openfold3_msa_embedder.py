@@ -109,7 +109,7 @@ class MSAModuleBlock:
         if self.has_msa_update:
             upd = ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape))
             if own_m:
-                ttnn.add_(m, upd)
+                m = ttnn.add_(m, upd)
                 ttnn.deallocate(upd)
             else:
                 m = ttnn.add_(upd, m)
@@ -123,7 +123,7 @@ class MSAModuleBlock:
             if m.logical_volume() * 2 > pwa_single_shot_bytes():
                 m = ttnn.reallocate(m)
             upd = ttnn.reshape(self.msa_transition(m), tuple(m.shape))
-            ttnn.add_(m, upd)
+            m = ttnn.add_(m, upd)
             ttnn.deallocate(upd)
         z = self.pair_stack(None, z, pair_mask, attn_mask, attn_mask)[1]
         return m, z

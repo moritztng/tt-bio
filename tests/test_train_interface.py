@@ -282,7 +282,7 @@ def test_tier1_entry_point_owns_no_loop():
         "tt_bio/train/loop.py:finetune grew a loop. Tier 1 resolves a recipe and calls it; "
         "the loop belongs to the Tier-2 recipe, and having it in both makes them two "
         "implementations that agree only today.")
-    tier2 = _func_source("recipes.py", "lora_finetune")
+    tier2 = _func_source("recipes.py", "train_loop")
     assert [n for n in ast.walk(ast.parse(tier2)) if isinstance(n, ast.For)], (
         "the Tier-2 recipe has no `for` over steps, so there is nothing for a Tier-2 user to "
         "own and the tier boundary is in the wrong place.")
@@ -299,7 +299,7 @@ def test_tier1_objective_is_a_name_not_a_callable():
 # --------------------------------------------------------------- tier 2: no ttnn
 
 def test_tier2_recipe_makes_no_ttnn_call():
-    src = _func_source("recipes.py", "lora_finetune")
+    src = _func_source("recipes.py", "train_loop")
     assert "ttnn" not in src, "the Tier-2 recipe names ttnn; that is Tier 3's side of the line"
     assert "ttnn" not in _global_loads(src)
 
@@ -330,7 +330,7 @@ def test_escape_hatch_recipe_uses_only_tier2_names():
     import builtins
 
     allowed = set(_tier2_names()) | set(dir(builtins))
-    reached = _global_loads(_func_source("recipes.py", "lora_finetune"))
+    reached = _global_loads(_func_source("recipes.py", "train_loop"))
     leaked = sorted(reached - allowed)
     assert not leaked, (
         f"the Tier-1 recipe reaches globals that are not in TIER2: {leaked}. Either make them "
@@ -583,11 +583,11 @@ def test_show_recipe_needs_no_wheel():
     before = set(sys.modules)
     res = CliRunner().invoke(finetune, ["--show-recipe"])
     assert res.exit_code == 0, res.output
-    assert res.output.startswith("def lora_finetune("), res.output[:120]
+    assert res.output.startswith("def train_loop("), res.output[:120]
     assert "for batch in" in res.output, "the printed body has no loop to own"
     assert not {m for m in set(sys.modules) - before if m.split(".")[0] == "ttnn"}
     bad = CliRunner().invoke(finetune, ["--show-recipe", "nope"])
-    assert bad.exit_code != 0 and "recipes are ['lora']" in bad.output, bad.output
+    assert bad.exit_code != 0 and "recipes are ['default']" in bad.output, bad.output
 
 
 @needs_device

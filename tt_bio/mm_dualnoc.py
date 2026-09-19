@@ -83,10 +83,17 @@ def in_proj(x, w, ckc, dtype, memory_config, split=None):
     return is then a list of tensors in that order. Each output tile is its own contraction, so
     which buffer it lands in cannot change its value.
     """
+    from . import ops
+    if ops.taping():
+        # `generic_op` has no backward. Declining is already this function's contract for
+        # anything outside the class it was verified on, and the caller's fallback,
+        # `ttnn.experimental.minimal_matmul`, is a taped verb.
+        return None
+
     if not _ENABLED:
         return None
     shape = [int(d) for d in x.shape]
-    if not G.fast_dtypes_ok(dtype, x.dtype, w.dtype):
+    if not G.fast_dtypes_ok(x.dtype, w.dtype, dest=dtype):
         return _reject("dtype", shape)
     if x.layout != ttnn.TILE_LAYOUT or len(w.shape) != 2:
         return _reject("layout_or_rank", shape)

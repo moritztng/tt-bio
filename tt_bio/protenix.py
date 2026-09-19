@@ -1065,7 +1065,19 @@ class DiffusionModule(_KeyedWeights):
         qd = self.atxD(ttnn.reshape(q, (1, N, 128)), ttnn.reshape(c_skip, (1, N, 128)), p_skip, mt,
                        bias_cache=cond.get("atxD_bias"))
         qn = self._ln(qd, DE + "layernorm_q.weight")
-        r_update = torch.Tensor(ttnn.to_torch(self._lin(qn, DE + "linear_no_bias_out.weight"))).float().reshape(1, N, 3)[:, :N]
+        # The device tensor the coordinate update comes off, kept before the host
+        # round-trip. `to_torch` is where a tape ends, so a training step that wants a
+        # gradient into the denoiser has to seed HERE; the EDM preconditioning below is
+        # affine in this tensor, so the seed is an exact scalar rescale and not an
+        # approximation. Inference reads the same bytes it always did.
+        _r_dev = self._lin(qn, DE + "linear_no_bias_out.weight")
+        self.last_r_update_device = _r_dev
+        # The host read is where the tape ends, deliberately, so it reads the VALUE. Handing a
+        # taped tensor to `ttnn.to_torch` raises, which is the right default -- it is how an
+        # accidental gradient drop gets caught -- but here the boundary is the point: a caller
+        # that wants the gradient seeds `last_r_update_device` above.
+        r_update = torch.Tensor(ttnn.to_torch(getattr(_r_dev, "value", _r_dev)))
+        r_update = r_update.float().reshape(1, N, 3)[:, :N]
 
         # EDM preconditioning
         sr = (t_hat / sd).reshape(-1, 1, 1)
@@ -2809,33 +2821,39 @@ class Trunk(_KeyedWeights):
         s = ttnn.mul(s_init, 0.0)
         n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
         for cyc in range(n_cycles):
-            if progress_fn:
-                progress_fn("trunk", step=cyc, total=n_cycles)
-            zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
-            z3 = ttnn.add(ttnn.reshape(z_init, (1, N, N, self.C_Z)), zc)
-            if nse_d is not None:
-                z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
-            # Gate on BOTH the feature's template slots and the checkpoint's own template
-            # pairformer depth. `nt` counts slots and protenix_data.dummy_template_features
-            # always emits 4, so `nt > 0` alone is not a statement about the model. Upstream
-            # v0.5.0 pairformer.py:1000 returns literal 0 from TemplateEmbedder.forward when
-            # n_blocks < 1, and the v0.5.0 base checkpoint ships 0 blocks: its five template
-            # projections are dead weight. Without `self.TPL` the port would add
-            # linear_u(relu(mean(LN(tpl_a + linear_z(LN(z)))))) to z on every recycling cycle
-            # where upstream adds nothing. Inert for protenix-v2 and opendde, which both ship
-            # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
-            if nt > 0 and self.TPL:
-                z3 = ttnn.add(z3, self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt))
-            z3 = self._msa(z3, m_feat, pmask_tt, attn_tt)
-            sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
-            s = ttnn.add(s_init, sc)
-            s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
-            s = ttnn.reshape(s, (N, 384))
-            # The one region cycle 0's MSA taps did not cover: the s update and the trunk-level
-            # Pairformer. Cheap to tap every cycle -- z3 is ~62 MB here, not m_feat's ~0.7 GiB --
-            # so this both tests cycle 0 and, if cycle 0 matches, names the first cycle that does not.
-            trunk_tap(f"cyc{cyc}_after_PF:s", s, always=True)
-            trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
+            # AF3 trains the recycling stack with every cycle but the LAST under no_grad, so
+            # the tape holds one cycle instead of n_cycles of them. That is upstream's own
+            # structure, not doing less of the model's work: all the cycles still run and the
+            # last one still sees what the one before it produced. With no tape installed
+            # no_grad only flips a flag nothing reads, so inference is untouched.
+            with ops.recycle_region(cyc, n_cycles - 1):
+                if progress_fn:
+                    progress_fn("trunk", step=cyc, total=n_cycles)
+                zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
+                z3 = ttnn.add(ttnn.reshape(z_init, (1, N, N, self.C_Z)), zc)
+                if nse_d is not None:
+                    z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
+                # Gate on BOTH the feature's template slots and the checkpoint's own template
+                # pairformer depth. `nt` counts slots and protenix_data.dummy_template_features
+                # always emits 4, so `nt > 0` alone is not a statement about the model. Upstream
+                # v0.5.0 pairformer.py:1000 returns literal 0 from TemplateEmbedder.forward when
+                # n_blocks < 1, and the v0.5.0 base checkpoint ships 0 blocks: its five template
+                # projections are dead weight. Without `self.TPL` the port would add
+                # linear_u(relu(mean(LN(tpl_a + linear_z(LN(z)))))) to z on every recycling cycle
+                # where upstream adds nothing. Inert for protenix-v2 and opendde, which both ship
+                # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
+                if nt > 0 and self.TPL:
+                    z3 = ttnn.add(z3, self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt))
+                z3 = self._msa(z3, m_feat, pmask_tt, attn_tt)
+                sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
+                s = ttnn.add(s_init, sc)
+                s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
+                s = ttnn.reshape(s, (N, 384))
+                # The one region cycle 0's MSA taps did not cover: the s update and the trunk-level
+                # Pairformer. Cheap to tap every cycle -- z3 is ~62 MB here, not m_feat's ~0.7 GiB --
+                # so this both tests cycle 0 and, if cycle 0 matches, names the first cycle that does not.
+                trunk_tap(f"cyc{cyc}_after_PF:s", s, always=True)
+                trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
         for t in tpl_a:
             ttnn.deallocate(t)
         if nse_d is not None:

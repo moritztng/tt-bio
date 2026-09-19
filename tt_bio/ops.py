@@ -30,11 +30,15 @@ move inference numerics whether or not a tape node survived. Dispatching cannot.
 
 from __future__ import annotations
 
+import contextlib
+
 import ttnn
 
 from .dispatch import OpSurface
 
-__all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook"]
+__all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook",
+           "set_recycle_hook", "recycle_region", "taping",
+           "set_checkpoint_hook", "checkpoint_segment"]
 
 
 # The slot, and the decorator that uses it, are `tt_bio/dispatch.py`'s -- shared with
@@ -44,6 +48,68 @@ _SURFACE = OpSurface("tt_bio.ops")
 set_grad_hook = _SURFACE.set_grad_hook
 grad_hook = _SURFACE.grad_hook
 _dispatching = _SURFACE.dispatching
+
+
+# A recycling stack differentiates its LAST cycle only -- AF3's own training structure, and
+# the difference between a tape holding one cycle and a tape holding ten of them. Which cycle
+# that is, is the model's business; whether "not differentiated" means anything at all is the
+# tape's. So the model asks here and the answer is injected, exactly like the grad hook above
+# and for the same reason: nothing in this module may know `tt_bio.autograd` exists, or
+# importing `tt_bio` would reach the training stack (`tests/test_training_opt_in.py`
+# ::test_no_inference_module_imports_training). With nothing installed this is
+# `nullcontext`, so every inference path pays one `is None` test per recycling cycle.
+_RECYCLE = None
+
+
+def set_recycle_hook(fn):
+    """Install the region a non-differentiated recycling cycle runs in. Returns the old one."""
+    global _RECYCLE
+    prev, _RECYCLE = _RECYCLE, fn
+    return prev
+
+
+def taping():
+    """Is a tape open? Asked by the fused kernels that have no backward.
+
+    A handful of shipped kernels are driven through `ttnn.generic_op` -- the F1 trimul tail,
+    the head-major QKV projection, the fused QKV+SDPA fold. `generic_op` has no tape entry and
+    `taped_ttnn` raises rather than unwrap, which is right: unwrapping would drop the gradient
+    of everything upstream silently. Each of those kernels already has a decline path, because
+    each returns None for a call its descriptor does not cover and the composed ops run
+    unchanged. So while a tape is open they decline, and the training forward takes the
+    composed path the tape can follow. It costs the fused kernel's win in training and nothing
+    at all in inference, where `grad_hook()` is None.
+    """
+    return grad_hook() is not None
+
+
+_CHECKPOINT = None
+
+
+def set_checkpoint_hook(fn):
+    """Install the per-block checkpointing implementation. Returns the old one."""
+    global _CHECKPOINT
+    prev, _CHECKPOINT = _CHECKPOINT, fn
+    return prev
+
+
+def checkpoint_segment(fn, *inputs):
+    """Run one block. Under a tape, as a checkpointed segment; otherwise just run it.
+
+    A deep stack asks here instead of calling its block directly, so the memory/recompute
+    trade is the tape's decision and not something the model file has to know about. With
+    nothing installed this is `fn(*inputs)` and inference pays one `is None` test per block.
+    """
+    if _CHECKPOINT is None:
+        return fn(*inputs)
+    return _CHECKPOINT(fn, *inputs)
+
+
+def recycle_region(cyc, last):
+    """The context a recycling cycle runs in: inert during inference, `no_grad` under a tape."""
+    if _RECYCLE is None or cyc == last:
+        return contextlib.nullcontext()
+    return _RECYCLE()
 
 
 # `_narrow_proj_linear` and `_l1_layer_norm` are tuning that belongs beside the program

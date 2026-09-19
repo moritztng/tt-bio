@@ -1,0 +1,108 @@
+{
+ "env": {
+  "started": "2026-09-17T14:01:56+0000",
+  "t_start": 1789653716.5958838,
+  "phase": "unit",
+  "unit": null,
+  "reps": 3,
+  "size": 512,
+  "visible": "3,2",
+  "lease": "2,3",
+  "commit": "ee6411b08",
+  "profiler": "1",
+  "ttnn": "/home/ttuser/tt-metal-b2z/ttnn/ttnn/__init__.py",
+  "metal_home": "/home/ttuser/tt-metal-b2z",
+  "loadavg": [
+   "5.06",
+   "6.63",
+   "8.24"
+  ],
+  "hardware": "blackhole",
+  "grid": [
+   11,
+   10
+  ],
+  "card_type": "p300c",
+  "load_s": 4.26,
+  "t_end": 1789653724.6309917
+ },
+ "specs": [
+  {
+   "unit": "MSALayer",
+   "want_attr": null,
+   "reps": 5
+  }
+ ],
+ "precursor_s": 1.308,
+ "calls_in_precursor": {
+  "MSALayer": 3
+ },
+ "signature_matches_in_precursor": {
+  "MSALayer": 3
+ },
+ "grabbed": [
+  "MSALayer"
+ ],
+ "not_grabbed": [],
+ "ops_patched": 63,
+ "unit_order": [
+  "MSALayer"
+ ],
+ "units": {
+  "MSALayer": {
+   "reps": 5,
+   "synced_wall_ms_per_call": 59.6022,
+   "t_region0": 1789653724.0480053,
+   "t_region1": 1789653724.6270251,
+   "arg_shapes": [
+    [
+     1,
+     512,
+     512,
+     128
+    ],
+    [
+     1,
+     64,
+     512,
+     64
+    ],
+    "NoneType",
+    "NoneType",
+    [
+     64,
+     1,
+     1
+    ],
+    "int"
+   ],
+   "calls_in_precursor": 3
+  }
+ },
+ "op_seq_len": 2886,
+ "op_seq_path": "/home/ttuser/.coworker/wt/c12-profiled-fold/perf/c12_profiled_fold/runs/msal_prof/unit.opseq.json",
+ "op_seq_counts": {
+  "deallocate": 832,
+  "linear": 528,
+  "slice": 256,
+  "multiply_": 208,
+  "permute": 192,
+  "allocate_tensor_on_device": 192,
+  "layer_norm": 168,
+  "add_": 120,
+  "generic_op": 112,
+  "reshape": 96,
+  "matmul": 88,
+  "to_layout": 32,
+  "chunk": 16,
+  "concat": 16,
+  "unsqueeze": 16,
+  "softmax": 8,
+  "exp": 6
+ },
+ "fence": {
+  "op": "ttnn.exp",
+  "n": 3,
+  "dim": 32
+ }
+}

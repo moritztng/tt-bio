@@ -228,9 +228,7 @@ def test_a_new_lever_a_ladder_model_DOES_import_is_still_a_finding(rg):
 
 def test_size_ladder_is_in_the_default_arm_set(rg):
     """The whole point: a release runs it without anyone remembering to."""
-    src = (REPO_ROOT / "scripts" / "release_gate.py").read_text()
-    default = src.split("models = args.model or", 1)[1].split("fold_models", 1)[0]
-    assert '"size-ladder"' in default
+    assert "size-ladder" in rg.default_arms()
 
 
 def test_subset_record_keeps_the_other_models_own_provenance(rg, tmp_path, monkeypatch):
@@ -582,6 +580,48 @@ def test_top_rung_failure_keeps_the_rungs_that_measured(rg_fresh, monkeypatch, t
     # the three rungs that completed are still reportable, and the one that failed is absent
     assert out["runtime_s"] == measured
     assert "768" not in out["runtime_s"]
+
+
+def test_the_rep_count_comes_from_the_noisiest_rung_not_from_512(rg_fresh, monkeypatch,
+                                                                 tmp_path):
+    """A quiet 512 must not license a single draw at a 256 that is not quiet.
+
+    boltz2's p300c entry records reps=1 off sigma 0.41 % measured at 512, and its 256 rung has
+    failed the gate at four commits. Measured on qb1 p150a, benchlocked, AICLK pinned at
+    1350 MHz, ten fresh processes at 256 and six at 512: the 256 cell drew 7.6-10.6 s and the
+    512 cell 15.0-15.7 s. Two independent single draws of k(256->512) disagree by more than the
+    +-0.50 band 0.9 % of the time; three reps takes that to 0.1 %.
+    """
+    draws = {256: [10.0, 16.0, 10.5, 15.5, 11.0, 15.0], 512: [35.0, 35.1] * 3,
+             768: [90.0] * 6}
+    n = {}
+
+    def fake(model, rung, workdir, tag, need_runtime=True):
+        i = n[rung] = n.get(rung, -1) + 1
+        v = draws[rung][i % len(draws[rung])]
+        return {"levers": {"FLAG": FIRING}, "runtime_s": v, "wall": v + 20.0,
+                "census_json": tmp_path / "c.json", "grid": "13x10"}
+
+    monkeypatch.setattr(rg_fresh, "_run_census_fold", fake)
+    out = rg_fresh._size_ladder_measure_model("boltz2", (256, 512, 768), tmp_path, 5, 1)
+
+    # the lowest gated rung is measured at the sigma rep count, so its noise is on record
+    assert set(out["sigmas"]) == {"256", "512"}
+    assert out["sigmas"]["256"] > 0.12 > out["sigmas"]["512"]
+    assert out["sigma"] == out["sigmas"]["512"]      # the tolerance still comes from 512
+
+    block, skip = rg_fresh._size_ladder_exponent_block(
+        "boltz2", out["runtime_s"], out["sigma"], out["sigmas"])
+    assert skip is None
+    assert block["reps"] == 3                        # driven by 256, not by the quiet 512
+    assert block["sigma_runtime"]["256"] == out["sigmas"]["256"]
+    # and the band is still the middle rung's, which is the interval either side of it
+    assert block["exponents"]["256->512"]["tol"] == 0.5
+
+    # without the per-rung sigmas -- the old behaviour -- the quiet 512 buys a single draw
+    old_block, _ = rg_fresh._size_ladder_exponent_block(
+        "boltz2", out["runtime_s"], out["sigma"])
+    assert old_block["reps"] == 1
 
 
 def test_check_model_propagates_the_partial_rungs_to_the_printer(rg_fresh, monkeypatch, tmp_path):

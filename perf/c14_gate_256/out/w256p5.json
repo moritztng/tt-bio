@@ -1,0 +1,46 @@
+{
+  "tag": "w256p5",
+  "model": "boltz2",
+  "rung": 256,
+  "folds": 4,
+  "rc": 0,
+  "wall_s": 53.56,
+  "log": "/home/ttuser/.coworker/wt/c14-gate-256-warmup/perf/c14_gate_256/work/w256p5/predict.log",
+  "host": "tt-quietbox",
+  "tt_visible_devices": "3",
+  "loadavg": [
+    19.3017578125,
+    11.38134765625,
+    8.2568359375
+  ],
+  "t_start_utc": "2026-09-19T00:40:31Z",
+  "t_end_utc": "2026-09-19T00:41:24Z",
+  "rows": [
+    {
+      "stem": "w256p5f0",
+      "order": 0,
+      "runtime_s": 9.9
+    },
+    {
+      "stem": "w256p5f1",
+      "order": 1,
+      "runtime_s": 6.3
+    },
+    {
+      "stem": "w256p5f2",
+      "order": 2,
+      "runtime_s": 8.2
+    },
+    {
+      "stem": "w256p5f3",
+      "order": 3,
+      "runtime_s": 7.2
+    }
+  ],
+  "sequence_s": [
+    9.9,
+    6.3,
+    8.2,
+    7.2
+  ]
+}

@@ -1,0 +1,404 @@
+{
+ "started_utc": "2026-09-18T21:22:20Z",
+ "host": "tt-quietbox2",
+ "card": "2",
+ "note": "One process per arm: TT_BIO_APB_CONCAT_HEADS is consumed at model construction and re-lanes proj_g/proj_o, so it cannot be flipped in process. Arms interleaved block by block; the A/A floor is the spread across the base blocks, compared the same way base is compared to apb.",
+ "blocks": [
+  {
+   "size": "512",
+   "arm": "base",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "base",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.888,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 61,
+       "power_w_mean": 71.6
+      },
+      "clock_node": 2,
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845919,
+      "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+      "loadavg1": 6.48,
+      "foreign_device_holders": [
+       {
+        "pid": 353328,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 353328,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        2
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 3.449,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": null,
+     "module_flag": false,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "bb8245dac29363abeb050c1784c5c199e40f0d93",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 16.758,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 75,
+      "power_w_mean": 68.9
+     },
+     "clock_node": 2,
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845919,
+     "cif_sha256": "45781db716ebf020f38f7978503cd20b5c7d6e5f721d50f1e7c632c62aaa1afd",
+     "loadavg1": 6.45,
+     "foreign_device_holders": [
+      {
+       "pid": 330034,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "foreign_device_holders_end": [
+      {
+       "pid": 353328,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       2
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  },
+  {
+   "size": "512",
+   "arm": "on",
+   "block": 0,
+   "returncode": 0,
+   "result": {
+    "arm": "on",
+    "size": "512",
+    "folds": [
+     {
+      "tag": "0",
+      "fold_s": 14.56,
+      "clock": {
+       "aiclk_min": 1350,
+       "aiclk_max": 1350,
+       "aiclk_mean": 1350.0,
+       "aiclk_n": 62,
+       "power_w_mean": 70.9
+      },
+      "clock_node": 2,
+      "kernel_path": {
+       "TRIATT_PERSISTENT_MASK": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_GATE_EPILOGUE": {
+        "served_declined": [
+         0,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_QKV": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIATT_HEAD_MAJOR_TAIL": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_IN_PROJ_DUAL_NOC": {
+        "served_declined": [
+         560,
+         0
+        ]
+       },
+       "TRIMUL_TAIL_F1": {
+        "served_declined": [
+         0,
+         0
+        ]
+       }
+      },
+      "plddt": 0.845902,
+      "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+      "loadavg1": 4.65,
+      "foreign_device_holders": [
+       {
+        "pid": 353328,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "foreign_device_holders_end": [
+       {
+        "pid": 353328,
+        "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+       }
+      ],
+      "aiclk_hold": {
+       "mhz": 1350,
+       "nodes": [
+        2
+       ],
+       "reasserts": 0
+      }
+     }
+    ],
+    "model_load_s": 2.621,
+    "env": {
+     "host": "tt-quietbox2",
+     "grid": [
+      11,
+      10
+     ],
+     "tt_visible_devices": "2",
+     "lease_cards": "2",
+     "flag": "TT_BIO_TRIATT_B8",
+     "attr": "_TRIATT_B8",
+     "env_flag": "1",
+     "module_flag": true,
+     "counters": [
+      "TRIATT_PERSISTENT_MASK",
+      "TRIATT_GATE_EPILOGUE",
+      "TRIATT_HEAD_MAJOR_QKV",
+      "TRIATT_HEAD_MAJOR_TAIL",
+      "TRIMUL_IN_PROJ_DUAL_NOC",
+      "TRIMUL_TAIL_F1"
+     ],
+     "aiclk_held_mhz": 1350,
+     "git_head": "bb8245dac29363abeb050c1784c5c199e40f0d93",
+     "protocol": {
+      "recycling_steps": 3,
+      "sampling_steps": 200,
+      "diffusion_samples": 1,
+      "seed": 0
+     }
+    },
+    "warmup": {
+     "tag": "warmup",
+     "fold_s": 17.043,
+     "clock": {
+      "aiclk_min": 1350,
+      "aiclk_max": 1350,
+      "aiclk_mean": 1350.0,
+      "aiclk_n": 67,
+      "power_w_mean": 70.0
+     },
+     "clock_node": 2,
+     "kernel_path": {
+      "TRIATT_PERSISTENT_MASK": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_GATE_EPILOGUE": {
+       "served_declined": [
+        0,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_QKV": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIATT_HEAD_MAJOR_TAIL": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_IN_PROJ_DUAL_NOC": {
+       "served_declined": [
+        560,
+        0
+       ]
+      },
+      "TRIMUL_TAIL_F1": {
+       "served_declined": [
+        0,
+        0
+       ]
+      }
+     },
+     "plddt": 0.845902,
+     "cif_sha256": "791696c3e443676dab84e45ffcb2f15af1569cc3eb0cd77221cde2b513baf74d",
+     "loadavg1": 5.41,
+     "foreign_device_holders": [
+      {
+       "pid": 353328,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "foreign_device_holders_end": [
+      {
+       "pid": 353328,
+       "cwd": "/home/ttuser/.coworker/wt/c13-land-first"
+      }
+     ],
+     "aiclk_hold": {
+      "mhz": 1350,
+      "nodes": [
+       2
+      ],
+      "reasserts": 0
+     },
+     "discarded": true
+    }
+   }
+  }
+ ],
+ "summary": {
+  "512": {
+   "base_median_s": 14.888,
+   "on_median_s": 14.56,
+   "base_n": 1,
+   "on_n": 1,
+   "delta_s": 0.328,
+   "ratio_base_over_on": 1.02253,
+   "aa_floor_ratio_max": null,
+   "base_block_medians": [
+    14.888
+   ],
+   "on_block_medians": [
+    14.56
+   ],
+   "clock_min": 1350,
+   "clock_max": 1350,
+   "clock_samples": 123,
+   "verdict_rule": "a ratio inside aa_floor_ratio_max is a NULL, not a win"
+  }
+ },
+ "finished_utc": "2026-09-18T21:23:35Z"
+}

@@ -9,7 +9,7 @@ after you hit a wall.
 |---|---|---|---|
 | 0 | `tt-bio finetune ...` | a config | no callables in the signature |
 | 1 | `train.finetune(...) -> Run` | the objective | no `for` over steps in your code |
-| 2 | `plan`, `batches`, `objectives`, `AdamW`, `Checkpointer`, `Mesh`, `LoraConfig`, `lora_factors_for`, `attach` | the `for` statement | no `ttnn` call in your code |
+| 2 | `plan`, `batches`, `objectives`, `AdamW`, `Checkpointer`, `Mesh`, `LoraConfig`, `trainable`, `attach` | the `for` statement | no `ttnn` call in your code |
 | 3 | `tt_bio.autograd` + `train.gradcheck` | an op and its backward | `ttnn` appears here |
 
 Each cut line has a test in `tests/test_train_interface.py` that can fail. A boundary that is
@@ -17,6 +17,38 @@ only described drifts, and three of the four tests below caught a real defect wh
 written: the Tier-0 dry run was importing the tape, `from tt_bio.train import plan` was handing
 back a module where the tier promised a callable, and the naming collision was flagged by a
 gate rather than by taste.
+
+## The three calls, and what changes between them
+
+The design is against real usage, so these are the three a user actually writes. They differ by
+one argument each, and none of them is a rewrite of the one before it.
+
+```bash
+tt-bio finetune data/ --model protenix-v2 --out runs/a --global-batch 8 --steps 2000
+tt-bio finetune data/ --model protenix-v2 --out runs/b --global-batch 8 --steps 2000 --chips 0,2
+tt-bio finetune data/ --model protenix-v2 --out runs/c --global-batch 8 --steps 200000 --train weights
+```
+
+```python
+from tt_bio import train
+
+run = train.finetune(forward, dataset, out_dir="runs/a", global_batch=8, steps=2000)
+run = train.finetune(forward, dataset, out_dir="runs/b", global_batch=8, steps=2000,
+                     mesh=train.Mesh({"dp": [0, 2]}))
+run = train.finetune(forward, dataset, out_dir="runs/c", global_batch=8, steps=200_000,
+                     train="weights")
+```
+
+**Multi-card is `--chips`, and nothing else moves.** The recipe is one process; it sees a wide
+axis and hands the run to the launcher, which re-runs your program once per chip. The loop is
+the loop it was on one chip.
+
+**Pre-training is `--train weights`, and nothing else moves either.** `adapters` puts a LoRA
+factor pair beside each site and freezes the trunk; `weights` trains the model's own weights at
+those same sites. The loop, the objective, the optimizer, the checkpointer and the data-parallel
+axis are the same code, and the escape-hatch test below compares them instruction for
+instruction rather than taking the claim on trust. What does change is the memory arithmetic, so
+`--train weights` is a name a flag can carry and `plan()` answers differently for it.
 
 ## Why four, and why here
 
@@ -80,6 +112,15 @@ inputs rounded to the device dtype first so what is measured is the op's error a
 input quantisation. Then the controls: an fp32 arm must show the error collapse, and a
 deliberately broken arm must fail. A reference that fails level 1 reports itself rather than
 the device, because sending the next reader to the wrong file is worse than no result.
+
+Level 1 runs anywhere, including a box with no card:
+
+```
+pytest tests/test_autograd_reference_gate.py
+```
+
+Twenty-six references, one second. It checks what the device is scored against, not the
+device. `--seed 7` reproduces a run exactly, in any process.
 
 **The bars are per op class, off measured floors.** One bar for every op is wrong twice over.
 
@@ -242,7 +283,8 @@ memory argument for it, and it returns only if something later forces it.
 Multi-host is out of scope, and the blocker is cabling rather than software: 20 MB/s over WiFi
 makes a per-step gradient exchange cost more than the step. `Mesh.auto()` reports one host
 today, and the interface does not change shape when that changes: an axis is an axis whether
-its chips share a host or not. Until it is wired, the honest claim is multi-card on one host.
+its chips share a host or not, and going multi-host is meant to be the same one argument that
+going multi-card is. Until it is wired, the honest claim is multi-card on one host.
 
 ## Featurisation is per model, on purpose
 
@@ -262,6 +304,11 @@ what is missing, which is the featuriser and not the interface.
 
 ## Adapting a model: how the sites are found
 
+`trainable()` is the one call the loop makes, and what it hands back is the whole of the
+adapters-versus-weights choice: a LoRA config gets `{site: (A, B)}` factors, `None` gets the
+model's own weights at those same sites. Either way it is one discovery forward and then
+`attach`, which is why the loop above does not branch on which mode it is in.
+
 `lora_factors_for` runs the shipped forward once with a census hook installed. Every call that
 routes through `tt_bio.ops.linear` announces itself with its own shapes; a call that does not
 route through it is not adaptable, and the census says so by not listing it. The hook records
@@ -271,6 +318,23 @@ and the output is comparable byte for byte.
 Sites are named by call site (`file:line:qualname`) rather than by weight identity, because the
 same weight is read at one site while two different weights are read at one shared helper. The
 call site is the thing you can find and target with `--target`.
+
+**A weight cannot be named that way, and the difference is correctness rather than taste.** A
+48-block trunk whose blocks run the same line reports one site carrying 48 different weights.
+One adapter that every block reads is a legitimate model; one weight that every block reads is a
+different model from the one on disk. So `--train weights` names a parameter per
+`(site, weight)`, numbered by first appearance: `site`, `site#1`, `site#2`. The numbering is the
+same on every data-parallel rank, because every rank walks the same blocks in the same order off
+the same checkpoint.
+
+Two failures of that mode are refused rather than reported, both because they look like healthy
+runs. The forward is handed the **parameter** and never the weight it passed in: `AdamW.step`
+replaces the parameter's device tensor while the model's own cache still holds the one it
+uploaded, so a forward reading the passed weight would train perfectly and never move. And a
+forward that uploads a fresh weight per call is refused by name, because the optimizer would own
+tensors nothing reads twice. The obvious version of that second check does not work: parameter
+names are a deterministic function of call order, so a re-uploading forward mints exactly the
+same names. The identities discovery saw are carried into the run instead.
 
 `attach` composes over whatever hook is already installed instead of replacing it. A frozen
 trunk still has to stay taped downstream of its first adapter or the gradient never reaches the
