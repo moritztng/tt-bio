@@ -144,6 +144,58 @@ LEVERS = [
     # W=512 was invisible in a fold: the only reading was that nothing threw.
     ("TRANSITION_H_CHUNK", "tt_bio.tenstorrent", "TRANSITION_H_CHUNK_SIZE",
      "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS", "stats"),
+    # ---------------------------------------------------------------------------------------
+    # Shipped levers that already kept a `[served, declined]` counter and had no row here, so a
+    # census could not see them at all. Every one is default-ON except the four marked OFF, and
+    # every one reaches more than one model through `tenstorrent.py` -- which is exactly the
+    # population a cross-model firing question is about. Found by reading the counters in the
+    # tree against this table (`pvx-inventory`, 2026-09-19).
+    ("TRIMUL_MASK_L1", "tt_bio.tenstorrent", "_TRIMUL_MASK_L1",
+     "tt_bio.tenstorrent.TRIMUL_MASK_L1_STATS", "stats"),
+    ("RESIDUAL_L1", "tt_bio.tenstorrent", "_RESIDUAL_L1",
+     "tt_bio.tenstorrent.RESIDUAL_L1_STATS", "stats"),
+    ("PWA_BATCH_HEAD_WEIGHTS", "tt_bio.tenstorrent", "_PWA_BATCH_HEAD_WEIGHTS",
+     "tt_bio.tenstorrent.PWA_BATCH_HEAD_STATS", "stats"),
+    # `resolved` is the OFF switch, so True here means the lever is OFF. served is the
+    # slice+concat gather, declined the one-hot matmul it replaces.
+    ("ATOM_SHIFT_GATHER_OFF", "tt_bio.tenstorrent", "_ATOM_SHIFT_GATHER_OFF",
+     "tt_bio.tenstorrent.ATOM_SHIFT_GATHER_STATS", "stats"),
+    ("SDPA_RAGGED_PAD", "tt_bio.tenstorrent", "_SDPA_RAGGED_PAD",
+     "tt_bio.tenstorrent.SDPA_RAGGED_PAD_STATS", "stats"),
+    ("TRIMUL_FUSED_GOUT", "tt_bio.tenstorrent", "_TRIMUL_FUSED_GOUT",
+     "tt_bio.tenstorrent.TRIMUL_GOUT_STATS", "stats"),
+    ("TRIMUL_TAIL_L1", "tt_bio.tenstorrent", "_TRIMUL_TAIL_L1",
+     "tt_bio.tenstorrent.TRIMUL_TAIL_L1_STATS:l1,dram", "stats-dict"),         # OFF
+    ("TRIMUL_TAIL_F1_L1_OUT", "tt_bio.tenstorrent", "_TRIMUL_TAIL_F1_L1_OUT",
+     "tt_bio.trimul_tail.OUT_L1_STATS", "stats"),
+    ("TRIATT_FUSED_QKVG", "tt_bio.triatt_qkv", "_QKVG_ENABLED",
+     "tt_bio.triatt_qkv.QKVG_STATS", "stats"),
+    ("TRIATT_FUSED_QKVGB", "tt_bio.triatt_qkv", "_QKVGB_ENABLED",
+     "tt_bio.triatt_qkv.QKVGB_STATS", "stats"),
+    ("TRIATT_GATE_EPILOGUE", "tt_bio.triatt_sdpa", "_GATE_EPILOGUE",
+     "tt_bio.triatt_sdpa.GATE_STATS", "stats"),                                # OFF
+    ("TRIATT_FUSED_HIFI", "tt_bio.tenstorrent", "_TRIATT_FUSED_HIFI",
+     "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS:served,declined", "stats-dict"),   # OFF
+    # The c14 output-stage levers. Neither is a boolean: `served` is a call that took the
+    # blocked path, `declined` a call that ran whole, so the pair reads as a path census.
+    ("OPM_ROW_BLOCK", "tt_bio.tenstorrent", "OPM_CHUNK_SIZE",
+     "tt_bio.tenstorrent.OPM_ROW_STATS:blocked,whole", "stats-dict"),
+    ("PWA_DEPTH_BLOCK", "tt_bio.tenstorrent", "PWA_DEPTH_BUDGET_BYTES",
+     "tt_bio.tenstorrent.PWA_DEPTH_STATS:blocked,whole", "stats-dict"),
+    ("OPM_SMALL_DEPTH", "tt_bio.tenstorrent", "_OPM_SMALL_DEPTH",
+     "tt_bio.tenstorrent.OPM_SMALL_DEPTH_STATS", "stats"),                     # OFF
+    ("FP32_SOFTMAX_FUSED", "tt_bio.tenstorrent", "FP32_SOFTMAX_BIAS_HOIST",
+     "tt_bio.tenstorrent.FP32_SOFTMAX_STATS:fused,unfused", "stats-dict"),
+    # The three eltwise fusions. They had no counter until this pass; `scale_add` declines on
+    # the OPERAND DTYPE, which no amount of reading the flag can tell you.
+    ("FUSE_SCALE_ADD", "tt_bio.eltwise_fusion", "FUSE_SCALE_ADD",
+     "tt_bio.eltwise_fusion.SCALE_ADD_STATS", "stats"),
+    ("FUSE_MASK_ADD", "tt_bio.eltwise_fusion", "FUSE_MASK_ADD",
+     "tt_bio.eltwise_fusion.MASK_ADD_STATS", "stats"),
+    ("FUSE_NORM_RESIDUAL", "tt_bio.eltwise_fusion", "FUSE_NORM_RESIDUAL",
+     "tt_bio.eltwise_fusion.NORM_RESIDUAL_STATS", "stats"),
+    ("PROTENIX_RELP_SCATTER", "tt_bio.protenix", "_RELP_SCATTER",
+     "tt_bio.protenix.RELP_STATS", "stats"),
 ]
 
 HOW = {flag: how for flag, _m, _a, _c, how in LEVERS}
@@ -177,6 +229,9 @@ REJECTS_ATTR = {
     "RFD3_SOFTMAX_PV_FUSED": "tt_bio.softmax_generic.PVDECLINES",
     "RFD3_FC1_SPLIT_SILU": "tt_bio.rfd3.model.FC1DECLINES",
     "TRANSITION_H_CHUNK": "tt_bio.tenstorrent.TRANSITION_H_CHUNK_REJECTS",
+    "TRIMUL_FUSED_GOUT": "tt_bio.tenstorrent.TRIMUL_GOUT_REJECTS",
+    "TRIATT_FUSED_QKVG": "tt_bio.triatt_qkv.REJECTS",
+    "TRIATT_FUSED_QKVGB": "tt_bio.triatt_qkv.REJECTS",
 }
 
 
