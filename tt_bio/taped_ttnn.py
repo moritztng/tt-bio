@@ -31,6 +31,7 @@ from __future__ import annotations
 import contextlib
 import re
 import sys
+import types
 
 import ttnn
 
@@ -854,7 +855,10 @@ class _Ttnn:
         real = object.__getattribute__(self, "_real")
         attr = getattr(real, name)
         qual = object.__getattribute__(self, "_prefix") + name
-        if isinstance(attr, type(ttnn)):
+        # `types.ModuleType`, not `type(ttnn)`: the latter reads this module's own global,
+        # so a second proxy that rebinds it makes this test a false negative and every
+        # `ttnn.experimental.*` verb comes back raw, failing later as a pybind TypeError.
+        if isinstance(attr, types.ModuleType):
             out = _Ttnn(attr, qual + ".")
         elif callable(attr) and not isinstance(attr, type):
             out = _taped_verb(qual, attr)
