@@ -446,6 +446,12 @@ def main():
                          "step; pin it so the timing is not reading the draw")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--no-rollout", action="store_true")
+    ap.add_argument("--shim", action="store_true",
+                    help="install perf/of3t_perf/fused_unary_shim.py, which supplies exact "
+                         "process-local rules for PARAMETERISED fused unaries so a taped cycle "
+                         "and its backward can be timed at all. It fails closed: anything "
+                         "without an exact rule is recorded and re-raised. No gradient claim "
+                         "comes from a shimmed run, only a cost")
     ap.add_argument("--no-tape", action="store_true",
                     help="skip the taped cycle and the backward, and run that cycle under "
                          "no_grad instead. The stages that need no tape -- the no_grad "
@@ -480,6 +486,14 @@ def main():
         try:
             import torch
             import ttnn
+            if a.shim:
+                from perf.of3t_perf import fused_unary_shim
+                fused_unary_shim.install()
+                out["shim"] = {"installed": True,
+                               "what": "process-local rules for parameterised fused unaries; "
+                                       "taped_ttnn.py is of3t-tape's file and is unchanged",
+                               "gradient_claim": "NONE -- this makes a COST measurable and "
+                                                 "nothing else"}
             from tt_bio import autograd as ag
             from tt_bio.tenstorrent import get_device
 
@@ -594,6 +608,9 @@ def main():
         except Exception:
             out["error"] = traceback.format_exc()
             print(out["error"], flush=True)
+        if a.shim:
+            from perf.of3t_perf import fused_unary_shim
+            out["shim"]["census"] = fused_unary_shim.summary()
         out["clock"] = clk.summary() if hasattr(clk, "summary") else None
     dump()
     print("WROTE", a.out)
