@@ -266,8 +266,16 @@ class DeviceIPA:
         # What it costs is 7.5e-04 relative on the bias term, against the ~1e-03 the logits already
         # carry from the matmul itself, so it does not become the dominant error. The model gate
         # quotes the whole-model number with this in place rather than trusting that argument.
-        self.w_b = to_device(weights["linear_b.weight"].t())
-        self.b_b = to_device(weights["linear_b.bias"])
+        # ... and the 12 columns are widened to a tile in the host weight, for the same reason
+        # every other projection here is: a 12-wide LOGICAL axis inside a 32-wide tile is stored
+        # as 32 either way, so the padding costs no bytes and no tiles, but it makes every op that
+        # touches the axis have to zero it first. The backward's bias reduction is where that
+        # lands: `ttnn.sum` over 131 072 rows of a 12-in-32 tensor dispatches a `FillPad` before
+        # its own program, and the pair measured 14.56 ms a call against 1.95 ms at a width of 32
+        # (`perf/train_n_padfloor/pad12_probe.py`). Once per block, that was 21.3 % of the step's
+        # device kernel time, and the columns it zeroes are read by nothing.
+        self.w_b = to_device(_pad_heads(weights["linear_b.weight"], 1, h).t())
+        self.b_b = to_device(_pad_heads(weights["linear_b.bias"].unsqueeze(-1), 1, h).squeeze(-1))
 
         # The output projection, split into the six blocks its input is a concatenation of, each
         # padded to the device layout of the piece that feeds it.
@@ -409,8 +417,11 @@ class DeviceIPA:
         # upstream scales it, so the operands enter the matmul unscaled.
         logits = ops.scale(ops.matmul(q, k, transpose_b=True), (1.0 / (3 * c)) ** 0.5)
 
+        # The pair bias is projected to a full tile and the 20 padding channels are dropped on
+        # the HEAD axis, which is untiled, so the slice is a leading-axis view and its backward is
+        # a concatenation of zeros rather than a sub-tile pad.
         bias = ops.permute(ops.linear(z, self.w_b, self.b_b), [0, 3, 1, 2])
-        logits = ops.add(logits, ops.scale(bias, (1.0 / 3) ** 0.5))
+        logits = ops.add(logits, ops.scale(ops.slice_dim(bias, 1, 0, h), (1.0 / 3) ** 0.5))
 
         q_pts = _apply(frame, self._points_column(s, self.w_qp, self.b_qp, 3 * h * pq),
                        frame.column, invert=False)
