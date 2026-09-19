@@ -1,0 +1,20 @@
+{
+  "tag": "l512p2",
+  "model": "boltz2",
+  "rung": 512,
+  "folds": 5,
+  "rc": 0,
+  "wall_s": 143.06,
+  "log": "/home/ttuser/.coworker/wt/c14-gate-256-warmup/perf/c14_gate_256/work/l512p2/predict.log",
+  "host": "tt-quietbox",
+  "tt_visible_devices": "3",
+  "loadavg": [
+    41.5400390625,
+    38.52392578125,
+    25.537109375
+  ],
+  "t_start_utc": "2026-09-18T23:56:19Z",
+  "t_end_utc": "2026-09-18T23:58:42Z",
+  "rows": [],
+  "sequence_s": []
+}
