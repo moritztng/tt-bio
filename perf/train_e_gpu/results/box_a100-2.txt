@@ -1,0 +1,63 @@
+=== 2026-09-18T20:03:56Z idle box, TAG=a100-2 SUITE=confirm ===
+Fri Sep 18 20:03:56 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 570.172.08             Driver Version: 570.172.08     CUDA Version: 12.8     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          On  |   00000000:27:00.0 Off |                    0 |
+| N/A   34C    P0             58W /  400W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+--- compute apps (co-tenancy: any pid here that is not ours means a shared card) ---
+pid, process_name, used_gpu_memory [MiB]
+--- cpu ---
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Byte Order:                              Little Endian
+Address sizes:                           46 bits physical, 57 bits virtual
+CPU(s):                                  152
+On-line CPU(s) list:                     0-151
+Thread(s) per core:                      2
+Core(s) per socket:                      38
+Socket(s):                               2
+NUMA node(s):                            2
+Vendor ID:                               GenuineIntel
+CPU family:                              6
+Model:                                   106
+Model name:                              Intel(R) Xeon(R) Platinum 8368 CPU @ 2.40GHz
+Stepping:                                6
+CPU MHz:                                 799.996
+CPU max MHz:                             3400.0000
+CPU min MHz:                             800.0000
+BogoMIPS:                                4800.00
+Virtualization:                          VT-x
+L1d cache:                               3.6 MiB
+L1i cache:                               2.4 MiB
+--- mem ---
+              total        used        free      shared  buff/cache   available
+Mem:           2015          53        1215          74         746        1873
+Swap:             7           0           7
+--- load ---
+16.91 12.93 10.94 5/8052 1184
+--- disk ---
+overlay         140G   16G  125G  12% /
+--- pip ---
+dvc                       2.58.2
+dvclive                   2.11.0
+lightning                 2.1.2
+ml-collections            0.1.1
+numpy                     1.26.4
+pandas                    1.5.3
+scipy                     1.10.1
+torch                     2.1.2

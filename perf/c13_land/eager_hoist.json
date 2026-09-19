@@ -1,0 +1,21 @@
+{
+ "arm": "hoist",
+ "size": "298",
+ "flag_at_import": true,
+ "model_load_s": 2.746,
+ "fold_s": [
+  9.704,
+  9.321
+ ],
+ "builds_at_load": [
+  {
+   "phase": "load",
+   "atom_level": false,
+   "s": 0.2974
+  }
+ ],
+ "builds_in_fold": [],
+ "n_builds_at_load": 1,
+ "n_builds_in_fold": 0
+}
+PASS hoist: 1 build(s) at load (0.2974s), 0 in fold

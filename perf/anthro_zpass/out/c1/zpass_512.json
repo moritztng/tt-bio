@@ -1,0 +1,136 @@
+{
+ "tokens": 512,
+ "c_z": 128,
+ "z_unit_bytes": 67108864,
+ "arch": "blackhole",
+ "block_call": 8,
+ "per_subunit": {
+  "TriangleMultiplication#0|": {
+   "dram_rd": 12.01123046875,
+   "dram_rd_pair": 12.0078125,
+   "dram_wr": 12.0078125,
+   "dram_wr_pair": 12.0078125,
+   "l1_wr": 2.0078125,
+   "l1_wr_pair": 2.0078125,
+   "l1_rd": 0.0078125,
+   "l1_rd_pair": 0.0078125,
+   "prog": 12
+  },
+  "residual|": {
+   "l1_rd": 5.0,
+   "l1_rd_pair": 5.0,
+   "dram_wr": 5.017578125,
+   "dram_wr_pair": 5.0,
+   "dram_rd": 0.018310546875,
+   "prog": 8
+  },
+  "TriangleMultiplication#1|": {
+   "dram_rd": 12.01123046875,
+   "dram_rd_pair": 12.0078125,
+   "dram_wr": 12.0078125,
+   "dram_wr_pair": 12.0078125,
+   "l1_wr": 2.0078125,
+   "l1_wr_pair": 2.0078125,
+   "l1_rd": 0.0078125,
+   "l1_rd_pair": 0.0078125,
+   "prog": 12
+  },
+  "TriangleAttention#0|prologue": {
+   "dram_wr": 6.5625,
+   "dram_wr_pair": 6.5625,
+   "dram_rd": 2.2840576171875,
+   "dram_rd_pair": 2.28125,
+   "l1_wr": 1.0,
+   "l1_wr_pair": 1.0,
+   "prog": 7
+  },
+  "TriangleAttention#0|core": {
+   "dram_rd": 3.03125,
+   "dram_rd_pair": 3.03125,
+   "dram_wr": 1.0,
+   "dram_wr_pair": 1.0,
+   "prog": 1
+  },
+  "TriangleAttention#0|epilogue": {
+   "dram_rd": 2.00048828125,
+   "dram_rd_pair": 2.0,
+   "dram_wr": 1.0,
+   "dram_wr_pair": 1.0,
+   "l1_wr": 1.0,
+   "l1_wr_pair": 1.0,
+   "prog": 2
+  },
+  "TriangleAttention#1|prologue": {
+   "dram_wr": 6.5625,
+   "dram_wr_pair": 6.5625,
+   "dram_rd": 2.2840576171875,
+   "dram_rd_pair": 2.28125,
+   "l1_wr": 2.0,
+   "l1_wr_pair": 2.0,
+   "l1_rd": 1.0,
+   "l1_rd_pair": 1.0,
+   "prog": 8
+  },
+  "TriangleAttention#1|core": {
+   "dram_rd": 3.03125,
+   "dram_rd_pair": 3.03125,
+   "dram_wr": 1.0,
+   "dram_wr_pair": 1.0,
+   "prog": 1
+  },
+  "TriangleAttention#1|epilogue": {
+   "dram_rd": 3.00048828125,
+   "dram_rd_pair": 3.0,
+   "dram_wr": 2.0,
+   "dram_wr_pair": 2.0,
+   "l1_wr": 1.0,
+   "l1_wr_pair": 1.0,
+   "prog": 3
+  },
+  "Transition#0|": {
+   "dram_rd": 2.067138671875,
+   "l1_wr": 14.0,
+   "l1_rd": 10.0,
+   "l1_wr_pair": 13.0,
+   "l1_rd_pair": 8.0,
+   "dram_wr": 1.0,
+   "prog": 56
+  },
+  "AttentionPairBias#0|": {
+   "dram_rd": 1.3919677734375,
+   "dram_wr": 0.630859375,
+   "dram_rd_pair": 1.25,
+   "l1_wr": 1.5,
+   "l1_wr_pair": 1.5,
+   "l1_rd": 1.375,
+   "l1_rd_pair": 1.375,
+   "dram_wr_pair": 0.5,
+   "prog": 20
+  },
+  "Transition#1|": {
+   "dram_rd": 0.059326171875,
+   "l1_wr": 0.076171875,
+   "l1_rd": 0.05859375,
+   "dram_wr": 0.005859375,
+   "prog": 5
+  }
+ },
+ "total": {
+  "dram_rd": 43.1907958984375,
+  "dram_rd_pair": 40.890625,
+  "dram_wr": 48.794921875,
+  "dram_wr_pair": 47.640625,
+  "l1_wr": 24.591796875,
+  "l1_wr_pair": 23.515625,
+  "l1_rd": 17.44921875,
+  "l1_rd_pair": 15.390625,
+  "prog": 135
+ },
+ "big_buffers": {
+  "1x512x512x128": 38,
+  "1x512x512x512": 6,
+  "1x128x512x512": 14,
+  "512x512x128": 14,
+  "512x4x512x32": 22
+ }
+}

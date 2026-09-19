@@ -1,0 +1,30 @@
+tables: tt_bio/af2_data.py vs upstream residue_constants
+  ok   restype_rigid_group_default_frame            0.000e+00  (bar 0e+00)
+  ok   restype_atom14_to_rigid_group                0.000e+00  (bar 0e+00)
+  ok   restype_atom14_mask                          0.000e+00  (bar 0e+00)
+  ok   restype_atom14_rigid_group_positions         0.000e+00  (bar 0e+00)
+model: ours vs upstream StructureModule, float32, as shipped, batch 2 x 48 tokens
+model: ours vs upstream StructureModule, float64, floor lifted, batch 2 x 48 tokens
+  ok   frames [f32]                                 2.003e-05  (bar 8e-04)
+  ok   sidechain_frames [f32]                       4.148e-05  (bar 1e-03)
+  ok   unnormalized_angles [f32]                    4.768e-03  (bar 3e-01)
+  ok   angles [f32]                                 5.310e-05  (bar 1e-04)
+  ok   positions [f32]                              5.341e-05  (bar 1e-03)
+  ok   states [f32]                                 7.734e-06  (bar 2e-04)
+  ok   single [f32]                                 7.734e-06  (bar 2e-04)
+  ok   plddt [f32]                                  8.869e-05  (bar 4e-03)
+  ok   frames [f64]                                 4.552e-14  (bar 1e-10)
+  ok   sidechain_frames [f64]                       8.749e-14  (bar 1e-10)
+  ok   unnormalized_angles [f64]                    7.503e-12  (bar 1e-10)
+  ok   angles [f64]                                 2.931e-14  (bar 1e-10)
+  ok   positions [f64]                              1.137e-13  (bar 1e-10)
+  ok   states [f64]                                 1.305e-14  (bar 1e-10)
+  ok   single [f64]                                 1.305e-14  (bar 1e-10)
+  ok   plddt [f64]                                  2.474e-13  (bar 1e-10)
+pieces: ours vs af2_reference, float64
+  ok   IPA vs af2_reference.InvariantPointAttention 1.847e-13  (bar 1e-10)
+  ok   torsion_angles_to_frames rot vs unbatched    0.000e+00  (bar 0e+00)
+  ok   torsion_angles_to_frames trans vs unbatched  0.000e+00  (bar 0e+00)
+  ok   frames_to_atom14_positions vs unbatched      0.000e+00  (bar 0e+00)
+
+PASS

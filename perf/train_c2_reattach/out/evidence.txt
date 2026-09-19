@@ -1,0 +1,30 @@
+# Evidence for train-c2-reattach, captured 2026-09-18T17:31:31Z on pc
+# tree: 45a6bca1b6ea2ee39fa18e96342c08a0bbb73288 + this row's lora.py / test_train_interface.py changes
+# Python 3.10.19, real ttnn wheel present, NO device opened (host-only, no card lease)
+
+## gate: tests/test_training_hook_protocol.py
+..                                                                       [100%]
+2 passed in 1.99s
+
+## suite: tests/test_train_interface.py tests/test_training_opt_in.py
+...............................s.                                        [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_training_opt_in.py:107: the fork is gone, which is the goal
+32 passed, 1 skipped in 4.62s
+
+## the four invariants that cross the hook path
+....                                                                     [100%]
+4 passed in 0.58s
+(census and adapter are the functional check below; the suite covers them only by AST)
+
+## functional: perf/train_c2_reattach/hook_reattach_check.py
+census sites:
+  train_c2_reattach/_fake_model.py:12:block  (128 -> 64)  x3
+  train_c2_reattach/_fake_model.py:13:block  (128 -> 256)  x3
+
+adapted site:      train_c2_reattach/_fake_model.py:12:block
+delegated to base: ['linear', 'layer_norm']
+
+control, dispatch.py off the skip list: ValueError: site tt_bio/dispatch.py:67:call was reached with two weight shapes: 128x64 and 128x256. Split the call site or target the callers instead
+
+PASS: census naming, decline, restore, adapter routing and delegation all hold

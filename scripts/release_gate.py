@@ -201,7 +201,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import gate_guard  # noqa: E402  (host-load guard, shared with full_parity_gate.py)
-import gate_journal  # noqa: E402  (per-arm verdict journal, so a killed run keeps its arms)
 # Resolved like every other tt_bio import in this file: through the installed dist, NOT by
 # prepending REPO_ROOT. A gate that silently switched to scoring the checkout instead of the
 # package it was pointed at would be measuring something else (parity-gate-scores-installed-
@@ -712,16 +711,12 @@ SIZE_LADDER_EXEMPT = {
 # NOT go in SIZE_LADDER_EXEMPT (transient-reason-in-structural-exemption-dict) — but a bare
 # "not in the baseline" error loses WHY the second the person reading it forgets the story,
 # so this attributes the gap: reason plus the follow-up slug that is supposed to close it.
-SIZE_LADDER_KNOWN_GAP = {
-    "protenix-v1": ("recorded on p300c (qb2, 2026-08-27) but not on p150a: pc card 0 is "
-                     "barred from providing a release baseline "
-                     "(pc-card0-512aa-fold-nondeterminism) and qb1 has been hard-down since "
-                     "2026-08-26, so no healthy p150a has been available to fold it. Not a "
-                     "port defect: the 512aa hang that WAS a real protenix-v1 bug (forced "
-                     "core_grid racing on 4-tile-wide matmuls) is fixed and re-verified, "
-                     "8/8 clean folds, parity and perf unaffected",
-                     "record its four rungs on the first healthy p150a host"),
-}
+# Currently empty, and an empty dict is the healthy state: a model here is one the gate cannot
+# score on a card. Its one entry, protenix-v1 on p150a, was retired on 2026-09-18 when the six
+# rungs were folded on qb1 card 1 (11x10) and the gap it described stopped existing. Retiring a
+# satisfied entry is part of using it -- an exemption nobody deletes reads as a permanent
+# licence, which is the failure `transient-reason-in-structural-exemption-dict` names.
+SIZE_LADDER_KNOWN_GAP: dict[str, tuple[str, str]] = {}
 # Not foldable by this arm at all: it drives `tt-bio predict` at four sequence lengths on a
 # shared cdk2x2 fixture (plus nesso1's own `tt-bio affinity` leg). A design or embed model
 # has no such input and gets its own release-gate arm instead. Listed rather than filtered by
@@ -1042,19 +1037,6 @@ DEFAULT_ARMS = ("boltzgen", "rfd3", "opendde-abag", "capacity",
                 "l1-budget", "batch-position", "nesso1", "pxdesign",
                 "rf3-1024aa", "rfd3-fusion")
 
-
-def default_arms() -> list:
-    """Every arm a bare `release_gate.py` run would score, in the order it would score them.
-
-    `--list-arms` prints this. A launcher that runs the gate one arm per process -- which is what
-    every long gate in this repo does, so a killed arm does not take the passing ones with it --
-    otherwise has to hand-copy the list, and a hand-copied list names arms that do not exist. On
-    2026-09-19 a C14 gate launcher asked for `openbind-0`, the model's prose name; the argument is
-    `openbind`, argparse refused it in 0 s with rc=2, and the run carried what reads like a
-    thirteenth arm that in fact never opened a device. Enumerate from here instead.
-    """
-    return list(MODELS) + list(DEFAULT_ARMS) + ["size-ladder"] + ESMC_DEFAULT
-
 # --- rfd3-fusion: the two size-conditioned RFD3 diffusion fusion levers -----------------------
 # Both ship ON and both are bit-exact where they serve, and both decline SILENTLY on a documented
 # predicate: region 1 needs the fused softmax kernel to engage at the gathered key width, region 2
@@ -1272,53 +1254,6 @@ def _preflight_esmc_root(esmc_models: list) -> None:
                  f"leg ({', '.join(esmc_models)}) could only produce a FAIL that measures nothing.")
 
 
-def _preflight_scored_package() -> None:
-    """Say which tt_bio this run actually imported, before any arm folds.
-
-    The gate resolves tt_bio through the installed dist on purpose (see the import block at
-    the top of this file). On a host whose venv holds an EDITABLE install of a shared
-    checkout, that means a gate launched from a git worktree scores the shared checkout and
-    not the branch it was launched in -- the resolution is by design, its invisibility was
-    not. On qb2, /home/ttuser/tt-bio-dev/env is editable against /home/ttuser/tt-bio-dev, so
-    `cd <worktree> && $PY scripts/release_gate.py` imports <shared>/tt_bio: sys.path[0] is
-    the SCRIPT's directory (scripts/), never the cwd, so the worktree is not on the path at
-    all. Set PYTHONPATH=<worktree> to score the branch.
-
-    This cost a real verdict. c13-land-first's 14-arm green gate (2026-09-18) was launched
-    that way and scored /home/ttuser/tt-bio-dev at 480ae2dfe -- a tree containing no
-    _B2_DIT_COND_HOIST line at all -- while its own launcher printed the flag block it
-    grepped out of the worktree beside it. A banner that reads a file on disk is not evidence
-    about the file the gate imported, and the two differed silently.
-
-    Printed at startup rather than in a summary, deliberately. A gate that dies mid-ladder
-    never reaches its epilogue, and the run that most needs this line is the one that dies.
-    """
-    try:
-        import tt_bio
-        package = Path(tt_bio.__file__).resolve().parent
-    except Exception as e:                       # pragma: no cover - import is proven by now
-        print(f"[release-gate] WARNING: cannot resolve the tt_bio it is scoring: "
-              f"{type(e).__name__}: {e}", flush=True)
-        return
-
-    where = package.parent
-    try:
-        commit = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"],
-                                         cwd=where, text=True, timeout=5,
-                                         stderr=subprocess.DEVNULL).strip()
-    except Exception:
-        commit = "unknown"
-    print(f"[release-gate] scoring tt_bio from {package} (commit {commit})", flush=True)
-
-    if package != (REPO_ROOT / "tt_bio").resolve():
-        print(f"[release-gate] WARNING: that is NOT the checkout this gate was launched from.\n"
-              f"[release-gate]   launched from : {REPO_ROOT} (commit {_repo_commit()})\n"
-              f"[release-gate]   scoring       : {where} (commit {commit})\n"
-              f"[release-gate] Every verdict below describes the scoring tree. To score the\n"
-              f"[release-gate] checkout instead, re-run with PYTHONPATH={REPO_ROOT}.",
-              flush=True)
-
-
 def _preflight_msa_cache(models: list) -> None:
     """Fail before any device work if the offline MSA dir cannot serve a target it will fold.
 
@@ -1435,81 +1370,6 @@ def _gate_line(rows, passed: str, failed: str, what: str) -> str:
                 f"nothing was scored.\nThis is not an accuracy result. Grep DeviceInUseError "
                 f"above for the holder, then re-run uncontended.")
     return failed
-
-
-# Where an arm's verdict is written the moment it is decided. Not committed: it is a
-# property of one host's runs, not of the tree. See scripts/gate_journal.py for why.
-GATE_JOURNAL = REPO_ROOT / "perf" / "gate_journal" / "journal.jsonl"
-_JOURNAL_PATH = None   # set by main(); None disables journalling
-_JOURNAL_KEY = {}
-_ARM_MEMBERS = {}      # arm -> the --model values this run's leg scores under one verdict
-
-
-def _headline(arm: str, line: str) -> None:
-    """Print a leg's verdict line and record it against this run's key.
-
-    Every leg ends here, so this is the one place that knows an arm has decided. Writing it
-    down now is what lets the next run skip the arm instead of re-folding it: two of today's
-    three gate runs on qb2 died to a host hard-reset with passing arms behind them.
-    """
-    print(line)
-    verdict = gate_journal.verdict_of(line)
-    if _JOURNAL_PATH is not None and verdict is not None:
-        gate_journal.append(_JOURNAL_PATH, _JOURNAL_KEY, arm, verdict, line,
-                            members=_ARM_MEMBERS.get(arm, [arm]))
-
-
-def _arm_members(arm: str, models) -> list:
-    """The --model values an arm's single verdict covers.
-
-    Eleven arms are their own name. Two are not: the fold leg scores every model in MODELS
-    in one table under one headline, and the ESMC leg does the same for its models. A resume
-    has to know that, or a run recorded with `--model boltz2` would discharge the fold arm
-    for a later run that asked for all five.
-    """
-    if arm == "fold-models":
-        return sorted(m for m in models if m in MODELS)
-    if arm == "esmc":
-        return sorted(m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN)
-    return [arm] if arm in models else []
-
-
-def _repo_dirty() -> bool:
-    try:
-        return bool(subprocess.check_output(["git", "status", "--porcelain"],
-                                            cwd=REPO_ROOT, text=True, timeout=10).strip())
-    except Exception:
-        return True   # cannot prove it is clean, so it is not resumable
-
-
-def _run_key(fast: bool, diffusion_trace: bool) -> dict:
-    """Everything that changes what an arm would score. See gate_journal.KEY_FIELDS."""
-    try:
-        card_type = _size_ladder_card_type()
-    except Exception:
-        card_type = "unknown"
-    try:
-        import tt_bio
-        package = str(Path(tt_bio.__file__).resolve().parent)
-    except Exception:
-        package = "unknown"
-    return {"commit": _repo_commit(), "dirty": _repo_dirty(), "host": socket.gethostname(),
-            "card_type": card_type, "fast": bool(fast),
-            "diffusion_trace": bool(diffusion_trace), "package": package}
-
-
-def _resume_plan(journal: Path, key: dict, models: list):
-    """(arms discharged by an earlier identical run, models this run still has to score)."""
-    resumed, remaining = {}, list(models)
-    for arm, rec in sorted(gate_journal.resumable(journal, key).items()):
-        covers = _arm_members(arm, models)
-        if not covers:
-            continue
-        if not set(covers) <= set(rec.get("members") or [arm]):
-            continue          # that run scored fewer models than this one is asking for
-        resumed[arm] = rec
-        remaining = [m for m in remaining if m not in covers]
-    return resumed, remaining
 
 
 def _release_driver_device():
@@ -3091,9 +2951,6 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     """
     levers, runtimes, census_jsons, refused = {}, {}, {}, {}
     sigma, grid, drift, runtime_src = None, None, [], None
-    # Per-rung noise, not just the middle rung's. The loop below already has every rep's
-    # runtime for every rung, so this costs no folds -- it was being thrown away.
-    sigmas = {}
     sigma_rung = _size_ladder_sigma_rung(model)
     for rung in rungs:
         reps = reps_sigma if rung == sigma_rung else reps_other
@@ -3146,15 +3003,13 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
         census_jsons[str(rung)] = runs[0]["census_json"]
         ts = [r["runtime_s"] for r in runs]
         runtimes[str(rung)] = round(statistics.median(ts), 2)
-        if len(ts) > 1:
-            sigmas[str(rung)] = round(statistics.stdev(ts) / statistics.mean(ts), 4)
         if rung == sigma_rung and len(ts) > 1:
             sigma = statistics.stdev(ts) / statistics.mean(ts)
     if not runtimes and refused:
         return {"error": f"every rung requested ({','.join(map(str, rungs))}) is above this "
                          f"model's size guard: {next(iter(refused.values()))}",
                 "refused": refused}
-    return {"levers": levers, "runtime_s": runtimes, "sigma": sigma, "sigmas": sigmas,
+    return {"levers": levers, "runtime_s": runtimes, "sigma": sigma,
             "runtime_src": runtime_src,
             "census_jsons": census_jsons, "grid": grid, "drift": drift,
             "refused": refused}
@@ -3202,36 +3057,9 @@ def _size_ladder_sigma_rung(model: str):
     return exp[len(exp) // 2] if exp else None
 
 
-def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas: dict | None = None):
+def _size_ladder_exponent_block(model: str, runtimes: dict, sigma):
     """Baseline exponent entries per consecutive rung pair: k with a tolerance
-    derived from the measured noise floor. Returns (block, skip_reason).
-
-    An exponent has TWO rungs and they do not share a noise level. Until 2026-09-18 this
-    propagated the MIDDLE rung's sigma into every interval, i.e. it assumed the lowest rung is
-    as quiet as the rung sigma was measured at. It is not: on p300c the 256 aa cell folds in
-    4-9 s and its two observed modes are 1.4-1.6x apart, while 512 aa reproduces inside a few
-    per cent.
-
-    Measured over all 52 recorded p300c cells against a zero-contention gate
-    (``perf/c13_land/gate.log``, ``f2b62c7bc``): geomean ratio 0.968, median 0.978, and 50 of the
-    52 inside [0.78, 1.05]. The two outliers are BOTH the 256 aa rung and they sit on opposite
-    sides -- boltz2 1.585 (baseline 4.1 s, measured 6.5 s) and openbind 0.699 (baseline 9.3 s,
-    measured 6.5 s). Those are the only two models that failed the arm. boltz2's two modes are
-    0.66 apart in exponent against a +/-0.50 band, so no single-shot re-record can fix it:
-    whichever mode you write down, the other one fails.
-
-    So the band is now ``3 * sqrt(s1^2 + s2^2) / ln(N2/N1)`` with each rung's own sigma, which is
-    algebraically identical to the old ``3 * sqrt(2) * sigma / ln(N2/N1)`` whenever s1 == s2 --
-    including every existing baseline, none of which carries a per-rung sigma. Nothing already
-    recorded moves. What changes is that a bimodal low rung widens its own interval's band and,
-    past SIZE_LADDER_EXP_MAX_TOL, trips the cliff this function already has and declines to gate
-    that interval with a reason. That is the honest outcome: the check was firing on draw noise,
-    and a check that fires on noise every time detects nothing while costing a 3h36m gate run.
-
-    This does not migrate the estimator. A min-of-N check was considered and rejected on
-    2026-09-18 (``538566d4c``) because it would shift every recorded exponent downward at once;
-    this widens a band where the noise was never measured and leaves every recorded k alone.
-    """
+    derived from the measured noise floor. Returns (block, skip_reason)."""
     gated = _size_ladder_exp_rungs(model)
     rungs = sorted(int(r) for r in runtimes if int(r) in gated)
     if len(rungs) < 2:
@@ -3244,39 +3072,18 @@ def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas: dict 
         # median-of-3, the repo's standing answer to single-shot noise
         # (perf-gate-single-shot-legs-recurring-false-alarm, merged 7431d6e39)
         reps, sigma_eff = 3, sigma / math.sqrt(3)
-
-    def _rung_sigma(n):
-        """That rung's own measured sigma, or the middle rung's if it was never repeated.
-
-        The median-of-N credit belongs to whichever rung was actually repeated, so it is
-        applied per rung rather than once to the fallback.
-        """
-        s = (sigmas or {}).get(str(n))
-        if s is None:
-            return sigma_eff
-        return s / math.sqrt(reps) if reps > 1 else s
-
     exps = {}
     for n1, n2 in zip(rungs, rungs[1:]):
         k = math.log(runtimes[str(n2)] / runtimes[str(n1)]) / math.log(n2 / n1)
-        s1, s2 = _rung_sigma(n1), _rung_sigma(n2)
         tol = max(SIZE_LADDER_EXP_TOL_FLOOR,
-                  3 * math.sqrt(s1 * s1 + s2 * s2) / math.log(n2 / n1))
+                  3 * math.sqrt(2) * sigma_eff / math.log(n2 / n1))
         exps[f"{n1}->{n2}"] = {"k": round(k, 3), "tol": round(tol, 3)}
-    worst_iv = max(exps, key=lambda i: exps[i]["tol"])
-    worst = exps[worst_iv]["tol"]
+    worst = max(e["tol"] for e in exps.values())
     if worst > SIZE_LADDER_EXP_MAX_TOL:
-        # Name the interval and BOTH its rungs' sigmas. "measured sigma 6.5%" was the middle
-        # rung's and said nothing about the rung that actually blew the band.
-        n1, n2 = (int(x) for x in worst_iv.split("->"))
-        return None, (f"{worst_iv} needs a ±{worst:.2f} band from its own rung noise "
-                      f"({n1} aa {_rung_sigma(n1):.1%}, {n2} aa {_rung_sigma(n2):.1%}), wider "
+        return None, (f"measured sigma {sigma:.1%} needs a ±{worst:.2f} band, wider "
                       f"than the ~{SIZE_LADDER_EXP_MAX_TOL} cliff signal — an exponent "
                       f"gate would be a coin flip for this model")
-    block = {"reps": reps, "sigma_runtime_512": round(sigma, 4), "exponents": exps}
-    if sigmas:
-        block["sigma_runtime"] = dict(sorted(sigmas.items(), key=lambda kv: int(kv[0])))
-    return block, None
+    return {"reps": reps, "sigma_runtime_512": round(sigma, 4), "exponents": exps}, None
 
 
 def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list:
@@ -4135,8 +3942,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             err = _size_ladder_record_refusal(meas)
             block = skip = None
             if err is None:
-                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"],
-                                                          meas.get("sigmas"))
+                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"])
                 # Re-measure at the rep count the CHECK will use. Only the sigma rung was repeated
                 # above, so a model noisy enough to need a median went into the baseline
                 # single-shot at the other three rungs while the check reads a median of three
@@ -4154,16 +3960,14 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                         for k in ("levers", "runtime_s", "census_jsons"):
                             meas[k].update(m2[k])
                         block, skip = _size_ladder_exponent_block(m, meas["runtime_s"],
-                                                                  meas["sigma"],
-                                                                  meas.get("sigmas"))
+                                                                  meas["sigma"])
             if err:
                 print(f"  [size-ladder] {m}: NOT RECORDED — {err}", flush=True)
                 legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
                 continue
             carried_rungs = _size_ladder_carry_rungs(meas, old_models.get(m), stamp)
             if carried_rungs:
-                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"],
-                                                          meas.get("sigmas"))
+                block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"])
             todos += _size_ladder_fill_reasons(
                 meas["levers"], old_models.get(m, {}).get("levers"),
                 _size_ladder_other_card_levers(reasons_from, card, m))
@@ -4626,10 +4430,6 @@ def main() -> int:
                          "l1-budget, batch-position, nesso1, pxdesign, rf3-1024aa), so a "
                          "newly added model or arm is covered without touching this "
                          "string. esmc-6b is opt-in (slow ~13 GB load).")
-    ap.add_argument("--list-arms", action="store_true",
-                    help="Print the default arm set, one per line, and exit. For a "
-                         "per-arm launcher: `for m in $(release_gate.py --list-arms)`, "
-                         "so the launcher cannot name an arm the gate does not have.")
     ap.add_argument("--keep", action="store_true", help="Keep run output dirs for inspection.")
     ap.add_argument("--size-ladder-record-lever", default=None, metavar="FLAG[,FLAG...]",
                     help="Add new census levers to the existing size-ladder baseline "
@@ -4679,16 +4479,6 @@ def main() -> int:
                          f"nproc (default {gate_guard.DEFAULT_LOAD_CEILING}; 0 disables). Every "
                          "leg here folds in a subprocess, so a gate started on an already-"
                          "loaded box both measures noise and helps overcommit the host.")
-    ap.add_argument("--resume", action="store_true",
-                    help="Skip every arm whose PASS this host already recorded for THIS "
-                         "tree, and compose it into the final verdict instead of re-folding "
-                         "it. The key is commit + clean tree + host + card type + --fast + "
-                         "--diffusion_trace + the installed tt_bio, so a resume cannot span "
-                         "two trees. For a run that was killed rather than one that failed: "
-                         "a FAILED arm is always re-run.")
-    ap.add_argument("--journal", default=str(GATE_JOURNAL),
-                    help=f"Where arm verdicts are recorded as they happen (default "
-                         f"{GATE_JOURNAL.relative_to(REPO_ROOT)}). Set to '' to disable.")
     ap.add_argument("--pxdesign-child", action="store_true",
                     help=argparse.SUPPRESS)  # internal: run_pxdesign's device half
     ap.add_argument("--pxdesign-out", default=None, help=argparse.SUPPRESS)
@@ -4697,12 +4487,6 @@ def main() -> int:
 
     if args.pxdesign_child:
         return _pxdesign_child(Path(args.pxdesign_out), Path(args.pxdesign_json))
-
-    if args.list_arms:
-        # Before the preflight, the card grant and the mesh-descriptor probe: this answers a
-        # question about the argument list and must cost nothing and open nothing.
-        print("\n".join(default_arms()))
-        return 0
 
     global FAST, DIFFUSION_TRACE
     FAST = args.fast
@@ -4736,36 +4520,7 @@ def main() -> int:
         if mgd:
             os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
 
-    models = args.model or default_arms()
-
-    global _JOURNAL_PATH, _JOURNAL_KEY, _ARM_MEMBERS
-    _JOURNAL_PATH = Path(args.journal) if args.journal else None
-    _JOURNAL_KEY = _run_key(FAST, DIFFUSION_TRACE) if _JOURNAL_PATH else {}
-    resumed = {}
-    if args.resume:
-        if args.size_ladder_record:
-            print("PREFLIGHT - refusing: --resume composes a CHECK verdict and "
-                  "--size-ladder-record writes a baseline. They are different runs.")
-            return 1
-        if _JOURNAL_PATH is None:
-            print("PREFLIGHT - refusing: --resume needs a journal, and --journal is empty.")
-            return 1
-        if _JOURNAL_KEY["dirty"]:
-            print("PREFLIGHT - refusing to resume: the worktree is dirty, so two runs at "
-                  f"commit {_JOURNAL_KEY['commit']} need not have scored the same code.")
-            return 1
-        resumed, models = _resume_plan(_JOURNAL_PATH, _JOURNAL_KEY, models)
-        if resumed:
-            print(f"[release-gate] resuming: {len(resumed)} arm(s) already PASS at "
-                  f"{_JOURNAL_KEY['commit']} on {_JOURNAL_KEY['host']} "
-                  f"({_JOURNAL_KEY['card_type']}) — {', '.join(sorted(resumed))}", flush=True)
-        else:
-            print("[release-gate] --resume: nothing recorded for this key, running every arm",
-                  flush=True)
-        if not models:
-            print("[release-gate] every requested arm was already PASS; nothing left to fold",
-                  flush=True)
-
+    models = args.model or list(MODELS) + list(DEFAULT_ARMS) + ["size-ladder"] + ESMC_DEFAULT
     fold_models = [m for m in models if m in MODELS]
     want_boltzgen = "boltzgen" in models
     want_opendde_abag = "opendde-abag" in models
@@ -4779,8 +4534,6 @@ def main() -> int:
     want_rfd3_fusion = "rfd3-fusion" in models
     want_size_ladder = "size-ladder" in models
     esmc_models = [m for m in models if m in ESMC_DEFAULT + ESMC_OPT_IN]
-    _ARM_MEMBERS = {a: _arm_members(a, models) for a in ("fold-models", "esmc")}
-    _preflight_scored_package()
     _preflight_eval_scorers(models)
     _preflight_esmc_root(esmc_models)
     _preflight_msa_cache(models)
@@ -4821,7 +4574,7 @@ def main() -> int:
               f"(nucleic), zero backbone gaps beyond {_geom_const('CA_CA_BREAK')} / "
               f"{_geom_const('PP_BREAK')} A, clashes <= max("
               f"{_geom_const('CLASH_MAX_ABS')}, {PREDICT_MAX_CLASH_FRAC} x heavy atoms)")
-        _headline("fold-models", _gate_line(
+        print(_gate_line(
             rows,
             "GATE PASS — all models cleared parse + ground-truth floor + geometry",
             "GATE FAIL — a model missed parse, the ground-truth floor or geometry (see above)",
@@ -4846,7 +4599,7 @@ def main() -> int:
         print(f"ref = the reference's own distance to the crystal, X = device vs reference: "
               f"both evidence, not gated (measured {RF3_1024AA_XTAL_MEASURED} A)")
         print(f"{'#'*78}")
-        _headline("rf3-1024aa", _gate_line(
+        print(_gate_line(
             rr,
             "GATE PASS — rf3 at 997 aa cleared the crystal floor",
             "GATE FAIL — rf3 at 997 aa missed the crystal floor (see above)",
@@ -4866,11 +4619,10 @@ def main() -> int:
             print(f"  FINDING {f}")
         all_pass &= fr["gate"]
         print(f"{'#'*78}")
-        _headline("rfd3-fusion",
-                  f"GATE PASS — both fusion levers serve their expected rate at R4 and decline "
-                  f"every call at 40 tokens ({wall})" if fr["gate"]
-                  else f"GATE FAIL — rfd3 fusion census "
-                       f"{fr['error'] or 'disagrees with the expected serve rate (see above)'}")
+        print(f"GATE PASS — both fusion levers serve their expected rate at R4 and decline "
+              f"every call at 40 tokens ({wall})" if fr["gate"]
+              else f"GATE FAIL — rfd3 fusion census "
+                   f"{fr['error'] or 'disagrees with the expected serve rate (see above)'}")
 
     if want_boltzgen:
         bg = _load_designability_harness()
@@ -4886,7 +4638,7 @@ def main() -> int:
         all_pass &= br["gate"]
         print(f"{br['model']:<15}{scrmsd:>12}{pr:>12}{floor:>18}{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        _headline("boltzgen", _gate_line(
+        print(_gate_line(
             br,
             "GATE PASS — boltzgen designs cleared parse + designability floor",
             "GATE FAIL — boltzgen missed parse or the designability floor (see above)",
@@ -4918,7 +4670,7 @@ def main() -> int:
               f"{RFD3_MIN_INBAND:>9.4f}{RFD3_MAX_BREAKS:>7}{RFD3_MAX_CLASHES:>12}"
               f"{RFD3_MIN_DISTINCT_AA:>5}{RFD3_MAX_UNK:>5}{'ok':>5}")
         print(f"{'#'*78}")
-        _headline("rfd3", _gate_line(
+        print(_gate_line(
             rr,
             "GATE PASS — rfd3 designs cleared parse, designed-region geometry, "
             "sequence and determinism",
@@ -4942,7 +4694,7 @@ def main() -> int:
             print(f"coordinate digest {pr['sha16']}{same}  (evidence, not gated — a digest is "
                   f"card- and arch-specific)")
         print(f"{'#'*78}")
-        _headline("pxdesign", _gate_line(
+        print(_gate_line(
             pr,
             "GATE PASS — pxdesign designs cleared parse + the conditioning floor",
             "GATE FAIL — pxdesign missed parse or the conditioning floor (see above)",
@@ -4965,7 +4717,7 @@ def main() -> int:
         all_pass &= ar["gate"]
         print(f"{ar['model']:<15}{dq:>14}{fn:>11}{floor:>10}{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        _headline("opendde-abag", _gate_line(
+        print(_gate_line(
             ar,
             "GATE PASS — opendde-abag cleared parse + DockQ floor",
             "GATE FAIL — opendde-abag missed parse or the DockQ floor (see above)",
@@ -4988,7 +4740,7 @@ def main() -> int:
         all_pass &= nr["gate"]
         print(f"{nr['model']:<15}{xr:>14}{sp:>12}{floor:>18}{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        _headline("nesso1", _gate_line(
+        print(_gate_line(
             nr,
             "GATE PASS — nesso1 scalars cleared the reference floor and the device is "
             "deterministic",
@@ -5014,7 +4766,7 @@ def main() -> int:
             print(f"{cr['model']:<22}{pk:>11}{cf:>7}{pa:>7}{f'<={leg[5]:.1f} GiB':>11}"
                   f"{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        _headline("capacity", _gate_line(
+        print(_gate_line(
             rows,
             "GATE PASS — largest-input folds fit the DRAM budget and wrote every sample",
             "GATE FAIL — capacity regression at the largest supported input (see above)",
@@ -5128,11 +4880,10 @@ def main() -> int:
                   if sl["gate"] else
                   "BASELINE RECORD FAILED — a model did not fold (see above)")
         else:
-            _headline("size-ladder",
-                      "GATE PASS — lever census and scaling exponents match the recorded "
-                      "baseline at every rung" if sl["gate"] else
-                      "GATE FAIL — size-ladder drift vs the recorded baseline (see above); "
-                      "if this change is intentional, re-record with --size-ladder-record")
+            print("GATE PASS — lever census and scaling exponents match the recorded "
+                  "baseline at every rung" if sl["gate"] else
+                  "GATE FAIL — size-ladder drift vs the recorded baseline (see above); "
+                  "if this change is intentional, re-record with --size-ladder-record")
 
     if want_l1_budget:
         if not L1_BUDGET_DATA.exists():
@@ -5165,11 +4916,10 @@ def main() -> int:
         l1_pass = ar["gate"] and all(r["gate"] for r in frows)
         all_pass &= l1_pass
         print(f"{'#'*78}")
-        _headline("l1-budget",
-                  "GATE PASS — every part class can narrow out of a clash, and the ladder is "
-                  "numerics-neutral" if l1_pass else
-                  "GATE FAIL — a part class cannot escape an L1/CB clash, or the ladder changed "
-                  "the numbers (see above)")
+        print("GATE PASS — every part class can narrow out of a clash, and the ladder is "
+              "numerics-neutral" if l1_pass else
+              "GATE FAIL — a part class cannot escape an L1/CB clash, or the ladder changed "
+              "the numbers (see above)")
 
     if want_batch_position:
         bp = run_batch_position(args.keep)
@@ -5189,10 +4939,9 @@ def main() -> int:
         if bp["error"]:
             print(f"    FAIL {bp['error']}")
         print(f"{'#'*78}")
-        _headline("batch-position",
-                  "GATE PASS — identical targets are identical whatever their batch position, "
-                  "and the control target still differs" if bp["gate"] else
-                  "GATE FAIL — a result depends on a target's position in the batch (see above)")
+        print("GATE PASS — identical targets are identical whatever their batch position, "
+              "and the control target still differs" if bp["gate"] else
+              "GATE FAIL — a result depends on a target's position in the batch (see above)")
 
     if esmc_models:
         # ESM_ROOT was settled by _preflight_esmc_root before any fold ran. Nothing is
@@ -5213,26 +4962,11 @@ def main() -> int:
             all_pass &= r["gate"]
             print(f"{r['model']:<12}{pr:>13}{po:>9}{lo:>9}{am:>9}{wall:>9}  {verdict}")
         print(f"{'#'*78}")
-        _headline("esmc", _gate_line(
+        print(_gate_line(
             erows,
             "GATE PASS — ESMC embed path cleared the per-residue PCC floor",
             "GATE FAIL — an ESMC model missed the per-residue PCC floor (see above)",
             "the ESMC embed path"))
-
-    if resumed:
-        # Where the composition is stated. A green that was assembled from two runs has to say
-        # so, and say what it was keyed on, or the next reader has to reconstruct it from two
-        # logs -- which is how this campaign twice accepted a verdict scored on a tree that no
-        # longer existed.
-        print(f"\n{'#'*78}\nRESUMED — {len(resumed)} arm(s) were not re-run. Their PASS was "
-              f"recorded by an earlier run on an identical key.\n{'#'*78}")
-        for arm, rec in sorted(resumed.items()):
-            when = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(rec["ts"]))
-            print(f"{arm:<16}{rec['verdict']:<8}{when}  {rec['headline']}")
-        print(f"{'#'*78}")
-        print(f"key: commit {_JOURNAL_KEY['commit']} (clean), host {_JOURNAL_KEY['host']}, "
-              f"card {_JOURNAL_KEY['card_type']}, fast={_JOURNAL_KEY['fast']}, "
-              f"diffusion_trace={_JOURNAL_KEY['diffusion_trace']}")
 
     if _CONTENDED:
         # Say this last, where the reader is, and say it loudly: a contended leg's row above

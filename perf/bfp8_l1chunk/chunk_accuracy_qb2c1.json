@@ -1,0 +1,32 @@
+{
+ "host": "tt-quietbox2",
+ "card": "1",
+ "shape": {
+  "B": 8,
+  "H": 4,
+  "S": 512,
+  "D": 32
+ },
+ "convention": "softmax((qk + bias) * scale)",
+ "commit": "5af25ddb94a9975ab0623d1ea027283e68020781",
+ "arms": {
+  "A_bf16_k256": {
+   "rel_rms_vs_fp64": 0.026829,
+   "finite": true,
+   "max_abs": 0.5625,
+   "vs_bf16_control": 1.0
+  },
+  "B_bfp8_k256": {
+   "rel_rms_vs_fp64": 0.028275,
+   "finite": true,
+   "max_abs": 0.546875,
+   "vs_bf16_control": 1.0539
+  },
+  "C_bfp8_k512": {
+   "rel_rms_vs_fp64": 0.029281,
+   "finite": true,
+   "max_abs": 0.554688,
+   "vs_bf16_control": 1.0914
+  }
+ }
+}

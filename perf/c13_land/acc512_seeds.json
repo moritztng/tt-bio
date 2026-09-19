@@ -1,0 +1,599 @@
+{
+ "doc": "The STACK's own accuracy, against a seed floor measured on the same fixture in the same session.\n\nApprove a stack as a stack or not at all: the two levers' individual readings are not addable, so\nthis scores `both` (hoist=1, silu=1) against `base` directly and never sums 0.4504 A onto anything.\n\nWhat is measured here, and why each piece is needed:\n\n    lever      base vs both at the same seed        the deviation the stack costs\n    floor      base vs base at two different seeds  the scatter the sampler produces by itself\n    A/A        base vs base at the SAME seed        the control -- if this is not 0.0000 A the\n                                                    paired read above is not the lever\n\nThe fixture matters more than the metric here. cdk2x2_298 is what the 0.35/0.60 A bar is written\nagainst. cdk2x2_512 is chimeric: its unconstrained hinge saturates whole-molecule RMSD for any\nnon-bit-exact change (`c12-fused-eltwise-at-pin` read 5.35/9.90/7.95 A on it against an A/A of\n0.0000 A, and `c12-unfused-silu-bh` read 12.69 A whole-molecule against 1.44 A hinge-free for a\nchange worth 0.45 A on the 298 aa fixture). So the 512 read is reported and plDDT, which carries no\nframe and so cannot be confounded by which basin the trajectory chose, decides there.\n\n    acc_stack.py --out <json> --cifs <dir> --size 298 --seeds 0,1 --arms base,both\n",
+ "size": 512,
+ "seeds": [
+  0,
+  1,
+  2,
+  3,
+  4
+ ],
+ "arms": [
+  "base",
+  "both"
+ ],
+ "host": "tt-quietbox2",
+ "card_node": 0,
+ "clock_forced_mhz": 1350,
+ "commit": "70b21e09e0969b4a56faaf3f5ff6c1efc664fac0",
+ "utc": "2026-09-18T10:57:33Z",
+ "bar": {
+  "pass": 0.35,
+  "hold": 0.6,
+  "basis": "the 4649 bar, all-atom, cdk2x2_298; NOT applicable whole-molecule on the chimeric cdk2x2_512"
+ },
+ "folds": {
+  "s0_base": {
+   "seed": 0,
+   "arm": "base",
+   "hoist": false,
+   "silu": false,
+   "wall_s": 15.117,
+   "aiclk": {
+    "n": 7319,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "512_s0_base.cif",
+   "loadavg": [
+    1.95,
+    1.6,
+    1.36
+   ],
+   "plddt": 0.845919,
+   "digest": "45781db716ebf020"
+  },
+  "s0_both": {
+   "seed": 0,
+   "arm": "both",
+   "hoist": true,
+   "silu": true,
+   "wall_s": 14.471,
+   "aiclk": {
+    "n": 7005,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "512_s0_both.cif",
+   "loadavg": [
+    1.74,
+    1.57,
+    1.35
+   ],
+   "plddt": 0.845416,
+   "digest": "c73c93a49ddb3c82"
+  },
+  "s1_base": {
+   "seed": 1,
+   "arm": "base",
+   "hoist": false,
+   "silu": false,
+   "wall_s": 14.661,
+   "aiclk": {
+    "n": 7096,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "512_s1_base.cif",
+   "loadavg": [
+    2.14,
+    1.65,
+    1.38
+   ],
+   "plddt": 0.862263,
+   "digest": "ef9400e7dd4cc790"
+  },
+  "s1_both": {
+   "seed": 1,
+   "arm": "both",
+   "hoist": true,
+   "silu": true,
+   "wall_s": 14.32,
+   "aiclk": {
+    "n": 6921,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "512_s1_both.cif",
+   "loadavg": [
+    1.95,
+    1.64,
+    1.38
+   ],
+   "plddt": 0.861535,
+   "digest": "86186c34d0f112df"
+  },
+  "s2_base": {
+   "seed": 2,
+   "arm": "base",
+   "hoist": false,
+   "silu": false,
+   "wall_s": 14.624,
+   "aiclk": {
+    "n": 7066,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "512_s2_base.cif",
+   "loadavg": [
+    1.68,
+    1.6,
+    1.37
+   ],
+   "plddt": 0.854541,
+   "digest": "e161d657e826f80d"
+  },
+  "s2_both": {
+   "seed": 2,
+   "arm": "both",
+   "hoist": true,
+   "silu": true,
+   "wall_s": 14.302,
+   "aiclk": {
+    "n": 6907,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "512_s2_both.cif",
+   "loadavg": [
+    1.53,
+    1.57,
+    1.37
+   ],
+   "plddt": 0.85584,
+   "digest": "8b0092c35c1f98e9"
+  },
+  "s3_base": {
+   "seed": 3,
+   "arm": "base",
+   "hoist": false,
+   "silu": false,
+   "wall_s": 14.647,
+   "aiclk": {
+    "n": 7090,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "512_s3_base.cif",
+   "loadavg": [
+    1.89,
+    1.65,
+    1.4
+   ],
+   "plddt": 0.875384,
+   "digest": "008af0e5ad1fd096"
+  },
+  "s3_both": {
+   "seed": 3,
+   "arm": "both",
+   "hoist": true,
+   "silu": true,
+   "wall_s": 14.305,
+   "aiclk": {
+    "n": 6923,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "512_s3_both.cif",
+   "loadavg": [
+    2.16,
+    1.73,
+    1.43
+   ],
+   "plddt": 0.874759,
+   "digest": "e65040f0605f7fd6"
+  },
+  "s4_base": {
+   "seed": 4,
+   "arm": "base",
+   "hoist": false,
+   "silu": false,
+   "wall_s": 14.558,
+   "aiclk": {
+    "n": 7048,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "512_s4_base.cif",
+   "loadavg": [
+    2.21,
+    1.78,
+    1.45
+   ],
+   "plddt": 0.868588,
+   "digest": "43954f2e49c78e10"
+  },
+  "s4_both": {
+   "seed": 4,
+   "arm": "both",
+   "hoist": true,
+   "silu": true,
+   "wall_s": 14.341,
+   "aiclk": {
+    "n": 6928,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "512_s4_both.cif",
+   "loadavg": [
+    1.94,
+    1.74,
+    1.44
+   ],
+   "plddt": 0.864147,
+   "digest": "4acde443bdd3ce8c"
+  },
+  "s0_base_aa": {
+   "seed": 0,
+   "arm": "base",
+   "hoist": false,
+   "silu": false,
+   "wall_s": 14.563,
+   "aiclk": {
+    "n": 7047,
+    "min": 1350,
+    "max": 1350,
+    "mean": 1350.0
+   },
+   "cif": "512_s0_base_aa.cif",
+   "loadavg": [
+    1.88,
+    1.73,
+    1.45
+   ],
+   "plddt": 0.845919,
+   "digest": "45781db716ebf020"
+  }
+ },
+ "all_pairs": {
+  "s0_base vs s0_base_aa": {
+   "all_atom_A": 0.0,
+   "ca_A": 0.0
+  },
+  "s0_base vs s0_both": {
+   "all_atom_A": 0.82775,
+   "ca_A": 0.76472
+  },
+  "s0_base vs s1_base": {
+   "all_atom_A": 15.88593,
+   "ca_A": 15.6017
+  },
+  "s0_base vs s1_both": {
+   "all_atom_A": 15.61966,
+   "ca_A": 15.33419
+  },
+  "s0_base vs s2_base": {
+   "all_atom_A": 17.28242,
+   "ca_A": 16.91996
+  },
+  "s0_base vs s2_both": {
+   "all_atom_A": 17.22132,
+   "ca_A": 16.86133
+  },
+  "s0_base vs s3_base": {
+   "all_atom_A": 14.31859,
+   "ca_A": 14.08124
+  },
+  "s0_base vs s3_both": {
+   "all_atom_A": 14.25835,
+   "ca_A": 14.01846
+  },
+  "s0_base vs s4_base": {
+   "all_atom_A": 14.18908,
+   "ca_A": 13.93975
+  },
+  "s0_base vs s4_both": {
+   "all_atom_A": 14.00965,
+   "ca_A": 13.75477
+  },
+  "s0_base_aa vs s0_both": {
+   "all_atom_A": 0.82775,
+   "ca_A": 0.76472
+  },
+  "s0_base_aa vs s1_base": {
+   "all_atom_A": 15.88593,
+   "ca_A": 15.6017
+  },
+  "s0_base_aa vs s1_both": {
+   "all_atom_A": 15.61966,
+   "ca_A": 15.33419
+  },
+  "s0_base_aa vs s2_base": {
+   "all_atom_A": 17.28242,
+   "ca_A": 16.91996
+  },
+  "s0_base_aa vs s2_both": {
+   "all_atom_A": 17.22132,
+   "ca_A": 16.86133
+  },
+  "s0_base_aa vs s3_base": {
+   "all_atom_A": 14.31859,
+   "ca_A": 14.08124
+  },
+  "s0_base_aa vs s3_both": {
+   "all_atom_A": 14.25835,
+   "ca_A": 14.01846
+  },
+  "s0_base_aa vs s4_base": {
+   "all_atom_A": 14.18908,
+   "ca_A": 13.93975
+  },
+  "s0_base_aa vs s4_both": {
+   "all_atom_A": 14.00965,
+   "ca_A": 13.75477
+  },
+  "s0_both vs s1_base": {
+   "all_atom_A": 15.64117,
+   "ca_A": 15.3672
+  },
+  "s0_both vs s1_both": {
+   "all_atom_A": 15.36174,
+   "ca_A": 15.08643
+  },
+  "s0_both vs s2_base": {
+   "all_atom_A": 16.83698,
+   "ca_A": 16.48492
+  },
+  "s0_both vs s2_both": {
+   "all_atom_A": 16.77286,
+   "ca_A": 16.42301
+  },
+  "s0_both vs s3_base": {
+   "all_atom_A": 14.52607,
+   "ca_A": 14.2847
+  },
+  "s0_both vs s3_both": {
+   "all_atom_A": 14.46448,
+   "ca_A": 14.22101
+  },
+  "s0_both vs s4_base": {
+   "all_atom_A": 14.40124,
+   "ca_A": 14.14725
+  },
+  "s0_both vs s4_both": {
+   "all_atom_A": 14.22699,
+   "ca_A": 13.96703
+  },
+  "s1_base vs s1_both": {
+   "all_atom_A": 0.68678,
+   "ca_A": 0.63218
+  },
+  "s1_base vs s2_base": {
+   "all_atom_A": 7.73182,
+   "ca_A": 7.60024
+  },
+  "s1_base vs s2_both": {
+   "all_atom_A": 7.96348,
+   "ca_A": 7.8339
+  },
+  "s1_base vs s3_base": {
+   "all_atom_A": 11.03916,
+   "ca_A": 10.81059
+  },
+  "s1_base vs s3_both": {
+   "all_atom_A": 10.97692,
+   "ca_A": 10.75993
+  },
+  "s1_base vs s4_base": {
+   "all_atom_A": 11.22851,
+   "ca_A": 10.97997
+  },
+  "s1_base vs s4_both": {
+   "all_atom_A": 11.1107,
+   "ca_A": 10.84157
+  },
+  "s1_both vs s2_base": {
+   "all_atom_A": 7.47655,
+   "ca_A": 7.3479
+  },
+  "s1_both vs s2_both": {
+   "all_atom_A": 7.6987,
+   "ca_A": 7.573
+  },
+  "s1_both vs s3_base": {
+   "all_atom_A": 11.21432,
+   "ca_A": 10.98241
+  },
+  "s1_both vs s3_both": {
+   "all_atom_A": 11.14837,
+   "ca_A": 10.92815
+  },
+  "s1_both vs s4_base": {
+   "all_atom_A": 11.40688,
+   "ca_A": 11.15474
+  },
+  "s1_both vs s4_both": {
+   "all_atom_A": 11.28437,
+   "ca_A": 11.01143
+  },
+  "s2_base vs s2_both": {
+   "all_atom_A": 0.4336,
+   "ca_A": 0.33975
+  },
+  "s2_base vs s3_base": {
+   "all_atom_A": 17.38995,
+   "ca_A": 17.08909
+  },
+  "s2_base vs s3_both": {
+   "all_atom_A": 17.31945,
+   "ca_A": 17.03071
+  },
+  "s2_base vs s4_base": {
+   "all_atom_A": 17.50237,
+   "ca_A": 17.20509
+  },
+  "s2_base vs s4_both": {
+   "all_atom_A": 17.36468,
+   "ca_A": 17.05509
+  },
+  "s2_both vs s3_base": {
+   "all_atom_A": 17.53802,
+   "ca_A": 17.23562
+  },
+  "s2_both vs s3_both": {
+   "all_atom_A": 17.46754,
+   "ca_A": 17.17671
+  },
+  "s2_both vs s4_base": {
+   "all_atom_A": 17.64895,
+   "ca_A": 17.34954
+  },
+  "s2_both vs s4_both": {
+   "all_atom_A": 17.51098,
+   "ca_A": 17.19954
+  },
+  "s3_base vs s3_both": {
+   "all_atom_A": 0.34711,
+   "ca_A": 0.16376
+  },
+  "s3_base vs s4_base": {
+   "all_atom_A": 1.37352,
+   "ca_A": 1.08088
+  },
+  "s3_base vs s4_both": {
+   "all_atom_A": 1.53684,
+   "ca_A": 1.25286
+  },
+  "s3_both vs s4_base": {
+   "all_atom_A": 1.3739,
+   "ca_A": 1.06091
+  },
+  "s3_both vs s4_both": {
+   "all_atom_A": 1.54003,
+   "ca_A": 1.23188
+  },
+  "s4_base vs s4_both": {
+   "all_atom_A": 0.75371,
+   "ca_A": 0.5978
+  }
+ },
+ "stack_paired_per_seed": [
+  {
+   "seed": 0,
+   "pair": "s0_base vs s0_both",
+   "all_atom_A": 0.82775,
+   "ca_A": 0.76472,
+   "plddt_base": 0.845919,
+   "plddt_both": 0.845416,
+   "plddt_delta": -0.000503
+  },
+  {
+   "seed": 1,
+   "pair": "s1_base vs s1_both",
+   "all_atom_A": 0.68678,
+   "ca_A": 0.63218,
+   "plddt_base": 0.862263,
+   "plddt_both": 0.861535,
+   "plddt_delta": -0.000728
+  },
+  {
+   "seed": 2,
+   "pair": "s2_base vs s2_both",
+   "all_atom_A": 0.4336,
+   "ca_A": 0.33975,
+   "plddt_base": 0.854541,
+   "plddt_both": 0.85584,
+   "plddt_delta": 0.001299
+  },
+  {
+   "seed": 3,
+   "pair": "s3_base vs s3_both",
+   "all_atom_A": 0.34711,
+   "ca_A": 0.16376,
+   "plddt_base": 0.875384,
+   "plddt_both": 0.874759,
+   "plddt_delta": -0.000625
+  },
+  {
+   "seed": 4,
+   "pair": "s4_base vs s4_both",
+   "all_atom_A": 0.75371,
+   "ca_A": 0.5978,
+   "plddt_base": 0.868588,
+   "plddt_both": 0.864147,
+   "plddt_delta": -0.004441
+  }
+ ],
+ "seed_floor": [
+  {
+   "pair": "base s0 vs base s1",
+   "all_atom_A": 15.88593,
+   "ca_A": 15.6017,
+   "plddt_delta": 0.016344
+  },
+  {
+   "pair": "base s0 vs base s2",
+   "all_atom_A": 17.28242,
+   "ca_A": 16.91996,
+   "plddt_delta": 0.008622
+  },
+  {
+   "pair": "base s0 vs base s3",
+   "all_atom_A": 14.31859,
+   "ca_A": 14.08124,
+   "plddt_delta": 0.029465
+  },
+  {
+   "pair": "base s0 vs base s4",
+   "all_atom_A": 14.18908,
+   "ca_A": 13.93975,
+   "plddt_delta": 0.022669
+  },
+  {
+   "pair": "base s1 vs base s2",
+   "all_atom_A": 7.73182,
+   "ca_A": 7.60024,
+   "plddt_delta": -0.007722
+  },
+  {
+   "pair": "base s1 vs base s3",
+   "all_atom_A": 11.03916,
+   "ca_A": 10.81059,
+   "plddt_delta": 0.013121
+  },
+  {
+   "pair": "base s1 vs base s4",
+   "all_atom_A": 11.22851,
+   "ca_A": 10.97997,
+   "plddt_delta": 0.006325
+  },
+  {
+   "pair": "base s2 vs base s3",
+   "all_atom_A": 17.38995,
+   "ca_A": 17.08909,
+   "plddt_delta": 0.020843
+  },
+  {
+   "pair": "base s2 vs base s4",
+   "all_atom_A": 17.50237,
+   "ca_A": 17.20509,
+   "plddt_delta": 0.014047
+  },
+  {
+   "pair": "base s3 vs base s4",
+   "all_atom_A": 1.37352,
+   "ca_A": 1.08088,
+   "plddt_delta": -0.006796
+  }
+ ],
+ "aa_control": {
+  "pair": "base vs base, same seed",
+  "all_atom_A": 0.0,
+  "ca_A": 0.0,
+  "digests_identical": true,
+  "plddt_delta": 0.0
+ },
+ "worst_stack_all_atom_A": 0.82775,
+ "verdict": "REJECT",
+ "stack_over_seed_floor": 0.052
+}

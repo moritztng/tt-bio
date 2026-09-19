@@ -1,0 +1,304 @@
+{
+  "n": 320,
+  "host": "qb1c0",
+  "grid": [
+    11,
+    10
+  ],
+  "census": [
+    {
+      "label": "start",
+      "wall_ms": 4.9407,
+      "taped_sum_ms": 10.0672,
+      "by_class": {
+        "LAYOUT": 4.7596,
+        "COMPUTE": 5.3076
+      },
+      "ops": [
+        {
+          "key": "REBLOCK_fwd",
+          "cls": "LAYOUT",
+          "tag": "(0,3,1,2)[1x320x320x32]->-",
+          "n": 8,
+          "ms": 1.8111,
+          "share": 0.1799
+        },
+        {
+          "key": "minimal_matmul",
+          "cls": "COMPUTE",
+          "tag": "[1x320x320x128@128x128]->L1",
+          "n": 4,
+          "ms": 1.5008,
+          "share": 0.1491
+        },
+        {
+          "key": "multiply_",
+          "cls": "COMPUTE",
+          "tag": "[1x320x320x32]",
+          "n": 8,
+          "ms": 1.1625,
+          "share": 0.1155
+        },
+        {
+          "key": "chunk",
+          "cls": "LAYOUT",
+          "tag": "4[1x320x320x128]",
+          "n": 4,
+          "ms": 0.8919,
+          "share": 0.0886
+        },
+        {
+          "key": "matmul",
+          "cls": "COMPUTE",
+          "tag": "[1x32x320x320@1x32x320x320]->L1",
+          "n": 4,
+          "ms": 0.6844,
+          "share": 0.068
+        },
+        {
+          "key": "permute",
+          "cls": "LAYOUT",
+          "tag": "(0, 2, 3, 1)[1x32x320x320]->L1",
+          "n": 4,
+          "ms": 0.6553,
+          "share": 0.0651
+        },
+        {
+          "key": "reallocate",
+          "cls": "LAYOUT",
+          "tag": "[1x32x320x320]",
+          "n": 8,
+          "ms": 0.5931,
+          "share": 0.0589
+        },
+        {
+          "key": "linear",
+          "cls": "COMPUTE",
+          "tag": "[1x320x320x128@128x128]->L1",
+          "n": 2,
+          "ms": 0.521,
+          "share": 0.0518
+        },
+        {
+          "key": "multiply_",
+          "cls": "COMPUTE",
+          "tag": "[1x32x320x320]",
+          "n": 4,
+          "ms": 0.5008,
+          "share": 0.0497
+        },
+        {
+          "key": "layer_norm",
+          "cls": "COMPUTE",
+          "tag": "[1x320x320x128]",
+          "n": 2,
+          "ms": 0.4908,
+          "share": 0.0488
+        },
+        {
+          "key": "clone",
+          "cls": "LAYOUT",
+          "tag": "[1x320x320x32]->DRAM",
+          "n": 4,
+          "ms": 0.4107,
+          "share": 0.0408
+        },
+        {
+          "key": "multiply_",
+          "cls": "COMPUTE",
+          "tag": "[1x320x320x128]",
+          "n": 1,
+          "ms": 0.3097,
+          "share": 0.0308
+        },
+        {
+          "key": "concat",
+          "cls": "LAYOUT",
+          "tag": "[4x1x320x320x32]dim-1",
+          "n": 1,
+          "ms": 0.2434,
+          "share": 0.0242
+        },
+        {
+          "key": "fused_tail",
+          "cls": "COMPUTE",
+          "tag": "[1x320x320x128]",
+          "n": 1,
+          "ms": 0.1376,
+          "share": 0.0137
+        },
+        {
+          "key": "to_memory_config",
+          "cls": "LAYOUT",
+          "tag": "[1x1x320x320]",
+          "n": 1,
+          "ms": 0.1059,
+          "share": 0.0105
+        },
+        {
+          "key": "unsqueeze",
+          "cls": "LAYOUT",
+          "tag": "[1x320x320]dim1",
+          "n": 1,
+          "ms": 0.0481,
+          "share": 0.0048
+        }
+      ]
+    },
+    {
+      "label": "end",
+      "wall_ms": 4.6765,
+      "taped_sum_ms": 9.7516,
+      "by_class": {
+        "LAYOUT": 4.5902,
+        "COMPUTE": 5.1614
+      },
+      "ops": [
+        {
+          "key": "REBLOCK_fwd",
+          "cls": "LAYOUT",
+          "tag": "(0,3,1,2)[1x320x320x32]->-",
+          "n": 8,
+          "ms": 1.7908,
+          "share": 0.1836
+        },
+        {
+          "key": "minimal_matmul",
+          "cls": "COMPUTE",
+          "tag": "[1x320x320x128@128x128]->L1",
+          "n": 4,
+          "ms": 1.4899,
+          "share": 0.1528
+        },
+        {
+          "key": "multiply_",
+          "cls": "COMPUTE",
+          "tag": "[1x320x320x32]",
+          "n": 8,
+          "ms": 1.0748,
+          "share": 0.1102
+        },
+        {
+          "key": "chunk",
+          "cls": "LAYOUT",
+          "tag": "4[1x320x320x128]",
+          "n": 4,
+          "ms": 0.832,
+          "share": 0.0853
+        },
+        {
+          "key": "matmul",
+          "cls": "COMPUTE",
+          "tag": "[1x32x320x320@1x32x320x320]->L1",
+          "n": 4,
+          "ms": 0.7026,
+          "share": 0.072
+        },
+        {
+          "key": "permute",
+          "cls": "LAYOUT",
+          "tag": "(0, 2, 3, 1)[1x32x320x320]->L1",
+          "n": 4,
+          "ms": 0.6472,
+          "share": 0.0664
+        },
+        {
+          "key": "reallocate",
+          "cls": "LAYOUT",
+          "tag": "[1x32x320x320]",
+          "n": 8,
+          "ms": 0.5544,
+          "share": 0.0569
+        },
+        {
+          "key": "multiply_",
+          "cls": "COMPUTE",
+          "tag": "[1x32x320x320]",
+          "n": 4,
+          "ms": 0.5138,
+          "share": 0.0527
+        },
+        {
+          "key": "linear",
+          "cls": "COMPUTE",
+          "tag": "[1x320x320x128@128x128]->L1",
+          "n": 2,
+          "ms": 0.5021,
+          "share": 0.0515
+        },
+        {
+          "key": "layer_norm",
+          "cls": "COMPUTE",
+          "tag": "[1x320x320x128]",
+          "n": 2,
+          "ms": 0.4749,
+          "share": 0.0487
+        },
+        {
+          "key": "clone",
+          "cls": "LAYOUT",
+          "tag": "[1x320x320x32]->DRAM",
+          "n": 4,
+          "ms": 0.4154,
+          "share": 0.0426
+        },
+        {
+          "key": "multiply_",
+          "cls": "COMPUTE",
+          "tag": "[1x320x320x128]",
+          "n": 1,
+          "ms": 0.2952,
+          "share": 0.0303
+        },
+        {
+          "key": "concat",
+          "cls": "LAYOUT",
+          "tag": "[4x1x320x320x32]dim-1",
+          "n": 1,
+          "ms": 0.2258,
+          "share": 0.0232
+        },
+        {
+          "key": "fused_tail",
+          "cls": "COMPUTE",
+          "tag": "[1x320x320x128]",
+          "n": 1,
+          "ms": 0.1081,
+          "share": 0.0111
+        },
+        {
+          "key": "to_memory_config",
+          "cls": "LAYOUT",
+          "tag": "[1x1x320x320]",
+          "n": 1,
+          "ms": 0.0826,
+          "share": 0.0085
+        },
+        {
+          "key": "unsqueeze",
+          "cls": "LAYOUT",
+          "tag": "[1x320x320]dim1",
+          "n": 1,
+          "ms": 0.042,
+          "share": 0.0043
+        }
+      ]
+    }
+  ],
+  "clock": {
+    "0": {
+      "min": 1350,
+      "max": 1350,
+      "median": 1350,
+      "n": 1
+    }
+  },
+  "branch_stats": {
+    "('four-way-split', 'defer')": 80
+  },
+  "reblock_stats": {
+    "served": 160,
+    "declined": 0,
+    "gated": 0
+  }
+}

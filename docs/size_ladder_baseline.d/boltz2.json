@@ -1494,17 +1494,22 @@
       "recorded": "2026-09-07"
     },
     "p150a": {
-      "recorded": "2026-08-23",
+      "recorded": "2026-09-18",
       "host": "tt-quietbox",
-      "commit": "8c22b305",
+      "commit": "6e9e70be7",
       "models": {
         "boltz2": {
-          "grid": "13x10",
+          "grid": "11x10",
+          "recorded": "2026-09-18",
+          "host": "tt-quietbox",
+          "commit": "6e9e70be7",
           "runtime_s": {
-            "256": 7.8,
-            "512": 19.9,
-            "640": 30.6,
-            "768": 39.9
+            "256": 10.4,
+            "512": 21.0,
+            "640": 25.2,
+            "768": 34.1,
+            "896": 46.3,
+            "1024": 59.0
           },
           "levers": {
             "256": {
@@ -1560,11 +1565,11 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1120,
+                "declined": 2226,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "memory": 1120
+                  "memory": 2226
                 },
                 "reason": "declines every call on memory: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
               },
@@ -1583,6 +1588,14 @@
                 "how": "stats-dict",
                 "reason": "never reached, 0 offered and 0 declined at every rung: boltz-2 does not take the hoisted-bias softmax path at all"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the counter is L1-resident fp32 score blocks and boltz-2 plans none at any size, so the resolved (8, 8) is the rectangle the constant holds rather than a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's [carried from p300c]"
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
@@ -1597,12 +1610,9 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,1)": 560
-                },
                 "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
               },
               "TRIMUL_TAIL_F1": {
@@ -1618,7 +1628,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 560,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1633,11 +1643,11 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1120,
+                "declined": 4450,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 1120
+                  "window_BufferType.L1": 4450
                 },
                 "reason": "declines every call on window_BufferType.L1: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
               },
@@ -1657,6 +1667,14 @@
                 "how": "stats",
                 "reason": "never reached, 0 offered and 0 declined: the gated channel move is not offered on the boltz-2 pair track"
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident, so nothing is offered here; it serves 1120 at every rung from 512 up. Default on since 7bfa4ad19 [carried from p300c]"
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 560,
@@ -1670,6 +1688,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. The first rung is 4x below the cap. [carried from p300c]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1721,11 +1747,25 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 408,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 6,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -1740,6 +1780,27 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 296,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               }
             },
             "512": {
@@ -1814,6 +1875,14 @@
                 "how": "stats-dict",
                 "reason": "never reached, 0 offered and 0 declined at every rung: boltz-2 does not take the hoisted-bias softmax path at all"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the counter is L1-resident fp32 score blocks and boltz-2 plans none at any size, so the resolved (8, 8) is the rectangle the constant holds rather than a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's [carried from p300c]"
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
@@ -1828,28 +1897,22 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,1)": 560
-                },
                 "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 560
-                },
                 "reason": "declines every call on k_tiles=4: F1_BLOCK_KEYS allow-lists only (8, 8) and boltz-2's trimul tail weight resolves 4 K tiles from c_hidden, not from N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 560,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1863,10 +1926,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED now serves the 1120 calls this counter served when the baseline was recorded. The ungated wrapper is not offered, not refused [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -1877,11 +1941,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1120,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached, 0 offered and 0 declined: the gated channel move is not offered on the boltz-2 pair track"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1896,6 +1966,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. [carried from p300c]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1947,11 +2025,25 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 408,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 6,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -1966,6 +2058,27 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 296,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               }
             },
             "640": {
@@ -2040,6 +2153,14 @@
                 "how": "stats-dict",
                 "reason": "never reached, 0 offered and 0 declined at every rung: boltz-2 does not take the hoisted-bias softmax path at all"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the counter is L1-resident fp32 score blocks and boltz-2 plans none at any size, so the resolved (8, 8) is the rectangle the constant holds rather than a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's [carried from p300c]"
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
@@ -2054,29 +2175,22 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1674,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 1114,
-                  "k_tiles=4:(4,1)": 560
-                },
                 "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 560
-                },
                 "reason": "declines every call on k_tiles=4: F1_BLOCK_KEYS allow-lists only (8, 8) and boltz-2's trimul tail weight resolves 4 K tiles from c_hidden, not from N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 560,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2090,10 +2204,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED now serves the 1120 calls this counter served when the baseline was recorded. The ungated wrapper is not offered, not refused [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -2104,11 +2219,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1120,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached, 0 offered and 0 declined: the gated channel move is not offered on the boltz-2 pair track"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2123,6 +2244,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. [carried from p300c]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2174,11 +2303,25 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 408,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 6,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -2193,6 +2336,27 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 296,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               }
             },
             "768": {
@@ -2267,43 +2431,43 @@
                 "how": "stats-dict",
                 "reason": "never reached, 0 offered and 0 declined at every rung: boltz-2 does not take the hoisted-bias softmax path at all"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the counter is L1-resident fp32 score blocks and boltz-2 plans none at any size, so the resolved (8, 8) is the rectangle the constant holds rather than a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's [carried from p300c]"
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
                 "declined": 560,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:768x768x128": 560
-                },
-                "reason": "declines every call: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor. Wrap-counted, so which clause fails is not yet recorded"
-              },
-              "PAIR_PROJ_MINIMAL_MATMUL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 1680,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 1120,
-                  "k_tiles=4:(4,1)": 560
+                  "k_tiles=4:(4,4)": 560
                 },
                 "reason": "declines every call: needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape. Wrap-counted, so which of the two fails is not yet recorded"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 560,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 560
-                },
                 "reason": "declines every call on k_tiles=4: F1_BLOCK_KEYS allow-lists only (8, 8) and boltz-2's trimul tail weight resolves 4 K tiles from c_hidden, not from N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 560,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2317,10 +2481,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 1120,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED now serves the 1120 calls this counter served when the baseline was recorded. The ungated wrapper is not offered, not refused [carried from p300c]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -2331,11 +2496,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1120,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "never reached, 0 offered and 0 declined: the gated channel move is not offered on the boltz-2 pair track"
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2354,6 +2525,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. [carried from p300c]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -2405,18 +2584,33 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 408,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 6,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 560,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "served": 0,
+                "declined": 560,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 560 calls: `_transpose_memory_config` is a static L1 budget with 1.25x headroom (tt_bio/tenstorrent.py TRANSPOSE_L1_HEADROOM), and this card's 11x10 grid has 110 cores of L1 against the 13x10 grid's 130, so boltz-2's 768x768x128 pair tensor no longer fits and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560. Exactly one of the two serves at every rung; the residency boundary sits between 640 and 768 here, where on 13x10 boltz-2 stays L1-resident through 768 [carried from p300c]"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -2424,44 +2618,633 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 296,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              }
+            },
+            "896": {
+              "SPLIT_SWIGLU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats-shared"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 360,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: 0 served AND 0 declined at every rung. boltz-2's SDPA bias is bf16, so the fp32 hoist is never reached at any size. [carried from tt-galaxy-wh l] [carried from p300c]"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the counter is L1-resident fp32 score blocks and boltz-2 plans none at any size, so the resolved (8, 8) is the rectangle the constant holds rather than a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's [carried from p300c]"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 560,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 560
+                },
+                "reason": "declines all 560 calls on k_tiles=4:(4,4) x560: structurally out of scope for this model: the lever needs an 8-tile weight K dim and boltz-2's c_z=128 gives 4, so the key reads k_tiles=4 at every call it does see. Size-independent, so it biases no exponent [carried from p300c]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the tail's F1 gate only runs when the output gate was NOT fused into the in-projection, and TRIMUL_FUSED_GOUT (4963a2c41, default on since 1d1897022) fuses it on the chunked DRAM path -- every rung from 512 up. At 256 the trimul is L1-resident, the gate is not fused, and F1 refuses all 560 calls on k_tiles=4 [carried from p300c]"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED now serves the 1120 calls this counter served when the baseline was recorded. The ungated wrapper is not offered, not refused [carried from p300c]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 560,
+                "frac": 0.5,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 1,
+                  "pm_over_l1": 559
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. [carried from p300c]"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 3,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 72,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 408,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 6,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 0,
+                "declined": 560,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 560 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c]"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 296,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              }
+            },
+            "1024": {
+              "SPLIT_SWIGLU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats-shared"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 360,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: 0 served AND 0 declined at every rung. boltz-2's SDPA bias is bf16, so the fp32 hoist is never reached at any size. [carried from tt-galaxy-wh l] [carried from p300c]"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the counter is L1-resident fp32 score blocks and boltz-2 plans none at any size, so the resolved (8, 8) is the rectangle the constant holds rather than a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's [carried from p300c]"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 560,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=4:(4,4)": 560
+                },
+                "reason": "declines all 560 calls on k_tiles=4:(4,4) x560: structurally out of scope for this model: the lever needs an 8-tile weight K dim and boltz-2's c_z=128 gives 4, so the key reads k_tiles=4 at every call it does see. Size-independent, so it biases no exponent [carried from p300c]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the tail's F1 gate only runs when the output gate was NOT fused into the in-projection, and TRIMUL_FUSED_GOUT (4963a2c41, default on since 1d1897022) fuses it on the chunked DRAM path -- every rung from 512 up. At 256 the trimul is L1-resident, the gate is not fused, and F1 refuses all 560 calls on k_tiles=4 [carried from p300c]"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED now serves the 1120 calls this counter served when the baseline was recorded. The ungated wrapper is not offered, not refused [carried from p300c]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 1120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 1120,
+                "frac": 0.3333333333333333,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 2,
+                  "pm_over_l1": 1118
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "dark by the cap, not by a guard: the above-cap route is gated on `q_len > _triatt_sdpa._Q_SPLIT_MAX_S` (tt_bio/tenstorrent.py:1844) with the cap at 1024, so no rung at or below 1024 tokens can reach it and the stock chunk ladder serves every call. `resolved: True` is the control: the flag is default-on and the census can see it, so served 0 is the cap holding and not an instrument that never fired. 1024 is excluded by the strict `>`, so the cap's own rung is the last one the stock ladder keeps. [carried from p300c]"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 560,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 3,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 72,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 408,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 6,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 0,
+                "declined": 560,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 560 calls: L1 capacity, not tuning: `_transpose_memory_config` is a static budget with 1.25x headroom and this card's 11x10 grid has 110 cores of L1, so boltz-2's pair tensor stops fitting from 768 up and the destination goes to DRAM. PAIR_TRANSPOSE_VIA_ROW_MAJOR then serves all 560; exactly one of the two serves at every rung [carried from p300c]"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 296,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               }
             }
           },
-          "reps": 1,
-          "sigma_runtime_512": 0.0545,
+          "reps": 3,
+          "sigma_runtime_512": 0.125,
           "exponents": {
             "256->512": {
-              "k": 1.351,
+              "k": 1.014,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.716,
-              "tol": 0.57
+              "k": 1.196,
+              "tol": 0.755
             }
           },
-          "recorded": "2026-08-22",
-          "host": "pc",
-          "commit": "9bc86a5a"
+          "exponents_measured": {
+            "256->512": 1.014,
+            "512->640": 0.817,
+            "640->768": 1.659,
+            "768->896": 1.984,
+            "896->1024": 1.815
+          }
         }
       }
     },
     "p300c": {
-      "recorded": "2026-09-17",
+      "recorded": "2026-09-18",
       "host": "tt-quietbox2",
-      "commit": "679b9ab4c",
+      "commit": "5264350b0",
       "models": {
         "boltz2": {
           "grid": "11x10",
-          "recorded": "2026-09-17",
+          "recorded": "2026-09-18",
           "host": "tt-quietbox2",
-          "commit": "679b9ab4c",
+          "commit": "5264350b0",
           "runtime_s": {
             "256": 4.1,
-            "512": 10.9,
-            "640": 17.2,
-            "768": 25.6,
-            "896": 37.8,
-            "1024": 48.4
+            "512": 11.0,
+            "640": 17.3,
+            "768": 25.7,
+            "896": 37.3,
+            "1024": 53.9
           },
           "levers": {
             "256": {
@@ -4159,23 +4942,23 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0139,
+          "sigma_runtime_512": 0.0041,
           "exponents": {
             "256->512": {
-              "k": 1.411,
+              "k": 1.424,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.106,
+              "k": 2.093,
               "tol": 0.5
             }
           },
           "exponents_measured": {
-            "256->512": 1.411,
-            "512->640": 2.044,
-            "640->768": 2.181,
-            "768->896": 2.528,
-            "896->1024": 1.851
+            "256->512": 1.424,
+            "512->640": 2.029,
+            "640->768": 2.171,
+            "768->896": 2.416,
+            "896->1024": 2.757
           }
         }
       }
