@@ -503,6 +503,29 @@ critical path is host-side, so it costs nothing. Tenancy left on their state doc
 concluded row has no brief to amend. Separately, qb2's **SSH host key rotated** at the
 19:35:53Z boot: `tt-quietbox2.fritz.box` now fails verification, `tt-quietbox2` works.
 
+PASS 86. **The triangle-attention error is on the attention-LOGIT path, and the artifact
+already knew.** No block-2 assembled case exists, but `bisect_grad.json` carries per-tensor
+values and pass 47 was itself a re-analysis — so the same decomposition runs with **no card and
+no new measurement**. Splitting by position in the attention, logit path (`linear_q`,
+`linear_k`, `linear_z`, `layer_norm`) against value path (`linear_v`, `linear_o`, `linear_g`):
+**0.1098 vs 0.0263 (4.18x)** for `tri_att_start` and **0.1056 vs 0.0246 (4.29x)** for
+`tri_att_end`. The **value path is already inside the 0.05 bar and stays there**; turning
+`fp32_softmax` off moves **only** the logit path (→ 0.0356, → 0.0460) and leaves the value path
+marginally worse. `tri_att_end_scaledbias` at 4.57x is R37's negative control seen per-path.
+
+So D9's "3.2x on triangle attention" was a module-level average over a module that is **not
+uniform** — three of its eight tensors were never the problem. And the alone-arm medians
+(0.0950 / 0.0974, ratio **1.03**) complete last pass's comparison: alone is ~1.0 on either
+statistic, assembled is 3.1x–4.4x on either, so the asymmetry is robust to the statistic.
+
+Caveats stated in the entry: block 2, 64 tokens, sub-modules **alone**, medians over 5 and 3
+tensors, and `linear_z` grouped on the logit side because it produces the bias added to the
+logits — named so a reader can reject the grouping rather than reverse-engineer it.
+
+*The cheapest measurement in this campaign was one already taken* — four passes hunting the
+next run, and the sharpest localisation of the largest blocker was in a 4.9 KB JSON that had
+been in the branch since pass 23.
+
 PASS 85. **Composition does not degrade the two triangle attentions equally.** `tri_att_start`
 and `tri_att_end` are the same operation on different axes, so their ratio is structural. Alone
 (R36, block 2, 64 tokens, worst relative) they read **0.1389 / 0.1449 — a ratio of 1.04**.

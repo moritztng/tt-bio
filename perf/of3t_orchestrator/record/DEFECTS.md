@@ -795,10 +795,17 @@ That is mechanism-shaped, and it is the sharpest statement the campaign has abou
 between them is structural. Comparing **worst relative against worst relative** — the two
 tables state different statistics and mixing them is how I first got this wrong:
 
-| probe | what it measures | `tri_att_start` | `tri_att_end` | end/start |
-|---|---|---|---|---|
-| R36 (`bisect_grad.py`, block 2, 64 tokens) | each sub-module **ALONE** | 0.1389 | 0.1449 | **1.04** |
-| pass 47 (block 0, crop 384, bundle boundary) | the same modules **INSIDE THE ASSEMBLED BLOCK** | 0.3055 | 0.952 | **3.12** |
+| probe | what it measures | statistic | `tri_att_start` | `tri_att_end` | end/start |
+|---|---|---|---|---|---|
+| R36 (`bisect_grad.py`, block 2, 64 tokens) | each sub-module **ALONE** | median | 0.0950 | 0.0974 | **1.03** |
+| R36, same run | | worst | 0.1389 | 0.1449 | **1.04** |
+| pass 47 (block 0, crop 384, bundle boundary) | the same modules **INSIDE THE ASSEMBLED BLOCK** | median | 0.0865 | 0.3838 | **4.44** |
+| pass 47, same run | | worst | 0.3055 | 0.952 | **3.12** |
+
+The alone-arm medians are computed this pass from `perf/of3t_gradients/bisect_grad.json`, so
+the comparison is now **apples-to-apples on both statistics**: ~1.0 alone on either statistic,
+3.1x–4.4x assembled on either. The asymmetry is robust to the choice of statistic, which was
+the one thing my first version of this entry got wrong.
 
 **Alone the two are indistinguishable; assembled they are 3.1x apart.** That is not two probes
 disagreeing — it is D8's own central finding showing up in a new place. Sub-modules that pass
@@ -841,6 +848,34 @@ own tensors at D9's measured factors, the block median moves only 0.07813 → 0.
 an accuracy change to shipped inference and therefore release-gated, and the trade has not been
 measured end to end: it buys gradient fidelity and costs forward fidelity, and nobody has priced
 which matters more for a fold.
+
+**PASS 85 — localised to the attention-LOGIT path, from the artifact, with no new run.**
+Decomposing `bisect_grad.json`'s per-tensor values by where the tensor sits in the attention —
+**logit path** (`linear_q`, `linear_k`, `linear_z`, `layer_norm`, n=5) against **value path**
+(`linear_v`, `linear_o`, `linear_g`, n=3):
+
+| case | logit path | value path | ratio |
+|---|---|---|---|
+| `tri_att_start` | **0.1098** | 0.0263 | **4.18x** |
+| `tri_att_start_nofp32` | **0.0356** | 0.0294 | **1.21x** |
+| `tri_att_end` | **0.1056** | 0.0246 | **4.29x** |
+| `tri_att_end_nofp32` | **0.0460** | 0.0269 | **1.71x** |
+| `tri_att_end_scaledbias` | **0.1125** | 0.0246 | **4.57x** |
+
+**Three things this says that "3.2x on triangle attention" did not.** The error is not spread
+across the module — the **value path is clean at ~0.025 and stays clean**, already well inside
+the 0.05 bar, while the logit path is **4.2x–4.6x** dirtier. Turning `fp32_softmax` off moves
+**only the logit path** (0.1098 → 0.0356, 0.1056 → 0.0460) and leaves the value path where it
+was (0.0263 → 0.0294, 0.0246 → 0.0269, both marginally *worse*), which is what a
+logit-path-localised cause looks like and what a module-wide precision story does not. And
+`tri_att_end_scaledbias` at **4.57x** against `tri_att_end`'s 4.29x is R37's negative control
+seen per-path: **scaling the bias does not touch it.**
+
+**Caveats, because this is a re-analysis and not a new measurement.** Block 2, 64 tokens,
+sub-modules **alone** — it says nothing about the assembled block, which is D8. The medians are
+over 5 and 3 tensors. And the grouping is a judgement a reader may reject: `linear_z` is
+counted on the logit side because it produces the pair bias that is **added to the logits**;
+move it to the other column and the ratios soften but the direction does not change.
 
 ## Known and unfixed, lower severity
 

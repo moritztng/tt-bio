@@ -4896,3 +4896,44 @@ sharpest handle D8 has had. If it collapses toward 1.0 it is depth- or length-de
 would connect D8 to **D19's near-linear accumulation** for the first time and would falsify the
 verdict's current claim that the forward and gradient sides are two independent problems.
 **Unowned** -- `of3t-gradients` is concluded, `of3t-diffusion` is on the device arm.
+
+### R123 -- The triangle-attention error is on the logit path, and the artifact already knew
+
+Chasing last pass's discriminator I went looking for a block-2 equivalent of the pass-47
+decomposition. There is no assembled-block case at block 2 — but `bisect_grad.json` carries
+**per-tensor** values, and pass 47 was itself a re-analysis rather than a run. So the same
+decomposition applies, **with no card and no new measurement.**
+
+**Splitting by position in the attention** — logit path (`linear_q`, `linear_k`, `linear_z`,
+`layer_norm`, n=5) against value path (`linear_v`, `linear_o`, `linear_g`, n=3):
+
+| case | logit path | value path | ratio |
+|---|---|---|---|
+| `tri_att_start` | **0.1098** | 0.0263 | **4.18x** |
+| `tri_att_start_nofp32` | **0.0356** | 0.0294 | **1.21x** |
+| `tri_att_end` | **0.1056** | 0.0246 | **4.29x** |
+| `tri_att_end_nofp32` | **0.0460** | 0.0269 | **1.71x** |
+| `tri_att_end_scaledbias` | **0.1125** | 0.0246 | **4.57x** |
+
+**"3.2x on triangle attention" was a module-level average over a module that is not uniform.**
+The value path is **clean at ~0.025 and stays clean** — already well inside the 0.05 bar — while
+the logit path is 4.2x-4.6x dirtier. Turning `fp32_softmax` off moves **only the logit path**
+and leaves the value path marginally *worse*, which is the signature of a logit-localised cause
+and not of module-wide precision. `tri_att_end_scaledbias` at 4.57x is R37's negative control
+seen per-path: scaling the bias does not touch it.
+
+**And it completes last pass's comparison on the statistic axis.** The alone-arm **medians**
+compute to `tri_att_start` **0.0950** and `tri_att_end` **0.0974** — a ratio of **1.03**,
+against the worst-relative ratio of 1.04. So alone is ~1.0 on either statistic and assembled is
+3.1x (worst) to 4.4x (median) on either. The asymmetry is robust to the statistic, which is the
+one thing my first version of that entry got wrong.
+
+**Caveats, because this is a re-analysis.** Block 2, 64 tokens, sub-modules **alone** — silent
+about the assembled block, which is D8. Medians over 5 and 3 tensors. And `linear_z` is counted
+on the logit side because it produces the pair bias **added to the logits**; move it and the
+ratios soften without changing direction. Stated so a reader can disagree with the grouping
+rather than having to reverse-engineer it.
+
+*The cheapest measurement in this campaign was one already taken.* Four passes of looking for
+the next run, and the sharpest localisation of its largest blocker was sitting in a 4.9 KB JSON
+file that had been in the branch since pass 23.
