@@ -931,7 +931,11 @@ if ORCH.is_file():
         # wherever in the summary it is written.
         _AMEND = _re.compile(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|"
                              r"twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|"
-                             r"nineteen|twenty|twenty-one)\s+times on the record\b", _re.I)
+                             r"nineteen|twenty|twenty-one)\s+times\s+on\s+the\s+record\b", _re.I)
+        # every space is \s+: the phrase is hard-wrapped prose and lands as
+        # "times on the\nrecord". The first version used literal spaces, found nothing, and
+        # reported a clean pass on a document that said "fifteen" -- a check that cannot match
+        # its own target is indistinguishable from a check that passes.
         if w:
             _hits = [(fld, m.group(1).lower()) for fld, txt in
                      (("PROVES/DOESNOT", both), ("VERDICT", verdict))
