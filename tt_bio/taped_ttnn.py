@@ -150,10 +150,12 @@ def _v_softmax(shipped, args, kwargs):
             x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
         return bw
 
-    return _tape(y, [x], make)
+    out = _tape(y, [x], make)
+    out.evictable = False          # the closure holds y, this tensor's own value
+    return out
 
 
-def _unary(fn):
+def _unary(fn, reads_output=False):
     """Register a unary eltwise verb whose backward is `fn(x_value, out_value) -> dy/dx`.
 
     An `output_tensor=` argument is dropped, which is the in-place case: the shipped verb
@@ -161,16 +163,25 @@ def _unary(fn):
     """
     def impl(shipped, args, kwargs):
         x = _wrap(args[0])
+        inplace = kwargs.get("output_tensor") is not None
         kw = {k: v for k, v in kwargs.items() if k != "output_tensor"}
         out_v = shipped(x.value, *[_unwrap(a) for a in args[1:]], **kw)
-        xv = x.value
+        if inplace and not reads_output:
+            # `ttnn.silu(x, output_tensor=x)` is the unary form of the same signal. Only
+            # safe when the rule reads the INPUT: a rule that reads the output would be
+            # reading the tensor this releases.
+            x.free()
 
         def make():
             def bw(g):
-                x.add_grad(ttnn.multiply(g, fn(xv, out_v)))
+                # Through the Tensor: `free` may have evicted the input to DRAM.
+                x.add_grad(ttnn.multiply(g, fn(x.value, out_v)))
             return bw
 
-        return _tape(out_v, [x], make)
+        out = _tape(out_v, [x], make)
+        if reads_output:
+            out.evictable = False
+        return out
     return impl
 
 
@@ -178,9 +189,10 @@ _VERBS["silu"] = _unary(
     # sigma * (1 + x * (1 - sigma)). The output is not invertible, so the input is read.
     lambda xv, y: (lambda s: ttnn.multiply(
         s, ttnn.add(ttnn.multiply(xv, ttnn.rsub(s, 1.0)), 1.0)))(ttnn.sigmoid(xv)))
-_VERBS["sigmoid"] = _unary(lambda xv, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)))
+_VERBS["sigmoid"] = _unary(lambda xv, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)),
+                           reads_output=True)
 _VERBS["relu"] = _unary(lambda xv, y: ttnn.gtz(xv))
-_VERBS["exp"] = _unary(lambda xv, y: y)
+_VERBS["exp"] = _unary(lambda xv, y: y, reads_output=True)
 
 
 def _binary(grad_a, grad_b, scalar, out_of_place=None):
@@ -201,7 +213,8 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
         # Taping the call while still invoking the in-place kernel gives a forward that is
         # right and a gradient that is anti-correlated with the truth. Measured before this
         # line existed: d(fc2) cosine -0.028 on the shipped Transition.
-        if out_of_place is not None:
+        inplace = out_of_place is not None
+        if inplace:
             shipped = out_of_place
         if not isinstance(raw_b, (Tensor, ttnn.Tensor)):
             f = float(raw_b)
@@ -215,10 +228,23 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
             return _tape(out_v, [a], make_s)
         b = _wrap(raw_b)
         out_v = shipped(a.value, b.value, **kw)
-        av, bv = a.value, b.value
+        if inplace:
+            # An in-place verb is a free of its destination plus a write, and the tuned
+            # forward budgets the next kernel's L1 against that free. Taping it out of
+            # place gives the result a new home and leaves the old one with no owner to
+            # release it -- one stranded L1 tensor per residual, per chunk. Measured on
+            # the shipped Transition at a [1,256,256,128] pair track: the row loop leaks
+            # `x_1` on every chunk, because `multiply_` is what consumed it in inference
+            # and nothing else deallocates it, and fc1 then cannot lay out its circular
+            # buffers. So the verb's own signal is honoured here: the destination's PLACE
+            # is released now, and `free` evicts rather than frees if a backward reads it.
+            a.free()
 
         def make():
             def bw(g):
+                # Read through the Tensors: either operand may have been evicted to DRAM
+                # by a `deallocate` the tape declined between here and the backward.
+                av, bv = a.value, b.value
                 if a.requires_grad:
                     a.add_grad(grad_a(g, av, bv))
                 if b.requires_grad:
@@ -782,7 +808,9 @@ def _v_max(shipped, args, kwargs):
                 kept[ax] = 1
                 m = ttnn.reshape(m, kept)
                 g = ttnn.reshape(g, kept)
-            x.add_grad(ttnn.multiply(g, ttnn.eq(xv, m)))
+            x.add_grad(ttnn.multiply(g, ttnn.eq(x.value, m)))
         return bw
 
-    return _tape(out_v, [x], make)
+    out = _tape(out_v, [x], make)
+    out.evictable = False          # the closure holds out_v to build the equality mask
+    return out

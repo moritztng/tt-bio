@@ -15,6 +15,7 @@ import numpy as np, torch, ttnn
 from hallgrad.gradcheck import COS_BAR, REL_L2_BAR, fd_check, metrics
 from tt_bio import tenstorrent as tt
 from tt_bio import autograd as ag
+from tt_bio import taped_ttnn as tp
 
 B, L, H, dh = 1, 64, 4, 32
 rng = np.random.default_rng(0)
@@ -48,7 +49,7 @@ D = lambda t: ttnn.from_torch(t.to(torch.bfloat16), dtype=ttnn.bfloat16,
 xa = ag.Tensor(D(x64), requires_grad=True)
 # `tape()` rebinds `ttnn` inside tt-bio's modules, and this file is not one of them, so
 # the taped surface is addressed directly. A shipped module calls it as plain `ttnn.`.
-tt_ttnn = ag._SHIM
+tt_ttnn = tp.taped_ttnn()
 with ag.tape():
     q, k, v = tt_ttnn.experimental.nlp_create_qkv_heads(
         xa, num_heads=H, num_kv_heads=H, transpose_k_heads=False,

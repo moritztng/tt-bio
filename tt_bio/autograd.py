@@ -99,7 +99,7 @@ class Tensor:
     taped one may not.
     """
 
-    __slots__ = ("value", "grad", "requires_grad", "node", "pinned")
+    __slots__ = ("value", "grad", "requires_grad", "node", "pinned", "evictable")
 
     def __init__(self, value, requires_grad: bool = False):
         self.value = value
@@ -109,6 +109,11 @@ class Tensor:
         # Set by `_tape` the moment a closure is built that can read this value. It is the
         # whole of the lifetime rule: `free` refuses a pinned tensor and nothing else.
         self.pinned = False
+        # Whether `free` may move this value to DRAM. Cleared by the few ops whose backward
+        # reads their own OUTPUT -- relu, sigmoid, softmax, max -- because those closures
+        # hold the handle directly and deliberately do not hold the `Tensor` (a closure that
+        # did would make the cycle out -> node -> fn -> out that CPython cannot collect).
+        self.evictable = True
 
     @property
     def shape(self):
@@ -141,6 +146,22 @@ class Tensor:
         """
         if not self.pinned and not self.requires_grad:
             ttnn.deallocate(self.value)
+        elif (self.evictable
+                and self.value.memory_config().buffer_type == ttnn.BufferType.L1):
+            # EVICT rather than refuse. The tuned forward puts an activation in L1 and then
+            # frees it the moment its consumer has read it, and the next kernel's circular
+            # buffers are sized against the room that leaves. A tape that simply declines
+            # the free keeps the room occupied and the next kernel cannot lay out: measured
+            # on the shipped Transition at a [1,256,256,128] pair track, "Statically
+            # allocated circular buffers in program 11 clash with L1 buffers ... L1 buffer
+            # allocated at 692224 and static circular buffer region ends at 893440".
+            #
+            # The backward needs the VALUE; the forward's tuning needs the PLACE. Moving to
+            # DRAM gives both, and it is the honest price of a gradient: one DRAM write per
+            # L1-resident activation that inference does not pay.
+            old = self.value
+            self.value = ttnn.to_memory_config(old, ttnn.DRAM_MEMORY_CONFIG)
+            ttnn.deallocate(old)
 
     def add_grad(self, grad) -> None:
         """Accumulate one contribution. A tensor read by k consumers gets k calls.
@@ -444,6 +465,9 @@ def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor]
             # buys the production kernel above. The two-pass E[(x - mean)^2] rather than
             # tt-train's E[x^2] - E[x]^2 (ops/layernorm_op.cpp:144), which cancels
             # catastrophically once the mean dominates the spread.
+            # `x.value`, not a captured handle: `Tensor.free` may have evicted this to
+            # DRAM since the forward, and the captured handle would be freed storage.
+            xv = x.value
             mean = ttnn.mean(xv, dim=-1, keepdim=True)
             centered = ttnn.subtract(xv, mean)
             var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
@@ -478,7 +502,9 @@ def softmax(x: Tensor, dim: int = -1, *, config=None) -> Tensor:
             x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
         return bw
 
-    return _tape(y, [x], make)
+    out = _tape(y, [x], make)
+    out.evictable = False
+    return out
 
 
 def mul(a: Tensor, b: Tensor) -> Tensor:
@@ -543,7 +569,9 @@ def relu(x: Tensor) -> Tensor:
             x.add_grad(ttnn.multiply(g, ttnn.gtz(out_v)))
         return bw
 
-    return _tape(out_v, [x], make)
+    out = _tape(out_v, [x], make)
+    out.evictable = False          # the closure above holds this handle directly
+    return out
 
 
 def sigmoid(x: Tensor) -> Tensor:
@@ -555,7 +583,9 @@ def sigmoid(x: Tensor) -> Tensor:
             x.add_grad(ttnn.multiply(g, ttnn.multiply(y, ttnn.rsub(y, 1.0))))
         return bw
 
-    return _tape(y, [x], make)
+    out = _tape(y, [x], make)
+    out.evictable = False
+    return out
 
 
 def silu(x: Tensor) -> Tensor:
@@ -566,12 +596,25 @@ def silu(x: Tensor) -> Tensor:
     - s))``, and the sigmoid is retained rather than recomputed because it is the expensive
     half.
     """
-    sig = ttnn.sigmoid(x.value)
-    out_v = ttnn.multiply(x.value, sig)
-    xv = x.value
+    out_v = ttnn.multiply(x.value, ttnn.sigmoid(x.value))
 
     def make():
         def bw(g):
+            # The sigmoid is RECOMPUTED, not retained, and the input is read through the
+            # Tensor in case `free` evicted it to DRAM.
+            #
+            # Retaining it was the older choice, on the grounds that it is the expensive
+            # half. It is, and it is still the wrong trade here, because what the retention
+            # actually costs is L1: the shipped `Transition` asks for its swiglu operands in
+            # L1 and sizes the next kernel's circular buffers against what that leaves, and
+            # the tape composes this activation where production fuses it into the packer.
+            # Measured at a [1,256,256,128] pair track with hidden 512, the retained sigmoid
+            # plus the composed output is two L1 tensors production does not hold, and fc2
+            # then throws "Statically allocated circular buffers in program 11 clash with L1
+            # buffers ... allocated at 692224 and static circular buffer region ends at
+            # 893440" on the FIRST row chunk. One sigmoid per backward buys the shape back.
+            xv = x.value
+            sig = ttnn.sigmoid(xv)
             d = ttnn.multiply(sig, ttnn.add(ttnn.multiply(xv, ttnn.rsub(sig, 1.0)), 1.0))
             x.add_grad(ttnn.multiply(g, d))
         return bw
@@ -1051,7 +1094,16 @@ def _taped_linear(shipped, args, kwargs):
         return bw
 
     out = _tape(out_v, parents, make)
-    return act(out) if act is not None else out
+    if act is None:
+        return out
+    activated = act(out)
+    # The pre-activation is now read only by the activation's own backward, which reads it
+    # through its `Tensor`. Production never materialises it at all -- `ttnn.linear` fuses
+    # the activation into the packer -- so leaving it in the L1 the site asked for is the
+    # tape holding a tensor the tuning did not budget. Hand its PLACE back; `free` evicts
+    # to DRAM rather than releasing it, because the backward still needs the value.
+    out.free()
+    return activated
 
 
 def _taped_layer_norm(shipped, args, kwargs):
@@ -1088,6 +1140,9 @@ def _taped_layer_norm(shipped, args, kwargs):
             # production kernel above. Two-pass E[(x - mean)^2] rather than tt-train's
             # E[x^2] - E[x]^2 (ops/layernorm_op.cpp:144), which cancels catastrophically
             # once the mean dominates the spread.
+            # `x.value`, not a captured handle: `Tensor.free` may have evicted this to
+            # DRAM since the forward, and the captured handle would be freed storage.
+            xv = x.value
             mean = ttnn.mean(xv, dim=-1, keepdim=True)
             centered = ttnn.subtract(xv, mean)
             var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,

@@ -27,9 +27,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PKG = REPO_ROOT / "tt_bio"
 
 # The training modules. Anything on the inference path importing one of these breaks inertness.
-TRAINING = {"autograd", "finetune", "train"}
+# `taped_ttnn` is one of them: it is the surface the shipped modules reach the tape through,
+# so it belongs to the training stack even though it sits outside `train/`. Listing it here
+# TIGHTENS this test -- an inference module importing it is now an offender too.
+TRAINING = {"autograd", "finetune", "train", "taped_ttnn"}
 # The only modules allowed to import them: the training stack itself.
-ALLOWED = {"autograd.py", "finetune.py"}
+ALLOWED = {"autograd.py", "finetune.py", "taped_ttnn.py"}
 
 
 def _imports(path: Path) -> set[str]:
@@ -83,6 +86,41 @@ def test_no_inference_module_imports_training():
         f"inference modules import the training stack: {offenders}. Training stays opt-in; route "
         f"the dependency the other way so the inference path never reaches it."
     )
+
+
+def test_taped_surface_is_not_reached_by_importing_the_inference_path():
+    """`tt_bio.taped_ttnn` must stay out of `sys.modules` until a caller opens a tape.
+
+    The static check above cannot see this one. `tt_bio/autograd.py` names `taped_ttnn`
+    twice -- `tape()` and `Tensor.__getitem__` -- and if either import moved to module
+    scope, importing the tape would drag in a 780-line surface that rebinds `ttnn` inside
+    every tt-bio module. Both are deliberately inside the function bodies; this is what
+    says so in a way that can fail.
+    """
+    src = (PKG / "autograd.py").read_text(errors="replace")
+    tree = ast.parse(src, filename="autograd.py")
+    for node in tree.body:                       # module scope only, not nested
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            names = ({a.name for a in node.names} |
+                     {(node.module or "").split(".")[-1]}
+                     if isinstance(node, ast.ImportFrom) else
+                     {a.name.split(".")[-1] for a in node.names})
+            assert "taped_ttnn" not in names, (
+                "tt_bio/autograd.py imports taped_ttnn at module scope. Keep it inside the "
+                "function bodies: the tape is what a caller opts into, and the ttnn-rebinding "
+                "surface is what the tape opts into, one level further in.")
+
+    import subprocess
+    import sys as _sys
+    out = subprocess.run(
+        [_sys.executable, "-c",
+         "import sys; import tt_bio.autograd; "
+         "print('taped' if 'tt_bio.taped_ttnn' in sys.modules else 'lazy')"],
+        capture_output=True, text=True, cwd=str(REPO_ROOT))
+    if out.returncode != 0:                      # no ttnn on this interpreter
+        pytest.skip("importing tt_bio.autograd needs ttnn")
+    assert out.stdout.strip() == "lazy", (
+        f"importing tt_bio.autograd pulled in tt_bio.taped_ttnn: {out.stdout.strip()}")
 
 
 # ---------------------------------------------------------------- the no-fork rule
