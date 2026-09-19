@@ -222,8 +222,9 @@ class SabdabFvs:
     frames, both atom14 naming alternatives, the chi targets, the CDR mask -- at upstream's own
     shapes, produced by upstream's own pipeline. Re-deriving any of it would be re-implementing
     their featuriser and inviting a silent disagreement with the checkpoint we are reproducing.
-    What is left is stacking, padding and the two input feature maps, which come from B2's
-    ``single_and_pair_features``.
+    What is left is stacking, padding and the two input feature maps, which
+    :mod:`tt_bio.train.abb3_features_device` expands on the card from the index maps rather than
+    over PCIe.
 
     **Padding is to a multiple of 32 and is masked everywhere**, and the two non-zero pad values
     above are load-bearing rather than defensive: ``0 * NaN`` is ``NaN``, so a mask cannot remove
@@ -274,16 +275,26 @@ class SabdabFvs:
     def upload(self, hb: dict) -> dict:
         """Put a host micro-batch on the card. The ONLY part of the build that touches ttnn.
 
-        Split out from :meth:`host` so the expensive half can run on a thread. ``bias_d`` is
-        derived here rather than carried, because it is the same 1 MB mask scaled by a constant
-        and materialising it on the host would double that transfer for nothing.
+        **The two input feature maps are EXPANDED here rather than carried.** They are one-hots of
+        the ``(micro, n_tok)`` index maps below, and the pair one alone is 138 MB at micro 4 and
+        256 tokens against 8 KB of index. Uploading the index and expanding on the card ships
+        1/135th of the bytes and returns the bit-identical tensor -- see
+        :mod:`tt_bio.train.abb3_features_device`, which is checked with ``torch.equal`` against
+        the untouched ``single_and_pair_features``.
+
+        ``bias_d`` is derived here for the same reason on a smaller scale: it is the 1 MB square
+        mask scaled by a constant, and materialising it on the host would double that transfer.
         """
         from ..abodybuilder3 import to_device_fp32
+        from .abb3_features_device import input_features_device
         square = hb["square"]
+        single_d, pair_d = input_features_device(hb["aatype"], hb["is_heavy"],
+                                                 hb["residue_index"], device=self.device,
+                                                 cfg=self.cfg)
         return {
             "device": self.device,
-            "single_d": to_device_fp32(hb["single"]),
-            "pair_d": to_device_fp32(hb["pair"]),
+            "single_d": single_d,
+            "pair_d": pair_d,
             "square_d": to_device_fp32(square),
             "bias_d": to_device_fp32(self.cfg.inf * (square - 1.0)),
             "aatype": hb["aatype"],
@@ -293,15 +304,14 @@ class SabdabFvs:
         }
 
     def host(self, indices) -> dict:
-        """The same build with the four uploads left off, so it opens no device and holds no GIL
-        that matters: ``torch.load`` and the pad/one-hot stacking both release it.
+        """The same build with the uploads left off, so it opens no device and holds no GIL that
+        matters: ``torch.load`` and the pad/stack both release it.
 
-        This half is 8x ``torch.load`` plus a 132-channel relative-position one-hot at
-        ``(micro, n_tok, n_tok)``, which is 138 MB at micro 4 and 256 tokens. It is the reason
-        the seam is here and not somewhere cheaper to cut.
+        This half is 8x ``torch.load`` and the pad/stack. It used to also build the 132-channel
+        pair one-hot, 138 MB per micro-batch, which :meth:`upload` now expands on the card from
+        the ``aatype`` / ``is_heavy`` / ``residue_index`` maps returned below -- 8 KB of index
+        instead of 138 MB of tensor, and the same values.
         """
-        from ..abodybuilder3_reference import single_and_pair_features
-
         raw = [self.load(i) for i in indices]
         b = len(raw)
         n_tok = self.tokens or bucket_tokens(max(int(d["aatype"].shape[0]) for d in raw))
@@ -335,8 +345,6 @@ class SabdabFvs:
             if n < n_tok:
                 last = int(d["residue_index"][-1])
                 residue_index[j, n:] = torch.arange(last + 1, last + 1 + (n_tok - n))
-        single, pair = single_and_pair_features(aatype, is_heavy, residue_index)
-
         targets = {
             "aatype": aatype,
             "seq_mask": seq_mask,
@@ -358,8 +366,10 @@ class SabdabFvs:
 
         square = (seq_mask.unsqueeze(-1) * seq_mask.unsqueeze(-2)).unsqueeze(1)
         return {
-            "single": single,
-            "pair": pair,
+            #: The indices the two feature one-hots are expanded from, on the card, by
+            #: :meth:`upload`. 8 KB against the 138 MB the expanded pair map costs.
+            "is_heavy": is_heavy,
+            "residue_index": residue_index,
             "square": square,
             "aatype": aatype,
             "targets": targets,
