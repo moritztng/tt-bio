@@ -230,8 +230,11 @@ REJECTS_ATTR = {
     "RFD3_FC1_SPLIT_SILU": "tt_bio.rfd3.model.FC1DECLINES",
     "TRANSITION_H_CHUNK": "tt_bio.tenstorrent.TRANSITION_H_CHUNK_REJECTS",
     "TRIMUL_FUSED_GOUT": "tt_bio.tenstorrent.TRIMUL_GOUT_REJECTS",
-    "TRIATT_FUSED_QKVG": "tt_bio.triatt_qkv.REJECTS",
-    "TRIATT_FUSED_QKVGB": "tt_bio.triatt_qkv.REJECTS",
+    # Their OWN dicts. Pointing both at `triatt_qkv.REJECTS` reported the head-major lever's
+    # clause against a fusion that was never offered -- the same misattribution the comment on
+    # REBLOCK_PERMUTE above warns about, made twice in this table.
+    "TRIATT_FUSED_QKVG": "tt_bio.triatt_qkv.QKVG_REJECTS",
+    "TRIATT_FUSED_QKVGB": "tt_bio.triatt_qkv.QKVGB_REJECTS",
 }
 
 
