@@ -79,7 +79,10 @@ def main() -> int:
     global SAMPLING_STEPS, RECYCLING_STEPS, OUT_PATH, N_RES
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--reps", type=int, default=3, help="warm folds per arm in phase 1")
+    ap.add_argument("--reps", type=int, default=5, help="warm folds per arm in phase 1")
+    ap.add_argument("--module-census", action="store_true",
+                    help="one EXTRA fold with the trimul sync-bracketed, for the "
+                         "in-fold module wall; never one of the timed arms")
     ap.add_argument("--arms", default="A,B,A2")
     ap.add_argument("--n", type=int, default=N_RES)
     ap.add_argument("--steps", type=int, default=SAMPLING_STEPS,
@@ -310,6 +313,55 @@ def main() -> int:
                 OUT["runs"] = runs; dump()
     OUT["clock"] = clk.summary()
     print(clk.line(0), flush=True)
+
+    # ---- the in-fold module wall, asked for by the campaign brief -----------------------
+    # A SEPARATE fold, never one of the timed arms: the bracket around each trimul call
+    # serialises the pipeline and inflates the fold itself. Per call the inflation is the
+    # 0.05142 ms host launch/drain floor `state/trix/FIXTERM-HANDOFF.md` measured on this part,
+    # which is 0.5 % of an ~11 ms call, so the module wall is an upper bound and a tight one.
+    if args.module_census:
+        set_arm("B")
+        orig_call = _T.TriangleMultiplication.__call__
+        acc = {"n": 0, "ms": 0.0, "by_shape": {}}
+
+        def _timed_call(self, x, *a, **k):
+            ttnn.synchronize_device(dev)
+            t0 = time.perf_counter()
+            r = orig_call(self, x, *a, **k)
+            ttnn.synchronize_device(dev)
+            dt = (time.perf_counter() - t0) * 1e3
+            acc["n"] += 1
+            acc["ms"] += dt
+            key = "x".join(str(int(d)) for d in x.shape)
+            e = acc["by_shape"].setdefault(key, [0, 0.0])
+            e[0] += 1
+            e[1] += dt
+            return r
+        _T.TriangleMultiplication.__call__ = _timed_call
+        try:
+            cr = fold("module_census")
+        finally:
+            _T.TriangleMultiplication.__call__ = orig_call
+        OUT["in_fold_module"] = {
+            "arm": "B", "fold_s_INFLATED": cr["fold_s"], "calls": acc["n"],
+            "module_s": round(acc["ms"] / 1e3, 4),
+            "ms_per_call": round(acc["ms"] / max(1, acc["n"]), 4),
+            "bracket_floor_ms_per_call": 0.05142,
+            "ms_per_call_bracket_corrected": round(acc["ms"] / max(1, acc["n"]) - 0.05142, 4),
+            "share_of_fold": round(acc["ms"] / 1e3 / cr["fold_s"], 4),
+            "by_shape": {k: {"calls": v[0], "ms": round(v[1], 2),
+                             "ms_per_call": round(v[1] / v[0], 4)}
+                         for k, v in sorted(acc["by_shape"].items())},
+        }
+        print("in-fold module: %d calls, %.3f s, %.4f ms/call (%.4f bracket-corrected), "
+              "%.1f %% of a %.3f s fold that the brackets themselves inflated"
+              % (acc["n"], acc["ms"] / 1e3, acc["ms"] / acc["n"],
+                 acc["ms"] / acc["n"] - 0.05142,
+                 100 * acc["ms"] / 1e3 / cr["fold_s"], cr["fold_s"]), flush=True)
+        for k, v in OUT["in_fold_module"]["by_shape"].items():
+            print("    %-22s %4d calls  %8.3f ms  %.4f ms/call"
+                  % (k, v["calls"], v["ms"], v["ms_per_call"]), flush=True)
+        dump()
 
     warm = [r for r in runs if not r["cold"]]
     med = {nm: round(st.median([r["fold_s"] for r in warm if r["arm"] == nm]), 4) for nm in ARMS}
