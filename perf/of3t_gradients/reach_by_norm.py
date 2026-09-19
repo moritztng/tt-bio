@@ -30,7 +30,7 @@ BUNDLE = "/home/ttuser/of3t/bundle_min"
 REF_BRANCH = "origin/wk/of3t-reference"
 MANIFEST_GIT = "perf/of3t_reference/bundle_min/MANIFEST.json"
 K22 = "perf/of3t_equivalence/bijection_manifest.json"
-MAT64 = os.path.join(OUT, "full_model_of3_full_mat64.json")
+MAT64 = os.path.join(OUT, "full_model_of3_full_mat64_conf.json")
 
 
 def sha256_file(path, chunk=1 << 22):
@@ -42,7 +42,13 @@ def sha256_file(path, chunk=1 << 22):
 
 
 def main() -> int:
+    import argparse
     import torch
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--mat", default=MAT64,
+                    help="the device-bijection artifact whose placed set defines our reach")
+    a = ap.parse_args()
+    mat_path = a.mat
 
     man = json.loads(subprocess.run(["git", "show", f"{REF_BRANCH}:{MANIFEST_GIT}"],
                                     capture_output=True, check=True).stdout)
@@ -64,6 +70,7 @@ def main() -> int:
                          "num_recycles": man["validated_gradient"]["num_recycles"],
                          "published_global_norm":
                              man["validated_gradient"]["gradient_global_norm"]},
+           "device_bijection_artifact": mat_path,
            "n_tensors": len(sq), "n_absent": len(absent),
            "total_squared_norm": total, "total_norm": total ** 0.5}
     print(f"{len(sq)} tensors, global norm {total**0.5:.12f} "
@@ -95,7 +102,7 @@ def main() -> int:
     reach("k22_tracer_bijection", k22.keys(),
           "of3t-equivalence's tracer through the CPU remap, K22's in-scope set")
 
-    mat = json.load(open(MAT64))
+    mat = json.load(open(mat_path))
     cannot = set(mat["presence"]["their_with_gradient_we_cannot_carry"])
     # The field used to be truncated to its first 60 entries while the count beside it said 610,
     # and reading the list instead of the count computed this reach over 60 missing tensors
@@ -103,7 +110,7 @@ def main() -> int:
     # The producer now emits the full set; this refuses anything else rather than trusting it.
     n_declared = mat["presence"]["n_their_with_gradient_we_cannot_carry"]
     if len(cannot) != n_declared:
-        raise SystemExit(f"{MAT64}: unreached list has {len(cannot)} entries but declares "
+        raise SystemExit(f"{mat_path}: unreached list has {len(cannot)} entries but declares "
                          f"{n_declared} -- a truncated list silently inflates every reach below")
     reach("device_bijection_mat64", set(sq) - cannot,
           "this row's bijection by value against the model BUILT ON A CARD, after a "

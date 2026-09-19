@@ -8,6 +8,7 @@
   "num_recycles": 0,
   "published_global_norm": 3.908301894520238
  },
+ "device_bijection_artifact": "perf/of3t_gradients/full_model_of3_full_mat64_conf.json",
  "n_tensors": 4147,
  "n_absent": 0,
  "total_squared_norm": 15.27482369871047,
@@ -90,11 +91,11 @@
    "note": "of3t-equivalence's tracer through the CPU remap, K22's in-scope set"
   },
   "device_bijection_mat64": {
-   "tensors": 3497,
+   "tensors": 3545,
    "of_tensors": 4147,
-   "tensor_share": 0.8432601880877743,
-   "squared_norm": 14.426184221195136,
-   "norm_share": 0.9444419461556877,
+   "tensor_share": 0.8548348203520617,
+   "squared_norm": 14.970769794417702,
+   "norm_share": 0.9800944410036996,
    "note": "this row's bijection by value against the model BUILT ON A CARD, after a materialising forward at 64 tokens; the complement is the 610 their-tensors with a gradient that no device tensor carries"
   },
   "instrument_a_block0_compared": {
@@ -123,15 +124,10 @@
   }
  },
  "unreached_by_device_bijection": {
-  "tensors": 650,
-  "squared_norm": 0.8486394775153338,
-  "norm_share": 0.05555805384431229,
+  "tensors": 602,
+  "squared_norm": 0.30405390429276896,
+  "norm_share": 0.019905558996300414,
   "by_top_level": {
-   "aux_heads": {
-    "tensors": 68,
-    "squared_norm": 0.5445855736749461,
-    "share": 0.03565249487762802
-   },
    "input_embedder": {
     "tensors": 93,
     "squared_norm": 0.17932909759435003,
@@ -156,14 +152,14 @@
     "tensors": 28,
     "squared_norm": 6.922631892107289e-06,
     "share": 4.532053546838456e-07
+   },
+   "aux_heads": {
+    "tensors": 20,
+    "squared_norm": 4.523811345097725e-10,
+    "share": 2.961612804395008e-11
    }
   },
   "top_20": [
-   {
-    "tensor": "aux_heads.distogram.linear.weight",
-    "squared_norm": 0.5445855632956266,
-    "share": 0.03565249419812299
-   },
    {
     "tensor": "input_embedder.atom_attn_enc.linear_q.0.weight",
     "squared_norm": 0.15773254568803324,
@@ -258,6 +254,11 @@
     "tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_o.weight",
     "squared_norm": 0.0013221488265155973,
     "share": 8.655738701764627e-05
+   },
+   {
+    "tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_out.weight",
+    "squared_norm": 0.0013171845838456258,
+    "share": 8.62323919297887e-05
    }
   ]
  },
@@ -296,7 +297,7 @@
    "tensor": "aux_heads.distogram.linear.weight",
    "squared_norm": 0.5445855632956266,
    "share": 0.03565249419812299,
-   "reached_by_device_bijection": false
+   "reached_by_device_bijection": true
   },
   {
    "tensor": "diffusion_module.atom_attn_enc.noisy_position_embedder.linear_s.weight",

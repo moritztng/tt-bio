@@ -199,7 +199,30 @@ def main() -> int:
                 ag.uninstall()
             except Exception:
                 pass
-        materialise = {"tokens": n, "module": "trunk.pairformer",
+        # And the confidence head, whose weights are materialised on its first CALL rather than
+        # at construction. Building it is not enough: `aux_heads.distogram.linear.weight` alone
+        # is 3.57 % of the reference gradient's squared norm (`reach_by_norm.json`), which made
+        # this the single largest lever on SS3a's reach after the diffusion module. The values
+        # are arbitrary; the shapes are read off their own checkpoint so a dimension cannot be
+        # guessed wrong, and the call is the one `fold` makes.
+        conf_err = None
+        try:
+            pe = "aux_heads.pairformer_embedding."
+            c_in = sd[pe + "linear_i.weight"].shape[1]
+            c_tr = sd["aux_heads.plddt.layer_norm.weight"].shape[0]
+            c_z2 = sd[pe + "linear_i.weight"].shape[0]
+            n_bins = sd[pe + "linear_distance.weight"].shape[1]
+            with ag.no_grad():
+                model.confidence_head.forward_device(
+                    ft(torch.randn(1, n, c_in, generator=g) * 0.05),
+                    ft(torch.randn(1, n, c_tr, generator=g) * 0.05),
+                    ft(torch.randn(1, n, n, c_z2, generator=g) * 0.05),
+                    ft(torch.randn(1, n, n, n_bins, generator=g) * 0.05))
+        except Exception as e:                       # a gap is a finding, not a crash
+            conf_err = f"{type(e).__name__}: {e}"
+            print(f"  confidence-head materialise failed: {conf_err}", flush=True)
+        materialise = {"tokens": n, "module": "trunk.pairformer + confidence_head",
+                       "confidence_head_error": conf_err,
                        "reachable_before": before_fwd,
                        "reachable_after": len(device_weights(model))}
         print(f"[{time.perf_counter()-t0:.0f}s] materialise at {n} tokens: "
