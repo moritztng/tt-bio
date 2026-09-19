@@ -325,7 +325,52 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
         out.pinned = True
         for p in parents:
             p.pinned = True
+        _evict_read_parents(parents)
     return out
+
+
+def _evict_read_parents(parents: Sequence[Tensor]) -> None:
+    """Move every L1-resident intermediate this op has just read down to DRAM.
+
+    `free` is the tape's answer to `ttnn.deallocate`, and it only ever runs where the shipped
+    forward CALLS that verb. Most of a tuned forward does not: it lets an activation go out of
+    scope and the handle's destructor releases the buffer. Under a tape the wrapper is held by
+    the node graph, the raw handle never drops, and an L1-resident activation the forward
+    merely stopped using occupies its place for the rest of the tape.
+
+    Measured, and it is not the mechanism this was expected to be. At crop 384 the taped
+    backward threw "statically allocated circular buffers in program 413 clash with L1 buffers
+    ... L1 buffer allocated at 344064" inside a checkpoint recompute, with four taped tensors
+    holding L1. The one AT the clash address is a [20, 4, 384, 384] fp32 triangle-attention
+    score block, and its lifetime bits read `evictable=True, pinned=True` -- `free` would have
+    moved it and was never offered it (`perf/of3t_l1/out/seam_384_holders.json`). Two of the
+    other three are the non-evictable set, which is a separate defect and not this one.
+
+    So the trigger is the READ rather than the release: once a consumer has run, the forward's
+    reason for the tensor being in L1 is spent, and only the backward's reason to keep the
+    VALUE is left. That is exactly what `free` already does for a pinned tensor, so this routes
+    through `free` rather than repeating it, and every guard it has applies unchanged -- a
+    tensor sharing storage with another taped one, or one whose backward closure holds the raw
+    handle, is marked non-evictable and is left alone.
+
+    LEAVES ARE NOT TOUCHED. A parameter or a model input has no node, and its placement is the
+    shipped module's tuning rather than an intermediate's lifetime; evicting one would move a
+    weight to DRAM permanently on the first step of training.
+
+    The price is the one the tape's own docstring already names: a later forward op that wanted
+    the same operand in L1 now reads it from DRAM. That is the Protenix inversion, where the
+    tape turned L1-placement levers from 1.19-1.29x faster into 0.83-0.85x slower, paid
+    deliberately here because in OF3 the alternative is not a slower step but no step at all.
+    """
+    for p in parents:
+        if p.node is None or not p.evictable:
+            continue
+        try:
+            if p.value.memory_config().buffer_type != ttnn.BufferType.L1:
+                continue
+        except Exception:                                        # noqa: BLE001
+            continue                                             # host tensor, or no buffer
+        p.free()
 
 
 def _flat2d(t):
