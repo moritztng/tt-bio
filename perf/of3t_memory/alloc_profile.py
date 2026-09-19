@@ -278,6 +278,9 @@ def main() -> int:
     ap.add_argument("--blocks", type=int, default=4, help="pairformer blocks; 0 = all 48")
     ap.add_argument("--arms", default="off,tape")
     ap.add_argument("--backward", action="store_true", help="also run and watch the backward")
+    ap.add_argument("--no-checkpoint", action="store_true",
+                    help="run the taped arm with per-block checkpointing OFF, so the A/B says "
+                         "what the lever buys in bytes instead of what an extrapolation says")
     ap.add_argument("--probe-every", type=int, default=1,
                     help="read the allocator every Nth verb call (1 = every call)")
     ap.add_argument("--ckpt", type=Path, default=CKPT)
@@ -447,6 +450,15 @@ def main() -> int:
                     from tt_bio import taped_ttnn as TT
                     tape_cm = TT.tape()
                     tape_cm.__enter__()
+                    from tt_bio import ops as _ops
+                    if args.no_checkpoint:
+                        # `tape()` installs the checkpoint hook; removing it INSIDE the tape is
+                        # the only honest A/B, because the alternative -- not taping -- measures
+                        # a different forward.
+                        rec["checkpointing"] = False
+                        _ops.set_checkpoint_hook(None)
+                    else:
+                        rec["checkpointing"] = True
                     st = ag.Tensor(ttnn.from_torch(st_t, dtype=ttnn.bfloat16,
                                                    layout=ttnn.TILE_LAYOUT, device=dev),
                                    requires_grad=True)
@@ -474,12 +486,25 @@ def main() -> int:
                         fwd_hw, fwd_census = peak.dram_hw, peak.census
                         peak.dram_hw = 0        # so the next high-water is the BACKWARD's own
                         peak.census = None
+                        # Hold an OUTER recompute_scope for the whole backward, and only
+                        # then install the watcher. `checkpoint`'s `_recompute` opens its own
+                        # `recompute_scope()` per segment, and that opens by testing
+                        # `getattr(mod, "ttnn") is ttnn` -- which a watcher sitting on the
+                        # module global fails, so the per-segment swap is SKIPPED and the
+                        # recomputed block runs against raw ttnn holding `autograd.Tensor`s.
+                        # `recompute_scope` yields immediately when the shim is already in, so
+                        # taking it here makes every inner one a no-op and the watcher stays.
+                        # Same family as the `_Ttnn` namespace trap: this tape installs itself
+                        # by rebinding a module global, and a second rebinder disarms it.
+                        rs = TT.recompute_scope()
+                        rs.__enter__()
                         _swap_watch(peak, True, saved)
                         try:
                             ag.backward(roots)
                             ttnn.synchronize_device(dev)
                         finally:
                             _swap_watch(peak, False, saved)
+                            rs.__exit__(None, None, None)
                         rec["bwd_peak_dram_b"] = peak.dram_hw
                         rec["bwd_peak_census"] = peak.census
                         rec["bwd_peak_at_verb"] = peak.at_verb
