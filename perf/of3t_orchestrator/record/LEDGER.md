@@ -4826,3 +4826,36 @@ addendum states it with D9 as our own counterexample: an agreeing forward remove
 gross input mismatch from the list and bounds nothing else. *The check that would have caught
 D9 was the one run at the wrong altitude -- it was found because somebody stopped trusting the
 forward.*
+
+### R121 -- VERDICT is what Moritz reads, and six of its claims were false
+
+Re-read the top-line verdict against what the campaign now knows rather than against what it
+knew when each sentence was written. It said **the model-dependent half "has not been
+measured"** (the device arm ran this evening); that **"95.5 % of the gradient's magnitude has
+no taped training forward on our side at all"** — two lines *after* stating that D20's coverage
+half closed and 870 of 870 weights carry a gradient, a contradiction inside one bullet; that
+the remaining problem is **"a port that stops at the trunk"** (it does not); that instrument A
+**"FAILED"** where it ran, when A16 requires a median at or above the zero-model baseline to be
+reported as a **ceiling**, which is a result and not a failure; that D19 **"bounds any gradient
+number taken against this reference"**, when D9 shows a gradient-only error the forward cannot
+see; and that the protocol was **"amended fifteen times"** against PROTOCOL's eighteen.
+
+Rewritten to say what is true: the state-free half exact (§4 exact over 109,005 comparisons, §5
+**7.455e-08**, the seam **1.804e-07**); instrument A **measured at three scopes and passing at
+none** — block 0 pair track **7.813e-02**, all 48 blocks **1.8986** against a zero model of
+**1.0** (a ceiling), the diffusion device arm **0.7672** against **1.0** and **withheld** under
+A18; the sharpest fact being **where it passes** — the single track at 6.102e-03 to 6.390e-02
+and `single_transition`, the one sub-module with no attention and no pair coupling, the only
+passer at **0.0212**; and that this is **two problems, not one**.
+
+**Then the same pass nearly shipped a guard that could not fail.** The amendment count was
+wrong in VERDICT while the audit checked only PROVES — third time a guard of mine has been
+scoped to the field I happened to be reading — so I scoped it to the claim wherever it appears.
+The control returned **147 confirmed, 0 drifted** on a document I had just doctored to say
+"fifteen". The phrase is hard-wrapped prose and lands as `times on the\nrecord`; my regex used
+literal spaces and matched nothing. **A check that cannot match its own target is
+indistinguishable from a check that passes.** Every space is `\s+` now, and the control fires:
+`PROTOCOL has 18 (eighteen) but VERDICT says 'fifteen'`.
+
+*Three passes running, the thing that caught the error was a control, and the thing that
+produced it was reading my own prose as if a regex would.*

@@ -373,30 +373,62 @@ set identical to main.
 **The campaign has not reproduced OpenFold3 training.** What it can now say precisely:
 
 - **The state-free half of the update rule is exact**, and checked against upstream's own
-  objects rather than a reading of them — schedule, clipping, optimizer at its real index
-  mapping, and the seam between them.
-- **The model-dependent half is now measurable at model scope and has not been measured.**
-  D20's coverage half closed in pass 71: the diffusion path runs **100 % taped forward and
-  backward** and all **870 of 870** reachable weights carry a gradient. The ceiling that
-  remains is a run, not a port. What it still costs today: **95.5 % of the gradient's
-  magnitude — `diffusion_module` 91.21 %, `aux_heads` 4.27 % — has no taped training forward
-  on our side at all.** Where instrument A has run it **FAILED**: block 0 at median
-  **7.813e-02** against 2.0e-02 on **0.086 %** of the magnitude, and **0.06224** against the
-  r=0 reference. Under all of it sits a **6.73e-03** forward disagreement (D19) that bounds
-  any gradient number taken against this reference.
-- **Everything that could be cleared, cleared**: the bijection reaches **98.69 %** of the
-  gradient norm, the model trains end to end at crop 384 (D14 closed), the reference
-  reproduces bit-identically (A13), and upstream's own training test passes on a GPU. The one
-  thing left is not a blocker to work around — it is a **port that stops at the trunk**.
+  objects rather than a reading of them: the §4 schedule **exact in float64 over 109,005
+  comparisons**, §5 at **7.455e-08** against upstream's own index mapping, and the seam between
+  them at **1.804e-07**.
 
-**Twenty-one defects**, of which **seven remain UNFIXED** (D18's fix is in flight and its own detector passes; **D20**'s coverage half closed in pass 71 — the diffusion path is 100 % taped and every reachable weight carries a gradient — leaving **D19**, the 6.735e-03 forward gap, as the tightest open bound) — two in inference users get today, three
-affecting models other than OpenFold3, one a near-miss in which the central claim would have
-passed with our trunk deleted, and **five found in the campaign's own instruments** rather
-than in the model. A protocol whose bars were fixed before any number existed and **amended
-fifteen times on the record**, each amendment marked for whether a number already existed.
+- **The model-dependent half has now been measured on our side, at three scopes, and it does
+  not pass at any of them.** Instrument A reads:
 
-This row stays open until instrument A runs at model scope against a reference that survives
-its own reproducibility test, or that ceiling is documented as final.
+  | scope | median | bar / baseline | share of squared norm |
+  |---|---|---|---|
+  | pairformer block 0, pair track | **7.813e-02** | 2.0e-02 bar | 0.086 % |
+  | all 48 pairformer blocks | **1.8986** shipped, **5.7014** `transpose_bias`-off, 2,496/2,496 over bar | **zero model 1.0 — a CEILING** | 3.0611 % |
+  | diffusion module, device arm | **0.7672**, worst 87.82, 283/283 over bar | **zero model 1.0 — 1.30x** | 61.02 % of the diffusion norm |
+
+  The third is **withheld rather than published** (A18, D21): its bijection reaches only **283
+  of 870** reachable device weights, and a median at the baseline with a worst of 87.8 is the
+  shape of a mis-wired operand, not of an fp32-vs-float64 gap, which reads ~1e-2. A ceiling is
+  publishable; the output of an instrument with a named defect is not.
+
+- **Where it passes is the sharpest thing the campaign knows.** The single track reads
+  **6.102e-03 to 6.390e-02** in the same run that puts the pair track at 4.3e-01 to 1.4e+00,
+  and `single_transition` — the one sub-module with no attention and no pair coupling — is the
+  **only** sub-module under the bar at **0.0212**. The failure is graded by attention and
+  pair-track involvement rather than by size or depth. That is mechanism-shaped.
+
+- **And it is two problems, not one.** D19 is a **forward** error of **7.811e-03** per
+  pairformer block that composes **near-linearly to 2.792e-01** over 48 — five times the
+  `sqrt(48)` rounding predicts, so correlated and systematic, not a precision floor. D8/D9 is a
+  **gradient-only** error: `fp32_softmax` alone moves the triangle-attention weight gradient
+  **3.2x** under a **12 %** forward change, which a forward comparison structurally cannot see.
+  **Closing D19 would not make instrument A pass.** A common cause is a lead, not a finding —
+  pass 47 bounded D9 out as D8's explanation.
+
+- **Everything that could be cleared, cleared.** The bijection reaches **98.69 %** of the
+  gradient norm at model scope; the model trains end to end at crop 384, the smallest crop
+  upstream's recipe uses (D14 closed, backward 17.983 GB); the diffusion path is **100 % taped
+  forward and backward** with all **870 of 870** reachable weights carrying a gradient (D20's
+  coverage half, pass 71); the reference reproduces bit-identically **4,147 of 4,147** and is
+  FD-validated at **1.1678e-03** (A13); and upstream's own `test_training_full.py` passes on a
+  rented H200, both cases. **The port no longer stops at the trunk.** What stops the claim is a
+  measured disagreement in the pair track, not a missing path.
+
+**Twenty-one defects**, of which **seven remain UNFIXED** — two in inference users get today,
+three affecting models other than OpenFold3, one a near-miss in which the central claim would
+have passed with our trunk deleted, and **five found in the campaign's own instruments** rather
+than in the model. D18's fix is in flight and its own detector passes; **D20**'s coverage half
+closed in pass 71, leaving the pair track — **D19** forward, **D8/D9** gradient — as the two
+open bounds, and **D21** as the live instrument defect on the device arm.
+
+A protocol whose bars were fixed before any number existed and **amended eighteen times on the
+record**, each amendment marked for whether a number already existed — including two written
+this pass that constrain rather than relax: **A18**, that a ceiling is publishable only from an
+instrument whose completeness you can assert, and its addendum, that gating a gradient
+instrument on its forward is **necessary and not sufficient**.
+
+This row stays open until the device arm's bijection is complete and instrument A is re-run at
+diffusion scope, or that ceiling is documented as final.
 
 
 **`of3t-tape` is FINISHED (VERDICT GO), and it corrects the charter's headline.** "OF3 comes for
@@ -470,6 +502,26 @@ because a grant that merely includes a card is enough for something to open it. 
 critical path is host-side, so it costs nothing. Tenancy left on their state doc, since a
 concluded row has no brief to amend. Separately, qb2's **SSH host key rotated** at the
 19:35:53Z boot: `tt-quietbox2.fritz.box` now fails verification, `tt-quietbox2` works.
+
+PASS 84. **VERDICT is what Moritz reads, and six of its claims were false.** It said the
+model-dependent half *"has not been measured"* (the device arm ran this evening); that *"95.5 %
+of the gradient's magnitude has no taped training forward on our side at all"* — two lines after
+stating D20's coverage closed and 870 of 870 weights carry a gradient, a contradiction inside
+one bullet; that what remains is *"a port that stops at the trunk"*; that instrument A
+*"FAILED"* where it ran, when A16 requires a median at or above the zero-model baseline to be a
+**ceiling**, a result rather than a failure; that D19 bounds *any* gradient number, when D9
+shows a gradient-only error the forward cannot see; and *"amended fifteen times"* against
+eighteen. Rewritten to the measured picture: three scopes, passing at none, and the sharpest
+fact is **where it passes** — `single_transition`, the one sub-module with no attention and no
+pair coupling, at **0.0212**.
+
+**And the guard I wrote for it could not fail.** The amendment count was wrong in VERDICT while
+the audit read only PROVES — third time a guard of mine has been scoped to the field I happened
+to be reading — so it is now scoped to the claim wherever it appears. The control came back
+**147 confirmed, 0 drifted** on a document I had just doctored to say "fifteen": the phrase is
+hard-wrapped and lands as `times on the\nrecord`, and my regex used literal spaces. *A check
+that cannot match its own target is indistinguishable from a check that passes.* Every space is
+`\s+` now and the control fires.
 
 PASS 83. **Three UNFIXED defects sit in the same pair track and no entry named the others.**
 D19 (forward: 7.811e-03 per pairformer block, composing near-linearly to 2.792e-01 over 48),
