@@ -4581,3 +4581,24 @@ artifact on each compose, and the correction channel.
 *A deliverable is what someone else receives, not what you can see from where you stand.* I had
 audited the reasoning's accuracy for seventy-six passes without once checking whether it would
 arrive.
+
+### R113 -- The derived reference proved itself the same function, bit for bit
+
+**A17's method has its precondition checked rather than argued.** Re-running **their**
+diffusion module alone from the saved boundary, seeded with the saved cotangent, returns the
+parameter gradients the first capture saved at **worst relative error 0.000e+00 across all 738
+tensors**. So the sub-boundary **is** the function the bundle comparison was taken at, and the
+conditioned `(si, zij)` it hands our module **inherit nothing from our own conditioning** —
+which is the property the whole construction rests on and the one it would have been easiest
+to assume.
+
+*A derived reference is a reference and gets the same treatment as a published one.* A13 made
+the campaign reproduce the frozen bundle twice before trusting it; the same rule applied here
+to a reference **we built ourselves out of that bundle**, and it passed exactly rather than
+approximately — which is the right expectation for a replay of a saved function, and therefore
+a real test rather than a formality.
+
+Cheap, which matters for a reference that will be iterated: forward **37 s**, pruned backward
+**112 s**, against 307 s of trunk in a 344 s full forward. *Capturing once and re-running the
+tail turns a 23-minute instrument into a 3-minute one* — the trunk was the entire expense and
+it is now paid once.
