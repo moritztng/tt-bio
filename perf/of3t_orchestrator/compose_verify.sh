@@ -18,14 +18,23 @@ set -euo pipefail
 # A row is listed here from the moment it is dispatched, not from its first push, so a new row
 # cannot be silently left out of the composition. Rows with no branch yet are skipped with a line
 # saying so -- silence would be the bug.
-ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias"
+ROWS="reference tape equivalence data perf memory confidence leaves gradients pairbias l1"
 SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a shared /tmp name
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
 CO="$SLUG_TMP/compose"; BASE="$SLUG_TMP/basemain"
 D_WT="${D_WT:-/home/moritz/.coworker/wt}"   # worktrees on THIS host, for the unpushed-work note
 
-cd "$REPO"; git fetch -q origin
+cd "$REPO"
+# A bare `git fetch origin` fails outright if ANOTHER campaign's worker is updating its refs at
+# the same moment ("cannot lock ref refs/remotes/origin/wk/pvx-...") and takes the whole compose
+# down for a reason that has nothing to do with this campaign. Fetch only what we read, and
+# retry once, so a neighbour's push cannot abort the composition.
+_refs="main"; for _r in $ROWS; do _refs="$_refs wk/of3t-$_r"; done
+_refs="$_refs wk/of3t-orchestrator"
+# shellcheck disable=SC2086
+git fetch -q origin $_refs 2>/dev/null || { sleep 5; git fetch -q origin $_refs 2>/dev/null || {
+  echo "fetch failed twice for this campaign's own refs -- not a neighbour race"; exit 1; }; }
 rm -rf "$CO" "$BASE"; mkdir -p "$SLUG_TMP"; git worktree prune
 git branch -f wk/of3t origin/main >/dev/null 2>&1 || git branch wk/of3t origin/main
 git worktree add -q "$CO" wk/of3t
@@ -111,6 +120,16 @@ for r in $ROWS; do
   dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l)
   [ "$ah" -gt 0 ] && echo "  NOTE of3t-$r: worktree is $ah commit(s) ahead of origin -- not in this composition"
   [ "$dirty" -gt 0 ] && echo "  NOTE of3t-$r: $dirty uncommitted file(s) in its worktree"
+  # WHY it is behind. `rc=124` is the 3000s per-turn cap: the row commits and is killed before
+  # it pushes, which looks identical to disobedience from `origin` and is not. Asking such a
+  # row to push cannot work -- its work has to be reshaped to fit the wall. (K38; this cost
+  # two passes of wrong remedies on of3t-reference.)
+  lg="$D_WT/../workers/of3t-$r.log"
+  if [ -f "$lg" ] && [ "$ah" -gt 0 ]; then
+    last=$(grep -oE 'it[0-9]+ rc=[0-9]+' "$lg" | tail -1)
+    case "$last" in *rc=124) echo "  NOTE of3t-$r: last turn was KILLED by the 3000s cap ($last)"\
+      " -- it likely commits and never reaches a push; reshape the work, do not re-ask";; esac
+  fi
 done
 
 # (2) collection against the control
@@ -146,6 +165,13 @@ for f in perf/of3t_equivalence/instrument_b_lr.py \
   ( cd "$CO" && PYTHONPATH=. timeout 1800 "$PY" "$f" 2>&1 | tail -8 ) || \
     { echo "INSTRUMENT FAILED: $f"; exit 1; }
 done
+
+# (4) the scoreboard against the artifacts. EVIDENCE.md is transcribed prose and a
+# transcription drifts silently, so the numbers it quotes are re-read from the committed JSON
+# on every compose. Also pins the denominators (K29).
+echo "--- audit_evidence"
+( cd "$CO" && "$PY" perf/of3t_orchestrator/audit_evidence.py 2>&1 | tail -6 ) || \
+  { echo "SCOREBOARD DRIFT -- state/of3t/EVIDENCE.md disagrees with the artifacts"; exit 1; }
 
 git worktree remove --force "$BASE"
 echo; echo "composition ready at $CO ; push with: git -C $CO push origin wk/of3t"
