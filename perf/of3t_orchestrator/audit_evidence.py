@@ -125,6 +125,20 @@ upper, lower = bdir / "MANIFEST.json", bdir / "manifest.json"
 if upper.is_file():
     m = json.loads(upper.read_text())
     st = str(m.get("status", ""))
+    # PUBLISHED is a claim about the artifacts, not about the manifest. A status line saying
+    # PUBLISHED while the gradient it names is still "in transfer" sends a consumer to a path
+    # that has a .part file on it -- the R43 shape again, one pass after R43 was fixed. Check
+    # the declared per-file presence, not just the headline.
+    arts = m.get("artifacts", [])
+    if isinstance(arts, list) and "PUBLISH" in st.upper():
+        absent = [a.get("file") for a in arts
+                  if isinstance(a, dict) and a.get("on_qb2") not in (True, None)]
+        if absent:
+            warn.append(f"bundle manifest says PUBLISHED but declares these artifacts not on "
+                        f"the host: {', '.join(str(x) for x in absent[:4])}"
+                        + (" ..." if len(absent) > 4 else ""))
+        else:
+            ok.append("bundle says PUBLISHED and declares every artifact present")
     if "HOLD" in st.upper():
         # A held DATA artifact does not make the COMPOSITION wrong -- no claim is being made
         # against it -- so this warns loudly rather than failing, the same way an unpushed
