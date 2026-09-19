@@ -28,7 +28,7 @@ from typing import Optional, Sequence
 import ttnn
 
 __all__ = [
-    "Tensor", "precise_config", "no_grad",
+    "Tensor", "precise_config", "no_grad", "parameter", "forget_parameters",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
     "relu", "silu", "reshape",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
@@ -1021,6 +1021,45 @@ _ACTIVATIONS = {"relu": relu, "sigmoid": sigmoid, "silu": silu}
 _WRAPPED: dict = {}
 
 
+# Weights a caller has declared TRAINABLE, keyed by the raw handle's id. Distinct from
+# `_WRAPPED`, which is bookkeeping the tape does for itself and drops when the tape closes:
+# this one is the user's parameter set and outlives a tape, because the optimizer holds it.
+#
+# It exists because the two seams did not meet. `tt_bio.train.lora.weights_for` censuses
+# `ops.linear` sites, and the shipped pairformer routes none of its calls through `ops.linear`
+# (LEDGER K3) -- it calls `ttnn.linear`, which `taped_ttnn` covers. But that surface
+# short-circuits to the shipped op when no ARGUMENT is already a `Tensor`, and a weight the
+# caller wants to train arrives as a raw handle among raw handles, so the short circuit fired
+# first and the parameter was never seen. A model could therefore be fully differentiable and
+# still have no trainable weight. Registering here is what makes a raw weight a leaf at all 331
+# taped calls rather than at the four routed ones.
+_PARAMS: dict = {}
+
+
+def parameter(raw, requires_grad: bool = True):
+    """Declare a raw device weight trainable. Idempotent per handle; returns the leaf.
+
+    The leaf, not a copy: `_wrap` hands the same object to every call site that reads this
+    weight, so a 48-block trunk sharing one tensor accumulates into one gradient.
+    """
+    t = _PARAMS.get(id(raw))
+    if t is not None and t.value is raw:
+        return t
+    t = Tensor(raw, requires_grad=requires_grad)
+    _PARAMS[id(raw)] = t
+    return t
+
+
+def forget_parameters() -> None:
+    """Drop the trainable set. A run owns it; nothing here survives the run."""
+    _PARAMS.clear()
+
+
+def _param(v):
+    t = _PARAMS.get(id(v))
+    return t if t is not None and t.value is v else None
+
+
 def _wrap(t):
     """A raw ttnn tensor joins the tape as an untracked leaf; a `Tensor` passes through.
 
@@ -1036,6 +1075,9 @@ def _wrap(t):
     """
     if t is None or isinstance(t, Tensor):
         return t
+    p = _param(t)
+    if p is not None:
+        return p
     w = _WRAPPED.get(id(t))
     if w is not None and w.value is t:
         # Idempotent per handle. Wrapping the same raw tensor twice would give the tape a
@@ -1071,12 +1113,24 @@ def _walk(args, kwargs):
 
 
 def _on_tape(args, kwargs):
-    return any(isinstance(v, Tensor) for v in _walk(args, kwargs))
+    # A registered parameter counts, even though it arrives as a raw handle: it is the first
+    # taped thing in a forward whose inputs are all data, and without it the short circuit
+    # below reaches the shipped op and the whole downstream chain is never taped.
+    return any(isinstance(v, Tensor) or _param(v) is not None for v in _walk(args, kwargs))
 
 
 def _differentiating(args, kwargs):
-    return _GRAD_ENABLED and any(isinstance(v, Tensor) and v.requires_grad
-                                 for v in _walk(args, kwargs))
+    if not _GRAD_ENABLED:
+        return False
+    for v in _walk(args, kwargs):
+        if isinstance(v, Tensor):
+            if v.requires_grad:
+                return True
+        else:
+            p = _param(v)
+            if p is not None and p.requires_grad:
+                return True
+    return False
 
 
 def _deep_unwrap(v):

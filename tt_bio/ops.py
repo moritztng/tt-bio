@@ -37,7 +37,7 @@ import ttnn
 from .dispatch import OpSurface
 
 __all__ = ["linear", "layer_norm", "set_grad_hook", "grad_hook",
-           "set_recycle_hook", "recycle_region"]
+           "set_recycle_hook", "recycle_region", "taping"]
 
 
 # The slot, and the decorator that uses it, are `tt_bio/dispatch.py`'s -- shared with
@@ -65,6 +65,21 @@ def set_recycle_hook(fn):
     global _RECYCLE
     prev, _RECYCLE = _RECYCLE, fn
     return prev
+
+
+def taping():
+    """Is a tape open? Asked by the fused kernels that have no backward.
+
+    A handful of shipped kernels are driven through `ttnn.generic_op` -- the F1 trimul tail,
+    the head-major QKV projection, the fused QKV+SDPA fold. `generic_op` has no tape entry and
+    `taped_ttnn` raises rather than unwrap, which is right: unwrapping would drop the gradient
+    of everything upstream silently. Each of those kernels already has a decline path, because
+    each returns None for a call its descriptor does not cover and the composed ops run
+    unchanged. So while a tape is open they decline, and the training forward takes the
+    composed path the tape can follow. It costs the fused kernel's win in training and nothing
+    at all in inference, where `grad_hook()` is None.
+    """
+    return grad_hook() is not None
 
 
 def recycle_region(cyc, last):
