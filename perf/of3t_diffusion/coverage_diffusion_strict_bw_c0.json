@@ -1,5 +1,5 @@
 {
- "label": "diffusion_module strict",
+ "label": "diffusion_module strict_bw_c0",
  "sites": {
   "add_|taped": {
    "openfold3_diffusion_transformer.py:179": 24,
@@ -28,7 +28,6 @@
    "openfold3_atom_transformer.py:210": 12,
    "openfold3_atom_transformer.py:212": 6,
    "openfold3_atom_transformer.py:215": 18,
-   "openfold3_atom_transformer.py:221": 58,
    "openfold3_diffusion_decoder.py:101": 1,
    "openfold3_diffusion_decoder.py:105": 1,
    "openfold3_diffusion_decoder.py:72": 1,
@@ -60,7 +59,6 @@
    "openfold3_diffusion_transformer.py:178": 24,
    "openfold3_diffusion_transformer.py:194": 24,
    "openfold3_diffusion_transformer.py:204": 48,
-   "openfold3_diffusion_transformer.py:206": 24,
    "openfold3_diffusion_transformer.py:209": 24,
    "openfold3_diffusion_transformer.py:212": 48,
    "openfold3_diffusion_transformer.py:221": 24,
@@ -263,7 +261,7 @@
   "nested": 289,
   "none": 86,
   "raw": 1,
-  "taped": 2456
+  "taped": 2374
  },
  "verbs": {
   "add": {
@@ -273,7 +271,7 @@
    "taped": 90
   },
   "deallocate": {
-   "taped": 681
+   "taped": 599
   },
   "embedding": {
    "taped": 12

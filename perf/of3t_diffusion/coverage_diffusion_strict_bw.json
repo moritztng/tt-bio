@@ -1,5 +1,5 @@
 {
- "label": "diffusion_module strict",
+ "label": "diffusion_module strict_bw",
  "sites": {
   "add_|taped": {
    "openfold3_diffusion_transformer.py:179": 24,

@@ -122,6 +122,29 @@ def load_operands(dev, path, force_dtype=None):
     return out, order
 
 
+def dram_now(dev):
+    """DRAM in both units, because they bind at different rungs.
+
+    of3t-l1 measured the trunk's ladder going 3.75x in bytes and 1.12x in allocations from
+    crop 128 to 256, and 384's failure was a count problem dressed as a capacity one. A
+    rung reported in one unit hides which limit bound it, so both are read here and both
+    are printed.
+    """
+    import ttnn
+    mv = ttnn.get_memory_view(dev, ttnn.BufferType.DRAM)
+    used = (int(mv.total_bytes_per_bank) - int(mv.total_bytes_free_per_bank)) * int(mv.num_banks)
+    # Live allocations, the other unit. `mv.block_table` is the obvious place to count
+    # them and its nanobind binding does not convert in this build, so this uses the
+    # allocator's own live buffer list, the instrument `perf/of3t_memory/alloc_profile.py`
+    # settled on. The count is the curve that overtakes the byte curve at the rung where a
+    # taped backward stops fitting (of3t-l1, crop 384-to-640), so a rung quoted in bytes
+    # alone hides which limit bound it.
+    from ttnn._ttnn import reports
+    allocs = sum(1 for b in reports.get_buffers(dev)
+                 if str(b.buffer_type).upper().endswith("DRAM"))
+    return used, allocs
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--survey", action="store_true")
@@ -130,6 +153,11 @@ def main():
                    help="the OF3_DIFFUSION_FP32_DEVICE=0 opt-out arm")
     p.add_argument("--l1", action="store_true")
     p.add_argument("--bundle", default=BUNDLE)
+    p.add_argument("--n-struct", type=int, default=1, dest="n_struct",
+                   help="noised structures differentiated in ONE step, upstream's "
+                        "_train_diffusion pattern (48 in initial_training, 32 in the "
+                        "finetunes). The sampler's pattern is one structure at a time; "
+                        "this is the other one, and it is the one training uses.")
     p.add_argument("--tag", default="")
     a = p.parse_args()
 
@@ -198,13 +226,67 @@ def main():
 
     err = None
     ag._TOUCHED.clear()
+    ladder = {}
+    ladder["before"] = dram_now(dev)
+    peak = [ladder["before"]]
+
+    def note(k):
+        v = dram_now(dev)
+        ladder[k] = v
+        if v[0] > peak[0][0]:
+            peak[0] = v
+
+    # Upstream's call pattern, not the sampler's. `_train_diffusion` draws N noised
+    # structures from the same conditioning and differentiates all of them in one step, so
+    # the N forwards SHARE (si_trunk, si, zij, cl0, plm0) and only the noisy coordinates
+    # differ. One `cache` dict across the N reproduces that: the NPE and the encoder pair
+    # update are pure functions of the shared operands and run once, and the tape's fan-in
+    # handles the N consumers of that one node -- `backward` orders it so its closure fires
+    # after every contribution has landed. Passing N separate caches would measure a memory
+    # curve the training step does not have.
+    #
+    # The per-structure noise here is a fixed scaling of the captured draw. This ladder is a
+    # MEMORY measurement; it is not a claim about the noise schedule, which comes from
+    # of3t-reference's recorded draws.
+    # N distinct noised structures, built on host the way upstream draws them, rather
+    # than by scaling a device tensor: `tape()` rebinds `ttnn` inside tt_bio's modules and
+    # not inside this script, so a device multiply here would reach the real verb and
+    # leave the perturbation off the tape.
+    noisy = {}
+    if a.n_struct > 1:
+        raw = torch.load(a.bundle, weights_only=False)
+        for nm in ("rl_noisy", "xl_noisy"):
+            base = raw[nm]["t"].float()
+            noisy[nm] = [None] + [
+                ttnn.from_torch(base * (1.0 + 0.05 * k), layout=ttnn.TILE_LAYOUT,
+                                device=dev, dtype=act)
+                for k in range(1, a.n_struct)]
+
+    shared_cache = {}
+    outs = []
     with device_dtype_override(act), ag.tape():
         try:
-            out = mod(*args)
+            for k in range(a.n_struct):
+                call = list(args)
+                if k:
+                    for nm in ("rl_noisy", "xl_noisy"):
+                        call[order.index(nm)] = ag.Tensor(noisy[nm][k],
+                                                          requires_grad=True)
+                outs.append(mod(*call, cache=shared_cache))
+                note("forward_n%d" % (k + 1))
+            note("forward")
             if a.backward:
-                ag.backward([out])
+                ag.backward(outs)
+                note("backward")
         except Exception as e:                       # a gap is a finding, not a crash
             err = e
+            note("at_error")
+    ladder["peak"] = peak[0]
+    stat["ladder"] = {k: {"dram_bytes": v[0], "dram_GB": round(v[0] / 1e9, 3),
+                          "live_allocs": v[1]} for k, v in ladder.items()}
+    for k, v in ladder.items():
+        print("  DRAM %-9s %7.3f GB over %5d live allocations" % (k, v[0] / 1e9, v[1]),
+              flush=True)
 
     touched = sum(1 for t in walked.values() if id(t) in ag._TOUCHED)
     with_grad = sum(1 for t in walked.values()
@@ -217,12 +299,14 @@ def main():
           "forward, %d carrying a gradient" % (len(walked), touched, with_grad), flush=True)
 
     mode = "survey" if a.survey else "strict"
-    suffix = ("_bf16" if a.bf16 else "") + ("_bw" if a.backward else "") + a.tag
+    suffix = ("_bf16" if a.bf16 else "") + ("_bw" if a.backward else "") \
+        + ("_n%d" % a.n_struct if a.n_struct != 1 else "") + a.tag
     name = "diffusion_%s%s" % (mode, suffix)
     tot = tapecount.report("diffusion_module %s%s" % (mode, suffix),
                            path=os.path.join(OUT, "coverage_%s.json" % name))
     stat.update(totals=tot, params=len(loaded), survey=a.survey, backward=a.backward,
                 act_dtype=str(act), tokens=ops_in["n_token"], atoms=ops_in["n_atom"],
+                n_struct=a.n_struct,
                 error=None if err is None else "%s: %s" % (type(err).__name__, err))
     json.dump(stat, open(os.path.join(OUT, "run_%s.json" % name), "w"), indent=1)
     if err is not None:
