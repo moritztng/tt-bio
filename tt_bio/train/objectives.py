@@ -118,6 +118,9 @@ def af3_loss(batch, outputs, weights) -> tuple:
                                "skipped": f"missing {absent}"}
             continue
         take(term, w, fn(batch, outputs), _SEED[term])
+        absent = [k for k in _OPTIONAL.get(term, ()) if k not in batch]
+        if absent:
+            breakdown[term]["without"] = absent
     return total, breakdown, seeds
 
 
@@ -125,6 +128,8 @@ def af3_loss(batch, outputs, weights) -> tuple:
 # Kept as data next to the requirement list so a term cannot be added without declaring both.
 _TERMS = {
     "mse": lambda b, o: losses.mse(o["pred_xyz"], b["true_xyz"], b["coord_mask"],
+                                   is_dna=b.get("is_dna"), is_rna=b.get("is_rna"),
+                                   is_ligand=b.get("is_ligand"),
                                    per_sample_scale=b.get("edm_scale")),
     "smooth_lddt": lambda b, o: losses.smooth_lddt(o["pred_dist"], b["true_dist"],
                                                    b["lddt_pair_mask"]),
@@ -150,6 +155,19 @@ _NEEDS = {
     "pde": ("pde_logits", "pred_xyz", "true_xyz", "coord_mask"),
     "pae": ("pae_logits", "pred_xyz", "true_xyz", "coord_mask", "frame_atom_index"),
     "resolved": ("resolved_logits", "coord_mask"),
+}
+# Labels a term uses when the batch carries them and computes a DIFFERENT loss without. An
+# absent entry here is not a missing input -- the term still fires, at a weight nobody asked
+# for -- so `af3_loss` names what was absent in the breakdown instead of leaving it silent.
+# `mse` is why this table exists. Upstream's per-entity upweighting (dna 5.0, rna 5.0, ligand
+# 10.0; `core/loss/diffusion.py:138-141` at `model_config.py:496-498`) lives in `losses.mse`
+# and reaches it only through these three keys, so a featuriser that omits them trains every
+# nucleic-acid and ligand token at protein weight and every metric still looks healthy.
+# `edm_scale` is deliberately NOT here: absent, it means one sample and the loss is right.
+# Absent entity flags mean "this batch has no DNA, RNA or ligand", which is a claim about the
+# batch that a featuriser which simply never produced them does not get to make.
+_OPTIONAL = {
+    "mse": ("is_dna", "is_rna", "is_ligand"),
 }
 # Which device output each term's gradient seeds. The four bin-label terms reach only their
 # logits, because upstream builds every true bin under no_grad -- including pLDDT's, whose

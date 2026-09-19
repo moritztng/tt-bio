@@ -1,0 +1,743 @@
+{
+ "instrument": "D17: bijection reach in gradient norm, not tensor count",
+ "reference": {
+  "file": "grads_f64_recycles0.pt",
+  "sha256": "1a6af8bba8c5fa33dd5366f15e87fffc22595a351c3c77b476a56fab8b4b4b74",
+  "verified": true,
+  "manifest": "origin/wk/of3t-reference:perf/of3t_reference/bundle_min/MANIFEST.json",
+  "num_recycles": 0,
+  "published_global_norm": 3.908301894520238
+ },
+ "device_bijection_artifact": "perf/of3t_gradients/full_model_of3_full_mat64_conf.json",
+ "n_tensors": 4147,
+ "n_absent": 0,
+ "total_squared_norm": 15.27482369871047,
+ "total_norm": 3.9083018945202364,
+ "by_top_level": {
+  "diffusion_module": {
+   "tensors": 738,
+   "squared_norm": 13.524511927953602,
+   "share": 0.8854119821425741,
+   "norm": 3.677568752308188
+  },
+  "pairformer_stack": {
+   "tensors": 2736,
+   "squared_norm": 0.8056979127336057,
+   "share": 0.05274678966027112,
+   "norm": 0.8976067695453314
+  },
+  "aux_heads": {
+   "tensors": 244,
+   "squared_norm": 0.5445855835667593,
+   "share": 0.035652495525217376,
+   "norm": 0.7379604214094136
+  },
+  "msa_module": {
+   "tensors": 227,
+   "squared_norm": 0.19336558755852068,
+   "share": 0.012659104378065259,
+   "norm": 0.4397335415436497
+  },
+  "input_embedder": {
+   "tensors": 98,
+   "squared_norm": 0.19018680168837068,
+   "share": 0.012450998154854424,
+   "norm": 0.4361041179447526
+  },
+  "msa_module_embedder": {
+   "tensors": 2,
+   "squared_norm": 0.013294581568187053,
+   "share": 0.0008703590843611115,
+   "norm": 0.11530213167234617
+  },
+  "layer_norm_s": {
+   "tensors": 2,
+   "squared_norm": 0.001350051058078964,
+   "share": 8.838406810501766e-05,
+   "norm": 0.036743040947626586
+  },
+  "template_embedder": {
+   "tensors": 96,
+   "squared_norm": 0.0011823427412155536,
+   "share": 7.740467350306435e-05,
+   "norm": 0.034385211082899485
+  },
+  "layer_norm_z": {
+   "tensors": 2,
+   "squared_norm": 0.0005288331606657869,
+   "share": 3.4621228440786e-05,
+   "norm": 0.022996372771934857
+  },
+  "linear_z": {
+   "tensors": 1,
+   "squared_norm": 7.041428864721136e-05,
+   "share": 4.609826603311688e-06,
+   "norm": 0.008391322222821107
+  },
+  "linear_s": {
+   "tensors": 1,
+   "squared_norm": 4.9662392827385814e-05,
+   "share": 3.2512580051302594e-06,
+   "norm": 0.007047154945606476
+  }
+ },
+ "reach": {
+  "k22_tracer_bijection": {
+   "tensors": 3275,
+   "of_tensors": 4147,
+   "tensor_share": 0.7897275138654449,
+   "squared_norm": 0.9994992556406416,
+   "norm_share": 0.06543442172265604,
+   "note": "of3t-equivalence's tracer through the CPU remap, K22's in-scope set"
+  },
+  "device_bijection_mat64": {
+   "tensors": 3545,
+   "of_tensors": 4147,
+   "tensor_share": 0.8548348203520617,
+   "squared_norm": 14.970769794417702,
+   "norm_share": 0.9800944410036996,
+   "note": "this row's bijection by value against the model BUILT ON A CARD, after a materialising forward at 64 tokens; the complement is the 610 their-tensors with a gradient that no device tensor carries"
+  },
+  "instrument_a_block0_compared": {
+   "tensors": 57,
+   "of_tensors": 4147,
+   "tensor_share": 0.013744875813841331,
+   "squared_norm": 0.0306103088976226,
+   "norm_share": 0.0020039713388120338,
+   "note": "all 57 of their tensors at pairformer block 0, the scope instrument A ran at"
+  },
+  "instrument_a_block0_53": {
+   "tensors": 53,
+   "of_tensors": 4147,
+   "tensor_share": 0.01278032312515071,
+   "squared_norm": 0.030608545601577917,
+   "norm_share": 0.0020038559007500654,
+   "note": "the 53 actually compared; the other 4 live inside our fused qkv_weight and were reported absent rather than zero-filled"
+  },
+  "pairformer_stack_all": {
+   "tensors": 2736,
+   "of_tensors": 4147,
+   "tensor_share": 0.6597540390643839,
+   "squared_norm": 0.8056979127336056,
+   "norm_share": 0.05274678966027111,
+   "note": "the whole 48-block trunk, the ceiling on any block-scope instrument"
+  }
+ },
+ "per_pairformer_block": {
+  "0": {
+   "tensors": 57,
+   "squared_norm": 0.030610308897622604,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.030608545601577917,
+   "norm_share": 0.0020039713388120338,
+   "compared_norm_share": 0.0020038559007500654
+  },
+  "1": {
+   "tensors": 57,
+   "squared_norm": 0.018962284671907612,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.01896062652417862,
+   "norm_share": 0.0012414077599801328,
+   "compared_norm_share": 0.0012412992056844041
+  },
+  "2": {
+   "tensors": 57,
+   "squared_norm": 0.013479515523557643,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.013478693034172868,
+   "norm_share": 0.0008824661933542061,
+   "compared_norm_share": 0.0008824123472738192
+  },
+  "3": {
+   "tensors": 57,
+   "squared_norm": 0.017123080471385856,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.017121720543852328,
+   "norm_share": 0.0011210002032842723,
+   "compared_norm_share": 0.0011209111726309337
+  },
+  "4": {
+   "tensors": 57,
+   "squared_norm": 0.013969284811511431,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.013959234110630943,
+   "norm_share": 0.0009145300192689455,
+   "compared_norm_share": 0.0009138720279834986
+  },
+  "5": {
+   "tensors": 57,
+   "squared_norm": 0.01057995768172777,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.01057980298558877,
+   "norm_share": 0.0006926402484515059,
+   "compared_norm_share": 0.0006926301209278073
+  },
+  "6": {
+   "tensors": 57,
+   "squared_norm": 0.011119814611025382,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.011119346994530238,
+   "norm_share": 0.0007279831722027756,
+   "compared_norm_share": 0.0007279525586582681
+  },
+  "7": {
+   "tensors": 57,
+   "squared_norm": 0.01101446035389074,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.011013925251996234,
+   "norm_share": 0.0007210859235527937,
+   "compared_norm_share": 0.0007210508919278754
+  },
+  "8": {
+   "tensors": 57,
+   "squared_norm": 0.012164951480603935,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.012164846929221944,
+   "norm_share": 0.0007964053609097252,
+   "compared_norm_share": 0.0007963985162230661
+  },
+  "9": {
+   "tensors": 57,
+   "squared_norm": 0.01736542525562657,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.017343225477772034,
+   "norm_share": 0.0011368658387260202,
+   "compared_norm_share": 0.0011354124813392236
+  },
+  "10": {
+   "tensors": 57,
+   "squared_norm": 0.012504272108851877,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.012503932773750195,
+   "norm_share": 0.0008186197337195788,
+   "compared_norm_share": 0.0008185975183992337
+  },
+  "11": {
+   "tensors": 57,
+   "squared_norm": 0.01920302740391812,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.019202933729611214,
+   "norm_share": 0.0012571685135416178,
+   "compared_norm_share": 0.001257162380946653
+  },
+  "12": {
+   "tensors": 57,
+   "squared_norm": 0.014042840072253157,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.014042388259365712,
+   "norm_share": 0.0009193454765333023,
+   "compared_norm_share": 0.0009193158976068049
+  },
+  "13": {
+   "tensors": 57,
+   "squared_norm": 0.015332143705651155,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.015331946675953374,
+   "norm_share": 0.0010037525805908663,
+   "compared_norm_share": 0.0010037396816074365
+  },
+  "14": {
+   "tensors": 57,
+   "squared_norm": 0.016161403674946995,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.016160495149566526,
+   "norm_share": 0.0010580419122160718,
+   "compared_norm_share": 0.0010579824335995986
+  },
+  "15": {
+   "tensors": 57,
+   "squared_norm": 0.012682713240193816,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.012682571947245867,
+   "norm_share": 0.0008303017756770911,
+   "compared_norm_share": 0.0008302925256228361
+  },
+  "16": {
+   "tensors": 57,
+   "squared_norm": 0.014864826656472289,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.014864707064619504,
+   "norm_share": 0.0009731586399735144,
+   "compared_norm_share": 0.0009731508106292847
+  },
+  "17": {
+   "tensors": 57,
+   "squared_norm": 0.0307262224116866,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.03072589656421339,
+   "norm_share": 0.0020115598724900876,
+   "compared_norm_share": 0.002011538540167068
+  },
+  "18": {
+   "tensors": 57,
+   "squared_norm": 0.009750838965451546,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.009748251669640693,
+   "norm_share": 0.0006383601642665592,
+   "compared_norm_share": 0.0006381907812437573
+  },
+  "19": {
+   "tensors": 57,
+   "squared_norm": 0.012454785405734723,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.012454549994534212,
+   "norm_share": 0.0008153799776285588,
+   "compared_norm_share": 0.0008153645659154579
+  },
+  "20": {
+   "tensors": 57,
+   "squared_norm": 0.015118693695989107,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.0151186026615835,
+   "norm_share": 0.0009897786052526065,
+   "compared_norm_share": 0.0009897726454845984
+  },
+  "21": {
+   "tensors": 57,
+   "squared_norm": 0.010746441790692183,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.010743296214751893,
+   "norm_share": 0.0007035394975851288,
+   "compared_norm_share": 0.0007033335655231728
+  },
+  "22": {
+   "tensors": 57,
+   "squared_norm": 0.013034083574644114,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.013005631730152829,
+   "norm_share": 0.000853305009061707,
+   "compared_norm_share": 0.0008514423463526318
+  },
+  "23": {
+   "tensors": 57,
+   "squared_norm": 0.010246748563622923,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.010246595900542813,
+   "norm_share": 0.0006708259791232793,
+   "compared_norm_share": 0.000670815984698262
+  },
+  "24": {
+   "tensors": 57,
+   "squared_norm": 0.009531078721780018,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.009530892923415482,
+   "norm_share": 0.0006239730755507606,
+   "compared_norm_share": 0.0006239609118513164
+  },
+  "25": {
+   "tensors": 57,
+   "squared_norm": 0.0114446084285171,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.01143565437929364,
+   "norm_share": 0.0007492465153285714,
+   "compared_norm_share": 0.0007486603187609334
+  },
+  "26": {
+   "tensors": 57,
+   "squared_norm": 0.008003846853806094,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.00800373170982787,
+   "norm_share": 0.000523989475209576,
+   "compared_norm_share": 0.0005239819370552578
+  },
+  "27": {
+   "tensors": 57,
+   "squared_norm": 0.007403792823387871,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.007403612059724794,
+   "norm_share": 0.000484705615555675,
+   "compared_norm_share": 0.00048469378146405846
+  },
+  "28": {
+   "tensors": 57,
+   "squared_norm": 0.011332570234440615,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.011332442922275211,
+   "norm_share": 0.0007419116880149217,
+   "compared_norm_share": 0.0007419033532434105
+  },
+  "29": {
+   "tensors": 57,
+   "squared_norm": 0.00917171053079841,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.00917165211399488,
+   "norm_share": 0.0006004462448606005,
+   "compared_norm_share": 0.0006004424204758034
+  },
+  "30": {
+   "tensors": 57,
+   "squared_norm": 0.012845804611880715,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.012845761964120449,
+   "norm_share": 0.0008409789117870593,
+   "compared_norm_share": 0.0008409761197574354
+  },
+  "31": {
+   "tensors": 57,
+   "squared_norm": 0.013117882475844606,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.01311779804406075,
+   "norm_share": 0.0008587910888262523,
+   "compared_norm_share": 0.0008587855613134297
+  },
+  "32": {
+   "tensors": 57,
+   "squared_norm": 0.010086040007906721,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.010084862808642623,
+   "norm_share": 0.0006603048393126923,
+   "compared_norm_share": 0.0006602277713682553
+  },
+  "33": {
+   "tensors": 57,
+   "squared_norm": 0.01249342472814643,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.012491025912171754,
+   "norm_share": 0.0008179095860334642,
+   "compared_norm_share": 0.0008177525422585578
+  },
+  "34": {
+   "tensors": 57,
+   "squared_norm": 0.012335840638292789,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.012334423552674006,
+   "norm_share": 0.0008075929962670669,
+   "compared_norm_share": 0.0008075002236336974
+  },
+  "35": {
+   "tensors": 57,
+   "squared_norm": 0.013600965090774336,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.013600915454550591,
+   "norm_share": 0.0008904171569536711,
+   "compared_norm_share": 0.0008904139074088827
+  },
+  "36": {
+   "tensors": 57,
+   "squared_norm": 0.009131656574745399,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.009130852942257604,
+   "norm_share": 0.0005978240243464355,
+   "compared_norm_share": 0.0005977714127743712
+  },
+  "37": {
+   "tensors": 57,
+   "squared_norm": 0.01441646765266369,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.014416292014696195,
+   "norm_share": 0.0009438058295809171,
+   "compared_norm_share": 0.0009437943310542593
+  },
+  "38": {
+   "tensors": 57,
+   "squared_norm": 0.014634633693830605,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.014632662286149005,
+   "norm_share": 0.0009580885503160399,
+   "compared_norm_share": 0.0009579594877670714
+  },
+  "39": {
+   "tensors": 57,
+   "squared_norm": 0.017663370241001074,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.01766031519466185,
+   "norm_share": 0.0011563714638809382,
+   "compared_norm_share": 0.0011561714585388483
+  },
+  "40": {
+   "tensors": 57,
+   "squared_norm": 0.03940973760071761,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.0394089739139586,
+   "norm_share": 0.0025800453332921057,
+   "compared_norm_share": 0.002579995336855219
+  },
+  "41": {
+   "tensors": 57,
+   "squared_norm": 0.014807878752954586,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.014806956425998203,
+   "norm_share": 0.0009694304199533704,
+   "compared_norm_share": 0.0009693700377863108
+  },
+  "42": {
+   "tensors": 57,
+   "squared_norm": 0.025456058110104027,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.025454099388091407,
+   "norm_share": 0.001666536950750736,
+   "compared_norm_share": 0.0016664087186970473
+  },
+  "43": {
+   "tensors": 57,
+   "squared_norm": 0.014642765606318478,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.014636843826242512,
+   "norm_share": 0.0009586209238902475,
+   "compared_norm_share": 0.0009582332415056405
+  },
+  "44": {
+   "tensors": 57,
+   "squared_norm": 0.04605787926101912,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.044401809010278306,
+   "norm_share": 0.0030152805799589957,
+   "compared_norm_share": 0.0029068622909229906
+  },
+  "45": {
+   "tensors": 57,
+   "squared_norm": 0.011516026414499362,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.011429271372716007,
+   "norm_share": 0.0007539220511901271,
+   "compared_norm_share": 0.0007482424411668259
+  },
+  "46": {
+   "tensors": 57,
+   "squared_norm": 0.07590388985469237,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.07546131308130043,
+   "norm_share": 0.004969215445746868,
+   "compared_norm_share": 0.004940241181812855
+  },
+  "47": {
+   "tensors": 57,
+   "squared_norm": 0.027431858796515416,
+   "compared_tensors": 53,
+   "compared_squared_norm": 0.026967496295241287,
+   "norm_share": 0.0017958870974616398,
+   "compared_norm_share": 0.0017654865828348602
+  }
+ },
+ "unreached_by_device_bijection": {
+  "tensors": 602,
+  "squared_norm": 0.30405390429276896,
+  "norm_share": 0.019905558996300414,
+  "by_top_level": {
+   "input_embedder": {
+    "tensors": 93,
+    "squared_norm": 0.17932909759435003,
+    "share": 0.01174017462535357
+   },
+   "diffusion_module": {
+    "tensors": 189,
+    "squared_norm": 0.11357305394864017,
+    "share": 0.007435310298097138
+   },
+   "pairformer_stack": {
+    "tensors": 240,
+    "squared_norm": 0.010805006030501182,
+    "share": 0.0007073735346230779
+   },
+   "msa_module": {
+    "tensors": 32,
+    "squared_norm": 0.0003398236350043162,
+    "share": 2.224730325581465e-05
+   },
+   "template_embedder": {
+    "tensors": 28,
+    "squared_norm": 6.922631892107289e-06,
+    "share": 4.532053546838456e-07
+   },
+   "aux_heads": {
+    "tensors": 20,
+    "squared_norm": 4.523811345097725e-10,
+    "share": 2.961612804395008e-11
+   }
+  },
+  "top_20": [
+   {
+    "tensor": "input_embedder.atom_attn_enc.linear_q.0.weight",
+    "squared_norm": 0.15773254568803324,
+    "share": 0.010326308754800837
+   },
+   {
+    "tensor": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+    "squared_norm": 0.022413633822055058,
+    "share": 0.001467357939060682
+   },
+   {
+    "tensor": "diffusion_module.diffusion_transformer.layer_norm_z.weight",
+    "squared_norm": 0.017292001157333665,
+    "share": 0.0011320589683004648
+   },
+   {
+    "tensor": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+    "squared_norm": 0.0123044653242052,
+    "share": 0.0008055389421773795
+   },
+   {
+    "tensor": "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_v.weight",
+    "squared_norm": 0.007320885726607124,
+    "share": 0.0004792779197330551
+   },
+   {
+    "tensor": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+    "squared_norm": 0.006998565674431215,
+    "share": 0.0004581765271059755
+   },
+   {
+    "tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_o.weight",
+    "squared_norm": 0.0059941654345194665,
+    "share": 0.0003924212516459686
+   },
+   {
+    "tensor": "pairformer_stack.blocks.47.attn_pair_bias.linear_z.weight",
+    "squared_norm": 0.005771236570379004,
+    "share": 0.00037782672220735506
+   },
+   {
+    "tensor": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_v.weight",
+    "squared_norm": 0.005399381924573588,
+    "share": 0.0003534824382313109
+   },
+   {
+    "tensor": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+    "squared_norm": 0.005097173759904902,
+    "share": 0.00033369771464761424
+   },
+   {
+    "tensor": "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_q.weight",
+    "squared_norm": 0.004109565127771607,
+    "share": 0.00026904173880046447
+   },
+   {
+    "tensor": "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_v.weight",
+    "squared_norm": 0.0035039317879170407,
+    "share": 0.00022939261735720388
+   },
+   {
+    "tensor": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+    "squared_norm": 0.002030149072295039,
+    "share": 0.0001329081835796526
+   },
+   {
+    "tensor": "pairformer_stack.blocks.44.attn_pair_bias.linear_z.weight",
+    "squared_norm": 0.0016256060226884372,
+    "share": 0.00010642388120169753
+   },
+   {
+    "tensor": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+    "squared_norm": 0.0016015211546877457,
+    "share": 0.00010484711223363902
+   },
+   {
+    "tensor": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+    "squared_norm": 0.0016014458977739586,
+    "share": 0.0001048421853739075
+   },
+   {
+    "tensor": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_q.weight",
+    "squared_norm": 0.0015387848596576815,
+    "share": 0.0001007399424052003
+   },
+   {
+    "tensor": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+    "squared_norm": 0.0013975804182228338,
+    "share": 9.149568242419847e-05
+   },
+   {
+    "tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_o.weight",
+    "squared_norm": 0.0013221488265155973,
+    "share": 8.655738701764627e-05
+   },
+   {
+    "tensor": "diffusion_module.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_out.weight",
+    "squared_norm": 0.0013171845838456258,
+    "share": 8.62323919297887e-05
+   }
+  ]
+ },
+ "largest_single_tensors": [
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "squared_norm": 1.9902808831969192,
+   "share": 0.13029812470863036,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.bias",
+   "squared_norm": 1.5909813383463063,
+   "share": 0.10415709992650324,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.bias",
+   "squared_norm": 0.9771309080854661,
+   "share": 0.06397002854887009,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.11.conditioned_transition.layer_norm.layer_norm_s.weight",
+   "squared_norm": 0.7829819840703449,
+   "share": 0.051259641323156205,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.6.conditioned_transition.layer_norm.layer_norm_s.weight",
+   "squared_norm": 0.596604216279218,
+   "share": 0.039058009967708134,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "aux_heads.distogram.linear.weight",
+   "squared_norm": 0.5445855632956266,
+   "share": 0.03565249419812299,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "diffusion_module.atom_attn_enc.noisy_position_embedder.linear_s.weight",
+   "squared_norm": 0.5416688206404432,
+   "share": 0.03546154321153781,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "diffusion_module.diffusion_conditioning.layer_norm_s.weight",
+   "squared_norm": 0.5199593410321773,
+   "share": 0.03404028428007803,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.9.conditioned_transition.layer_norm.layer_norm_s.weight",
+   "squared_norm": 0.4579911664854701,
+   "share": 0.0299834011520627,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.weight",
+   "squared_norm": 0.3893334792359699,
+   "share": 0.025488574330899686,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.weight",
+   "squared_norm": 0.3298458197051586,
+   "share": 0.021594083585593515,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.4.conditioned_transition.layer_norm.layer_norm_s.weight",
+   "squared_norm": 0.3033924886991405,
+   "share": 0.019862257966666644,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "squared_norm": 0.26054561874624577,
+   "share": 0.017057193188307732,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "squared_norm": 0.25076386409248014,
+   "share": 0.01641680906036579,
+   "reached_by_device_bijection": true
+  },
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.4.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "squared_norm": 0.24770073517334798,
+   "share": 0.016216274574367712,
+   "reached_by_device_bijection": true
+  }
+ ]
+}
