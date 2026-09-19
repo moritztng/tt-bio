@@ -105,8 +105,16 @@ What is verified, and at what scope — the full table is `~/.coworker/state/of3
   against a 1e-06 bar.
 - **Module scope only**: gradients against finite-difference-validated float64 references
   (8.71e-03 to 2.00e-02), and a 20-step trajectory whose divergence *decays*, exponent -0.465.
-- **Not run at all**: the whole-model per-parameter comparison, the whole-model trajectory,
-  coverage, their own training test, and any s/step figure at any clock.
+- **Stack scope, and it FAILS**: every pair-track sub-module passes alone (0.0092 to 0.0172
+  against a 0.05 bar) while the assembled block reads **4.3e-01 to 1.4e+00**. Passing parts do
+  not compose into a passing block, and every earlier result on this branch is module-scope.
+- **Not run at all**: the whole-model per-parameter comparison against the frozen bundle, the
+  whole-model trajectory, coverage, their own training test, and any s/step figure at any clock.
+
+One number a reviewer should carry away about method: turning `fp32_softmax` off moves the
+triangle-attention weight gradient **3.2x** (1.449e-01 to 5.239e-02) while moving the forward
+**12 %**. A forward comparison cannot see that class of error, which is why this campaign
+separates the two instruments and does not let a forward reading stand in for a gradient one.
 
 Our clipping is not theirs: their global norm **excludes disabled parameters** and ours does
 not (clip 0.108 against 0.662 on a measured case, and their runner disables the confidence head
