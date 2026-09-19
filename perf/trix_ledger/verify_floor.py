@@ -72,7 +72,7 @@ def main():
           f"2.16 * 1.16 = {2.16*1.16:.2f}x")
 
 
-if __name__ == "__main__" and not (set(__import__("sys").argv) & {"--carryout", "--ceiling"}):
+if __name__ == "__main__" and not (set(__import__("sys").argv) & {"--carryout", "--ceiling", "--floors"}):
     main()
 
 
@@ -170,3 +170,54 @@ def ceiling():
 
 if __name__ == "__main__" and "--ceiling" in __import__("sys").argv:
     ceiling()
+
+
+# ---------------------------------------------------------------------------
+# THREE floors, not one. `trix-floor` and `trix-radical` disagreed, and the disagreement is real
+# and useful: they answer different questions and only one of them is "compulsory".
+#
+#   compulsory        what ANY correct implementation must do        -> 3Z, COMPUTE-bound
+#   shipped-dataflow  the best TODAY's schedule could do at roof     -> 8Z, BYTE-bound
+#   achievable        today's schedule at today's kernel class rates -> trix-floor's 5.715 ms
+#
+# Run: python3 verify_floor.py --floors
+# ---------------------------------------------------------------------------
+
+DRAM_COMBINED_ROOF = 410.3e9
+ACHIEVABLE_MS = 5.715                      # trix-floor, today's dataflow at today's kernel rates
+
+
+def floors():
+    flops = 12 * N * N * CZ * CZ + 2 * N**3 * CZ      # trix-radical's closed form
+    Z = z_bytes()
+    t_arith = flops / 123.65e12 * 1e3
+    print(f"arithmetic  12N^2D^2 + 2N^3D = {flops/1e9:.3f} GFLOP"
+          f"   (leg-by-leg derivation agrees exactly)")
+    print(f"Z = N^2 * D * 2 B = {Z/1e6:.3f} MB;  arithmetic at the measured roof = {t_arith:.3f} ms\n")
+    for name, zn, note in (
+        ("COMPULSORY       ", 3, "z read twice, answer written once. 2Z is unreachable: reading z "
+                                 "once forces a, b\n                     and the output gate "
+                                 "simultaneously live = 3Z residency against a 134.1 MB L1\n"
+                                 "                     ceiling, and even bfp8_b is 213.9 MB -- so "
+                                 "the bound does not depend on precision."),
+        ("SHIPPED-DATAFLOW ", 8, "what today's schedule actually moves. trix-floor called this "
+                                 "compulsory; it is the\n                     floor OF THIS "
+                                 "DATAFLOW, which is a different and also useful question."),
+    ):
+        t_b = zn * Z / DRAM_COMBINED_ROOF * 1e3
+        binds = "BYTES" if t_b > t_arith else "COMPUTE"
+        print(f"{name} {zn}Z = {zn*Z/1e6:7.1f} MB -> {t_b:.3f} ms traffic; {binds}-bound; "
+              f"floor {max(t_b, t_arith):.3f} ms")
+        print(f"                     {note}\n")
+    print(f"ACHIEVABLE        {ACHIEVABLE_MS:.3f} ms -- today's dataflow at today's kernel class rates\n")
+    print(f"byte headroom at the compulsory floor: {t_arith/(3*Z/DRAM_COMBINED_ROOF*1e3):.2f}x")
+    print("=> TODAY'S IMPLEMENTATION IS BYTE-LIMITED; A PERFECT ONE WOULD BE COMPUTE-LIMITED.")
+    print("   The gap between them is exactly the 8Z -> 3Z traffic collapse.\n")
+    for lbl, fl in (("compulsory 2.223", 2.223), ("shipped-dataflow 2.648", 2.648)):
+        f_s = fl * 1e-3 * TRIMUL_CALLS
+        print(f"  ceiling with the {lbl} ms floor: trimul at floor = {f_s:.3f} s "
+              f"-> {FOLD_S/(FOLD_S-MODULE_INFOLD_S+f_s):.4f}x on the fold")
+
+
+if __name__ == "__main__" and "--floors" in __import__("sys").argv:
+    floors()
