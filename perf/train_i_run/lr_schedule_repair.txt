@@ -1,0 +1,59 @@
+LR SCHEDULE REPAIR -- 2026-09-19, train-i-run, qb2 pair (2,3)
+============================================================
+
+WHAT WAS WRONG
+  params.yaml optimiser: carries six keys. RECIPE (tt_bio/train/abodybuilder3_step.py) carried
+  lr and weight_decay and dropped T_0: 50, T_mult: 1, eta_min: 0 -- the
+  CosineAnnealingWarmRestarts that src/abodybuilder3/lightning_module.py:144 builds on the
+  RAdam branch at "interval": "epoch". Nothing wrapped the optimizer's lr, so the run held a
+  constant 5e-4 from step 1.
+
+WHAT IT COST, measured over the 551 steps that ran before the repair
+  Integral of the constant lr over the cosine's, steps 1..N:
+    N =   377   1.002676
+    N =   551   1.005730   <- what this leg actually ran at
+    N = 2,000   1.077729
+    N = 5,000   1.550241
+    full 193,512-step schedule   1.9815
+  Instantaneous ratio at step 2,000 is 1.266. Both quantities appear in the brief; the integral
+  is the one that says what was lost.
+  0.573 % over 551 steps is inside the cheap window the brief named.
+
+THE FIX
+  abb3_run.CosineRestartsByStep installs torch's own CosineAnnealingWarmRestarts (upstream's
+  class, not a re-derivation) and samples it at the fractional epoch (global_step - 1)/132.
+  Fractional rather than upstream's 50-value per-epoch staircase, because it makes the lr a
+  pure function of the global step: a resume lands where the step index says and no scheduler
+  state has to survive in the checkpoint. With 9-47 watchdog resets expected over this run, a
+  call-counted scheduler would restart at the top of the cosine every time.
+  132 steps/epoch = 8,395 structures at global batch 64 with the short final batch kept, and
+  132 x 1466 = 193,512, upstream's released global_step.
+
+THE RESUME, 2026-09-19 03:53Z
+  Killed on the checkpoint: step-000000551.safetensors written 03:53:07Z, supervisor and both
+  ranks SIGKILLed by explicit pid at 03:53:30Z, rendezvous cleared, relaunched 03:53:51Z from
+  scripts/abb3_port/launch_base_loss.sh with no argument changed.
+  Deadline untouched: [sup] grant 5.0 days, ends 2026-09-24T01:52:58Z. One step lost.
+
+  step 552 before the repair   loss 5.232002258300781   digest 9b9ea53730052005da2d7cbd65a8ee8e
+  step 552 after  the repair   loss 5.232002258300781   digest 1266e7c3941b3b9ed1b8ab7c6d47d15b
+
+  The loss is identical to the last bit and the digest is not, which is exactly the expected
+  signature: the forward ran on the restored step-551 weights, and only the update that follows
+  it saw a different lr. Both ranks returned 1266e7c3941b, so the resume restored both.
+
+THE ASSERTION
+  lr logged at step 552   0.0004914506298222625
+  float64 reference       0.0004914506298222625   = 5e-4 * (1 + cos(pi * (551/132)/50)) / 2
+  lr logged at step 553   0.000491419748365597
+  float64 reference       0.000491419748365597
+  Every history row now carries lr and grad_norm, runs/base-loss/schedule.json records the
+  schedule the run drove, and heartbeat.py re-evaluates the cosine from it: a row off the
+  schedule by more than 1e-9 is an INCIDENT and exit 1.
+
+CLOCK
+  AICLK 1350 MHz on both run nodes, sampled DURING the resumed run, 40 samples each:
+    node 2  median 1350  min 1350  max 1350
+    node 3  median 1350  min 1350  max 1350
+  (nodes 0 and 1 are a co-tenant's, median 1350 / min 1312 and 1337.)
+  First 7 warm steps after the resume: wall median 11.800 s, min 9.996, max 12.360.
