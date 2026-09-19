@@ -1,4 +1,4 @@
-From 1cd3b814d9e3e8b866072033e7fec5dc650a63f8 Mon Sep 17 00:00:00 2001
+From e9f1f239552e45dde5d9169095c4a8b033694ace Mon Sep 17 00:00:00 2001
 From: moritztng <moritz.thuening@gmail.com>
 Date: Sat, 19 Sep 2026 05:13:58 +0000
 Subject: [PATCH] [matmul] 1D mcast_in1: issue the output write from the in0
@@ -32,20 +32,20 @@ torch.equal against the shipped program over seven shapes covering the H and W p
 1x1 grid where the mcast sender core is the whole output, and batch > 1 with fuse_batch off:
 7/7 identical, max abs diff 0.
 ---
- .../operations/matmul/test_matmul.py          |  78 ++++++++++
+ .../operations/matmul/test_matmul.py          |  76 +++++++++
  ...lticore_reuse_mcast_1d_program_factory.cpp |  67 ++++++++
  .../dataflow/matmul_out_writer_in0.hpp        | 146 ++++++++++++++++++
  ...der_bmm_tile_layout_in0_sender_padding.cpp |  35 +++++
  ...ile_layout_in1_receiver_writer_padding.cpp |   2 +-
  ..._tile_layout_in1_sender_writer_padding.cpp |   2 +-
- 6 files changed, 328 insertions(+), 2 deletions(-)
+ 6 files changed, 326 insertions(+), 2 deletions(-)
  create mode 100644 ttnn/cpp/ttnn/operations/matmul/device/kernels/dataflow/matmul_out_writer_in0.hpp
 
 diff --git a/tests/ttnn/unit_tests/operations/matmul/test_matmul.py b/tests/ttnn/unit_tests/operations/matmul/test_matmul.py
-index 0f90760c568..f4b4bd0da53 100644
+index 0f90760c568..4573b5bf597 100644
 --- a/tests/ttnn/unit_tests/operations/matmul/test_matmul.py
 +++ b/tests/ttnn/unit_tests/operations/matmul/test_matmul.py
-@@ -1560,6 +1560,84 @@ def test_matmul_1d_multiple_output_blocks_per_core(
+@@ -1560,6 +1560,82 @@ def test_matmul_1d_multiple_output_blocks_per_core(
      assert device.cache_entries_counter.total == 1
  
  
@@ -114,9 +114,7 @@ index 0f90760c568..f4b4bd0da53 100644
 +
 +    outputs = []
 +    for _ in range(2):
-+        out_t = ttnn.matmul(
-+            in0_t, in1_t, program_config=program_config, compute_kernel_config=compute_kernel_config
-+        )
++        out_t = ttnn.matmul(in0_t, in1_t, program_config=program_config, compute_kernel_config=compute_kernel_config)
 +        outputs.append(ttnn.to_torch(out_t))
 +        ttnn.deallocate(out_t)
 +
