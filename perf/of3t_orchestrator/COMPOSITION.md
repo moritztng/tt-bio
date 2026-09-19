@@ -134,6 +134,22 @@ does block any claim about validation metrics or about matching a published chec
 **The honest status: the state-free half of OpenFold3's update rule is verified, and the
 model-dependent half is verified only on single modules.**
 
+## The hard bound on this branch, measured
+
+**The taped trunk does not fit L1 at crop 384 — the smallest crop OpenFold3's own recipe
+trains at — and no shipped placement flag moves it.** At program creation in
+`triangle_multiplication_start`'s `minimal_matmul`, statically allocated circular buffers clash
+with L1 buffers: L1 buffer at 884736 against a static CB region ending at 1159680, on qb2 p300c
+at crop 384 batch 1. `TT_BIO_RESIDUAL_L1=0` reproduces the **identical** clash at the same
+addresses, and three further flags leave it unchanged.
+
+The mechanism is the one the Protenix campaign already paid for — the tape keeps what the
+forward frees — but there it inverted L1-placement levers into slowdowns, and here it is a hard
+failure, on `TriangleMultiplication` rather than the Transition.
+
+**So this branch does not train OpenFold3 at any crop upstream trains at.** Everything below
+about what it fixes and verifies is true and is bounded by that.
+
 ## What this branch fixes, and what it has found but not fixed
 
 `~/.coworker/state/of3t/DEFECTS.md` is the full list with attribution and measurements. In
