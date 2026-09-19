@@ -128,3 +128,74 @@ def test_the_binned_curve_names_the_stage_timers_as_seconds(tmp_path):
     assert state["curve"][0]["fape_backbone_s"] == 0.5
     assert "fape_backbone" not in state["curve"][0], (
         "an unsuffixed name is the one a reader mistakes for a loss component")
+
+
+# ------------------------------------------------ the pre-registered degeneracy bar
+
+BAR = REPO / "perf" / "train_i_run" / "degeneracy_bar.json"
+
+
+def _bar() -> dict:
+    return json.loads(BAR.read_text())
+
+
+def _leg(path: Path, last: int, loss: float, fbb: float):
+    """A history sitting at one point, long enough to fill the bar's window."""
+    _write(path, [dict(_row(k, 1000.0 + 12.0 * k, loss=loss), final_output_backbone=fbb,
+                       fape=2.54, supervised_chi=0.5) for k in range(1, last + 1)])
+
+
+def test_the_bar_is_written_before_the_reading_and_says_what_it_is_not():
+    """A bar chosen by someone who can see the curve is not a bar, so this one is a file."""
+    bar = _bar()
+    assert bar["check_steps"] == [1935, 3870] and bar["window"] == 200
+    assert set(bar["terms"]) == {"final_output_backbone", "loss"}
+    for term, refs in bar["terms"].items():
+        assert refs["leg2_step_75_174"] < refs["void_leg"], (
+            f"{term}: the leg-2 reference is not below the void one, so the bar would be "
+            "satisfied by sitting still")
+    assert "not an accuracy bar" in bar["_not_an_accuracy_bar"].lower() or \
+        "says nothing about CDR-H3" in bar["_not_an_accuracy_bar"]
+
+
+def test_a_run_parked_at_the_void_coordinates_fails_the_bar(tmp_path):
+    """The failure this whole check exists for, and the campaign has had it once already."""
+    bar = _bar()
+    _leg(tmp_path / "history-rank0.jsonl", 1935,
+         loss=bar["terms"]["loss"]["void_leg"],
+         fbb=bar["terms"]["final_output_backbone"]["void_leg"])
+    got = _curve(tmp_path)["degeneracy"]
+    at = {e["step"]: e for e in got}
+    assert at[1935]["verdict"] == "FAIL"
+    assert at[3870]["verdict"] == "NOT-REACHED"
+    against = at[1935]["terms"]["final_output_backbone"]["against"]
+    assert against["void_leg"]["ok"] is False and against["leg2_step_75_174"]["ok"] is False
+
+
+def test_a_run_below_both_references_passes_it(tmp_path):
+    """The control. Same file, same window, only the coordinates moved."""
+    bar = _bar()
+    _leg(tmp_path / "history-rank0.jsonl", 1935,
+         loss=bar["terms"]["loss"]["leg2_step_75_174"] - 0.5,
+         fbb=bar["terms"]["final_output_backbone"]["leg2_step_75_174"] - 0.5)
+    at = {e["step"]: e for e in _curve(tmp_path)["degeneracy"]}
+    assert at[1935]["verdict"] == "PASS"
+
+
+def test_a_run_that_has_not_reached_the_check_step_reports_that_and_not_a_pass(tmp_path):
+    """A bar that reads PASS because the run has not got there yet is worse than no bar."""
+    _leg(tmp_path / "history-rank0.jsonl", 300, loss=1.0, fbb=1.0)
+    at = {e["step"]: e for e in _curve(tmp_path)["degeneracy"]}
+    assert at[1935]["verdict"] == "NOT-REACHED" and at[1935]["last_step"] == 300
+
+
+def test_the_binned_curve_carries_the_loss_components_the_docstring_promises(tmp_path):
+    """`a total that falls while one term climbs is a different result` -- and until this pass
+    the only per-term columns in the report were the stage TIMERS. `fape` is flat at 2.54 on
+    this leg while `final_output_backbone` falls, which is exactly the shape that sentence is
+    about, and it was not on the page."""
+    _leg(tmp_path / "history-rank0.jsonl", 40, loss=4.7, fbb=3.3)
+    row = _curve(tmp_path)["curve"][0]
+    for k in ("fape", "supervised_chi", "final_output_backbone"):
+        assert k in row and row[k] is not None, f"{k} is a loss and is missing from the curve"
+        assert k + "_s" not in row, f"{k} is not a stage timer and must not carry the _s suffix"

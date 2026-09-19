@@ -44,6 +44,59 @@ WARM_AFTER = 4
 #: step seen on this leg is 27.7 s across a checkpoint write; a restart is ~3 minutes.
 GAP_SECONDS = 120.0
 
+#: The loss terms that are LOSSES, in the weighting recovered from the run's own rows:
+#: ``loss = fape + supervised_chi + 0.5 * final_output_backbone``. `loss_terms` is per-stage
+#: wall clock and its columns carry an `_s` suffix; these do not, because they are the thing
+#: the docstring above promises beside the total and they were missing from it.
+LOSS_PARTS = ("fape", "supervised_chi", "final_output_backbone")
+
+#: Pre-registered before the reading exists, and committed so its timestamp is git's.
+DEGENERACY_BAR = REPO / "perf/train_i_run/degeneracy_bar.json"
+
+
+def degeneracy(rows: list, bar: dict) -> list:
+    """Is the run still measurably away from the coordinates a model that trains nothing sits at?
+
+    The first leg of this reproduction ran 1,451 steps on an all-zero init in which 356 of 436
+    parameters had an identically zero gradient. It therefore MEASURED the degenerate point,
+    which is the one thing a campaign usually has to guess at, and it sat there from step 1 to
+    step 1,451 with a plausible loss and a plausible gradient norm. This check asks whether the
+    repaired leg is below that point by more than the noise, at step numbers fixed in the bar
+    file before any reading existed.
+
+    It is not an accuracy bar and cannot be read as one. The accuracy bars are the 3 % and 10 %
+    CDR-H3 tripwires. This one only refuses the failure the campaign has already seen once.
+    """
+    out = []
+    by_step = {r["step"]: r for r in rows}
+    last = max(by_step) if by_step else 0
+    for check in bar["check_steps"]:
+        lo, hi = check - bar["window"] + 1, check
+        if last < hi:
+            out.append({"step": check, "verdict": "NOT-REACHED", "last_step": last})
+            continue
+        entry = {"step": check, "window": [lo, hi], "terms": {}, "verdict": "PASS"}
+        for term, refs in bar["terms"].items():
+            vals = [by_step[k][term] for k in range(lo, hi + 1)
+                    if k in by_step and by_step[k].get(term) is not None]
+            if len(vals) < 2:
+                entry["terms"][term] = {"verdict": "NO-DATA", "n": len(vals)}
+                entry["verdict"] = "NO-DATA"
+                continue
+            mean = statistics.fmean(vals)
+            se = statistics.stdev(vals) / (len(vals) ** 0.5)
+            need = bar["margin_standard_errors"] * se
+            t = {"mean": mean, "se": se, "n": len(vals), "margin": need, "against": {}}
+            for name, ref in refs.items():
+                ok = mean < ref - need
+                t["against"][name] = {"reference": ref, "ok": ok,
+                                      "below_by": ref - mean, "need": need}
+                if not ok:
+                    entry["verdict"] = "FAIL"
+            entry["terms"][term] = t
+        out.append(entry)
+    return out
+
 
 def dedupe(rows: list) -> tuple:
     """One row per step, plus what the replayed copies say about the resumes.
@@ -111,6 +164,7 @@ def bins(rows: list, n: int) -> list:
     lo, hi = rows[0]["step"], rows[-1]["step"]
     width = max((hi - lo + 1) / n, 1.0)
     terms = sorted({k for r in rows for k in (r.get("loss_terms") or {})})
+    parts = [k for k in LOSS_PARTS if any(r.get(k) is not None for r in rows)]
     out: list = []
     for r in rows:
         idx = min(int((r["step"] - lo) / width), n - 1)
@@ -124,7 +178,7 @@ def bins(rows: list, n: int) -> list:
             continue
         row = {"step_from": rs[0]["step"], "step_to": rs[-1]["step"], "n": len(rs),
                "loss": statistics.fmean(r["loss"] for r in rs)}
-        for key in ("lr", "grad_norm"):
+        for key in (*parts, "lr", "grad_norm"):
             vals = [r[key] for r in rs if r.get(key) is not None]
             row[key] = statistics.fmean(vals) if vals else None
         for t in terms:
@@ -143,6 +197,8 @@ def main() -> int:
     ap.add_argument("--bins", type=int, default=40)
     ap.add_argument("--csv", help="write the binned curve here as well")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--bar", default=str(DEGENERACY_BAR),
+                    help="pre-registered degeneracy bar; empty string skips the check")
     args = ap.parse_args()
 
     from tt_bio.train import deadline as deadline_mod
@@ -187,6 +243,8 @@ def main() -> int:
         if realized else None,
         "curve": bins(rows, args.bins),
     }
+    bar = json.loads(Path(args.bar).read_text()) if args.bar and Path(args.bar).is_file() else None
+    state["degeneracy"] = degeneracy(rows, bar) if bar else None
     if args.csv and state["curve"]:
         with open(args.csv, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=list(state["curve"][0]))
@@ -223,6 +281,21 @@ def main() -> int:
     print(f"  grant {state['remaining_hours']} h left, projected step at cap "
           f"{state['projected_step_at_cap']} at the clean cadence, "
           f"{state['projected_step_at_cap_realized']} at the realized rate")
+    for entry in state["degeneracy"] or []:
+        if entry["verdict"] == "NOT-REACHED":
+            print(f"  degeneracy bar @ {entry['step']}: not reached "
+                  f"(last step {entry['last_step']})")
+            continue
+        print(f"  degeneracy bar @ {entry['step']} over steps "
+              f"{entry['window'][0]}-{entry['window'][1]}: {entry['verdict']}")
+        for term, t in entry["terms"].items():
+            if t.get("verdict") == "NO-DATA":
+                print(f"    {term}: NO-DATA")
+                continue
+            for name, a in t["against"].items():
+                print(f"    {term} {t['mean']:.6f} vs {name} {a['reference']:.6f}: "
+                      f"{'below' if a['ok'] else 'NOT BELOW'} by {a['below_by']:+.6f} "
+                      f"(needs {a['need']:.6f})")
     head = state["curve"]
     if head:
         keys = [k for k in head[0] if k not in ("step_from", "step_to", "n")]

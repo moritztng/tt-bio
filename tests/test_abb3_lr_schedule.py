@@ -26,7 +26,8 @@ from pathlib import Path
 import pytest
 import torch
 
-from tt_bio.train.abb3_run import CosineRestartsByStep, _prune, scored_steps
+from tt_bio.train.abb3_run import (CosineRestartsByStep, GRADIENT_COVERAGE_STEPS,
+                                   RunConfig, _prune, run, scored_steps)
 from tt_bio.train.abodybuilder3_step import RECIPE
 from tt_bio.train.sharding import steps_per_epoch
 
@@ -173,10 +174,16 @@ class _FakeStep:
     history say so.
     """
 
-    def __init__(self, n=2, size=4, accumulate=16):
+    def __init__(self, n=2, size=4, accumulate=16, dead=()):
         from tt_bio.abodybuilder3 import Dropout
         self.mirror = [torch.zeros(size, size, requires_grad=True) for _ in range(n)]
-        self.params = []
+        #: Stands in for the device parameters. Only its length is read, by the coverage guard.
+        self.params = list(range(n))
+        #: Indices the fake hands no gradient, so the guard can be driven from a test.
+        self.dead = set(dead)
+        #: The contract `abb3_run.run` reads off a step every launch. A fake that omits it
+        #: passes every test of the schedule and crashes the loop it claims to check.
+        self.ungradiented: list = []
         self.optimizer = torch.optim.RAdam(self.mirror, lr=RECIPE["lr"],
                                            weight_decay=RECIPE["weight_decay"])
         self.dropout = Dropout.__new__(Dropout)
@@ -191,8 +198,11 @@ class _FakeStep:
     def step(self, micros):
         from tt_bio.train.abodybuilder3_step import StepTiming
         self.seen.append(float(self.optimizer.param_groups[0]["lr"]))
+        self.ungradiented = []
         for i, m in enumerate(self.mirror):
-            m.grad = torch.full(m.shape, 0.01 * (i + 1))
+            m.grad = torch.zeros(m.shape) if i in self.dead else torch.full(m.shape, 0.01 * (i + 1))
+            if not bool(torch.any(m.grad != 0)):
+                self.ungradiented.append(i)
         self.optimizer.step()
         return {"loss": 1.0}, StepTiming(micro_batches=len(micros))
 
@@ -238,6 +248,44 @@ def test_the_run_loop_drives_the_schedule_and_writes_it_into_every_row(tmp_path)
     spec = json.loads((tmp_path / "schedule.json").read_text())
     assert spec["steps_per_epoch"] == STEPS_PER_EPOCH
     assert CosineRestartsByStep.load(spec).set_step(6) == want[-1]
+
+
+def test_the_run_loop_stops_on_a_parameter_that_never_receives_a_gradient(tmp_path):
+    """The loop reads `step.ungradiented` every launch, and that read has to be exercised HERE.
+
+    `_assert_every_parameter_trains` has its own unit tests, but those call it with a set. The
+    defect it exists to catch reached 1,451 steps because the loop, not the function, is where
+    a dead parameter has to be noticed, and this test failed as an `AttributeError` when the
+    fake did not carry the attribute the loop reads: a stub that had fallen behind the
+    interface it stands in for.
+    """
+    step = _FakeStep(n=3, dead={1})
+    cfg = RunConfig(out_dir=tmp_path, steps=GRADIENT_COVERAGE_STEPS + 2, global_batch=64,
+                    micro_batch=4, rendezvous=tmp_path / "rv", checkpoint_minutes=1e6)
+    with pytest.raises(RuntimeError, match="received no gradient"):
+        run(step, _FakeData(), cfg, resume=False)
+    assert len(step.seen) == GRADIENT_COVERAGE_STEPS, (
+        "the guard fired at the wrong step: it intersects over "
+        f"{GRADIENT_COVERAGE_STEPS} steps and must stop on the last of them")
+
+
+def test_a_parameter_that_is_dead_on_one_step_only_does_not_stop_the_run(tmp_path):
+    """The control for the test above, and the transient the guard was rewritten for.
+
+    Upstream's `init="final"` zeroes each residual branch's output projection, so the weights
+    behind it have an exactly zero gradient on step 1 and a nonzero one from step 2. A guard
+    that read one step reported 218 of 500 here. The set is intersected across the first
+    steps, so one dead step is not a dead parameter.
+    """
+    step = _FakeStep(n=3, dead={1})
+
+    def revive(gs, row, st):
+        st.dead = set()
+
+    cfg = RunConfig(out_dir=tmp_path, steps=GRADIENT_COVERAGE_STEPS + 2, global_batch=64,
+                    micro_batch=4, rendezvous=tmp_path / "rv", checkpoint_minutes=1e6)
+    out = run(step, _FakeData(), cfg, resume=False, on_step=revive)
+    assert out["steps_done"] == GRADIENT_COVERAGE_STEPS + 2
 
 
 # ------------------------------- every key of the four training blocks has to land somewhere
