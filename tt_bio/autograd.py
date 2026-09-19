@@ -102,7 +102,7 @@ class Tensor:
     taped one may not.
     """
 
-    __slots__ = ("value", "grad", "requires_grad", "node", "pinned", "evictable")
+    __slots__ = ("value", "grad", "requires_grad", "node", "pinned", "evictable", "box")
 
     def __init__(self, value, requires_grad: bool = False):
         self.value = value
@@ -119,6 +119,17 @@ class Tensor:
         # CPython cannot collect). Second, a tensor that SHARES STORAGE with another taped
         # tensor, which `_tape` detects.
         self.evictable = True
+        # A one-slot box holding this tensor's own value, set by the few ops whose backward
+        # reads their OUTPUT -- softmax, sigmoid, relu, max. Those closures cannot hold the
+        # `Tensor`, because `out -> node -> fn -> out` is a cycle refcounting cannot collect
+        # and 96 of them is the difference between a backward that peaks at 8.92 GiB and one
+        # refused 2.4 GB. Holding the raw handle instead made the output UNEVICTABLE, so an
+        # L1-resident softmax score sat in L1 for the whole tape: at crop 256 the taped
+        # backward was refused 57 671 680 B of L1 inside the softmax backward itself, with
+        # exactly one L1 buffer live and that buffer being this one. A box is neither -- the
+        # closure reads `box[0]`, nothing holds the `Tensor`, and `free` writes the evicted
+        # handle back into the same box.
+        self.box = None
 
     @property
     def shape(self):
@@ -168,6 +179,8 @@ class Tensor:
             old = self.value
             self.value = ttnn.to_memory_config(old, ttnn.DRAM_MEMORY_CONFIG)
             ttnn.deallocate(old)
+            if self.box is not None:
+                self.box[0] = self.value
 
     def add_grad(self, grad) -> None:
         """Accumulate one contribution. A tensor read by k consumers gets k calls.
@@ -244,7 +257,13 @@ def backward(roots, seeds=None) -> None:
                 continue
             if g.dtype != t.value.dtype:
                 g = ttnn.typecast(g, t.value.dtype)
-            t.node.fn(g)
+            # A gradient inherits the forward's SHARD PLAN, and a backward is not planned
+            # against it. `ttnn.matmul` refuses a height-sharded operand B outright ("operand
+            # B can only be interleaved or L1 width sharded", measured at crop 384 in the
+            # matmul backward) and `ttnn.sum` refuses a plan with more shards than cores. One
+            # place rather than one per verb: the dispatch point is where every closure gets
+            # its gradient, so a verb added next week is covered without being asked.
+            t.node.fn(_unshard(g))
 
 
 def _reverse_topo(roots) -> list:
@@ -325,7 +344,52 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
         out.pinned = True
         for p in parents:
             p.pinned = True
+        _evict_read_parents(parents)
     return out
+
+
+def _evict_read_parents(parents: Sequence[Tensor]) -> None:
+    """Move every L1-resident intermediate this op has just read down to DRAM.
+
+    `free` is the tape's answer to `ttnn.deallocate`, and it only ever runs where the shipped
+    forward CALLS that verb. Most of a tuned forward does not: it lets an activation go out of
+    scope and the handle's destructor releases the buffer. Under a tape the wrapper is held by
+    the node graph, the raw handle never drops, and an L1-resident activation the forward
+    merely stopped using occupies its place for the rest of the tape.
+
+    Measured, and it is not the mechanism this was expected to be. At crop 384 the taped
+    backward threw "statically allocated circular buffers in program 413 clash with L1 buffers
+    ... L1 buffer allocated at 344064" inside a checkpoint recompute, with four taped tensors
+    holding L1. The one AT the clash address is a [20, 4, 384, 384] fp32 triangle-attention
+    score block, and its lifetime bits read `evictable=True, pinned=True` -- `free` would have
+    moved it and was never offered it (`perf/of3t_l1/out/seam_384_holders.json`). Two of the
+    other three are the non-evictable set, which is a separate defect and not this one.
+
+    So the trigger is the READ rather than the release: once a consumer has run, the forward's
+    reason for the tensor being in L1 is spent, and only the backward's reason to keep the
+    VALUE is left. That is exactly what `free` already does for a pinned tensor, so this routes
+    through `free` rather than repeating it, and every guard it has applies unchanged -- a
+    tensor sharing storage with another taped one, or one whose backward closure holds the raw
+    handle, is marked non-evictable and is left alone.
+
+    LEAVES ARE NOT TOUCHED. A parameter or a model input has no node, and its placement is the
+    shipped module's tuning rather than an intermediate's lifetime; evicting one would move a
+    weight to DRAM permanently on the first step of training.
+
+    The price is the one the tape's own docstring already names: a later forward op that wanted
+    the same operand in L1 now reads it from DRAM. That is the Protenix inversion, where the
+    tape turned L1-placement levers from 1.19-1.29x faster into 0.83-0.85x slower, paid
+    deliberately here because in OF3 the alternative is not a slower step but no step at all.
+    """
+    for p in parents:
+        if p.node is None or not p.evictable:
+            continue
+        try:
+            if p.value.memory_config().buffer_type != ttnn.BufferType.L1:
+                continue
+        except Exception:                                        # noqa: BLE001
+            continue                                             # host tensor, or no buffer
+        p.free()
 
 
 def _flat2d(t):
@@ -377,11 +441,34 @@ def _reduce_to(g, shape):
     if gv == wv:
         return ttnn.reshape(g, ws)
     pad = [1] * (len(gs) - len(ws)) + ws
-    out = g
+    out = _unshard(g)
     for ax in range(len(gs)):
         if pad[ax] == 1 and gs[ax] != 1:
             out = ttnn.sum(out, dim=ax, keepdim=True, compute_kernel_config=precise_config())
     return ttnn.reshape(out, ws)
+
+
+def _unshard(t):
+    """A gradient on its way into a reduction, interleaved.
+
+    A backward inherits its operands' placement from the forward: `grad_b(g, ea, eb)` is an
+    elementwise verb, so if the forward left the activation L1-SHARDED the gradient is sharded
+    too, on the forward's shard plan. A reduction is not planned against that. At crop 384 the
+    taped backward died in exactly this call with `num_shards <= num_cores` -- "number of shards
+    along height 512 must not exceed number of cores 64" -- which is a spec the device refuses
+    outright rather than a plan it retries narrower.
+
+    The move is placement only, so the reduction is bit-identical, and it is taken here rather
+    than at every producer because this is the one consumer that cares. Interleaved DRAM and not
+    interleaved L1: the operands that reach this path are whole pair-track gradients, and the
+    reason they were in L1 was the forward's, which is spent.
+    """
+    try:
+        if not t.memory_config().is_sharded():
+            return t
+    except Exception:                                        # noqa: BLE001
+        return t
+    return ttnn.to_memory_config(t, ttnn.DRAM_MEMORY_CONFIG)
 
 
 def _sum_leading(t, out_shape):
@@ -560,16 +647,19 @@ def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor]
 def softmax(x: Tensor, dim: int = -1, *, config=None) -> Tensor:
     """Softmax over ``dim``. Backward is ``y * (dy - sum(dy * y))``, which needs only y."""
     cfg = config or precise_config()
-    y = ttnn.softmax(x.value, dim=dim, compute_kernel_config=cfg)
+    y0 = ttnn.softmax(x.value, dim=dim, compute_kernel_config=cfg)
+    box = [y0]
 
     def make():
         def bw(g):
+            y = box[0]                      # through the box: `free` may have moved it
             inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
             x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
         return bw
 
-    out = _tape(y, [x], make)
-    out.evictable = False
+    out = _tape(y0, [x], make)
+    if out.node is not None:
+        out.box = box
     return out
 
 
@@ -629,28 +719,33 @@ def relu(x: Tensor) -> Tensor:
     x > 0, and the output is already materialised, so the input need not be retained.
     """
     out_v = ttnn.relu(x.value)
+    box = [out_v]
 
     def make():
         def bw(g):
-            x.add_grad(ttnn.multiply(g, ttnn.gtz(out_v)))
+            x.add_grad(ttnn.multiply(g, ttnn.gtz(box[0])))
         return bw
 
     out = _tape(out_v, [x], make)
-    out.evictable = False          # the closure above holds this handle directly
+    if out.node is not None:
+        out.box = box              # the closure reads the box, so `free` may still evict
     return out
 
 
 def sigmoid(x: Tensor) -> Tensor:
     """Sigmoid. Backward ``y * (1 - y)``, computed from the retained output."""
-    y = ttnn.sigmoid(x.value)
+    y0 = ttnn.sigmoid(x.value)
+    box = [y0]
 
     def make():
         def bw(g):
+            y = box[0]
             x.add_grad(ttnn.multiply(g, ttnn.multiply(y, ttnn.rsub(y, 1.0))))
         return bw
 
-    out = _tape(y, [x], make)
-    out.evictable = False
+    out = _tape(y0, [x], make)
+    if out.node is not None:
+        out.box = box
     return out
 
 
