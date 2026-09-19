@@ -159,8 +159,18 @@ class _FakeData:
     def __len__(self):
         return self.n
 
-    def batch(self, indices):
+    # `host`/`upload` is the seam `prefetch.host_stream` cuts at, and the loop pulls its
+    # micro-batches through it. `batch` stays because `catalogue.REQUIRED_DATASET_MEMBERS`
+    # names it and `recipes` calls it, and it is the composition of the other two, same as
+    # `SyntheticFvs`.
+    def host(self, indices):
+        return list(indices)
+
+    def upload(self, indices):
         return {"indices": list(indices)}
+
+    def batch(self, indices):
+        return self.upload(self.host(indices))
 
 
 def test_the_run_loop_drives_the_schedule_and_writes_it_into_every_row(tmp_path):
