@@ -465,6 +465,62 @@ if DEF.is_file() and ORCH.is_file():
     else:
         ok.append(f"GAP names all {len(unfixed)} UNFIXED defects")
 
+# --- PROVES / DOESNOT are transcription too, and they are what Moritz reads ------------------
+# EVIDENCE.md is audited figure by figure; the two summary fields quote the same numbers in
+# prose and were, until pass 44, unchecked -- one of them still said "amended nine times" at
+# fifteen amendments and "instrument A has never run" after it had run and failed. A summary
+# written by transcription drifts exactly like a scoreboard, so it gets the same treatment.
+# Each entry is (artifact-derived string, where it must appear, why it is load-bearing).
+if ORCH.is_file():
+    import re as _re
+    o = ORCH.read_text()
+    pr = _re.search(r"^PROVES:(.*?)(?=^DOESNOT:)", o, _re.M | _re.S)
+    dn = _re.search(r"^DOESNOT:(.*?)(?=^GAP:)", o, _re.M | _re.S)
+    proves, doesnot = (pr.group(1) if pr else ""), (dn.group(1) if dn else "")
+    both = proves + doesnot
+    claims = []
+    _r = j("perf/of3t_gradients/reach_by_norm.json")
+    if _r:
+        share = _r["reach"]["device_bijection_mat64"]["norm_share"]
+        claims.append((f"{share*100:.2f} %", proves, "the bijection's reach"))
+        claims.append((f"{_r['reach']['pairformer_stack_all']['norm_share']*100:.2f} %",
+                       doesnot, "the trunk's share of the norm, which bounds every SS3d claim"))
+    _c = j("perf/of3t_equivalence/instrument_c_optim.json")
+    if _c and "of3_schedule_upstream" in _c.get("arms", {}):
+        claims.append((f"{_c['arms']['of3_schedule_upstream']['worst']['rel']:.3e}",
+                       proves, "SS5 against upstream's alignment"))
+    _a = j("perf/of3t_gradients/instrument_a_bundle_block0.json")
+    if _a:
+        claims.append((f"{_a['summary']['median']:.3e}", doesnot,
+                       "instrument A's block-0 median, the one FAILING number"))
+    _d = j("perf/of3t_orchestrator/instrument_c2_clip_in_step.json")
+    if _d:
+        claims.append((f"{_d['arms']['clip_binds']['worst']['rel']:.3e}", proves,
+                       "the clip/optimizer seam"))
+    missing = [(s, why) for s, where, why in claims if s not in where]
+    if missing:
+        for s, why in missing:
+            bad.append(f"PROVES/DOESNOT does not quote {s} ({why}) -- the artifact has moved "
+                       f"and the summary Moritz reads has not")
+    elif claims:
+        ok.append(f"PROVES/DOESNOT quote all {len(claims)} audited figures as the artifacts "
+                  f"have them")
+    # And the amendment count, which is a claim about the protocol's own history.
+    _pp = Path("/home/moritz/.coworker/state/of3t/PROTOCOL.md")
+    if _pp.is_file():
+        n_am = len(_re.findall(r"^\*\*A\d+ \u2014", _pp.read_text(), _re.M))
+        words = {9: "nine", 10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen",
+                 14: "fourteen", 15: "fifteen", 16: "sixteen", 17: "seventeen",
+                 18: "eighteen", 19: "nineteen", 20: "twenty"}
+        w = words.get(n_am)
+        if w and _re.search(r"\b(nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|"
+                            r"seventeen|eighteen|nineteen|twenty) amendments\b", both):
+            if f"{w} amendments" in both:
+                ok.append(f"PROVES states the amendment count correctly ({w}, {n_am})")
+            else:
+                bad.append(f"PROVES states the wrong amendment count -- PROTOCOL has {n_am} "
+                           f"({w})")
+
 print("AUDIT of state/of3t/EVIDENCE.md against committed artifacts\n")
 for line in ok:
     print(f"  ok    {line}")
