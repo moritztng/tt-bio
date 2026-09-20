@@ -361,6 +361,12 @@ def main() -> int:
     ap.add_argument("--fd-samples", type=int, default=16,
                     help="parameter entries validated by central finite differences")
     ap.add_argument("--fd-h", type=float, default=1e-5)
+    ap.add_argument("--fd-sample-by", default="norm", choices=("norm", "count"),
+                    help="which tensors the finite-difference check lands on. `norm` draws in "
+                         "proportion to squared gradient norm, so the coverage statement is "
+                         "about the quantity being validated; `count` is the older "
+                         "uniform-over-tensors draw, kept so an earlier figure can be "
+                         "reproduced. A15/D17: a count denominator is not a scope statement.")
     ap.add_argument("--fd-min-grad", type=float, default=1e-6,
                     help="only validate entries whose analytic gradient is at least this large")
     ap.add_argument("--clip-val", type=float, default=10.0)
@@ -515,14 +521,63 @@ def main() -> int:
             n_zero += 1
     zero_entry_fraction = n_zero / n_probe
 
-    # Stratified by TENSOR, one entry each, which is the sampling this row owed on re-issue.
-    # Drawing entries uniformly from the whole parameter vector concentrates the sample in the
-    # largest tensors: on the previous draw ten of twelve entries landed in the pairformer stack
-    # and the diffusion decoder was represented once. Stratifying costs nothing and makes the
-    # coverage statement -- how many DISTINCT tensors the check touched -- a real one. A tensor
-    # with no entry above --fd-min-grad anywhere is recorded as uncovered, not silently skipped.
+    # One entry per TENSOR, and the tensors drawn in proportion to GRADIENT MASS.
+    #
+    # Two rounds of this. Drawing entries uniformly from the whole parameter vector concentrated
+    # the sample in the largest tensors -- ten of twelve landed in the pairformer stack -- so it
+    # was changed to one entry per tensor, uniform over tensors. That is still a count
+    # denominator, and A15/D17 is the standing lesson that a count denominator is not a scope
+    # statement. In this model the two are nearly inverted: the pairformer stack is 65.6 % of
+    # the tensors and 5.8 % of the squared gradient norm, the diffusion module 18.3 % and
+    # 89.2 %. Uniform-over-tensors therefore makes 8 samples 5.2x likelier to land on the 5.8 %
+    # than on the 89.2 %, with a 19.9 % chance the 89.2 % gets no finite-difference check at
+    # all -- on the section whose gradient is the number this reference is used to judge.
+    #
+    # So the draw is weighted by each tensor's squared gradient norm, without replacement, and
+    # the mode is recorded in the manifest so any run says which sampling produced it.
     order = list(range(len(flat)))
-    rs.shuffle(order)
+    if args.fd_sample_by == "norm":
+        w = [float(torch.linalg.vector_norm(q.grad.double()) ** 2) for _, q in flat]
+        tot = sum(w) or 1.0
+        sec_of = [nm.split(".")[0] for nm, _ in flat]
+        sec_mass = {}
+        for i, sec in enumerate(sec_of):
+            sec_mass[sec] = sec_mass.get(sec, 0.0) + w[i]
+
+        def pick(pool):
+            """One tensor from `pool`, drawn in proportion to squared gradient norm."""
+            r, acc = rs.random() * sum(w[i] for i in pool), 0.0
+            for pos, i in enumerate(pool):
+                acc += w[i]
+                if acc >= r or pos == len(pool) - 1:
+                    return pool.pop(pos)
+            return pool.pop()
+
+        # A floor of one sample per section holding at least 1 % of the squared norm, then the
+        # rest by mass. Mass alone overcorrects into the mirror of the count bias: on this model
+        # it puts about 7.3 of 8 samples in the diffusion module and leaves the trunk -- the
+        # section the whole D8/D19 argument is about -- with an even chance of no check at all.
+        # Neither end of the model should be able to go unvalidated.
+        floor_secs = sorted((sec for sec, m in sec_mass.items() if m / tot >= 0.01),
+                            key=lambda sec: -sec_mass[sec])
+        remaining, order = list(range(len(flat))), []
+        for sec in floor_secs:
+            pool = [i for i in remaining if sec_of[i] == sec]
+            if pool and len(order) < args.fd_samples:
+                chosen = pick(pool)
+                remaining.remove(chosen)
+                order.append(chosen)
+        while remaining and len(order) < max(args.fd_samples * 8, 64):
+            order.append(pick(remaining))
+        order += [i for i in range(len(flat)) if i not in set(order)]
+        fd_weighting = {"mode": "squared gradient norm, one-per-section floor at 1 %",
+                        "total_squared_norm": tot,
+                        "section_floor_applied_to": floor_secs,
+                        "section_mass_share": {k: v / tot for k, v in
+                                               sorted(sec_mass.items(), key=lambda x: -x[1])}}
+    else:
+        rs.shuffle(order)
+        fd_weighting = {"mode": "uniform over tensors"}
     checks, uncovered = [], []
     for ti in order:
         if len(checks) >= args.fd_samples:
@@ -627,7 +682,10 @@ def main() -> int:
             "h": args.fd_h,
             "min_abs_analytic_sampled": args.fd_min_grad,
             "zero_gradient_entry_fraction": zero_entry_fraction,
-            "sampling": "stratified by tensor, one entry per tensor",
+            "sampling": "one entry per tensor; tensors drawn by " + fd_weighting["mode"],
+            "weighting": fd_weighting,
+            "by_section": {sec: sum(1 for c in checks if c["param"].split(".")[0] == sec)
+                           for sec in sorted({c["param"].split(".")[0] for c in checks})},
             "n_samples": len(checks),
             "n_tensors_covered": len({c["param"] for c in checks}),
             "n_tensors_total": len(flat),
