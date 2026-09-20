@@ -74,7 +74,7 @@ two-entry `_TAPED` in autograd.py that a grep finds first is a different surface
 stage of theirs fires every loss term, which reshapes the coverage requirement into a union over
 stages.
 
-ROWS: **fifty dispatched, forty-seven concluded, four live** (pass 195 adds `of3t-trunkg043`, the trunk gradient at 0.4.3 — namespace `perf/of3t_trunkg043/`, based on `wk/of3t-trunkcliff`, gate entry and stage hint added. Pass 194: this row and `of3t-nanfloor`, dispatched this pass to execute the two softmax repairs landed blind here — brief `workstreams/of3t-nanfloor.txt`, namespace `perf/of3t_nanfloor/`, based on `wk/of3t-softgrad` merged with `wk/of3t-orchestrator`, gate entry and stage hint both added to `_of3t_donecheck.py`. Pass 193 read: this row alone. `of3t-softgrad` concluded NO-GO -- no on-device softmax configuration reaches the bar, though the host float64 arm passes at 0.956x for a measured 1.441x; `of3t-trunkdepth` concluded NO-GO -- no scale-dependent amplifier, the raw depth growth is the bf16 FLOOR's). 43 briefs = 40 concluded + this row + `of3t-nanfloor` + `of3t-trunkg043`. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
+ROWS: **fifty dispatched, forty-seven concluded, three live** (pass 195 adds `of3t-trunkg043`, the trunk gradient at 0.4.3 — namespace `perf/of3t_trunkg043/`, based on `wk/of3t-trunkcliff`, gate entry and stage hint added. Pass 194: this row and `of3t-nanfloor`, dispatched this pass to execute the two softmax repairs landed blind here — brief `workstreams/of3t-nanfloor.txt`, namespace `perf/of3t_nanfloor/`, based on `wk/of3t-softgrad` merged with `wk/of3t-orchestrator`, gate entry and stage hint both added to `_of3t_donecheck.py`. Pass 193 read: this row alone. `of3t-softgrad` concluded NO-GO -- no on-device softmax configuration reaches the bar, though the host float64 arm passes at 0.956x for a measured 1.441x; `of3t-trunkdepth` concluded NO-GO -- no scale-dependent amplifier, the raw depth growth is the bf16 FLOOR's). 43 briefs = 40 concluded + this row + `of3t-nanfloor` + `of3t-trunkg043`. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
 `of3t-confidence` (pass 2, R20 — the confidence gradient could not reach the trunk because
 `openfold3_fold.py:415-416` writes the trunk outputs to host, a port rather than a tape fix),
 `of3t-leaves` (pass 3, R21/K29 — the shared weight-discovery seam `of3t-tape` declined to
@@ -819,11 +819,13 @@ document was still quoting the superseded reading. Each line says who closed it,
 5. **Crops: 640 FITS, 768 is CLOSED, and the control I built for both is corrected.**
    `of3t-crop640` (GO) measured the 384 peak by owner and projected 640 at 45.75/48.75 GB: the
    boundary spill alone leaves it over, **halving the recompute closes it alone**, and both together
-   give **+10.56/+10.02 GB margin**. `of3t-crop512` then ran the deciding rung and **512 fills the
-   card** — refused a 6,160,384 B buffer with 6,957,568 B free, 100.4 s in, still inside the first
-   recompute. Structural N² had put 512 *below* the card, so **that arm is refuted by measurement**,
-   512's peak is a lower bound, and a lower bound that excludes **768** closes it. Two of upstream's
-   four stage configs are therefore out of reach on one card without a third lever.
+   give **+10.56/+10.02 GB margin**. `of3t-crop512` then ran the deciding rung and concluded **NO-GO for 768**. 512 fills the card,
+   refuting the structural N² arm outright, and on the **384→512 fit** — adjacent rungs in one
+   regime — **768 with both levers lands at 43.94 GB against a 34.23 GB card, a 9.72 GB overshoot**,
+   not the +0.31 GB the N² arm promised. **640 still fits but with half the headroom I published:
+   +5.82 GB, not +10.56 GB.** Both corrections run against the campaign, which is what a rung run to
+   discriminate between two exponents is supposed to produce. Two of upstream's four stage configs
+   need a third lever.
 
    **And it corrects my own method (D119).** I introduced "the 640 run reached 34.215 GB and still
    died, so any model predicting less is refuted" as a control and leaned on it for three passes.
@@ -924,7 +926,7 @@ together, and 2.0067 % still has no reading.
 
 
 
-Fifty dispatched, forty-seven concluded, four live (this row, `of3t-apbgrad`, `of3t-crop512` and `of3t-f64softmax`); `state/concluded` holds forty-nine of3t markers, two of them this row's own stale ones (this row, `of3t-bondcov`, `of3t-crop512`, `of3t-apbgrad` and `of3t-f64softmax`); `state/concluded` holds forty-six of3t markers, two of them this row's own stale ones. One hundred nineteen defects, forty-five UNFIXED. **PROTOCOL SS6 coverage is COMPLETE: 8 of 8 loss terms fire with a non-zero gradient contribution** (pass 206). The composition `wk/of3t` is published, carries every pushed row, and is verified each pass at 164 checks with 0 drifted; rows dispatched but not yet pushed are skipped BY NAME, never silently.
+Fifty dispatched, forty-seven concluded, three live (this row, `of3t-f64softmax` and `of3t-fp32islands`) (this row, `of3t-apbgrad`, `of3t-crop512` and `of3t-f64softmax`); `state/concluded` holds forty-nine of3t markers, two of them this row's own stale ones (this row, `of3t-bondcov`, `of3t-crop512`, `of3t-apbgrad` and `of3t-f64softmax`); `state/concluded` holds forty-six of3t markers, two of them this row's own stale ones. One hundred nineteen defects, forty-five UNFIXED. **PROTOCOL SS6 coverage is COMPLETE: 8 of 8 loss terms fire with a non-zero gradient contribution** (pass 206). The composition `wk/of3t` is published, carries every pushed row, and is verified each pass at 164 checks with 0 drifted; rows dispatched but not yet pushed are skipped BY NAME, never silently.
 
 PASSLOG: **Pass 198 — moved out of VERDICT to get the answer back above the fold.** VERDICT had
 grown to 7,191 characters over four passes of my own additions, and the audit reads the

@@ -7226,3 +7226,19 @@ off the allocator at the refusal) = **34.2255 decimal GB = 31.875 GiB**. `projec
 **What it decides**: structural N² puts 512 at 31,865,141,476 B, below the card — and **512 filled
 the card**, so the N² arm is refuted by measurement. 512's own peak is a lower bound, and a lower
 bound that excludes 768 excludes it. **768 is closed.**
+
+### D119 UPDATE (pass 208). `of3t-crop512` concluded NO-GO for 768 and thinned 640's margin. The numbers this campaign published for both are superseded.
+
+**768 is out of reach on one card with the two named levers.** On the 384→512 fit — two adjacent
+rungs in one regime, which is what the rung was run for — 768 with both levers lands at **43.94 GB
+against a 34.23 GB card: a 9.72 GB overshoot**, not the +0.31 GB margin the structural N² arm
+promised. The N² arm is refuted outright by the 512 rung filling the card.
+
+**640 still fits, with half the headroom I published.** The margin is **+5.82 GB**, not the
+**+10.56 GB** `of3t-crop640` recorded and I repeated at pass 203. That figure came from the N² arm;
+the fitted arm on adjacent rungs is the one to quote.
+
+**Both corrections run the same way — against the campaign, not for it** — which is what a rung run
+specifically to discriminate between two exponents is supposed to produce. Two of upstream's four
+stage configs need a third lever, and the bytes after the first two are on the record for whoever
+looks for one.
