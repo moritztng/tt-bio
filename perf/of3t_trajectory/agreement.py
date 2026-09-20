@@ -134,9 +134,15 @@ def main():
     ap.add_argument("--f32", required=True, type=Path)
     ap.add_argument("--upstream-permuted", type=Path)
     ap.add_argument("--diffcap", type=Path,
-                    help="sub_boundary.pt whose grad_f64 the device arm was scored against; "
+                    help="the capture whose grad_f64 the device arm was scored against; "
                          "checked against the bundle's own float64 gradient, because that "
                          "identity is what makes a device-vs-arm4 comparison legitimate")
+    ap.add_argument("--cap-prefix", default="diffusion_module.", dest="cap_prefix",
+                    help="the capture keys its grad_f64 by name RELATIVE to the module it "
+                         "hooked, so the prefix to strip is a property of the capture and not "
+                         "of this script. Hardcoding it made the check silently vacuous on any "
+                         "other scope: every name would miss and `max_abs_diff` would stay 0.0, "
+                         "reporting `identical` on zero compared tensors.")
     ap.add_argument("--sections", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--sidecar-dir", required=True, type=Path)
@@ -195,18 +201,29 @@ def main():
     if args.diffcap:
         S = torch.load(args.diffcap, map_location="cpu", weights_only=False)
         g = S["grad_f64"]
-        worst, worst_n = 0.0, None
+        worst, worst_n, checked = 0.0, None, 0
         for n in names:
-            k = n[len("diffusion_module."):]
+            if not n.startswith(args.cap_prefix):
+                continue
+            k = n[len(args.cap_prefix):]
             if k not in g or f64.get(n) is None:
                 continue
+            checked += 1
             d = float((g[k].to(torch.float64).reshape(-1) - f64[n]).abs().max())
             if d > worst:
                 worst, worst_n = d, n
-        cap_check = {"what": "diffcap043 grad_f64 against the bundle's float64 gradient, over "
-                             "the device scope",
-                     "max_abs_diff": worst, "at": worst_n, "n": len(names),
-                     "identical": worst == 0.0}
+        # A count of 0 compared tensors would read `identical: true` on nothing at all, which
+        # is the vacuous-check shape this campaign has now shipped three times.
+        cap_check = {"what": "the capture's grad_f64 against the bundle's float64 gradient, "
+                             "over the device scope",
+                     "capture": str(args.diffcap), "key_prefix_stripped": args.cap_prefix,
+                     "max_abs_diff": worst, "at": worst_n, "n_scope": len(names),
+                     "n_compared": checked,
+                     "identical": (checked > 0 and worst == 0.0)}
+        if checked == 0:
+            raise SystemExit(
+                f"STOP: no scope tensor name starts with {args.cap_prefix!r}, so the capture "
+                f"identity check compared nothing. A check that compares nothing cannot fail.")
         del S, g
         print("diffcap vs bundle float64:", cap_check, flush=True)
 
@@ -296,32 +313,86 @@ def main():
         del rows
 
     # Deliverable 3, decided before the number existed.
+    #
+    # The threshold is the SCOPE's own floor, measured here, not the 5.852018e-02 constant --
+    # that constant is the floor of ONE scope (the 547-tensor diffusion arm) and the floors
+    # measured by section range from 3.1012e-02 to 7.0855e-02, a 2.3x spread, so reading any
+    # other scope against it would be scoring one set against another set's bar.
+    #
+    # And it is `floor / r`, not `floor`. The measured quantity rel(device, bf16) divides by
+    # ||bf16||, while `floor` = rel(bf16, f64) divides by ||f64||, so a device gradient that
+    # equalled float64 EXACTLY would read floor * ||f64|| / ||bf16|| = floor / r, not floor.
+    # D76 shipped an unreachable threshold by treating two `rel` figures with different
+    # denominators as though they shared one; the correction is one division and it belongs in
+    # the instrument rather than in prose beside it.
+    #
+    # Attainable range of the reading: 0 when the device gradient IS their bf16 gradient,
+    # floor / r when it is the float64 ideal, 1.0 when it is zero (A16, measured below), and
+    # unbounded above. All three branches sit inside that range.
     h = out["pairs"]["DEVICE_vs_UPSTREAM_BF16"]["sets"][0]["mass_weighted_rel_l2"]
     ours_f64 = out["pairs"]["DEVICE_vs_FLOAT64"]["sets"][0]["mass_weighted_rel_l2"]
-    if h < BF16_OWN_FLOOR:
-        branch = ("mass-weighted below 5.852018e-02: we reproduce upstream's actual training "
-                  "gradient to within its own distance from the ideal")
+    bf16_set = out["pairs"]["UPSTREAM_BF16_vs_FLOAT64"]["sets"][0]
+    floor = bf16_set["mass_weighted_rel_l2"]
+    r = bf16_set["mass_weighted_norm_ratio"]
+    perfect = floor / r
+    zero_read = out["pairs"]["ZERO_vs_UPSTREAM_BF16"]["sets"][0]["mass_weighted_rel_l2"]
+    if h <= perfect:
+        branch = ("at or below floor/r: on this scope we reproduce upstream's actual training "
+                  "gradient to within its own distance from the ideal. The published "
+                  "float64-scored pass SURVIVES the direct test.")
     elif h < 1.0:
-        branch = ("between the bar and ~1.0: we do not reproduce it, and the number is the "
-                  "honest size of the gap in the only units that matter")
-    elif h >= ours_f64:
-        branch = ("at or above the 7.5692 we read against float64: our error is roughly "
-                  "orthogonal to theirs, so being no further from float64 than they are was "
-                  "hiding a disagreement")
+        branch = ("between floor/r and ~1.0: the published pass DOES NOT SURVIVE the direct "
+                  "test. The float64-scored reading was hiding a disagreement, exactly as "
+                  "layer_norm_s did.")
     else:
-        branch = ("above ~1.0 but below our own distance from float64: we do not reproduce "
-                  "upstream's training gradient, and the number is the honest size of the gap "
-                  "in the only units that matter")
+        branch = ("at or above ~1.0: on this scope we are no better than a zero-gradient model "
+                  "against their step. Re-check the instrument and the tensor subset before "
+                  "believing it.")
     out["PRE_REGISTERED_READING"] = {
         "headline_mass_weighted_rel_l2": h,
-        "bar_upstreams_own_distance_from_float64": BF16_OWN_FLOOR,
+        "scope_floor_rel_bf16_vs_float64": floor,
+        "scope_norm_ratio_r_bf16_over_float64": r,
+        "threshold_a_perfect_port_would_read__floor_over_r": perfect,
+        "multiples_of_that_threshold": h / perfect,
+        "multiples_of_the_scope_floor_itself": h / floor,
+        "measured_zero_model_reading_A16": zero_read,
         "our_distance_from_float64_on_this_scope": ours_f64,
-        "multiples_of_the_bar": h / BF16_OWN_FLOOR,
         "what_moving_the_reference_from_float64_to_their_bf16_did_to_our_headline":
-            h / ours_f64,
+            (h / ours_f64 if ours_f64 else None),
+        "whole_device_arm_floor_constant_for_cross_reference": BF16_OWN_FLOOR,
+        "attainable_range": {
+            "device_gradient_equals_their_bf16": 0.0,
+            "device_gradient_equals_float64": perfect,
+            "device_gradient_is_zero": zero_read,
+            "worse": "unbounded above",
+        },
         "branch": branch,
     }
+    # The geometry the threshold cannot show: our error e = d - f against theirs t = b - f.
+    # D76 had to infer this cosine from three norms; measuring it directly separates "our error
+    # points somewhere else entirely" from "our error is theirs, larger".
+    e2 = t2 = et = 0.0
+    for n in names:
+        d_, b_, f_ = dev.get(n), loaded["UPSTREAM_BF16"].get(n), f64.get(n)
+        if d_ is None or b_ is None or f_ is None:
+            continue
+        e, t = d_ - f_, b_ - f_
+        e2 += float(torch.dot(e, e)); t2 += float(torch.dot(t, t))
+        et += float(torch.dot(e, t))
+    out["ERROR_GEOMETRY"] = {
+        "what": "our error against the float64 ideal, versus upstream bf16's error against the "
+                "same ideal, over this scope. cos near 0 means the two errors are unrelated "
+                "directions and 'no further from float64 than they are' says nothing about "
+                "agreement with their step.",
+        "our_error_norm": math.sqrt(e2),
+        "their_error_norm": math.sqrt(t2),
+        "ratio_ours_over_theirs": (math.sqrt(e2 / t2) if t2 else None),
+        "cos_between_the_two_errors": (et / math.sqrt(e2 * t2) if e2 > 0 and t2 > 0 else None),
+    }
     args.out.write_text(json.dumps(out, indent=1) + "\n")
+    print(f"\nthreshold floor/r = {perfect:.6e} (floor {floor:.6e} / r {r:.6f}); "
+          f"headline {h:.6e} = {h / perfect:.4f}x it")
+    print("error geometry:", json.dumps(out["ERROR_GEOMETRY"], indent=1))
     print("\nBRANCH:", branch)
     print("wrote", args.out)
 
