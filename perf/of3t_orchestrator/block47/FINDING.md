@@ -135,3 +135,61 @@ rather than of the model. The NaN-pad discriminator is still owed, because block
 were all measured on that harness.
 
 Record: `depth_scaling.json`.
+
+## 7. The precision story holds at blocks 0 and 23 and fails at block 47
+
+If the residual were catastrophic cancellation on small-gradient layer norms, relative error
+would concentrate on small-`ref_norm` tensors. Spearman(`ref_norm`, `rel_l2`) **within each arm**
+(pooling across blocks is confounded by block-level offsets in `rel_l2`, so it is not the unit):
+
+| block | rho range across its arms |
+|---|---|
+| 0 | -0.50 .. -0.29 |
+| 23 | -0.33 .. -0.05 |
+| 47 | **-0.11 .. +0.15** |
+
+Blocks 0 and 23 carry the precision signature. **Block 47 does not** — its failure hits large-mass
+and small-mass tensors alike, so "imprecise, not wrong" is not available there. Record:
+`norm_vs_error.json`.
+
+## 8. A mechanism with a shipped lever, and a registered prediction
+
+The bundles carry the activation norms at each block's own boundary. The **single** track grows
+through the stack and the **pair** track does not:
+
+| block | `s_norm` | vs block 0 | `z_norm` | vs block 0 | gradient median |
+|---|---|---|---|---|---|
+| 0 | 5.8502e+03 | 1x | 1.3204e+06 | 1.000x | 0.0121 |
+| 23 | 1.5190e+06 | **260x** | 1.3191e+06 | 0.999x | 0.0192 |
+| 47 | 2.1493e+06 | **367x** | 1.2937e+06 | 0.980x | **0.9439** |
+
+Mean per-block fractional growth of `s` is **27.3 %** over blocks 0-23 and **1.46 %** over blocks
+23-47. bf16's relative resolution is `2^-8 = 3.9e-03`, so the per-block update is **70x** the
+resolution early in the stack and **3.7x** late. That is the quantisation regime.
+
+`tt_bio/tenstorrent.py` already implements the remedy and names it: `s_fp32_residual`, whose own
+comment says it "is the difference between carrying an update and losing it: a track whose
+residual is much larger than its per-block update quantises that update away, because bf16's
+resolution is relative to what the accumulator already holds." It is set `True` in exactly one
+place — `openfold3_confidence.py:101`, the **confidence** Pairformer. `openfold3_trunk.py:152`
+does not pass it, so **the trunk runs at the default `False`**, and the trunk is the stack whose
+single track grows 367x.
+
+**Experiment, one flag:** re-run the existing crop-64 instrument-A arms at blocks 0, 23 and 47
+with the trunk Pairformer constructed `s_fp32_residual=True`, everything else identical.
+
+**Registered before the run:** block 47's median falls by more than 2x; block 0 moves by less than
+20 %; and the pair track (`tri_mul_*`, `tri_att_*`) moves less than the single track
+(`attn_pair_bias.*`, `single_transition.*`), because `z` does not grow through the stack and `s`
+does.
+
+**Caveats, stated because they matter.** `s_norm` is an L2 norm, not an absmax, so it cannot be
+compared directly to the 2.28e5 absmax the flag's comment cites. The 27.3 % and 1.46 % are segment
+means over 23 and 24 blocks, not local values. And **block 23 already sits at 70.7 % of block 47's
+`s_norm` while its gradient median is 49x better**, so `s_norm` alone does not order the failures
+— which is why block 23 is the control: if only 47 moves the mechanism is threshold-like, if both
+move it is graded, if neither moves the hypothesis is refuted. Turning the flag on in the trunk is
+**release-gated** (accuracy change, one extra `[B, L, c_s]` fp32 tensor): keep it on the branch,
+flag it, do not merge it.
+
+Record: `s_residual_hypothesis.json`.
