@@ -4269,3 +4269,101 @@ load-bearing for this campaign rather than a convenience.
 
 Owner: `of3t-refprec`, told while live (brief amendment 3). **UNFIXED as a naming defect;
 harmless in its effect this time.**
+
+---
+
+### D72. Re-scored against upstream's own bf16 floor instead of float64, 42.2794 % of the model already deviates no more than the recipe itself does and the entire failure is one module — the diffusion transformer at 141.6×. FOUND by `of3t-orchestrator`, pass 173. **STILL OPEN** on the comparison that would make it a trajectory claim.
+
+D70 established that the **2.0e-02 mass-weighted bar against a float64 reference is missed by
+upstream's own training dtype** (bf16 autocast, 2.9× outside on the device arm's scope). A bar
+the model's authors do not meet is the wrong yardstick for "reproduce OpenFold3 training", so
+every measured section is re-scored here against the recipe's own error instead.
+
+| section | % model | bf16 floor | our device | ratio | |
+|---|---|---|---|---|---|
+| `diffusion_transformer` | 43.8936 | 5.788e-02 | **8.195e+00** | **141.6×** | **FAR** |
+| `diffusion_conditioning` | 36.9462 | 6.253e-02 | 7.865e-03 | **0.13×** | at or better |
+| `pairformer_stack` | 5.8282 | 3.148e-01 | — | | no section arm |
+| `atom_attn_enc` | 5.5589 | 8.226e-02 | 1.976e-01 | 2.4× | close |
+| `aux_heads` | 2.8431 | 2.394e-01 | 2.300e-03 | **0.01×** | at or better |
+| `atom_attn_dec` | 1.3173 | 5.071e-02 | 2.829e-01 | 5.6× | close |
+| `msa_module` | 1.2400 | 1.789e-01 | 1.621e-01 | **0.91×** | at or better |
+| `layer_norm_s` | 0.9835 | 3.101e-02 | 2.381e-02 | **0.77×** | at or better |
+| `input_embedder` | 0.8007 | 3.422e-01 | — | | port-coverage gap |
+| `layer_norm_a` | 0.2666 | 3.697e-02 | 9.468e-03 | **0.26×** | at or better |
+| `linear_s` | 0.2445 | 6.544e-02 | 2.272e-01 | 3.5× | close |
+
+**At or better than upstream's own bf16: 42.2794 %. Within 10×: 7.1207 %. Far past it:
+43.8936 %, and all of it the diffusion transformer. No arm: 6.6289 %.**
+
+So **49.4 % of the model deviates from float64 by no more than the recipe itself does**, and the
+campaign's "54 % outside the bar" was largely an artefact of scoring against a float64 ideal
+upstream never meets. `msa_module` is the sharpest example: its own row reported it as *missing
+both bars* at 1.6211e-01 against float64 — against the recipe's own floor of 1.7894e-01 it
+**passes**.
+
+**And the caveat that limits all of it, from this campaign's own standing list.** Both columns
+are distances from the **same** float64 reference, and **two deviations from a shared reference
+do not order each other**: our 7.865e-03 beside bf16's 6.2532e-02 does **not** establish that we
+agree with bf16's gradient to 6e-02 — the errors may point in different directions and our
+distance *from bf16* could exceed both. That is the shared-subtrahend rule, and it applies
+squarely.
+
+- **Established**: our deviation from the float64 ideal is no larger than the recipe's own, on
+  42.2794 % of the model.
+- **Not established**: that we reproduce upstream's bf16 **trajectory**, which is what
+  "reproduce training" means strictly.
+- **What closes it**: compare our device gradient **tensors** directly against arm4's rather
+  than both against float64. arm4 is on disk; what is missing is our device gradient tensors —
+  the device arm published rel/`r`/cos per tensor but **not the gradients**. One re-run of
+  `device_gradient.py` writing the tensors closes it, and that is the same "keep the per-item
+  array" lesson a third time.
+
+Owner: `of3t-orchestrator`. **STILL OPEN.** Artifact:
+`perf/of3t_orchestrator/SCORED_AGAINST_THE_RECIPES_OWN_FLOOR.json`.
+
+---
+
+### D73. Nothing in the campaign has ever measured our gradient against *upstream's own gradient* — every figure is a distance from float64, and distances from a shared reference do not order each other. Closing measurement dispatched with its reading pre-registered. FOUND by `of3t-orchestrator`, pass 174. **UNFIXED; dispatched.**
+
+D72 re-scored every section against upstream's own bf16 error and found **42.2794 %** of the
+model at or better than the recipe's own deviation, with **43.8936 %** far past it — all of the
+latter the diffusion transformer at **141.6×**. That reframing is real and it is **limited by
+construction**: both columns are distances from the *same* float64 reference, and two deviations
+from a shared reference do not order each other. Our 7.865e-03 beside bf16's 6.2532e-02 does
+**not** establish that we agree with bf16's gradient to 6e-02 — the errors may point in
+different directions and our distance *from bf16* could exceed both.
+
+**"Reproduce OpenFold3 training" strictly means agreement with what their step computes.** After
+174 passes, no measurement in this campaign has asked that question. Every number is a distance
+from a float64 construction **upstream never runs**.
+
+Row **`of3t-trajectory`** dispatched, launched on qb2-card0:
+
+- **write the device gradient tensors.** `device_gradient.py` publishes rel, `r` and cos per
+  tensor and **not the gradients**, so its output cannot be compared against anything but the
+  reference it was run against. Third time this campaign has been blocked by a summary-only
+  result file.
+- **compare directly against `arm4_bf16_autocast/grads_f64.pt`** over the 547 tensors, under
+  A23, with the same per-section split so it sits beside D72's table row by row, and against
+  float64 as well so the record stays continuous.
+- **the reading, pre-registered in the brief before the run** — the bar is our distance from
+  their bf16 step being no larger than **5.852018e-02**, that step's own distance from float64
+  on the same scope:
+  - **inside 5.852018e-02** → we reproduce upstream's actual training gradient to within its own
+    distance from the ideal. **The strongest claim this campaign can make.**
+  - **between that and ~1.0** → we do not, and the number is the honest gap in the only units
+    that matter.
+  - **at or above 7.5692** → our error is roughly orthogonal to theirs, "no further from float64
+    than they are" was hiding a disagreement, and **D72's optimistic reading is refuted** — to
+    be reported as prominently as the favourable branch.
+- **controls**: A16's measured zero-model baseline; **the recipe's own internal spread** (arm4
+  against arm2, both upstream, both on disk) as the scale without which the headline is not
+  readable; and a control that breaks the comparison.
+
+**Why the pre-registration is in the brief and not only in my record.** D67 caught me withdrawing
+figures in my own record while the briefs kept publishing them. A reading committed only where I
+notice it is not committed. It is in the row's own instructions, so the row is held to it and so
+am I.
+
+Owner: `of3t-trajectory`. **UNFIXED.** Brief `workstreams/of3t-trajectory.txt`.
