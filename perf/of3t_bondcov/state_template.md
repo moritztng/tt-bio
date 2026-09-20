@@ -128,7 +128,7 @@ copies of that scale — the checkpoint and its recast copy for the whole run, a
 gradient snapshots at 4.6 GB each. Freeing the checkpoint after `load_state_dict` and cloning at
 the parameter's own dtype (the comparison upcasts per tensor, so every accumulated sum is float64
 either way) takes about 14 GB off the peak, and crop {{MASK_CROP}} now fits on this host. The
-reading below is the {{HEAD_CROP}} one because that is what ran; re-reading it at {{MASK_CROP}} is
+reading above is the {{HEAD_CROP}} one because that is what ran; re-reading it at {{MASK_CROP}} is
 now an ordinary run rather than a bigger host, and it is the obvious next thing to do with this
 instrument.
 
@@ -152,7 +152,7 @@ which is why it survived `of3t-auxheads`.
     python scripts/of3_port/build_of3_subset.py --target-dir <D> --split train --ids 4g5j,4byh
     python perf/of3t_bondcov/bond_mask_probe.py --data-dir <D> \
         --cache-file <D>/training_cache_with_templates_subset_2.json \
-        --stage finetune_1 --crop {{HEAD_CROP}} --out bond_mask.json
+        --stage finetune_1 --crop {{MASK_CROP}} --out bond_mask.json
     python perf/of3t_auxheads/bond_coverage.py --package openfold3 --data-dir <D> \
         --cache-file <D>/training_cache_with_templates_subset_2.json \
         --checkpoint of3-p2-155k.pt --stage finetune_1 --crop {{HEAD_CROP}} --index 12 \
