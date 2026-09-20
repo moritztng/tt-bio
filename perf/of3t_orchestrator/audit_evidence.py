@@ -1125,17 +1125,39 @@ if _host_only is None:
 # because a stamp does not stop a number being read.
 _dtg = j("perf/of3t_orchestrator/DISTANCE_TO_GO_AGAINST_THEIR_STEP.json")
 if _dtg:
-    _p = _dtg["survives"]["total_pct"]
-    _f = _dtg["measured_and_fails"]["total_pct"] + \
-         _dtg["measured_and_void_under_A18"]["total_pct"]
-    _u = _dtg["no_direct_reading"]["total_pct"]
-    _tot = _p + _f + _u
+    # Schema-tolerant, and LOUD when it cannot read: at pass 180 the artifact was re-split
+    # (aux_heads left the VOID bucket, the trunk left UNREAD) and this check -- which indexed
+    # fixed keys -- died with a KeyError. The audit then printed nothing, and a grep for "DRIFT"
+    # came back empty, which reads exactly like a pass. A check that cannot run must SAY SO.
+    def _share(block, *names):
+        b = _dtg.get(block)
+        if not isinstance(b, dict):
+            return None
+        for n in names:
+            if isinstance(b.get(n), (int, float)):
+                return float(b[n])
+        return None
+
+    _p = _share("survives", "total_pct", "pct")
+    _pass = _share("measured_and_PASSES", "total_pct", "pct") or 0.0
+    _fail = _share("measured_and_fails", "total_pct", "pct")
+    _void = _share("measured_and_void_under_A18", "total_pct", "pct") or 0.0
+    _u = _share("no_direct_reading", "total_pct", "pct_total", "pct")
+    if _p is None or _fail is None or _u is None:
+        bad.append("DISTANCE_TO_GO_AGAINST_THEIR_STEP: cannot read its shares (survives="
+                   f"{_p}, fails={_fail}, unread={_u}) -- the schema moved and this check "
+                   "CANNOT RUN, which is not a pass")
+        _p, _pass, _fail, _void, _u = 0.0, 0.0, 0.0, 0.0, 0.0
+        _tot = 100.0
+    else:
+        _f = _fail + _void
+        _tot = _p + _pass + _f + _u
     if abs(_tot - 100.0) > 0.001:
         bad.append(f"DISTANCE_TO_GO_AGAINST_THEIR_STEP's shares sum to {_tot:.4f} %, not 100 -- a "
                    f"reading moved buckets and the split was not rebalanced")
     else:
         ok.append(f"the distance-to-go split sums to 100.0000 % ({_p:.4f} survives / "
-                  f"{_f:.4f} fails-or-void / {_u:.4f} unread)")
+                  f"{_pass:.4f} passes / {_fail:.4f} fails / {_u:.4f} unread)")
     # The retired file must stay retired: if its live headline ever carries the old split again,
     # something restored it from history and VERDICT will follow.
     _old = j("perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json")
@@ -1146,7 +1168,10 @@ if _dtg:
         _verd = _re.search(r"^VERDICT:(.*)", ORCH.read_text(), _re.M | _re.S)
         _vt = _verd.group(1) if _verd else ""
         _pcts = [float(m) for m in _re.findall(r"(\d+\.\d+)\s*%", _vt[:2000])]
-        for _val, _lbl in ((_p, "surviving"), (_f, "failing-or-void"), (_u, "unread")):
+        _checks = [(_p, "surviving"), (_fail, "failing"), (_u, "unread")]
+        if _pass:
+            _checks.append((_pass, "measured-and-passing"))
+        for _val, _lbl in _checks:
             if not any(abs(_x - _val) <= 0.005 for _x in _pcts):
                 bad.append(f"VERDICT does not state the {_lbl} share {_val:.4f} % -- the "
                            f"summary has drifted from DISTANCE_TO_GO_AGAINST_THEIR_STEP")

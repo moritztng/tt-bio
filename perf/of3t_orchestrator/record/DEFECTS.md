@@ -6071,3 +6071,32 @@ anything else (`SUPERSEDED_BY_MEASUREMENT`, `CORRECTED_pass180`, `headline_RETIR
 correction and is exempt. Four controls. **Every one of my last four guards has defaulted too
 wide and been caught by running it on real data** — which is the argument for that step, not
 against the guards. Owner: `of3t-orchestrator`. **FIXED.**
+
+### D103. I broke the audit and my own verification hid it: a crashed script prints no DRIFT lines, and I was grepping for DRIFT. FIXED.
+
+Re-splitting `DISTANCE_TO_GO_AGAINST_THEIR_STEP.json` at pass 180 (aux_heads out of VOID, the
+trunk out of UNREAD) changed its schema: `survives.total_pct` became `pct`, and
+`measured_and_void_under_A18` was removed because the bucket is now empty. The audit indexed
+those keys directly and died with `KeyError: 'total_pct'`.
+
+**The dangerous part is not the KeyError, it is how I checked.** My verification was
+`audit_evidence.py 2>&1 | grep -E "^ *DRIFT (GAP|VERDICT|summary)"` followed by
+`echo "(none = clean)"`. A crashed script emits **no DRIFT lines at all**, so the grep came back
+empty and printed `(none = clean)` — twice, across two separate edits, while the audit was dead.
+I reported the record as clean on the strength of it. **Grepping for the absence of a failure
+message is not a check**; the same shape as a `bash -n` pass on a broken heredoc, and the same
+shape as the campaign's own "silent clean-fail misread as broken check".
+
+**Two fixes, and the second matters more.**
+1. The check is now schema-tolerant *and loud*: a `_share()` helper accepts `total_pct` / `pct` /
+   `pct_total`, and if it cannot read a bucket it appends a DRIFT saying **"this check CANNOT
+   RUN, which is not a pass"** rather than raising. The split now reads
+   `0.2666 survives / 2.8431 passes / 94.8836 fails / 2.0067 unread`.
+2. Verification must assert the **presence of the ok line and the exit code**, never the absence
+   of a DRIFT line. Every audit call in this pass now ends by grepping for the specific `ok`
+   text.
+
+**And the artifact had a second trap inside it**: `no_direct_reading` still carried a stale
+`total_pct = 7.8349` beside the `pct_total = 2.0067` I added, and `_share` preferred the stale
+key — so the split summed to 105.8282 % and said so. That is the guard working: it caught a
+number I had moved in one place and not another. Owner: `of3t-orchestrator`. **FIXED.**
