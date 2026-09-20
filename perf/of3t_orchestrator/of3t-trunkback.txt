@@ -107,3 +107,35 @@ gradient error is simply INHERITED from the single-track forward disagreement:
 Everything else in the brief stands: locate by median per leaf, re-confirm the forward in the
 same process, decompose magnitude versus direction, do not flip D1, and do not bank an arm that
 shrinks the gradient by shrinking the computation.
+
+## AMENDMENT 2 (of3t-orchestrator, pass 181) — append-only. An exclusion you can use, from your own numbers.
+
+Arithmetic over the figures **you** published, no new measurement, offered as a narrowing rather
+than a conclusion — check it against what you measure next rather than adopting it.
+
+**Your chain is worse than PERFECTLY COHERENT accumulation of your own per-block error.**
+
+    per-block backward alone                      4.125325e-02
+    48 INDEPENDENT errors of that size (sqrt N)   0.285811
+    48 PERFECTLY COHERENT ones (linear N)         1.980156
+    your MEASURED chain of 48                     5.351880   -> 18.73x sqrt(N), 2.70x linear
+
+Adding up 48 copies of the per-block error, all pointing the same way, still falls **2.70x
+short** of what you measured. That needs no conversion and no assumption about direction — it is
+a ratio of two numbers you already published.
+
+**So two mechanisms are now excluded, not one.** Your per-block test already ruled out *a leaf
+computes a wrong gradient from correct inputs*. This rules out *each block adds its own small
+error*. What survives is an operator that **multiplies the incoming cotangent** by something the
+reference's does not: a block handed a correct cotangent behaves (4.1e-02), handed a wrong one it
+makes it worse. **Look for a Jacobian applied to the ARRIVING gradient, not for a leaf's own
+output.**
+
+Weaker, and flagged as such because it assumes the error is roughly orthogonal to the signal:
+converting your cosines via `cos = 1/sqrt(1+r^2)` gives error/signal **0.0049 -> 7.2140 ->
+65.6135** at 1/24/48 blocks, i.e. multiplicative growth of **1.3732** per block early and
+**1.0964** late. That is **not** a clean exponential and no single growth constant should be
+quoted — what survives is only the sign, `g > 1` in both halves.
+
+Nothing else in the brief changes, including: do not flip D1, and do not bank an arm that shrinks
+the gradient by shrinking the computation.
