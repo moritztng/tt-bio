@@ -1,0 +1,47 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "headline": "seven sites share the defective pattern. One demonstrably bit (D86, 87 tensors). One is verified clean by its own published data. Two are shape-test-only and EXPOSED. Two consult a recorded orientation first and are mostly protected. And the defect propagated by IMITATION: adaln_unit_gradcheck.py's own comment reads 'device_gradient.py transposes back by shape; so does this.'",
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only. `grep -rn 'shape)\\[::-1\\] ==' --include='*.py'` over the composed tree at wk/of3t, then each hit read in context. The device_cond_gradient verdict is from recomputing its published sidecar, not from reading its code.",
+ "sites": [
+  {
+   "detail": "87 of 547 tensors scored as dW against their own transposes; 56.22 % of the bounded arm's squared error on 0.2035 % of its mass. Fixed by of3t-residual, which now records orientation at load by bit-exact comparison in both orientations (336 T, 211 N, 0 unknown, final shape asserted).",
+   "protection": "shape test only",
+   "site": "perf/of3t_diffusion/device_gradient.py:421",
+   "status": "BIT -- this is D86"
+  },
+  {
+   "detail": "0 of 26 tensors carry the rel~sqrt(2)/cos~0 fingerprint and the published 6.463839e-02 recomputes exactly from its own sidecar. The scope evidently contains no square weight needing a transpose. The pattern is still wrong and should be fixed before the scope changes.",
+   "protection": "shape test only",
+   "site": "perf/of3t_conditioning/device_cond_gradient.py:262",
+   "status": "PATTERN PRESENT, DID NOT BITE -- verified by data"
+  },
+  {
+   "detail": "no declared-orientation path; any square weight needing a transpose is missed",
+   "protection": "shape test only",
+   "site": "perf/of3t_adaln/adaln_micro.py:412",
+   "status": "EXPOSED -- unverified"
+  },
+  {
+   "detail": "its own comment reads: 'every scale -- a constant that looks like a finding and is a harness bug. device_gradient.py transposes back by shape; so does this.' The defective approach was copied deliberately, from the site that had the defect, with the copying recorded in a comment.",
+   "protection": "shape test only",
+   "site": "perf/of3t_conditioning/adaln_unit_gradcheck.py:152",
+   "status": "EXPOSED -- unverified, and propagated by imitation"
+  },
+  {
+   "detail": "square weights WITH a map entry are handled; those without fall through to the shape test",
+   "protection": "declared map `transposed.get(nm)` first, then the shape test",
+   "site": "perf/of3t_adaln/transition_gradcheck.py:251",
+   "status": "MOSTLY PROTECTED"
+  },
+  {
+   "detail": "exposure is any square weight absent from the map and not named adaln*. A name prefix standing in for a recorded fact is its own hazard, but it does cover the adaln tensors this instrument was built for.",
+   "protection": "declared map with a `dk.startswith('adaln')` NAME fallback, then the shape test",
+   "site": "perf/of3t_adaln/dit_block_gradcheck.py:349-351",
+   "status": "MOSTLY PROTECTED, with a name heuristic as the fallback"
+  }
+ ],
+ "the_general_rule": "never infer a transform from a shape. Record the transform where it happens -- of3t-residual's fix compares the tensor handed to ttnn.from_torch against the checkpoint tensor bit-exactly in both orientations and asserts the final shape, so a wrong answer throws rather than being silently inferred.",
+ "the_propagation_is_the_lesson": "D59 fixed one site and recorded the lesson; the lesson was not swept. In the interval the approach was COPIED into at least two more instruments, once with an explicit comment naming the site it was copied from. A defect in a reference implementation propagates faster than its fix, because the fix lands in one file and the pattern lands in the next author's head. Fixing a defect class means sweeping for the pattern at the time, not recording a lesson for later -- and the grep is one line: `shape)[::-1] ==`.",
+ "what": "the sweep for other shape-inferred transposes that D59 never did and D86 forced. Seven sites in the campaign's instruments share the pattern `if tuple(x.shape) != want and tuple(x.shape)[::-1] == want: x = x.t()`, which CANNOT FIRE on a square weight because a square shape is its own reverse.",
+ "what_it_means_for_the_campaign_s_evidence": "adaln_micro.py and dit_block_gradcheck.py produced the softmax localisation -- block 8's leaf 8.060854e-01 -> 1.459256e-02 and the ladder. dit_block_gradcheck is mostly protected; adaln_micro is not, and its figures are unverified against the fingerprint. The CONCLUSION survives regardless, because the localisation was independently confirmed at MODEL scope by of3t-trajectory and of3t-residual, where the softmax bound moves the diffusion transformer from 138.8x its own floor to 1.95x. What is uncertain is the per-block numbers, not the finding they supported."
+}
