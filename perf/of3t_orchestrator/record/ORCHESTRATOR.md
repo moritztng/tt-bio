@@ -150,7 +150,7 @@ PROVES: the **state-free half of OpenFold3's update rule, exactly and against up
 objects** — and, for the model-dependent half, that **the machinery to measure it now exists
 and what it currently reports is a ceiling**.
 
-Recomputed from the artifacts on every compose (150 checks, 0 drifted):
+Recomputed from the artifacts on every compose (152 checks, 0 drifted):
 
 - **§4, the LR schedule.** 109,005 comparisons over four configurations at OF3's shipped
   1.8e-3, **0 mismatches**, against upstream's real `AlphaFoldLRScheduler` driven the way
@@ -236,6 +236,19 @@ Recomputed from the artifacts on every compose (150 checks, 0 drifted):
   **22.9369 %** of the model's squared gradient norm and includes the **#2 and #3 heaviest
   tensors**. Its worst point, rel **5.088e-03**, falls on the #2 tensor — the reference's own
   validation is loosest exactly at the mass peak, still ~10x inside the bar.
+- **40.0559 % of OpenFold3's gradient mass is measured against a float64 reference and inside
+  the bars** (pass 152). Two section-scope arms with their own controls carry 39.7893 % of it:
+  `diffusion_conditioning` — **36.9462 % of the model over 26 tensors** — at **7.865e-03**
+  mass-weighted against the 2.0e-02 bar, 26 of 26 inside the per-tensor bar, the four tensors
+  holding 33.9354 % of the model at cos > 0.9999 with norm ratios bracketing unity, a measured
+  zero-model baseline of exactly 1.0 (127.1x separation) and a second control that permutes the
+  reference's own cotangent and moves the headline to 2.161892e-01; and `aux_heads` —
+  **2.8431 %** — at **2.2678e-03** on the one tensor that is 99.9999943 % of its section, at a
+  forward that also passes (2.8277e-03). A single-tensor section, `diffusion_module.layer_norm_a`
+  (0.2666 %), adds the rest at rel 0.00947. `perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json`.
+- **`diffusion_conditioning` was never blocked**, and proving that is most of the jump above. Its
+  reference side — inputs, the cotangent at its output, and float64 gradients for all 26 tensors
+  — had been complete on qb2 since 01:43; only our side was missing (D52).
 
 DOESNOT: **reproduce OpenFold3 training, and the gap is now precisely located rather than
 merely large.**
@@ -353,6 +366,20 @@ merely large.**
   worst tensors hold **15.7140 %** of the model, ten best **1.1650 %**; `median_rel` 0.16588
   understates the damage and the mass-weighted number **has not been computed**, because the
   run kept only the extremes.
+- **51.0965 % of the model's gradient mass is measured and OUTSIDE the bars, and 8.8476 % has no
+  reading at its own scope at all.** The failing share is `diffusion_transformer` 43.8936 %,
+  `atom_attn_enc` 5.5589 % (median 7.11e-01, cos 0.7757) and the seven measured pairformer
+  blocks 1.64401 % (mass-weighted 0.14053). The unmeasured share is the other 41 pairformer
+  blocks (4.18419 %), `atom_attn_dec` (1.3173 %), `msa_module` (1.2400 %, capture in flight),
+  `diffusion_module.layer_norm_s` (0.9835 %), `input_embedder` (0.8007 %, in flight) and eight
+  smaller sections. **A majority of the model's gradient is still wrong or unmeasured.**
+- **Four of OpenFold3's five confidence heads fail A18's forward by an order of magnitude** —
+  `pde` 8.7897e-02, `pae` 1.8199e-01, `experimentally_resolved` 3.3315e-01, `plddt` 3.6515e-01
+  against a 5.0e-02 bar — so every gradient taken at that boundary is void for them. Padding is
+  ruled out as the mechanism: the pair heads are **worse** on the 56 real tokens than over the
+  padded tensor. They carry 5.66e-08 of `aux_heads`' mass on THIS batch only because
+  `initial_training` weights them at 1e-4; `finetune_3` would weight them entirely differently
+  and that batch has not been run.
 
 **The campaign has not reproduced OpenFold3 training and this document does not say it has.**
 
@@ -650,8 +677,10 @@ and, per **D32**, the TT number must be taken **with the tape open**, since 21 s
 decline their fused path there. The existing 870.75 s already was taped, so it is D32-compliant;
 any successor must be too.
 
-VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Eighteen concluded rows, one newly
-dispatched; fifty-three defects on the record, twenty-three of them UNFIXED.** `of3t-confhead` concluded this pass with D1 measured
+VERDICT: PARTIAL — still working, neither GO nor NO-GO. **40.0559 % of OpenFold3's gradient
+mass is now measured against a float64 reference and inside the bars, 51.0965 % is measured and
+outside them, and 8.8476 % has no reading at its own scope.** Eighteen concluded rows, two live,
+one newly dispatched; fifty-three defects on the record, twenty-three of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -5945,3 +5974,80 @@ Second, qb2's four cards sit as two board pairs and both are half-occupied (`of3
 card 0, `of3t-conditioning` on card 2), so a third row would queue rather than run. The right
 sequence is dump first, then charter the block-scope row against whichever family the dump names.
 Recording it here so the next pass reads "not yet" rather than "overlooked".
+
+*(Pass 152: superseded in a better way than expected. `of3t-conditioning`'s GO refuted the last
+code candidate by measurement and narrowed the defect to the AdaLN gate, which can be tested in
+isolation in minutes without the dump. Row `of3t-adaln` is chartered on that instead — a smaller,
+sharper test than the block-scope row this note was deferring.)*
+
+---
+
+## Pass 152 — the largest scope in the model passes, and it was never blocked
+
+Both live rows returned.
+
+**`of3t-conditioning`: GO.** `diffusion_module.diffusion_conditioning` — **36.9462 % of the
+model over 26 tensors**, the largest single scope the campaign has ever measured — agrees with
+upstream 0.4.3 at **7.865385e-03 mass-weighted** against the 2.0e-02 bar. 26 of 26 tensors inside
+the 5.0e-02 per-tensor bar, worst 1.204672e-02. The four tensors carrying 33.9354 % of the model:
+
+    transition_s.0.layer_norm.bias    10.38237 %   rel 7.2277e-03   r 0.996500   cos 0.999980
+    transition_s.1.layer_norm.bias     9.29095 %   rel 6.6915e-03   r 0.996320   cos 0.999984
+    transition_s.0.layer_norm.weight   8.80266 %   rel 6.5958e-03   r 1.003747   cos 0.999985
+    layer_norm_s.weight                5.45946 %   rel 1.1330e-02   r 0.997889   cos 0.999938
+
+Norm ratios bracket unity rather than sitting to one side, so there is no systematic bias to
+report. The row gated on A18 first (forward 2.641e-03), reported mass-weighted with the median
+beside it per A23, measured the zero-model baseline at exactly 1.0 for a 127.1x separation, and
+then — because that control only breaks our side — permuted the **reference's own cotangent**
+across samples and showed the headline move to 2.161892e-01, 27.5x the reading. It also caught
+its own accumulation probe being vacuous (it was watching a leaf that only one tape ever touched)
+and re-pinned it. That is the standard I have been asking rows for and rarely getting.
+
+**`of3t-auxheads`: PARTIAL, with its section passing.** `aux_heads` is **2.8431 %** of the model
+and **99.9999943 %** of that is one tensor, `distogram.linear.weight`, which reads **2.2678e-03**
+at a forward that also passes (2.8277e-03). The row confirmed what amendment 5 told it and
+reported the per-tensor result as the headline. It also found something the campaign did not have:
+**four of the five confidence heads fail A18's forward by an order of magnitude** — pde
+8.7897e-02, pae 1.8199e-01, experimentally_resolved 3.3315e-01, plddt 3.6515e-01 — so every
+gradient at that boundary is void for them, and it ruled out the obvious explanation rather than
+assuming it: the pair heads are **worse on the 56 real tokens than over the padded tensor**, so
+padding cannot be the mechanism.
+
+### The campaign's position, in the only denominator that means anything
+
+| | share of the model's squared gradient norm |
+|---|---|
+| measured and **inside** the bars | **40.0559 %** |
+| measured and **outside** them | **51.0965 %** |
+| **no reading** at its own scope | **8.8476 %** |
+
+`perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json`, summing to exactly 100.0000 %. The passing
+share went from 2.84 % to 40.06 % in one cycle, and almost all of that is D52: the scope was
+never blocked, its reference side had been complete on qb2 since 01:43, and eleven passes of
+record said otherwise.
+
+### And the GO refuted my last code hypothesis, by measurement
+
+`_sum_leading` lacking `dtype=ttnn.float32` was the one surviving candidate for the diffusion
+transformer's AdaLN defect — it would have hit exactly the LayerNorm-gain and Linear-bias rules
+whose tensors fail, and spared bias-free `linear_s`. **The conditioning arm's four heaviest
+tensors are LayerNorm gains and biases whose gradients go through that same `_sum_leading` over
+the same 18,432-term reduction, and they read 6.6e-03 to 1.2e-02 at cos > 0.9999.** Refuted.
+
+So the tape's `layer_norm` rule (gain *and* bias), its `linear` rule, its `multiply` and `add`
+rules, and its accumulation across 48 separate tape contexts into shared leaves are all now
+measured correct on 36.9462 % of the model. The conditioning arm exercised 6 of the 37 taped
+verbs and **never took the AdaLN gate** — the sigmoid-fused `multiply_` that is the one
+structural feature separating AdaLN from every LayerNorm that just passed.
+
+I read that rule at pass 151 and found it correct. It is now the prime suspect on elimination
+while my own source read says it should be fine, and those two are not reconciled. The honest
+reading is that a source audit is weaker evidence than a measurement. Row **`of3t-adaln`** is
+chartered to settle it the only way that settles anything: one `AdaLN` built from block 8's real
+weights, taped, against a float64 autograd reference from upstream's own class — no boundary
+capture, no bundle, minutes on one card. It reports `r` and `cos` beside every rel, sweeps the
+two variables the defect must scale with (dirty-mantissa magnitudes per A22, and 1-vs-48
+samples), and runs the gate **unfused** as the control that decides whether a fix would even go
+in the fused path. If both arms disagree identically the gate is cleared and the row says so.
+`perf/of3t_orchestrator/ADALN_GATE_IS_WHAT_IS_LEFT.json`.
