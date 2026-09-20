@@ -3344,8 +3344,17 @@ argument.
 
 **What is NOT on the path to GO, and must keep being said.** §6 coverage is **7 of 8 terms** with
 `bond` firing nowhere — a **dataset** gap, not a code gap, because 5nw3 carries no inter-token
-bond; closing it needs a target that does, which is cheap and unowned. Crops 640 and 768 do not
-fit, so three of upstream's four stage configs still do not run. And the standing bounds are
+bond; closing it needs a target that does, which is cheap and now owned by `of3t-auxheads`.
+**Crops 640 and 768 are out of reach on one p300c, and pass 97 put the arithmetic under that for
+the first time.** The record said the ladder "stops between 384 and 640" with 640 failing at
+34.215 GB of a 34.22 GB card, which reads like a 5 MB miss; 34.215 GB is the high-water reached
+before it died, and 640's 6016 live allocations are *fewer* than 384's 6514 because it never
+reached its own peak. Fitting the passing rungs gives **640 ≈ 49–52 GB (1.4–1.5x the card, short
+by ~18 GB)** and **768 ≈ 70–75 GB (~2.2x)**. Tensor parallelism would fit 640 across two chips
+and is forbidden here, so the only legitimate lever is deeper activation checkpointing — more
+recompute for less memory, which is unmeasured and unowned. **So the demonstrated training scope
+is crop 384, one of upstream's four stage configs**, and that is a bound rather than a pending
+item. And the standing bounds are
 unchanged: stability over a real 100k-step run, precision drift a 20-step trajectory cannot
 observe by construction, convergence to the published weights, and rare sample types outside the
 path-complete set.

@@ -827,7 +827,32 @@ gradient at all.
 | 640 | PASS | FAIL | 34.215 GB | 6016 |
 
 384's backward went **32.370 GB → 17.983 GB**, which is what made it fit; the ladder now stops
-between 384 and 640. **1,639 of 2,531** declared trunk weights carry a gradient at every
+between 384 and 640.
+
+**PASS 97 — "stops between 384 and 640" understates it, and the arithmetic had never been done.**
+640 failing at **34.215 GB of a 34.22 GB card** reads like a 5 MB miss. It is not: 34.215 GB is
+the high-water **reached before it died**, which is the card ceiling, and 640's live allocation
+count of **6016 is LOWER than 384's 6514** precisely because it never got to its own peak.
+Fitting the three passing rungs (`perf/of3t_orchestrator/crop/crop_ladder_fit.py`):
+
+| fit | crop 640 | crop 768 |
+|---|---|---|
+| `a + b·N²` through 256 and 384 | **51.9 GB, 1.52x the card**, short by **17.68 GB** | **75.2 GB, 2.2x**, short by 41.0 GB |
+| `a + b·N²` through 128 and 384 | 48.9 GB | 70.2 GB |
+
+**So crop 640 needs roughly half a card again, and 768 needs over two cards.** No modest memory
+lever closes 15-18 GB. Stated as an estimate rather than a measurement: these are two-point
+extrapolations under an `a + b·N²` model, and the pairwise exponents differ across the ladder
+(**1.55** from 128→256, **2.20** from 256→384), so the constant is soft. What is robust is the
+order of magnitude, and it says 640 is out of reach rather than nearly in it.
+
+**What that leaves, honestly.** Tensor parallelism would fit 640 across two chips' 68.4 GB and is
+**forbidden on this fleet**, so more chips is not a path. The one legitimate lever is **deeper
+activation checkpointing** — more recompute for less memory, which trades time and is not "doing
+less of the model's own work". `ops.checkpoint_segment` already covers the three block stacks
+after `of3t-l1`; whether finer segmentation can find 15-18 GB at 640 is **unmeasured and
+unowned**. Until it is, the campaign's demonstrated training scope is **crop 384, one of
+upstream's four stage configs**, and that is a scope bound to state rather than a pending item. **1,639 of 2,531** declared trunk weights carry a gradient at every
 passing rung — the same count at all three, which is the consistency check.
 
 **And the recorded clash was never the defect.** D14's original signature —
