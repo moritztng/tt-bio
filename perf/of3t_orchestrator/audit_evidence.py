@@ -973,9 +973,15 @@ if ORCH.is_file():
         # silent for three amendments. Third time a guard of mine has been scoped to the field I
         # happened to be reading rather than to the claim -- so it is now scoped to the claim,
         # wherever in the summary it is written.
-        _AMEND = _re.compile(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|"
-                             r"twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|"
-                             r"nineteen|twenty|twenty-one)\s+times\s+on\s+the\s+record\b", _re.I)
+        # Pass 142: the compound words MUST come first and the match must not start after a
+        # hyphen. "twenty-two times on the record" contains "two times on the record", and
+        # \b matches at the hyphen -- so the check read the document as saying "two" and
+        # reported drift against a document that was correct. Longest-first alternation plus
+        # a negative lookbehind for "-" fixes both halves.
+        _AMEND = _re.compile(r"(?<!-)\b(twenty-one|twenty-two|twenty-three|twenty-four|"
+                             r"eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|"
+                             r"eighteen|nineteen|twenty|one|two|three|four|five|six|seven|"
+                             r"eight|nine|ten)\s+times\s+on\s+the\s+record\b", _re.I)
         # every space is \s+: the phrase is hard-wrapped prose and lands as
         # "times on the\nrecord". The first version used literal spaces, found nothing, and
         # reported a clean pass on a document that said "fifteen" -- a check that cannot match
