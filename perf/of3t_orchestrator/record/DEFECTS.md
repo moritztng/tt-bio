@@ -3592,3 +3592,52 @@ no owner; what would advance it is an `msa_module` forward bisection of the kind
 `aux_heads`, which would say whether the factor is depth accumulation in both cases or two
 different routes to the same number. Record: `state/of3t-auxheads.md`,
 `perf/of3t_auxheads/`, branch `wk/of3t-auxheads` at `5333f7e7f`, no merge anywhere.
+
+---
+
+### D59. A shape-inferred transpose contaminates 48 entries of the campaign's primary per-tensor artifact with a perfect `r ≈ 1, cos ≈ 0` signature — the exact reading the campaign trained itself to interpret as "wrong transform". FOUND by `of3t-adaln`, pass 158, and quantified here. **UNFIXED in the artifact.**
+
+`of3t-adaln`'s widened block arm first reported
+`attention_pair_bias.mha.linear_o.weight` and `mha.linear_g.weight` at rel **1.411** with
+`r ≈ 0.996` and `cos` **0.000135** and **0.001519**. Both are **768×768**, and the instrument
+inferred the transpose from the shape — which is silent on a square matrix — so it compared the
+device gradient against the reference's **transpose**. Reading the flag `_DiTBlock._w_tt`
+already records in its `(key, transpose)` cache key gives **2.492647e-02** with cos 0.999740 and
+**2.469198e-02** with cos 0.999853. Ordinary.
+
+**In the row's own words: "a shape-inferred transpose manufactures the one signature a reader is
+primed to believe."** This campaign spent three passes teaching itself to read `r ≈ 1, cos ≈ 0`
+as a wrong transform.
+
+**Scope in the published artifact**, checked here against
+`perf/of3t_orchestrator/pt/device_gradient_043pt.json`:
+
+- **61 tensors** carry the signature (`|r − 1| < 0.10` and `|cos| < 0.02`), holding **0.1494 %**
+  of the model.
+- **45 of them are `.mha.linear_o.weight` / `.mha.linear_g.weight`** — the 768×768 family the
+  row proved mismeasured — and their `rel` sits in a tight band **1.3977 … 1.4837**. That band
+  is the tell: comparing a matrix against its own transpose gives `‖A − Aᵀ‖/‖A‖ ≈ √2` for a
+  matrix with little symmetry. **A cluster at √2 is a transpose bug, not a defect.**
+
+**What it does and does not change.** Correcting the 48 affected entries to the row's measured
+~2.48e-02 moves the whole-arm mass-weighted headline from **7.5692** to **7.5688** — 0.01 %, i.e.
+nothing. Every mass-weighted conclusion on the record survives untouched, because the contaminated
+tensors hold 0.15 % of the mass. My pass-156 "anti-correlated" set survives too: of its 21
+tensors and 4.8058 % of the model, the suspect `.mha.*` members are **11 tensors holding
+0.0324 %**, leaving **4.7734 %** that is real.
+
+**What it does change is anything read per tensor.** A `worst10`-style list, or any bisection
+that starts from "which tensors look worst", would put these at rel ~1.4 near the top and send a
+row after a transform bug that does not exist. That is precisely what nearly happened.
+
+**The rule.** A transpose must be read from the **flag the loader already records**, never
+inferred from shape — the inference is silent exactly where it is wrong, on square matrices,
+which in this model are the 768×768 attention projections. And when a group of tensors shares a
+`rel` clustered near **√2** with `r ≈ 1` and `cos ≈ 0`, suspect the comparison before the
+computation.
+
+Owner: `of3t-orchestrator` for the artifact, `of3t-adaln` for the instrument (already fixed on
+its branch). **UNFIXED in the published artifact** — the 48 entries in
+`perf/of3t_orchestrator/pt/device_gradient_043pt.json` are as the run emitted them and are
+annotated rather than edited, because the file is the run's output and rewriting a result file
+in place is worse than labelling it.

@@ -703,14 +703,17 @@ decline their fused path there. The existing 870.75 s already was taped, so it i
 any successor must be too. **D58 (UNFIXED)**: the ~20x backward-over-forward amplification is the tape's own, not the
 diffusion module's — `msa_module` reads 19.8x (forward 0.82 %, gradient 16.2 %) against D30's
 19.6x on a different module with different ops on a different track — and `msa_module` itself
-misses both bars at 1.6211e-01 over 1.2317 % of the model; unowned.
+misses both bars at 1.6211e-01 over 1.2317 % of the model; unowned. **D59 (UNFIXED in the artifact)**: a shape-inferred transpose contaminates 48 entries of the
+published per-tensor array with a perfect `r ≈ 1, cos ≈ 0` reading at rel ≈ √2 — the signature
+the campaign trained itself to read as a wrong transform. Mass-weighted conclusions are
+unaffected (7.5692 → 7.5688) and anything read per tensor is not; annotated, not rewritten.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **39.7893 % of OpenFold3's gradient
 mass is measured against a float64 reference and inside the bars, 54.0115 % is measured and
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
-compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty concluded rows,
-two live; fifty-eight defects on the record, twenty-six of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
+one live; fifty-nine defects on the record, twenty-seven of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6479,3 +6482,71 @@ that had just been measured, which also removed **`msa_module_embedder`** — a 
 The three totals still summed to 100 because I had set them by subtraction, so the top line
 looked right while an item had silently vanished from the breakdown. Caught by re-summing the
 items against the stated total, which is the only check that would have caught it.
+
+---
+
+## Pass 158 — I withdraw pass 157's conclusion, and the row caught an instrument faking the signature I taught it
+
+### The withdrawal comes first because I acted on it
+
+Pass 157 concluded that **no softmax lever brings the diffusion arm inside the bar** — even an
+exact softmax leaving it at 0.1867, 9.3x outside — and I dispatched `of3t-softmax` with a
+section headed *"Why this row is NOT about training parity"* telling it not to take the lever to
+the release gate on those grounds. **That conclusion is withdrawn and so is the instruction.**
+
+The arithmetic held the non-attention 23.8917 % fixed at 0.1855, on the assumption that a
+softmax lever cannot reach it. `of3t-adaln` disproved the assumption. Run **alone** against
+upstream 0.4.3's own `ConditionedTransitionBlock` in float64, on the real `(a, s)` captured by a
+pre-hook on *their* module while *their* block runs, the transition reads mass-weighted
+**5.468736e-03** at block 8, **7.278610e-03** at block 9 and **9.595681e-03** at block 0 — 0 of
+9 parameters over the per-tensor bar, cosines at or above 0.99997 — and its own cancellation
+ratio is 17.4 to 35.8 where it would need K near **1.2e+03** to reach the 0.1828 the model shows.
+
+**The transition's error is not made inside the transition. It arrives in the cotangent from the
+blocks above, and those contain attention softmaxes.** A residual stack is sequentially coupled
+and I treated its sections as independent. 0.1867 is an **upper bound** on the post-fix arm, not
+an estimate of it — and the one direct measurement points the other way: the row's widened block
+arm over all 19 parameters reads **1.489217e-02 under an exact softmax, inside the 2.0e-02 bar**,
+against 7.856040e-01 shipped, with its own caveat that this is one block under a *controlled*
+cotangent where the whole-arm figure is 547 tensors under the real one over 48 samples.
+
+So whether the lever reaches the bar is **unmeasured**, and amendment 1 to `of3t-softmax` says
+so, keeps both deliverables (they are needed under either answer), and names the one measurement
+that would settle it: re-run the model-scope arm with `precise_config()` on the three no-config
+call sites and compare against the published **7.5692**, interleaved, with a deliberately-worse
+arm proving the flag reaches the kernel.
+
+**The general error, which is the part worth keeping:** a per-section extrapolation is valid
+only where the sections are independent. "This lever does not touch section X" has to be a
+measurement, not an inference from where the lever's code sits.
+
+### Two more corrections from the row, both to me
+
+- **Blocks 8 and 9 are 1.7 % apart in K** (172.60 against 175.60) **and 150x apart in the
+  model** (18.5040 against 0.1237). Under a controlled cotangent they read 1.33x apart on the
+  device. So the within-leaf 15-vs-9 contrast I called the sharpest available does not live in
+  the block: code, shapes, operands and conditioning are matched, and whatever produces the 150x
+  **arrives through the real cotangent**.
+- **My amendment-5 claim that the ladder's cosine never goes negative is wrong in the letter.**
+  One arm reaches cos −0.019878. But a random direction in 384 dimensions has |cos| ≈ 0.051, so
+  −0.02 is what a fully error-dominated result looks like, and the mechanism can cross zero. It
+  cannot reach the **−0.796 and −0.805** blocks 0 and 6 read, which are ~16 sigma from zero. The
+  conclusion holds in its strong form; **the evidence for it is the distance from zero, not the
+  sign**, and I should have written it that way.
+
+### And an instrument faking the exact signature the campaign was trained on
+
+The row's widened arm first reported two 768×768 tensors at rel **1.411** with `r ≈ 0.996` and
+`cos` 0.000135 / 0.001519 — the `r ≈ 1, cos ≈ 0` reading this campaign spent three passes
+learning to call a wrong transform. The instrument had **inferred the transpose from the shape**,
+which is silent on a square matrix, and compared against the reference's transpose. Reading the
+flag `_DiTBlock._w_tt` already records gives 2.492647e-02 and 2.469198e-02 at cos 0.9997/0.9999.
+
+I checked the published per-tensor array for the same contamination: **61 tensors carry the
+signature, 45 of them the `.mha.linear_{o,g}.weight` family, and their rel sits in a tight band
+1.3977…1.4837** — which is `‖A − Aᵀ‖/‖A‖ ≈ √2`. **A cluster at √2 is a transpose bug, not a
+defect.** Correcting all 48 moves the whole-arm headline from 7.5692 to **7.5688**, so every
+mass-weighted conclusion survives; my pass-156 anti-correlated set loses 11 tensors holding
+0.0324 % and keeps 4.7734 %. What it would wreck is anything read *per tensor*: these top any
+worst-list at rel ~1.4. Filed as **D59**, annotated into the artifact rather than edited, because
+rewriting a run's output destroys the thing it is for.
