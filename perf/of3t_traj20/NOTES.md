@@ -13,7 +13,8 @@ Five full-scope arms, detached under `setsid nohup`, cwd `/home/ttuser/.coworker
     stale    warmup 20,   accum 4, our step k fed step k-1's gradient (break control)
 
 Measured pace with all five sharing 16 cores: 150-250 s per rung, so the last arm lands about
-90 minutes after 2026-09-20T18:2xZ. Each run prints one line per rung, so `tail -n 1` on the log
+90 minutes after its launch: shipped/scaled/wired started 2026-09-20T15:56Z and
+miswire/stale 2026-09-20T16:04Z. Each run prints one line per rung, so `tail -n 1` on the log
 is the live position and a finished run ends with `wrote perf/of3t_traj20/traj20_<arm>.json`.
 
 Collect all five with:
