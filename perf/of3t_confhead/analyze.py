@@ -126,6 +126,28 @@ for arm, (runs, rule) in ARMS.items():
     print(f"{arm:9s} {v['rank0_mean']:8.3f} A mean  {v['best_mean']:8.3f} A  "
           f"{hits:>6}/{len(seeds)}  {v['rank0_max']:8.3f} A")
 
+# every candidate rule as the D10 arm, so the choice is made from one table rather than by
+# re-running the winner. The candidate set was fixed in rules.py before any number existed.
+print("\nevery candidate rule, as D10 (shipped samples) and D1+D10 (D1 samples), rank 0 mean")
+rep["rule_sweep"] = {}
+for rule in sorted(RULES):
+    row = {}
+    for nm, runs in (("D10", ship), ("D1+D10", fix)):
+        vals = [runs[s]["s"][pick(runs[s]["s"], rule)]["rmsd_ca"] for s in seeds]
+        hits = sum(abs(v - min(x["rmsd_ca"] for x in runs[s]["s"])) < 1e-9
+                   for v, s in zip(vals, seeds))
+        row[nm] = {"rank0_mean": statistics.fmean(vals), "rank0_max": max(vals),
+                   "picks_best": hits, "rank0": vals}
+    rep["rule_sweep"][rule] = row
+    print(f"  {rule:12s} D10 {row['D10']['rank0_mean']:6.3f} A (worst "
+          f"{row['D10']['rank0_max']:6.3f}, best {row['D10']['picks_best']}/{len(seeds)})   "
+          f"D1+D10 {row['D1+D10']['rank0_mean']:6.3f} A (worst "
+          f"{row['D1+D10']['rank0_max']:6.3f}, best {row['D1+D10']['picks_best']}/{len(seeds)})")
+best = min(rep["rule_sweep"], key=lambda r: rep["rule_sweep"][r]["D1+D10"]["rank0_mean"])
+rep["best_rule_on_D1"] = best
+print(f"  -> lowest D1+D10 rank 0: {best}. Reported as one row of the table, not as a "
+      f"selected result; ties and near-ties matter more than the minimum.")
+
 # seed floor, measured here, on the rank-0 structure each arm actually serves
 print("\nseed floor, this target, this session: rank 0 against rank 0, every seed pair")
 rep["seed_floor"] = {}
