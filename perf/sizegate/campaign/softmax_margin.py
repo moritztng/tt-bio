@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
-"""How close every model/rung sits to the fp32-softmax two-refusal cliff.
+"""How every model/rung sits against the fp32-softmax two-refusal retirement.
 
-`FP32_SOFTMAX_L1_GRID` in each recorded cell carries served=l1_blocks, declined=l1_refused.
-`_FP32_SOFTMAX_FREE_REFUSAL_CAP` is 2: the second refusal retires the floating plan for that
-class, and where the tuned rectangle is dark it retires onto nothing. Measured cost of
-landing there, openbind/1280 on card 1 at 1350 MHz: 439.3 s against 363.0 s, l1 calls
-440 -> 2 (perf/sizegate/campaign/ab_openbind_1280.json).
+`FP32_SOFTMAX_L1_GRID` in each recorded cell carries served=l1_blocks, declined=l1_refused,
+and `_FP32_SOFTMAX_FREE_REFUSAL_CAP` is 2: the second refusal retires the floating plan for
+that class.
 
-So `declined` is not a curiosity, it is the distance to a 20% cliff, and it is already
-recorded for every model. Read it before deciding whether the budget is an openbind knob or
-a shared one.
+Reaching the cap is NOT by itself bad, and that is the trap in reading this column.
+Retirement has two landing places and they differ by 20%:
+
+  onto the tuned block, where the 8x8 rectangle still serves the shape. MEASURED at
+  openbind/768: the shipped 768 KB takes both refusals and is the FASTEST arm, 87.9 s
+  against 91.2 s at 384 KB and 93.1 s at 512 KB -- both of which take zero refusals and
+  hold nearly twice the blocks resident (ab_openbind_768.json). Buying residency loses here.
+
+  onto nothing, where the rectangle is dark. MEASURED at openbind/1280 forced to 896 KB:
+  439.3 s against 363.0 s, l1 calls 440 -> 2 (ab_openbind_1280.json).
+
+`served` after the cap is what separates them: a large block count means it landed on the
+tuned block, a count near zero means it landed on nothing.
 
 Usage: softmax_margin.py [card]
 """
@@ -27,32 +35,36 @@ for f in sorted(glob.glob("docs/size_ladder_baseline.d/*.json")):
             g = (lev or {}).get("FP32_SOFTMAX_L1_GRID")
             if not isinstance(g, dict) or g.get("served") is None:
                 continue
-            rows.append((m, int(rung), g.get("served"), g.get("declined"), g.get("resolved")))
+            rows.append((m, int(rung), g.get("served"), g.get("declined")))
 
 if not rows:
     print(f"no {CARD} cell carries FP32_SOFTMAX_L1_GRID counters")
     raise SystemExit(0)
 
-print(f"{'model':14s} {'rung':>5s} {'l1_blocks':>10s} {'refused':>8s}  margin to the cap")
+print(f"{'model':14s} {'rung':>5s} {'l1_blocks':>10s} {'refused':>8s}  left  reading")
 hot = []
-for m, rung, served, declined, res in rows:
+for m, rung, served, declined in rows:
     d = declined or 0
     left = CAP - d
-    flag = ""
     if served == 0:
-        flag = "  path dark at this shape"
+        flag = "path dark at this shape"
+    elif left <= 0 and served > 1000:
+        flag = "retired ONTO THE TUNED BLOCK (measured faster, not a defect)"
     elif left <= 0:
-        flag = "  AT THE CAP: the plan is retired here"
+        flag = "retired ONTO NOTHING: this is the 1.21x cliff"
     elif left == 1:
-        flag = "  ONE refusal left"
+        flag = "ONE refusal left"
         hot.append((m, rung))
-    print(f"{m:14s} {rung:5d} {served:10d} {d:8d}  {left:>2d}{flag}")
+    else:
+        flag = ""
+    print(f"{m:14s} {rung:5d} {served:10d} {d:8d}  {left:>4d}  {flag}")
 
 print()
 if hot:
-    print("one refusal from the cliff, and therefore the shapes a budget change would tip"
-          f" first: {', '.join(f'{m}/{r}' for m, r in hot)}")
+    where = ", ".join(f"{m}/{r}" for m, r in hot)
+    print("One refusal from retirement, so these are the shapes a budget change tips first."
+          f" Which way it tips depends on whether the tuned block is alive there: {where}")
 else:
-    print("no cell sits one refusal from the cap on the recorded engine")
-print("Counters are from the recorded cells; those were taken at a stale engine, so treat"
-      " this as where to look, not as the current margin.")
+    print("no cell sits one refusal from retirement on the recorded engine")
+print("Counters come from the recorded cells, taken at a stale engine: this says where to"
+      " look, not what the margin is today.")
