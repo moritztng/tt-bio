@@ -37,12 +37,22 @@ import batch_digest as BD  # noqa: E402
 import bundle_min as BM  # noqa: E402
 
 
-def collate1(x):
-    """A batch of one: every tensor gains a leading axis, everything else becomes a list."""
+def collate1(x, ref=None):
+    """A batch of one, with a known-good batch as the rank template.
+
+    Unsqueezing every tensor is wrong: the pipeline already emits some features with the
+    axis the model expects, and a blind unsqueeze gives them one too many -- which surfaces
+    far downstream as an expand() of a [1,1,1] onto size [1,1]. So each feature is matched
+    against BUNDLE-MIN-043s own batch, which upstreams real collator produced, and gains
+    an axis only where its rank is one short.
+    """
     if torch.is_tensor(x):
-        return x.unsqueeze(0)
+        if ref is None or not torch.is_tensor(ref):
+            return x.unsqueeze(0)
+        return x.unsqueeze(0) if x.dim() + 1 == ref.dim() else x
     if isinstance(x, dict):
-        return {k: collate1(v) for k, v in x.items()}
+        r = ref if isinstance(ref, dict) else {}
+        return {k: collate1(v, r.get(k)) for k, v in x.items()}
     return [x]
 
 
@@ -64,6 +74,9 @@ def main() -> int:
     ap.add_argument("--index", type=int, default=0)
     ap.add_argument("--dtype", default="float32", choices=["float32", "float64"])
     ap.add_argument("--seed", type=int, default=20260920)
+    ap.add_argument("--rank-template", type=Path,
+                    help="a batch upstreams own collator produced, used only to decide "
+                         "which features already carry the batch axis")
     ap.add_argument("--out", required=True, type=Path)
     a = ap.parse_args()
     t0 = time.time()
@@ -97,7 +110,8 @@ def main() -> int:
     if inc.unexpected_keys:
         raise SystemExit(f"KEY GATE FAILED: {len(inc.unexpected_keys)} unexpected tensors")
 
-    batch = BM.move(collate1(sample), "cpu", dtype)
+    tmpl = torch.load(a.rank_template, weights_only=False) if a.rank_template else None
+    batch = BM.move(collate1(sample, tmpl), "cpu", dtype)
     pinned = BM.rng_state(model)
     BM.set_rng_state(pinned, model)
     import copy
