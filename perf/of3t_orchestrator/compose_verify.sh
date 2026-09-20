@@ -241,7 +241,14 @@ for a in $ALLOWED_COEDIT; do
   if printf '%s\n' "$dup" | grep -qx "$a"; then
     printf 'ownership: %s co-edited by' "$a"
     grep " $a\$" "$SLUG_TMP/own.txt" | awk '{printf " %s",$1}'
-    echo " -- DECLARED, regions verified disjoint"
+    case "$a" in
+      tt_bio/openfold3_trunk.py)
+        # Do NOT claim disjointness here: these hunks OVERLAP (both start at line 132). What is
+        # verified for this file is that the merged result carries both sides, asserted below.
+        echo " -- DECLARED, hunks OVERLAP, both sides asserted present below" ;;
+      *)
+        echo " -- DECLARED, regions verified disjoint" ;;
+    esac
   fi
   dup=$(printf '%s\n' "$dup" | grep -vx "$a" || true)
 done
