@@ -1,4 +1,0 @@
-  File "<string>", line 4
-    src = Path(/sys/class/tenstorrent/tenstorrent!%s/tt_aiclk % node)
-               ^
-SyntaxError: invalid syntax
