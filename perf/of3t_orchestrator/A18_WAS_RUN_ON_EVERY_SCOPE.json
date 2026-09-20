@@ -1,6 +1,6 @@
 {
  "as_of": "2026-09-20, orchestrator pass 175",
- "headline": "A18 was run on all four scopes, not skipped on any. It PASSES on the two that carry the campaign's 88.0820 % result -- the diffusion arm at 8.34e-03 and diffusion_conditioning at 2.6e-03 against a 5.0e-02 bar -- and FAILS on the two that are void, aux_heads at 3.6515e-01 and the pairformer trunk at 2.796859e-01. The guard did its job; it did not go unconsulted.",
+ "headline": "A18 was run on all FIVE scopes, not skipped on any. It PASSES on the three that carry the campaign's result -- diffusion arm 8.34e-03, diffusion_conditioning 2.6e-03, msa_module 8.1765e-03, all against a 5.0e-02 bar -- and FAILS on the two that are void, aux_heads at 3.6515e-01 (4 of 5 heads outside the bar) and the pairformer trunk at 2.796859e-01. The guard did its job.",
  "provenance": "of3t-orchestrator pass 175 on pc, CPU only. Each figure read from the row that measured it: of3t-diffusion (D30), of3t-conditioning, of3t-direct, of3t-pairformer. No new measurement.",
  "scopes": [
   {
@@ -20,6 +20,14 @@
    "source": "of3t-conditioning, run BEFORE any gradient"
   },
   {
+   "a18": "PASS",
+   "forward": "8.1765e-03 where the gradient is taken",
+   "mass_pct": 1.24,
+   "note": "the whole-tensor number is worse and the row proved it carries no gradient signal rather than arguing it: the reference's cotangent on that output is EXACTLY ZERO outside the real-token block -- 100.000000 % of its squared norm is inside it -- so the discrepancy is a padding convention and A18's first clause is satisfied exactly where the gradient is taken. The N = 56 real-token arm that would have separated masking from arithmetic a second way is refused by ttnn at that shape (matmul_multicore_reuse_mcast_1d wants num_blocks_total <= num_cores, 112 on 110) and is recorded as blocked with its reason rather than reshaped until it runs.",
+   "scope": "msa_module",
+   "source": "of3t-auxheads"
+  },
+  {
    "a18": "FAIL",
    "forward": "3.6515e-01 on plddt_logits against the 5.0e-02 bar",
    "mass_pct": 2.8431,
@@ -36,6 +44,7 @@
    "source": "of3t-pairformer"
   }
  ],
+ "the_coincidence_worth_stating": "the three scopes with a VERIFIED-AGREEING forward are exactly the three that pass A26's reachable bar with an accurate softmax: diffusion arm 0.9563x, diffusion_conditioning 0.7363x, msa_module 0.947x. They are 51.1358 + 36.9462 + 1.2400 = 89.3220 % of the model. So the campaign's positive result and its A18-clean set are the same set, which is the strongest form the claim can take: on every scope where we have checked that our function agrees with theirs, our gradient of it agrees as well as an independent bf16 implementation could.",
  "the_honest_pattern": "not 'A18 was skipped' but 'A18 failing is how a scope gets voided, and two of six measured scopes were voided that way'. 8.6713 % of the model is void for a failing forward. That is a real and large number, and it belongs in the campaign's accounting as void rather than as measured -- which is how DISTANCE_TO_GO_AGAINST_THEIR_STEP.json already carries aux_heads.",
  "what": "A18's status on every scope that carries a campaign result. A18: a disagreeing forward invalidates the gradient. I claimed at pass 175 that 'the campaign has been scoring gradients on scopes whose forwards were never checked to agree'. That claim is WRONG and this artifact is the check that refutes it.",
  "what_i_got_wrong": "I wrote that the campaign 'has been measuring gradients on scopes whose forwards were never checked to agree' after seeing two A18 failures in one pass. Two failures is not evidence that the check was skipped -- it is evidence that the check RAN. Both scopes carrying the campaign's result had their forwards measured before their gradients, one of them across 48 noise levels and in both dtypes. Generalising a methodological failure from two failing results, without checking the passing ones, is the same error as reading a defect's blast radius off which scripts share a code path instead of measuring it (D86's sweep)."
