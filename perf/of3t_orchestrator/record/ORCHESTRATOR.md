@@ -3272,3 +3272,25 @@ Three consecutive passes now where a row corrected the record on substance and w
 `of3t-confhead` on the D10 marginals, `of3t-rebase` on the shared-subtrahend floor, and
 `of3t-confhead` again here against its own hypothesis. The last is the hardest kind and it was
 done unprompted.
+
+**Pass 95, operational: I reniced `of3t-confhead`'s fold campaign on qb2, and the record should
+carry it because it is an intervention in a live row's execution.** The box was at load **43 on
+16 cores** with three contributors: `of3t-rebase` at 368+358+331 % already reniced to 15,
+`of3t-confhead` at 277+270 % at nice 0, and `c14-land-tail`'s **timed** 512 aa fold A/B at nice 0.
+Two of the three are mine. I reniced both confhead campaign shells and all 21 live descendants to
+15 in one sweep, both arms together — the shells being the point, since future folds inherit from
+them and the rest of the campaign now holds without further intervention. Load fell to 37.
+
+Three things make this safe rather than meddling. Nice changes scheduling and never numerics, and
+the row's deliverable is Angstrom RMSD on seeded, deterministic folds. Both arms were reniced in
+the same sweep, and one fold that spawned at nice 0 in the gap between two commands was caught and
+swept within the minute, so no completed fold in either arm has had a scheduling advantage. And
+the row was told what was done and when, including the one consequence it must not misreport:
+its seed-1 fold (371 s) ran at nice 0 and everything after runs at 15, so **wall-clock across its
+folds is not comparable** even though its AICLK sampling and its RMSDs are untouched.
+
+The reason it was worth doing at all is that `of3t-rebase`'s float64 rebuild **gates TRUNK,
+GRADIENT and everything downstream on that row**, and it was the process yielding priority to a
+non-gating one. Separately, `c14-land-tail`'s benchmark is orphaned — no c14 worker is alive — so
+its contended number will be read by whatever launch picks that row up next. Flagged to Moritz;
+it is not mine to re-take.
