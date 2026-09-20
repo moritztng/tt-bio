@@ -69,6 +69,11 @@ def snapshot(model):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-dir", required=True, type=Path)
+    ap.add_argument("--package", default="tt_bio._vendor.openfold3",
+                    help="package the dataset classes come from")
+    ap.add_argument("--cache-file", type=Path,
+                    help="subset cache to use instead of the seeded 8-structure sample; "
+                         "needed to reach a corpus built with build_of3_subset.py --ids")
     ap.add_argument("--checkpoint", required=True, type=Path)
     ap.add_argument("--stage", default="finetune_1")
     ap.add_argument("--crop", type=int, default=384,
@@ -87,16 +92,26 @@ def main() -> int:
     t0 = time.time()
 
     BD.seed_everything(a.seed)
-    ds = BD.build_dataset("tt_bio._vendor.openfold3", a.data_dir, 4,
-                          token_budget=a.crop, split="train", stage=a.stage)
+    ds = BD.build_dataset(a.package, a.data_dir, 4,
+                          token_budget=a.crop, split="train", stage=a.stage,
+                          cache_file=a.cache_file)
     guard = BD.install_retry_guard(ds)
+    dp = ds.datapoint_cache.iloc[a.index]
     sample = ds[a.index]
     if guard["retries"]:
         raise SystemExit(f"{guard['retries']} silent sample substitutions; this is not the "
                          f"target it claims to be")
     nnz = int((sample["token_bonds"] != 0).sum())
     w_bond = float(sample["loss_weights"]["bond"])
-    print(f"target {a.index}: token_bonds nnz {nnz} ({nnz // 2} pairs), "
+    # The term is polymer-ligand, so `token_bonds` alone does not say it can fire: the 8
+    # corpus targets all carry inter-token bonds and none carries a polymer-ligand one,
+    # which is why `bond_loss` read 0.0 on every one of them. Report the mask the loss
+    # actually sums over, computed with its own expression (diffusion.py:205-210).
+    is_polymer = sample["is_protein"] + sample["is_dna"] + sample["is_rna"]
+    mask_nnz = int((sample["token_bonds"]
+                    * (is_polymer[..., None, :] * sample["is_ligand"][..., None]) != 0).sum())
+    print(f"target {a.index} ({dp['pdb_id']} {dp['preferred_chain_or_interface']}): "
+          f"token_bonds nnz {nnz} ({nnz // 2} pairs), bond_mask nnz {mask_nnz}, "
           f"loss_weights.bond {w_bond}, crop {a.crop}", flush=True)
     if nnz == 0:
         raise SystemExit("this crop carries no inter-token bond; pick another index")
@@ -168,8 +183,11 @@ def main() -> int:
         "instrument": "PROTOCOL SS6: bond term fires, with its gradient contribution measured",
         "stage": a.stage, "dataset": "weighted-pdb", "crop": a.crop, "index": a.index,
         "dtype": a.dtype, "seed": a.seed,
-        "target": {"token_bonds_nnz": nnz, "token_bonds_pairs": nnz // 2,
-                   "loss_weight_bond": w_bond,
+        "package": a.package, "cache_file": str(a.cache_file) if a.cache_file else None,
+        "target": {"pdb_id": str(dp["pdb_id"]),
+                   "datapoint": str(dp["preferred_chain_or_interface"]),
+                   "token_bonds_nnz": nnz, "token_bonds_pairs": nnz // 2,
+                   "bond_mask_nnz": mask_nnz, "loss_weight_bond": w_bond,
                    "n_tokens_real": int(sample["token_mask"].sum())},
         "arms": {k: {kk: vv for kk, vv in v.items() if kk != "grads"} for k, v in arms.items()},
         "bond_gradient_contribution": {
