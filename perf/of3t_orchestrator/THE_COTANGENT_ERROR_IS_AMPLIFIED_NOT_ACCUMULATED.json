@@ -1,0 +1,29 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 181 -- arithmetic over of3t-trunkback's published figures, no new measurement",
+ "headline": "The trunk's backward error is AMPLIFIED, not accumulated. Chaining 48 blocks whose individual backwards read 4.125325e-02 gives 5.351880e+00 -- 18.73x what 48 INDEPENDENT errors of that size would give, and 2.70x what 48 PERFECTLY COHERENT ones would. Being worse than perfect coherence rules out both rounding noise and a constant per-block bias: the error is multiplied as it propagates, which is the signature of a systematically wrong Jacobian rather than a leaf that computes a wrong gradient from correct inputs.",
+
+ "the_robust_statement_needs_no_model": {
+  "per_block_backward_alone": 4.125325e-02,
+  "if_48_independent_errors_sqrt_N": 0.285811,
+  "if_48_perfectly_coherent_linear_N": 1.980156,
+  "MEASURED_chain_of_48": 5.351880,
+  "measured_over_sqrt_N": "18.73x",
+  "measured_over_linear_N": "2.70x",
+  "why_this_is_the_load_bearing_line": "it is a ratio of relative-L2 figures of3t-trunkback already published, with no conversion and no assumption about the error's direction. Exceeding the COHERENT bound is the whole argument: adding up 48 copies of the per-block error, all pointing the same way, still does not reach what was measured. Something multiplies."
+ },
+
+ "the_growth_law_from_the_cosines_which_does_assume_something": {
+  "conversion": "cos = 1/sqrt(1+r^2) with r = ||error||/||signal||, which assumes the error is roughly orthogonal to the signal -- approximately true here and stated because it is an assumption",
+  "implied_error_to_signal": [{"blocks": 1, "cos": 0.999988, "r": 0.0049},
+                              {"blocks": 24, "cos": 0.137306, "r": 7.2140},
+                              {"blocks": 48, "cos": 0.015239, "r": 65.6135}],
+  "multiplicative_growth_per_block": {"blocks_1_to_24": 1.3732, "blocks_24_to_48": 1.0964},
+  "and_it_is_NOT_a_clean_exponential": "g is 1.3732 early and 1.0964 late, so a single growth constant does not describe the curve and none is quoted as if it did. What survives the sloppiness is the SIGN: g > 1 throughout, in both halves, so the error-to-signal ratio grows multiplicatively rather than additively."
+ },
+
+ "what_it_tells_the_running_row": "the per-block test already excluded 'a leaf computes a wrong gradient from correct inputs' -- one block alone is 10x-130x better than the chain. This adds the complementary exclusion: it is also not 'each block adds its own small error'. What is left is an operator that MULTIPLIES the incoming cotangent by something the reference does not -- so the search is for a Jacobian applied to the arriving gradient, not for a leaf's own output. A block handed a correct cotangent behaves; handed a wrong one it makes it worse.",
+
+ "what_this_is_not": "not a cause, and not a located op. It narrows the class of mechanism and says where NOT to look. It is arithmetic over two published numbers plus a stated conversion, produced on CPU while of3t-trunkback is still running, and it should be checked against whatever that row measures next rather than assumed into its conclusion.",
+
+ "provenance": "of3t-orchestrator pass 181 on pc, CPU only. Inputs: of3t-trunkback's per-block backward (block 0 = 4.125325e-02), its 48-block chain (5.351880e+00), and its single-track input-gradient cosines (0.999988 / 0.137306 / 0.015239 at 1 / 24 / 48 blocks), all from origin/wk/of3t-trunkback at 9c7b6f183."
+}
