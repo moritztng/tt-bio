@@ -15,3 +15,8 @@
 2026-09-20T02:40:25+00:00	batch-position	rc=0
 2026-09-20T02:40:54+00:00	nesso1	rc=0
 2026-09-20T02:41:39+00:00	pxdesign	rc=0
+2026-09-20T02:46:01+00:00	rf3-1024aa	rc=0
+2026-09-20T02:48:21+00:00	rfd3-fusion	rc=0
+2026-09-20T02:49:39+00:00	esmc-300m	rc=0
+2026-09-20T02:51:48+00:00	esmc-600m	rc=1
+2026-09-20T02:59:50+00:00	esmc-600m	rc=0 (RE-RUN on card 3; the card-1 attempt at 02:51:48Z hit DeviceInUseError from worker:pvx-orchestrator and measured nothing)

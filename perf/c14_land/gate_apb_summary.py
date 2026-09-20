@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import glob
 import json
+import re
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -46,20 +47,37 @@ def firing_for(arm: str):
     return served, declined, procs, flag, saw_counter
 
 
+def rc_of(status: str):
+    """The exit code carried by a ledger status field, or None if it carries none."""
+    m = re.search(r"rc=(-?\d+)", status)
+    return int(m.group(1)) if m else None
+
+
 def main() -> int:
     if not LEDGER.exists():
         print("no ledger yet")
         return 1
-    rows = []
+    # An arm can appear more than once: a re-run after a device-lease collision or a box
+    # problem writes a second line. Keep the LAST attempt per arm, because that is the one that
+    # stands, and parse `rc=N` out of the status rather than comparing the whole field -- a line
+    # carrying a re-run note would otherwise never equal "rc=0" and would be counted as a red.
+    # That is the same shape as reading a refused argument as an arm: the ledger is a record, and
+    # a reader that only matches its happy-path format quietly miscounts the record.
+    latest = {}
     for line in LEDGER.read_text().splitlines():
         parts = line.split("\t")
         if len(parts) < 3:
             continue
         ts, arm, status = parts[0], parts[1], parts[2]
+        latest[arm] = (ts, arm, status)
+
+    rows = []
+    for ts, arm, status in latest.values():
         served, declined, procs, flag, saw = firing_for(arm)
         rows.append((ts, arm, status, served, declined, procs, flag, saw))
+    rows.sort(key=lambda r: r[0])
 
-    print(f"{'arm':<18}{'status':<10}{'served':>9}{'declined':>10}{'procs':>7}  flag  coverage")
+    print(f"{'arm':<18}{'rc':<5}{'served':>9}{'declined':>10}{'procs':>7}  flag  coverage")
     covered, uncovered, blind_green = [], [], []
     for ts, arm, status, served, declined, procs, flag, saw in rows:
         if served > 0:
@@ -71,14 +89,20 @@ def main() -> int:
         else:
             cov = "reached no AttentionPairBias site"
             uncovered.append(arm)
-        if status == "rc=0" and served == 0:
+        if rc_of(status) == 0 and served == 0:
             blind_green.append(arm)
-        print(f"{arm:<18}{status:<10}{served:>9}{declined:>10}{procs:>7}  "
+        print(f"{arm:<18}{str(rc_of(status)):<5}{served:>9}{declined:>10}{procs:>7}  "
               f"{str(flag):<5} {cov}")
 
     print()
     print(f"arms recorded            : {len(rows)}")
-    print(f"green                    : {sum(1 for r in rows if r[2] == 'rc=0')}")
+    print(f"green                    : {sum(1 for r in rows if rc_of(r[2]) == 0)}")
+    reds = [r[1] for r in rows if rc_of(r[2]) not in (0, None)]
+    if reds:
+        print(f"RED                      : {len(reds)}  {reds}")
+    notes = [(r[1], r[2]) for r in rows if r[2].strip() != f"rc={rc_of(r[2])}"]
+    for arm, status in notes:
+        print(f"  note on {arm}: {status}")
     print(f"EXECUTED the flag        : {len(covered)}  {covered}")
     print(f"did NOT execute the flag : {len(uncovered)}  {uncovered}")
     if blind_green:

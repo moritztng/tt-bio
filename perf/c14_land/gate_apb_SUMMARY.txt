@@ -1,26 +1,32 @@
-arm               status       served  declined  procs  flag  coverage
-boltz2            rc=0           5096         0      6  1     EXECUTES the flag
-esmfold2          rc=0              0         0      6  1     reached no AttentionPairBias site
-esmfold2-fast     rc=0              0         0      6  1     reached no AttentionPairBias site
-protenix-v2       rc=0            500      4800      6  1     EXECUTES the flag
-protenix-v1       rc=0            212      4800      6  1     EXECUTES the flag
-opendde           rc=0           5304         0      6  1     EXECUTES the flag
-openfold3         rc=0            192         0      6  1     EXECUTES the flag
-rf3               rc=0           6380         0      7  1     EXECUTES the flag
-openbind          rc=0            192         0      6  1     EXECUTES the flag
-boltzgen          rc=0          89792         0      9  1     EXECUTES the flag
-rfd3              rc=0              0         0      6  1     reached no AttentionPairBias site
-opendde-abag      rc=0           5304         0      8  1     EXECUTES the flag
-capacity          rc=0           1772      1440     11  1     EXECUTES the flag
-l1-budget         rc=0           1452     14400     13  1     EXECUTES the flag
-batch-position    rc=0         116416         0      4  1     EXECUTES the flag
-nesso1            rc=0              0         0      4  1     reached no AttentionPairBias site
+arm               rc      served  declined  procs  flag  coverage
+boltz2            0         5096         0      6  1     EXECUTES the flag
+esmfold2          0            0         0      6  1     reached no AttentionPairBias site
+esmfold2-fast     0            0         0      6  1     reached no AttentionPairBias site
+protenix-v2       0          500      4800      6  1     EXECUTES the flag
+protenix-v1       0          212      4800      6  1     EXECUTES the flag
+opendde           0         5304         0      6  1     EXECUTES the flag
+openfold3         0          192         0      6  1     EXECUTES the flag
+rf3               0         6380         0      7  1     EXECUTES the flag
+openbind          0          192         0      6  1     EXECUTES the flag
+boltzgen          0        89792         0      9  1     EXECUTES the flag
+rfd3              0            0         0      6  1     reached no AttentionPairBias site
+opendde-abag      0         5304         0      8  1     EXECUTES the flag
+capacity          0         1772      1440     11  1     EXECUTES the flag
+l1-budget         0         1452     14400     13  1     EXECUTES the flag
+batch-position    0       116416         0      4  1     EXECUTES the flag
+nesso1            0            0         0      4  1     reached no AttentionPairBias site
+pxdesign          0            0       320      5  1     reached no AttentionPairBias site
+rf3-1024aa        0         1660         0      4  1     EXECUTES the flag
+rfd3-fusion       0            0         0      5  1     no counter recorded (tt_bio never loaded in any process)
+esmc-300m         0            0         0      3  1     reached no AttentionPairBias site
+esmc-600m         0            0         0      6  1     reached no AttentionPairBias site
 
-arms recorded            : 16
-green                    : 16
-EXECUTED the flag        : 12  ['boltz2', 'protenix-v2', 'protenix-v1', 'opendde', 'openfold3', 'rf3', 'openbind', 'boltzgen', 'opendde-abag', 'capacity', 'l1-budget', 'batch-position']
-did NOT execute the flag : 4  ['esmfold2', 'esmfold2-fast', 'rfd3', 'nesso1']
+arms recorded            : 21
+green                    : 21
+  note on esmc-600m: rc=0 (RE-RUN on card 3; the card-1 attempt at 02:51:48Z hit DeviceInUseError from worker:pvx-orchestrator and measured nothing)
+EXECUTED the flag        : 13  ['boltz2', 'protenix-v2', 'protenix-v1', 'opendde', 'openfold3', 'rf3', 'openbind', 'boltzgen', 'opendde-abag', 'capacity', 'l1-budget', 'batch-position', 'rf3-1024aa']
+did NOT execute the flag : 8  ['esmfold2', 'esmfold2-fast', 'rfd3', 'nesso1', 'pxdesign', 'rfd3-fusion', 'esmc-300m', 'esmc-600m']
 
 READ THIS BEFORE QUOTING THE GATE. These arms are green and never ran the flag, so they are evidence that the tree is healthy, NOT that this flag is safe on them:
-  ['esmfold2', 'esmfold2-fast', 'rfd3', 'nesso1']
+  ['esmfold2', 'esmfold2-fast', 'rfd3', 'nesso1', 'pxdesign', 'rfd3-fusion', 'esmc-300m', 'esmc-600m']
 For a model with no AttentionPairBias that is correct and expected. For one that has it, the flag did not reach the site and the arm is not coverage.
