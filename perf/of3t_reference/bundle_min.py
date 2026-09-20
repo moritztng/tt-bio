@@ -30,6 +30,7 @@ import hashlib
 import json
 import os
 import random
+import re
 import sys
 import time
 from pathlib import Path
@@ -351,6 +352,38 @@ class _null:
         return False
 
 
+def _openfold3_version() -> str:
+    """The revision of the openfold3 tree actually imported -- read from its own metadata.
+
+    D42. This used to be `getattr(openfold3, "__version__", "0.5.0 (git checkout)")`. The 0.4.3
+    checkout does not define `__version__`, so the fallback fired on every build and ASSERTED
+    "0.5.0" -- the exact revision D23 disqualified -- into the manifest of the file that
+    certifies this campaign's reference. The build was right; the provenance field was wrong, in
+    the most expensive direction, because an auditor reading it sees the disqualified revision
+    and stops.
+
+    Two rules, and the second matters more than the patch:
+      * read the version from the TREE ON sys.path (its PKG-INFO or *.dist-info/METADATA), never
+        from `importlib.metadata`, which answers for whatever is pip-installed -- the precise
+        confusion this row exists to undo;
+      * when it cannot be determined, return "unknown". NEVER a guess. A default that names a
+        version is indistinguishable from a measurement of that version.
+    """
+    tree = Path(openfold3.__file__).resolve().parent
+    for meta in (sorted(tree.glob("*.dist-info/METADATA"))
+                 + sorted(tree.parent.glob("*.dist-info/METADATA"))
+                 + [tree / "PKG-INFO", tree.parent / "PKG-INFO"]):
+        try:
+            if meta.is_file():
+                m = re.search(r"^Version:\s*(\S+)", meta.read_text(errors="replace"), re.M)
+                if m:
+                    return f"{m.group(1)} (from {meta.name} beside the imported tree)"
+        except OSError:
+            continue
+    v = getattr(openfold3, "__version__", None)
+    return f"{v} (openfold3.__version__)" if v else "unknown"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--batch", required=True, type=Path)
@@ -640,7 +673,7 @@ def main() -> int:
         "dropout": dropout,
         "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu",
         "versions": {
-            "openfold3": getattr(openfold3, "__version__", "0.5.0 (git checkout)"),
+            "openfold3": _openfold3_version(),
             "torch": torch.__version__,
             "numpy": np.__version__,
             "cuda": torch.version.cuda,
