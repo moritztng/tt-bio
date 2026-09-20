@@ -287,6 +287,29 @@ without losing much on the other. Worth 0.014 s on a 512 aa Blackhole fold, unde
 floor — it ships because it is free and bit-exact, not because the fold moves. Capped at 4: above
 that the kernel's multiply stage would need more DST slots than a 16-bit DST has to give it.
 
+## `TT_BIO_MM_SHORT_M_BW` — off
+
+The diffusion transformer's four square token projections are short in M: 16 tiles of rows on a
+110-core grid. ttnn's own derivation for that shape builds each output tile in one-tile inner
+blocks, so a core pays the multicast barrier and the accumulator fold once per block instead of
+once per output tile. Turn this on and the projections pick a wider inner block, which is worth
+about +0.05 s a fold at 512 residues.
+
+**It is off because the structure it produces depends on the core grid.** The inner block width is
+derived from the grid, so a machine with a different usable core grid folds the contraction in a
+different order and bf16 addition is not associative. Measured directly: the same Boltz-2 input
+gives two different structures on an 11x10 grid and an 8x8 grid with this flag on, and one
+structure on both with it off. A p150a and a p300c disagree for the same reason. Nothing else in
+tt-bio behaves this way, and a structure that changes with the machine is not something to ship by
+default for a fraction of a second.
+
+Accuracy where the grid is held fixed is fine, and that is not the objection: CA-lDDT against the
+experimental structure separates nothing on Boltz-2 or RF3, with a bit-exact A/A control.
+
+`TT_BIO_MM_SHORT_M_BW=0` is the default and the way back. Turning it on is reasonable if you fold
+on one machine and do not need a structure to reproduce on another. The measurements are in
+`perf/c14_land/mmshort_grid_digest.txt` and `perf/c14_matmul_ceiling/`.
+
 ## `TT_BIO_MSA_LADDER` — on, Boltz-2 and BoltzGen
 
 The MSA depth axis used to pad to a single 1024, so a 35-row alignment cost exactly what a 1000-row
