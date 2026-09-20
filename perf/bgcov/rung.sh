@@ -25,7 +25,7 @@ WT=$(cd "$(dirname "$0")/../.." && pwd)
 PY=${TT_BIO_PY:-/home/ttuser/tt-bio/env/bin/python3}
 B=$WT/perf/bgcov
 TRES=$1; DEV=$2; BUDGET=${3:-3600}; BINDER=${4:-80}
-OUT=$B/out/${TRES}_dev${DEV}
+OUT=${RUNG_OUT:-$B/out/${TRES}_dev${DEV}}
 mkdir -p "$OUT"
 CLK=$OUT/aiclk.log; RAM=$OUT/host.log
 
