@@ -1,0 +1,74 @@
+{
+ "A_operands": {
+  "s_rel": 0.0,
+  "s_shapes": [
+   [
+    384,
+    384
+   ],
+   [
+    384,
+    384
+   ]
+  ],
+  "verdict": "operands agree; the DiT is handed the right s and z",
+  "z_rel": 0.0,
+  "z_shapes": [
+   [
+    384,
+    384,
+    128
+   ],
+   [
+    384,
+    384,
+    128
+   ]
+  ]
+ },
+ "B_dit_on_their_inputs": {
+  "in_module_rel_with_our_a": 0.07349989198116111,
+  "ladder_synthetic_rel_n384": 0.876176,
+  "rel": 0.07369642375530609,
+  "rel_pad": 0.041188550282227974,
+  "rel_real": 0.15915151761827262,
+  "verdict": "our DiT computes a different function"
+ },
+ "n_token": 384,
+ "shapes": {
+  "cond_si": [
+   1,
+   48,
+   384,
+   384
+  ],
+  "cond_zij": [
+   1,
+   1,
+   384,
+   384,
+   128
+  ],
+  "dit_in_a": [
+   1,
+   48,
+   384,
+   768
+  ],
+  "dit_in_s": [
+   1,
+   48,
+   384,
+   384
+  ],
+  "dit_in_z": [
+   1,
+   1,
+   384,
+   384,
+   128
+  ]
+ },
+ "struct": 0,
+ "tenancy": "4"
+}
