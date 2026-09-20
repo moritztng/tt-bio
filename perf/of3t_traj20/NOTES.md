@@ -1,61 +1,44 @@
-# of3t-traj20 — pass 1 notes, for the pass that writes the state doc
+# of3t-traj20 — what ran, and how to re-run it
 
-## What is running right now
+PROTOCOL §7's assembled 20-step trajectory, at OpenFold3's real parameter scope. The result
+lives in `~/.coworker/state/of3t-traj20.md`; this file is the operating record.
 
-Five full-scope arms, detached under `setsid nohup`, cwd `/home/ttuser/.coworker/wt/of3t-traj20`
-(this slug's own worktree), logs `/home/ttuser/of3t_traj20/logs/<arm>.log`, results
-`perf/of3t_traj20/traj20_<arm>.json`:
+## Re-running
 
-    shipped  warmup 1000, accum 1
-    scaled   warmup 20,   accum 4
-    wired    warmup 20,   accum 4, our side with weight_decay=0 and clip_and_accumulate called
-    miswire  warmup 20,   accum 4, D11's off-by-one restored on our side (instrument-can-fail)
-    stale    warmup 20,   accum 4, our step k fed step k-1's gradient (break control)
+    cd <worktree>
+    env OMP_NUM_THREADS=5 MKL_NUM_THREADS=5 OPENBLAS_NUM_THREADS=5 \
+      /home/ttuser/ptxft-venv/bin/python3 perf/of3t_traj20/traj20.py --arm scaled
 
-Measured pace with all five sharing 16 cores: 150-250 s per rung, so the last arm lands about
-90 minutes after its launch: shipped/scaled/wired started 2026-09-20T15:56Z and
-miswire/stale 2026-09-20T16:04Z. Each run prints one line per rung, so `tail -n 1` on the log
-is the live position and a finished run ends with `wrote perf/of3t_traj20/traj20_<arm>.json`.
+Pin the thread count. Five arms at each library's default put a 16-core host at load average 53
+and cut the per-rung rate from 21 s to 200 s: the work is memory-bound over 368 M elements, so
+oversubscription buys nothing. `traj20.py` now sets 4 threads itself if the environment does
+not. One arm is about 7 minutes and about 40 GB resident; three at a time fit in 249 GB.
 
-Collect all five with:
+Inputs are `/home/ttuser/of3t/bundle_min/{w0_r0_rebuild,grads_f64_r0}.pt` and upstream's own
+`grad_manager.py` and `lr_schedulers.py`, copied to `/home/ttuser/of3t_traj20/upstream/` and
+hashed into every result file. `ptxft-venv` is the only python on qb2 with torch.
 
-    /home/ttuser/ptxft-venv/bin/python3 perf/of3t_traj20/summarise.py perf/of3t_traj20/traj20_*.json
+    perf/of3t_traj20/table.py    perf/of3t_traj20/traj20_*.json   # the arm table
+    perf/of3t_traj20/detail.py   perf/of3t_traj20/traj20_*.json   # every rung of every arm
+    perf/of3t_traj20/gainladder.sh                                # the loop-gain ladder
 
-## What is already settled, in the repo
+## The arms
 
-- `PREREGISTRATION.md`, pushed at `acd00795f` before any full-scope number existed.
-- `schedule_family.json`: the fourth wiring gap, in closed form. 200,004 of 200,005 points
-  exact against upstream's own scheduler; the single mismatch is at step 50000, ours 0.00171
-  against their 0.0018, 5.0e-02 relative. `plateau_until=50000` makes it 200,005 of 200,005.
-  Both families agree exactly on 0..1000, so the 20-step window is blind to it by construction.
+`shipped` and `scaled` are the two runs §7a requires. `wd0`, `wired` and `avg` close the first,
+the first two, and the first three wiring divergences, so each one attributes exactly what it
+closes. `miswire` restores D11's off-by-one and `stale` feeds step k-1's gradient; `avgstale`
+is `stale` on the healthy arm, which is the only place it is not saturated.
 
-## The loop-gain ladder, and what it already says about §7b's bar
+## What a successor should pick up
 
-`gainladder.sh` re-runs `scaled`, `stale` and `miswire` at rho in {0.005, 0.05, 0.2, 0.5} on a
-40-tensor scope, to ask whether the growth law's power depends on how much of the drive is the
-closed-loop feedback. Results at `/home/ttuser/of3t_traj20/gl_<arm>_<rho>.json`. The first two
-rungs are in and they are the headline this row has to be honest about:
+With all four divergences closed the k = 2 divergence is 8.715e-03, 17.3x the fp32 differencing
+floor, and the super-linear shape survives at +1.267. Two candidates and this row did not
+separate them: a fifth wiring divergence, or the closed loop amplifying each stack's own fp32
+rounding. The discriminator is cheap — re-run `avg` with both sides in float64 and see whether
+the residual moves with the dtype. `EVERY_RUNG.txt` holds the rung-by-rung data either way.
 
-    arm        rho     exp    r2  share20     rel_d2    rel_d20    d1_ours
-    miswire  0.005  -0.769 0.879   0.2510  2.166e+00  3.014e-01  1.553e-01
-    miswire  0.050  -0.730 0.938   0.9269  2.070e+00  3.205e-01  1.553e-01
-    scaled   0.005  +0.239 0.567   0.2510  1.048e-01  1.784e-01  0.000e+00
-    scaled   0.050  +0.290 0.840   0.9269  1.048e-01  1.891e-01  0.000e+00
-    stale    0.005  +0.251 0.421   0.2510  1.137e-01  2.001e-01  0.000e+00
-    stale    0.050  +0.201 0.326   0.9269  1.137e-01  2.136e-01  0.000e+00
-
-The deliberately mis-wired arm carries the largest divergence on the ladder (2.07 at k=2, 20x
-the healthy arm) and its growth exponent is NEGATIVE. Raising the loop gain by 3.7x in feedback
-share does not move any exponent. So at N=20 inside the warmup the divergence SATURATES rather
-than compounds, and §7b's shape bar has not been shown capable of failing. What does
-discriminate, on the same numbers, is `d_1` (0.155 against their exact 0) and the magnitude
-against the fp32 differencing floor. That has to be written as the finding, not smoothed over:
-§3e says a bar that cannot fail is not evidence, and the honest reading is that the shape is
-the weakest of this instrument's three readings, not its bar.
-
-## For the write-up
-
-`_of3t_donecheck.py` wants, in `/home/moritz/.coworker/state/of3t-traj20.md`: DELTA, D1, SHAPE,
-WIRING, CONTROL, PROVES, DOESNOT, a VERDICT line, a float64 mention, a `GRADIENTS:` section with
-a worst case carrying a dotted parameter path, a `MODELS:` section with an `x of y` denominator,
-and a DOESNOT of at least 100 characters naming the stability bound. 2000 B floor.
+The other open thread is §7b itself. Its shape bar passed the deliberately mis-wired arm
+(exponent -0.707) and failed the healthiest one (+1.267), because every arm converges on a
+common ceiling near 1e-01 by k = 20 and the exponent measures how far below that ceiling the
+arm started. Any future row quoting a growth exponent from a saturating trajectory owes the
+early rungs beside it.
