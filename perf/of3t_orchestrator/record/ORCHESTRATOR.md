@@ -3672,3 +3672,47 @@ capture_trunk_boundary_043.json"* with **exit 0 at 01:03:58Z**, so the 0.4.3 blo
 captured — the artifact TRUNK was waiting on. The row took **chip 2** for its second arm as asked;
 chips 0 and 2 are in use, 1 and 3 free, no collision. And the two processes sitting at 0 % CPU are
 `stat=S`, `wchan=anon_pipe_read` — spawn parents blocked on their child's pipe, not wedged.
+
+PASS 107. **The A13 reproduction check silently did not run, and having run it, it PASSES
+bit-identically.**
+
+`rebuild_043.sh` invokes `compare_grads.py` at
+`/home/ttuser/of3t-reopen-wt/perf/of3t_reference/compare_grads.py` — a path inside the
+**concluded** `of3t-reopen` row's worktree, which fleet hygiene had torn down. The log reads:
+
+```
+=== PROTOCOL A13: is it reproduced? 2026-09-20T01:13:34Z ===
+can't open file '/home/ttuser/of3t-reopen-wt/.../compare_grads.py': [Errno 2] No such file...
+=== A13 exit 2 ===
+=== finite-difference validation, run C 2026-09-20T01:13:34Z ===
+```
+
+The script is `set -uo pipefail` with no `-e` and each step only echoes its status, so **run C
+started anyway** and no `reproduction_A13_043.json` was ever written. The trunk arms were already
+consuming `bundle_min_043`. **A13 is the one check that distinguishes a reference that was
+*reproduced* from one that was merely *measured***, and it had vanished without a trace —
+`gatechain-no-failure-stop-relaunches-next-arm-on-dead-card` in a new place.
+
+**Settled read-only, at nice 19, by hashing both runs' full gradient tensors:**
+
+| file | run A | run B | |
+|---|---|---|---|
+| `grads_f64.pt`, 2,947,844,653 B | `1d4ea922…95cc4` | `1d4ea922…95cc4` | **identical** |
+| `grad_presence.json`, 344,595 B | `f862a0a4…b039a` | `f862a0a4…b039a` | **identical** |
+
+**Byte-identical**, which is *stronger* than the per-tensor comparison the missing script would
+have made: byte equality needs no tolerance at all, so every parameter of the reference agrees to
+the last bit. And it held across two fresh processes **95 minutes apart** on a box whose load went
+~19 → ~44 → ~19 between them, with run B sharing cores three ways. Bit-identity under those
+conditions is a better statement than bit-identity on a quiet box.
+
+**So the 0.4.3 reference is reproduced, and the trunk arms and run C stand on verified ground.**
+Recorded in `perf/of3t_orchestrator/a13/a13_043_bitidentity.json` with its provenance and an
+explicit note that it is `of3t-rebase`'s deliverable, not mine — I ran it because the gate had
+silently not run and work downstream was already consuming the bundle. The row is asked to produce
+its own artifact, to point `compare_grads.py` at a path inside its own worktree or the composition
+rather than another row's, and to make A13's non-zero exit refuse to start run C.
+
+**The reusable shape:** a script that references a *concluded* row's worktree is a time bomb, and
+combining it with no failure stop means the most load-bearing check in the sequence can disappear
+while every surrounding step reports success.
