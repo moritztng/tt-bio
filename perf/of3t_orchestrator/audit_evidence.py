@@ -827,16 +827,28 @@ if ORCH.is_file():
     if _r:
         share = _r["reach"]["device_bijection_mat64"]["norm_share"]
         claims.append((f"{share*100:.2f} %", proves, "the bijection's reach"))
-        claims.append((f"{_r['reach']['pairformer_stack_all']['norm_share']*100:.2f} %",
-                       doesnot, "the trunk's share of the norm, which bounds every SS3d claim"))
+        # Pass 134: this used to pin the summary to reach_by_norm.json's trunk share, which is
+        # computed on the 4,147-parameter 0.5.0 model. Pass 91 established the right denominator
+        # is 4,170, and the check was then REQUIRING the summary to quote the wrong one -- so
+        # keeping the summary current made the audit fail, and keeping the audit green kept the
+        # summary stale. A guard that enforces staleness is worse than no guard. The share is
+        # now read from the campaign's own corrected table, and the old artifact is left alone
+        # as the historical record it is.
+        _t = _re.search(r"`pairformer_stack`[^|]*\|\s*\*\*(\d+\.\d+)\*\*", o)
+        if _t:
+            claims.append((f"{float(_t.group(1)):.2f} %", doesnot,
+                           "the trunk's share of the norm on the 4,170 basis"))
     _c = j("perf/of3t_equivalence/instrument_c_optim.json")
     if _c and "of3_schedule_upstream" in _c.get("arms", {}):
         claims.append((f"{_c['arms']['of3_schedule_upstream']['worst']['rel']:.3e}",
                        proves, "SS5 against upstream's alignment"))
-    _a = j("perf/of3t_gradients/instrument_a_bundle_block0.json")
+    # Pass 134: was pinned to instrument_a_bundle_block0.json, the PRE-0.4.3-rebuild arm whose
+    # median the campaign no longer quotes. Same failure as the trunk share above. Pin it to the
+    # arm that is current -- the A16 bundle, which carries norm_ratio and cos as well.
+    _a = j("perf/of3t_orchestrator/a16/instrument_a_bundle_A16_block0_tbshipped.json")
     if _a:
-        claims.append((f"{_a['summary']['median']:.3e}", doesnot,
-                       "instrument A's block-0 median, the one FAILING number"))
+        claims.append((f"{_a['summary']['median']:.4f}", doesnot,
+                       "instrument A's block-0 median against the rebuilt 0.4.3 reference"))
     _d = j("perf/of3t_orchestrator/instrument_c2_clip_in_step.json")
     if _d:
         claims.append((f"{_d['arms']['clip_binds']['worst']['rel']:.3e}", proves,
