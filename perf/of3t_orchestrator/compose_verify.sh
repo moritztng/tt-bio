@@ -27,7 +27,7 @@ set -euo pipefail
 # because the denominator was the same stale string as the numerator. A hand-maintained list
 # cannot enforce "listed from the moment it is dispatched"; the briefs are the record of what
 # was dispatched, so derive it from them.
-ROWS_FLOOR="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity diffusion reopen rebase confhead auxheads conditioning adaln softmax"
+ROWS_FLOOR="reference tape equivalence data perf memory confidence leaves gradients pairbias l1 updaterule entity diffusion reopen rebase confhead auxheads conditioning adaln softmax trajectory"
 WS="${WS:-/home/moritz/.coworker/workstreams}"
 # A brief is "dispatched" when it carries a `#DISPATCH:` line -- the same fact the fleet queue
 # reads to launch it, so this cannot disagree with what actually ran.
@@ -41,7 +41,18 @@ ROWS_SEEN="$( { for _b in "$WS"/of3t-*.txt; do
 # The floor is a RATCHET, not a default: a brief that is renamed or retired must not silently
 # shrink the composition, so the union is what composes. A row present only in the floor is
 # announced, because that means its brief stopped saying it was dispatched.
-ROWS="$(printf '%s %s\n' "$ROWS_FLOOR" "$ROWS_SEEN" | tr ' ' '\n' | sed '/^$/d' | sort -u | paste -sd' ' -)"
+# ORDER MATTERS and pass 175 learned it the hard way. The first version of this derivation
+# `sort -u`'d the union, which is deterministic but ALPHABETICAL -- and the floor's hand-written
+# order was not arbitrary: it is the order rows were chartered, so an earlier row's version of a
+# shared file lands before a later row's. Sorting alphabetically moved `refprec` ahead of
+# `trajectory` and the compose hit a conflict in `perf/of3t_trajectory/agreement.py`, a file in
+# trajectory's OWN namespace, because refprec's branch carried an older copy of it through a
+# merge. So: the floor keeps its curated order, and rows known only from a brief are appended
+# after it, sorted among themselves for determinism.
+ROWS="$ROWS_FLOOR"
+for _r in $ROWS_SEEN; do
+  case " $ROWS_FLOOR " in *" $_r "*) ;; *) ROWS="$ROWS $_r" ;; esac
+done
 for _r in $ROWS; do
   case " $ROWS_FLOOR " in *" $_r "*) _inf=1 ;; *) _inf=0 ;; esac
   case " $ROWS_SEEN " in *" $_r "*) _ins=1 ;; *) _ins=0 ;; esac
