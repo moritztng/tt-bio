@@ -11,6 +11,23 @@ import json
 from pathlib import Path
 
 
+def _headrow(rows, pdb_id, datapoint):
+    for r in rows:
+        if r["pdb_id"] == pdb_id and r["datapoint"] == datapoint:
+            return r
+    raise SystemExit(f"{pdb_id} {datapoint} is not in the mask sweep")
+
+
+def _partners(rows, pdb_id, datapoint):
+    """The mask's own entries, spelled out, so no index is typed into the prose."""
+    out = []
+    for p in _headrow(rows, pdb_id, datapoint)["partners"]:
+        out.append(f"(i = {p['i']}, `is_ligand` {p['i_is_ligand']}, `is_polymer` "
+                   f"{p['i_is_polymer']}; j = {p['j']}, `is_polymer` {p['j_is_polymer']}, "
+                   f"`is_ligand` {p['j_is_ligand']})")
+    return "; ".join(out) if out else "(none)"
+
+
 def fmt(x, n=6):
     if x is None:
         return "None"
@@ -105,6 +122,9 @@ def main() -> int:
         "HEAD_DTYPE": head["dtype"],
         "BASE_MOVED": f"{bc['n_params_moved']:,}",
         "BASE_PARAMS": f"{bc['n_params']:,}",
+        "MASK_PARTNERS": _partners(rows, ht["pdb_id"], ht["datapoint"]),
+        "MASK_HEAD_TB": str(_headrow(rows, ht["pdb_id"], ht["datapoint"])["token_bonds_nnz"]),
+        "MASK_HEAD_MASK": str(_headrow(rows, ht["pdb_id"], ht["datapoint"])["bond_mask_nnz"]),
         "MASK_CROP": str(mask["crop"]),
         "MASK_SEED": str(mask["seed"]),
         # counted from the directory, so the doc cannot claim a term with no record

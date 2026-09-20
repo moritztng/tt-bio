@@ -25,11 +25,12 @@ MASK: the featuriser **does** express the predicate. `finetune_1` / `weighted-pd
 {{N_WALKED}}** carry a non-zero `bond_mask`, computed with the loss's own expression
 (`core/loss/diffusion.py:205-210`, `token_bonds * (is_polymer[..., None, :] * is_ligand[...,
 None])`). 4G5J fires on **{{N_4G5J_FIRED}} of {{N_4G5J}}** of its datapoints, 4BYH on
-**{{N_4BYH_FIRED}} of {{N_4BYH}}**. On the headline target {{HEAD_TARGET}} the single entry is
-(i = 321, `is_ligand` True, `is_polymer` False; j = 92, `is_polymer` True, `is_ligand` False) —
-one orientation, because the mask keeps `[ligand, polymer]` only — against `token_bonds` nnz
-{{HEAD_TB}} and `loss_weights.bond` 4.0. Full table, `is_polymer`/`is_ligand` token counts beside
-the bond counts:
+**{{N_4BYH_FIRED}} of {{N_4BYH}}**. On the headline target {{HEAD_TARGET}} the mask's
+{{MASK_HEAD_MASK}} entry is {{MASK_PARTNERS}} — one orientation, because the mask keeps
+`[ligand, polymer]` only — against `token_bonds` nnz {{MASK_HEAD_TB}} and `loss_weights.bond` 4.0.
+The batch the gradient was read on is a different draw of the same datapoint and carries
+`token_bonds` nnz {{HEAD_TB}} with `bond_mask` nnz {{HEAD_MASK}}. Full table,
+`is_polymer`/`is_ligand` token counts beside the bond counts:
 
 | target | datapoint | index | polymer tokens | ligand tokens | token_bonds nnz | polymer–ligand pairs | bond_mask nnz |
 |---|---|---|---|---|---|---|---|
@@ -63,10 +64,16 @@ script, `perf/of3t_auxheads/bond_coverage.py`, unchanged in what it computes. On
 {{GRAD_TABLE}}
 
 The first row is `of3t-auxheads`' reading on 5nw3, kept beside the new one because it is the
-control that matters: same instrument, same stage, same crop, same seed, weight 4.0 on both, and
-it reads **0.0 exactly** with {{BASE_MOVED}} of {{BASE_PARAMS}} tensors moved. The difference
-between the two rows is the corpus and nothing else, which is what makes the non-zero attributable
-to the bond rather than to the arm.
+control that matters: same instrument, same stage, same seed, weight 4.0 on both, and it reads
+**0.0 exactly** with {{BASE_MOVED}} of {{BASE_PARAMS}} tensors moved. Its crop is 384 to this
+row's {{HEAD_CROP}}, which changes nothing about that zero: 5nw3's `bond_mask` is empty at any
+crop, and an empty mask sums to zero however the crop was drawn. What differs between the two
+rows is the corpus, and that is what makes the non-zero attributable to the bond rather than to
+the arm.
+
+`aux_heads` is the one section the term does not reach: `‖Δg‖²` **0.000000e+00** over its own
+tensors, which is what a structure loss should do to the confidence heads and is a small check
+that the delta is the bond and not a numerical wobble spread over the model.
 
 Where the delta lands, by top-level section:
 
