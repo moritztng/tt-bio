@@ -1246,3 +1246,22 @@ correct handling, and it is why the 89-of-176 per-tensor overage was reported ag
 rather than quietly against 7.071068e-02.
 
 Record: `of3t-auxgrad` (`state/of3t-auxgrad.md`, BARS), A25, A26, A27.
+
+**A26-SCOPE, worked both ways so the rule is not misapplied (added the same pass).** This
+amendment narrows A26, and a narrowing rule can silently invalidate a standing headline if
+applied to the wrong comparison. It does not here, and the reason is the distinction the rule is
+made of:
+
+- **`of3t-auxgrad`'s aux_heads comparison** is against a **float64** reference. One side carries
+  error, the factor is 1, and the binding bar is `5.0e-02` / `2.0e-02` itself. A26 does **not**
+  widen it, which is why that row reported 89 of 176 tensors over the per-tensor bar rather than
+  82 over the widened one.
+- **The diffusion arm's `0.9563x`** is against **upstream OpenFold3's own bf16 training step** —
+  an imprecise reference, which is exactly A25's situation. Both sides carry error, so A26's
+  `sqrt(2)` **does** apply and `7.777580e-02` against the `8.133064e-02` two independent bf16
+  implementations would read is a legitimate PASS. The campaign's central positive result is
+  untouched by this amendment.
+
+So the test is not "is our side bf16" but **"does the REFERENCE carry error"**. Anyone invoking
+A26 states the reference's precision; anyone narrowing a bar re-reads the headlines that stood
+under the old one, rather than assuming they survive.
