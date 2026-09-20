@@ -1343,6 +1343,23 @@ path or a citation* passed all eight, **including one that propagated "verified 
 with nothing behind it** — a vacuous guard. Requiring a path fired on exactly that one. The weak
 form was discarded for being green, which is the thing a guard is supposed to make impossible.
 
+**A29 AMENDMENT, same pass — the word list is the SOURCE-EQUIVALENCE family ONLY, and finding
+its edge mattered more than finding the rule.** The guard covers *inert*, *cosmetic*,
+*functionally identical*, *identical in both*. It deliberately does **not** cover
+**bit-identical** or **byte-identical**, and the reason is a category distinction worth stating:
+those are claims about **measured tensor data**, and their correct evidence is a **number or a
+digest**, not a source path. Tested before deciding — widening the list to include them would
+have fired on **nine well-evidenced artifacts**, each already carrying exactly the right proof
+for its kind of claim: *"max abs diff 0.0"* over 26 tensors, *"sha256 d631c39e..."* for a
+reproduced gradient dump, a two-arm forward comparison. That would have been the **fifth** time
+in this campaign a guard was built wider than its subject.
+
+So the rule is not "demand a source path whenever a document says two things are the same." It
+is: **an equivalence between two pieces of CODE names the files; an equivalence between two
+pieces of DATA names the number or the digest.** Both are checkable; they are not checkable the
+same way. Adding *cosmetic* and *functionally identical* fires on nothing today and closes the
+hole where the identical claim escapes the guard by word choice alone.
+
 **The general lesson, recorded because it is bigger than this amendment.** The evidence audit runs
 162 checks and reads 0 drifted, and **every one of them is numeric**. In one week the prose inside
 those green documents produced three defects: an inference fold cost quoted as the price of
