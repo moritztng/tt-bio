@@ -847,8 +847,12 @@ if ORCH.is_file():
     # arm that is current -- the A16 bundle, which carries norm_ratio and cos as well.
     _a = j("perf/of3t_orchestrator/a16/instrument_a_bundle_A16_block0_tbshipped.json")
     if _a:
-        claims.append((f"{_a['summary']['median']:.4f}", doesnot,
-                       "instrument A's block-0 median against the rebuilt 0.4.3 reference"))
+        # `summary.median` is over every compared tensor; `identifiability.median_rel` is over
+        # the A14 set (zero-reference tensors excluded), which is the one PROTOCOL A14 requires
+        # and therefore the one the summary quotes. 0.0122 against 0.0121 is that difference.
+        _m = (_a.get("identifiability") or {}).get("median_rel", _a["summary"]["median"])
+        claims.append((f"{_m:.4f}", doesnot,
+                       "instrument A's block-0 median (A14 applied) against the 0.4.3 reference"))
     _d = j("perf/of3t_orchestrator/instrument_c2_clip_in_step.json")
     if _d:
         claims.append((f"{_d['arms']['clip_binds']['worst']['rel']:.3e}", proves,
