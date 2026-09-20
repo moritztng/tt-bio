@@ -3396,3 +3396,24 @@ Checked the blast radius rather than just fixing my own line: **nine of3t briefs
 and no row's state doc does**, so nothing has actually tripped, but `of3t-auxheads` had not
 launched yet and I had written the rule into it myself. Its brief now carries the prohibition in
 safe wording plus an explicit note about the trap, so it cannot lose a launch to it.
+
+PASS 99, operational follow-up to the pass-95 renice, both halves worth recording.
+
+**The reason for it has expired and the renice is now inert.** `c14-land-tail`'s timed fold A/B
+has finished. The only nice-0 process left on qb2 is `stallwatch.py` at 2.7 %, and my three rows'
+demand is **1663 % across 16 cores** with every one of them at nice 15. Nice values are relative,
+so a uniform offset against no nice-0 competitor schedules exactly as nice 0 would. **The yield
+costs nothing now** — which is the honest reading, rather than either claiming it still protects
+something or implying it is holding the campaign back.
+
+**And it could not have been undone anyway, which I learned by trying.** `renice` **down** is
+one-way for an unprivileged user: I can raise a process's nice value but not lower it, even on my
+own processes — `renice -n 0` returned *Permission denied* on the two `bundle_min.py` jobs and the
+capture. So yielding priority is a decision that lasts the life of the process, not a dial. That
+did not bite here because the demand is uniform, but it would have if a nice-0 competitor had
+appeared later and I had wanted the critical path back.
+
+The practical consequence for this fleet: renicing to protect a co-tenant is correct and cheap,
+and it should be sized on the **whole expected life** of the job rather than on the moment, since
+there is no taking it back. Where the yield needs to be temporary, the right instrument is a
+benchlock the other campaign takes, not a one-way renice by the neighbour.
