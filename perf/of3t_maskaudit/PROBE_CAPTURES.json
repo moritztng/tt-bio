@@ -1,0 +1,125 @@
+{
+ "device_opened": false,
+ "diffusion_conditioning": {
+  "base": {
+   "capture": "/home/ttuser/of3t_cond_cap/cond_boundary.pt",
+   "real_over_total_tokens": 0.14583333333333334,
+   "real_tokens": 56,
+   "si": {
+    "axes_masked": [
+     1
+    ],
+    "q_ref_mass_inside_real_block": 0.21977967214985072,
+    "ref_is_exactly_zero_outside": false,
+    "ref_norm_all": 2139.035843642598,
+    "ref_norm_real_block": 1002.7942213936444,
+    "ref_sq_mass_outside": 3569878.089927316,
+    "shape": [
+     48,
+     384,
+     384
+    ],
+    "tensor": "si_ref[0,:] over all noise levels"
+   },
+   "si_per_sample_min_q": 0.21559315502120963,
+   "tokens": 384,
+   "use_conditioning": false,
+   "zij": {
+    "axes_masked": [
+     0,
+     1
+    ],
+    "q_ref_mass_inside_real_block": 0.14431242676594977,
+    "ref_is_exactly_zero_outside": false,
+    "ref_norm_all": 90792.2197321561,
+    "ref_norm_real_block": 34490.58011115888,
+    "ref_sq_mass_outside": 7053627047.487846,
+    "shape": [
+     384,
+     384,
+     128
+    ],
+    "tensor": "zij_ref[0,0]"
+   }
+  },
+  "conditioned": {
+   "capture": "/home/ttuser/of3t_cond_cap/cond_boundary_cond.pt",
+   "real_over_total_tokens": 0.14583333333333334,
+   "real_tokens": 56,
+   "si": {
+    "axes_masked": [
+     1
+    ],
+    "q_ref_mass_inside_real_block": 0.1730803284006728,
+    "ref_is_exactly_zero_outside": false,
+    "ref_norm_all": 2333.1459658761523,
+    "ref_norm_real_block": 970.6569426159223,
+    "ref_sq_mass_outside": 4501395.1978356745,
+    "shape": [
+     48,
+     384,
+     384
+    ],
+    "tensor": "si_ref[0,:] over all noise levels"
+   },
+   "si_per_sample_min_q": 0.1706429856577908,
+   "tokens": 384,
+   "use_conditioning": true,
+   "zij": {
+    "axes_masked": [
+     0,
+     1
+    ],
+    "q_ref_mass_inside_real_block": 0.2826813123694363,
+    "ref_is_exactly_zero_outside": false,
+    "ref_norm_all": 45277.36137589048,
+    "ref_norm_real_block": 24072.969136133426,
+    "ref_sq_mass_outside": 1470531610.1337469,
+    "shape": [
+     384,
+     384,
+     128
+    ],
+    "tensor": "zij_ref[0,0]"
+   }
+  }
+ },
+ "diffusion_device_arm": {
+  "atom_mask_len": 422,
+  "atom_mask_sum": 422.0,
+  "axes_masked": [
+   0
+  ],
+  "capture": "/home/ttuser/of3t_diffusion_cap/diffusion_boundary.pt",
+  "compared_shape": [
+   1,
+   48,
+   422,
+   3
+  ],
+  "compared_tensor": "xl_out, the diffusion module's atom positions",
+  "keys": [
+   "args",
+   "cot",
+   "grad_f64",
+   "kwargs",
+   "loss",
+   "no_samples",
+   "out"
+  ],
+  "q_ref_mass_inside_real_block": 1.0,
+  "real_over_total_atoms": 1.0,
+  "ref_is_exactly_zero_outside": true,
+  "ref_norm_all": 202.58960586872487,
+  "ref_norm_real_block": 202.58960586872487,
+  "ref_sq_mass_outside": 0.0,
+  "shape": [
+   422,
+   3
+  ],
+  "tensor": "xl_out[0,0]",
+  "token_mask_len": 384,
+  "token_mask_sum": 56.0
+ },
+ "host": "qb2"
+}
