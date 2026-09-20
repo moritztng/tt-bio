@@ -1935,22 +1935,22 @@
       }
     },
     "p300c": {
-      "recorded": "2026-09-17",
+      "recorded": "2026-09-20",
       "host": "tt-quietbox2",
-      "commit": "679b9ab4c",
+      "commit": "0451345c8",
       "models": {
         "opendde": {
           "grid": "11x10",
-          "recorded": "2026-09-17",
+          "recorded": "2026-09-20",
           "host": "tt-quietbox2",
-          "commit": "679b9ab4c",
+          "commit": "0451345c8",
           "runtime_s": {
-            "256": 21.4,
-            "512": 76.1,
-            "640": 121.6,
-            "768": 172.8,
-            "896": 251.5,
-            "1024": 327.2
+            "256": 28.3,
+            "512": 80.4,
+            "640": 126.5,
+            "768": 184.1,
+            "896": 248.7,
+            "1024": 322.3
           },
           "levers": {
             "256": {
@@ -2057,15 +2057,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3320,
+                "declined": 3160,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 160,
                   "k_tiles=12:(12,12)": 2104,
                   "k_tiles=12:(12,1)": 1056
                 },
-                "reason": "declines all 3320 calls on k_tiles=12:(12,12) x2104, k_tiles=12:(12,1) x1056, k_tiles=2:(2,1) x160: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
+                "reason": "declines all 3160 calls on k_tiles=12:(12,12) x2104, k_tiles=12:(12,1) x1056: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2082,13 +2081,10 @@
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2272,
-                "declined": 2752,
-                "frac": 0.45222929936305734,
+                "declined": 2112,
+                "frac": 0.5182481751824818,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,9)": 160,
-                  "no_mm_block:(2,8)": 160,
-                  "no_mm_block:(2,6)": 320,
                   "no_mm_block:(12,49)": 1056,
                   "no_mm_block:(12,48)": 1056
                 }
@@ -2103,13 +2099,15 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 12896,
+                "declined": 25792,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 12896
+                  "gated_window_BufferType.L1": 6448,
+                  "window_BufferType.L1": 12896,
+                  "back_l1_src_narrow": 6448
                 },
-                "reason": "declines all 12896 calls on window_BufferType.L1 x12896: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
+                "reason": "declines all 25792 calls on window_BufferType.L1 x12896, gated_window_BufferType.L1 x6448, back_l1_src_narrow x6448: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -2170,24 +2168,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1056,
-                "declined": 160,
-                "frac": 0.868421052631579,
-                "how": "stats",
-                "rejects": {
-                  "no_mm_config": 160
-                }
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1056,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1056,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -2371,15 +2366,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2280,
+                "declined": 2120,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 160,
                   "k_tiles=12:(12,12)": 1064,
                   "k_tiles=12:(12,1)": 1056
                 },
-                "reason": "declines all 2280 calls on k_tiles=12:(12,12) x1064, k_tiles=12:(12,1) x1056, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 2120 calls on k_tiles=12:(12,12) x1064, k_tiles=12:(12,1) x1056: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2395,13 +2389,10 @@
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2272,
-                "declined": 2752,
-                "frac": 0.45222929936305734,
+                "declined": 2112,
+                "frac": 0.5182481751824818,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,9)": 160,
-                  "no_mm_block:(2,8)": 160,
-                  "no_mm_block:(2,6)": 320,
                   "no_mm_block:(12,49)": 1056,
                   "no_mm_block:(12,48)": 1056
                 }
@@ -2484,24 +2475,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1056,
-                "declined": 160,
-                "frac": 0.868421052631579,
-                "how": "stats",
-                "rejects": {
-                  "no_mm_config": 160
-                }
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1056,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1056,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -2684,15 +2672,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3328,
+                "declined": 3168,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 160,
                   "k_tiles=12:(12,12)": 2112,
                   "k_tiles=12:(12,1)": 1056
                 },
-                "reason": "declines all 3328 calls on k_tiles=12:(12,12) x2112, k_tiles=12:(12,1) x1056, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 3168 calls on k_tiles=12:(12,12) x2112, k_tiles=12:(12,1) x1056: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2708,13 +2695,10 @@
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2272,
-                "declined": 2752,
-                "frac": 0.45222929936305734,
+                "declined": 2112,
+                "frac": 0.5182481751824818,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,9)": 160,
-                  "no_mm_block:(2,8)": 160,
-                  "no_mm_block:(2,6)": 320,
                   "no_mm_block:(12,49)": 1056,
                   "no_mm_block:(12,48)": 1056
                 }
@@ -2792,24 +2776,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1056,
-                "declined": 160,
-                "frac": 0.868421052631579,
-                "how": "stats",
-                "rejects": {
-                  "no_mm_config": 160
-                }
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1056,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1056,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -2992,15 +2973,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3328,
+                "declined": 3168,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 160,
                   "k_tiles=12:(12,12)": 2112,
                   "k_tiles=12:(12,1)": 1056
                 },
-                "reason": "declines all 3328 calls on k_tiles=12:(12,12) x2112, k_tiles=12:(12,1) x1056, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 3168 calls on k_tiles=12:(12,12) x2112, k_tiles=12:(12,1) x1056: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -3016,13 +2996,10 @@
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2272,
-                "declined": 2752,
-                "frac": 0.45222929936305734,
+                "declined": 2112,
+                "frac": 0.5182481751824818,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,9)": 160,
-                  "no_mm_block:(2,8)": 160,
-                  "no_mm_block:(2,6)": 320,
                   "no_mm_block:(12,49)": 1056,
                   "no_mm_block:(12,48)": 1056
                 }
@@ -3106,24 +3083,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1056,
-                "declined": 160,
-                "frac": 0.868421052631579,
-                "how": "stats",
-                "rejects": {
-                  "no_mm_config": 160
-                }
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1056,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1056,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3296,26 +3270,25 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1251,
-                "declined": 2,
-                "frac": 0.9984038308060654,
+                "served": 1092,
+                "declined": 160,
+                "frac": 0.8722044728434505,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:896x896x64": 2
+                  "l1_dest_is_faster:896x896x64": 160
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3344,
+                "declined": 3184,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 160,
                   "k_tiles=12:(12,12)": 2096,
                   "k_tiles=12:(12,1)": 1088
                 },
-                "reason": "declines all 3344 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1088, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
+                "reason": "declines all 3184 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1088: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -3331,13 +3304,10 @@
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2336,
-                "declined": 2776,
-                "frac": 0.4569640062597809,
+                "declined": 2136,
+                "frac": 0.5223613595706619,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,9)": 160,
-                  "no_mm_block:(2,8)": 160,
-                  "no_mm_block:(2,6)": 320,
                   "no_mm_block:(12,49)": 1048,
                   "no_mm_block:(12,48)": 1088
                 }
@@ -3421,24 +3391,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1088,
-                "declined": 160,
-                "frac": 0.8717948717948718,
-                "how": "stats",
-                "rejects": {
-                  "no_mm_config": 160
-                }
+                "served": 1248,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1088,
+                "served": 1248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1088,
+                "served": 1248,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3622,16 +3589,15 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3680,
+                "declined": 3360,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 320,
-                  "k_tiles=2:(2,1)": 160,
+                  "k_tiles=2:(2,2)": 160,
                   "k_tiles=12:(12,12)": 2096,
                   "k_tiles=12:(12,1)": 1104
                 },
-                "reason": "declines all 3680 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1104, k_tiles=2:(2,2) x320, k_tiles=2:(2,1) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
+                "reason": "declines all 3360 calls on k_tiles=12:(12,12) x2096, k_tiles=12:(12,1) x1104, k_tiles=2:(2,2) x160: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -3647,13 +3613,10 @@
               "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 2368,
-                "declined": 2792,
-                "frac": 0.45891472868217054,
+                "declined": 2152,
+                "frac": 0.5238938053097345,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,9)": 160,
-                  "no_mm_block:(2,8)": 160,
-                  "no_mm_block:(2,6)": 320,
                   "no_mm_block:(12,49)": 1048,
                   "no_mm_block:(12,48)": 1104
                 }
@@ -3735,24 +3698,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1104,
-                "declined": 160,
-                "frac": 0.8734177215189873,
-                "how": "stats",
-                "rejects": {
-                  "no_mm_config": 160
-                }
+                "served": 1264,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1104,
+                "served": 1264,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1104,
+                "served": 1264,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3837,23 +3797,27 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0032,
+          "sigma_runtime_512": 0.0467,
           "exponents": {
             "256->512": {
-              "k": 1.83,
+              "k": 1.506,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.023,
+              "k": 2.043,
               "tol": 0.5
             }
           },
+          "sigma_runtime": {
+            "256": 0.0279,
+            "512": 0.0467
+          },
           "exponents_measured": {
-            "256->512": 1.83,
-            "512->640": 2.1,
-            "640->768": 1.927,
-            "768->896": 2.435,
-            "896->1024": 1.971
+            "256->512": 1.506,
+            "512->640": 2.031,
+            "640->768": 2.058,
+            "768->896": 1.951,
+            "896->1024": 1.941
           }
         }
       }
