@@ -1,0 +1,24 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 178",
+ "headline": "The pairformer trunk's gradient FAILS badly under both conventions and is worse than emitting nothing: 5.367727e+00 shipped and 8.855764e+00 pre-scaled, against an A16 zero-model measured at 1.000000e+00 and upstream's own float32+autocast recipe at 3.686000e-01. Norm ratio 5.41 and 8.89, cosine 0.137 and 0.089. This is the pre-registered NOT_YET branch: the trunk's 5.8282 % moves from UNMEASURED to MEASURED-AND-FAILING, which is worse news and better evidence.",
+
+ "the_table": {
+  "scope": "shared 2496-tensor set holding 99.2499 % of the trunk's own squared gradient norm, so 5.7845 % of the model's; mass-weighted rel_l2 against a 0.4.3 float64 reference",
+  "DEV_SHIPPED (scale_pair_bias=False)": {"rel_l2": 5.367727, "norm_ratio": 5.412308, "cos": 0.136779},
+  "DEV_SCALED (bias pre-scaled by sqrt(24))": {"rel_l2": 8.855764, "norm_ratio": 8.888671, "cos": 0.089097},
+  "REF043_BF16 (upstream's own recipe)": {"rel_l2": 0.3686, "norm_ratio": 1.028383, "cos": 0.934334},
+  "A16 zero model, measured": 1.0,
+  "instrument floor (reference on itself)": 0.0,
+  "break control (cotangent permuted over the 56 real slots)": 48.725
+ },
+
+ "the_finding_that_settles_D1_and_it_is_not_the_one_I_expected": "the forward and the gradient order the two conventions OPPOSITELY. Pre-scaling the pair bias improves the single-track FORWARD by 6.30x (1.064843e-01 -> 1.691313e-02 masked) and DEGRADES the gradient by 1.65x (5.367727e+00 -> 8.855764e+00), or 1.48x restricted to the leaves carrying the reference mass. The pair track's forward is bit-identical either way but its GRADIENT is not, because the backward through AttentionPairBias returns into z and pair_transition moves 3.756e-01 -> 5.317e-01. So D1 costs the trunk's gradient nothing and buys it nothing: holding the shipped default is the better reading in gradient terms AND in Angstrom, and the row changed no default.",
+
+ "why_that_is_not_a_paradox_and_not_good_news": "the row names it correctly rather than banking it: scale_pair_bias=False delivers the bias at 1/sqrt(24) = 0.204 of its reference size, which is a SMALLER perturbation of the attention scores, so it produces smaller and smoother gradients WHILE PRODUCING THE WRONG FORWARD. A gradient that agrees better because the model is doing less of the reference's work is not a better port. That is the campaign's standing no-cheat rule applied to its own favourable-looking number.",
+
+ "what_this_supersedes": "the 1.061553e+01 of3t-pairformer published, which was scored against a 0.5.0 reference. And it closes my pass-176 hope that explaining the forward would carry the gradient with it: it does not. The forward agrees at 4.947045e-02 on the pair track while the gradient of the same function is 5.4x too large in norm with cosine 0.137 -- a forward that agrees and a gradient that does not points at the BACKWARD, not at the function.",
+
+ "what_it_means_for_the_verdict": "the pre-registered NOT_YET branch fires (THE_VERDICT_IS_PREREGISTERED.json). GO is off the table this pass and was already conditional on two things, neither of which is met: this arm, and PROTOCOL §7's 20-step trajectory, which has never been run and is now dispatched as of3t-traj20.",
+
+ "provenance": "of3t-trunkgrad, VERDICT NO-GO, concluded. Bars fixed in its pre-registration before any number existed; A18 confirmed in the SAME process that took the gradient; every control measured before the headline and all reported. No number here is mine."
+}
