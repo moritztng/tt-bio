@@ -6825,3 +6825,40 @@ tensor our device reads at **18.504**.
 
 Filed as **D64**. This is the question I should have asked before the campaign's fortieth pass,
 not its hundred-and-sixty-third.
+
+---
+
+## Pass 164 — the memory index was silently dropping a line, and a known-wrong figure was still being quoted
+
+**The index that loads into every session had outgrown its limit.** `MEMORY.md` read 25,258
+bytes against a 24.4 KB cap, and the harness reported that **one line was cut off** — silently,
+with only a warning in a system reminder that a careless reader skips. The cause was mine: the
+eleven entries I added over the last dozen passes averaged **195 characters** where the file's
+established style is a shared line carrying several links.
+
+Fixed by grouping them the way the rest of the index already does — two lines, *"OF3T measurement
+discipline"* and *"OF3T instrument traps"* — which took the file to **24,017 bytes with 968 of
+headroom**. Verified afterwards: **287 links, 287 unique, 0 broken**, and the dropped last line is
+back. The general rule, and I should have followed it from the first entry: **an index line is a
+hook, not a summary — one line per topic with several links on it, detail in the topic file.**
+
+**And a figure I knew was wrong was still in the table I keep quoting.** D59 found 48 entries in
+the per-tensor array carrying a shape-inferred-transpose artifact — rel ≈ √2 where the truth is
+~2.48e-02. I checked at the time that this did not move the mass-weighted headline (7.5692 →
+**7.5688**) and stopped there. It also moves two other published figures, and I had left them:
+
+- attention side **10.3684 → 10.3679**, non-attention unchanged at 0.1855 — both negligible;
+- **tensors inside the 5.0e-02 per-tensor bar: 73 → 121, and the mass they hold 2.7940 % →
+  2.9386 %.**
+
+A **66 % change in count against a 5 % change in mass.** That is A23's own argument arriving from
+the other direction, and it is a useful reminder that "the artifact does not move the headline"
+is not the same as "the artifact does not move anything". Both figures are now published
+together, and the three distance-to-go totals still sum to 100.0000 %.
+
+Checking one consequence of a known defect and declaring it harmless is the same shape of error
+as checking one artifact and declaring a thing unmeasured — **verify every figure the defect
+touches, not the first one you think of.**
+
+Both live rows are mid-run: `of3t-refprec` seven minutes into building the fp32 bundle, and
+`of3t-softmax` finished with its NO-GO and its gate passing.

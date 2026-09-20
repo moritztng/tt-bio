@@ -3621,7 +3621,11 @@ as a wrong transform.
 
 **What it does and does not change.** Correcting the 48 affected entries to the row's measured
 ~2.48e-02 moves the whole-arm mass-weighted headline from **7.5692** to **7.5688** — 0.01 %, i.e.
-nothing. Every mass-weighted conclusion on the record survives untouched, because the contaminated
+nothing. The attention-side figure moves 10.3684 → **10.3679** and the non-attention side not at
+all. **But the count of tensors inside the 5.0e-02 per-tensor bar moves 73 → 121, and the mass
+they hold only 2.7940 % → 2.9386 %** — a **66 %** change in count against a **5 %** change in
+mass, which is A23's argument arriving from the other side and is why both figures are now
+published together (pass 164). Every mass-weighted conclusion on the record survives untouched, because the contaminated
 tensors hold 0.15 % of the mass. My pass-156 "anti-correlated" set survives too: of its 21
 tensors and 4.8058 % of the model, the suspect `.mha.*` members are **11 tensors holding
 0.0324 %**, leaving **4.7734 %** that is real.
