@@ -1,0 +1,84 @@
+{
+ "host": "UF-EV-A13-GWH02",
+ "date": "2026-09-19",
+ "model": "opendde-abag",
+ "board": "wh-galaxy",
+ "sampling_steps": 200,
+ "recycling_steps": 10,
+ "note": "engine defaults, no --sampling_steps/--recycling_steps",
+ "legs": {
+  "a1024p": {
+   "rung": "cdk2x2_1024_d8192",
+   "tokens": 1024,
+   "engine_sha": "d29d9a823",
+   "umd_card": 1,
+   "dev_node": 17,
+   "wall_s": 1611,
+   "cif_md5": "a27f0d6742a8a0f2267ccededb5bd6c3",
+   "power_W": {
+    "n": 161,
+    "min": 18.0,
+    "max": 117.0,
+    "mean": 68.1
+   }
+  },
+  "a1024m": {
+   "rung": "cdk2x2_1024_d8192",
+   "tokens": 1024,
+   "engine_sha": "bd643929a",
+   "umd_card": 0,
+   "dev_node": 16,
+   "wall_s": 1342,
+   "cif_md5": "34c3c61ea8a4ff5541d71afadabb82ae",
+   "power_W": {
+    "n": 134,
+    "min": 18.0,
+    "max": 118.0,
+    "mean": 72.7
+   }
+  },
+  "x1024m": {
+   "rung": "abag1024x",
+   "tokens": 1024,
+   "engine_sha": "bd643929a",
+   "umd_card": 3,
+   "dev_node": 19,
+   "wall_s": 1513,
+   "cif_md5": "f8228914413ddd98543d3f91205549f6",
+   "power_W": {
+    "n": 152,
+    "min": 18.0,
+    "max": 119.0,
+    "mean": 66.9
+   }
+  },
+  "a896m": {
+   "rung": "cdk2x2_896_d8192",
+   "tokens": 896,
+   "engine_sha": "bd643929a",
+   "umd_card": 0,
+   "dev_node": 16,
+   "wall_s": 1015,
+   "cif_md5": "baf09a94a5450775162607b9053e5585",
+   "power_W": {
+    "n": 102,
+    "min": 19.0,
+    "max": 125.0,
+    "mean": 73.5
+   }
+  }
+ },
+ "dead_cards": {
+  "note": "refuse ttnn.open_device, FW launch timeout on a core in row y=22",
+  "umd": [
+   2,
+   4,
+   5
+  ],
+  "nodes": [
+   18,
+   20,
+   21
+  ]
+ }
+}

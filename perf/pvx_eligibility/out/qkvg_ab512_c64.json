@@ -1,0 +1,361 @@
+{
+ "model": "protenix-v2",
+ "size": 512,
+ "host": "tt-quietbox",
+ "chip": "2",
+ "board": "p150a",
+ "arms_order": "off,on,off,on,off,on",
+ "keyset": "c64",
+ "started_utc": "2026-09-19T14:59:46Z",
+ "loadavg": [
+  2.60888671875,
+  2.7451171875,
+  3.408203125
+ ],
+ "runs": [
+  {
+   "i": 0,
+   "arm": "off",
+   "fold_s": 51.605,
+   "plddt": 0.810599,
+   "mm_block": {
+    "(2, 6)": null,
+    "(2, 8)": null,
+    "(2, 9)": null
+   },
+   "qkvg_stats": [
+    1048,
+    160
+   ],
+   "qkvgb_stats": [
+    1048,
+    160
+   ],
+   "qkvg_rejects": {
+    "dtype_or_memory_or_config:(512, 512, 64)": 160
+   },
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 25
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 25 samples, polled DURING the work",
+   "cif_sha256": {
+    "cdk2x2_512.cif": "0e0489acd59f3fbf4f6626fb0796e32b1817ac8ceaeb7c182b2ed5b4c665751d"
+   },
+   "loadavg": [
+    5.86181640625,
+    3.50439453125,
+    3.57958984375
+   ],
+   "qkv_stats": [
+    1048,
+    160
+   ],
+   "vacuous": false
+  },
+  {
+   "i": 1,
+   "arm": "on",
+   "fold_s": 53.85,
+   "plddt": 0.810599,
+   "mm_block": {
+    "(2, 6)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 8)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 9)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ]
+   },
+   "qkvg_stats": [
+    1208,
+    0
+   ],
+   "qkvgb_stats": [
+    1208,
+    0
+   ],
+   "qkvg_rejects": {},
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 26
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 26 samples, polled DURING the work",
+   "cif_sha256": {
+    "cdk2x2_512.cif": "0e0489acd59f3fbf4f6626fb0796e32b1817ac8ceaeb7c182b2ed5b4c665751d"
+   },
+   "loadavg": [
+    6.6259765625,
+    4.16845703125,
+    3.8046875
+   ],
+   "qkv_stats": [
+    1208,
+    0
+   ],
+   "vacuous": false
+  },
+  {
+   "i": 2,
+   "arm": "off",
+   "fold_s": 51.405,
+   "plddt": 0.810599,
+   "mm_block": {
+    "(2, 6)": null,
+    "(2, 8)": null,
+    "(2, 9)": null
+   },
+   "qkvg_stats": [
+    1048,
+    160
+   ],
+   "qkvgb_stats": [
+    1048,
+    160
+   ],
+   "qkvg_rejects": {
+    "dtype_or_memory_or_config:(512, 512, 64)": 160
+   },
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 25
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 25 samples, polled DURING the work",
+   "cif_sha256": {
+    "cdk2x2_512.cif": "0e0489acd59f3fbf4f6626fb0796e32b1817ac8ceaeb7c182b2ed5b4c665751d"
+   },
+   "loadavg": [
+    5.25634765625,
+    4.1220703125,
+    3.80419921875
+   ],
+   "qkv_stats": [
+    1048,
+    160
+   ],
+   "vacuous": false
+  },
+  {
+   "i": 3,
+   "arm": "on",
+   "fold_s": 51.368,
+   "plddt": 0.810599,
+   "mm_block": {
+    "(2, 6)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 8)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 9)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ]
+   },
+   "qkvg_stats": [
+    1208,
+    0
+   ],
+   "qkvgb_stats": [
+    1208,
+    0
+   ],
+   "qkvg_rejects": {},
+   "aiclk": {
+    "0": {
+     "min": 1350,
+     "max": 1350,
+     "median": 1350,
+     "n": 25
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 25 samples, polled DURING the work",
+   "cif_sha256": {
+    "cdk2x2_512.cif": "0e0489acd59f3fbf4f6626fb0796e32b1817ac8ceaeb7c182b2ed5b4c665751d"
+   },
+   "loadavg": [
+    3.8642578125,
+    3.92919921875,
+    3.75634765625
+   ],
+   "qkv_stats": [
+    1208,
+    0
+   ],
+   "vacuous": false
+  },
+  {
+   "i": 4,
+   "arm": "off",
+   "fold_s": 51.484,
+   "plddt": 0.810599,
+   "mm_block": {
+    "(2, 6)": null,
+    "(2, 8)": null,
+    "(2, 9)": null
+   },
+   "qkvg_stats": [
+    1048,
+    160
+   ],
+   "qkvgb_stats": [
+    1048,
+    160
+   ],
+   "qkvg_rejects": {
+    "dtype_or_memory_or_config:(512, 512, 64)": 160
+   },
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 25
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 25 samples, polled DURING the work",
+   "cif_sha256": {
+    "cdk2x2_512.cif": "0e0489acd59f3fbf4f6626fb0796e32b1817ac8ceaeb7c182b2ed5b4c665751d"
+   },
+   "loadavg": [
+    2.48681640625,
+    3.52685546875,
+    3.62646484375
+   ],
+   "qkv_stats": [
+    1048,
+    160
+   ],
+   "vacuous": false
+  },
+  {
+   "i": 5,
+   "arm": "on",
+   "fold_s": 51.351,
+   "plddt": 0.810599,
+   "mm_block": {
+    "(2, 6)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 8)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ],
+    "(2, 9)": [
+     4,
+     2,
+     1,
+     4,
+     1
+    ]
+   },
+   "qkvg_stats": [
+    1208,
+    0
+   ],
+   "qkvgb_stats": [
+    1208,
+    0
+   ],
+   "qkvg_rejects": {},
+   "aiclk": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 25
+    }
+   },
+   "clock_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 25 samples, polled DURING the work",
+   "cif_sha256": {
+    "cdk2x2_512.cif": "0e0489acd59f3fbf4f6626fb0796e32b1817ac8ceaeb7c182b2ed5b4c665751d"
+   },
+   "loadavg": [
+    3.1259765625,
+    3.474609375,
+    3.59912109375
+   ],
+   "qkv_stats": [
+    1208,
+    0
+   ],
+   "vacuous": false
+  }
+ ],
+ "ttnn": "0.67.4",
+ "grid": [
+  11,
+  10
+ ],
+ "cold_s": 57.37,
+ "summary": {
+  "off": {
+   "n": 3,
+   "median": 51.484,
+   "spread": 0.2,
+   "folds": [
+    51.605,
+    51.405,
+    51.484
+   ]
+  },
+  "on": {
+   "n": 3,
+   "median": 51.368,
+   "spread": 2.499,
+   "folds": [
+    53.85,
+    51.368,
+    51.351
+   ]
+  },
+  "ratio_off_over_on": 1.0023,
+  "delta_s": 0.116,
+  "aa_floor_s": 2.499,
+  "digest_identical": true
+ }
+}

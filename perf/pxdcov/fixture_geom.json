@@ -1,0 +1,49 @@
+{
+  "templ_bin_max_a": 22.0,
+  "rungs": [
+    {
+      "target_residues": 960,
+      "binder": 64,
+      "target_cif": "laczc_1008.cif",
+      "chains_conditioned": [
+        "A"
+      ],
+      "conditioned_tokens": 960,
+      "pairs_beyond_bin_max_frac": 0.8543
+    },
+    {
+      "target_residues": 1008,
+      "binder": 528,
+      "target_cif": "laczc_1008.cif",
+      "chains_conditioned": [
+        "A"
+      ],
+      "conditioned_tokens": 1008,
+      "pairs_beyond_bin_max_frac": 0.8538
+    },
+    {
+      "target_residues": 1008,
+      "binder": 80,
+      "target_cif": "big_1831.cif",
+      "chains_conditioned": [
+        "A"
+      ],
+      "conditioned_tokens": 1008,
+      "pairs_beyond_bin_max_frac": 0.8538
+    },
+    {
+      "target_residues": 1456,
+      "binder": 80,
+      "target_cif": "big_1831.cif",
+      "chains_conditioned": [
+        "A",
+        "B"
+      ],
+      "conditioned_tokens": 1456,
+      "pairs_beyond_bin_max_frac": 0.9048,
+      "cross_chain_min_dist_a": 164.7,
+      "cross_chain_pairs_beyond_bin_max_frac": 1.0,
+      "within_chain_pairs_beyond_bin_max_frac": 0.834
+    }
+  ]
+}

@@ -108,13 +108,53 @@ def cif_stats(path: pathlib.Path) -> tuple[int, int]:
     return len({(r[ch], r[sq]) for r in rows}), len(rows)
 
 
-def rfd3_fixture(work: pathlib.Path, total: int, binder: int, target: pathlib.Path) -> pathlib.Path:
+def _contig_components(contig: str):
+    """The engine's own parse of a contig. Never a regex here: `size_limits.scan_rfd3_total`
+    goes through `rfd3.input.parse_contig` for exactly this reason, and a second grammar in a
+    measurement harness is how a rung reports a size it never ran."""
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from tt_bio.rfd3.input import parse_contig
+    return parse_contig(contig)
+
+
+def contig_designed(contig: str) -> int:
+    """Residues in the DESIGNED regions, which is the chain a structural check must score."""
+    from tt_bio.rfd3.input import contig_residue_count
+    comps = _contig_components(contig)
+    return int(contig_residue_count([c for c in comps if getattr(c, "chain", None) is None]))
+
+
+def contig_total(contig: str) -> int:
+    """Motif + designed residues, counted by the engine. This is the rung's token axis."""
+    from tt_bio.rfd3.input import contig_residue_count
+    return int(contig_residue_count(_contig_components(contig)))
+
+
+def rfd3_fixture(work: pathlib.Path, total: int, binder: int, target: pathlib.Path,
+                 contig: str = "") -> pathlib.Path:
     """A contig spec whose DESIGN_TOTAL is `total`: `crop` motif residues plus `binder` designed.
 
     The crop is capped by the target chain, so past that the designed length carries the rest --
     which is the honest way to walk this axis above the largest target on hand, and still the
     number the model tokenises.
+
+    `contig`, when given, is used verbatim instead, and the rung asserts the engine's own count
+    of it equals `total` rather than trusting the caller's arithmetic. The default only ever
+    crops chain A, so a multi-chain target cannot be reached through it and does not say so: on
+    `big_1831.cif` (A=1008, B=823) asking for a 1456-residue motif silently returns A1-1008 with
+    a longer designed region, which is a different rung at the same total.
     """
+    if contig:
+        got = contig_total(contig)
+        if got != total:
+            raise SystemExit(f"contig {contig!r} is {got} residues, rung asked for {total}")
+        length = contig_designed(contig)
+        spec_id = f"bh{total}"
+        q = work / f"{spec_id}.json"
+        q.write_text(json.dumps(
+            {spec_id: {"input": str(target), "contig": contig, "length": str(length)}}, indent=2))
+        return q
     ntarget = cif_stats(target)[0]
     crop = min(total - binder, ntarget)
     length = total - crop
@@ -344,14 +384,15 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         checker = ("npz", size)
         extra = {"fast": bool(args.fast)}
     elif model == "rfd3":
-        fx = rfd3_fixture(work, size, args.binder, pathlib.Path(args.target))
+        fx = rfd3_fixture(work, size, args.binder, pathlib.Path(args.target),
+                          contig=getattr(args, "rfd3_contig", "") or "")
         cmd = base + ["design", str(fx), "--model", "rfd3", "--from_pdb", "--out_dir", str(out_dir),
-                      "--num_timesteps", str(args.steps), "--num_designs", "1"]
+                      "--num_timesteps", str(args.steps), "--num_designs", str(args.designs)]
         checker = ("cif", size)
     elif model == "pxdesign":
         fx = pxdesign_fixture(work, size, pathlib.Path(args.target), args.binder)
         cmd = base + ["design", str(fx), "--model", "pxdesign", "--out_dir", str(out_dir),
-                      "--n_step", str(args.steps), "--num_designs", "1"]
+                      "--n_step", str(args.steps), "--num_designs", str(args.designs)]
         checker = ("binder", (args.binder, size))
     elif model == "boltzgen":
         fx, atoms, tres = boltzgen_fixture(work, size, pathlib.Path(args.target), args.binder)
@@ -581,6 +622,17 @@ def main() -> int:
                          "compared across machines")
     ap.add_argument("--target", default="perf/ceilrfd3/targets/laczc_1008.cif")
     ap.add_argument("--binder", type=int, default=80)
+    ap.add_argument("--rfd3-contig", default="",
+                    help="rfd3 only: use this contig verbatim instead of cropping chain A. The "
+                         "only way to put the motif on more than one chain, which the default "
+                         "cannot do and does not complain about. Checked against --sizes by the "
+                         "engine's own parser")
+    ap.add_argument("--designs", type=int, default=1,
+                    help="designs per rung for rfd3/pxdesign. Part of the configuration a "
+                         "ceiling is valid in rather than a detail: the samples are ONE batched "
+                         "diffusion trajectory, so 4 -- what this platform sends for pxdesign -- "
+                         "is 4x the activation the default 1 allocates. Left at 1, every earlier "
+                         "walk in this file reproduces unchanged")
     ap.add_argument("--steps", type=int, default=20)
     ap.add_argument("--timeout", type=int, default=3600)
     ap.add_argument("--rescore", action="store_true",

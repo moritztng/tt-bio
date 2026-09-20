@@ -1,0 +1,49 @@
+{
+  "cif": "/home/cust-team/mthuening/rfd3covwh/out/main-1024-d1/designs/bh1024.cif",
+  "residues": 1024,
+  "motif_residues": 924,
+  "designed_residues": 100,
+  "clashes": {
+    "counts": {
+      "motif-motif": 0,
+      "motif-design": 133,
+      "design-design": 0
+    },
+    "worst": {
+      "motif-motif": null,
+      "motif-design": 0.392,
+      "design-design": null
+    },
+    "heavy_atoms": 7855
+  },
+  "backbone": [
+    {
+      "what": "output",
+      "chain": "A",
+      "n_res": 1024,
+      "gaps": 0,
+      "gap_at": [],
+      "step_median": 3.802
+    }
+  ],
+  "designed": {
+    "n": 100,
+    "breaks": 0,
+    "worst_step": 3.941,
+    "step_median": 3.834
+  },
+  "target_control": {
+    "heavy_atoms": 7400,
+    "backbone": [
+      {
+        "what": "input target",
+        "chain": "A",
+        "n_res": 924,
+        "gaps": 0,
+        "gap_at": [],
+        "step_median": 3.798
+      }
+    ],
+    "clashes": 0
+  }
+}
