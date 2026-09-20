@@ -7074,3 +7074,95 @@ imprecise" and the corrected predicate was worth more than the original claim.
 DRAW. 4G5J's polymer-ligand bond survives **7 of 7** draws at crop 384 and **4 of 7** at crop 256, so
 a `bond_mask` non-zero count is a property of the drawn crop and every gradient run must record its
 own rather than inheriting one.
+
+### D118. UNFIXED as a set of follow-ups. Seven open defects and the campaign's largest headline are one cause, and seven others must be protected from it. A triage against the fp32 ceiling, not a measurement.
+
+The directive that came with Moritz's ask-9562 answer is explicit: *"any other defect whose signature
+is 'we cannot get close enough on-device' is now suspect for the same cause… before more engineering
+is spent on them."* Done, in both directions, because a satisfying mechanism is exactly when
+over-attribution starts. `perf/of3t_orchestrator/fp32ceiling/FP32_CEILING_TRIAGE.json`.
+
+**One cause (7)**: **D56**, **D8**, **D9**, **D55**, **D62**, **D116**, and the 51.1358 % headline.
+
+**D56 is the strongest match and it had already written the answer without the cause.** Its own
+heading reads *"torch fp32 computes that same reduction INSIDE THE BAR, so the conditioning is the
+amplifier and a **~2,000x device arithmetic floor** is the source."* It had identified a device
+arithmetic floor and had nothing to explain it. The composition is now complete: `g_γ` is a sum over
+18,432 terms whose relative error is set by the cancellation condition number `K`; with IEEE fp32 a
+large `K` still lands inside the bar, and with a device fp32 a few mantissa bits short **the same K
+blows past it**. Conditioning amplifies whatever floor it is handed, and the two floors are four
+orders apart.
+
+**D55 is downgraded rather than explained away.** `precise_config()` on the four withheld reductions
+is still worth 12x (1.646e-03 against 2.029e-02) and should be installed — but the mechanism puts a
+**ceiling** on it: even installed everywhere it leaves the reduction four orders from IEEE fp32, so
+it cannot close a cancellation. Install it for the 12x; stop expecting it to close D56.
+
+**Adjacent, own cheap check (3)**: D28 (forwards disagreeing above the bar), D30 (a 19.6x
+backward-over-forward factor — a backward accumulates more so a floor hurts it more, which is
+consistent and not established), D93 (`use_high_precision_attention` is a difference between
+upstream REVISIONS, not our arithmetic — do not merge it in).
+
+**Explicitly NOT this cause (7), and this is the load-bearing half**: **D31** — the tape
+differentiates a *different function* from the one it computes, and no amount of precision fixes
+that; **D59/D86** — a shape-inferred transpose, a wiring defect with a √2/cos≈0 signature;
+**D117** — harness collation; **D107** — an update-rule semantics difference exact arithmetic would
+not touch; **D78** — an order-dependent sum in our own instrument; **D112** — infrastructure;
+**D2/D3/D10/D24** — out of scope or model behaviour.
+
+**What it changes operationally**: six investigations plus a headline collapse into one cause with
+one fix already in flight, three get a cheap check, and seven are fenced off. The saving is the
+engineering *not* spent tuning device configurations against a silicon floor.
+
+**What it does not establish**: that the host float64 softmax closes any of them. It closes the
+51.1358 % scope at 0.956x by measurement; for D8, D9 and D56 the substitution is a hypothesis with a
+mechanism and each still owes its own arm. **This reallocates effort; it retires nothing.**
+
+**D118 — does the hypothesis still stand? STILL OPEN, and here is exactly what settles each part.**
+The mechanism itself is not a hypothesis: it is Moritz's and the four-orders-of-magnitude gap is on
+the record. What is hypothesis is the ATTRIBUTION of each defect to it, and each has a named arm:
+
+- **the 51.1358 % headline — CONFIRMED by measurement already**, the host float64 softmax reaching
+  0.956x of the bar; `of3t-f64softmax` is building the path.
+- **D116 — arm running.** `of3t-apbgrad` tests the host softmax as its first arm; if its cotangent
+  falls to the Transition sibling's cos 1.000 the attribution is confirmed and its operand sweep is
+  cancelled.
+- **D8 — strongest indirect evidence, not yet its own arm.** `of3t-adaln`'s 8.06e-01 under our
+  softmax against 1.46e-02 under float64 is the substitution already done on that leaf; what is
+  missing is the same substitution at D8's own scope.
+- **D9, D55, D56, D62 — hypothesis, no arm run.** Each is re-measured by substituting the host
+  softmax (D9, D56, D62) or by installing `precise_config()` on the four withheld reductions (D55),
+  and none of those has been done.
+- **D28, D30, D93 — adjacent, unexamined**, and D93 is a revision difference that must not be
+  merged in.
+
+So: **the mechanism stands, the attributions are open, and no defect is retired by this entry.** If
+`of3t-apbgrad` and `of3t-f64softmax` both confirm, that is two of seven and the rest still owe their
+arms.
+
+### §6 COVERAGE CLOSED (pass 206), not headed with a defect number. `of3t-bondcov` returned GO: coverage is **8 of 8** loss terms, and the last one is retired on a measurement rather than an argument.
+
+The `bond` term has never fired in this campaign's history. It now has, and both halves of §6's test
+pass — the term fires **and** it moves the gradient.
+
+**Carried by `(finetune_1, weighted-pdb, 4g5j chain 1)`**: `bond` weight **4.0**, a `bond_mask` with
+**1** non-zero entry, `bond_loss` **0.0012424831511452794**, and a gradient contribution of
+**0.146902** of the squared norm over **3,924** tensors. §6's own test is that a term firing with a
+zero gradient contribution has been skipped with extra steps; this one is not zero.
+
+**4G5J is upstream's own data, not ours.** It is entry `4g5j` of OpenFold3's
+`training_cache_with_templates.json` (**180,975** structures), fetched preprocessed from the public
+unsigned `s3://openfold3-data` bucket. Nothing is redistributed into the repo — the npz, sdf and
+cache are gitignored and the corpus is identified by digest `e20b564af303d16e…`.
+
+**The retired reason, and the distinction that is the whole result.** The NOT COVERED entry said
+*"0 of 8 corpus targets carry a polymer–ligand bond"*. That was **true of the corpus and never true
+of the featuriser**. Three steps got from one to the other: `of3t-auxheads` named the predicate
+(`bond_mask = token_bonds * is_polymer * is_ligand`, so a ligand–ligand bond contributes nothing);
+this row's pass-201 candidate list verified carriers **at mmCIF annotation level**, with the two
+structures a reputation search would have picked both failing; and `of3t-bondcov` closed the step
+between annotation and feature tensor, which it named exactly — **an annotation is not a feature
+tensor**.
+
+**So PROTOCOL §6 is satisfied: 8 of 8 loss terms fire with a non-zero gradient contribution**, with
+the union-over-stages carrier named for each. That is one of the protocol's four pillars complete.
