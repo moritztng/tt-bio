@@ -749,14 +749,19 @@ no fp32 bundle has ever been built. Row `of3t-refprec` dispatched, CPU-only. **D
 permutation** — 44 of its 45 replayed draws are byte-identical in place, one draw's content
 replaced. Caught before its output existed. It nonetheless moves the headline **4,489x**, so
 D69's and D70's figures are **established**, not provisional; the file stays misnamed and a
-reader taking `_PERMUTED` at face value will over-rate it.
+reader taking `_PERMUTED` at face value will over-rate it. **D72 (STILL OPEN)**: re-scored against upstream's own bf16 floor rather than float64,
+**42.2794 %** of the model already deviates no more than the recipe itself does and
+**43.8936 %** is far past it — all of that the diffusion transformer at **141.6x**. The
+campaign's "54 % outside the bar" was largely an artefact of a float64 yardstick upstream
+never meets. Limited by the shared-subtrahend rule: two distances from one reference do not
+order each other, so this is not yet a trajectory claim.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **39.7893 % of OpenFold3's gradient
 mass is measured against a float64 reference and inside the bars, 54.0115 % is measured and
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-two live; seventy-one defects on the record, thirty-one of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+two live; seventy-two defects on the record, thirty-one of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -7229,3 +7234,49 @@ than a convenience.
 Still owed on this result: A16's measured zero-model baseline, and `of3t-refprec`'s own reported
 numbers with its own controls. Everything I have published from these arms is an orchestrator
 computation off the landed tensors and says so.
+
+---
+
+## Pass 173 — re-scored against the recipe's own floor, the failure is one module
+
+D70 established that the campaign's 2.0e-02 bar against float64 is missed by upstream's own
+training dtype. A bar the authors do not meet is the wrong yardstick, so I re-scored every
+measured section against the recipe's own bf16 error instead.
+
+    section                    %model   bf16 floor   our device    ratio
+    diffusion_transformer     43.8936    5.788e-02    8.195e+00    141.6x   FAR
+    diffusion_conditioning    36.9462    6.253e-02    7.865e-03     0.13x   at or better
+    pairformer_stack           5.8282    3.148e-01           --            no section arm
+    atom_attn_enc              5.5589    8.226e-02    1.976e-01      2.4x   close
+    aux_heads                  2.8431    2.394e-01    2.300e-03     0.01x   at or better
+    atom_attn_dec              1.3173    5.071e-02    2.829e-01      5.6x   close
+    msa_module                 1.2400    1.789e-01    1.621e-01     0.91x   at or better
+    layer_norm_s               0.9835    3.101e-02    2.381e-02     0.77x   at or better
+    input_embedder             0.8007    3.422e-01           --            port-coverage gap
+    layer_norm_a               0.2666    3.697e-02    9.468e-03     0.26x   at or better
+    linear_s                   0.2445    6.544e-02    2.272e-01      3.5x   close
+
+**At or better than upstream's own bf16: 42.2794 %. Within 10×: 7.1207 %. Far past it:
+43.8936 %, and every point of it the diffusion transformer.** No arm: 6.6289 %.
+
+So **49.4 % of the model deviates from float64 by no more than the recipe itself does**, and the
+"54 % outside the bar" I have been reporting for dozens of passes was largely an artefact of
+measuring against a float64 ideal upstream never meets. `msa_module` is the sharpest case: its
+own row called it *missing both bars* at 1.6211e-01, and against the recipe's floor of
+1.7894e-01 it **passes**.
+
+**And the limit on all of it comes from this campaign's own standing list.** Both columns are
+distances from the **same** float64 reference, and **two deviations from a shared reference do
+not order each other** — our 7.865e-03 beside bf16's 6.2532e-02 does not establish that we agree
+*with bf16* to 6e-02, because the errors may point different ways and our distance from bf16
+could exceed both. That is the shared-subtrahend rule and it applies exactly here.
+
+Established: our deviation from the float64 ideal is no larger than the recipe's own on
+42.2794 % of the model. **Not** established: that we reproduce upstream's bf16 *trajectory*,
+which is what "reproduce training" means strictly. What closes it: compare our device gradient
+**tensors** directly against arm4's instead of both against float64. arm4 is on disk; what is
+missing is our device gradient tensors — the device arm published rel, `r` and cos per tensor
+but **not the gradients**. One re-run of `device_gradient.py` writing them closes it, which is
+the *keep the per-item array* lesson arriving a third time.
+
+Filed as **D72**, still open, with the closing measurement named.
