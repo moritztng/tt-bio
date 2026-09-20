@@ -37,7 +37,8 @@ def main():
     ap.add_argument("--card", default="p300c")
     args = ap.parse_args()
     head = sh("git", "rev-parse", "HEAD")
-    print(f"HEAD {head[:9]} {sh('git', 'log', '-1', '--format=%cI', head)}   card {args.card}\n")
+    print(f"HEAD {head[:9]} {sh('git', 'log', '-1', '--format=%cI', head)}   "
+          f"origin/main {sh('git', 'rev-parse', '--short', 'origin/main')}   card {args.card}\n")
     for f in sorted(glob.glob(str(ROOT / "docs/size_ladder_baseline.d/*.json"))):
         model = os.path.basename(f)[:-5]
         card = (json.load(open(f)).get("cards") or {}).get(args.card)
@@ -45,10 +46,19 @@ def main():
             print(f"{model:<14} no {args.card} entry")
             continue
         c = card.get("commit")
-        anc = subprocess.run(["git", "merge-base", "--is-ancestor", c, head],
+        # Against origin/main, not against HEAD. On a worker branch HEAD is the branch, so
+        # "ancestor of HEAD" is true for every commit this branch made and answers nothing.
+        anc = subprocess.run(["git", "merge-base", "--is-ancestor", c, "origin/main"],
                              cwd=ROOT).returncode == 0
+        # An entry recorded on a worker branch names a commit that is not on main, and the
+        # question that actually matters is not whether the SHA is reachable but whether the
+        # ENGINE it names differs from main's. A data-only branch records at its own HEAD and
+        # the tt_bio content is main's, which is checkable rather than a claim.
+        engine = "same-as-main" if anc else (
+            "engine=main" if not sh("git", "diff", "--stat", f"{c}..origin/main", "--", "tt_bio/")
+            else "ENGINE DIFFERS FROM MAIN")
         print(f"{model:<14} commit={c[:9]} recorded={card.get('recorded')} "
-              f"host={card.get('host')} on-main={'yes' if anc else 'NO'} "
+              f"host={card.get('host')} on-main={'yes' if anc else 'NO'} {engine} "
               f"behind: tt_bio={sh('git', 'rev-list', '--count', f'{c}..HEAD', '--', 'tt_bio/'):>4} "
               f"all={sh('git', 'rev-list', '--count', f'{c}..HEAD'):>4} "
               f"models={sorted((card.get('models') or {}))}")
