@@ -6034,3 +6034,40 @@ The fix belongs at a quiet moment: either publish the composition deliberately, 
 `wk/of3t` as a base and name the specific row branch a new row actually depends on — which is
 what I did for `of3t-trunkback` and should have done for `of3t-traj20`.
 Owner: `of3t-orchestrator`. **UNFIXED.**
+
+### D102. seven superseded artifacts were STAMPED but not NULLED — the numbers stayed readable for up to twenty passes. FIXED and guarded.
+
+The campaign's own standing lesson is *"null the stale field, do not merely label it"*. Found
+unapplied to **seven** of my own artifacts, including the four `THE_ANSWER.json` explicitly lists
+under `supersedes`:
+
+    DISTANCE_TO_GO_BY_MASS.json              RETIRED      3 live data fields
+    SCOREBOARD_PASS_175.json                 SUPERSEDED   5
+    THE_ERROR_MASS_IS_ONE_MODULE.json        REFUTED      2
+    ACCURACY_AND_AGREEMENT_ARE_DIFFERENT...  (no stamp)   2
+    ORIENTATION_IS_SUFFICIENT.json           WITHDRAWN    2
+    SOFTMAX_LEVER_DOES_NOT_REACH_THE_BAR...  WITHDRAWN    4
+    TWO_MECHANISMS_NOT_ONE.json              REFUTED      4
+
+Each carried a status field saying it was dead **and** structured `list`/`dict` fields holding
+numbers — `scoreboard`, `agreement_results`, `rows`, `split` — that a reader scanning keys, or a
+script asking for them by name, would consume as current. One of them had no top-level stamp at
+all; its withdrawal lived in a field called `headline_RETIRED`. And
+`NO_SOFTMAX_LEVER_REACHES_THE_BAR.json` had recorded a withdrawal of its `0.1370` at pass 160
+while the field holding `0.1370` stayed live for **twenty passes** after.
+
+**Fixed**: every structured field in a wholly-dead artifact renamed with a `_SUPERSEDED` suffix,
+content kept verbatim for audit. The point is not deletion — it is that the data **cannot be
+picked up by name**.
+
+**Guarded**: `assert_superseded_is_nulled.py`, run by `compose_verify.sh` every compose.
+
+**And the guard was too wide on its first real run, for the fourth time.** It initially treated
+*any* key starting with a status word as a whole-artifact stamp, and so fired on
+`THE_REVISION_ARM_RAN.json`, whose `SUPERSEDED_BY_MEASUREMENT` retires **one estimate** inside a
+live artifact. The convention is now explicit in the script: a top-level key matching exactly
+`SUPERSEDED|RETIRED|REFUTED|WITHDRAWN`, optionally `_AT_PASS_<n>`, means the artifact is dead;
+anything else (`SUPERSEDED_BY_MEASUREMENT`, `CORRECTED_pass180`, `headline_RETIRED`) is a partial
+correction and is exempt. Four controls. **Every one of my last four guards has defaulted too
+wide and been caught by running it on real data** — which is the argument for that step, not
+against the guards. Owner: `of3t-orchestrator`. **FIXED.**
