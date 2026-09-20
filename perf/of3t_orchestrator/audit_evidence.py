@@ -733,10 +733,22 @@ if _man:
 # may quote the numbers of its day, but the figures in its HEADING and its current-state
 # paragraph must match the artifacts. So: check the heading line and the D20 body.
 _DEFP = _campaign_doc("DEFECTS")
-if _DEFP.is_file() and _reach_top:
+if _DEFP.is_file() and (_reach_top or j("perf/of3t_orchestrator/SECTION_MASS_MEASURED.json")):
     _dt = _DEFP.read_text()
-    _diff_share = _reach_top.get("diffusion_module", {}).get("share")
-    _aux_share = _reach_top.get("aux_heads", {}).get("share")
+    # Pass 151: the shares that DEFECTS must follow now come from the EXHAUSTIVE 0.4.3 table,
+    # not from reach_by_norm.json, which is the 0.5.0 / 4,147 artifact pass 91 disqualified.
+    # This guard demanded 91.21 % -- a share of a model the campaign does not claim -- so a
+    # green run meant DEFECTS was stale. Fourth sighting of a guard pinned to a superseded
+    # artifact enforcing staleness; the rule is to re-point the guard when the artifact is
+    # superseded, in the same pass.
+    _sm = j("perf/of3t_orchestrator/SECTION_MASS_MEASURED.json") or {}
+    _smsec = _sm.get("sections_pct_of_model", {})
+    if _smsec:
+        _diff_share = _sm.get("diffusion_module_total", {}).get("pct", 0) / 100.0 or None
+        _aux_share = _smsec.get("aux_heads", {}).get("pct", 0) / 100.0 or None
+    else:
+        _diff_share = _reach_top.get("diffusion_module", {}).get("share")
+        _aux_share = _reach_top.get("aux_heads", {}).get("share")
     if _diff_share and _aux_share:
         _want_sum = f"{(_diff_share + _aux_share) * 100:.1f} %"
         _m = re.search(r"^### D20\. .*?(\d+(?:\.\d+)?) % of the gradient", _dt, re.M)
