@@ -1,0 +1,17 @@
+RELEASE GATE — prot.yaml (prot), 200 (rf3 50) steps / 5 samples, seed 0
+##############################################################################
+model            RMSD (A)      TM           floor  in band  gaps        clash    wall  result
+boltz2              1.685   0.927    <=3.0/>=0.75   1.0000     0    2(0.0022)     52s  PASS
+esmfold2            1.874   0.895     <=8.0/>=0.4   1.0000     0    0(0.0000)     71s  PASS
+esmfold2-fast       1.796   0.911     <=4.5/>=0.6   1.0000     0    1(0.0011)     63s  PASS
+protenix-v2         1.999   0.867     <=6.0/>=0.5   1.0000     0    2(0.0022)     66s  PASS
+protenix-v1         2.620   0.779     <=5.0/>=0.6   1.0000     0    0(0.0000)     44s  PASS
+opendde             1.395   0.940     <=6.0/>=0.5   1.0000     0    5(0.0056)     82s  PASS
+openfold3           2.206   0.820     <=3.5/>=0.7   1.0000     0    2(0.0022)    184s  PASS
+rf3                 1.239   0.958    <=3.0/>=0.75   1.0000     0    0(0.0000)     81s  PASS
+openbind            1.769   0.884     <=3.5/>=0.7   1.0000     0    1(0.0011)     74s  PASS
+##############################################################################
+geometry floors, check_structure.py's own bands: in band >= 0.9 (protein) / 0.85 (nucleic), zero backbone gaps beyond 5.0 / 9.5 A, clashes <= max(2, 0.02 x heavy atoms)
+GATE PASS — all models cleared parse + ground-truth floor + geometry
+benchlock: WARNING after 900s load=6.75 foreign_folds=0 []. Proceeding, RECORD THIS.
+benchlock: pvx-gate-land acquired after 907s, loadavg 6.75 7.49 9.96
