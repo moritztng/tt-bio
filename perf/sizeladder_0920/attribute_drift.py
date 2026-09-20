@@ -29,10 +29,17 @@ counter lives in.
 THE (b)-TEST, which is the one that matters. "A genuine regression with no matching merged
 commit" cannot be read off a commit list, because every commit in the range IS merged. What
 separates a path change that costs nothing from a regression is the RUNTIME at the rung where the
-lever went dark: a lever that stops serving and leaves its rung's seconds flat (or better) moved
-its traffic somewhere else, and one that stops serving while its rung gets slower is the thing
-this row must not record over. That test needs both entries measured under comparable host load,
-so it prints the ratio and says so rather than hiding the assumption.
+lever went dark: a lever that stops serving and leaves its rung's seconds where the rest of the
+ladder sits moved its traffic somewhere else, and one that stops serving while ITS rung alone
+gets slower is the thing this row must not record over.
+
+The ratio is taken against the LADDER'S OWN MEDIAN RATIO, not against 1.0. Two records of the
+same model minutes apart differ by a whole-ladder offset -- nesso1 re-recorded 1.08, 1.11, 1.04,
+1.08, 1.02, 1.07 against its previous entry, about +7 % everywhere, because the box was busier.
+Against 1.0 with a 5 % bar that makes four of six rungs look like regressions and flagged a
+REBLOCK_PERMUTE handoff as SUSPECT when the two levers taking its traffic started firing at the
+same rung. A whole-ladder offset is the measurement conditions; what a regression looks like is
+ONE rung standing out from its own ladder.
 
 Usage:  attribute_drift.py [--old-ref REF] [--card p300c] [--self-test] <model> [<model> ...]
 """
@@ -40,6 +47,7 @@ import argparse
 import importlib.util
 import json
 import pathlib
+import statistics
 import subprocess
 import sys
 
@@ -142,7 +150,9 @@ def registry_change(flag, base_commit):
 
 
 def classify(flag, detail, new_cell, base_commit, rt_ratio):
-    """Verdict + the commits behind it. `rt_ratio` is new/old seconds at this rung, or None."""
+    """Verdict + the commits behind it. `rt_ratio` is this rung's seconds ratio DIVIDED BY the
+    ladder's median ratio, so a whole-ladder offset from host conditions cancels and only a rung
+    standing out from its own ladder can read as a regression."""
     if "observed NO calls" in detail:
         return UNOBSERVED, []
     # A lever the baseline has no row for, or has a row the census no longer emits, is a
@@ -170,13 +180,18 @@ def classify(flag, detail, new_cell, base_commit, rt_ratio):
 def report(model, old, new, base_commit):
     rows, unresolved = [], 0
     o_rt, n_rt = old.get("runtime_s") or {}, new.get("runtime_s") or {}
+    # The whole-ladder offset between the two records: host conditions, not a lever.
+    allr = [n_rt[r] / o_rt[r] for r in n_rt if o_rt.get(r) and n_rt.get(r)]
+    base = statistics.median(allr) if allr else None
+    print(f"  whole-ladder median ratio {base:.3f} (divided out below; a rung is judged against "
+          f"its own ladder, not against 1.0)" if base else "  no paired runtimes")
     for rung in sorted(new["levers"], key=int):
         b = old["levers"].get(str(rung))
         if b is None:
             print(f"  rung {rung}: absent from the old baseline entirely (new rung)")
             continue
         ob, nb = o_rt.get(str(rung)), n_rt.get(str(rung))
-        ratio = (nb / ob) if (ob and nb) else None
+        ratio = (nb / ob / base) if (ob and nb and base) else None
         for f in rg._size_ladder_compare_levers(b, new["levers"][str(rung)], f"{model}/{rung}"):
             flag = f.split()[1].rstrip(":")
             detail = f.split(": ", 1)[1] if ": " in f else f
@@ -201,6 +216,9 @@ def self_test(card, model):
     cell = {"served": 0, "declined": 1120, "frac": 0.0, "rejects": {"gated_window": 1}}
     v_flat, _ = classify(flag, dark, cell, base, 1.00)
     v_slow, _ = classify(flag, dark, cell, base, 1.40)
+    # The case the old bar got wrong: a rung 8 % above the PREVIOUS record but exactly on its own
+    # ladder's median, which is what a busier box looks like.
+    v_offset, _ = classify(flag, dark, cell, base, 1.00)
     # A bare "went dark" with no clause: a lever that really declines names what it declined
     # ON, so a bare one is either a decline with an empty rejects dict or a rung nothing ran
     # at, and the finding cannot tell those apart.
@@ -213,8 +231,8 @@ def self_test(card, model):
     v_new, _ = classify("TRANSITION_H_CHUNK", newrow, cell, "7fb08268f~1", 1.00)
     v_new_after, _ = classify("TRANSITION_H_CHUNK", newrow, cell, "679b9ab4c", 1.00)
     print("SELF-TEST")
-    print(f"  same lever, rung flat  1.00x -> {v_flat[:70]}")
-    print(f"  same lever, rung +40 % 1.40x -> {v_slow[:70]}")
+    print(f"  rung on its ladder median    -> {v_flat[:70]}")
+    print(f"  rung 40 % above its ladder   -> {v_slow[:70]}")
     print(f"  same lever, census silent    -> {v_silent[:70]}")
     print(f"  lever not in the registry    -> {v_unknown[:70]}")
     print(f"  census row added since       -> {v_new[:70]}")
