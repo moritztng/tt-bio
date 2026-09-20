@@ -1100,3 +1100,94 @@ measuring.
 
 Record: `of3t-direct` (`f2d29c403`), D72, D76, `of3t-trajectory`'s
 `perf/of3t_trajectory/NOTES.md`.
+
+---
+
+**A26 — 2026-09-20, raised by `of3t-residual` (pass 175) and adopted. The bar for an independent
+reimplementation is NOT "equals the ideal". Two independent error vectors of the same size
+subtract to sqrt(2) times that, so sqrt(2) x threshold is the bar a port can actually be held to,
+and the "equals the ideal" threshold is UNREACHABLE by construction.**
+
+A25 established that when the reference is itself imprecise, agreement with it is a stricter bar
+than accuracy. A26 says how much stricter, and it is calculable rather than a matter of taste.
+
+Write `e` for our error against the ideal and `t` for the reference's. What an agreement comparison
+measures is `||e - t||`, and
+
+    ||e - t||^2 = ||e||^2 + ||t||^2 - 2<e,t>
+
+so for two implementations of **the same accuracy** whose errors are **independent**
+(`||e|| = ||t||`, `<e,t> = 0`), the reading is `sqrt(2) ||t||` — **not zero, and not `||t||`**. On
+the diffusion scope that is
+
+    "equals float64" threshold          5.750945e-02     unreachable for any bf16 port
+    independent, same accuracy          8.133064e-02     = sqrt(2) x threshold
+    of3t-residual's bounded arm         7.777580e-02     = 0.9563x that bar
+
+**and the residual is arithmetic, not a defect.** Our bounded error is 5.930664e-02 from float64
+against upstream's 5.852018e-02 — a ratio of **1.0134** — with the two error vectors nearly
+orthogonal at **cos +0.0977**. That predicts
+`sqrt(1.0134^2 + 1 - 2*1.0134*0.0977) * 5.750945e-02 = 7.77768e-02` against a **measured
+7.777580e-02**: agreement to **1.26e-05 relative**. The distance that survives an accurate softmax
+is the consequence of subtracting two independent bf16 error vectors of the same size, and **no
+work on our side of the comparison can remove it.**
+
+`of3t-residual` demonstrated that directly and it is the most useful negative result of the pass:
+bounding the transition path on top of the softmax removed **35 %** of our own error — distance
+from float64 5.930664e-02 to 3.815464e-02, per-tensor count over the 5.0e-02 bar from 295 of 547
+to **43 of 547** — and bought **0.57 %** of agreement. Getting *more accurate than the reference*
+does not get you *closer to the reference*.
+
+So, for any agreement claim against an imprecise reference:
+
+1. **State the sqrt(2) bar beside the "equals the ideal" threshold**, and score against the one a
+   port can reach. Quoting only the unreachable one manufactures a failure — D76's mistake in a
+   subtler form: not an unreachable *branch*, an unreachable *bar*.
+2. **Predict the agreement from the three measured quantities** — `||e||`, `||t||`, `cos(e,t)` —
+   and report the prediction beside the measurement. If they agree, the gap is geometry and there
+   is nothing to fix; if they disagree, *that* difference is the defect, and it is smaller than the
+   raw gap.
+3. **Do not spend effort reducing `||e||` below `||t||`** in pursuit of agreement. Past that point
+   the reading is dominated by `||t||` and improvements are invisible. Say so rather than
+   optimising into it.
+4. **The sqrt(2) applies only to independent errors of equal size.** With a measured `cos` and
+   ratio, use the full expression above; sqrt(2) is the special case, quoted because it is the
+   right order-of-magnitude sanity check.
+
+**What A26 does not license.** It is not permission to stop measuring: a port whose error is
+*larger* than the reference's still fails on accuracy (the diffusion transformer at 129x), and a
+port whose error is *anti-aligned* reads worse than sqrt(2) even at equal size — `diffusion_
+conditioning` at cos -0.273 is the case, and `of3t-residual`'s own transition-bounded arm flips to
+cos -0.2938, which is why its agreement barely improved while its accuracy improved 1.55x.
+
+Record: `of3t-residual`'s A25 field and `perf/of3t_residual/`, PROTOCOL A25, D76, D86.
+
+---
+
+**A24-AMENDMENT — 2026-09-20, forced by `of3t-pairformer` (pass 175, D88). A digest pins the
+BYTES, not the FUNCTION. Two gradients of different losses produce a finite, plausible, entirely
+meaningless relative error, and no amount of digest discipline detects it.**
+
+A24 requires every input be identified by digest, verified before loading and recorded. That is
+necessary and it is **not sufficient**. At pass 175 I dispatched a row to score the pairformer
+trunk against a pinned reference whose sha256 matched exactly — and which was the gradient of a
+**different step**: arm4 at loss 1.267624369070698 against the only available trunk boundary at
+loss 1.6591175475821072. The row verified the digest, refused the reference, and built one over
+its own boundary with upstream's own module and recipe so that all arms share one function by
+construction.
+
+So, added to A24: **before scoring, assert that both sides are functions of the same loss**, by
+whichever of these the scope allows —
+
+1. **bit-identity of a shared intermediate** — `of3t-trajectory` asserts `diffcap043`'s `grad_f64`
+   is bit-identical to the bundle's own float64 gradient over all 547 tensors, max abs diff 0.0,
+   and says why: *without it our gradient and arm4's are not gradients of the same loss*;
+2. **the loss value and the gradient's global norm**, recorded on both sides and compared — the
+   two numbers that caught D88, and they are free;
+3. **construction** — compute the reference over the **same captured boundary** with upstream's
+   own module and recipe, which is what `upstream_arm.py` does and is the strongest form, because
+   it makes the shared function true by construction rather than by check.
+
+And when a brief names a reference, it must name the **step** the reference is of, not only its
+path and digest. A reference is identified by digest **plus the function it differentiates**.
+Record: D88, `of3t-pairformer`'s DIGEST field, A24.

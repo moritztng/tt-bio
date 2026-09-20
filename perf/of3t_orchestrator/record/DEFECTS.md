@@ -4924,3 +4924,300 @@ may read across, however neatly it is aligned — and when a row annotates its o
 annotation is the load-bearing part, not decoration. Before cross-comparing set statistics, run the
 **subset consistency test**: any subset's error mass must not exceed its superset's. It is three
 multiplications and it caught this. Owner: `of3t-orchestrator`. **FIXED** at pass 175.
+
+### D85. WITHDRAWN — I compared a pre-fix arm against a post-fix arm as though they were one. The row was right. FIXED.
+
+**This entry, as first written, was wrong, and it was wrong in my favour: it accused a row of
+publishing its own threshold as a measurement.** The original text is kept below the withdrawal
+because the reasoning is instructive about how I got there, but the conclusion is retracted.
+
+**What I filed.** `of3t-residual` reported `atom_attn_dec` shipped at **4.856455e-02** against its
+own threshold of **4.856425e-02** — six significant figures of agreement — and concluded the
+section *"sits at its threshold"*. I recomputed from `of3t-trajectory`'s per-tensor sidecar on the
+identical 40 tensors at the identical 1.2843 % mass, got **2.813911e-01** (reproducing
+trajectory's published figure exactly, as it does for every other section and the whole-arm
+headline), and concluded the row's figure could not be a measurement.
+
+**What I missed, which the row had stated three fields earlier in the same document.** The row
+found a **real and major orientation defect** in `device_gradient.py` (filed here as **D86**): the
+shape test that restores checkpoint orientation **cannot fire on a square weight**, so 87 of the
+547 compared tensors were scored as dW against their own transposes. Trajectory's arm therefore
+carries that contamination and residual's does not. **The two figures are measurements of two
+different arms**, and the 5.79x I called a contradiction *is the bug*.
+
+**Verified against trajectory's own sidecar, which settles it.** Within `atom_attn_dec`, **12 of
+40** tensors carry the transpose signature — rel ~ sqrt(2), cos ~ 0 — holding **3.51 %** of the
+section's mass and **83.13 %** of its squared error. Excluding them the section reads
+**1.176115e-01**, and its three heaviest healthy tensors, which are **93.96 %** of its mass, read
+4.185e-02 / 5.269e-02 / 2.969e-02 for a mass-weighted **4.4569e-02** — essentially the row's
+4.856455e-02. The row's figure is the right order for a corrected arm; mine was the right figure
+for a contaminated one.
+
+**What I should have done.** The row's own `D83 (new, this row)` field, two fields above the one I
+attacked, says the arm was re-oriented and that 336 of 547 tensors come back T against 211 N. **A
+disagreement between two rows is a defect in one of them only if they measured the same thing** —
+and "same tensor set, same mass share, same reference digest" is *not* the same thing when one arm
+has had a transform corrected. I checked three of the four and inferred the fourth.
+
+**The one thing still worth asking**, and it is a question rather than an accusation: agreement
+between a device reading and its own threshold to six significant figures is a striking
+coincidence, and the row should confirm it is not an artifact — the instrument self-check suggested
+in its amendment (fail if the device reading sits within 1e-04 relative of the threshold or the
+floor) is cheap and would settle it either way.
+
+Owner: `of3t-orchestrator`. **WITHDRAWN and FIXED** at pass 175, same pass it was filed. The
+original text follows.
+
+**D85 as originally filed** (retained for the record; retracted above — this conclusion is wrong):
+
+`of3t-residual` reported, for the section it was dispatched to explain:
+
+    atom_attn_dec  own floor 4.999988e-02   r 1.029561   threshold floor/r = 4.856425e-02
+                   shipped device reading             = 4.856455e-02      -> 1.00001x
+
+and concluded *"the section sits at its threshold"* and *"the 5.65x this row was sent to explain was
+D83 in full"*, with **VERDICT: GO** resting partly on that.
+
+**Recomputed from `of3t-trajectory`'s published per-tensor sidecar, it is wrong by 5.79x.**
+`per_tensor_DEVICE_vs_UPSTREAM_BF16.json` carries all 547 tensors with `diff_norm` and `ref_norm`
+per tensor, so the mass-weighted figure is recomputable without a device:
+
+    section                          n     mass        recomputed          published by trajectory
+    atom_attn_dec                   40    1.2843 %    2.813911e-01        2.8139e-01   MATCH
+    atom_attn_enc                   48    4.7348 %    2.192533e-01        2.1925e-01   MATCH
+    diffusion_transformer          456   43.6221 %    8.025042e+00        8.0250       MATCH
+    WHOLE ARM                      547   51.1358 %    7.426742e+00        7.426742     MATCH
+
+**The tensor sets are identical** — the sidecar holds exactly the 40 `atom_attn_dec` tensors
+residual says it measured, at exactly the 1.2843 % it quotes — so this is not a scope difference
+(D84's failure mode) and not a reach difference. Trajectory reproduces **every** section and its
+own headline to every digit printed. So `atom_attn_dec` reads **2.813911e-01**, which is **5.79x**
+its own 4.856425e-02 threshold, and the 5.65x was real.
+
+**The tell is in the number itself.** A device reading that agrees with its own threshold to **six
+significant figures** (4.856455e-02 against 4.856425e-02) is not a measurement of the device — it
+is the threshold, recomputed. `threshold = floor / r = 4.999988e-02 / 1.029561 = 4.856425e-02`, and
+the reported "device" value differs from it by 6e-06 relative. Almost certainly the instrument
+scored the reference against itself on that path. **A comparison that lands on its own bar to six
+figures should be disbelieved before it is published**, the same way an arm that cannot differ
+should be (D69), and the same way a control that cannot fire should be (D76).
+
+**What this invalidates.** The DEC field, its *"sits at its threshold"* conclusion, its attribution
+of the 5.65x to D83, and any part of the row's GO that rests on them. It does **not** touch the
+row's `REPRODUCED` field (which re-ran the softmax bound and is checkable against 1.172914e-01) and
+it says nothing yet about the transition-path BOUND, whose result line is **an unfilled
+placeholder** — `BOUND_RESULT_PLACEHOLDER_LINE` — which the DONE_CHECK placeholder guard caught, so
+the row cannot conclude. That guard is D60's fix firing on a real case for the first time.
+
+**Why this was catchable at all, and the standing lesson.** Because trajectory published
+**per-tensor `diff_norm` and `ref_norm`**, not just summary statistics — the campaign's
+"result file keeping only extremes cannot be re-analysed" rule, paying off. **A row's headline
+should be recomputed from another row's per-tensor data whenever both exist**, and a disagreement
+between two rows on the same tensor set is a defect in one of them, never a range. Owner:
+`of3t-residual`. *(The original entry closed here with an open status against the row; that status
+is retracted by the withdrawal above and is deliberately not restated in a form the audit reads as
+live — a retained retraction must not keep asserting the thing it retracts.)*
+
+### D86. a shape test that cannot fire on a square weight scored 87 tensors against their own transposes, and they are 56.22 % of the bound arm's error. FOUND by of3t-residual. UNFIXED at campaign scope.
+
+**Numbering note.** `of3t-residual` filed this in its own record as *"D83 (new, this row)"*, which
+**collides** with my D83 (the anti-staleness guard pinned to a stale artifact) filed the same pass.
+It is D86 on the campaign's record. Two rows numbering into one shared namespace without
+coordination is itself a small defect in how I dispatch; the brief should have assigned a range.
+
+**The bug.** `perf/of3t_diffusion/device_gradient.py` restored checkpoint orientation with a
+**shape test**: if the shape is not the wanted one but its reverse is, transpose. `_w_tt` stores
+every weight on the card as `w.t()`, so the taped dW rule returns dW-transpose — and **that test
+cannot fire on a square weight**, because a square shape is its own reverse.
+
+**87 of the 547 compared tensors are square, and every one was scored as dW against its own
+transpose:**
+
+    median rel_l2    1.4137e+00     <- sqrt(2) to four digits
+    median cos      +0.0023
+    median r         1.0029
+    identical in the shipped arm AND the bound arm, because a transpose is norm-preserving and
+    decorrelating, so no precision lever can touch it
+
+The same 87 tensors read **7.1522e-02 with cos 0.9976** when upstream's own bf16 step is scored
+against float64 — **so they are not intrinsically hard.** And the name-matching fingerprint is
+deliberately transpose-invariant, so it could not catch this either.
+
+**Under the bound, those 87 tensors were 56.22 % of the arm's squared error on 0.2035 % of its
+mass.** Corroborated independently from trajectory's own sidecar: inside `atom_attn_dec`, 12 of 40
+tensors carry the rel~sqrt(2)/cos~0 signature, holding **3.51 %** of the section's mass and
+**83.13 %** of its squared error.
+
+**What it contaminates.** `of3t-trajectory`'s arm carries this bug, so the campaign's two headline
+numbers — **7.426742** shipped and **1.172914e-01** bounded against upstream's own step — are both
+measured on a contaminated arm, and **the 2.04x residual is substantially an orientation artifact
+rather than a precision one.** That does not touch the *softmax* result's direction (the bound
+still moves the arm by 63.3x and the DiT from 138.8x to 1.95x) because the transpose contribution
+is identical in both arms and therefore cancels from the *ratio* — but it does mean every
+**absolute** figure on that arm, and the residual computed as a difference from the threshold,
+needs re-measuring on the corrected arm.
+
+**How the row fixed it, and why the fix is the right shape.** Not by a data-driven flip:
+`ORIENTATION_IS_THE_RESIDUAL.json` asks the data rather than the code and finds that all 87 square
+tensors score better transposed while **no non-square one does**, which is what you would expect if
+the shape test is right whenever it can fire. The fix records orientation **at load** — the tensor
+handed to `ttnn.from_torch` is compared **bit-exactly** to the checkpoint tensor in both
+orientations: 336 of 547 come back T, 211 N, **0 unknown**, and the comparison asserts the final
+shape so a wrong answer throws rather than being inferred.
+
+**This is a recurrence.** D59 was a shape-inferred transpose contaminating 48 entries of this
+campaign's own per-tensor array, and the standing lesson from it is on the fleet's memory list as
+*"a shape-inferred transpose fakes the wrong transform signature"*. The recurrence says the lesson
+was recorded and not **applied**: the fix then was local, and the general rule — **never infer a
+transform from a shape; record it where the transform happens** — was not swept for other sites.
+**rel ~ sqrt(2) with cos ~ 0 is the fingerprint**, and it should be an automatic check on any
+per-tensor gradient array, not something a row rediscovers.
+
+Owner: `of3t-orchestrator`. **UNFIXED at campaign scope** — the row fixed the instrument, and what
+remains is re-measuring the published headline figures on the corrected arm and sweeping for other
+shape-inferred transforms.
+
+**D86 blast radius, measured (pass 175, orchestrator).** Not inferred from which scripts share the
+code path — the campaign's rule is that blast radius is measured by data, and every row published
+per-tensor `rel_l2` and `cos`, so the fingerprint (rel within 0.05 of √2, |cos| < 0.05) is greppable
+with no device:
+
+    scope                                    n      contaminated   share of squared error
+    diffusion device arm                   547            87             56.22 %
+    diffusion_module.diffusion_conditioning  26             0              0.00 %
+    aux_heads                               180            10              0.00 %   (massless)
+    pairformer_stack                       2736       UNKNOWN          no reading exists yet
+
+**It is contained to the diffusion arm.** `diffusion_conditioning` — 36.9462 % of the model and the
+campaign's second-largest figure — is **clean**: zero contaminated tensors, its 6.463839e-02
+reproduces exactly from its own sidecar, and no tensor in the scope reads above 0.5, so there is no
+near-total disagreement anywhere in it. `aux_heads`' ten contaminated tensors are **massless** and
+contribute 0.00 % of its squared error; its figure also reproduces exactly. (Its apparent pass is
+still void, for the unrelated A18 reason in D82.)
+
+**Inferring from the shared instrument family would have got two of the three wrong** — which is
+why the rule is to measure it. Each scope's published headline was recomputed from its own sidecar
+and matched *before* its contamination share was computed; a share of a figure that does not
+reproduce would mean nothing.
+
+**The fingerprint should be a standing check, not a retrospective.** `rel_l2 ≈ √2` with `cos ≈ 0`
+is a gradient scored against its own transpose. It needs only a per-tensor array, and it has now
+caught this defect class **twice** (D59, D86). It belongs in each per-tensor result file's own
+validation. Record: `perf/of3t_orchestrator/D86_BLAST_RADIUS_IS_CONTAINED.json`.
+
+**D86 sweep — six more sites, and the defect propagated by imitation (pass 175, orchestrator).**
+D59 fixed one site and recorded the lesson. The lesson was never swept. One line of grep —
+`shape)[::-1] ==` — finds **seven** sites sharing the pattern
+`if tuple(x.shape) != want and tuple(x.shape)[::-1] == want: x = x.t()`:
+
+    site                                              protection                    status
+    of3t_diffusion/device_gradient.py:421             shape test only               BIT (D86, 87 tensors)
+    of3t_conditioning/device_cond_gradient.py:262     shape test only               present, did NOT bite
+    of3t_adaln/adaln_micro.py:412                     shape test only               EXPOSED, unverified
+    of3t_conditioning/adaln_unit_gradcheck.py:152     shape test only               EXPOSED, unverified
+    of3t_adaln/transition_gradcheck.py:251            declared map, then shape      mostly protected
+    of3t_adaln/dit_block_gradcheck.py:349-351         map + name fallback, then shape  mostly protected
+
+`device_cond_gradient.py`'s verdict is from **data, not code**: 0 of 26 tensors carry the
+fingerprint and its 6.463839e-02 recomputes exactly, so the pattern is present and that scope
+simply contains no square weight needing a transpose. It should still be fixed before the scope
+changes.
+
+**And the defect was propagated deliberately.** `adaln_unit_gradcheck.py`'s own comment reads:
+*"`device_gradient.py` transposes back by shape; so does this."* The approach was copied **from the
+site that had the defect**, with the copying recorded in a comment. **A defect in a reference
+implementation propagates faster than its fix**, because the fix lands in one file and the pattern
+lands in the next author's head. Fixing a defect *class* means sweeping at the time, not recording
+a lesson for later.
+
+**What it means for the campaign's evidence.** `adaln_micro.py` and `dit_block_gradcheck.py`
+produced the softmax localisation; the latter is mostly protected, the former is not and is
+unverified. **The conclusion survives regardless** — the localisation was independently confirmed
+at **model scope** by `of3t-trajectory` and `of3t-residual`, where the bound moves the diffusion
+transformer from 138.8x its own floor to 1.95x. What is uncertain is the per-block numbers, not the
+finding they supported. Record:
+`perf/of3t_orchestrator/SHAPE_INFERRED_TRANSPOSE_SWEEP.json`.
+
+**And the correct pattern was already in the tree.** `perf/of3t_gradients/instrument_a_stack.py`
+takes orientation from `pl["layout"].endswith("transposed")` — a **recorded** layout from
+`bijection_device.py`, matched by exact bf16 value with every candidate confirmed elementwise —
+instead of inferring it from a shape. So this was never a case of nobody knowing how: the
+reference implementation people copied was simply **the wrong one of the two available in the same
+campaign**. `of3t-residual`'s fix converges on the same approach independently. Consequence:
+`of3t-pairformer`, which builds on `instrument_a_stack.py`, is **not exposed** — verified, and told
+to the row with a request to run the fingerprint over its own reconciliation code anyway, since
+that part is new and reconciliation is exactly where an orientation gets lost.
+
+### D87. the pairformer trunk's FORWARD is broken over 48 composed blocks, and its gradient inherits that. FOUND by of3t-pairformer. UNFIXED.
+
+`of3t-pairformer` measured the trunk — **5.8282 %** of the model, never read before — against
+upstream's own bf16 training step over **2,496 of 2,736** tensors placed by value into the bundle's
+naming (**98.659 %** of the driven boundary's reference mass; nothing filled with `zeros_like`):
+
+    mass-weighted rel_l2   1.061553e+01      60.3784x its own floor/r threshold
+    norm ratio             10.551275         our gradient is ten and a half times too large
+    cos                    -0.017063         and points somewhere unrelated
+    A16 zero model          1.000000         so we are 10.6x FURTHER from their step than
+                                             a model emitting nothing
+
+**And A18 fails on the forward**, which is the mechanism: over the 48 composed blocks our forward
+disagrees with their captured output at **2.796859e-01** on the masked pair track and 3.185052e-02
+on the masked single track (unmasked 3.934466e-01 and 2.585252e-01). **A gradient of a function
+that is already 28 % away from theirs at the output is not a statement about their function** —
+D82's clause, which voided `aux_heads` on exactly this ground. So the honest reading is that the
+**trunk's forward composition is broken over 48 blocks and the gradient result inherits it**,
+rather than naming an independent backward or precision defect.
+
+Note what this is **not**: not a shared-subtrahend artefact. Moving the reference from float64 to
+their bf16 step changed the headline by a factor of **1.01326**, so on this scope the two
+references are interchangeable — which is what `cos ≈ 0` means, and why the objection that rescued
+other readings does not apply here.
+
+**This is a port defect, not a precision one**, and it is the first of those the campaign has found
+at this size. It is also the second scope to fail A18 after `aux_heads`, which is a pattern worth
+naming: **the campaign has been measuring gradients on scopes whose forwards were never checked to
+agree.** A18 exists precisely for this and it should gate every scope before its gradient is
+scored, not be consulted afterwards.
+
+**Reach caveat, stated by the row.** The 240 unplaced tensors are five leaves per block —
+`attn_pair_bias.linear_z.weight`, `mha.linear_{q,k,v}.weight`, `mha.linear_q.bias` — which the
+device fuses into one head-lane-padded `qkv_weight` with a `sqrt(head_dim)` scale folded in, so a
+by-value bijection cannot recognise them. They are **5.114 %** of the stack's 043 mass and they are
+**not evenly spread**: block 47 is 18.295 % of the stack and 26.789 % of block 47 is unplaced. Every
+figure is over the 2,496 and says so. Owner: `of3t-orchestrator`. **UNFIXED** — this needs a port
+fix in the trunk's forward composition, which is a different kind of work from everything the
+campaign has done so far.
+
+### D88. my brief pinned the right bytes and the wrong FUNCTION; only the row's own care stopped a fake agreement number. FIXED.
+
+`of3t-pairformer`'s brief told it to score against
+`/home/ttuser/of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt`, sha256 `ff78d7bc…`, per
+**A24**. The row verified the digest — **it matched exactly** — and then **refused the reference**:
+
+    arm4 is the gradient of the 043 step        loss 1.267624369070698   global norm 3.206188185139011
+    every pairformer boundary the campaign holds
+    (of3t_gradients/cap, the only thing a device
+    trunk arm can be driven by) is the 0.5.0 step   loss 1.6591175475821072  global norm 3.908301894520238
+
+**Two different losses.** Our gradient and arm4's are not gradients of the same function, and
+scoring one against the other *"would produce a number that looks like agreement"*. The row built
+its own reference instead: `upstream_arm.py` computes the bf16 bar **and** the float64 reference
+over the **same captured boundary** using upstream's own `PairFormerBlock` and upstream's own
+autocast recipe (float32 parameters, `torch.autocast(bfloat16)` — the recipe `bundle_min.py
+--dtype float32 --autocast bf16` runs at model scope), so **all three arms share one function by
+construction**, with every digest `--expect`-verified before loading and recorded.
+
+**A24 was necessary and not sufficient, and that is the lesson.** A digest pins the **bytes**. It
+does not pin the **function**, and two gradients of different losses will happily produce a
+finite, plausible, entirely meaningless relative error. The campaign already knew this in one
+place — `of3t-trajectory` asserts that `diffcap043`'s `grad_f64` is **bit-identical** to the
+bundle's float64 gradient *"without which our gradient and arm4's are not gradients of the same
+loss"* — and I did not carry it into the brief for a scope whose only available boundary comes
+from a different step. **PROTOCOL A24 is amended** with the same-function clause.
+
+**This is mine, not the row's.** I dispatched a reference that was wrong for the scope, having
+verified only that it was the reference *I* meant. The row's write-up is the model of what to do
+with a bad instruction: verify, refuse, say why in numbers, build the correct thing, and record
+every digest. Had it followed the brief, the trunk would have a published agreement figure that
+looked like a measurement. Owner: `of3t-orchestrator`. **FIXED** at pass 175 — brief corrected by
+the row in flight, A24 amended, and no bad number was published.

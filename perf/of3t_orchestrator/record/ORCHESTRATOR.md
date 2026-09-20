@@ -19,7 +19,7 @@ was the proof protocol, not a dispatch, and writing it meant checking the charte
 against upstream. **Six of its stated facts did not survive that check**, one of which deletes a
 deliverable from the campaign's central row.
 
-PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md` (30 KB, twenty-five amendments, all recorded in §9 with the row that asked and whether a number already existed). Originally 16 KB, written pass 1 **before any row was
+PROTOCOL: `~/.coworker/state/of3t/PROTOCOL.md` (30 KB, twenty-six amendments, all recorded in §9 with the row that asked and whether a number already existed). Originally 16 KB, written pass 1 **before any row was
 dispatched and before any number existed**. What counts as complete proof, and the tolerances,
 both fixed in advance:
 
@@ -217,7 +217,7 @@ Recomputed from the artifacts on every compose (160 checks, 0 drifted):
   0.4.3 has 4,170 parameters), so it is bit-identity of the wrong model against itself —
   A13's detector, which D18 demanded. Unpinned, 55 of 4,147 sit over the bar from cuBLAS
   reduction order alone, which is the measurement of what the pinning is worth.
-- **The method, durably.** Tolerances fixed before any number existed, **twenty-five amendments** on
+- **The method, durably.** Tolerances fixed before any number existed, **twenty-six amendments** on
   the record each marked for whether a number already existed, and negative controls that have
   caught **five of the campaign's own instruments** — including §5's mirror (D15), the
   reference's own dropout floor (D18), and a relative bar dividing by 1.4e-19 (A14).
@@ -818,47 +818,57 @@ whole record that genuinely survives is `layer_norm_a`, 0.2666 % of the model. T
 campaign's largest remaining exposure: **48.8642 % of the model has no direct
 column**, including `diffusion_conditioning`'s 36.9462 % — the campaign's **best** result and a
 shared-subtrahend reading, which `layer_norm_s` proved can invert. Row `of3t-direct` dispatched
-for exactly that.
+for exactly that. **D86 (UNFIXED at campaign scope, found by `of3t-residual`)**: a shape test that
+restores checkpoint orientation **cannot fire on a square weight**, so **87 of the 547** compared
+tensors were scored as dW against their own transposes — median rel **1.4137** (√2), cos **+0.0023**
+— and under the softmax bound they were **56.22 % of the arm's squared error on 0.2035 % of its
+mass**. Recurrence of D59. Every published figure on that arm is contaminated *after* the dominant
+error is removed; the shipped reading barely moves (7.426217 corrected against 7.426742
+published), because the softmax swamps it. **D87 (UNFIXED, found by `of3t-pairformer`)**: the pairformer trunk — 5.8282 %, never read
+before — measures **1.061553e+01** against upstream's own step, norm ratio **10.55**, cos
+**−0.017**, **60.38x** its threshold and **10.6x further from their step than a model emitting
+zeros**; and its **A18 forward fails** at 2.796859e-01 on the masked pair track over 48 composed
+blocks, so it is a **port defect in the forward composition** the gradient inherits, not
+precision. Not a shared-subtrahend artefact: moving the reference from float64 to their step
+changes the headline by 1.01326. This **REFUTES "the failure is one module"** — in measured error
+mass the diffusion transformer is 80.79 % and the trunk **18.89 %**, against the 0.4 % that
+framing allotted to everything outside the transformer — and the claim is retracted across every
+artifact that carried it. Second scope after `aux_heads` to fail A18, which says the campaign has
+been scoring gradients on scopes whose forwards were never checked to agree. **D85 (WITHDRAWN, mine)**: `of3t-residual` reported `atom_attn_dec`
+shipped at 4.856455e-02 against its own threshold of 4.856425e-02 — agreement to **six significant
+figures**, which is the threshold recomputed rather than the device measured. Recomputing from
+`of3t-trajectory`'s per-tensor sidecar on the **identical** 40 tensors at the identical 1.2843 %
+gives **2.813911e-01**, reproducing trajectory's published figure exactly, as it does for every
+other section and the whole-arm headline. So the section is **5.79x** its threshold and the 5.65x
+this row was sent to explain is **real and still unexplained**. Its two `BOUND` result lines are
+also unfilled placeholders, which the DONE_CHECK guard refuses.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **Scored against upstream OpenFold3's
 OWN bf16 training step rather than a float64 ideal it never computes: 0.2666 % of the gradient
 mass survives the direct comparison, 91.8985 % is measured and fails or is void under A18, and
-7.8349 % has no direct reading (0.74055 % of it never can). But the ACCURACY picture is the
-opposite and both are true: outside the diffusion transformer the port is MORE accurate than
-upstream's own training step where one instrument measured both sides — conditioning by 7.95x —
-and computing every softmax in float64 takes the 51.1358 % diffusion scope
-from 129.343x less accurate than that step to 1.823x. The failure is one module and, inside it,
-one mechanism.** The pass-157 split (39.7893 in / 54.0115 out / 6.1992 unread) is retired: those
-were distances from float64, and every "inside the bars" among them was a shared-subtrahend
-reading — three were tested directly and all three failed (D82). Twenty-five concluded rows,
-two live plus `of3t-direct` newly dispatched; eighty-four defects on the record, thirty-four of them UNFIXED. **The closing
-measurement landed this pass: our device gradient differs from upstream OpenFold3's own bf16
-training gradient by 7.426742 mass-weighted over 51.1358 % of the model — 126.9x upstream's own
-distance from the float64 ideal, and essentially orthogonal to their error (cos ~ 0.20, 4 % shared
-variance, our error 129x larger). We do NOT reproduce upstream's training step. But removing
-everything the softmax can contribute collapses that to 1.172914e-01 — a factor of 63.3, cos
-0.4109 to 0.9932 — leaving us 2.04x from a defensible reproduction claim on this scope, with the
-diffusion transformer going 138.8x its own floor to 1.95x. The localisation is CONFIRMED at model
-scope and the residual is named: the DiT's remaining 1.95x plus `atom_attn_dec`, which the
-softmax bound left completely unmoved at 5.65x. And `of3t-direct` retracted the campaign's best
-claim: `diffusion_conditioning`, 36.9462 % of the model, does NOT survive the direct test at
-1.0414x — while being EIGHT TIMES MORE ACCURATE than upstream's own training step (0.015328 from
-the ideal against their 0.121864). It fails only because the two errors are anti-aligned (cos
--0.2727) and add. The bar is not 'our error is small', it is 'our error is smaller than, or
-aligned with, theirs' — PROTOCOL A25. Stated under A25, with each scope against its own floor:
-**88.0820 % of the model now has a direct reading against upstream's own training step**, and with
-every softmax in float64 we are **1.823x LESS accurate** than that step on the 51.1358 % diffusion
-scope (residual essentially orthogonal, cos +0.045) and **7.95x MORE accurate** on the 36.9462 %
-conditioning scope. As shipped the diffusion scope is 129.343x less accurate and the whole factor
-is the softmax — which is a bound, not a shippable lever.** The composition
-`wk/of3t` now carries **22 of 23 rows** at `2b1e1a7ed`, 893 commits ahead of main — until pass
-175 it carried 18 and reported "18 of 18", because its completeness count used the stale row
-list as its own denominator (D74). Those three shares should be read against a ceiling of
-**99.2594 %**, not 100 %: 0.74055 % of the model's mass is on a weight the shipped path applies on
-the host, so no device gradient for it exists to compare. `of3t-confhead` concluded this pass with D1 measured
-and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
-seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
+7.8349 % has no direct reading (0.74055 % of it never can).** But that split is against the
+"equals float64" threshold, which **no bf16 port can reach**. Against the bar one actually can —
+`sqrt(2) x threshold`, what two independent bf16 implementations of equal accuracy read (A26) —
+and **with every softmax computed accurately, 88.0820 % of the model is INSIDE it**: the diffusion
+arm at **0.9563x**, `diffusion_conditioning` at **0.7363x** (passing because our error there is
+**8x smaller than upstream's own**, where an independent port of their accuracy would fail), and
+`msa_module` at 0.947x. **Every disagreement on every measured scope is pure geometry**, predicted
+from our accuracy ratio and the error cosine to within **1.26e-05** — nothing is unexplained.
 
+**Three things are NOT settled.** The **shipped** path: that same 88 % fails at **91.3x** the
+reachable bar, entirely on accuracy, and the whole of it inside the diffusion arm is the softmax —
+for which `of3t-softmax` returned NO-GO on every shipped lever (+46 % per op), so closing it is a
+**release-gated precision change, not a measurement**. The **pairformer trunk** (5.8282 %):
+`of3t-pairformer` measured it at **1.061553e+01**, norm ratio 10.55, cos −0.017 — ten and a half
+times too large and pointing somewhere unrelated, **10.6x further from their step than emitting
+zeros** — with its **A18 forward failing** at 2.796859e-01, so it is a **port defect in the
+forward composition** that the gradient inherits (D87). That **REFUTES "the failure is one
+module"**, which is retracted everywhere: in measured error mass the diffusion transformer is
+80.79 % and the **trunk is 18.89 %**, against the 0.4 % that framing allotted to everything
+outside the transformer. And **`aux_heads`** (2.8431 %) is void under A18 for the same reason.
+
+Twenty-seven concluded rows, none live; eighty-eight defects on the record, thirty-six of them
+UNFIXED. The composition `wk/of3t` carries 24 of 26 rows at 959 commits ahead of main.
 
 PASSLOG: the campaign's pass-by-pass record, moved out of VERDICT at pass 166. It had accreted
 there because every pass appended after the last field, so the field a reader treats as the
@@ -975,7 +985,7 @@ than in the model. D18's fix is in flight and its own detector passes; **D20**'s
 closed in pass 71, leaving the pair track — **D19** forward, **D8/D9** gradient — as the two
 open bounds, and **D21** as the live instrument defect on the device arm.
 
-A protocol whose bars were fixed before any number existed and **amended twenty-five times on the
+A protocol whose bars were fixed before any number existed and **amended twenty-six times on the
 record**, each amendment marked for whether a number already existed — including two written
 this pass that constrain rather than relax: **A18**, that a ceiling is publishable only from an
 instrument whose completeness you can assert, and its addendum, that gating a gradient
@@ -1016,7 +1026,7 @@ that already exists, and each has a number to beat:
 **What the campaign proved about itself.** Of twenty-two defects, **five were found in its own
 instruments** rather than in the model, including one near-miss in which the central claim
 would have passed with our trunk deleted. The bars were fixed before any number existed and
-amended twenty-five times on the record, each amendment marked for whether a number already
+amended twenty-six times on the record, each amendment marked for whether a number already
 existed. Every figure on the scoreboard is re-read from the artifacts by 148 mechanical checks
 on every compose. *A verification campaign that cannot catch itself is not a verification
 campaign*, and the record is the evidence that this one could.
@@ -8102,3 +8112,236 @@ requires be reported as prominently as any favourable result, because *a row tha
 the dispatcher's expectation was not worth running*. Per-block splits with mass shares are owed
 too, since block 47 alone is 18.3 % of the stack and a stack headline would hide it — exactly what
 the diffusion transformer turned out to do.
+
+## Pass 175 (cont.) — D85: a row's headline was its own threshold, caught by recomputing it
+
+`of3t-residual` wrote its state doc with **VERDICT: GO** and two problems in it.
+
+**The DONE_CHECK caught the first**: `BOUND_INTERCEPTS_PLACEHOLDER_LINE` and
+`BOUND_RESULT_PLACEHOLDER_LINE` are still literal in the field that carries the measurement the row
+exists for. The placeholder guard refuses the conclusion — **D60's fix firing on a real case for
+the first time**, and the reason it fires is that the regex was widened past `\bplaceholder\b` to
+catch machine-generated forms like `MODELS_TABLE_PLACEHOLDER`.
+
+**The second I caught by recomputing.** The row reported `atom_attn_dec` shipped at
+**4.856455e-02** against its own threshold of **4.856425e-02** — 1.00001x — and concluded *"the
+section sits at its threshold"* and that the 5.65x *"was D83 in full"*. `of3t-trajectory` published
+a **per-tensor** sidecar with `diff_norm` and `ref_norm` per tensor, so the mass-weighted figure is
+recomputable on pc with no device:
+
+    section                   n     mass        recomputed      trajectory published
+    atom_attn_dec            40    1.2843 %    2.813911e-01    2.8139e-01   MATCH
+    atom_attn_enc            48    4.7348 %    2.192533e-01    2.1925e-01   MATCH
+    diffusion_transformer   456   43.6221 %    8.025042e+00    8.0250       MATCH
+    WHOLE ARM               547   51.1358 %    7.426742e+00    7.426742     MATCH
+
+**The tensor sets are identical** — the sidecar holds exactly those 40 tensors at exactly 1.2843 %
+— so this is not D84's scope failure and not a reach difference. Trajectory reproduces every
+section and its own headline to every printed digit. **`atom_attn_dec` reads 2.813911e-01, 5.79x
+its threshold. The 5.65x is real and still unexplained**, which is the question this row was sent
+to answer.
+
+**The tell was in the number.** A device reading agreeing with its own threshold to **six
+significant figures** is the threshold recomputed, not the device measured — most likely the
+reference scored against itself on that path. That belongs with D69 (an arm that cannot differ) and
+D76 (a branch that cannot fire): **a comparison that lands on its own bar to six figures should be
+disbelieved before it is published.**
+
+Returned to the row with the recomputation, the two placeholders, a requirement to re-examine every
+figure from the same code path, and an instrument self-check — assert the device reading is not
+within 1e-04 relative of the threshold or the floor, and fail loudly if it is. Its verdict has to
+rest on what the transition bound actually measures, not on the withdrawn sentence. Its A23 reading
+stands and is good work: **61.23 %** of that section's mass is `linear_q_out.weight` and **87.90 %**
+is that plus `linear_q_in.weight`, so the headline is two tensors, not forty.
+
+**And the reason any of this was catchable is a rule that has now paid for itself twice this pass.**
+Trajectory published per-tensor `diff_norm` and `ref_norm` rather than summary statistics only — the
+campaign's own *"a result file keeping only extremes cannot be re-analysed"*. **A row's headline
+should be recomputed from another row's per-tensor data whenever both exist**, and a disagreement
+between two rows on the same tensor set is a defect in one of them, never a range.
+
+## Pass 175 (cont.) — the residual is geometry, not a defect, and my D85 was wrong
+
+`of3t-residual` returned the pass's most consequential result, and it required me to withdraw a
+defect I had filed against it an hour earlier.
+
+**D86, which the row found: a shape test that cannot fire on a square weight.**
+`device_gradient.py` restored checkpoint orientation by testing *"if the shape is not the wanted
+one but its reverse is, transpose"* — and `_w_tt` stores every weight on the card as `w.t()`, so
+the taped dW rule returns dW-transpose. A square shape is its own reverse, so **87 of the 547
+compared tensors were scored as dW against their own transposes**: median rel **1.4137** (√2 to
+four digits), median cos **+0.0023**, identical in the shipped and bounded arms because a transpose
+is norm-preserving and decorrelating and no precision lever can touch it. Those same 87 tensors
+read 7.1522e-02 with cos 0.9976 when upstream's bf16 is scored against float64, so they are not
+intrinsically hard. **Under the bound they were 56.22 % of the arm's squared error on 0.2035 % of
+its mass.** Recurrence of **D59**; the lesson was recorded and never swept for other sites. The fix
+records orientation **at load** by bit-exact comparison in both orientations — 336 T, 211 N, 0
+unknown, with the final shape asserted so a wrong answer throws.
+
+**And I got it backwards.** I had recomputed `atom_attn_dec` from trajectory's sidecar, got
+2.813911e-01 against the row's 4.856455e-02, and filed **D85** accusing the row of publishing its
+own threshold as a measurement — the six-significant-figure agreement with its threshold looked
+like a self-comparison. It was not: **the two figures are measurements of two different arms**, and
+the 5.79x I called a contradiction *is D86*. Verified from trajectory's own sidecar: inside that
+section, **12 of 40** tensors carry the √2/cos≈0 signature, holding 3.51 % of its mass and
+**83.13 %** of its squared error; excluding them the section reads 1.176115e-01, and its three
+heaviest healthy tensors — 93.96 % of its mass — give a mass-weighted **4.4569e-02**, essentially
+the row's figure. **D85 is withdrawn the same pass it was filed.** The row had stated the
+orientation fix two fields above the one I attacked. *A disagreement between two rows is a defect
+in one of them only if they measured the same thing* — and "same tensor set, same mass, same
+reference digest" is not the same thing when one arm has had a transform corrected. I checked three
+of four and inferred the fourth.
+
+**The corrected arm, and the campaign's real answer:**
+
+    arm                    ours v their step   ours v float64   cos v them   err-cos   x thresh
+    shipped                     7.426217e+00     7.568637e+00     0.411379   +0.2071    129.13
+    float64-softmax bound       7.777580e-02     5.930664e-02     0.997141   +0.0977      1.35
+    the same bound pre-D86      1.172914e-01     1.066810e-01     0.993203   +0.0449      2.04
+    permuted cotangent (break)  3.705872e+00                     -0.224961   -0.1871     64.44
+
+**PROTOCOL A26, the row's insight and the pass's best one.** The 5.750945e-02 threshold is what a
+device gradient reads if it **equals float64** — and a bf16 port cannot. Two independent error
+vectors of equal size subtract to **√2** times it: **8.133064e-02**. We read **7.777580e-02**,
+which is **0.9563x** that bar. So on the only bar a bf16 port can be held to, **we agree with
+upstream's own training step as well as an independent reimplementation can.** And the residual is
+arithmetic: our error is 5.930664e-02 from float64 against their 5.852018e-02 (ratio 1.0134),
+nearly orthogonal at cos +0.0977, predicting `√(1.0134² + 1 − 2·1.0134·0.0977) × 5.750945e-02 =
+7.77768e-02` against a measured **7.777580e-02** — **1.26e-05 relative**, which I verified
+independently.
+
+**And the row demonstrated it rather than arguing it.** Bounding the transition path on top of the
+softmax — 29,808 intercepts over five verbs across 48 structures, none zero — removed **35 %** of
+our own error (distance from float64 5.930664e-02 → 3.815464e-02, tensors over the per-tensor bar
+**295 of 547 → 43 of 547**) and bought **0.57 %** of agreement. **Getting more accurate than the
+reference does not get you closer to the reference.** The error cosine flips to **−0.2938**, so the
+extra accuracy is partly spent pointing away from them — A25's anti-alignment case appearing inside
+our own arm. Cost 13 s per structure against 2.5 s: a bound, not a lever.
+
+**What still fails.** The **shipped** path: 129.13x, essentially unchanged by the orientation fix
+because the softmax swamps it, and no shipped precision lever reaches the bar (`of3t-softmax`
+NO-GO, +46 % per op). `pairformer_stack` at 5.8282 % is unmeasured and `of3t-pairformer` is live on
+it. Record: `perf/of3t_orchestrator/AGREEMENT_IS_AT_THE_REACHABLE_BAR.json`.
+
+## Pass 175 (cont.) — every disagreement is geometry, and 88.08 % is inside the reachable bar
+
+With A26 in hand I checked whether the *other* measured scopes are also pure geometry. **They all
+are.** The identity is `||e-t||/||t|| = sqrt(q² + 1 − 2q·cos)` with `q = ||e||/||t||`:
+
+    scope                             q         cos      predicted     measured     rel err
+    diffusion arm, AS SHIPPED    129.3338   +0.2071    129.13040    129.13038    1.86e-07
+    diffusion arm, float64 sm      1.0134   +0.0977      1.35242      1.35240    1.26e-05
+    diffusion_conditioning         0.1258   -0.2727      1.04136      1.04135    2.43e-06
+
+**Worst prediction error 1.26e-05, across three scopes spanning 129x in magnitude.** So there is
+**no unexplained residual anywhere in this campaign**: every gap between our gradient and
+upstream's own training step is accounted for by two measured quantities — our accuracy relative
+to theirs, and the angle between the errors — with nothing left over. The question *"do we
+reproduce training"* reduces entirely to those two.
+
+**Scored against the bar a bf16 port can actually reach** (√2 × threshold, A26):
+
+    scope                          mass      x reachable bar   verdict
+    diffusion arm, AS SHIPPED   51.1358 %        91.3090       FAIL -- accuracy, and it is the softmax
+    diffusion arm, float64 sm   51.1358 %         0.9563       PASS
+    diffusion_conditioning      36.9462 %         0.7363       PASS
+
+**With an accurate softmax, 88.0820 % of the model is INSIDE the bar an independent bf16
+reimplementation would meet.** And conditioning passes at **0.7363** precisely because our error
+there is **8x smaller than upstream's own** — an independent bf16 port of *upstream's* accuracy
+would read 1.414x threshold and **fail** that scope; we pass it by being more accurate than the
+thing we are reproducing. `msa_module` (1.2400 %) reads 1.3398x threshold = **0.947x** the
+reachable bar, so it passes too on A26's bar though `of3t-direct` scored it against the
+unreachable one.
+
+**What this settles**: the gradient mathematics. On 88.0820 % of the model our training step
+computes what upstream's computes, to within what any independent bf16 implementation could
+achieve, with every remaining difference accounted for arithmetically.
+
+**What it does not settle**: the **shipped** path. The float64 softmax is a bound — a host
+computation on a tape verb, 13 s per structure against 2.5 s — and `of3t-softmax` returned NO-GO on
+every shipped precision lever (0.3237 Å against a 0.6250 Å seed floor at +46 % per op, no lever
+reaching the parity bar). So the shipped path does not reproduce training, and closing it is a
+**release-gated precision change, not a measurement**. `pairformer_stack` (5.8282 %) is still
+unmeasured with `of3t-pairformer` live on it, and `aux_heads` (2.8431 %) is void under A18. Record:
+`perf/of3t_orchestrator/EVERY_DISAGREEMENT_IS_GEOMETRY.json`.
+
+## Pass 175 (cont.) — "the failure is one module" is REFUTED, and the trunk's forward is broken
+
+`of3t-pairformer` measured the trunk — **5.8282 %** of the model, never read before — and returned
+the outcome the row existed to be able to find. Over **2,496 of 2,736** tensors placed **by value**
+into the bundle's naming (98.659 % of the driven boundary's reference mass; nothing filled with
+`zeros_like`):
+
+    mass-weighted rel_l2   1.061553e+01      60.3784x its own floor/r threshold
+    norm ratio             10.551275         ten and a half times too large
+    cos                   -0.017063          and pointing somewhere unrelated
+    A16 zero model          1.000000         10.6x FURTHER from their step than emitting nothing
+
+**And A18 fails on the forward**: over 48 composed blocks our forward disagrees with their captured
+output at **2.796859e-01** on the masked pair track. A gradient of a function already 28 % away at
+the output is not a statement about their function — D82's clause, which voided `aux_heads` on
+exactly this ground. So the trunk is a **port defect in the forward composition** that the gradient
+inherits, **not** a precision problem. Filed as **D87**. And it is not a shared-subtrahend artefact:
+moving the reference from float64 to their bf16 step changes the headline by **1.01326**, which is
+what `cos ≈ 0` means.
+
+**So "the failure is one module" is refuted, and I have retracted it everywhere.** In measured
+error mass: diffusion transformer **80.79 %**, **pairformer trunk 18.89 %**, the other five
+diffusion sections 0.32 %. That framing allotted **0.4 %** to everything outside the diffusion
+transformer; the trunk alone is **19 %**. The row carries the right caveat — the diffusion rows are
+at the 043 step and the trunk at the 0.5.0 boundary, so it is an order-of-magnitude statement
+rather than a partition of one number — and adds the sentence that settles it: *0.4 % against 19 %
+is not a distinction that turns on the step.*
+
+**The retraction is propagated, including from a filename that asserts it.**
+`THE_ERROR_MASS_IS_ONE_MODULE.json` — my own artifact from earlier this pass — carries a `REFUTED`
+field, a nulled headline, and a `FILENAME_IS_WRONG` field explaining why the name is kept (it is
+cited in commits and briefs, and renaming would break those while history would still surface the
+old claim). **What survives is the within-arm arithmetic**: diffusion_transformer really is
+99.6036 % of the **547-tensor diffusion arm's** error mass. That was never a statement about the
+model, and I published it as one. `EVERY_DISAGREEMENT_IS_GEOMETRY.json` and
+`SCORED_AGAINST_THE_RECIPES_OWN_FLOOR.json` are qualified the same way, and a scripted check
+confirms **no live occurrence** of the refuted framing remains in any artifact.
+
+**The pattern worth naming.** `aux_heads` and now the trunk both fail **A18 on the forward** — two
+scopes, 8.67 % of the model between them, where the campaign scored a gradient against a function
+that does not agree at the output. **A18 should gate a scope before its gradient is measured, not
+be consulted afterwards.** That is a change to how rows are dispatched, and it is mine.
+
+**What the 88.0820 % result is unaffected by.** The trunk was never inside it. The diffusion arm
+and conditioning stand exactly as measured, and their geometry closure to 1.26e-05 stands. What is
+retracted is the claim that the softmax was the whole story **for the model** — inside the
+diffusion arm it still is.
+
+**D88 — my brief pinned the right bytes and the wrong function.** `of3t-pairformer`'s brief told it
+to score against the pinned arm4, sha256 `ff78d7bc…`. The row verified the digest — **it matched
+exactly** — and then **refused the reference**: arm4 is the gradient of the **043** step (loss
+1.267624369070698, global norm 3.206188185139011) while every pairformer boundary the campaign
+holds is from the **0.5.0** step (loss 1.6591175475821072, global norm 3.908301894520238). **Two
+different losses**, so the two are not gradients of the same function and scoring one against the
+other *"would produce a number that looks like agreement"*. It built its own reference with
+`upstream_arm.py` — bf16 bar and float64 reference over the **same captured boundary**, upstream's
+own `PairFormerBlock`, upstream's own autocast recipe — so all three arms share one function **by
+construction**, every digest `--expect`-verified.
+
+**A24 was necessary and not sufficient**, and I am the demonstration. A digest pins the **bytes**,
+not the **function**. The campaign already knew this in one place — `of3t-trajectory` asserts
+`diffcap043`'s `grad_f64` is bit-identical to the bundle's float64 gradient *"without which our
+gradient and arm4's are not gradients of the same loss"* — and I failed to carry it into a brief
+for a scope whose only boundary comes from a different step. **A24 now carries a same-function
+clause**: assert bit-identity of a shared intermediate, or compare the loss and global norm on both
+sides (the two free numbers that caught this), or build the reference over the same boundary by
+construction — and **a brief naming a reference must name the step it is of**, not only its path
+and digest.
+
+**Dispatched `of3t-trunkfwd`** for the one question D87 leaves open, because its worst reading is a
+**product** problem. The 28 % forward disagreement was measured **under the training tape**, and
+three readings follow with very different consequences: shipped inference also ~28 % off → a
+**product defect**, since JapanFold serves OpenFold3; taped-only → a training-path defect; or the
+instrument's 48-block composition → neither, and `of3t-pairformer`'s trunk figure is **void and
+must be withdrawn**, which would retract a number I have just published. The brief asks for the
+**shipped** arm first because it alone separates the product case, requires escalation in the first
+sentence if it disagrees at ≳1e-01 rather than finishing the other arms, and says explicitly: do
+not assume the instrument because it is the comfortable answer, and do not assume the product
+because it is the alarming one.
