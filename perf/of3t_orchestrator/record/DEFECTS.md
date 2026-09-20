@@ -5852,3 +5852,45 @@ branch is **not exercised by live data** — it is verified only by the syntheti
 that never fires on real input is a branch whose correctness rests on the control alone, and that
 is worth writing down rather than letting the green sweep imply more coverage than it has.
 Owner: `of3t-orchestrator`. **FIXED.**
+
+### D99. the trunk's lever arm was quoted on ONE track for six passes; its other track sits two keys away in the same JSON and does not move. The trunk has two failures and only one is the reference. UNFIXED.
+
+`of3t-trunkfwd`'s `TRUNK_FORWARD.json` carries both arms with four figures each. Every artifact
+downstream — `THE_TRUNK_BIAS_IS_A_REVISION_DIFFERENCE`, the VERDICT, my own pass-176 work —
+quoted the lever arm's **pair** track and none quoted its **single** track:
+
+    masked, 56 real tokens of a 64 crop        z_masked     s_masked
+    SHIPPED      (0.4.3 orientation)           0.279366     0.101290
+    LEVER        (0.5.0 orientation)           0.049719     0.101335
+                                               5.62x better  0.9996x -- INVARIANT
+
+So matching the reference's convention removes **82 %** of the pair-track error and **nothing at
+all** from the single track. Against the bars: the pair track goes from 5.587x to **0.994x** the
+5.0e-02 bar (0.703x the A26 reachable bar, a clear pass); the single track is **2.026x the bar
+and 1.432x the reachable bar in both arms**. **The trunk fails A18 on the single track for a
+reason that is ours and that no convention change touches.**
+
+**And which arm is which is easy to invert — I nearly did.** tt-bio's `transpose_bias=True` is the
+**preview2/0.4.3** orientation (the flag names read opposite to upstream's, as
+`openfold3_trunk.py`'s own comment states). So SHIPPED runs the convention **correct for our
+`of3-p2-155k` checkpoint**, and LEVER runs the convention **matching the 0.5.0 reference**. The
+lever arm is not our port fixed; it is our port deliberately mis-set to agree with a reference
+built on the wrong revision. Reading it as "the trunk passes once fixed" is exactly backwards.
+
+**What the trunk still needs** is D91's arm — SHIPPED against a **0.4.3-built** reference. The
+lever arm makes it likely the pair track reads ~0.05 there, but that is an inference from a
+mis-set arm. It needs a card, so it is a dispatch. What the lever arm settles **without**
+inference is that the single track will not improve.
+Owner: `of3t-orchestrator`. **UNFIXED** — needs the 0.4.3-reference arm and an explanation of the
+single track.
+
+**D95 CORRECTED by the same artifact, and strengthened.** The same two arms scored **unmasked**
+read z 0.393571 and 0.393452 — the lever improves them **1.0003x** where masked it improves them
+**5.62x**. The padding here is only **23.4 %** of pair cells (3136 of 4096). I wrote in D95 that
+padding dilutes a structural difference *"by roughly the padding ratio"*; that is **wrong**, and
+this refutes it — 23.4 % padding hid 82 % of a real effect. The padded region's share of the norm
+is not its share of the cells, because **nothing constrains its magnitude**: the unmasked norm
+ratio is 0.8085 against the masked 1.1843, so the pad does not merely dilute, it dominates. The
+rule is **"mask, always"**, not "mask when the padding fraction is large". This also means D95 is
+no longer resting on my own 56-of-384 arm: it reproduces on another row's data, another shape,
+another device, and a much smaller padding fraction, and it is stronger there.
