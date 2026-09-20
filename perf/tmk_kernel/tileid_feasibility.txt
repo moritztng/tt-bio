@@ -1,0 +1,6 @@
+TILE-ID FEASIBILITY, CPU only
+  head reshape (triatt control): every destination tile is exactly 1 whole source tile, intra-tile identity -- a tile-id re-point EXPRESSES it
+  trimul channel move S=64 C=32: 128 destination tiles, max distinct source tiles feeding one = 32, destination tiles that are a whole source tile unpermuted = 0
+  VERDICT S=64: NOT EXPRESSIBLE by tile-id arithmetic -- the destination tile is assembled from 32 sub-tile columns of 32 distinct source tiles
+  trimul channel move S=128 C=32: 512 destination tiles, max distinct source tiles feeding one = 32, destination tiles that are a whole source tile unpermuted = 0
+  VERDICT S=128: NOT EXPRESSIBLE by tile-id arithmetic -- the destination tile is assembled from 32 sub-tile columns of 32 distinct source tiles

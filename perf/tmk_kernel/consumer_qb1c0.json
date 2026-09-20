@@ -1,0 +1,60 @@
+{
+ "host": "qb1c0",
+ "board": "p150a",
+ "card_umd": 0,
+ "S": 512,
+ "C": 128,
+ "n_rep": 7,
+ "cube_tflops": 111.32,
+ "cube_ms": 1.2347,
+ "moves": {
+  "gated move (SHIPPED) blk->a DRAM": {
+   "ms": 0.7183,
+   "gbs": 280.3
+  },
+  "reblock_permute ungated (tile-granular)": {
+   "ms": 0.95,
+   "gbs": 141.3
+  },
+  "ttnn.permute (0,3,1,2) fallback": {
+   "ms": 2.1373,
+   "gbs": 62.8
+  },
+  "clone control, same bytes (copy speed)": {
+   "ms": 0.3675,
+   "gbs": 365.3
+  },
+  "transpose(-2,-1) native tile-transpose": {
+   "ms": 0.3883,
+   "gbs": 345.6
+  }
+ },
+ "composite_ms": 2.2463,
+ "matmul_ms": 0.9033,
+ "matmul_tflops": 38.038,
+ "composite_mb": 603.9,
+ "composite_gbs": 268.8,
+ "fused_mb": 335.5,
+ "fused_ms_if_gather_at": {
+  "gated move (SHIPPED) blk->a DRAM": 1.1969,
+  "reblock_permute ungated (tile-granular)": 2.3744,
+  "ttnn.permute (0,3,1,2) fallback": 5.3424,
+  "clone control, same bytes (copy speed)": 0.9184,
+  "transpose(-2,-1) native tile-transpose": 0.9708
+ },
+ "fused_x_if_gather_at": {
+  "gated move (SHIPPED) blk->a DRAM": 1.877,
+  "reblock_permute ungated (tile-granular)": 0.946,
+  "ttnn.permute (0,3,1,2) fallback": 0.42,
+  "clone control, same bytes (copy speed)": 2.446,
+  "transpose(-2,-1) native tile-transpose": 2.314
+ },
+ "clock": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 2
+  }
+ }
+}
