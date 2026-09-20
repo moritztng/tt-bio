@@ -272,8 +272,17 @@ def main() -> int:
         blk.eval()
         for q in blk.parameters():
             q.grad = None
+        # D38: the reference's gradient w.r.t. the block's own INPUTS, so the per-track factor
+        # can be cut into "rides the cotangent chain through the block" against "is in how the
+        # weight gradients are formed". The capture stores the output cotangent and the
+        # parameter gradients, not these, so they are recomputed here.
+        s_in = s_in.detach().requires_grad_(True)
+        z_in = z_in.detach().requires_grad_(True)
         s_r, z_r = blk(s_in, z_in, single_mask, pair_mask)
         ((s_r * cot_s).sum() + (z_r * cot_z).sum()).backward()
+        rep["input_grad_reference"] = {
+            "ds_in_norm": float(s_in.grad.norm()) if s_in.grad is not None else None,
+            "dz_in_norm": float(z_in.grad.norm()) if z_in.grad is not None else None}
         g_ref = {n: (q.grad.detach().clone() if q.grad is not None else None)
                  for n, q in blk.named_parameters()}
         s_ref_out, z_ref_out = s_r.detach(), z_r.detach()
@@ -409,6 +418,7 @@ def main() -> int:
             "note": "s is the single track, z the pair track. A ratio away from 1 here would "
                     "mean the harness rescales a track on the way to the device.",
         }
+        rep["_sa_za"] = True
         print(f"[{time.perf_counter()-t0:.0f}s] D37 cotangent on device: "
               f"s {rep['cotangent_on_device']['ratio_s']:.6f}  "
               f"z {rep['cotangent_on_device']['ratio_z']:.6f}", flush=True)
@@ -487,6 +497,26 @@ def main() -> int:
 
     grads = {n: (ttnn.to_torch(l.grad).to(torch.float64) if l.grad is not None else None)
              for n, l in ours.items()}
+
+    # D38, our side of the same two. Reported as a ratio against the reference's when the
+    # block-eval arm recomputed them; otherwise the norms alone, which are still comparable
+    # across blocks.
+    try:
+        og = {"ds_in_norm": (float(torch.linalg.vector_norm(
+                  ttnn.to_torch(sa.grad).to(torch.float64))) if sa.grad is not None else None),
+              "dz_in_norm": (float(torch.linalg.vector_norm(
+                  ttnn.to_torch(za.grad).to(torch.float64))) if za.grad is not None else None)}
+        ref_ig = rep.get("input_grad_reference")
+        if ref_ig:
+            for k in ("ds_in_norm", "dz_in_norm"):
+                d0, r0 = og.get(k), ref_ig.get(k)
+                og[k.replace("_norm", "_ratio")] = (d0 / r0) if (d0 and r0) else None
+        rep["input_grad_ours"] = og
+        if ref_ig:
+            print(f"[{time.perf_counter()-t0:.0f}s] D38 input-gradient ratio: "
+                  f"s {og.get('ds_in_ratio')}  z {og.get('dz_in_ratio')}", flush=True)
+    except Exception as e:                                               # noqa: BLE001
+        rep["input_grad_ours"] = {"error": str(e)[:200]}
 
     if a.nan_pad:
         # The whole point of the run: does NaN in the PAD reach the WEIGHTS? Counted on both
