@@ -47,7 +47,8 @@ __all__ = ["source", "names", "recipe", "train_loop"]
 
 def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3",
                train="adapters", mesh=None, lora=None, seed=0, lr=3e-4, warmup_steps=1000,
-               checkpoint_every=100, tokens=None, weights=None, model=None):
+               weight_decay=0.0, plateau_until=50000, checkpoint_every=100, tokens=None,
+               weights=None, model=None):
     """Fine-tune or pre-train a shipped forward. The Tier-1 default, and a Tier-2 program.
 
     ``train`` is what the optimizer owns, and it is a NAME for the same reason ``objective``
@@ -68,6 +69,14 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
     weights its routed ``ops.linear`` call sites pass. Leave it out and discovery is the
     call-site census, which cannot see a weight a module fused in its own ``__init__`` --
     measured at 2119 of 2531 on OpenFold3's trunk.
+
+    ``weight_decay`` and ``plateau_until`` are the two places the AlphaFold-family recipes
+    disagree with each other, so they are arguments rather than constants. The defaults are
+    OpenFold3's: its ``configure_optimizers`` builds a plain ``torch.optim.Adam`` with no
+    decay at all, and its ``AlphaFoldLRScheduler`` holds the rate flat until
+    ``start_decay_after_n_steps`` where Protenix starts decaying from step zero.
+    ``plateau_until=None`` selects Protenix's family. One argument each, not a per-model
+    branch -- see :func:`tt_bio.train.optim.af3_lr` for the two closed forms.
 
     ``dataset`` needs ``__len__`` and ``batch(indices) -> dict`` carrying the labels the
     objective row names. No featurizer is imposed -- per-model featurisation is the one thing
@@ -113,10 +122,11 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
         # sites happen to pass. Without it discovery falls back to the call-site census, which
         # is blind to every weight a module fuses in its own `__init__`.
         installed, params = trainable(forward, cfg, dataset.device,
-                                      dataset.batch(first.per_chip[dp_rank]),
+                                      dataset.batch([first.per_chip[dp_rank][0]]),
                                       model=model, rng=seed)
-        opt = AdamW(params, lr=lr, data_parallel=dp,
-                    schedule=lambda s: af3_lr(s, lr, warmup_steps=warmup_steps))
+        opt = AdamW(params, lr=lr, data_parallel=dp, weight_decay=weight_decay,
+                    schedule=lambda s: af3_lr(s, lr, warmup_steps=warmup_steps,
+                                              plateau_until=plateau_until))
         # Rank 0 owns out_dir and the others get a subdirectory of it. The masters are
         # bit-identical across ranks, so one copy is the run's checkpoint; the reason not to
         # let them share the path is that two writers make a truncated safetensors file.
@@ -130,22 +140,37 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                 "dp_rank": dp_rank, "rollout": row.rollout, "sites": sorted(params)}) as prov:
             with attach(installed, cfg):
                 for batch in [first, *plan_order]:
-                    opt.zero_grad()
-                    # This rank's shard of the global batch, never the whole of it. On one
-                    # chip per_chip has one entry and this is the global batch.
-                    data = dataset.batch(batch.per_chip[dp_rank])
-                    outputs = forward(data)
-                    total, breakdown, seeds = row(
-                        data, {k: to_host(v.value) for k, v in outputs.items()},
-                        weights=weights)
-                    # One backward over the union of the seeded roots' ancestors. Calling
-                    # Tensor.backward once per root would replay every shared ancestor once
-                    # per root and land the fan-in sums partial.
-                    backward([outputs[k] for k in seeds],
-                             [to_device(g, dataset.device) for g in seeds.values()])
-                    # The gradient this replica holds, summed across the axis inside step().
-                    # Empty on one chip, and the optimizer refuses a wide axis without it
-                    # rather than stepping on one replica's gradient.
+                    # ONE SAMPLE AT A TIME. Upstream clips each sample before accumulating it
+                    # (`per_sample_clipping: True` at `clip_val 10.0` is OpenFold3's shipped
+                    # default), and per-sample clipping is a different ALGORITHM from clipping
+                    # the batch once, not a different constant: it changes the direction of
+                    # the accumulated update. The loop owns what a sample is, because only the
+                    # loop knows; `step()` owns the arithmetic on what it summed.
+                    shard = batch.per_chip[dp_rank]
+                    total, breakdown = 0.0, {}
+                    for index in shard:
+                        data = dataset.batch([index])
+                        outputs = forward(data)
+                        loss, terms, seeds = row(
+                            data, {k: to_host(v.value) for k, v in outputs.items()},
+                            weights=weights)
+                        # One backward over the union of the seeded roots' ancestors. Calling
+                        # Tensor.backward once per root would replay every shared ancestor
+                        # once per root and land the fan-in sums partial.
+                        backward([outputs[k] for k in seeds],
+                                 [to_device(g, dataset.device) for g in seeds.values()])
+                        # Clip THIS sample and add it to the accumulator, then clear the tape
+                        # so the next sample's backward starts from nothing. Clearing it also
+                        # leaves `replicas()` empty at the step, which is correct: under
+                        # per-sample clipping the axis reduces the accumulator, not the tape.
+                        opt.clip_and_accumulate()
+                        opt.zero_grad()
+                        total = total + loss / len(shard)
+                        for term in terms:
+                            breakdown[term] = (breakdown.get(term, 0.0)
+                                               + terms[term] / len(shard))
+                    # The accumulated, per-sample-clipped gradient, summed across the axis
+                    # inside step() together with the participation counts it divides by.
                     opt.step(replicas=launcher.replicas(params))
                     # The optimizer replaced each leaf's value with a new device tensor; this
                     # puts those tensors back where the walk found them, so the next forward
