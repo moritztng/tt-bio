@@ -1887,11 +1887,12 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "TODO: say why this is legitimate at this size",
+                "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
@@ -1909,19 +1910,21 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "TODO: say why this is legitimate at this size",
+                "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "TODO: say why this is legitimate at this size",
+                "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1936,11 +1939,12 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "TODO: say why this is legitimate at this size",
+                "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -2080,11 +2084,12 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "TODO: say why this is legitimate at this size",
+                "unmeasured": "wrap hook never installed (lever_census _install_wraps race)"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
