@@ -18,9 +18,12 @@ the sixteen pairs and contributing zero on every corpus target -- so the two num
 reported separately and the second is the one a coverage claim may quote.
 
 The second number is read off measurement records, never asserted here. Each record is a
-json with `term`, `stage`, `dataset`, `target` and a non-zero gradient share, written by
-the instrument that measured it; `--demonstrated` takes the files or a directory of them.
-A term with no record, or a record whose share is zero, stays NOT DEMONSTRATED.
+json with `term`, `stage`, `dataset`, `target`, the `quantity` that was measured and its
+`value`, written by the instrument that measured it; `--demonstrated` takes the files or
+a directory of them. A term with no record, or a record whose value is zero, stays NOT
+DEMONSTRATED. `quantity` is printed rather than interpreted, because the rows measure the
+contribution at different scopes -- a seed norm into the model outputs and a share of the
+squared parameter-gradient norm are both evidence and are not the same number.
 
 Usage:
     python scripts/of3_port/stage_loss_coverage.py --yamls <dir-of-training_yamls>
@@ -100,7 +103,7 @@ def coverage(table: dict) -> dict[str, list[str]]:
 
 
 REQUIRED_EVIDENCE_FIELDS = ("term", "stage", "dataset", "target",
-                            "share_of_squared_gradient_norm", "source")
+                            "quantity", "value", "source")
 
 
 def read_evidence(paths: list[Path]) -> dict[str, dict]:
@@ -119,13 +122,13 @@ def read_evidence(paths: list[Path]) -> dict[str, dict]:
             missing = [k for k in REQUIRED_EVIDENCE_FIELDS if k not in r]
             if missing:
                 raise SystemExit(f"{f}: evidence record is missing {missing}")
-            share = float(r["share_of_squared_gradient_norm"])
-            if share <= 0.0:
-                print(f"  note: {f.name} records {r['term']} at share {share:g} -- "
+            value = float(r["value"])
+            if value <= 0.0:
+                print(f"  note: {f.name} records {r['term']} at {r['quantity']} {value:g} -- "
                       f"a term that fires with a zero gradient contribution is NOT covered")
                 continue
             prev = found.get(r["term"])
-            if prev is None or share > float(prev["share_of_squared_gradient_norm"]):
+            if prev is None or value > float(prev["value"]):
                 found[r["term"]] = {**r, "record": str(f)}
     return found
 
@@ -188,8 +191,7 @@ def main() -> int:
                 print(f"  {t:26s} NOT DEMONSTRATED")
             else:
                 print(f"  {t:26s} {e['stage']}/{e['dataset']}/{e['target']}  "
-                      f"share {float(e['share_of_squared_gradient_norm']):.6e}  "
-                      f"({e['source']})")
+                      f"{e['quantity']} {float(e['value']):.6e}  ({e['source']})")
         print()
         print(f"{len(terms) - len(undemonstrated)}/{len(terms)} terms DEMONSTRATED"
               + (f"; NOT DEMONSTRATED: {', '.join(undemonstrated)}"
