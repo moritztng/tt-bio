@@ -103,38 +103,25 @@ shared `bundle.sha256` that establishes all four were scored against one referen
 Inputs, copied verbatim from the row's tree at
 `tt-quietbox2:/home/ttuser/of3t_rebase/wt/perf/of3t_rebase/`, are alongside.
 
-## 6. Depth is not the mechanism, and the 26.68x probe is sub-linear
+## 6. WITHDRAWN at pass 120 — this section read the wrong axis
 
-`device_gradient_043all.json` carries two 48-long arrays, one per pairformer block, measured at
-full scope (NP 448, no 64-token crop).
+This section fitted `device_gradient_043all.json`'s 48-long `accumulation_probe` and `forward_rel`
+arrays as a per-pairformer-block depth profile. **They are indexed by diffusion structure**
+(`structures_done` is `[0..47]`; `perf/of3t_diffusion/device_gradient.py` loops over structures;
+the single-structure run carries exactly one entry in each). And `accumulation_probe` is not an
+error measure at all — the loop appends the norm of one parameter's **accumulating** gradient and
+breaks, so it never touches the reference.
 
-`accumulation_probe` runs 1.2510e-04 -> 3.3378e-03, Spearman **+0.998** against depth, 7
-inversions in 47 steps — the "probe growing 26.68x" the campaign published at pass 116. Fitted in
-log-log it is **k^0.765 at R^2 0.974**:
+The numbers are removed rather than annotated, because a wrong number beside a correction label
+still gets quoted. Pass 116, which first published the 26.68x, had labelled it correctly as
+`structures | 48 of 48` and used it soundly as a scope certification; this section misread that
+figure and then claimed to be correcting it.
 
-| model | growth over 48 blocks |
-|---|---|
-| random walk, `k^0.5` | x6.93 |
-| **observed** | **x26.68** (`k^0.765`) |
-| coherent sum, `k^1.0` | x48.00 |
-
-Strictly between a random walk and a coherent sum, and **strictly below** a naive per-block error
-budget with no cancellation. Amplification — a geometric instability — means exceeding `k^1`.
-This does not. The per-block contributions partially cancel and the stack **damps** relative to a
-naive sum, so 26.68x is not the warning sign it was read as.
-
-`forward_rel` per block is **flat**: min 2.05e-03, median 8.34e-03, max 1.57e-02, log-log
-exponent **-0.071 at R^2 0.0195**, Spearman **-0.166**. Block 47 reads **1.32e-02**, lower than
-block 25's 1.57e-02; blocks 0 and 23 read 1.10e-02 and 3.69e-03. There is no depth trend at all.
-
-This settles two things. **Depth is not the mechanism** behind block 47 — consistent with §2,
-where block 47 fails to respond to the lever that rescues blocks 0 and 23. And it **scopes §4**:
-the masked crop-64 figure at block 47 (8.82e-03) matches this full-scope figure (1.32e-02) to
-within a factor of 1.5, so the 8.26e-02 unmasked is a property of the crop-64 harness's padding
-rather than of the model. The NaN-pad discriminator is still owed, because blocks 0, 23 and 47
-were all measured on that harness.
-
-Record: `depth_scaling.json`.
+The genuine depth evidence, and the real decomposition, are in
+`../diffusion/dit_depth_and_amplification.json`: the DiT truncation ladder grows **6.29x over 24
+blocks** at `k^0.55` (sub-linear, barely above a random walk), and the diffusion module's forward
+agrees to **8.34e-03** while its gradient is **1.6588e-01** out — a **19.6x** backward cost.
+`depth_scaling.json` is kept as the record of the withdrawn fit and should not be cited.
 
 ## 7. The precision story holds at blocks 0 and 23 and fails at block 47
 
