@@ -1079,6 +1079,26 @@ if _dtg:
         if not [b for b in bad if "VERDICT does not state the" in b and "share" in b]:
             ok.append("VERDICT states all three distance-to-go shares as the artifact has them")
 
+# --- a summary field must stay readable, which is a LENGTH property no content check sees -----
+# Pass 166. VERDICT had grown to 177,928 characters over 2,371 lines, because every pass appends
+# after the last field and VERDICT is the last field, so the whole narrative landed inside the one
+# field a reader treats as the answer. Every content check above passed throughout -- they read the
+# shares, the counts and the amendment phrase, all of which sit in its first eight lines, and none
+# of them reads its size. A field can be entirely correct and entirely unusable.
+if ORCH.is_file():
+    _o = ORCH.read_text()
+    _CAPS = {"VERDICT": 4000, "PROVES": 20000, "DOESNOT": 20000, "GAP": 40000}
+    _over = []
+    for _f, _cap in _CAPS.items():
+        _m = _re.search(rf"^{_f}:(.*?)(?=^[A-Z][A-Z_]+:|\Z)", _o, _re.M | _re.S)
+        if _m and len(_m.group(1)) > _cap:
+            _over.append(f"{_f} is {len(_m.group(1))} chars against a {_cap} cap")
+    if _over:
+        bad.append("summary field(s) have accreted past the point of being read: "
+                   + "; ".join(_over) + " -- move the narrative to PASSLOG, which is what it is for")
+    else:
+        ok.append("every owed summary field is inside its readability cap")
+
 # --- and the check COUNT the summary quotes ---------------------------------------------------
 # Pass 133. PROVES carried "(146 checks, 0 drifted)" while the audit had grown to 149. The count
 # is a claim about how much evidence stands behind the field, it is quoted verbatim, and nothing

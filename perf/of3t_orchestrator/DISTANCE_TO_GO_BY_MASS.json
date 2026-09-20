@@ -31,16 +31,18 @@
     "arm": "the diffusion device arm (diffusion_module minus diffusion_conditioning)",
     "pct": 51.1358,
     "n": 547,
-    "mass_weighted_rel": 7.5692,
+    "mass_weighted_rel": 7.5688,
     "median_over_tensors": 0.1659,
     "mass_weighted_norm_ratio": 4.442,
     "mass_weighted_cos": 0.8159,
     "inside_5e-2_per_tensor_bar_within_it": {
-     "n": 73,
-     "pct_of_model": 2.794
+     "n": 121,
+     "pct_of_model": 2.9386,
+     "corrected_at_pass_164": "was published as 73 tensors / 2.7940 %. D59's shape-inferred-transpose artifact had 48 entries reading rel ~1.4 that are really ~2.48e-02, so they belong inside the bar. Correcting them moves the COUNT by 66 % (73 -> 121) and the MASS by 5 % (2.7940 -> 2.9386) -- the same count-versus-mass divergence A23 is about, seen from the other side."
     },
     "localisation": "ONE leaf -- blocks.N.attention_pair_bias.layer_norm_a.layer_norm_s.weight, 24 tensors, 25.5795 % of the model -- reads mass-weighted 10.6980 at norm ratio 7.8658. The other 523 tensors hold 25.5563 % and read 0.2929. Its sibling AdaLN in the same blocks (conditioned_transition.layer_norm.layer_norm_s.weight, 15.5130 %) reads 0.1828, so the AdaLN class is exonerated.",
-    "sections_inside_this_arm": "diffusion_transformer 43.8936, atom_attn_enc 5.5589, atom_attn_dec 1.3173, layer_norm_s 0.9835, layer_norm_a 0.2666, linear_s 0.2445 -- 52.2644 % in total, of which 1.1286 % is unreached by the arm and counted as no-reading below"
+    "sections_inside_this_arm": "diffusion_transformer 43.8936, atom_attn_enc 5.5589, atom_attn_dec 1.3173, layer_norm_s 0.9835, layer_norm_a 0.2666, linear_s 0.2445 -- 52.2644 % in total, of which 1.1286 % is unreached by the arm and counted as no-reading below",
+    "mass_weighted_rel_note": "7.5692 as published; 7.5688 with D59's 48 artifact entries corrected. The difference is 0.01 %."
    },
    {
     "arm": "pairformer_stack, 7 of 48 blocks",
