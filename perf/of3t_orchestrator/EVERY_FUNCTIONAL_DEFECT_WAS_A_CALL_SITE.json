@@ -1,0 +1,26 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 181 -- a synthesis over the campaign's own findings, no new measurement",
+ "headline": "Every FUNCTIONAL defect this campaign has found is at a CALL SITE, not inside a kernel. Eight of them. The arithmetic in the ops is right; what is wrong is which argument reaches them, when, and whether they are called at all. The only two things that are not call sites are a precision ceiling (the softmax) and one residual still unattributed (the trunk's backward amplification).",
+
+ "the_eight": [
+  {"defect": "trunk pair-bias scale convention", "site": "tt_bio/openfold3_trunk.py:139 passes scale_pair_bias=False to a layer whose AttentionPairBias folds the bias inside its own score scale", "found_by": "of3t-trunkcliff", "note": "block-45 update 78.0 % wrong in float64; pre-scaled it matches upstream to 4.2e-16"},
+  {"defect": "trunk transpose_bias orientation", "site": "UPSTREAM's own base_blocks.py:394 -- 0.5.0 passes transpose_bias=True where 0.4.3 passes nothing; the LAYER DEFAULT is identical in both", "found_by": "of3t-orchestrator (D90) and of3t-trunk043ref", "note": "92.08 % of a 2.793661e-01 disagreement"},
+  {"defect": "use_high_precision_attention", "site": "upstream 0.5.0's trunk passes True; 0.4.3's passes nothing. Again the layer default is the same in both.", "found_by": "of3t-orchestrator (D93)", "note": "6.070e-03 on the single track"},
+  {"defect": "confidence head runs unmasked", "site": "the call into the confidence Pairformer drops pair_mask and attn_mask", "found_by": "of3t-auxfind", "note": "A18 from 5.174368e-01 to 3.865648e-03 once the masks are passed; exactly 0.0 in float64"},
+  {"defect": "weight decay upstream does not have", "site": "recipes.py:118 takes AdamW's weight_decay=0.01 DEFAULT; upstream builds torch.optim.Adam with none", "found_by": "of3t-traj20", "note": "74 tensors have an exactly zero reference update and we move all of them"},
+  {"defect": "per-sample clipping never called", "site": "AdamW.clip_and_accumulate has 0 callers in tt_bio/ and 3 in tests; train_loop clips the batch once instead", "found_by": "of3t-traj20", "note": "clip coefficient 0.6290 against upstream's 1.0, and it changes the DIRECTION of the sum"},
+  {"defect": "participation count never read", "site": "AdamW writes self.participation at optim.py:411 and reads it 0 times", "found_by": "of3t-traj20", "note": "counts spread [1,4]; closing it moves k=2 by 12.4x"},
+  {"defect": "wrong LR schedule family", "site": "recipes.py:119 calls af3_lr(...) and passes no plateau_until", "found_by": "of3t-traj20", "note": "200,004 of 200,005 points exact; plateau_until=50000 makes it 200,005"}
+ ],
+
+ "the_two_that_are_not": [
+  {"what": "the softmax", "why": "a genuine precision ceiling inside the op, not a call site. Both device levers were bounded against the training bar and miss by two orders of magnitude; only a host float64 softmax reaches it."},
+  {"what": "the trunk's backward amplification", "why": "still unattributed. of3t-trunkback returned NO-GO with the locus in the single-track cotangent chain, four candidates tested and four refuted. It may yet turn out to be a call site; it is not counted as one until it is."}
+ ],
+
+ "why_this_is_worth_stating_rather_than_just_listing": "three of the eight are cases where the LAYER DEFAULT IS CORRECT and the caller overrides or omits it -- so reading the function's signature, or its default, or its tests, tells you nothing. Two more are code that exists, is tested, and is never invoked: `clip_and_accumulate` has three test call sites and zero production ones, and `self.participation` is written and never read. A test suite that exercises a helper directly gives no evidence that the shipped path calls it. The campaign's standing rule -- READ THE CALL SITE, NOT THE DEFAULT -- has now been paid for eight times, and the strongest form is: for a port, the interesting bugs are in the wiring, and the instruments that find them are whole-path ones (§7's trajectory, an end-to-end forward) rather than per-op ones.",
+
+ "the_methodological_consequence": "per-parameter gradient equivalence -- the campaign's main instrument, §3, on which most of its effort went -- is structurally blind to all eight. It compares what an op computes from given inputs. Five of these eight change which inputs arrive or whether the op runs. That is why §8 requires §7 as well, and why §7 having never been run was worth catching.",
+
+ "provenance": "of3t-orchestrator pass 181 on pc, CPU only. Synthesised from of3t-trunkcliff, of3t-trunk043ref, of3t-auxfind, of3t-traj20 and this row's own D90/D93, each figure as that row published it."
+}
