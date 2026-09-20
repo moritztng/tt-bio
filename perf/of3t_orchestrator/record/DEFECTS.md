@@ -5825,3 +5825,30 @@ literal `card=cpu` in the body under a header that says otherwise (the 2026-09-0
 English prose about devices was tried and does not separate; the script says so in its own SCOPE
 comment so the wider version is not re-attempted. Live sweep: 31 briefs, clean.
 Owner: `of3t-orchestrator`. **FIXED.**
+
+### D98. a brief with a `#DISPATCH:` line and no TASKS.md ws-tag is SILENTLY inert — both my pass-176 rows sat unlaunched for an hour. FIXED and guarded.
+
+After fixing D97's `card=-` I watched both rows still fail to launch and assumed the dispatcher
+was slow. It was not. `fleet.sh` dispatches only from `workstreams/queue.tsv`, which
+`reconcile_tasks.sh` **regenerates from ws-TAGGED TASKS.md items**. Its own contract says it
+plainly: *"To queue a task: write `workstreams/SLUG.txt` **+ tag the TASKS.md line**."* I had
+written the briefs and never tagged them, so no queue row was ever emitted.
+
+**The asymmetry is the defect.** A **tag with no brief** logs
+`reconcile: SKIP <slug> — open ws-tag but no workstreams/<slug>.txt (nothing to dispatch)`.
+A **brief with no tag** logs **nothing at all**. One direction is instrumented and the other is
+invisible, so the second reads as fleet busyness rather than as a missing half of a two-part
+registration — which is exactly how I read it, twice in one pass, having already been wrong once
+about why the same two rows were not running.
+
+**Fixed**: both rows tagged; `queue.tsv` now carries `of3t-maskaudit` and `of3t-auxheads043` at
+`pc cpu tt-bio 200 opus5`. **Guarded**: `assert_dispatch_card_token.py` grew a second check —
+every brief with a `#DISPATCH:` line and no `state/concluded/SLUG` marker must carry
+`<!--ws:SLUG-->` in TASKS.md. Seven controls now, and two are worth naming: a dispatchable
+untagged brief FAILS, and an untagged but **concluded** brief PASSES.
+
+**One honest limit on that guard.** All 31 live of3t briefs are tagged, so the concluded-exemption
+branch is **not exercised by live data** — it is verified only by the synthetic control. A branch
+that never fires on real input is a branch whose correctness rests on the control alone, and that
+is worth writing down rather than letting the green sweep imply more coverage than it has.
+Owner: `of3t-orchestrator`. **FIXED.**
