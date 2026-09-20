@@ -53,6 +53,15 @@ import sys
 import time
 import types
 
+# Pin the thread count BEFORE numpy or torch is imported. Five of these arms sharing one
+# 16-core host with each library's default (one thread per core) put the load average at 53
+# and cut the per-rung rate by roughly an order of magnitude -- the work is memory-bound at
+# 571 M elements, so oversubscription buys nothing and costs the cache.
+os.environ.setdefault("OMP_NUM_THREADS", "4")
+os.environ.setdefault("MKL_NUM_THREADS", "4")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "4")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "4")
+
 import numpy as np
 
 sys.path.insert(0, os.getcwd())
@@ -203,9 +212,10 @@ def run_ours(names, W0, drive, dis, *, steps, per_step, warmup, variant, log):
     # ships. `variant` names the one deviation each arm makes, and nothing else moves.
     sched = (lambda s: af3_lr(s, lr, warmup_steps=warmup))
     kw = dict(lr=lr, schedule=sched)
-    if variant == "wired":
-        # The attribution arm: what the divergence would be with the two wiring gaps closed.
-        # Upstream's Adam carries no weight decay, and upstream clips per sample.
+    if variant in ("wired", "wd0", "avg", "avgstale"):
+        # The attribution arms. `wired` closes both gaps at once -- upstream's Adam carries no
+        # weight decay and upstream clips per sample -- and `wd0` closes only the first, so the
+        # pair says which of the two the divergence is.
         kw["weight_decay"] = 0.0
     opt = AdamW(params, **kw)
     if variant == "miswire":
@@ -213,15 +223,26 @@ def run_ours(names, W0, drive, dis, *, steps, per_step, warmup, variant, log):
     read = lambda n: params[n].value.arr            # noqa: E731  the weight the forward reads
     for k in range(1, steps + 1):
         opt.zero_grad()
-        if variant == "wired":
+        if variant in ("wired", "avg", "avgstale"):
             # Upstream's shape: clip each sample, accumulate, then step.
+            # `avgstale` is the break control run on the HEALTHY arm: `stale` on the shipped
+            # arm is saturated by that arm's own wiring error, so it cannot show a move.
+            src = (k - 1) if (variant == "avgstale" and k > 1) else k
             coefs = []
             for s in range(per_step):
-                g = drive.grad(k, s, read)
+                g = drive.grad(src, s, read)
                 for n in names:
-                    params[n].grad = None if n in dis[(k, s)] else g[n]
-                coefs.append(opt.clip_and_accumulate(disabled=dis[(k, s)])["clip"])
+                    params[n].grad = None if n in dis[(src, s)] else g[n]
+                coefs.append(opt.clip_and_accumulate(disabled=dis[(src, s)])["clip"])
                 opt.zero_grad()
+            if variant in ("avg", "avgstale"):
+                # The third gap closed: upstream's `_sync_and_average_grads` divides each
+                # parameter's accumulated gradient by ITS OWN participation count
+                # (`grad_manager.py:225-232`). `AdamW` records `self.participation` and
+                # never reads it, so this line is the whole of the difference.
+                for n, c in opt.participation.items():
+                    if c:
+                        opt.accum[n] = opt.accum[n] / np.float32(c)
         else:
             # The shipped loop: ONE backward over the batch, so the optimizer sees the sum
             # over the samples the batch activated. `clip_and_accumulate` has no caller
@@ -261,6 +282,7 @@ def _restore_d11(opt):
 def run_theirs(names, W0, drive, dis, *, steps, per_step, warmup, log, clip_val=CLIP_VAL):
     """Upstream's assembled step: their GradManager, their Adam, their scheduler, their order."""
     import torch
+    torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "4")))
     stub_upstream_deps()
     gm_mod = load_by_path("of3_grad_manager", f"{UPSTREAM}/grad_manager.py")
     lr_mod = load_by_path("of3_lr_schedulers", f"{UPSTREAM}/lr_schedulers.py")
@@ -373,22 +395,26 @@ def growth(rows, lo=2):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", required=True,
-                    choices=["shipped", "scaled", "wired", "miswire", "stale"])
+                    choices=["shipped", "scaled", "wired", "wd0", "avg", "avgstale", "miswire", "stale"])
     ap.add_argument("--limit", type=int, default=0, help="smoke only; 0 = the full scope")
     ap.add_argument("--per-step", type=int, default=0)
     ap.add_argument("--rho", type=float, default=None)
+    ap.add_argument("--tag", default="")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
     warmup = SCHED["warmup_no_steps"] if a.arm == "shipped" else STEPS
     per_step = a.per_step or (1 if a.arm == "shipped" else 4)
     variant = {"shipped": "shipped", "scaled": "shipped", "wired": "wired",
-               "miswire": "miswire", "stale": "stale"}[a.arm]
+               "wd0": "wd0", "avg": "avg", "avgstale": "avgstale",
+               "miswire": "miswire",
+               "stale": "stale"}[a.arm]
     # The feedback coupling is set per arm so the closed loop carries a comparable share of
     # the drive in both, because the shipped warmup moves the weights ~1e-4 relative over 20
     # steps and the scaled one moves them ~1e-2. The share is MEASURED at three rungs and
     # published either way; a share near zero means the loop is decorative.
     rho = a.rho if a.rho is not None else (5.0 if a.arm == "shipped" else 0.005)
+    # `wd0` is a `scaled`-family arm: same warmup, same accumulation, one deviation.
 
     t0 = time.time()
     names, W0, G, n_declared, dropped = load_scope(a.limit or None)
@@ -436,7 +462,7 @@ def main() -> int:
             "lr_schedulers.py": sha256(f"{UPSTREAM}/lr_schedulers.py"),
         },
     }
-    out = a.out or f"{OUT}/traj20_{a.arm}.json"
+    out = a.out or f"{OUT}/traj20_{a.arm}{a.tag}.json"
     os.makedirs(os.path.dirname(out), exist_ok=True)
     json.dump(res, open(out, "w"), indent=1)
     print(json.dumps({k: v for k, v in res.items()
