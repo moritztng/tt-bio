@@ -10,8 +10,9 @@
 #
 # "Already done" is read off the ARTIFACT's engine, not off a marker and not off which
 # rungs exist: a fragment recorded at a commit whose tt_bio differs from HEAD's is stale no
-# matter how complete it is. The claim is mkdir, which is atomic, so two cards walking
-# overlapping lists never record one model twice.
+# matter how complete it is. That is a SEPARATE fact from the claim below, which only says
+# "a runner is folding this model right now". Conflating the two is what let a killed
+# runner block a model forever.
 set -u
 WT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 PY=/home/ttuser/kisoji_p2_fresh/env/bin/python3
@@ -19,10 +20,10 @@ CARD=$1; shift
 cd "$WT" || exit 1
 mkdir -p perf/sizegate/campaign/logs perf/sizegate/campaign/claim-rr
 
-# One runner per card, enforced by the kernel. The per-model mkdir claim below serialises
-# MODELS, not CARDS, so two runners pointed at one card each take a DIFFERENT model and then
-# fold both on that card at once -- which is what the claim looks like it prevents. Two
-# things break at once when it happens: the runtimes are contention, not the model, and both
+# One runner per card, enforced by the kernel. The per-model claim below serialises MODELS,
+# not CARDS, so two runners pointed at one card each take a DIFFERENT model and then fold
+# both on that card at once -- which is what the claim looks like it prevents. Two things
+# break at once when it happens: the runtimes are contention, not the model, and both
 # passes share RELEASE_GATE_SIZE_WORKDIR, so whichever finishes first rmtree's the other's
 # scratch out from under it. Hit on 2026-09-20 within four minutes of launching card 2 twice.
 #
@@ -34,6 +35,46 @@ if ! flock -n 9; then
   echo "[rr card $CARD] another runner already holds card $CARD, refusing to share it"
   exit 4
 fi
+
+# The claim answers "is a runner folding this model right now", nothing else. mkdir is
+# atomic, but nothing clears it when the owner is SIGKILLed, and a leftover claim read as
+# "claimed by another card" to every later runner -- so the model was silently never
+# recorded and the slice still reported finished. The claim therefore carries its owner pid
+# AND that pid's start time (a bare pid is reusable), and a claim whose owner is gone is
+# taken over rather than obeyed. It is dropped as soon as the fold returns, pass or fail,
+# because whether the cell landed is fresh()'s question, not the claim's.
+CLAIM_DIR=perf/sizegate/campaign/claim-rr
+CLAIMED=""
+
+starttime() { sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | awk '{print $20}'; }
+
+release_claim() {
+  [ -n "$CLAIMED" ] || return 0
+  local d=$CLAIM_DIR/$CLAIMED
+  CLAIMED=""
+  unlink "$d/owner" 2>/dev/null
+  rmdir "$d" 2>/dev/null
+  return 0
+}
+trap release_claim EXIT INT TERM
+
+owner_alive() {
+  local o p
+  o=$(cat "$1/owner" 2>/dev/null) || return 1
+  p=${o%% *}
+  [ -n "$p" ] && [ -r "/proc/$p/stat" ] || return 1
+  [ "$(starttime "$p")" = "${o##* }" ]
+}
+
+claim() {
+  local d=$CLAIM_DIR/$1
+  if ! mkdir "$d" 2>/dev/null; then
+    owner_alive "$d" && return 1
+    echo "[rr card $CARD] $1: claim owner is gone, taking it over"
+  fi
+  echo "$$ $(starttime $$)" > "$d/owner"
+  CLAIMED=$1
+}
 
 fresh() {
   "$PY" - "$1" <<'PYEOF'
@@ -63,8 +104,8 @@ for M in "$@"; do
   if ! healthy && ! revive; then
     echo "[rr card $CARD] ARC still dead after reset, abandoning $(date -u +%FT%TZ)"; exit 3
   fi
-  if ! mkdir "perf/sizegate/campaign/claim-rr/$M" 2>/dev/null; then
-    echo "[rr card $CARD] $M claimed by another card"; continue
+  if ! claim "$M"; then
+    echo "[rr card $CARD] $M is being folded by a live runner"; continue
   fi
   LOG=perf/sizegate/campaign/logs/rr_$M.card$CARD.log
   echo "=== $M card $CARD start $(date -u +%FT%TZ) ===" >> "$LOG"
@@ -75,10 +116,10 @@ for M in "$@"; do
     "$PY" scripts/release_gate.py --model size-ladder --size-ladder-record \
       --size-ladder-fragment --size-ladder-models "$M" --load-ceiling 0 >> "$LOG" 2>&1
   echo "=== $M card $CARD rc=$? $(date -u +%FT%TZ) ===" >> "$LOG"
+  release_claim
   if fresh "$M"; then
     echo "=== $M card $CARD fragment now carries this engine ===" >> "$LOG"
   else
-    rmdir "perf/sizegate/campaign/claim-rr/$M" 2>/dev/null
     if ! healthy; then
       echo "=== $M card $CARD failed WITH A DEAD ARC: the card, not the model ===" >> "$LOG"
       revive || { echo "[rr card $CARD] unrecoverable $(date -u +%FT%TZ)"; exit 3; }
