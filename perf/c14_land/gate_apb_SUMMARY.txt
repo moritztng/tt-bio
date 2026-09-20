@@ -1,0 +1,26 @@
+arm               status       served  declined  procs  flag  coverage
+boltz2            rc=0           5096         0      6  1     EXECUTES the flag
+esmfold2          rc=0              0         0      6  1     reached no AttentionPairBias site
+esmfold2-fast     rc=0              0         0      6  1     reached no AttentionPairBias site
+protenix-v2       rc=0            500      4800      6  1     EXECUTES the flag
+protenix-v1       rc=0            212      4800      6  1     EXECUTES the flag
+opendde           rc=0           5304         0      6  1     EXECUTES the flag
+openfold3         rc=0            192         0      6  1     EXECUTES the flag
+rf3               rc=0           6380         0      7  1     EXECUTES the flag
+openbind          rc=0            192         0      6  1     EXECUTES the flag
+boltzgen          rc=0          89792         0      9  1     EXECUTES the flag
+rfd3              rc=0              0         0      6  1     reached no AttentionPairBias site
+opendde-abag      rc=0           5304         0      8  1     EXECUTES the flag
+capacity          rc=0           1772      1440     11  1     EXECUTES the flag
+l1-budget         rc=0           1452     14400     13  1     EXECUTES the flag
+batch-position    rc=0         116416         0      4  1     EXECUTES the flag
+nesso1            rc=0              0         0      4  1     reached no AttentionPairBias site
+
+arms recorded            : 16
+green                    : 16
+EXECUTED the flag        : 12  ['boltz2', 'protenix-v2', 'protenix-v1', 'opendde', 'openfold3', 'rf3', 'openbind', 'boltzgen', 'opendde-abag', 'capacity', 'l1-budget', 'batch-position']
+did NOT execute the flag : 4  ['esmfold2', 'esmfold2-fast', 'rfd3', 'nesso1']
+
+READ THIS BEFORE QUOTING THE GATE. These arms are green and never ran the flag, so they are evidence that the tree is healthy, NOT that this flag is safe on them:
+  ['esmfold2', 'esmfold2-fast', 'rfd3', 'nesso1']
+For a model with no AttentionPairBias that is correct and expected. For one that has it, the flag did not reach the site and the arm is not coverage.
