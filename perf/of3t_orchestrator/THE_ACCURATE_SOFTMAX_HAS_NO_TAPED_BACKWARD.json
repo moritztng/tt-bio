@@ -1,0 +1,21 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 189 -- a source read on pc, CPU only. A HYPOTHESIS, not a measurement.",
+ "headline": "`_accurate_softmax` -- the campaign's best remaining shippable device softmax lever -- has NO TAPED COUNTERPART. It appears zero times in tt_bio/autograd.py. The tape's only softmax verb wraps ttnn.softmax and its backward reads its own output, so substituting the 5-op chain into the forward pairs a backward with a function that did not run. That is a candidate mechanism for the non-finite gradient of3t-softgrad is currently localising.",
+ "the_source_facts": [
+  "grep _accurate_softmax tt_bio/autograd.py -> 0 hits. It is defined at tt_bio/tenstorrent.py:3517 and used on the inference path only.",
+  "the tape's softmax verb is autograd.py:605-608: `y = ttnn.softmax(x.value, dim=dim, compute_kernel_config=cfg)`.",
+  "its backward is `dS = P * (dP - rowsum(dP * P))` (autograd.py:844), and autograd.py:116 and :324 both list softmax among the ops whose backward READS ITS OWN OUTPUT.",
+  "accurate_softmax_site() (tenstorrent.py:3452) is a per-site SHIPPED flag whose docstring says Protenix-v2's and OpenDDE's Pairformer sites ship it on and 'every other site still ships off because nothing has scored it'. It has never been scored for TRAINING anywhere."
+ ],
+ "the_two_branches_and_why_both_break_the_pair": {
+  "branch_1_saved_output_mismatch": "the tape records a softmax node whose saved P is not what the 5-op chain produced, so the backward is the adjoint of a function that did not execute.",
+  "branch_2_op_by_op": "the tape records the five ops individually, and the divide by the row sum carries a 1/x^2 term in its own backward. On a row whose denominator underflows in bf16 that reaches non-finite directly -- no accumulation needed, which fits a result that is non-finite on ALL 547 tensors rather than drifting."
+ },
+ "cheap_discriminators_handed_to_the_row": [
+  "count tape nodes created by the accurate forward vs the shipped forward -- 1 against 5 separates the branches immediately",
+  "check whether non-finite entries concentrate on the rows with the smallest softmax denominators, which separates branch 2 from a saved-tensor problem"
+ ],
+ "why_this_matters_even_if_the_hypothesis_is_wrong": "if the accurate softmax cannot be differentiated on this path at all, that is not a failed measurement -- it is the ANSWER for the 51.1358 %, and a stronger one than 'it misses the bar'. The campaign would then hold: of the levers available on device, one is inert because an explicit None occupies its slot (D110), one has no taped backward, and the only configuration that clears the bar is a host round-trip. That is a statement about the port's autograd surface, not about softmax precision.",
+ "epistemic_status": "HYPOTHESIS. I read the source; I ran nothing. of3t-softgrad holds the instrument and its finding governs. Offered into its brief as a candidate with discriminators attached, explicitly flagged as 'offered, not asserted', because a row mid-localisation should not be handed a conclusion.",
+ "provenance": "of3t-orchestrator pass 189 on pc, CPU only, no device. tt_bio/autograd.py lines 35, 116, 324, 605-608, 844; tt_bio/tenstorrent.py lines 3452-3458, 3517. No figure here is a measurement."
+}
