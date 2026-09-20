@@ -53,6 +53,11 @@ def collate1(x, ref=None):
     if isinstance(x, dict):
         r = ref if isinstance(ref, dict) else {}
         return {k: collate1(v, r.get(k)) for k, v in x.items()}
+    # Same rule for the non-tensor features. `ref_space_uid_to_perm` is already a
+    # per-sample list in the emitted sample, so wrapping it again gives upstream a list of
+    # one list and its `[ref_space_uid.item()]` indexes a length-1 object with a uid.
+    if isinstance(ref, list) and isinstance(x, list):
+        return x
     return [x]
 
 
