@@ -100,6 +100,10 @@ def main() -> int:
     p.add_argument("--a-scale", type=float, default=1.0, dest="a_scale")
     p.add_argument("--cot-scale", type=float, default=1.0, dest="cot_scale")
     p.add_argument("--cot-corr", type=float, default=0.0, dest="cot_corr")
+    p.add_argument("--ln-rule", default="shipped", dest="ln_rule",
+                   choices=["shipped", "fp32_summand", "worse_summand"],
+                   help="amendment 4: how the layer_norm gain gradients summand product is "
+                        "formed before `_sum_leading` sums it precisely")
     p.add_argument("--fp32-weights", action="store_true", dest="fp32_weights",
                    help="replace AdaLN's four bf16 device weights with fp32 copies, outside "
                         "tt_bio/, to price what the hardcoded bf16 costs the gradient")
@@ -126,6 +130,8 @@ def main() -> int:
     from tt_bio.tenstorrent import AdaLN, get_device, device_dtype_override
     from tt_bio.openfold3_atom_transformer import remap_of3_adaln
     from tt_bio.taped_ttnn import taped_ttnn
+    from tt_bio import taped_ttnn as TT
+    from tt_bio.autograd import precise_config, _sum_leading, _wrap, _tape
 
     # The tape rebinds the name `ttnn` inside every `tt_bio.*` module, and only those. An
     # instrument outside the package holds the REAL module and must address the shim by hand,
@@ -172,6 +178,88 @@ def main() -> int:
             "0.4.3 AdaLN layout changed under this instrument"
         return r
 
+    # ---- AMENDMENT 4: the summand that feeds `_sum_leading` ----------------------------------
+    # `autograd.py:1611` is `gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), shape))`.
+    # `_sum_leading` passes `precise_config()`, but the PRODUCT that forms its 18,432 summands
+    # passes neither a dtype nor a kernel config, so the summands are built at whatever the
+    # operands carry and summing them precisely cannot put back bits that were never there.
+    # These three rules replace `_taped_layer_norm` from OUTSIDE `tt_bio/`: the shipped one, one
+    # that forms the product in fp32 under a precise config, and a deliberately-worse one. A
+    # precision change that moves nothing in EITHER direction never reached the kernel.
+    # `ttnn.multiply` takes a `dtype` and no `compute_kernel_config` (checked against the
+    # binding: the only knobs are dtype, memory_config, activations). So the lever and its
+    # control are the same knob in opposite directions, which is the cleanest form of both.
+    SUMMAND_DTYPES = []
+
+    def make_ln_rule(kind):
+        def rule(shipped, args, kwargs):
+            args = list(args) + [None] * (3 - len(args))
+            x, gamma, beta = (_wrap(args[0]), _wrap(args[1]), _wrap(args[2]))
+            kw = dict(kwargs)
+            for nm, slot in (("weight", 1), ("bias", 2)):
+                if kw.get(nm) is not None:
+                    v = _wrap(kw.pop(nm))
+                    gamma, beta = (v, beta) if slot == 1 else (gamma, v)
+                else:
+                    kw.pop(nm, None)
+            kw.pop("l1_headroom", None)
+            eps = kw.pop("epsilon", 1e-5)
+            ckc = kw.pop("compute_kernel_config", None)
+            xv = x.value
+            out_v = shipped(xv, weight=(gamma.value if gamma is not None else None),
+                            bias=(beta.value if beta is not None else None),
+                            epsilon=eps, compute_kernel_config=ckc, **kw)
+            bwcfg = precise_config()
+            parents = [t for t in (x, gamma, beta) if t is not None]
+
+            def make():
+                def bw(g):
+                    xv = x.value
+                    mean = ttnn.mean(xv, dim=-1, keepdim=True)
+                    centered = ttnn.subtract(xv, mean)
+                    var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
+                                    compute_kernel_config=bwcfg)
+                    rstd = ttnn.rsqrt(ttnn.add(var, eps))
+                    norm = ttnn.multiply(centered, rstd)
+                    if gamma is not None and gamma.requires_grad:
+                        if kind == "fp32_summand":
+                            pr = ttnn.multiply(g, norm, dtype=ttnn.float32)
+                        elif kind == "worse_summand":
+                            pr = ttnn.multiply(g, norm, dtype=ttnn.bfloat16)
+                        else:
+                            pr = ttnn.multiply(g, norm)
+                        # The assertion amendment 4 rests on, as a measurement: what dtype the
+                        # summands are actually built at on this arm.
+                        SUMMAND_DTYPES.append({"kind": kind, "g": str(g.dtype),
+                                               "norm": str(norm.dtype),
+                                               "product": str(pr.dtype)})
+                        gamma.add_grad(_sum_leading(pr, gamma.value.shape))
+                    if beta is not None and beta.requires_grad:
+                        beta.add_grad(_sum_leading(g, beta.value.shape))
+                    if x.requires_grad:
+                        dnorm = (ttnn.multiply(g, gamma.value) if gamma is not None else g)
+                        dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)
+                        dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1,
+                                                 keepdim=True)
+                        dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
+                                           ttnn.multiply(norm, dn_norm_mean))
+                        x.add_grad(ttnn.multiply(dx, rstd))
+                return bw
+
+            return _tape(out_v, parents, make)
+        return rule
+
+    shipped_ln = TT._VERBS["layer_norm"]
+    LN_RULES = {"shipped": shipped_ln, "fp32_summand": make_ln_rule("fp32_summand"),
+                "worse_summand": make_ln_rule("worse_summand")}
+
+    def install_ln(name):
+        """`_taped_verb` reads `_VERBS` once and `_Ttnn.__getattr__` caches the wrapper, so the
+        registry swap alone is a silent no-op on a verb already called. Both halves, every time."""
+        TT._VERBS["layer_norm"] = LN_RULES[name]
+        TT._SHIM.__dict__.pop("layer_norm", None)
+        ag._TAPED["layer_norm"] = LN_RULES[name]
+
     dev = get_device()
     cfg = ttnn.init_device_compute_kernel_config(
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
@@ -182,7 +270,7 @@ def main() -> int:
 
     # ------------------------------------------------------------------------------------------
     def run_arm(gate, act_name, samples, s_scale, a_scale, cot_scale, cot_corr, tokens, seed,
-                cancel=None, block=None, fp32_weights=False):
+                cancel=None, block=None, fp32_weights=False, ln_rule="shipped"):
         block = a.block if block is None else block
         w = W[block]
         N = tokens
@@ -297,6 +385,8 @@ def main() -> int:
         # exact only if `backward` ADDS across tape contexts, and it watches a leaf EVERY
         # sample touches so a broken accumulation reads as a flat curve instead of nothing.
         fwd, probe = [], []
+        install_ln(ln_rule)
+        n_dt0 = len(SUMMAND_DTYPES)
         for k in range(samples):
             with device_dtype_override(act), ag.tape():
                 out = gated(ag.Tensor(ft(A_in[k])), ag.Tensor(ft(S_in[k])))
@@ -304,6 +394,8 @@ def main() -> int:
                 ag.backward([out], [ft(COT[k])])
             gr = leaves["layer_norm_s.weight"].grad
             probe.append(None if gr is None else float(_t(gr).norm()))
+        install_ln("shipped")
+        seen_dtypes = SUMMAND_DTYPES[n_dt0:n_dt0 + 1]
 
         rows, zero_rows = [], []
         for n in PARAMS:
@@ -345,7 +437,7 @@ def main() -> int:
             "gate": gate, "act": act_name, "block": block, "tokens": N, "samples": samples,
             "s_scale": s_scale, "a_scale": a_scale, "cot_scale": cot_scale,
             "cot_corr": cot_corr, "cancel": cancel, "fp32_weights": fp32_weights,
-            "seed": seed,
+            "ln_rule": ln_rule, "summand_dtypes": seen_dtypes, "seed": seed,
             "s_scale_is_power_of_two": s_scale in POW2,
             "cot_scale_is_power_of_two": cot_scale in POW2,
             "forward": {"per_sample_rel": fwd, "worst": max(fwd), "bar": PER_TENSOR_BAR},
@@ -359,7 +451,8 @@ def main() -> int:
             "zero_model": {"per_tensor": zero_rows, "mass_weighted": zmw},
         }
         print(f"[{time.perf_counter()-t0:.0f}s] b{block} {gate}/{act_name} "
-              f"s={s_scale} a={a_scale} " + ("W32 " if fp32_weights else "") +
+              f"s={s_scale} a={a_scale} " + ("W32 " if fp32_weights else "")
+              + (f"ln={ln_rule} " if ln_rule != "shipped" else "") +
               f"cot={cot_scale} rho={cot_corr} cancel={cancel} n={samples}: "
               f"fwd {max(fwd):.4e}  "
               f"mw {mw:.6e} (host fp32 {hmw:.6e}, zero {zmw:.4f})  "
@@ -376,7 +469,7 @@ def main() -> int:
     if not a.sweep and not a.block_ladder:
         arms = [run_arm(a.gate, a.act, a.samples, a.s_scale, a.a_scale, a.cot_scale,
                         a.cot_corr, cancel=a.cancel, fp32_weights=a.fp32_weights,
-                        **common)]
+                        ln_rule=a.ln_rule, **common)]
     if a.sweep:
         plan = []
         # Deliverable 1 and 3: the base reading, and the gate unfused against the same reference.
@@ -413,6 +506,14 @@ def main() -> int:
         for cn in (None, 1e-3, 1e-5):
             arms.append(run_arm("fused", "fp32", 1, 1.0, 1.0, 1.0, 0.0, cancel=cn,
                                 fp32_weights=True, **common))
+        # AMENDMENT 4: the summand product, at the rungs where the weight lever died. Both
+        # activation dtypes, because the claim is about the ACTIVATION dtype the summands
+        # inherit, and the shipped training arm is not the only one that matters.
+        for act in ("fp32", "bf16"):
+            for cn in (None, 1e-3, 1e-4, 1e-5):
+                for lr in ("shipped", "fp32_summand", "worse_summand"):
+                    arms.append(run_arm("fused", act, 1, 1.0, 1.0, 1.0, 0.0, cancel=cn,
+                                        ln_rule=lr, **common))
     if a.block_ladder:
         # The same inputs and the same cotangent through every block in the campaign's ten
         # worst. If the weights were the block-to-block variable this reads differently per

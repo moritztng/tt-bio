@@ -47,6 +47,9 @@ WATCH = ("attention_pair_bias.layer_norm_a.layer_norm_s.weight",
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--blocks", default="8")
+    p.add_argument("--k-only", action="store_true", dest="k_only",
+                   help="amendment 5: the cancellation ratio K of each AdaLN gain sum on the "
+                        "real operands, float64 only, no device arm")
     p.add_argument("--seed", type=int, default=20260920)
     p.add_argument("--tag", default="")
     p.add_argument("--out-dir", default=OUT)
@@ -226,10 +229,56 @@ def main() -> int:
         cot = torch.randn(ab.shape, generator=gen, dtype=torch.float64)
         blk = ref_stack.blocks[b]
         blk.zero_grad(set_to_none=True)
-        out64 = blk(a=ab.clone(), s=Sv, z=Z, mask=mask)
-        out64.backward(cot)
+
+        # AMENDMENT 5. The gain gradient is a SUM over tokens,
+        # g_gamma = sum_i (dL/d ln_out)_i * s_hat_i, so K = sum_i||term_i|| / ||sum_i term_i||
+        # is the amplification any per-summand error gets in the RELATIVE reading of the result.
+        # Measured on the reference's own float64 arithmetic at BOTH AdaLN sites, which is what
+        # decides whether block 8 is simply higher-K than block 9 or something else.
+        taps = {}
+
+        def tap(name):
+            def hook(mod, inp, out):
+                out.retain_grad()
+                taps[name] = {"in": inp[0].detach(), "out": out}
+            return hook
+
+        handles = [
+            blk.attention_pair_bias.layer_norm_a.layer_norm_s.register_forward_hook(
+                tap("attention_pair_bias")),
+            blk.conditioned_transition.layer_norm.layer_norm_s.register_forward_hook(
+                tap("conditioned_transition")),
+        ]
+        try:
+            out64 = blk(a=ab.clone(), s=Sv, z=Z, mask=mask)
+            out64.backward(cot)
+        finally:
+            for h in handles:
+                h.remove()
         ref_grad = {n: pm.grad.detach().clone() for n, pm in blk.named_parameters()
                     if pm.grad is not None}
+        kmeas = {}
+        for site, t in taps.items():
+            gln = t["out"].grad
+            shat = torch.nn.functional.layer_norm(t["in"], (t["in"].shape[-1],), eps=1e-5)
+            terms = (gln * shat).reshape(-1, shat.shape[-1])
+            tot = terms.sum(0)
+            kmeas[site] = {"K": float(terms.norm(dim=-1).sum() / (tot.norm() + 1e-300)),
+                           "n_summands": int(terms.shape[0]),
+                           "sum_norm": float(tot.norm()),
+                           "term_norm_sum": float(terms.norm(dim=-1).sum()),
+                           "reproduces_gamma_grad": float(
+                               (tot - ref_grad[site + (".layer_norm_a" if site ==
+                                "attention_pair_bias" else ".layer_norm")
+                                + ".layer_norm_s.weight"]).norm()
+                               / (tot.norm() + 1e-300))}
+        print(f"[{time.perf_counter()-t0:.0f}s] block {b} K: "
+              + "  ".join(f"{k} K={v['K']:.4g} (n={v['n_summands']}, "
+                          f"self-check {v['reproduces_gamma_grad']:.2e})"
+                          for k, v in kmeas.items()), flush=True)
+        if a.k_only:
+            arms.append({"block": b, "rule": "reference_float64_only", "K": kmeas})
+            continue
         print(f"[{time.perf_counter()-t0:.0f}s] block {b}: reference float64 done, "
               f"{len(ref_grad)} parameter gradients", flush=True)
 
@@ -295,6 +344,7 @@ def main() -> int:
             mw = ((sum((r["rel_l2"] * r["ref_norm"]) ** 2 for r in got) / den) ** 0.5) \
                 if den else None
             arm = {"block": b, "rule": rule_name, "forward_rel": fwd, "tokens": int(N),
+                   "K": kmeas,
                    "mass_weighted_rel": mw, "tensors": rows,
                    "over_bar": sum(1 for r in got if r["over_bar"]),
                    "compared": f"{len(got)} of {len(name_of)}",

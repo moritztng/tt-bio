@@ -1,15 +1,15 @@
-# of3t-adaln — the AdaLN gate is clean; the attention softmax is the defect
+# of3t-adaln — the AdaLN gate is clean, the attention softmax is the defect, and block 8 is not higher-K
 
 VERDICT: GO
 
-Row `of3t-adaln`, 2026-09-20, qb2 card 3. Branch `wk/of3t-adaln` (0b7584fc3, pushed, verified
-against origin). Artifacts in `perf/of3t_adaln/`. Nothing in `tt_bio/` changed: the tracked diff
+Row `of3t-adaln`, 2026-09-20, qb2 card 3. Branch `wk/of3t-adaln` (pushed, verified against
+origin). Artifacts in `perf/of3t_adaln/`. Nothing in `tt_bio/` changed: the tracked diff
 against the commit this branch was cut from (592d632e1 on `wk/of3t`) touches 0 files under
-`tt_bio/` and adds 15 under `perf/of3t_adaln/`. Every
+`tt_bio/`; everything it adds is under `perf/of3t_adaln/`. Every
 ablation below is installed from the instrument and removed again. The orchestrator holds the
 merge gate; this branch stays on its own.
 
-The brief was amended twice while this pass was running. Amendment 1 refuted its own premise
+The brief was amended five times while this pass was running. Amendment 1 refuted its own premise
 from the model's natural A/B: two instances of `tenstorrent.AdaLN` per DiT block, the same class
 on the same `(a, s)`, one reading 10.6980 mass-weighted and the other 0.1828. Amendment 2 closed
 the AdaLN op by measurement and handed over a five-item list on the DiT attention path. This
@@ -176,6 +176,67 @@ The AdaLN clearance covers 4 of the 6 `tt_bio` modules that construct an AdaLN
 `openfold3_diffusion_transformer.py`, `protenix.py`); `boltz2.py` and `esmfold2.py` carry their
 own class and are outside it.
 
+AMENDMENT3: the softmax backward's own reduction is not the lever, and the control proves the
+test could have said otherwise. `taped_ttnn.py:200` is `inner = ttnn.sum(g * y, dim)` with no
+`compute_kernel_config`, inside the `g - inner` cancellation. Giving it `precise_config()` is
+bit-identical at every rung of the cancellation ladder — 2.405795e-02 at K 1.424 through
+1.678499e+01 at K 1932, unchanged to all digits. The control that makes that null readable is a
+rule that drops the `inner` term altogether: 7.329269e+01 against the shipped 6.566019e-01 on the
+same rung. And `inner` recomputed in float64 on the DEVICE's own `y` reads 8.808894e-03 against
+the device sum's 8.954591e-03, so the reduction is faithful to the `y` it is given. `y` is the
+source, which is the softmax forward, which is what LEVERS prices.
+
+AMENDMENT4: the summand product is not the lever either, and on the arm every ladder number was
+taken at the premise does not hold. `autograd.py:1611` is
+`gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), shape))`, and the product passes no dtype.
+The patched rule records what it actually builds: on fp32 activations `g` is FLOAT32, `norm` is
+FLOAT32 and the product is FLOAT32 already. Forcing it to fp32 is bit-identical at every rung
+including the high ones amendment 4 asked to watch — 2.071014e-03 at K 20.4, 5.744067e-01 at
+K 2.1e+04, 4.161453e+00 at K 2.1e+05, 2.635289e+01 at K 2.1e+06, all unchanged to all digits.
+
+  The control is the same knob in the other direction, because `ttnn.multiply` takes a dtype and
+  no kernel config. Forcing the product to bf16 degrades those four rungs by 1.5653x, 2.6643x,
+  2.3640x and 2.1735x. The knob reaches the kernel, so the null is a null and not a patch that
+  missed.
+
+  On bf16 activations the premise does hold — `g` and `norm` are both BFLOAT16 — and there the
+  lever is worth 0.8834x, 0.9246x, 1.0286x and 0.8711x across the same rungs. About 1.1x, in the
+  helpful direction three times out of four. That is not the 793x-to-6,970x device-against-torch-
+  fp32 floor, which therefore sits somewhere other than the summands' storage. Amendment 4 is
+  right that my MECHANISM paragraph read as if the floor were unfixable and right that nobody had
+  tested it; the test says this particular lever is not the one, and the floor's location is now
+  a named open question rather than an assumption.
+
+AMENDMENT5: block 8 is not higher-K than block 9, and the within-leaf split does not live in the
+block. K is measured on the reference's own float64 arithmetic, as
+`sum_i||term_i|| / ||sum_i term_i||` over the 384 per-token summands of the gain sum, with a
+self-check that the summands add back to the reference's own gamma gradient at 3e-15 or better:
+
+  block   K (attention side)   K (transition side)   model rel   curve
+      0                36.37                 4.507      2.7329   off
+      1                17.12                 9.632      0.8331   off
+      5                52.82                 6.044      4.5419   off
+      6               207.90                12.200      2.8408   off
+      7                87.45                 6.773      5.3071   off
+      8               172.60                10.540     18.5040   off
+      9               175.60                 7.682      0.1237   ON
+     12                72.90                 6.429      5.6459   off
+     23                14.67                 3.328           —   —
+
+  Blocks 8 and 9 sit 1.7 % apart in K and 150x apart in the model. Under the same controlled
+  cotangent they also read the same on the device: the attention-side gain is 8.060854e-01 at
+  block 8 and 6.047823e-01 at block 9, 1.33x apart, and the float64-softmax arm puts them at
+  1.459256e-02 and 1.984451e-02. Code, shapes, operands and conditioning are matched at the two
+  blocks; whatever produces the 150x arrives through the real cotangent, not from the block.
+
+  One correction to amendment 5's reading of the ladder. It says the cosine never goes negative
+  across five decades; one arm does, fp32 activations with fp32 weights at K 2.1e+06, cos
+  -0.019878. A random direction in 384 dimensions has |cos| about 0.051, so -0.02 is what a
+  fully error-dominated result looks like and the mechanism can reach zero and cross it. It
+  cannot reach the -0.796 and -0.805 that blocks 0 and 6 read, which are roughly 16 sigma from
+  zero. The conclusion holds in its strong form; the evidence for it is the DISTANCE from zero
+  rather than the sign.
+
 PROVES: the sigmoid-gated AdaLN backward is right — 4 of 4 parameter gradients at 8.679667e-04
 to 2.194329e-03 against a float64 reference built from upstream 0.4.3's own class, norm ratios
 inside [0.99877, 1.00087], cosines above 0.9999981, zero-model baseline 1.000000, and the fused
@@ -186,13 +247,23 @@ and 6.438348e-03 at blocks 0 and 12, while the sister AdaLN with no softmax abov
 The kernel's forward accuracy is 2.274755e-02 with no compute kernel config, 6.888150e-04 with
 `precise_config()` and 2.780055e-04 through `_accurate_softmax`, against a host float32 floor of
 6.053848e-08, and the backward's `g - sum(g*y)` cancellation amplifies whichever of those it is
-given, linearly in the cancellation ratio.
+given, linearly in the cancellation ratio. Three named precision levers are refuted with a
+control that moves: `precise_config()` on the softmax backward's reduction, and the gain
+gradient's summand product in fp32 on both activation dtypes. And the within-leaf split is not
+conditioning: the attention-side gain sum has K 172.6 at block 8 and 175.6 at block 9 while the
+model reads 18.504 and 0.1237, and under one controlled cotangent the two blocks read 8.060854e-01
+and 6.047823e-01.
 
 DOESNOT: this does not ship a fix. Both levers change the forward, so they move inference on four
 of five models and they stay on this branch under the release gate. It does not measure the 48
 noise levels or the real downstream cotangent at the block, so the block-arm numbers are the
 linear map's, not one particular vector's through it. It does not gradcheck items 2 to 5 of the
-handoff individually; it bounds them together. It does not re-derive the model-scope number after
+handoff individually; it bounds them together. The K values are measured under a controlled
+random cotangent, not the model's own: they establish that blocks 8 and 9 are matched in
+conditioning, and they do not measure what K each block has in the real backward, which needs a
+cotangent at `dit_out` that the boundary capture does not carry. It does not locate the
+793x-to-6,970x floor between the device and torch float32; it rules out the summand dtype and
+the two reduction configs and leaves the rest open. It does not re-derive the model-scope number after
 a lever, so how 55x at one block composes over 24 blocks and 48 samples is not established here.
 And it is a statement about one backward at one step, not about stability: it does not show that
 a training run stays on the reference trajectory over 100k steps, it does not bound long-run

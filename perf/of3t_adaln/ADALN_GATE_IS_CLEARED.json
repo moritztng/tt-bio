@@ -1,4 +1,700 @@
 {
+ "amendment_4_summand_dtype": {
+  "arms": [
+   {
+    "K": 20.44424679801088,
+    "act": "fp32",
+    "gain_cos": 0.9999982313801217,
+    "gain_norm_ratio": 1.000867872357494,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.002071013522889777,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "bf16",
+    "gain_cos": 0.9999852088159221,
+    "gain_norm_ratio": 1.002049653088101,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.0058138321231509605,
+    "summand_dtypes": null
+   },
+   {
+    "K": 30.089359430529168,
+    "act": "fp32",
+    "gain_cos": 0.9999980189776843,
+    "gain_norm_ratio": 1.0005294158449003,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.0020590852074496195,
+    "summand_dtypes": null
+   },
+   {
+    "K": 211.2043050000801,
+    "act": "fp32",
+    "gain_cos": 0.9999735691247812,
+    "gain_norm_ratio": 1.001105855468325,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.007351748090253863,
+    "summand_dtypes": null
+   },
+   {
+    "K": 2100.17712952438,
+    "act": "fp32",
+    "gain_cos": 0.9982846853704964,
+    "gain_norm_ratio": 0.9942621577857897,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.05864178818068268,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "fp32",
+    "gain_cos": 0.8631851653519217,
+    "gain_norm_ratio": 1.137834174594952,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.5744067205836998,
+    "summand_dtypes": null
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "fp32",
+    "gain_cos": 0.1717780400878119,
+    "gain_norm_ratio": 4.219141702559284,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 4.161453345982668,
+    "summand_dtypes": null
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "fp32",
+    "gain_cos": 0.16241300796758423,
+    "gain_norm_ratio": 26.52931971929624,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 26.35289241577452,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "fp32",
+    "gain_cos": 0.9999982313801217,
+    "gain_norm_ratio": 1.000867872357494,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.002071013522889777,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "fp32",
+    "gain_cos": 0.9999982313801217,
+    "gain_norm_ratio": 1.000867872357494,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 0.002071013522889777,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "fp32_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "fp32",
+    "gain_cos": 0.9999957793418957,
+    "gain_norm_ratio": 1.0014406344395934,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 0.003241730459479091,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "worse_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "fp32",
+    "gain_cos": 0.8631851653519217,
+    "gain_norm_ratio": 1.137834174594952,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.5744067205836998,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "fp32",
+    "gain_cos": 0.8631851653519217,
+    "gain_norm_ratio": 1.137834174594952,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 0.5744067205836998,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "fp32_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "fp32",
+    "gain_cos": 0.552003518980626,
+    "gain_norm_ratio": 1.8376090828761196,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 1.53039540115579,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "worse_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "fp32",
+    "gain_cos": 0.1717780400878119,
+    "gain_norm_ratio": 4.219141702559284,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 4.161453345982668,
+    "summand_dtypes": null
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "fp32",
+    "gain_cos": 0.1717780400878119,
+    "gain_norm_ratio": 4.219141702559284,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 4.161453345982668,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "fp32_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "fp32",
+    "gain_cos": 0.10541395833463714,
+    "gain_norm_ratio": 9.905552450595973,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 9.837578252506798,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "worse_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "fp32",
+    "gain_cos": 0.16241300796758423,
+    "gain_norm_ratio": 26.52931971929624,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 26.35289241577452,
+    "summand_dtypes": null
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "fp32",
+    "gain_cos": 0.16241300796758423,
+    "gain_norm_ratio": 26.52931971929624,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 26.35289241577452,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "fp32_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "fp32",
+    "gain_cos": 0.03564008233292323,
+    "gain_norm_ratio": 57.38124976191268,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 57.277007125293714,
+    "summand_dtypes": {
+     "g": "DataType.FLOAT32",
+     "kind": "worse_summand",
+     "norm": "DataType.FLOAT32",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "bf16",
+    "gain_cos": 0.9999852088159221,
+    "gain_norm_ratio": 1.002049653088101,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 0.0058138321231509605,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "bf16",
+    "gain_cos": 0.9999875523333679,
+    "gain_norm_ratio": 1.001216172378969,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 0.005136141505075466,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "fp32_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 20.44424679801088,
+    "act": "bf16",
+    "gain_cos": 0.9999852088159221,
+    "gain_norm_ratio": 1.002049653088101,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 0.0058138321231509605,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "worse_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "bf16",
+    "gain_cos": 0.3428997363849793,
+    "gain_norm_ratio": 2.8085474164419626,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 2.6359146806528013,
+    "summand_dtypes": null
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "bf16",
+    "gain_cos": 0.3291882050313532,
+    "gain_norm_ratio": 2.5784391969362095,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 2.4371624593595733,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "fp32_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 20999.621991192995,
+    "act": "bf16",
+    "gain_cos": 0.3428997363849793,
+    "gain_norm_ratio": 2.8085474164419626,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 2.6359146806528013,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "worse_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "bf16",
+    "gain_cos": 0.08460508018555359,
+    "gain_norm_ratio": 23.005009275861646,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 22.913841032605383,
+    "summand_dtypes": null
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "bf16",
+    "gain_cos": 0.025409879298600512,
+    "gain_norm_ratio": 23.60149142936745,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 23.56805540455796,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "fp32_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 209997.93112979498,
+    "act": "bf16",
+    "gain_cos": 0.08460508018555359,
+    "gain_norm_ratio": 23.005009275861646,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 22.913841032605383,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "worse_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.BFLOAT16"
+    }
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "bf16",
+    "gain_cos": 0.02500967728545728,
+    "gain_norm_ratio": 83.64309752630633,
+    "ln_rule": "shipped",
+    "mass_weighted_rel": 83.51990167276364,
+    "summand_dtypes": null
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "bf16",
+    "gain_cos": 0.05163433813747233,
+    "gain_norm_ratio": 72.8905492503967,
+    "ln_rule": "fp32_summand",
+    "mass_weighted_rel": 72.75812245409752,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "fp32_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.FLOAT32"
+    }
+   },
+   {
+    "K": 2099710.7224412663,
+    "act": "bf16",
+    "gain_cos": 0.02500967728545728,
+    "gain_norm_ratio": 83.64309752630633,
+    "ln_rule": "worse_summand",
+    "mass_weighted_rel": 83.51990167276364,
+    "summand_dtypes": {
+     "g": "DataType.BFLOAT16",
+     "kind": "worse_summand",
+     "norm": "DataType.BFLOAT16",
+     "product": "DataType.BFLOAT16"
+    }
+   }
+  ],
+  "control": "ttnn.multiply takes a dtype and no compute_kernel_config, so the lever and its control are the same knob in opposite directions. Forcing the product to bf16 on the fp32 arm degrades 1.5653x / 2.6643x / 2.3640x / 2.1735x at K = 20.4 / 2.1e+04 / 2.1e+05 / 2.1e+06, so the knob reaches the kernel and the null is a null.",
+  "question": "autograd.py:1611 forms _sum_leadings summands with ttnn.multiply(g, norm), which passes no dtype. Does forcing the product to fp32 move the HIGH-K rungs?",
+  "verdict": "REFUTED on the fp32 arm and worth ~1.1x on the bf16 arm. On fp32 activations the summands are ALREADY fp32 -- recorded from inside the rule, g=FLOAT32 norm=FLOAT32 prod=FLOAT32 -- and forcing fp32 is BIT-IDENTICAL at every rung including K=2.1e+06. On bf16 activations the summands are bf16 and forcing fp32 moves the headline 0.87x to 1.03x. Neither is the ~800-7000x device-vs-host-fp32 floor."
+ },
+ "amendment_5_within_leaf_contrast": {
+  "K_measured_on_the_float64_reference": [
+   {
+    "K_attention_pair_bias": 36.36570064210569,
+    "K_conditioned_transition": 4.506701092083226,
+    "block": 0,
+    "model_rel_with_the_real_cotangent": 2.7328662470902616,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 8.152128276779168e-16
+   },
+   {
+    "K_attention_pair_bias": 17.120740111432617,
+    "K_conditioned_transition": 9.63159062095701,
+    "block": 1,
+    "model_rel_with_the_real_cotangent": 0.8331,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 4.1175154229609124e-16
+   },
+   {
+    "K_attention_pair_bias": 52.81562884940877,
+    "K_conditioned_transition": 6.044026044667286,
+    "block": 5,
+    "model_rel_with_the_real_cotangent": 4.5418561851468295,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 1.1224759603928367e-15
+   },
+   {
+    "K_attention_pair_bias": 207.8776712138543,
+    "K_conditioned_transition": 12.203495978479577,
+    "block": 6,
+    "model_rel_with_the_real_cotangent": 2.840834392407766,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 2.111730188348863e-15
+   },
+   {
+    "K_attention_pair_bias": 87.44668253529366,
+    "K_conditioned_transition": 6.773102328569385,
+    "block": 7,
+    "model_rel_with_the_real_cotangent": 5.307078050609351,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 3.4145557516002414e-15
+   },
+   {
+    "K_attention_pair_bias": 172.60342882505822,
+    "K_conditioned_transition": 10.543002774292496,
+    "block": 8,
+    "model_rel_with_the_real_cotangent": 18.503974843073646,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 3.214419099785081e-15
+   },
+   {
+    "K_attention_pair_bias": 175.6418062282152,
+    "K_conditioned_transition": 7.682115028611642,
+    "block": 9,
+    "model_rel_with_the_real_cotangent": 0.1237,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 7.428939546801882e-15
+   },
+   {
+    "K_attention_pair_bias": 72.90205087045088,
+    "K_conditioned_transition": 6.4290786287768515,
+    "block": 12,
+    "model_rel_with_the_real_cotangent": 5.645936592384648,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 6.664504131595929e-16
+   },
+   {
+    "K_attention_pair_bias": 14.672172899257903,
+    "K_conditioned_transition": 3.328140438410647,
+    "block": 23,
+    "model_rel_with_the_real_cotangent": null,
+    "n_summands": 384,
+    "self_check_vs_reference_gamma_grad": 3.0261956030085085e-16
+   }
+  ],
+  "cosine_correction": "amendment 5 reads the ladders cosine as never going negative. One arm does: fp32 activations, fp32 weights, K=2.1e+06 reads cos -0.019878. A random direction in 384 dimensions has |cos| ~ 0.051, so -0.02 is what a fully error-dominated result looks like and the mechanism can reach cos <= 0. It cannot reach the -0.796 and -0.805 that blocks 0 and 6 read, which are ~16 sigma from zero. The conclusion stands in its strong form and the evidence for it is the DISTANCE from zero, not the sign.",
+  "question": "the leafs own 24 blocks split 15 on-curve / 9 off-curve. Is block 8 simply higher-K than block 9?",
+  "same_cotangent_device_arms": [
+   {
+    "K_attention_pair_bias": 172.60342882505822,
+    "apb_gain": {
+     "cos": 0.990819317585868,
+     "norm_ratio": 1.7854868689268928,
+     "rel_l2": 0.8060853534539731
+    },
+    "block": 8,
+    "ct_gain": {
+     "cos": 0.9995462813316591,
+     "norm_ratio": 0.9955744095893557,
+     "rel_l2": 0.03038103423500968
+    },
+    "rule": "shipped"
+   },
+   {
+    "K_attention_pair_bias": 172.60342882505822,
+    "apb_gain": {
+     "cos": 0.987114854252645,
+     "norm_ratio": 0.6662443081860528,
+     "rel_l2": 0.35855567468226285
+    },
+    "block": 8,
+    "ct_gain": {
+     "cos": 0.9995794230601496,
+     "norm_ratio": 0.9985814812817309,
+     "rel_l2": 0.029016768988493095
+    },
+    "rule": "softmax_precise"
+   },
+   {
+    "K_attention_pair_bias": 172.60342882505822,
+    "apb_gain": {
+     "cos": 0.9985550730278248,
+     "norm_ratio": 1.1742784179303538,
+     "rel_l2": 0.18375652389542171
+    },
+    "block": 8,
+    "ct_gain": {
+     "cos": 0.999690922186157,
+     "norm_ratio": 0.9971838961845714,
+     "rel_l2": 0.024986902128183604
+    },
+    "rule": "softmax_accurate"
+   },
+   {
+    "K_attention_pair_bias": 172.60342882505822,
+    "apb_gain": {
+     "cos": 0.999979854937261,
+     "norm_ratio": 0.9868400982440103,
+     "rel_l2": 0.01459256405202325
+    },
+    "block": 8,
+    "ct_gain": {
+     "cos": 0.999704088108611,
+     "norm_ratio": 0.9956178712283548,
+     "rel_l2": 0.024666442534811095
+    },
+    "rule": "softmax_host_f64"
+   },
+   {
+    "K_attention_pair_bias": 175.6418062282152,
+    "apb_gain": {
+     "cos": 0.8052033650041637,
+     "norm_ratio": 0.9240059842118646,
+     "rel_l2": 0.6047822776144994
+    },
+    "block": 9,
+    "ct_gain": {
+     "cos": 0.9998863019122204,
+     "norm_ratio": 1.0101446385985495,
+     "rel_l2": 0.018237782756532355
+    },
+    "rule": "shipped"
+   },
+   {
+    "K_attention_pair_bias": 175.6418062282152,
+    "apb_gain": {
+     "cos": 0.9989103916725777,
+     "norm_ratio": 1.0165527768367721,
+     "rel_l2": 0.04989271653076546
+    },
+    "block": 9,
+    "ct_gain": {
+     "cos": 0.9999807374484797,
+     "norm_ratio": 1.0020162131518882,
+     "rel_l2": 0.0065320665438992976
+    },
+    "rule": "softmax_precise"
+   },
+   {
+    "K_attention_pair_bias": 175.6418062282152,
+    "apb_gain": {
+     "cos": 0.9988093859583707,
+     "norm_ratio": 1.0195611568046716,
+     "rel_l2": 0.05301364460891182
+    },
+    "block": 9,
+    "ct_gain": {
+     "cos": 0.9999788982052571,
+     "norm_ratio": 1.0025717251296224,
+     "rel_l2": 0.006994704830085713
+    },
+    "rule": "softmax_accurate"
+   },
+   {
+    "K_attention_pair_bias": 175.6418062282152,
+    "apb_gain": {
+     "cos": 0.999811602103022,
+     "norm_ratio": 1.0039400895539687,
+     "rel_l2": 0.019844513317815116
+    },
+    "block": 9,
+    "ct_gain": {
+     "cos": 0.9999845422689108,
+     "norm_ratio": 1.001206210037971,
+     "rel_l2": 0.005692775717953044
+    },
+    "rule": "softmax_host_f64"
+   },
+   {
+    "K_attention_pair_bias": 52.81562884940877,
+    "apb_gain": {
+     "cos": 0.9998956709987796,
+     "norm_ratio": 1.166360346791023,
+     "rel_l2": 0.1670902014018671
+    },
+    "block": 5,
+    "ct_gain": {
+     "cos": 0.9998129618364222,
+     "norm_ratio": 1.0113719450073841,
+     "rel_l2": 0.022531121495127263
+    },
+    "rule": "shipped"
+   },
+   {
+    "K_attention_pair_bias": 52.81562884940877,
+    "apb_gain": {
+     "cos": 0.9999554346983064,
+     "norm_ratio": 1.0004056838483806,
+     "rel_l2": 0.009451525888342013
+    },
+    "block": 5,
+    "ct_gain": {
+     "cos": 0.9998930393354455,
+     "norm_ratio": 1.0177698694892365,
+     "rel_l2": 0.023097422905443664
+    },
+    "rule": "softmax_precise"
+   },
+   {
+    "K_attention_pair_bias": 52.81562884940877,
+    "apb_gain": {
+     "cos": 0.9999922031014779,
+     "norm_ratio": 0.9835625625111881,
+     "rel_l2": 0.01689753905687623
+    },
+    "block": 5,
+    "ct_gain": {
+     "cos": 0.9998853068420447,
+     "norm_ratio": 1.018750136159051,
+     "rel_l2": 0.024192043042085325
+    },
+    "rule": "softmax_accurate"
+   },
+   {
+    "K_attention_pair_bias": 52.81562884940877,
+    "apb_gain": {
+     "cos": 0.9999872447482329,
+     "norm_ratio": 0.9864059552683102,
+     "rel_l2": 0.014490057445549535
+    },
+    "block": 5,
+    "ct_gain": {
+     "cos": 0.9998794850722692,
+     "norm_ratio": 1.019991212435245,
+     "rel_l2": 0.02540663120401278
+    },
+    "rule": "softmax_host_f64"
+   },
+   {
+    "K_attention_pair_bias": 207.8776712138543,
+    "apb_gain": {
+     "cos": 0.9867641534140603,
+     "norm_ratio": 1.2872834770455364,
+     "rel_l2": 0.34147967642738547
+    },
+    "block": 6,
+    "ct_gain": {
+     "cos": 0.999777011393772,
+     "norm_ratio": 0.9929086403384846,
+     "rel_l2": 0.022205900330558553
+    },
+    "rule": "shipped"
+   },
+   {
+    "K_attention_pair_bias": 207.8776712138543,
+    "apb_gain": {
+     "cos": 0.9992993797270079,
+     "norm_ratio": 1.039693276629213,
+     "rel_l2": 0.055067382216362655
+    },
+    "block": 6,
+    "ct_gain": {
+     "cos": 0.9999265749861095,
+     "norm_ratio": 0.9961587784393813,
+     "rel_l2": 0.012690190202119766
+    },
+    "rule": "softmax_precise"
+   },
+   {
+    "K_attention_pair_bias": 207.8776712138543,
+    "apb_gain": {
+     "cos": 0.9995952697408439,
+     "norm_ratio": 0.9846034714456695,
+     "rel_l2": 0.03215665915252876
+    },
+    "block": 6,
+    "ct_gain": {
+     "cos": 0.9999373436812579,
+     "norm_ratio": 0.996864092500194,
+     "rel_l2": 0.011608341160204495
+    },
+    "rule": "softmax_accurate"
+   },
+   {
+    "K_attention_pair_bias": 207.8776712138543,
+    "apb_gain": {
+     "cos": 0.9999179863848645,
+     "norm_ratio": 0.9882535561216311,
+     "rel_l2": 0.017322801084223773
+    },
+    "block": 6,
+    "ct_gain": {
+     "cos": 0.999947796261333,
+     "norm_ratio": 0.9967307996093132,
+     "rel_l2": 0.010712320923244445
+    },
+    "rule": "softmax_host_f64"
+   }
+  ],
+  "verdict": "NO. On the real operands the cancellation ratio of the attention-side AdaLN gain sum is K=172.6 at block 8 and K=175.6 at block 9 -- 1.7 % apart -- while the model reads rel 18.504 and 0.1237, a 150x split. Under the same controlled cotangent the two blocks also read the same on the device: 8.060854e-01 and 6.047823e-01, 1.33x apart. The blocks code, operands and conditioning are matched; whatever produces the 150x arrives through the real cotangent."
+ },
  "amendments": {
   "answer": "the attention-side gradient defect is the attention SOFTMAX. Replacing it with float64 on the real operands takes attention_pair_bias.layer_norm_a.layer_norm_s.weight from 8.060854e-01 to 1.459256e-02 at DiT block 8, while the sister AdaLN under conditioned_transition, which has no softmax above it, moves 1.23x.",
   "block_arms": [
