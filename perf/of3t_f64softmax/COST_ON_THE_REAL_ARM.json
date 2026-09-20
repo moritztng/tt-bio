@@ -1,0 +1,102 @@
+{
+ "arms": {
+  "breakctl": {
+   "aiclk_during_the_window": {
+    "max_mhz": 1350,
+    "mean_mhz": 1314,
+    "min_mhz": 800,
+    "n": 46
+   },
+   "log": "/home/ttuser/of3t_f64softmax/devgrad_sitef64pc.log",
+   "seconds_per_structure_max": 2.6,
+   "seconds_per_structure_mean": 1.7750000000000001,
+   "seconds_per_structure_median": 1.7,
+   "seconds_per_structure_min": 1.6,
+   "structures_timed": 48,
+   "wall_seconds_whole_arm": 91,
+   "window_end_epoch": 1789947456,
+   "window_start_epoch": 1789947365,
+   "x_shipped_r1": 1.448979591836735
+  },
+  "shipped_r1": {
+   "aiclk_during_the_window": {
+    "max_mhz": 1350,
+    "mean_mhz": 1316,
+    "min_mhz": 800,
+    "n": 32
+   },
+   "log": "/home/ttuser/of3t_f64softmax/devgrad_shipped.log",
+   "seconds_per_structure_max": 1.8,
+   "seconds_per_structure_mean": 1.2249999999999999,
+   "seconds_per_structure_median": 1.2,
+   "seconds_per_structure_min": 1.2,
+   "structures_timed": 48,
+   "wall_seconds_whole_arm": 64,
+   "window_end_epoch": 1789947252,
+   "window_start_epoch": 1789947188,
+   "x_shipped_r1": 1.0
+  },
+  "shipped_r2": {
+   "aiclk_during_the_window": {
+    "max_mhz": 1350,
+    "mean_mhz": 1315,
+    "min_mhz": 800,
+    "n": 32
+   },
+   "log": "/home/ttuser/of3t_f64softmax/devgrad_shipped_r2.log",
+   "seconds_per_structure_max": 1.8,
+   "seconds_per_structure_mean": 1.2249999999999999,
+   "seconds_per_structure_median": 1.2,
+   "seconds_per_structure_min": 1.2,
+   "structures_timed": 48,
+   "wall_seconds_whole_arm": 65,
+   "window_end_epoch": 1789948191,
+   "window_start_epoch": 1789948126,
+   "x_shipped_r1": 1.0
+  },
+  "sitef64_r1": {
+   "aiclk_during_the_window": {
+    "max_mhz": 1350,
+    "mean_mhz": 1314,
+    "min_mhz": 800,
+    "n": 46
+   },
+   "log": "/home/ttuser/of3t_f64softmax/devgrad_sitef64.log",
+   "seconds_per_structure_max": 2.6,
+   "seconds_per_structure_mean": 1.8062500000000001,
+   "seconds_per_structure_median": 1.7,
+   "seconds_per_structure_min": 1.7,
+   "structures_timed": 48,
+   "wall_seconds_whole_arm": 91,
+   "window_end_epoch": 1789947354,
+   "window_start_epoch": 1789947263,
+   "x_shipped_r1": 1.4744897959183676
+  },
+  "sitef64_r2": {
+   "aiclk_during_the_window": {
+    "max_mhz": 1350,
+    "mean_mhz": 1326,
+    "min_mhz": 800,
+    "n": 46
+   },
+   "log": "/home/ttuser/of3t_f64softmax/devgrad_sitef64_r2.log",
+   "seconds_per_structure_max": 2.7,
+   "seconds_per_structure_mean": 1.7958333333333334,
+   "seconds_per_structure_median": 1.7,
+   "seconds_per_structure_min": 1.7,
+   "structures_timed": 48,
+   "wall_seconds_whole_arm": 91,
+   "window_end_epoch": 1789948126,
+   "window_start_epoch": 1789948035,
+   "x_shipped_r1": 1.4659863945578233
+  }
+ },
+ "baseline": "shipped_r1",
+ "micro_bench_for_contrast": {
+  "accurate_softmax_per_op": 4.71,
+  "note": "one softmax shape, not a scope cost",
+  "precise_config_per_op": 1.46,
+  "source": "perf/of3t_softmax/softmax_cost_qb2c0.json"
+ },
+ "what": "What each arm costs on the REAL arm, with the AICLK sampled DURING the timed work."
+}

@@ -3561,10 +3561,14 @@ def host_f64_softmax_site(token: str, default: bool = False) -> bool:
     float64, and the result comes back in the tensor's own dtype, layout and memory config. The
     round trip is the softmax and nothing else -- every op before and after it stays on the card.
 
-    It buys GRADIENT fidelity and it is a training-path lever. What it is worth on the OF3
-    diffusion module's gradient at full scope, and what the round trip costs, are measured in
-    `perf/of3t_f64softmax/`. Inference does not want it and does not get it: OFF at every site,
-    and a fold with the path present and off is byte-identical to one without it.
+    It buys GRADIENT fidelity and it is a training-path lever. On the OF3 diffusion module's
+    gradient over 547 tensors at full scope it takes the mass-weighted rel_l2 against upstream's
+    own bf16 training step from 7.426217e+00 to 7.777580e-02, and against a float64 reference to
+    5.930664e-02, which is 1.013x what upstream's own bf16 step reaches against the same
+    reference. It costs 166.8x on the softmax alone and 1.47x on the whole gradient arm
+    (`perf/of3t_f64softmax/`). Inference does not want it and does not get it: OFF at every site,
+    and a fold with the path present and off is byte-identical to one without it, measured by
+    digest on OpenFold3, Protenix-v2 and OpenDDE.
 
     Overridable per site in both directions by ``TT_BIO_HOST_F64_SOFTMAX_AB``, with the grammar
     ``accurate_softmax_site`` uses, for the same reason: it changes the forward at every site it
