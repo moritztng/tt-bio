@@ -126,3 +126,52 @@ that leaf's output). Created is the locus measurement; propagated is reported be
 It will not merge anything. A mask fix inside `OF3ConfidenceHead` changes the confidence head's
 output for every OF3 fold that runs on a padded crop, which is release-gated; it stays on
 `wk/of3t-auxfind`, flagged, whatever the numbers say.
+
+---
+
+# Addendum, pass 177: can the SHIPPED Pairformer express the reference's masking?
+
+Written before arm P exists. The merge of `wk/of3t` into this branch brought in
+`OF3ConfidenceHead.forward_device`, the training entry point, which calls
+`self.pf(si_trunk_d, z)` with no masks at all. The obvious repair is to thread `pair_mask` and
+the additive `attn_mask` through, the way `openfold3_trunk.py:197` already does.
+
+Reading `tenstorrent.py:PairformerLayer.__call__`, that repair cannot be complete. The shipped
+layer applies `mask` to the two triangle multiplications and `attn_mask_*` to the two triangle
+attentions and to `attention_pair_bias`'s `seq_mask`, but it applies **nothing** to
+`transition_z` or `transition_s`. Upstream's `_mask_trans=True` zeroes both
+(`base_blocks.py:453`, `pair_trans_mask = pair_mask if _mask_trans else None`). This row's own
+LOCUS table ranks those two transitions as the leaves that CREATE the most disagreement
+(1.6240e-02 and 1.3305e-02 of the tensor handed to them, the top two of seven).
+
+So the fix's shape is an open question and it is decided by one arm.
+
+**Arm P**: upstream 0.4.3, float64, native masks, `_mask_trans=False`. That is exactly the
+function the shipped `PairformerLayer` computes when it is handed `mask` and `attn_mask`: masked
+triangle ops, unmasked transitions. Scored against arm R on the same A18 scope as every other
+figure here.
+
+## Branches, before the number exists
+
+* **T1** - arm P clears **5.0e-02** on all five heads: threading `pair_mask` + `attn_mask` into
+  `self.pf` is sufficient, `forward_device` is repaired by the call site alone, and the shared
+  `Pairformer` needs no change. The transition masking is then a real but sub-bar difference and
+  I say so with its number.
+* **T2** - arm P fails the bar on one or more heads: the shipped `Pairformer` **cannot** express
+  the reference's masking, and a `trans_mask` on `transition_z`/`transition_s` is required for
+  the device path to reach parity. P-vs-R sizes how much the call site alone leaves behind.
+* **T3** - arm P lands within 20 % of arm U: the triangle masking is nearly irrelevant and the
+  transitions carry the defect. This would REVISE this row's published LOCUS reading from
+  "diffuse across seven leaves" toward the two transitions, and I will say that it revised it
+  rather than quietly restating it.
+
+A legitimate outcome remains "the call site is enough" (T1). It is not a worse result than T2.
+
+## Controls, fixed in advance
+
+5. **The flag must do something**: arm P must differ from arm R. A `_mask_trans` that changed
+   nothing would mean the kwarg never reached the block, not that the transitions do not matter.
+6. **The flag must act only through the mask**: with the masks forced to ones, `_mask_trans=False`
+   and `_mask_trans=True` must agree at **exactly 0.0**. Masking by ones is a no-op, so any
+   difference there means the flag has a second effect and arm P is not what it claims.
+7. Arm R's same-function control (control 2 above) is re-run in this process, not carried in.
