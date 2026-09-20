@@ -74,7 +74,7 @@ two-entry `_TAPED` in autograd.py that a grep finds first is a different surface
 stage of theirs fires every loss term, which reshapes the coverage requirement into a union over
 stages.
 
-ROWS: **forty-eight dispatched, forty-four concluded, four live** (pass 195 adds `of3t-trunkg043`, the trunk gradient at 0.4.3 — namespace `perf/of3t_trunkg043/`, based on `wk/of3t-trunkcliff`, gate entry and stage hint added. Pass 194: this row and `of3t-nanfloor`, dispatched this pass to execute the two softmax repairs landed blind here — brief `workstreams/of3t-nanfloor.txt`, namespace `perf/of3t_nanfloor/`, based on `wk/of3t-softgrad` merged with `wk/of3t-orchestrator`, gate entry and stage hint both added to `_of3t_donecheck.py`. Pass 193 read: this row alone. `of3t-softgrad` concluded NO-GO -- no on-device softmax configuration reaches the bar, though the host float64 arm passes at 0.956x for a measured 1.441x; `of3t-trunkdepth` concluded NO-GO -- no scale-dependent amplifier, the raw depth growth is the bf16 FLOOR's). 43 briefs = 40 concluded + this row + `of3t-nanfloor` + `of3t-trunkg043`. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
+ROWS: **forty-nine dispatched, forty-four concluded, five live** (pass 195 adds `of3t-trunkg043`, the trunk gradient at 0.4.3 — namespace `perf/of3t_trunkg043/`, based on `wk/of3t-trunkcliff`, gate entry and stage hint added. Pass 194: this row and `of3t-nanfloor`, dispatched this pass to execute the two softmax repairs landed blind here — brief `workstreams/of3t-nanfloor.txt`, namespace `perf/of3t_nanfloor/`, based on `wk/of3t-softgrad` merged with `wk/of3t-orchestrator`, gate entry and stage hint both added to `_of3t_donecheck.py`. Pass 193 read: this row alone. `of3t-softgrad` concluded NO-GO -- no on-device softmax configuration reaches the bar, though the host float64 arm passes at 0.956x for a measured 1.441x; `of3t-trunkdepth` concluded NO-GO -- no scale-dependent amplifier, the raw depth growth is the bf16 FLOOR's). 43 briefs = 40 concluded + this row + `of3t-nanfloor` + `of3t-trunkg043`. Note `state/concluded/` holds 38 of3t markers because one is THIS row's, left from an earlier pass and stale while the row is live -- counting markers alone overstates by one. The field had been stale for seven passes at 'twenty-four dispatched, twenty-one concluded'; it is not audited, so nothing caught it. Historical count as first written: **thirteen, nine concluded** (`of3t-reference` reopened pass 40 for D18)**.** Six chartered, plus seven I dispatched from findings:
 `of3t-confidence` (pass 2, R20 — the confidence gradient could not reach the trunk because
 `openfold3_fold.py:415-416` writes the trunk outputs to host, a port rather than a tape fix),
 `of3t-leaves` (pass 3, R21/K29 — the shared weight-discovery seam `of3t-tape` declined to
@@ -867,15 +867,34 @@ document was still quoting the superseded reading. Each line says who closed it,
    the 640 failure are different moments of the same backward**, so a single sample at the maximum
    cannot tell them apart.
 
-6. **The host float64 softmax as a product trade — ASKED at pass 198 (pin `9562`), pending.**
-   Now that `of3t-nanfloor` has settled that **no on-device configuration reaches the bar** — four
-   arms, controls bit-identical, shipped reproducing 7.426217e+00 — the trade is final and
-   actionable, which is why it went out now rather than earlier. A host float64 softmax reaches
-   **0.956x** the bar for a measured **1.441x** cost, but it is a diagnostic construction on a tape
-   verb rather than a supported code path, so adopting it is an engineering project and not a flag.
-   **My recommendation to him was BUILD IT**, on the grounds that 1.441x on a training step is
-   cheap against "half the model's gradient is 127x out" and nothing else on the record closes that
-   half. The campaign keeps working either way; nothing waits on the answer.
+6. **The host float64 softmax — ANSWERED, and BUILD IT.** Moritz on ask 9562: *"the first step
+   should def be trying to reproduce of3 as close as possible. maybe even with host round trips.
+   then we can think about how to make it more performant and eliminating round trips etc."* **The
+   1.441x is accepted; fidelity first, performance second.** `of3t-f64softmax` dispatched to make it
+   a supported per-site path rather than a tape-verb diagnostic, with a byte-identical shipped fold
+   required by digest so inference cannot move. Decision in `state/ask-9562-decision.md`.
+
+   **And he supplied the mechanism, which is the campaign's biggest explanatory finding and was not
+   ours: Tenstorrent's fp32 is not IEEE fp32** — a few mantissa bits short. A true fp32 softmax
+   agrees with float64 to **~1e-7**; the device reads **2.029e-02** shipped, **1.646e-03** at
+   `precise_config()`, **5.156e-04** at `_accurate_softmax`. **Nothing on-device is within four
+   orders of magnitude of real fp32.** The numbers were already in `of3t-softmax`'s own cost table
+   and the campaign read them as a puzzle — "why does no arm reach the bar?" — rather than as a
+   ceiling. It is silicon, so:
+   - a host round trip is **not** overshooting upstream. They train fp32 on GPU where fp32 is IEEE
+     fp32, so the round trip is the only way to reach what they already do;
+   - **every defect whose signature is "we cannot get close enough on-device" is now suspect for
+     the same cause.** D8's pair track and D19's forward are to be re-examined against this before
+     more engineering is spent. `of3t-adaln` had already measured the D8 leaf at **8.06e-01** under
+     our softmax against **1.46e-02** under float64 and concluded the attention-side gradient defect
+     is the softmax and nothing else on that path — a reading that now has a mechanism under it;
+   - the live row `of3t-apbgrad` is **amended** to test this as its FIRST arm, ahead of its operand
+     sweep: its 33.30x AttentionPairBias defect sits on the same path with the same signature, and
+     if a float64 softmax drops its cotangent to the Transition sibling's level the operand sweep is
+     unnecessary and it should say so and stop;
+   - performance is a named debt, not a blocker — what `precise_config()` recovers at 1.46x on one
+     op, and whether round trips can be batched, overlapped or confined.
+
 7. **`diffusion_conditioning` as a protocol question — STANDING.** `of3t-direct` retracted it at
    1.0414x while it was **eight times more accurate than upstream's own training step** (0.015328
    against their 0.121864), failing only because the two errors are anti-aligned. The same question
@@ -910,8 +929,13 @@ VERDICT: PARTIAL — OpenFold3 training is **not** reproduced on Tenstorrent, an
 scope that can be read has been read. Against the reachable bar, **92.1651 % of the model's squared
 gradient norm is reproduced or reachable**: 41.0293 % agrees on the SHIPPED path as well as an
 independent bf16 reimplementation could, and a further 51.1358 % reaches the bar only with a host
-float64 softmax at **0.956x** for a measured **1.441x** cost — no on-device configuration reaches
-it, settled at pass 198. **94.8836 %** is measured and outside the bar, **2.8431 %** (`aux_heads`)
+float64 softmax at **0.956x** for a measured **1.441x** cost. **Why no on-device configuration
+reaches it is now answered and it is silicon, not configuration: Tenstorrent's fp32 is not IEEE
+fp32.** A true fp32 softmax agrees with float64 to ~1e-7; the device reads 2.029e-02 shipped,
+1.646e-03 at `precise_config()`, 5.156e-04 at `_accurate_softmax` — **nothing on-device is within
+four orders of magnitude of real fp32**. Moritz supplied the mechanism answering ask 9562; the
+evidence was already in `of3t-softmax`'s own cost table and the campaign had read it as a puzzle.
+**He has approved building the host path and accepted the 1.441x** — `of3t-f64softmax` dispatched. **94.8836 %** is measured and outside the bar, **2.8431 %** (`aux_heads`)
 measured and passing, **0.2666 %** survives a direct comparison, and **2.0067 %** has no reading at
 all — 0.74055 % of it blocked by one host round-trip that severs the tape.
 
@@ -943,13 +967,7 @@ dispatched to fix it.
 
 
 
-PROTOCOL SS7's assembled 20-step trajectory — SS8's completion requirement, never run until pass
-181 — **PASSES its shape bar**, exponent +0.194 at r2 0.093 against the four-fix arm's +1.267,
-`d_1` exactly 0 both sides, 4,147 of 4,147 bit-identical, upstream-vs-upstream exactly 0.0 at all
-twenty rungs and the mis-wired control still failing. **So the update rule is reproduced and the
-gradient it consumes is not.**
-
-Forty-eight dispatched, forty-four concluded, four live (this row, `of3t-bondcov`, `of3t-crop512` and `of3t-apbgrad`); `state/concluded` holds forty-six of3t markers, two of them this row's own stale ones. One hundred seventeen defects, forty-four UNFIXED. The composition `wk/of3t` is published, carries every pushed row, and is verified each pass at 164 checks with 0 drifted; rows dispatched but not yet pushed are skipped BY NAME, never silently.
+Forty-nine dispatched, forty-four concluded, five live (this row, `of3t-bondcov`, `of3t-crop512`, `of3t-apbgrad` and `of3t-f64softmax`); `state/concluded` holds forty-six of3t markers, two of them this row's own stale ones. One hundred seventeen defects, forty-four UNFIXED. The composition `wk/of3t` is published, carries every pushed row, and is verified each pass at 164 checks with 0 drifted; rows dispatched but not yet pushed are skipped BY NAME, never silently.
 
 PASSLOG: **Pass 198 — moved out of VERDICT to get the answer back above the fold.** VERDICT had
 grown to 7,191 characters over four passes of my own additions, and the audit reads the
@@ -957,6 +975,14 @@ distance-to-go shares in its first 2,000: they had been pushed to offsets 2016-2
 check reported them MISSING when they were present. D66 recurring against me, with the twist
 that the field did not just get long, it buried its own numbers under narrative added later.
 What was removed, verbatim:
+
+**From VERDICT at pass 205 — SS7's trajectory paragraph. It still holds (the update rule is reproduced; the gradient it consumes is not) and it moved only to make room for the fp32 mechanism:**
+
+PROTOCOL SS7's assembled 20-step trajectory — SS8's completion requirement, never run until pass
+181 — **PASSES its shape bar**, exponent +0.194 at r2 0.093 against the four-fix arm's +1.267,
+`d_1` exactly 0 both sides, 4,147 of 4,147 bit-identical, upstream-vs-upstream exactly 0.0 at all
+twenty rungs and the mis-wired control still failing. **So the update rule is reproduced and the
+gradient it consumes is not.**
 
 **From VERDICT at pass 203, the pre-localisation framing of the trunk defect, kept because it is how the localisation was reached:**
 
