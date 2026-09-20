@@ -17,7 +17,7 @@ batch-position    0       116416         0      4  1     EXECUTES the flag
 nesso1            0            0         0      4  1     reached no AttentionPairBias site
 pxdesign          0            0       320      5  1     reached no AttentionPairBias site
 rf3-1024aa        0         1660         0      4  1     EXECUTES the flag
-rfd3-fusion       0            0         0      5  1     no counter recorded (tt_bio never loaded in any process)
+rfd3-fusion       0            0         0      5  1     no counter recorded -- sitecustomize collision, see KNOWN_BLIND below
 esmc-300m         0            0         0      3  1     reached no AttentionPairBias site
 esmc-600m         0            0         0      6  1     reached no AttentionPairBias site
 
@@ -26,6 +26,8 @@ green                    : 21
   note on esmc-600m: rc=0 (RE-RUN on card 3; the card-1 attempt at 02:51:48Z hit DeviceInUseError from worker:pvx-orchestrator and measured nothing)
 EXECUTED the flag        : 13  ['boltz2', 'protenix-v2', 'protenix-v1', 'opendde', 'openfold3', 'rf3', 'openbind', 'boltzgen', 'opendde-abag', 'capacity', 'l1-budget', 'batch-position', 'rf3-1024aa']
 did NOT execute the flag : 8  ['esmfold2', 'esmfold2-fast', 'rfd3', 'nesso1', 'pxdesign', 'rfd3-fusion', 'esmc-300m', 'esmc-600m']
+
+KNOWN_BLIND: ['rfd3-fusion'] -- scripts/lever_census.py puts its OWN generated sitecustomize on PYTHONPATH for the fold it shells out, and sitecustomize is a singleton hook, so this instrument is shadowed there. Those arms' zeros are NOT measured zeros. (The same model's plain `rfd3` arm did record [0, 0] with the instrument attached, so RFD3 not reaching AttentionPairBias is known from there.)
 
 READ THIS BEFORE QUOTING THE GATE. These arms are green and never ran the flag, so they are evidence that the tree is healthy, NOT that this flag is safe on them:
   ['esmfold2', 'esmfold2-fast', 'rfd3', 'nesso1', 'pxdesign', 'rfd3-fusion', 'esmc-300m', 'esmc-600m']

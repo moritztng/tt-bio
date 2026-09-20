@@ -23,6 +23,14 @@ import re
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+
+#: Arms this instrument CANNOT see, with the reason, so a zero from them is never read as a
+#: measured zero. `scripts/lever_census.py` generates its own `sitecustomize.py` and overwrites
+#: PYTHONPATH for the fold it shells out (`lever_census.py:621`). `sitecustomize` is a singleton
+#: hook -- Python imports the first one it finds -- so the inner tool silently shadows this one and
+#: no counter is written by any process of that arm. Two instruments that both ride `sitecustomize`
+#: cannot nest.
+SITECUSTOMIZE_BLIND = {"rfd3-fusion"}
 LEDGER = HERE / "gate_apb_ledger.txt"
 FIRING = HERE / "gate_apb_firing"
 
@@ -84,7 +92,9 @@ def main() -> int:
             cov = "EXECUTES the flag"
             covered.append(arm)
         elif not saw:
-            cov = "no counter recorded (tt_bio never loaded in any process)"
+            cov = ("no counter recorded -- sitecustomize collision, see KNOWN_BLIND below"
+                   if arm in SITECUSTOMIZE_BLIND
+                   else "no counter recorded (tt_bio never loaded in any process)")
             uncovered.append(arm)
         else:
             cov = "reached no AttentionPairBias site"
@@ -105,6 +115,14 @@ def main() -> int:
         print(f"  note on {arm}: {status}")
     print(f"EXECUTED the flag        : {len(covered)}  {covered}")
     print(f"did NOT execute the flag : {len(uncovered)}  {uncovered}")
+    hidden = sorted(a for a in uncovered if a in SITECUSTOMIZE_BLIND)
+    if hidden:
+        print()
+        print(f"KNOWN_BLIND: {hidden} -- scripts/lever_census.py puts its OWN generated "
+              "sitecustomize on PYTHONPATH for the fold it shells out, and sitecustomize is a "
+              "singleton hook, so this instrument is shadowed there. Those arms' zeros are NOT "
+              "measured zeros. (The same model's plain `rfd3` arm did record [0, 0] with the "
+              "instrument attached, so RFD3 not reaching AttentionPairBias is known from there.)")
     if blind_green:
         print()
         print("READ THIS BEFORE QUOTING THE GATE. These arms are green and never ran the flag, so "
