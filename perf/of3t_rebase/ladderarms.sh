@@ -14,6 +14,15 @@ export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=wor
 PY=/home/ttuser/tt-bio-dev/env/bin/python
 B=/home/ttuser/of3t_rebase/bundle_min_043
 C=/home/ttuser/of3t_rebase/cap043_ladder
+
+# Preflight. The first run of this lost its report because ladder_report.py had never been
+# shipped to this checkout -- the arms all ran, then the last line failed with "No such file"
+# and the seven JSONs had to be pulled back to pc to be read. A driver that only discovers a
+# missing script after the expensive part is a driver that wastes the expensive part, so assert
+# every script up front and refuse to start.
+for f in perf/of3t_gradients/instrument_a_bundle.py perf/of3t_rebase/ladder_report.py; do
+  [ -f "$W/$f" ] || { echo "MISSING SCRIPT: $f -- this checkout is stale, sync it before running"; exit 2; }
+done
 for blk in 0 8 16 23 32 40 47; do
   [ -f "$C/block${blk}_boundary.pt" ] || { echo "no capture for block $blk, skipping"; continue; }
   echo "=== ladder arm block $blk  $(date -u +%FT%TZ) ==="
