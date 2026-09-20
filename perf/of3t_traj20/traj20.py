@@ -69,6 +69,15 @@ sys.path.insert(0, os.getcwd())
 from tt_bio.train import optim as tt_optim          # noqa: E402
 from tt_bio.train.optim import AdamW, af3_lr        # noqa: E402
 
+# The post-fix shipped construction, READ from `train_loop`'s signature rather than
+# transcribed. `of3t-wirefix` closed four wiring divergences in the source and the arm that
+# measures them has to be the source's own values, or the arm and the thing it claims to
+# measure can drift apart without either changing.
+def _shipped_defaults():
+    import inspect
+    from tt_bio.train.recipes import train_loop
+    return {k: v.default for k, v in inspect.signature(train_loop).parameters.items()}
+
 BUNDLE = "/home/ttuser/of3t/bundle_min"
 UPSTREAM = "/home/ttuser/of3t_traj20/upstream"
 OUT = "perf/of3t_traj20"
@@ -196,7 +205,8 @@ def disabled_sets(names, steps, per_step, enabled_every):
 
 # --------------------------------------------------------------------------------- our side
 
-def run_ours(names, W0, drive, dis, *, steps, per_step, warmup, variant, log):
+def run_ours(names, W0, drive, dis, *, steps, per_step, warmup, variant, log, ulp=0.0,
+             ulp_seed=20260921):
     """Our assembled step, constructed and driven as `tt_bio/train/recipes.py` does it.
 
     A generator: it yields the weight the forward reads after each step. The 20 snapshots of
@@ -212,18 +222,35 @@ def run_ours(names, W0, drive, dis, *, steps, per_step, warmup, variant, log):
     # ships. `variant` names the one deviation each arm makes, and nothing else moves.
     sched = (lambda s: af3_lr(s, lr, warmup_steps=warmup))
     kw = dict(lr=lr, schedule=sched)
+    if variant in ("fixed", "fixed5", "fixed5mis"):
+        # `recipes.py` AFTER of3t-wirefix, again verbatim: the arguments it now names and the
+        # schedule family they select. Nothing is hand-tuned -- these come out of the shipped
+        # signature, and `shipped_defaults` is recorded in the result file so the arm carries
+        # the identity of the source it claims to be.
+        d = _shipped_defaults()
+        kw["weight_decay"] = d["weight_decay"]
+        kw["schedule"] = (lambda s: af3_lr(s, lr, warmup_steps=warmup,
+                                           plateau_until=d["plateau_until"]))
+        # `fixed` is the FOUR divergences of3t-traj20 found, and it pins `AdamW`'s own class
+        # default rather than leaving it implicit, so the arm still means what it meant after
+        # the fifth fix moved what `recipes.py` passes. `fixed5` adds the fifth: upstream runs
+        # beta2 = 0.95 (`model_config.py:143-146`) and Adam's library default is 0.999, which
+        # is what shipped because `recipes.py` never passed betas. The pair is what attributes
+        # it -- one arm cannot.
+        kw["betas"] = (0.9, 0.999) if variant == "fixed" else d["betas"]
     if variant in ("wired", "wd0", "avg", "avgstale"):
         # The attribution arms. `wired` closes both gaps at once -- upstream's Adam carries no
         # weight decay and upstream clips per sample -- and `wd0` closes only the first, so the
         # pair says which of the two the divergence is.
         kw["weight_decay"] = 0.0
     opt = AdamW(params, **kw)
-    if variant == "miswire":
+    if variant in ("miswire", "fixed5mis"):
         _restore_d11(opt)
+    urng = np.random.default_rng(ulp_seed)
     read = lambda n: params[n].value.arr            # noqa: E731  the weight the forward reads
     for k in range(1, steps + 1):
         opt.zero_grad()
-        if variant in ("wired", "avg", "avgstale"):
+        if variant in ("wired", "avg", "avgstale", "fixed", "fixed5", "fixed5mis"):
             # Upstream's shape: clip each sample, accumulate, then step.
             # `avgstale` is the break control run on the HEALTHY arm: `stale` on the shipped
             # arm is saturated by that arm's own wiring error, so it cannot show a move.
@@ -236,10 +263,10 @@ def run_ours(names, W0, drive, dis, *, steps, per_step, warmup, variant, log):
                 coefs.append(opt.clip_and_accumulate(disabled=dis[(src, s)])["clip"])
                 opt.zero_grad()
             if variant in ("avg", "avgstale"):
-                # The third gap closed: upstream's `_sync_and_average_grads` divides each
-                # parameter's accumulated gradient by ITS OWN participation count
-                # (`grad_manager.py:225-232`). `AdamW` records `self.participation` and
-                # never reads it, so this line is the whole of the difference.
+                # The third gap closed IN THE HARNESS, which is what `of3t-traj20` had to do
+                # because `step()` did not do it. `fixed` deliberately does NOT come through
+                # here: after of3t-wirefix `step()` divides by the participation count itself,
+                # so `fixed` reproducing `avg` is the check that the source fix is the arm.
                 for n, c in opt.participation.items():
                     if c:
                         opt.accum[n] = opt.accum[n] / np.float32(c)
@@ -258,6 +285,22 @@ def run_ours(names, W0, drive, dis, *, steps, per_step, warmup, variant, log):
             for n in names:
                 params[n].grad = acc.get(n)
             coefs = None
+        if ulp:
+            # The rounding floor of the closed loop. Perturb the gradient the step is about
+            # to consume by a relative `ulp` per element, formed in float64 and rounded back
+            # to fp32 -- which is exactly the form a differently-associated fp32 expression
+            # takes, landing on the same value about half the time and one ulp away the rest.
+            # Done in fp32 it would inject nothing: `2**-24` relative is half an ulp and
+            # rounds straight back.
+            src_acc = opt.accum if opt.accum else {n: params[n].grad for n in names
+                                                   if params[n].grad is not None}
+            for n in src_acc:
+                a = src_acc[n].astype(np.float64)
+                a *= (1.0 + ulp * urng.standard_normal(a.shape))
+                src_acc[n] = a.astype(np.float32)
+            if not opt.accum:
+                for n in src_acc:
+                    params[n].grad = src_acc[n]
         opt.step()
         log.append({"k": k, "lr": opt.last_lr, "grad_norm": opt.last_grad_norm,
                     "clip": opt.last_clip, "per_sample": opt.last_per_sample,
@@ -375,7 +418,15 @@ def score_step(names, k, wo, wt, W0, nw0):
             "p90_per_tensor": (vals[int(0.9 * (len(vals) - 1))] if vals else 0.0),
             "worst_per_tensor": worst[0], "worst_tensor": worst[1],
             "tensors_scored": len(live), "tensors_zero_ref": len(per) - len(live),
-            "tensors_bit_identical": sum(1 for x in per if x[0] == 0.0)}
+            "tensors_bit_identical": sum(1 for x in per if x[0] == 0.0),
+            # The 74 tensors whose REFERENCE update is exactly zero are a categorical bar, not
+            # an approximate one: `lr*wd*theta` moves every one of them and nothing else does,
+            # so with weight decay on, 0 of 4,147 were bit-identical. They are excluded from
+            # `worst_per_tensor` (it maxes over the live set), so counting them needs its own
+            # field -- inferring it from the totals is what `of3t-traj20` could not do.
+            "tensors_zero_ref_bit_identical": sum(1 for x in per
+                                                  if x[2] == 0.0 and x[0] == 0.0),
+            "tensors_live_bit_identical": sum(1 for x in per if x[2] > 0.0 and x[0] == 0.0)}
 
 
 def growth(rows, lo=2):
@@ -395,7 +446,10 @@ def growth(rows, lo=2):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", required=True,
-                    choices=["shipped", "scaled", "wired", "wd0", "avg", "avgstale", "miswire", "stale"])
+                    choices=["shipped", "scaled", "wired", "wd0", "avg", "avgstale", "miswire",
+                             "stale", "fixed", "fixed5", "miswire5", "aa", "ulp"])
+    ap.add_argument("--ulp", type=float, default=2.0 ** -24,
+                    help="the ulp arm's per-element relative gradient perturbation")
     ap.add_argument("--limit", type=int, default=0, help="smoke only; 0 = the full scope")
     ap.add_argument("--per-step", type=int, default=0)
     ap.add_argument("--rho", type=float, default=None)
@@ -408,7 +462,16 @@ def main() -> int:
     variant = {"shipped": "shipped", "scaled": "shipped", "wired": "wired",
                "wd0": "wd0", "avg": "avg", "avgstale": "avgstale",
                "miswire": "miswire",
-               "stale": "stale"}[a.arm]
+               "stale": "stale",
+               # `fixed` is the result: the post-fix shipped path. `ulp` runs it on both
+               # sides and perturbs one, so the only thing it can read is the loop's own
+               # response to rounding. `aa` runs UPSTREAM on both sides, which is the path
+               # this row did not touch, and it must read exactly zero at every rung.
+               "fixed": "fixed", "fixed5": "fixed5", "ulp": "fixed5",
+               # The instrument-can-fail arm, moved onto the POST-FIX path: an instrument
+               # that stops being able to fail once you fix things has stopped measuring.
+               "miswire5": "fixed5mis",
+               "aa": "shipped"}[a.arm]
     # The feedback coupling is set per arm so the closed loop carries a comparable share of
     # the drive in both, because the shipped warmup moves the weights ~1e-4 relative over 20
     # steps and the scaled one moves them ~1e-2. The share is MEASURED at three rungs and
@@ -427,10 +490,24 @@ def main() -> int:
 
     t1 = time.time()
     ours_log, theirs_log, rows, shares = [], [], [], {}
-    gt = run_theirs(names, W0, drive, dis, steps=STEPS, per_step=per_step, warmup=warmup,
-                    log=theirs_log)
-    go = run_ours(names, W0, drive, dis, steps=STEPS, per_step=per_step, warmup=warmup,
-                  variant=variant, log=ours_log)
+    if a.arm == "aa":
+        # A/A: upstream against upstream, two independent instances of the same code over the
+        # same drive. Anything but an exact zero at every rung means the instrument is not
+        # deterministic and every magnitude this file reports is unreadable.
+        gt = run_theirs(names, W0, drive, dis, steps=STEPS, per_step=per_step, warmup=warmup,
+                        log=theirs_log)
+        go = run_theirs(names, W0, drive, dis, steps=STEPS, per_step=per_step, warmup=warmup,
+                        log=ours_log)
+    elif a.arm == "ulp":
+        gt = run_ours(names, W0, drive, dis, steps=STEPS, per_step=per_step, warmup=warmup,
+                      variant=variant, log=theirs_log)
+        go = run_ours(names, W0, drive, dis, steps=STEPS, per_step=per_step, warmup=warmup,
+                      variant=variant, log=ours_log, ulp=a.ulp)
+    else:
+        gt = run_theirs(names, W0, drive, dis, steps=STEPS, per_step=per_step, warmup=warmup,
+                        log=theirs_log)
+        go = run_ours(names, W0, drive, dis, steps=STEPS, per_step=per_step, warmup=warmup,
+                      variant=variant, log=ours_log)
     for k, (wt, wo) in enumerate(zip(gt, go), start=1):
         rows.append(score_step(names, k, wo, wt, W0, nw0))
         if k in (2, 10, STEPS):
@@ -444,6 +521,10 @@ def main() -> int:
     res = {
         "arm": a.arm, "variant": variant, "warmup_no_steps": warmup,
         "accumulate_grad_batches": per_step, "rho": rho, "steps": STEPS,
+        "ulp": (a.ulp if a.arm == "ulp" else 0.0),
+        "shipped_defaults": {k: v for k, v in _shipped_defaults().items()
+                             if k in ("betas", "weight_decay", "plateau_until", "lr",
+                                      "warmup_steps")},
         "scope": {"tensors": len(names), "tensors_declared": n_declared,
                   "tensors_dropped": len(dropped), "elements": elems,
                   "confidence_head_tensors_disabled_on_3_of_4_samples": len(conf)},
