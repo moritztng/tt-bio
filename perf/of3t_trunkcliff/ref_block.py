@@ -87,13 +87,9 @@ def main() -> int:
     pm = b["pair_mask"].to(dt)
 
     cap: dict[str, torch.Tensor] = {}
-    ps = blk.pair_stack
-    want = {"tmo": ps.tri_mul_out_in.tri_mul_out if hasattr(ps, "tri_mul_out_in") else None}
     # Hook by dotted name so the structure is read off the module tree, not assumed.
     named = dict(blk.named_modules())
-    keys = ["pair_stack.tri_mul_out_in.tri_mul_out", "pair_stack.tri_mul_out_in.tri_mul_in",
-            "pair_stack.tri_att_start_end.tri_att_start", "pair_stack.tri_att_start_end.tri_att_end",
-            "pair_stack.tri_mul_out", "pair_stack.tri_mul_in",
+    keys = ["pair_stack.tri_mul_out", "pair_stack.tri_mul_in",
             "pair_stack.tri_att_start", "pair_stack.tri_att_end",
             "pair_stack.pair_transition", "attn_pair_bias", "attn_pair_bias.layer_norm_a",
             "single_transition"]
@@ -116,17 +112,36 @@ def main() -> int:
     for h in hooks:
         h.remove()
 
-    # Rebuild the shared ten from the captured updates. The pair sub-blocks in this tree may
-    # return the residual-included z already; both shapes are handled by checking which of the
-    # two reconstructions reproduces z_out.
+    # The ten shared tensors, rebuilt from the captured UPDATES plus the residual chain. Every
+    # sub-module hook returns its own update; the block adds it. The reconstruction is checked
+    # against the block's own return value below, so a wrong assumption about the chain is a
+    # failure and not a silent bias.
     def nm(x):
         return float(x.to(torch.float64).norm())
+
+    f = lambda k: cap[k].to(torch.float64)
+    z0 = z.to(torch.float64)
+    shared = {}
+    shared["z1"] = z0 + f("pair_stack.tri_mul_out")
+    shared["z2"] = shared["z1"] + f("pair_stack.tri_mul_in")
+    shared["z3"] = shared["z2"] + f("pair_stack.tri_att_start")
+    # The ending-node attention runs in the transposed frame (base_blocks.PairBlock
+    # transposes z, adds, and transposes back), so its update is added transposed.
+    shared["z4"] = shared["z3"] + f("pair_stack.tri_att_end").transpose(-2, -3)
+    shared["z5"] = shared["z4"] + f("pair_stack.pair_transition")
+    shared["sn"] = f("attn_pair_bias.layer_norm_a")
+    shared["u1"] = f("attn_pair_bias")
+    shared["s1"] = s.to(torch.float64) + shared["u1"]
+    shared["u2"] = f("single_transition")
+    shared["s2"] = shared["s1"] + shared["u2"]
+    recon = {"z5_vs_z_out": nm(shared["z5"] - z_out.to(torch.float64)) / max(nm(z_out), 1e-300),
+             "s2_vs_s_out": nm(shared["s2"] - s_out.to(torch.float64)) / max(nm(s_out), 1e-300)}
 
     out = {"policy": a.policy, "quantise_input": bool(a.quantise_input), "block": a.block,
            "s_out": s_out.to(torch.float64), "z_out": z_out.to(torch.float64),
            "s_in": s.to(torch.float64), "z_in": z.to(torch.float64),
-           "captured": {k: cap[k] for k in cap},
-           "module_names": sorted(named.keys())}
+           "shared": shared, "updates": {k: cap[k].to(torch.float64) for k in cap},
+           "recon": recon, "module_names": sorted(named.keys())}
     torch.save(out, a.out)
     rep = {"tree": a.tree, "openfold3_file": openfold3.__file__, "policy": a.policy,
            "quantise_input": bool(a.quantise_input), "block": a.block, "tensors_loaded": n_t,
@@ -139,12 +154,14 @@ def main() -> int:
            }[a.policy],
            "s_in_norm": nm(s), "z_in_norm": nm(z),
            "s_out_norm": nm(s_out), "z_out_norm": nm(z_out),
-           "captured_norms": {k: nm(v) for k, v in cap.items()}}
+           "recon": recon,
+           "shared_norms": {k: nm(v) for k, v in shared.items()},
+           "update_norms": {k: nm(v) for k, v in cap.items()}}
     with open(a.out + ".json", "w") as fh:
         json.dump(rep, fh, indent=2)
     print(json.dumps({k: rep[k] for k in ("policy", "quantise_input", "block", "s_out_norm",
                                           "z_out_norm")}))
-    print(json.dumps(rep["captured_norms"], indent=2))
+    print(json.dumps({"recon": recon, "shared": rep["shared_norms"]}, indent=2))
     return 0
 
 
