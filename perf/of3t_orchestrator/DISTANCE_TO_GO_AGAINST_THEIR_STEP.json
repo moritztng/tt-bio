@@ -1,0 +1,123 @@
+{
+ "and_the_accuracy_picture_is_the_opposite": "on ACCURACY against the float64 ideal the port beats upstream's own bf16 training step on diffusion_conditioning by 7.95x and on msa_module by ~1.10x, and loses on the diffusion transformer by 129.343x. The PAIRFORMER figures in the retired version of this field are WITHDRAWN. WITHDRAWN at pass 175, the same pass it was published. The two pairformer device figures fail a subset-consistency test: block 47 is 64.9 % of the 7-block set's reference mass, so its error mass cannot exceed the set's -- yet 0.20129^2 x 0.010662 = 4.32e-04 against the set's 0.14053^2 x 0.016440 = 3.25e-04, i.e. 1.33x. The bf16 column PASSES the same test (0.399), so the defect is in the DEVICE column. of3t-refprec has no device gradient of its own and quoted those figures from other rows; it annotated the scope mismatch explicitly on the diffusion and msa_module rows ('over its own 547 / 51.1358 %') and not on the pairformer rows. At least one pairformer device figure is therefore not a mass-weighted rel_l2 over the stated set, and neither is comparable across columns until its scope is established. Establishing it needs a device pairformer gradient at MODEL scope, which does not exist: of3t_gradients/cap holds only blocks 0, 23 and 47 as boundaries.",
+ "and_the_accuracy_picture_is_the_opposite_RETIRED": "on ACCURACY against the float64 ideal, the port beats upstream's own bf16 training step everywhere both were measured EXCEPT the diffusion transformer: conditioning 7.95x better, pairformer's 7 blocks 2.09x, block 47 1.15x, msa_module 1.10x. Read ACCURACY_AND_AGREEMENT_ARE_DIFFERENT_ANSWERS.json beside this file; a verdict that quotes one column without the other misleads, in opposite directions.",
+ "arithmetic": "0.2666 survives + 89.0554 fails + 2.8431 measured-and-VOID + 7.8349 unread = 100.0000 %. Direct coverage 92.1651 %. Pass 175 moved pairformer_stack here->void->back here: measured, then found to be measured against the wrong upstream revision (D90/D91), so it is UNMEASURED. aux_heads alone is the void share now.",
+ "as_of": "2026-09-20, orchestrator pass 175, under PROTOCOL A25",
+ "derived_totals": {
+  "direct_coverage_pct": 92.1651,
+  "measured_and_fails_or_void_pct": 91.8985,
+  "why_these_are_here": "VERDICT quotes the fails-or-void total (97.4286 %) as one figure, and a traceability check at pass 175 found it in no artifact -- it existed only as a sum I did in prose. A headline figure that no artifact carries cannot be re-derived by a reader or re-checked by a guard, which is the same failure as a result file that keeps only summary statistics. Derived quantities belong in the artifact that owns their components."
+ },
+ "headline": "0.2666 % of OpenFold3's gradient mass survives a direct comparison against upstream's own training step. 89.0554 % is measured and fails, 2.8431 % (aux_heads) is measured and VOID under A18, and 7.8349 % has no direct reading -- including the pairformer trunk, whose reading was withdrawn as a reference-revision mismatch.",
+ "measured_and_fails": {
+  "items": [
+   {
+    "note": "the softmax bound takes it to 1.95x -- the whole factor is one mechanism",
+    "pct": 43.6221,
+    "ratio": 138.8,
+    "scope": "diffusion_module.diffusion_transformer"
+   },
+   {
+    "note": "7.95x MORE accurate than upstream's own step; fails by DIRECTION, the two errors anti-aligned at cos -0.273. A25's case.",
+    "pct": 36.9462,
+    "ratio": 1.0414,
+    "scope": "diffusion_module.diffusion_conditioning"
+   },
+   {
+    "note": "the softmax bound takes it to 1.33x",
+    "pct": 4.7348,
+    "ratio": 3.1,
+    "scope": "diffusion_module.atom_attn_enc"
+   },
+   {
+    "note": "the softmax bound does NOT move it at all (2.8139e-01 to 2.8235e-01) -- a different mechanism, and the lead of3t-residual was dispatched for",
+    "pct": 1.2843,
+    "ratio": 5.65,
+    "scope": "diffusion_module.atom_attn_dec"
+   },
+   {
+    "note": "larger than either side's distance from float64",
+    "pct": 1.24,
+    "ratio": 1.3398,
+    "scope": "msa_module"
+   },
+   {
+    "note": "float64 had read it AT OR BETTER at 2.3809e-02 -- the first scope to invert",
+    "pct": 0.9835,
+    "ratio": 1.7,
+    "scope": "diffusion_module.layer_norm_s"
+   },
+   {
+    "note": "the softmax bound takes it to 1.27x",
+    "pct": 0.2445,
+    "ratio": 3.8,
+    "scope": "diffusion_module.linear_s"
+   }
+  ],
+  "total_pct": 89.0554
+ },
+ "measured_and_void_under_A18": {
+  "items": [
+   {
+    "note": "numerically 0.06 % under its threshold, and NOT a pass: A18's forward discriminator FAILS at 3.6515e-01 on plddt_logits against a 5.0e-02 bar, and A18's first clause is that a disagreeing forward invalidates the gradient. Also one tensor is 100.0000 % of the section's mass, so the headline IS one tensor, and 176 of 176 measurable tensors are past the per-tensor bar.",
+    "pct": 2.8431,
+    "ratio": 0.9994,
+    "scope": "aux_heads"
+   }
+  ],
+  "total_pct": 2.8431
+ },
+ "no_direct_reading": {
+  "items": [
+   {
+    "pct": 1.1286,
+    "scope": "unreached inside the diffusion arm"
+   },
+   {
+    "note": "no device gradient exists; see COVERAGE_CEILING_IS_NOT_100.json",
+    "pct": 0.74055,
+    "scope": "input_embedder, host-applied portion"
+   },
+   {
+    "pct": 0.06015,
+    "scope": "input_embedder, the rest"
+   },
+   {
+    "pct": 0.0612,
+    "scope": "msa_module_embedder"
+   },
+   {
+    "pct": 0.0103,
+    "scope": "template_embedder"
+   },
+   {
+    "pct": 0.0059,
+    "scope": "top-level layer_norm_z / layer_norm_s / linear_z / linear_s"
+   },
+   {
+    "note": "RETURNED here at pass 175 by D91. Its 1.061553e+01 reading scores our 0.4.3-convention port against a 0.5.0-convention reference on a bias orientation the two revisions genuinely differ in (D90), so it is not a measurement of our port and the scope is UNMEASURED rather than void. With conventions matched the forward reads 4.971863e-02, 8.31x upstream's bf16 -- a real but far smaller disagreement whose gradient consequence is unmeasured.",
+    "pct": 5.8282,
+    "scope": "pairformer_stack"
+   }
+  ],
+  "note_pass175": "pairformer_stack (5.8282 %) was moved OUT of this bucket at pass 175: of3t-pairformer measured it, so it is no longer unread -- it is measured and VOID under A18, and now sits in measured_and_void_under_A18.",
+  "pct_recoverable": 7.0944,
+  "pct_that_never_can": 0.74055,
+  "total_pct": 7.8349
+ },
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only. Section shares from SECTION_MASS_MEASURED.json (exhaustive, 17 sections, 100.0000 %); ratios from of3t-trajectory and of3t-direct, each scope against ITS OWN floor and norm ratio. One batch (batch_step003, 5nw3, 56 real tokens, crop 384), one r = 0 step.",
+ "supersedes": "perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json (pass 157: 39.7893 % in / 54.0115 % out / 6.1992 % unmeasured). Those shares are not wrong about what they measured -- they are distances from float64, and every 'inside the bars' among them is a shared-subtrahend reading. Three of them have since been tested directly and all three failed.",
+ "survives": {
+  "items": [
+   {
+    "note": "the only scope on the entire record that survives the direct test",
+    "pct": 0.2666,
+    "ratio": 0.95,
+    "scope": "diffusion_module.layer_norm_a"
+   }
+  ],
+  "total_pct": 0.2666
+ },
+ "what": "the campaign's distance to go, scored against UPSTREAM'S OWN bf16 training step rather than against the float64 ideal. This SUPERSEDES DISTANCE_TO_GO_BY_MASS.json, whose shares were 'inside the bars' against a float64 reference upstream never computes -- the reading D72 published and D82 retracted.",
+ "why_this_reads_so_much_worse_than_the_artifact_it_supersedes": "the pass-157 shares scored 39.7893 % as 'inside the bars', and those bars were against float64. Agreement with upstream's actual step is a STRICTER test (A25) and three of the scopes that were inside the float64 bars are outside this one. Nothing regressed and no measurement changed: the yardstick moved to the one the charter actually asks about."
+}

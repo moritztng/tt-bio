@@ -1,0 +1,246 @@
+{
+ "what": "A per-block sections file for agreement.py.",
+ "why": "A23: every set statistic carries its set's mass share, and the stack headline hides a single dominant block unless the per-block split sits beside it.",
+ "sections_pct_of_model": {
+  "pairformer_stack.blocks.0": {
+   "n": 57,
+   "pct": 0.12631302584423645,
+   "pct_of_the_stack": 2.1672839562631054
+  },
+  "pairformer_stack.blocks.1": {
+   "n": 57,
+   "pct": 0.05762765858376283,
+   "pct_of_the_stack": 0.988777673963828
+  },
+  "pairformer_stack.blocks.2": {
+   "n": 57,
+   "pct": 0.07077600563858553,
+   "pct_of_the_stack": 1.2143775393208398
+  },
+  "pairformer_stack.blocks.3": {
+   "n": 57,
+   "pct": 0.06289833434371524,
+   "pct_of_the_stack": 1.0792121397432806
+  },
+  "pairformer_stack.blocks.4": {
+   "n": 57,
+   "pct": 0.08894957455659237,
+   "pct_of_the_stack": 1.526200362666143
+  },
+  "pairformer_stack.blocks.5": {
+   "n": 57,
+   "pct": 0.07607417607130804,
+   "pct_of_the_stack": 1.3052837597968414
+  },
+  "pairformer_stack.blocks.6": {
+   "n": 57,
+   "pct": 0.08133357147422336,
+   "pct_of_the_stack": 1.3955246767584741
+  },
+  "pairformer_stack.blocks.7": {
+   "n": 57,
+   "pct": 0.11215504599194144,
+   "pct_of_the_stack": 1.924360770931342
+  },
+  "pairformer_stack.blocks.8": {
+   "n": 57,
+   "pct": 0.08845067730467265,
+   "pct_of_the_stack": 1.517640263636905
+  },
+  "pairformer_stack.blocks.9": {
+   "n": 57,
+   "pct": 0.06825850518018801,
+   "pct_of_the_stack": 1.171182165629941
+  },
+  "pairformer_stack.blocks.10": {
+   "n": 57,
+   "pct": 0.08168403939530551,
+   "pct_of_the_stack": 1.4015380193846168
+  },
+  "pairformer_stack.blocks.11": {
+   "n": 57,
+   "pct": 0.09990312857717698,
+   "pct_of_the_stack": 1.7141418812403928
+  },
+  "pairformer_stack.blocks.12": {
+   "n": 57,
+   "pct": 0.11915928610179559,
+   "pct_of_the_stack": 2.0445398032555375
+  },
+  "pairformer_stack.blocks.13": {
+   "n": 57,
+   "pct": 0.08769392118217766,
+   "pct_of_the_stack": 1.5046558117791071
+  },
+  "pairformer_stack.blocks.14": {
+   "n": 57,
+   "pct": 0.0920501434613613,
+   "pct_of_the_stack": 1.5794000481117323
+  },
+  "pairformer_stack.blocks.15": {
+   "n": 57,
+   "pct": 0.10192975075860645,
+   "pct_of_the_stack": 1.748914745795434
+  },
+  "pairformer_stack.blocks.16": {
+   "n": 57,
+   "pct": 0.07500407932790118,
+   "pct_of_the_stack": 1.286922997016168
+  },
+  "pairformer_stack.blocks.17": {
+   "n": 57,
+   "pct": 0.07854460408692139,
+   "pct_of_the_stack": 1.3476714626292015
+  },
+  "pairformer_stack.blocks.18": {
+   "n": 57,
+   "pct": 0.07033648384743867,
+   "pct_of_the_stack": 1.2068362068255254
+  },
+  "pairformer_stack.blocks.19": {
+   "n": 57,
+   "pct": 0.11406167928156348,
+   "pct_of_the_stack": 1.9570748612752045
+  },
+  "pairformer_stack.blocks.20": {
+   "n": 57,
+   "pct": 0.09364911609568763,
+   "pct_of_the_stack": 1.6068352846102436
+  },
+  "pairformer_stack.blocks.21": {
+   "n": 57,
+   "pct": 0.13638954856804145,
+   "pct_of_the_stack": 2.3401773367221694
+  },
+  "pairformer_stack.blocks.22": {
+   "n": 57,
+   "pct": 0.1357148939206361,
+   "pct_of_the_stack": 2.328601585262118
+  },
+  "pairformer_stack.blocks.23": {
+   "n": 57,
+   "pct": 0.07514207091196562,
+   "pct_of_the_stack": 1.2892906621420988
+  },
+  "pairformer_stack.blocks.24": {
+   "n": 57,
+   "pct": 0.07478463734845442,
+   "pct_of_the_stack": 1.283157802744185
+  },
+  "pairformer_stack.blocks.25": {
+   "n": 57,
+   "pct": 0.07625600418088271,
+   "pct_of_the_stack": 1.3084035737831266
+  },
+  "pairformer_stack.blocks.26": {
+   "n": 57,
+   "pct": 0.055012494513341295,
+   "pct_of_the_stack": 0.9439065841064004
+  },
+  "pairformer_stack.blocks.27": {
+   "n": 57,
+   "pct": 0.04016376503268466,
+   "pct_of_the_stack": 0.6891314889867347
+  },
+  "pairformer_stack.blocks.28": {
+   "n": 57,
+   "pct": 0.12477507121646893,
+   "pct_of_the_stack": 2.140895669164897
+  },
+  "pairformer_stack.blocks.29": {
+   "n": 57,
+   "pct": 0.07312871072783873,
+   "pct_of_the_stack": 1.2547453474679175
+  },
+  "pairformer_stack.blocks.30": {
+   "n": 57,
+   "pct": 0.10945743965103144,
+   "pct_of_the_stack": 1.878075133295066
+  },
+  "pairformer_stack.blocks.31": {
+   "n": 57,
+   "pct": 0.07587705728708062,
+   "pct_of_the_stack": 1.301901587802474
+  },
+  "pairformer_stack.blocks.32": {
+   "n": 57,
+   "pct": 0.06122807521350723,
+   "pct_of_the_stack": 1.0505537666934122
+  },
+  "pairformer_stack.blocks.33": {
+   "n": 57,
+   "pct": 0.07495674779669699,
+   "pct_of_the_stack": 1.286110880708142
+  },
+  "pairformer_stack.blocks.34": {
+   "n": 57,
+   "pct": 0.18106060210155525,
+   "pct_of_the_stack": 3.1066450623227144
+  },
+  "pairformer_stack.blocks.35": {
+   "n": 57,
+   "pct": 0.08025276392063928,
+   "pct_of_the_stack": 1.3769801374678128
+  },
+  "pairformer_stack.blocks.36": {
+   "n": 57,
+   "pct": 0.08271456292851885,
+   "pct_of_the_stack": 1.4192197834398856
+  },
+  "pairformer_stack.blocks.37": {
+   "n": 57,
+   "pct": 0.1515855482141293,
+   "pct_of_the_stack": 2.6009109072484495
+  },
+  "pairformer_stack.blocks.38": {
+   "n": 57,
+   "pct": 0.06962124005807716,
+   "pct_of_the_stack": 1.1945640252421976
+  },
+  "pairformer_stack.blocks.39": {
+   "n": 57,
+   "pct": 0.10179627402935103,
+   "pct_of_the_stack": 1.746624546729136
+  },
+  "pairformer_stack.blocks.40": {
+   "n": 57,
+   "pct": 0.15163535055587724,
+   "pct_of_the_stack": 2.6017654178227407
+  },
+  "pairformer_stack.blocks.41": {
+   "n": 57,
+   "pct": 0.11863755629935302,
+   "pct_of_the_stack": 2.035587942409986
+  },
+  "pairformer_stack.blocks.42": {
+   "n": 57,
+   "pct": 0.09660630759151148,
+   "pct_of_the_stack": 1.6575748947308984
+  },
+  "pairformer_stack.blocks.43": {
+   "n": 57,
+   "pct": 0.08290109484872604,
+   "pct_of_the_stack": 1.4224203055973905
+  },
+  "pairformer_stack.blocks.44": {
+   "n": 57,
+   "pct": 0.1250073735887711,
+   "pct_of_the_stack": 2.144881522572551
+  },
+  "pairformer_stack.blocks.45": {
+   "n": 57,
+   "pct": 0.13219532549192833,
+   "pct_of_the_stack": 2.2682126892038847
+  },
+  "pairformer_stack.blocks.46": {
+   "n": 57,
+   "pct": 0.42817917839598313,
+   "pct_of_the_stack": 7.346715491463903
+  },
+  "pairformer_stack.blocks.47": {
+   "n": 57,
+   "pct": 1.0662389976360802,
+   "pct_of_the_stack": 18.294571424235844
+  }
+ }
+}

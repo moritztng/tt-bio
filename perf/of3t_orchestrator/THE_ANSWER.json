@@ -1,0 +1,69 @@
+{
+ "arithmetic_check": {
+  "needs_an_accurate_softmax_pct": 51.1358,
+  "no_double_counting": "the diffusion arm's 51.1358 % INCLUDES layer_norm_a's 0.2666 %, which is the one scope that survives even the unreachable threshold. It is not added separately anywhere in this file.",
+  "no_reading_pct": 2.3048,
+  "reconciles_with_the_other_partition": "DISTANCE_TO_GO_AGAINST_THEIR_STEP scores against the UNREACHABLE 'equals float64' threshold and reports 0.2666 surviving / 89.0554 failing / 8.3732 void / 2.3048 unread. Those are the same measurements: 89.0554 + 0.2666 = 89.3220 = conditioning + msa_module + the whole diffusion arm, and against the REACHABLE bar 38.1862 of that passes while 51.1358 does not. Two partitions of one set of numbers, differing only in which bar they score against, which is what A25 says a verdict must make explicit.",
+  "shipped_already_passing_pct": 38.1862,
+  "total_pct": 100.0,
+  "void_under_A18_pct": 8.3732
+ },
+ "as_of": "2026-09-20, orchestrator pass 175",
+ "by_scope": [
+  {
+   "a18_forward": "2.6e-03, PASS",
+   "mass_pct": 36.9462,
+   "note": "our error here is 7.95x SMALLER than upstream's own bf16 step. An independent bf16 port of upstream's accuracy would read 1.414x and fail this scope.",
+   "scope": "diffusion_module.diffusion_conditioning",
+   "shipped_x_reachable_bar": 0.7363,
+   "verdict": "PASSES on the shipped path"
+  },
+  {
+   "a18_forward": "8.1765e-03, PASS",
+   "mass_pct": 1.24,
+   "scope": "msa_module",
+   "shipped_x_reachable_bar": 0.9474,
+   "verdict": "PASSES on the shipped path"
+  },
+  {
+   "a18_forward": "8.34e-03, PASS",
+   "bounded_x_reachable_bar": 0.9563,
+   "mass_pct": 51.1358,
+   "note": "the softmax is 63.3x of the gap and the diffusion transformer alone is 99.6036 % of this arm's error mass. of3t-softmax returned NO-GO on every shipped precision lever at +46 % per op, so closing this is release-gated.",
+   "scope": "diffusion device arm (547 tensors)",
+   "shipped_x_reachable_bar": 91.309,
+   "verdict": "FAILS shipped; PASSES with an accurate softmax"
+  },
+  {
+   "a18_forward": "2.796859e-01 masked pair over 48 composed blocks, FAIL",
+   "mass_pct": 5.8282,
+   "note": "gradient reads 1.061553e+01, norm ratio 10.55, cos -0.017 -- 10.6x further from their step than emitting zeros. A forward-composition defect the gradient inherits. of3t-trunkfwd is live on whether it reaches SHIPPED INFERENCE, which would make it a product issue.",
+   "scope": "pairformer_stack",
+   "verdict": "VOID under A18"
+  },
+  {
+   "a18_forward": "3.6515e-01 on plddt_logits, 4 of 5 heads outside the bar, FAIL",
+   "mass_pct": 2.8431,
+   "scope": "aux_heads",
+   "verdict": "VOID under A18"
+  }
+ ],
+ "honest_limits": "one batch (batch_step003, 5nw3, 56 real tokens, crop 384), one r = 0 step, 48 structures, num_recycles 0. Nothing establishes these figures hold at another batch or with recycling. Reference gradients are bit-reproducible only at a FIXED OMP_NUM_THREADS. Every published headline recomputes from its own per-tensor sidecar to <= 1.19e-07, and the D86 orientation fix is confirmed from outside the code that claims it (0 of 547 signature tensors on the corrected arm against 80 on the pre-fix one).",
+ "provenance": "assembled by of3t-orchestrator at pass 175 on pc, CPU only, from of3t-trajectory, of3t-direct, of3t-residual, of3t-pairformer, of3t-refprec and of3t-conditioning -- each figure from the row that measured it, each input digest-verified per A24, the diffusion figures from the D86-corrected instrument.",
+ "supersedes": [
+  "SCOREBOARD_PASS_175.json (predates the shipped-path split and the trunk result)",
+  "THE_ERROR_MASS_IS_ONE_MODULE.json (REFUTED -- read its REFUTED field)",
+  "DISTANCE_TO_GO_BY_MASS.json (RETIRED -- float64-scored)",
+  "ACCURACY_AND_AGREEMENT_ARE_DIFFERENT_ANSWERS.json (its pairformer row WITHDRAWN)"
+ ],
+ "the_answer": "NOT YET, and the remaining distance is three separable things, only one of which is about numerical accuracy. (1) 38.1862 % of the model's gradient mass ALREADY agrees with upstream's own training step as well as an independent bf16 reimplementation could -- on the shipped path, today. (2) A further 51.1358 % gets there only with every softmax computed accurately, which is a measurement bound and not a shippable lever; on the shipped path that mass fails by 91.31x, and the entire factor is the softmax. (3) 8.3732 % is VOID rather than measured: its forward disagrees with upstream's, so A18 invalidates any gradient statement about it -- a port correctness defect, not precision. 2.3048 % has no reading at all.",
+ "the_bar": "sqrt(2) x threshold (PROTOCOL A26). The 'equals float64' threshold is unreachable for any bf16 port: two independent error vectors of equal size subtract to sqrt(2) times one of them. Scoring a bf16 port against the unreachable threshold manufactures a failure, which the campaign did for 174 passes.",
+ "the_deepest_finding": "every disagreement we measure is GEOMETRY, not an unexplained defect. With q = ||our error|| / ||their error|| and the cosine between the two error vectors, ||e-t||/||t|| = sqrt(q^2 + 1 - 2q cos) predicts all three measured scopes to within 1.26e-05, across a range spanning 129x. So 'do we reproduce training' reduces entirely to two measured quantities per scope. And it has a consequence that cost a row 35 % of its own error to demonstrate: past ||e|| ~ ||t||, getting MORE accurate does not get you closer to the reference -- bounding five more verbs in float64 removed 35 % of our error and bought 0.57 % of agreement.",
+ "the_question": "do we reproduce OpenFold3 training on Tenstorrent? Measured as: does our training step's GRADIENT agree with the gradient upstream's own bf16 training step computes -- not with a float64 ideal neither side runs.",
+ "what": "THE CAMPAIGN'S ANSWER, current as of pass 175. One place, superseding the scattered and partly-retracted artifacts listed under `supersedes`. Read this first.",
+ "what_would_close_it": {
+  "the_2_pct": "0.74055 % can never be read -- it sits on a weight the shipped path applies on the host, so no device gradient for it exists. The rest is the trunk's 240 unplaced fused-qkv leaves and small embedders.",
+  "the_51_pct": "an accurate softmax in the diffusion transformer. Known, bounded, and release-gated: no shipped precision lever reaches the bar and the float64 bound costs 13 s per structure against 2.5 s.",
+  "the_8_pct": "a port fix to the pairformer trunk's forward composition, and a diagnosis of aux_heads' plddt_logits forward. These are correctness bugs, not precision, and they are a different kind of work from everything else this campaign has done."
+ }
+}
