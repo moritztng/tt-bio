@@ -2845,6 +2845,13 @@ def _aiclk_cell(clk) -> dict | None:
     empty instead of carrying a clock read off a neighbour. On Blackhole the AICLK sets the
     fold time (800 MHz reads 21.90 s at 512 aa where the 1350 burst reads 14.69 s), so a
     runtime beside a clock from the wrong chip is worse than a runtime with no clock.
+
+    The window is the whole SUBPROCESS, model load included, and the chip idles at 800 until
+    compute starts. `min` and `max` are therefore exact and the median is only the fold's
+    clock once the fold dominates the process. Measured both ways on this card: openbind at
+    1280, a 360 s fold, reads 800/1350/1350 over 78 samples, median at the boost; boltz2 at
+    256, a 7.5 s fold behind a ~20 s load, reads 800/800/1350 over 5, median at idle. Read
+    the median on the long rungs and the max everywhere.
     """
     vis = (os.environ.get("TT_VISIBLE_DEVICES") or "").strip()
     if not vis or "," in vis:
