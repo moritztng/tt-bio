@@ -3539,6 +3539,27 @@ def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
     ttnn.deallocate(m)
     if xf is not x:
         ttnn.deallocate(xf)
+    # `ttnn.max` TRUNCATES its result to bf16 (round toward zero), so on a negative row it
+    # comes back ABOVE the true maximum and `d` is negative everywhere -- including at the
+    # element that IS the maximum. On a fully-masked row at -1e9 the overshoot is exactly
+    # 1_755_648 (-1e9 truncates to -998_244_352), every exponent underflows, the sum is 0 and
+    # the divide is 0/0. Measured: 114_688 non-finite entries on OpenFold3's atom-encoder
+    # block-sparse attention, exactly the masked rows, where the fused kernel is finite on the
+    # same input (perf/of3t_softgrad/FULLY_MASKED_ROW_OVERFLOW.json).
+    #
+    # -60 and not -88: exp(-88) is subnormal in fp32 and flushes to zero, so a clamp there
+    # leaves the 0/0 in place -- measured, both thresholds, same file. The floor turns a
+    # fully-masked row into the uniform distribution, which is what softmax of a constant row
+    # is, and it perturbs a live row by at most exp(-60) = 8.8e-27 per weight on entries whose
+    # weight was already below that.
+    #
+    # Written as the returning form, not `output_tensor=d`: `ttnn.clamp` is reached exactly once
+    # in this tree (protenix.py, the distogram floor) and only ever that way, so the in-place
+    # kwarg is unverified here and a TypeError inside a shipped softmax is a worse failure than
+    # the transient second buffer this costs.
+    dc = ttnn.clamp(d, -60.0, None)
+    ttnn.deallocate(d)
+    d = dc
     ttnn.exp(d, output_tensor=d)
     s = ttnn.sum(d, dim=-1, keepdim=True, compute_kernel_config=compute_kernel_config)
     p = ttnn.divide(d, s)
@@ -3770,7 +3791,7 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
             ttnn.deallocate(bias_f)
         try:
             if accurate_softmax:
-                acc = _accurate_softmax(attn)
+                acc = _accurate_softmax(attn, sm_ckc)
                 ttnn.deallocate(attn)
                 attn = acc
             else:
@@ -3784,7 +3805,7 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
         sc = ttnn.add(sc, bias_f)
         if own:
             ttnn.deallocate(bias_f)
-        attn = (_accurate_softmax(sc) if accurate_softmax
+        attn = (_accurate_softmax(sc, sm_ckc) if accurate_softmax
                 else ttnn.softmax(sc, dim=-1,
                                   compute_kernel_config=sm_ckc))  # fp32 reduction
         ttnn.deallocate(sc)
