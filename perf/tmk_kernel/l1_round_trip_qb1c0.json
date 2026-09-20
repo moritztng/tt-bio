@@ -1,0 +1,29 @@
+{
+ "host": "qb1c0",
+ "board": "p150a",
+ "card_umd": 0,
+ "S": 512,
+ "n_rep": 7,
+ "clock": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 2
+  }
+ },
+ "ladder": [
+  {
+   "chunk_channels": 32,
+   "dram_ms": 1.0514,
+   "l1_ms": 0.9459,
+   "l1_speedup": 1.1115
+  },
+  {
+   "chunk_channels": 64,
+   "dram_ms": 1.5421,
+   "l1_ms": 1.3577,
+   "l1_speedup": 1.1358
+  }
+ ]
+}
