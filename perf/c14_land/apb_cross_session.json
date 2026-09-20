@@ -1,0 +1,89 @@
+{
+ "sessions": [
+  {
+   "session": "session2",
+   "provenance": "CLEAR",
+   "blocks": 10,
+   "delta_s": [
+    0.0815,
+    0.1475,
+    0.9247,
+    0.0775,
+    0.083,
+    -0.0388,
+    0.1022,
+    -0.1037,
+    0.0715,
+    0.0812
+   ],
+   "aa_s": [
+    -0.177,
+    -0.02,
+    1.4875,
+    -0.019,
+    0.148,
+    0.1865,
+    -0.0445,
+    -0.1045,
+    0.043,
+    -0.1265
+   ],
+   "registered_verdict": "NULL",
+   "mean_delta_s": 0.1427,
+   "aa_floor_2sem_s": 0.3087,
+   "perm_p_two_sided": 0.03125
+  },
+  {
+   "session": "session3",
+   "provenance": "CLEAR",
+   "blocks": 4,
+   "delta_s": [
+    0.0232,
+    0.106,
+    0.0475,
+    0.0435
+   ],
+   "aa_s": [
+    -0.0245,
+    -0.036,
+    0.027,
+    -0.042
+   ],
+   "registered_verdict": "NULL",
+   "mean_delta_s": 0.0551,
+   "aa_floor_2sem_s": 0.0314,
+   "perm_p_two_sided": 0.125
+  }
+ ],
+ "note": "Direction-only sign test across every clean-provenance APB session.",
+ "on_arm_sign_test": {
+  "n": 14,
+  "k_positive": 12,
+  "p_two_sided": 0.012939
+ },
+ "aa_control_sign_test": {
+  "n": 14,
+  "k_positive": 5,
+  "p_two_sided": 0.42395
+ },
+ "all_block_deltas_s": [
+  0.0815,
+  0.1475,
+  0.9247,
+  0.0775,
+  0.083,
+  -0.0388,
+  0.1022,
+  -0.1037,
+  0.0715,
+  0.0812,
+  0.0232,
+  0.106,
+  0.0475,
+  0.0435
+ ],
+ "median_block_delta_s": 0.0812,
+ "control_clean": true,
+ "verdict": "DIRECTION CONFIRMED (exploratory): block sign majority is not explained by within-block drift, because the A/A arm from the same folds is not significant",
+ "magnitude_claim": "NONE. A sign test says the effect is positive; it says nothing about how large. The magnitude of record stays session 3's +0.0551 s, taken on the only board pair that was idle for every leg."
+}
