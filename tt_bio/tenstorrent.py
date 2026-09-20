@@ -1039,6 +1039,26 @@ def pad_dim(x: ttnn.Tensor, dtype, n: int, n_pad: int, *, dims: int = 1) -> ttnn
     out = _no_host_pad(x, dtype, n, n_pad)
     if out is not None:
         return out
+    if not isinstance(x, ttnn.Tensor):
+        # A TAPED tensor, and the host route cannot carry one: `ttnn.to_torch` hands the
+        # tape a torch tensor and the gradient of everything upstream stops there, which
+        # was the last gap in the OF3 diffusion path's tape coverage. `ttnn.pad` is the
+        # same operation with a tape entry already written, and the pad here is always at
+        # the back, which is the direction `ttnn.pad` supports.
+        #
+        # Inference keeps the host route below, unchanged, because the two are NOT
+        # byte-identical: the same fold on the same card writes a different `ubq.cif`
+        # through each, so making the device path unconditional would have moved a
+        # shipped output to buy a training-path fix. `isinstance(x, ttnn.Tensor)` is the
+        # tape's own discriminator -- `autograd.Tensor` deliberately fails it (see its
+        # class docstring) -- so no flag is needed and no inference call site changes.
+        y = ttnn.to_layout(x, ttnn.TILE_LAYOUT) if x.layout != ttnn.TILE_LAYOUT else x
+        if n_pad > n:
+            spec = [(0, 0)] * len(y.shape)
+            for d in range(1, dims + 1):
+                spec[-1 - d] = (0, n_pad - n)
+            y = ttnn.pad(y, spec, 0.0)
+        return y if y.dtype == dtype else ttnn.typecast(y, dtype)
     th = ttnn.to_torch(x).float()
     if n_pad > n:
         th = torch.nn.functional.pad(th, (0, 0) + (0, n_pad - n) * dims)
