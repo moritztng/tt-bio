@@ -418,7 +418,14 @@ merely large.**
   116×.
 - Coverage remains partly **NOT COVERED** and says so: the disabled-parameter path never fired
   on the only dataset we hold, and multi-chain permutation alignment falls back to naive
-  alignment.
+  alignment. **The second of those is now in doubt (D117, pass 204)**: `of3t-bondcov` hit the
+  same fallback through the same key by a *different* error — its `collate1` recursed into
+  `ref_space_uid_to_perm`, a per-sample MAPPING rather than a feature tensor, giving an
+  IndexError that upstream's safe wrapper swallowed into naive alignment with one warning line
+  — and `of3t-reference`'s own finding 1 is that upstream's `forward` **pops** that key, which
+  is what produces its `KeyError`. Two rows, one key, two error types, **both in harness code**.
+  So "the permutation path cannot be exercised on the data we hold" may be a harness artefact
+  rather than a data gap; the probe that settles it is cheap and is amended onto `of3t-bondcov`.
 - Standing bounds, unchanged: stability over a real 100k-step run, precision drift a 20-step
   trajectory cannot observe by construction, convergence to the published weights, rare sample
   types outside the path-complete set, crops beyond 384/640/768, anything about the EMA (we
@@ -789,6 +796,17 @@ keep their UNFIXED headings because their **diffusion** half was not checked thi
 
 **§6's last uncovered loss term now has candidate carriers, verified (pass 201).** `bond` is a **polymer–ligand** loss and **0 of 8** corpus targets carry such a bond, so it has never fired — `of3t-auxheads` measured the consequence exactly: `bond_loss` 0.0 and `||g(bond=4)-g(bond=0)||^2` **0.0**, 0 of 4,170 tensors moved. Checked against real mmCIF annotation rather than reputation, **5 of 10** candidates satisfy the predicate: **4G5J** (1 bond, afatinib covalent to EGFR Cys797), 4BYH (2), 5T3X (19), 7KJ2 (38), 6VXX (48). **The two a reputation search would have picked both fail** — 6LU7's N3 inhibitor is modelled as a peptide-like POLYMER entity so its Cys145 link is polymer–polymer, and 1HZH's 16 covale links are all glycan–glycan. **`of3t-bondcov` has now closed that step: the featuriser DOES express it.** At `finetune_1`/`weighted-pdb`, crop 384, **13 of 19** datapoints carry a non-zero `bond_mask` — 4G5J **7 of 7** (nnz 1, the (i=321 ligand, j=92 polymer) entry, `token_bonds` nnz 212, weight 4.0) and 4BYH 6 of 12. **Both are already in OpenFold3's own 180,975-structure training cache**, so the term fires on data upstream itself trains on rather than on anything synthesised. The gradient contribution is the remaining step and its bands are pre-registered. is dispatched CPU-only to run it and say whether coverage moves 7 of 8 → 8 of 8. `perf/of3t_orchestrator/bondcov/`.
 
+**D117 (UNFIXED)**: `ref_space_uid_to_perm` keeps knocking multi-chain permutation alignment
+into its naive fallback, and both mechanisms found so far are **harness** code — `of3t-reference`'s
+`KeyError` (upstream's `forward` pops the key) and `of3t-bondcov`'s `IndexError` (its `collate1`
+recursed into a per-sample mapping, handing `single_batch` uid 0's entry instead of the mapping;
+`ds[12]` on 4G5J emits **199** ref spaces and upstream's collator wraps the dict in a list of
+length 1). Both are caught by upstream's safe wrapper and leave **one warning line**, which is how
+a harness defect has been standing as a capability gap. Invisible until a crop carries more than
+one ref space. Also from that row: **the crop is a DRAW** — 4G5J's bond survives 7 of 7 draws at
+384 and 4 of 7 at 256 — so a `bond_mask` count is a property of the drawn crop and every run must
+record its own.
+
 DIRECTIVE-STATUS: the two continuation directives set thirteen named items between them. Audited
 against concluded rows at pass 195, because three of them turned out to be closed while this
 document was still quoting the superseded reading. Each line says who closed it, or what is left.
@@ -931,7 +949,7 @@ PROTOCOL SS7's assembled 20-step trajectory — SS8's completion requirement, ne
 twenty rungs and the mis-wired control still failing. **So the update rule is reproduced and the
 gradient it consumes is not.**
 
-Forty-eight dispatched, forty-four concluded, four live (this row, `of3t-bondcov`, `of3t-crop512` and `of3t-apbgrad`); `state/concluded` holds forty-six of3t markers, two of them this row's own stale ones. One hundred sixteen defects, forty-three UNFIXED. The composition `wk/of3t` is published, carries every pushed row, and is verified each pass at 164 checks with 0 drifted; rows dispatched but not yet pushed are skipped BY NAME, never silently.
+Forty-eight dispatched, forty-four concluded, four live (this row, `of3t-bondcov`, `of3t-crop512` and `of3t-apbgrad`); `state/concluded` holds forty-six of3t markers, two of them this row's own stale ones. One hundred seventeen defects, forty-four UNFIXED. The composition `wk/of3t` is published, carries every pushed row, and is verified each pass at 164 checks with 0 drifted; rows dispatched but not yet pushed are skipped BY NAME, never silently.
 
 PASSLOG: **Pass 198 — moved out of VERDICT to get the answer back above the fold.** VERDICT had
 grown to 7,191 characters over four passes of my own additions, and the audit reads the

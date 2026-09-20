@@ -7031,3 +7031,46 @@ diff against its base is `perf/of3t_bwdaccum/` alone. It also says plainly that 
 rows, from "13.0x, cause unknown" to "the AttentionPairBias backward injects it, its sibling on the
 same track is exact, and the leaves carrying the error mass are innocent". `of3t-apbgrad` dispatched
 to fix that backward.
+
+### D117. Two rows, two different errors, one key: `ref_space_uid_to_perm` keeps knocking multi-chain permutation alignment into its naive fallback, and both mechanisms so far are HARNESS code. UNFIXED, and it puts a standing NOT COVERED in doubt.
+
+`of3t-reference` recorded multi-chain permutation alignment as **NOT COVERED** on the grounds that
+`safe_multi_chain_permutation_alignment` raises **`KeyError: 'ref_space_uid_to_perm'`** on these
+batches and takes its documented fallback to naive alignment. That has stood as a coverage gap ever
+since, and the orchestrator's own summary repeats it.
+
+`of3t-bondcov` has now hit the **same key** and the **same fallback** by a **different route**, in
+its own harness: `collate1` recursed into `ref_space_uid_to_perm`, which is a per-sample MAPPING
+`{ref-space uid -> [n_perm, n_atom]}` and not a feature tensor. Upstream indexes it per sample
+(`permutation_alignment.py:1693-1702`), so recursing unsqueezed every permutation tensor and handed
+`single_batch` the entry for **uid 0** instead of the mapping; the first uid above 0 raised
+**IndexError**, upstream's safe wrapper caught it, and the run continued on **naive** alignment with
+a differently-aligned ground truth and **one warning line**. Measured: `ds[12]` on 4G5J emits a dict
+of **199** ref spaces, and upstream's own collator produces a list of length 1 whose single element
+is that dict. **Invisible until a crop carries more than one ref space**, which is why it survived.
+
+**And the first mechanism looks like harness code too.** `of3t-reference`'s own finding 1 is that
+upstream's `forward` **POPS `ref_space_uid_to_perm`** from the batch it is given — so a second
+forward over the same dict finds the key absent, which is exactly a `KeyError`. That row fixed the
+mutation by deep-copying every forward; whether the NOT COVERED note predates or postdates that fix
+is not established here.
+
+**So the hypothesis, stated as one**: "the permutation path cannot be exercised on the data we hold"
+may be wrong, and the truth may be "our harnesses keep mis-handling one mapping". Two independent
+rows hitting one key through two different error types, both in collation/copying rather than in
+the model, is weak evidence for a data gap and strong evidence for a harness one.
+
+**What would settle it**, and it is cheap: re-run the reference's coverage probe with `collate1`
+fixed the way `of3t-bondcov` fixed it, on a batch with more than one ref space, and see whether
+`safe_multi_chain_permutation_alignment` completes instead of falling back. If it does, a standing
+NOT COVERED closes and the §6 coverage table moves for a second reason this week.
+
+**The general shape is already on this record twice**: a safe wrapper that catches and continues
+turns a harness defect into a permanent-looking capability gap, and the only trace is one warning
+line. `of3t-auxheads` found the same thing for `bond`, where "the campaign's reason for it was
+imprecise" and the corrected predicate was worth more than the original claim.
+
+**Also recorded from the same row, because it changes how a mask count must be read**: the crop is a
+DRAW. 4G5J's polymer-ligand bond survives **7 of 7** draws at crop 384 and **4 of 7** at crop 256, so
+a `bond_mask` non-zero count is a property of the drawn crop and every gradient run must record its
+own rather than inheriting one.
