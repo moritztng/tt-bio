@@ -712,14 +712,19 @@ measured field while its PROVES claimed the table; token forms and TODO/FIXME/XX
 matched and in the selftest. **D61 (no code defect)**: my pass-159 pointer at the 48-sample accumulation is withdrawn —
 the forward is flat across samples (Pearson −0.0565) and the accumulation is exact (6.887
 against 6.928 predicted); the real run's 26.68x probe reading is the correlation of real
-draws, not an error, and is uninterpretable without the independent-draw control.
+draws, not an error, and is uninterpretable without the independent-draw control. **D62 (UNFIXED)**: `of3t-adaln`'s document carries two determinations of block 8's
+cancellation ratio differing by **7,532x** — one interpolated off the curve being explained
+(K ~ 1.3e+06), one measured directly on the reference's float64 summands (K = 172.60) — and
+at the measured values every block sits **19x to 2,872x** above the ladder's own device
+curve. The conditioning mechanism explains the ladder, not the model; the softmax A/B is
+untouched, but HOW it produces these magnitudes is unexplained again.
 
 VERDICT: PARTIAL — still working, neither GO nor NO-GO. **39.7893 % of OpenFold3's gradient
 mass is measured against a float64 reference and inside the bars, 54.0115 % is measured and
 outside them, and 6.1992 % has no reading at its own scope — and the failing half is now one
 leaf: 24 tensors holding 25.5795 % of the model read mass-weighted 10.6980 while the other 523
 compared tensors, holding almost exactly the same mass, read 0.2929.** Twenty-one concluded rows,
-one live; sixty-one defects on the record, twenty-seven of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
+one live; sixty-two defects on the record, twenty-eight of them UNFIXED. `of3t-confhead` concluded this pass with D1 measured
 and **held** — D1+D10 serves **0.149 A worse** than shipped at rank 0 over nine ship and eight fix
 seeds — and D10 shipped as a correctness fix carrying no accuracy claim.
 
@@ -6667,3 +6672,59 @@ softmax forward amplified by the backward's cancellation; **no shippable lever r
 the inference case is a measured NO-GO at 0.3237 Å against a 0.6250 Å seed floor; and what would
 fix the attention-side 27.2441 % is **not a precision knob and is not currently known**. The
 23.8917 % on the other side remains unexplained and unowned.
+
+---
+
+## Pass 161 — the mechanism explains the ladder, not the model
+
+`of3t-adaln`'s document determines block 8's cancellation ratio twice, and the two differ by
+**7,532×**. Its MECHANISM section interpolates the synthetic ladder *at the model rel of 18.504*
+and reads off **K ≈ 1.3e+06** — a curve read at the value being explained. Its AMENDMENT5
+**measures** K on the reference's own float64 summands, self-checked so they add back to the
+reference's γ gradient at 3e-15, and gets **172.60**.
+
+Checked at every block the row measured, against the ladder's device curve **at that block's own
+measured K**:
+
+    blk  measured K   ladder at that K   model rel    ratio
+      0      36.37       2.330e-03        2.7329      1173x
+      1      17.12       1.172e-03        0.8331       711x
+      5      52.82       2.974e-03        4.5419      1527x
+      6     207.90       7.277e-03        2.8408       390x
+      7      87.45       4.133e-03        5.3071      1284x
+      8     172.60       6.444e-03       18.5040      2872x
+      9     175.60       6.517e-03        0.1237        19x
+     12      72.90       3.670e-03        5.6459      1538x
+
+**The ladder explains the ladder.** Every block sits 19× to 2,872× above its own device curve at
+its own measured conditioning.
+
+**This kills a framing I helped build.** "The campaign's worst gradient component is an
+ill-conditioned reduction, and this may simply not be computable" is dead: at the measured K of
+17–208 the ladder's own **host fp32** column reads **~1e-06 to ~3e-06**. Single precision has no
+difficulty with these sums. Conditioning at the real K constrains nobody. D56's mechanism section
+is withdrawn; its *data* — the ladder, the host-fp32 column, the constant ~2,172× device-to-fp32
+ratio — stand as measurements of the synthetic construction and of nothing else.
+
+**What survives is the softmax**, because it was never an inference from the curve: a float64
+softmax takes block 8's leaf **8.060854e-01 → 1.459256e-02** while the sister AdaLN with no
+softmax above it moves **1.23×**, and the whole block comes inside the bar at **1.489217e-02**.
+The locus is right. **How it produces these magnitudes is unexplained again.**
+
+Two gaps now stand where one explanation did, and their product is the whole discrepancy:
+**125×** between the ladder at K = 172.6 and the block arm's 0.806 at the same K — same code,
+synthetic operands against the model's own — and **23×** between that and the model's 18.504,
+which the row attributes to the real cotangent and which is consistent with blocks 8 and 9
+sitting 1.7 % apart in K and 150× apart in the model. Neither factor is conditioning.
+
+One caveat to settle before anyone builds on this: the measured K is over the **384 per-token**
+summands of one sample, where the model's gain sum runs over 384 × 48 = **18,432** terms. Severe
+cancellation across the sample axis would raise the effective K — but it cannot plausibly supply
+2,872×, and the accumulation probe shows the samples strongly *correlated* rather than cancelling
+(D61). It is the one measurement that closes the question and it has not been made.
+
+Amendment 3 went to `of3t-softmax` so its conclusion does not inherit the dead framing. Its own
+measurements are untouched and its NO-GO stands; what it must not write is that the residual is a
+property of the arithmetic. **The honest position is narrower and better: the lever is measurably
+real, measurably cheap, and measurably invisible in the structure — and what would fix the
+27.2441 % remains unknown.** Filed as **D62**.

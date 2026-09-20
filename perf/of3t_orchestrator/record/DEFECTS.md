@@ -3717,3 +3717,64 @@ Owner: `of3t-orchestrator`. **No defect in the code.** The reading is corrected 
 is removed before any row acted on it. Artifact:
 `perf/of3t_orchestrator/NO_SOFTMAX_LEVER_REACHES_THE_BAR.json`, both withdrawals recorded in
 place.
+
+---
+
+### D62. `of3t-adaln`'s document carries two determinations of block 8's cancellation ratio that differ by 7,532× — one interpolated off the curve being explained, one measured directly — and at the measured value the ladder is 19–2,872× below every block. The conditioning mechanism explains the ladder, not the model. FOUND by `of3t-orchestrator`, pass 161. **UNFIXED.**
+
+Both numbers are in `state/of3t-adaln.md`:
+
+- **MECHANISM** interpolates the synthetic K-ladder *at block 8's model rel of 18.504* and reads
+  off **K ≈ 1.3e+06**. That is reading a curve at the value you are trying to explain.
+- **AMENDMENT5** measures K **directly** on the reference's own float64 arithmetic —
+  `Σ‖term_i‖ / ‖Σ term_i‖` over the gain sum's per-token summands, self-checked so the summands
+  add back to the reference's γ gradient at 3e-15 — and block 8 reads **K = 172.60**.
+
+A factor of **7,532**, and the measured one is the measurement.
+
+**Checked at every block the row measured:**
+
+| blk | measured K | ladder's device rel at that K | model rel | ratio |
+|---|---|---|---|---|
+| 0 | 36.37 | 2.330e-03 | 2.7329 | 1173× |
+| 1 | 17.12 | 1.172e-03 | 0.8331 | 711× |
+| 5 | 52.82 | 2.974e-03 | 4.5419 | 1527× |
+| 6 | 207.90 | 7.277e-03 | 2.8408 | 390× |
+| 7 | 87.45 | 4.133e-03 | 5.3071 | 1284× |
+| **8** | **172.60** | **6.444e-03** | **18.5040** | **2872×** |
+| 9 | 175.60 | 6.517e-03 | 0.1237 | 19× |
+| 12 | 72.90 | 3.670e-03 | 5.6459 | 1538× |
+
+**The ladder explains the ladder.** Every block sits 19–2,872× above its own device curve at its
+own measured cancellation ratio.
+
+**What this kills.** The framing that the campaign's worst gradient component is an
+ill-conditioned reduction which *may simply not be computable* is **dead**. At the measured K of
+17–208 the ladder's own **host fp32** column reads **~1e-06 to ~3e-06** — single precision has no
+difficulty with these sums at all. Conditioning at the real K constrains nobody, and nothing here
+is unfixable in principle. **D56's mechanism section is withdrawn**; its *data* — the ladder, the
+host-fp32 column, the constant ~2,172× device-to-fp32 ratio — all stand as measurements of the
+synthetic construction.
+
+**What survives untouched** is the softmax finding, because it is a direct A/B and not an
+inference from a curve: a float64 softmax takes block 8's leaf **8.060854e-01 → 1.459256e-02**
+(55×), the sister AdaLN with no softmax above it moves **1.23×**, and the whole block comes
+inside the bar at **1.489217e-02**. **The softmax is the locus. How it produces these magnitudes
+is now unexplained.**
+
+**Two gaps replace the one explanation**, and their product is the whole discrepancy:
+
+- **125×** — ladder device 6.444e-03 at K = 172.6 against the block arm's **8.060854e-01** at
+  block 8, *same cancellation ratio, same code*, synthetic operands versus the model's own.
+- **23×** — block arm 0.806 against the model's 18.504, which the row attributes to the real
+  cotangent, consistent with blocks 8 and 9 sitting 1.7 % apart in K and 150× apart in the model.
+
+**The caveat to settle first.** The measured K is over the **384 per-token** summands of one
+sample. The model's gain sum runs over 384 tokens × 48 samples = **18,432** terms, so severe
+cancellation across the sample axis could raise the effective K. It cannot plausibly supply
+2,872× — 48 terms cannot add three and a half orders of magnitude unless they nearly annihilate,
+and the accumulation probe shows the opposite (26.68× growth over 48, strongly *correlated*, per
+D61) — but it is the one measurement that closes the question and it has not been made.
+
+Owner: `of3t-orchestrator`. **UNFIXED.** Artifact:
+`perf/of3t_orchestrator/K_DOES_NOT_EXPLAIN_THE_MODEL.json`.
