@@ -1107,26 +1107,40 @@ if _host_only is None:
 # it is the number Moritz reads. Two ways it can rot: the three shares stop summing to 100 as
 # readings move between buckets, and VERDICT keeps yesterday's passing share. Both are the
 # campaign's most recurrent defect class, so both are mechanical now.
-_dtg = j("perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json")
+# Pass 175: RE-POINTED. This guard read DISTANCE_TO_GO_BY_MASS.json, whose shares are distances
+# from the FLOAT64 ideal, and required VERDICT to quote them -- so once the campaign started
+# measuring against upstream's OWN training step, the guard was enforcing the superseded framing.
+# That is the campaign's own "a guard pinned to a superseded artifact enforces staleness", fourth
+# sighting, this time on the guard I wrote for exactly that class. It now reads the artifact scored
+# against their step, and the old file's headline is NULLED in place rather than only stamped,
+# because a stamp does not stop a number being read.
+_dtg = j("perf/of3t_orchestrator/DISTANCE_TO_GO_AGAINST_THEIR_STEP.json")
 if _dtg:
-    _p = _dtg["measured_and_inside_bar"]["total_pct"]
-    _f = _dtg["measured_and_outside_bar"]["total_pct"]
-    _u = _dtg["not_measured_at_its_own_scope"]["total_pct"]
+    _p = _dtg["survives"]["total_pct"]
+    _f = _dtg["measured_and_fails"]["total_pct"] + \
+         _dtg["measured_and_void_under_A18"]["total_pct"]
+    _u = _dtg["no_direct_reading"]["total_pct"]
     _tot = _p + _f + _u
     if abs(_tot - 100.0) > 0.001:
-        bad.append(f"DISTANCE_TO_GO_BY_MASS's three shares sum to {_tot:.4f} %, not 100 -- a "
+        bad.append(f"DISTANCE_TO_GO_AGAINST_THEIR_STEP's shares sum to {_tot:.4f} %, not 100 -- a "
                    f"reading moved buckets and the split was not rebalanced")
     else:
-        ok.append(f"the distance-to-go split sums to 100.0000 % ({_p:.4f} in / {_f:.4f} out / "
-                  f"{_u:.4f} unmeasured)")
+        ok.append(f"the distance-to-go split sums to 100.0000 % ({_p:.4f} survives / "
+                  f"{_f:.4f} fails-or-void / {_u:.4f} unread)")
+    # The retired file must stay retired: if its live headline ever carries the old split again,
+    # something restored it from history and VERDICT will follow.
+    _old = j("perf/of3t_orchestrator/DISTANCE_TO_GO_BY_MASS.json")
+    if _old and "RETIRED" not in str(_old.get("headline", "")):
+        bad.append("DISTANCE_TO_GO_BY_MASS.json's headline is live again -- it carries the "
+                   "float64-scored split this campaign superseded at pass 175 (D82); null it")
     if ORCH.is_file():
         _verd = _re.search(r"^VERDICT:(.*)", ORCH.read_text(), _re.M | _re.S)
         _vt = _verd.group(1) if _verd else ""
         _pcts = [float(m) for m in _re.findall(r"(\d+\.\d+)\s*%", _vt[:2000])]
-        for _val, _lbl in ((_p, "passing"), (_f, "failing"), (_u, "unmeasured")):
+        for _val, _lbl in ((_p, "surviving"), (_f, "failing-or-void"), (_u, "unread")):
             if not any(abs(_x - _val) <= 0.005 for _x in _pcts):
                 bad.append(f"VERDICT does not state the {_lbl} share {_val:.4f} % -- the "
-                           f"summary has drifted from DISTANCE_TO_GO_BY_MASS")
+                           f"summary has drifted from DISTANCE_TO_GO_AGAINST_THEIR_STEP")
         if not [b for b in bad if "VERDICT does not state the" in b and "share" in b]:
             ok.append("VERDICT states all three distance-to-go shares as the artifact has them")
 
