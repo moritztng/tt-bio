@@ -898,9 +898,7 @@ before writing a brief. With forty-three rows on the record, **this document is 
 reliable index of its own campaign**, and the orchestrator's read-before-dispatch step is what
 stands between that and burning a row per pass.
 
-VERDICT: **Every gradient figure in this document is against an upstream 0.4.3 reference** — the revision `of3-p2-155k` is bound to — and that qualifier is load-bearing, not boilerplate: at 0.5.0's boundary the same arithmetic reads **19,000-30,000x** worse with no defect present (D120).
-
-PARTIAL — OpenFold3 training is **not** reproduced on Tenstorrent, and as of pass 199 every
+VERDICT: PARTIAL — OpenFold3 training is **not** reproduced on Tenstorrent. **Read every gradient figure below as against an upstream 0.4.3 reference**, the revision `of3-p2-155k` is bound to; that qualifier is load-bearing rather than boilerplate, because at 0.5.0's boundary the same arithmetic reads **19,000-30,000x** worse with no defect present (D120). As of pass 199 every
 scope that can be read has been read. Against the reachable bar, **92.1651 % of the model's squared
 gradient norm is reproduced or reachable**: 41.0293 % agrees on the SHIPPED path as well as an
 independent bf16 reimplementation could, and a further 51.1358 % reaches the bar only with a host
