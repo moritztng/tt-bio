@@ -604,11 +604,12 @@ gives **2.813911e-01**, reproducing trajectory's published figure exactly, as it
 other section and the whole-arm headline. So the section is **5.79x** its threshold and the 5.65x
 this row was sent to explain is **real and still unexplained**. Its two `BOUND` result lines are
 also unfilled placeholders, which the DONE_CHECK guard refuses.
-**D93 (UNFIXED)**: the trunk carries a SECOND revision difference and it is a precision change
+**D93 (QUANTIFIED at pass 176)**: the trunk carries a SECOND revision difference and it is a precision change
 in the attention the campaign calls its biggest gap — 0.5.0's `PairFormerBlock` passes
 `use_high_precision_attention=True` and 0.4.3's does not, and 0.5.0's `_attention` extends fp32
 through the score-value matmul that 0.4.3 downcast before. Both act through
-`autocast("cuda", ...)`, so a CPU arm cannot size them and the exposure is unquantified.
+`autocast("cuda", ...)`, so a CPU arm cannot size them and the exposure is unquantified. **Measured, and it needed no GPU** -- a flag that selects a dtype policy can have its policy written out by hand. A->C is **6.070e-03** on the single track, **6.0 %** of trunkfwd's own 1.012900e-01; pre-registered branch MIDDLE, control exactly 0.0. The two halves PARTIALLY CANCEL (a naive share split sums to 249 %), and 0.5.0's 'high precision' path is **6 % FURTHER from fp32** than 0.4.3's on this boundary -- it reorients the error, it does not reduce it. 
+
 **D94 (UNFIXED)**: D92's three unread diffs, read — `msa_module` is functionally INERT, so the
 campaign's positive result survives; `head_modules` swaps the confidence head's single mask from
 the representative-atom mask to the token mask (measured identical on this batch, 0 differing

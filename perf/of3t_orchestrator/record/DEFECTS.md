@@ -5764,3 +5764,33 @@ trunk readings, including the 46.67x, are **not** exposed to this. D95 stands as
 the instrument and as a live risk for any reading that did not mask, but the scope claim must be
 per-reading and the one reading I could check had already done the right thing. Which readings
 remain exposed is still unestablished, and that is what the fix has to enumerate.
+
+**D93 — QUANTIFIED at pass 176, and it needed no GPU.** I wrote above that this could not be sized
+on CPU because both halves act through `torch.amp.autocast("cuda", ...)`. That was true of the
+**flag** and false of the **arithmetic**: a flag that selects a dtype policy can have its policy
+written out by hand. Three arms on the same boundary, bf16 base, 48 blocks, masked to real tokens:
+
+    A  0.4.3's trunk as shipped -- high precision never passed
+    B  high precision at 0.4.3's PLACEMENT (downcast before the value matmul)
+    C  high precision at 0.5.0's PLACEMENT (value matmul in fp32) -- what the reference runs
+
+    A -> C (the whole of D93)    single 6.070e-03    pair 1.3865e-02
+    A -> B (the flag alone)      single 9.309e-03    pair 1.3750e-02
+    B -> C (the placement alone) single 5.788e-03    pair 1.3489e-02
+
+**Control**: policy A against the *unpatched* bf16 run reads **0.000000** on both tracks, so the
+hand-written `_attention` reproduces upstream's own bit for bit and the differences are the
+policy, not my reimplementation. Pre-registered branch **MIDDLE** fired — 6.070e-03 is **6.0 %**
+of `of3t-trunkfwd`'s own 1.012900e-01 single-track disagreement. Material, not dominant, and
+**not** the SECOND_ORDER branch the pre-registration named as the one I was at risk of wanting.
+
+**Two things worth more than the headline.** First, **the halves partially cancel**: A->B is
+*larger* than A->C, the angle at B is 39.4 degrees, and a naive share decomposition sums to
+**249 %**. A percentage split above 100 % is the decomposition reporting that its terms are not
+orthogonal, not a rounding error. Second, **"high precision" is not more accurate here**: against
+fp32 on the same boundary the single track reads 1.2878e-02 under A and 1.3645e-02 under C, so
+0.5.0's path is **6 % further from fp32** than 0.4.3's, and the pair track is a tie. On this
+boundary the change reorients the error rather than reducing it. One boundary, 56 tokens, bf16,
+CPU — not a claim about upstream's change in general, but it is the configuration the reference
+was built in. Owner: `of3t-orchestrator`. **QUANTIFIED** (was UNFIXED); no longer an unknown in
+the trunk's accounting.
