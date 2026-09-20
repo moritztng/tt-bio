@@ -445,7 +445,18 @@ else
   exit 1
 fi
 
-echo; echo "composition ready at $CO ; push with: git -C $CO push origin wk/of3t"
+# The composition is rebuilt from origin/main every pass, so its history is NEW each time and is
+# never a fast-forward of the wk/of3t already on origin -- a plain push is rejected with
+# "tip of your current branch is behind", which reads like a stale checkout and is not one.
+# `--force-with-lease` against the SHA this script just read is the correct publish: it replaces
+# the recomposition and still refuses if a neighbour pushed wk/of3t since.
+_lease=$(git -C "$CO" rev-parse --verify -q origin/wk/of3t 2>/dev/null || echo "")
+echo; echo "composition ready at $CO ; push with:"
+if [ -n "$_lease" ]; then
+  echo "  git -C $CO push --force-with-lease=wk/of3t:$_lease origin wk/of3t"
+else
+  echo "  git -C $CO push origin wk/of3t   # wk/of3t does not exist on origin yet"
+fi
 # `--push` exists because I once ran `compose_verify.sh; git -C $CO push -f` as one line and
 # force-pushed a FAILED, half-merged composition over a good one: 256 commits replaced by 55.
 # The branch is regenerated every pass so nothing was lost, but the shape of the mistake is
